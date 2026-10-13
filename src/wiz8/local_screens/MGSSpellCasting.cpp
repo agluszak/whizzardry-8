@@ -173,6 +173,7 @@ static void CreateSpellCastingViewControls(void)
     if (!gpSCSV->name_target) {
         gpSCSV->name_target = &gpSCSV->input.add(SDL_Rect{0x1b2, 0x170, 35, 15},
             [](const UiPointerEvent&) { return UiResult::Pass; });
+        gpSCSV->name_target->setPassive();
         gpSCSV->name_target->setTooltip([] { return std::string(g_localized_strings[55]); });
     }
     gpSCSV->cancel = make_button(0x8e, {7, 4, 5, -1, 6},

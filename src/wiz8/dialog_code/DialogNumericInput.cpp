@@ -19,11 +19,10 @@
 
 W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
                                          Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
-    : m_bounds(*bounds), m_font(&font), m_value(value), m_dirty(false), m_active(false),
+    : m_editor_input(dialog->InputLayer()), m_bounds(*bounds), m_font(&font), m_value(value), m_dirty(false), m_active(false),
       m_maximum(-1), m_dialog(dialog), m_button(button), m_control_id(control_id)
 {
-    // The dialog's existing field button owns pointer activation and placement.
-    m_editor_input.setEnabled(false);
+    // The backing button activates editing; caret input shares the modal layer.
 }
 
 void W8DialogNumericInput::SetValue(int value)

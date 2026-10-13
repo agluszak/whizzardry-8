@@ -1,3 +1,4 @@
+#include "wiz8/modal_content.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
@@ -1196,6 +1197,8 @@ TEST_CASE("Split fields share editing and restore focus after rejecting excessiv
     amount.m_maximum = 200;
     const SDL_Point point{110, 20};
     amount.SetActive(true, &point);
+    // An active numeric editor must receive pointer hits in its dialog layer.
+    REQUIRE(UiTargetAt({95, 20}) != nullptr);
     const InputEvent digit{.type = InputEventType::Text, .text = U'3'};
     REQUIRE(amount.HandleInput(&digit));
     REQUIRE(amount.m_value == 123);
@@ -1283,6 +1286,100 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
     REQUIRE(DequeueEvent(&pending));
     REQUIRE(pending.type == InputEventType::LeftButtonUp);
     REQUIRE_FALSE(DequeueEvent(&pending));
+}
+
+TEST_CASE("A handler may remove its own target or layer synchronously", "[owner][ui-layer]")
+{
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    auto layer = std::make_unique<UiLayer>();
+    HitTarget* target = nullptr;
+    int seen = 0;
+    int calls = 0;
+    target = &layer->add(SDL_Rect{10, 10, 20, 20}, [&, expected = 7](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Down) {
+            layer->remove(*target);
+            // The handler's captures stay valid after its own removal.
+            seen = expected;
+            ++calls;
+        }
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    REQUIRE(seen == 7);
+    REQUIRE(g_ui.captured == nullptr);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(calls == 1);
+
+    layer->add(SDL_Rect{10, 10, 20, 20}, [&, expected = 9](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Down) {
+            layer.reset();
+            seen = expected;
+        }
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    REQUIRE(seen == 9);
+    REQUIRE(layer == nullptr);
+}
+
+TEST_CASE("Only non-passive targets capture the pointer on press", "[owner][ui-layer]")
+{
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    UiLayer layer;
+    auto& gameplay = layer.add(SDL_Rect{0, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
+    auto& tooltip = layer.add(SDL_Rect{40, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
+    tooltip.setPassive();
+    // A gameplay control that passes the press still receives the release.
+    dispatch_mouse(InputEventType::LeftButtonDown, 5, 5, true);
+    REQUIRE(g_ui.captured == &gameplay);
+    dispatch_mouse(InputEventType::LeftButtonUp, 5, 5);
+    REQUIRE(g_ui.captured == nullptr);
+    dispatch_mouse(InputEventType::LeftButtonDown, 45, 5, true);
+    REQUIRE(g_ui.captured == nullptr);
+    REQUIRE(tooltip.capturedButtons() == 0);
+}
+
+namespace {
+struct ChainedModal final : ModalContent {
+    ChainedModal(std::unique_ptr<ModalContent> next, bool* destroyed, int* later_use)
+        : next(std::move(next)), destroyed(destroyed), later_use(later_use) {}
+    ~ChainedModal() override { if (destroyed) *destroyed = true; }
+    bool ProcessInput() override
+    {
+        if (next) OpenModal(std::move(next));
+        // Still executing after opening a replacement: members must be alive.
+        *later_use = *destroyed ? -1 : 1;
+        return false;
+    }
+    void DrawModal(SDL_Surface&) override {}
+    void RequestModalRedraw() override {}
+    std::unique_ptr<ModalContent> next;
+    bool* destroyed;
+    int* later_use;
+};
+}
+
+TEST_CASE("A modal opened from a completion callback survives its predecessor's close", "[owner][modal]")
+{
+    g_modal_owner.reset();
+    g_pending_main_game_dialog.reset();
+    bool first_destroyed = false, second_destroyed = false;
+    int first_use = 0, second_use = 0;
+    auto second = std::make_unique<ChainedModal>(nullptr, &second_destroyed, &second_use);
+    OpenModal(std::make_unique<ChainedModal>(std::move(second), &first_destroyed, &first_use));
+    // The first modal reports "closed" after opening the second; the second stays.
+    REQUIRE_FALSE(ProcessModalOwner());
+    REQUIRE(first_use == 1);
+    REQUIRE(first_destroyed);
+    REQUIRE_FALSE(second_destroyed);
+    REQUIRE(g_modal_owner != nullptr);
+    // The replacement is processed on its own turn.
+    REQUIRE(ProcessModalOwner());
+    REQUIRE(second_use == 1);
+    REQUIRE(g_modal_owner == nullptr);
+    REQUIRE(second_destroyed);
 }
 
 

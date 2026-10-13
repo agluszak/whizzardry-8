@@ -177,6 +177,10 @@ std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 std::unique_ptr<ModalContent> g_modal_owner;
 // GLOBAL: WIZ8 0x0068edd4
 std::unique_ptr<ModalContent> g_pending_main_game_dialog;
+namespace {
+bool g_modal_processing = false;
+std::vector<std::unique_ptr<ModalContent>> g_retired_modals;
+}
 
 // GLOBAL: WIZ8 0x0068edb0
 static uint64_t g_mouselook_last_tick;
@@ -2755,12 +2759,7 @@ update_screen:
         if (!gXStatus.world_update_blocked) {
             PauseMainGameWorld();
         }
-        if (!g_modal_owner->ProcessInput()) {
-            g_modal_owner.reset();
-            if (g_pending_main_game_dialog) {
-                g_modal_owner = std::move(g_pending_main_game_dialog);
-                g_modal_owner->RequestModalRedraw();
-            }
+        if (ProcessModalOwner()) {
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
             ResumeMainGameWorld();
         }
@@ -2988,7 +2987,7 @@ unsigned char MainGameScreenLeave(int leaving)
     int index;
 
     if (leaving) {
-        g_modal_owner.reset();
+        OpenModal(nullptr);
         g_pending_main_game_dialog.reset();
     }
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
@@ -4178,7 +4177,7 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     dialog->m_destroy_callback = callback;
-    g_modal_owner.reset(dialog);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
@@ -4385,7 +4384,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
         dialog->SetMessage(g_level_block->text_paint_scratch, 1, 0x32, true, true, true, true, 0,
                            0x15e);
         dialog->m_destroy_callback = OnEnterLevelDialogClosed;
-        g_modal_owner.reset(dialog);
+        OpenModal(std::unique_ptr<ModalContent>(dialog));
         return;
     }
     BeginLevelTransition();
@@ -4718,10 +4717,27 @@ apply_mode_tail:
     SyncMainGameModeRegions();
 }
 
+bool ProcessModalOwner()
+{
+    // A completion callback may open another modal; only close the one that
+    // was running, never its replacement.
+    ModalContent* const running = g_modal_owner.get();
+    g_modal_processing = true;
+    const bool keep_open = running->ProcessInput();
+    g_modal_processing = false;
+    g_retired_modals.clear();
+    if (keep_open || g_modal_owner.get() != running) return false;
+    g_modal_owner = std::move(g_pending_main_game_dialog);
+    if (g_modal_owner) g_modal_owner->RequestModalRedraw();
+    return true;
+}
+
 /* Take the screen for a modal owner and put its region up. */
 void OpenModal(std::unique_ptr<ModalContent> owner)
 {
-    g_modal_owner = std::move(owner);
+    auto previous = std::exchange(g_modal_owner, std::move(owner));
+    // The replaced modal may be the one whose ProcessInput() opened this one.
+    if (previous && g_modal_processing) g_retired_modals.push_back(std::move(previous));
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -6657,7 +6673,7 @@ void OpenMonsterInfoDialog(int location_id)
     W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);
     dialog->SetText("");
     dialog->m_destroy_callback = InvalidateMainGameScreen;
-    g_modal_owner.reset(dialog);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
@@ -6677,7 +6693,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = InvalidateMainGameScreen;
-    g_modal_owner.reset(dialog);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
 /* Queue `party_slot` for the pending screen and unwind whichever main-game
