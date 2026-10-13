@@ -146,7 +146,7 @@ bool StartCombat(int surprise)
         ClearMainGameTargetState();
     }
     if (!gXStatus.npc_combat_notice_pending) {
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fInCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
                 monster_info->hp_current > 0 &&
@@ -225,7 +225,7 @@ bool StartCombat(int surprise)
 
     nearest_distance = 999999.0f;
     nearest_info = 0;
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current > 0 &&
             monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
@@ -240,7 +240,7 @@ bool StartCombat(int surprise)
         PointCameraAtMonster(nearest_info, false, true);
     }
     RefreshAllSight();
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat) {
             monster_info->action_kind = W8_MONSTER_ACTION_NONE;
@@ -367,7 +367,7 @@ bool CombatMayAdvanceContinuously(void)
 template<class Predicate>
 static bool AnyCombatMonster(Predicate predicate)
 {
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         const W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat && predicate(monster)) {
             return true;
@@ -444,7 +444,7 @@ bool CombatHasContinuingEffects(void)
                 return true;
             }
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
             if (monster->enchantments[enchantment].turns > 0) {
                 return true;
@@ -471,7 +471,7 @@ bool CombatHasContinuingEffects(void)
             return true;
         }
     }
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->hp_current != 0 &&
             monster->uiCondition[W8_CONDITION_DEAD] == 0 &&
@@ -603,7 +603,7 @@ void BeginCombatExecution(void)
         }
     }
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fInCombat) {
             W8MonsterCombatState* state = monster->pCombat.get();
@@ -654,7 +654,7 @@ void BeginCombatExecution(void)
             }
         }
     }
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (!monster->fInCombat || monster->hp_current == 0 ||
             monster->highest_condition >= W8_CONDITION_WEBBED) {
@@ -817,7 +817,7 @@ void NotifyNearbyMonsters(int what)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
@@ -1637,7 +1637,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 // FUNCTION: WIZ8 0x004e8c30
 bool AnyCombatMonsterBusy(void)
 {
-    unsigned int monster_count = gXStatus.monsters.size();
+    unsigned int monster_count = gXStatus.monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         W8Monster* monster = monster_info->p3D;
@@ -1677,7 +1677,7 @@ bool AnyCombatMonsterBusy(void)
                 return true;
             }
         }
-        monster_count = gXStatus.monsters.size();
+        monster_count = gXStatus.monster_roster.live().size();
     }
     return false;
 }
@@ -1761,7 +1761,7 @@ void AssignCombatPhases(void)
     if (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE) {
         InitializePartyMovementPhase();
     }
-    unsigned int monster_count = gXStatus.monsters.size();
+    unsigned int monster_count = gXStatus.monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->fInCombat) {
@@ -1783,7 +1783,7 @@ void AssignCombatPhases(void)
                 RoundPhaseToStep(&monster_info->pCombat->phase, 10);
             }
         }
-        monster_count = gXStatus.monsters.size();
+        monster_count = gXStatus.monster_roster.live().size();
     }
 }
 
@@ -1921,7 +1921,7 @@ void AdvanceCombatRound(void)
         }
     }
     index = 0;
-    while (index < gXStatus.monsters.size()) {
+    while (index < gXStatus.monster_roster.live().size()) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat) {
             if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT ||
@@ -1954,7 +1954,7 @@ void AdvanceCombatRound(void)
     RefreshInwardSightForAllMonsters();
     RepickInvalidCombatTargets();
     index = 0;
-    while (index < gXStatus.monsters.size()) {
+    while (index < gXStatus.monster_roster.live().size()) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
@@ -2058,7 +2058,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
             /* The party is surprised unless a hostile monster in the fight
                has seen it and PartyAvoidsSurprise returns 0. */
             found = false;
-            for (index = 0; index < gXStatus.monsters.size(); ++index) {
+            for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                 monster_info = MonsterGetScriptPartByLocationIndex(index);
                 if (monster_info->fActive && monster_info->fInCombat &&
                     monster_info->hp_current != 0 &&
@@ -2087,7 +2087,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
     }
     /* The monsters are surprised when none of them can see the party. */
     found = false;
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_PARALYZED &&
@@ -3184,7 +3184,7 @@ void UpdateCombat(void)
             }
         }
     }
-    for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
+    for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size(); ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->pCombat->sight_refresh_pending) {
@@ -3362,7 +3362,7 @@ void ScheduleCombatActor(void)
             }
         }
         if (g_combat_state->eCombatActionStatus == 0) {
-            for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
+            for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size(); ++monster_index) {
                 W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 if (!monster_info->fInCombat) {
                     continue;
@@ -3549,7 +3549,7 @@ short GetCombatActionProgress(int* out_total)
             completed = 1;
         }
     }
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_ASLEEP && !monster_info->fMotionless &&

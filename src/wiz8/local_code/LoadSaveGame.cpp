@@ -590,7 +590,7 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
     chunk.WriteValue(has_script);
     if (has_script) SavedMonsterScript::Capture(monster).Write(chunk);
 
-    const unsigned char unborn = std::ranges::contains(gXStatus.unborn_monsters, info);
+    const unsigned char unborn = std::ranges::contains(gXStatus.monster_roster.unborn(), info);
     chunk.WriteValue(unborn);
 
     const unsigned char has_movement = !monster.linked_navigator && (monster.flags & kMonsterHasMovement) != 0;
@@ -1065,7 +1065,7 @@ try
         return index < live ? index : static_cast<unsigned int>(index - live + kSecondaryListBase);
     };
     const unsigned int group_count = gXStatus.monster_groups.size() + gXStatus.encounter_groups.size();
-    const unsigned int monster_count = gXStatus.monsters.size() + gXStatus.unborn_monsters.size();
+    const unsigned int monster_count = gXStatus.monster_roster.live().size() + gXStatus.monster_roster.unborn().size();
     chunks->WriteValue(group_count);
     chunks->WriteValue(monster_count);
     for (unsigned int index = 0; index < group_count; ++index) {
@@ -1077,7 +1077,7 @@ try
         chunks->WriteValue(encountered);
     }
     for (unsigned int index = 0; index < monster_count; ++index)
-        WriteMonsterRecord(*chunks, list_index(index, gXStatus.monsters.size()));
+        WriteMonsterRecord(*chunks, list_index(index, gXStatus.monster_roster.live().size()));
     return true;
 }
 catch (const std::exception&) { return false; }
@@ -1204,13 +1204,8 @@ try
     auto* group = FindMonsterGroup(info.monster_group_id);
     if (!group) return false;
 
-    auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
-    monsters.reserve(monsters.size() + 1);
     group->monsters.reserve(group->monsters.size() + 1);
-    gXStatus.owned_monster_infos.reserve(gXStatus.owned_monster_infos.size() + 1);
-    auto* borrowed = owner.get();
-    gXStatus.owned_monster_infos.push_back(std::move(owner));
-    monsters.push_back(borrowed);
+    gXStatus.monster_roster.add(std::move(owner), unborn);
     group->monsters.push_back(info.location_id);
     const auto leader = static_cast<unsigned int>(group->leader_location_id);
     if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN || leader < static_cast<unsigned int>(info.location_id))

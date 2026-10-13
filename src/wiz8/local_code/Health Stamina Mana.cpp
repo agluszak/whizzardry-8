@@ -306,7 +306,7 @@ void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const
     srVector3T<float> location;
     srVector3T<float> offset;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive) {
             location = MonsterGetLocation(monster_info->p3D);

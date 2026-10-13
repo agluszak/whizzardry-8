@@ -542,7 +542,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
         }
     }
 
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         SetTargetSourceToMonster(monster_info, &source);
         if ((monster_info->Target == *target)) {
@@ -811,7 +811,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
 
     result = -1;
     best_distance = 999999.0f;
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         float distance;
 
@@ -825,7 +825,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
         }
     }
     if (g_dev_mode) {
-        for (index = 0; index < gXStatus.unborn_monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.unborn().size(); ++index) {
             W8MonsterInfo* monster_info = GetUnbornMonsterEntry(index);
             float distance;
 
@@ -874,7 +874,7 @@ void UpdateAllMonsterHighlights(int party_slot, int location_id)
         owner = g_level_block->highlight_override;
     }
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (!monster_info->fActive) {
             continue;
@@ -980,7 +980,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
 // FUNCTION: WIZ8 0x0053c720
 static int ChooseMonsterTarget(int party_slot, int group_id, W8TargetingContext context)
 {
-    unsigned int monster_count = gXStatus.monsters.size();
+    unsigned int monster_count = gXStatus.monster_roster.live().size();
     W8MonsterTargetCandidate* candidates;
     W8MonsterTargetCandidate* next;
     size_t found = 0;
@@ -1241,7 +1241,7 @@ void ClearAllMonsterHighlights(void)
     unsigned int index;
     unsigned int party_slot;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         W8Monster* monster = monster_info->p3D;
         unsigned char flags;
@@ -1288,7 +1288,7 @@ void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector
         return;
     }
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         W8Monster* monster = monster_info->p3D;
         W8MonsterRecord* record;
@@ -1676,7 +1676,7 @@ void ClearPartySlotMonsterHighlights(unsigned int party_slot)
 {
     unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         W8Monster* monster = monster_info->p3D;
 
@@ -2256,7 +2256,7 @@ bool SlotHasAnyValidTarget(int party_slot)
     switch (action) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             if (CanTargetMonster(party_slot,
                                  MonsterGetScriptPartByLocationIndex(index)->location_id, false,
                                  false)) {
@@ -2297,7 +2297,7 @@ bool SlotHasAnyValidTarget(int party_slot)
                 return true;
             }
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             memset(&target, 0, sizeof(target));
             target.iChar = BAD_INDEX;
             target.iGroupID = BAD_INDEX;
@@ -2337,7 +2337,7 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
         if (g_settings.autotarget_spells != 0) {
             return true;
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             if (CanTargetMonster(party_slot,
                                  MonsterGetScriptPartByLocationIndex(index)->location_id, false,
                                  false)) {
@@ -2440,7 +2440,7 @@ int PickNextTargetableMonster(int party_slot)
     std::vector<int> targetable;
     unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         if (CanTargetMonster(party_slot, monster_info->location_id, true, false)) {
@@ -2803,7 +2803,7 @@ bool AnyMonsterVisible(void)
         return false;
     }
     camera = cameraLocation();
-    count = gXStatus.monsters.size();
+    count = gXStatus.monster_roster.live().size();
     if (0 <= g_last_visible_monster && g_last_visible_monster < count) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(g_last_visible_monster);
         if (monster_info->p3D != 0 &&
@@ -3226,7 +3226,7 @@ void UpdateSlotMonsterHighlights(int party_slot, bool enable)
 {
     if ((party_slot != g_status.selected_character) ||
         (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE)) {
-        for (W8MonsterInfo* monster_info : gXStatus.monsters) {
+        for (W8MonsterInfo* monster_info : gXStatus.monster_roster.live()) {
             W8Monster* monster = monster_info->p3D;
             if (monster_info->fActive && monster != 0) {
                 unsigned char flag = MonsterGetHighlightMask(monster);

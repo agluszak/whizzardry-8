@@ -51,8 +51,9 @@ static_assert(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
 static_assert(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
 
 /* Runtime world, not a retail disk record. Collection storage belongs to the
-   world. Cameras own their paths; raw entity pointers still follow the ordered
-   DestroyWorld teardown.
+   world. Cameras own their paths; raw entity pointers are destroyed by
+   DestroyWorld in three phases (stop activity, unregister borrowed indexes,
+   destroy owned resources).
    lights_to_update and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {

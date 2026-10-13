@@ -375,7 +375,7 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots[i]);
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects[i];
@@ -389,7 +389,7 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots0[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots0[i]);
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects_2[i];

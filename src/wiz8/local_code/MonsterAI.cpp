@@ -781,7 +781,7 @@ void UpdateAllMonsterAI(void)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat && monster_info->hp_current != 0) {
             UpdateMonsterAI(monster_info);
@@ -1089,7 +1089,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
         if (CanMonsterProtect(monster_info) &&
             Random(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action_kind = W8_MONSTER_ACTION_PROTECT;
-            for (index = 0; index < gXStatus.monsters.size(); ++index) {
+            for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                 other = MonsterGetScriptPartByLocationIndex(index);
                 if (other != monster_info) {
                     ResetCombatSlot(&monster_info->Target);
@@ -1134,7 +1134,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
         scan_chars = true;
         scan_monsters = true;
         monster_lo = 0;
-        monster_hi = gXStatus.monsters.size();
+        monster_hi = gXStatus.monster_roster.live().size();
     } else {
         if (!IsTargetStillPresent(&monster_info->Target)) {
             return;
@@ -1834,7 +1834,7 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
     W8CombatSlot slot;
     W8MonsterInfo* member;
 
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         member = MonsterGetScriptPartByLocationIndex(index);
         if ((!exclude_caster || member != monster_info) && member->fActive &&
             member->hp_current != 0 && member->highest_condition < W8_CONDITION_DEAD &&
@@ -1948,7 +1948,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         break;
     case W8_TARGET_TYPE_CONE:
     case W8_TARGET_TYPE_RADIUS:
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             member = MonsterGetScriptPartByLocationIndex(index);
             if (member != monster_info && member->fActive && member->hp_current != 0 &&
                 member->highest_condition < W8_CONDITION_DEAD && member->fInCombat &&
@@ -2137,7 +2137,7 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
         }
     }
     if (!party_only) {
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             other = MonsterGetScriptPartByLocationIndex(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->fInCombat &&
@@ -2216,7 +2216,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
         }
     }
     if (!party_only) {
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             other = MonsterGetScriptPartByLocationIndex(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->fInCombat) {
@@ -2496,7 +2496,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
         if (member_distance > GetMonsterEngagementRange()) {
             continue;
         }
-        for (other_index = 0; other_index < gXStatus.monsters.size(); ++other_index) {
+        for (other_index = 0; other_index < gXStatus.monster_roster.live().size(); ++other_index) {
             other = MonsterGetScriptPartByLocationIndex(other_index);
             if (other != member && other->party_threat.los_flags[1] && other->fActive &&
                 other->fInCombat && other->hp_current != 0 &&
