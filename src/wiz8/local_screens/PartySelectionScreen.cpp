@@ -56,7 +56,7 @@
 #include "difficulty.h"
 #include "file_time.h"
 
-struct W8PartySelectionCharacterCollection {
+struct W8PartySelectionCharacterCollection : private NonCopyable {
     W8PartySelectionCharacterCollection() : first_visible(0) {}
     ~W8PartySelectionCharacterCollection();
     W8Character* GetCharacter(int index);
@@ -481,7 +481,7 @@ void W8PartySelectionController::DrawSummary(SDL_Surface& target)
     width = g_wiz_text_font_secondary.textWidth(race_line);
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x7f, 0xfd}, fmt::format("{} {}", gender, race));
 
-    std::string personality = g_localized_strings[g_personality_message_ids[character->personality]];
+    const std::string& personality = g_localized_strings[g_personality_message_ids[character->personality]];
     width = g_wiz_text_font_secondary.textWidth(personality);
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x82, 0x10b}, personality);
 
@@ -839,7 +839,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
     }
 
     summary_dirty = true;
-    std::string text = g_localized_strings[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
+    const std::string& text = g_localized_strings[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
     m_add_remove_button->SetText(text);
     bool have_character = m_character != 0;
     m_add_remove_button->SetEnabled(have_character);

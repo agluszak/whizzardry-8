@@ -4208,9 +4208,9 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
                                                        : W8_DIALOGUE_CATEGORY_MISC;
         }
     }
-    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+    for (auto& index : g_npc_interaction_state->dialogue_transcript) {
         if (CompareTextIgnoreAsciiCase(
-                (g_npc_interaction_state->dialogue_transcript[index])->text, keyword) == 0) {
+                index->text, keyword) == 0) {
             return;
         }
     }
