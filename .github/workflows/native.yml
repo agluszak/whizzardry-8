@@ -33,8 +33,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            clang-21 \
-            clang-tidy-21 \
+            clang-22 \
+            clang-tidy-22 \
             ninja-build \
             ccache \
             cmake \
@@ -63,9 +63,9 @@ jobs:
         id: ccache-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-v2-${{ matrix.preset }}-clang21-${{ github.run_id }}
+          key: ccache-v2-${{ matrix.preset }}-clang22-${{ github.run_id }}
           restore-keys: |
-            ccache-v2-${{ matrix.preset }}-clang21-
+            ccache-v2-${{ matrix.preset }}-clang22-
       - name: Reset compiler cache statistics
         run: ccache --zero-stats
       - name: Configure
@@ -76,7 +76,7 @@ jobs:
           fi
           cmake --preset "${{ matrix.preset }}" \
             -DCMAKE_BUILD_TYPE="$build_type" \
-            -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
+            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
             -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
             -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
@@ -91,7 +91,7 @@ jobs:
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-v2-${{ matrix.preset }}-clang21-${{ github.run_id }}
+          key: ccache-v2-${{ matrix.preset }}-clang22-${{ github.run_id }}
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -199,8 +199,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            clang-21 \
-            clang-tidy-21 \
+            clang-22 \
+            clang-tidy-22 \
             ninja-build \
             cmake \
             curl \
@@ -233,13 +233,13 @@ jobs:
         run: |
           cmake --preset linux -B build/linux-tidy \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
+            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
           cmake --build build/linux-tidy --target surrender_shader_headers
       - name: Check first-party include hygiene
         env:
-          CLANG_TIDY: clang-tidy-21
-          RUN_CLANG_TIDY: run-clang-tidy-21
+          CLANG_TIDY: clang-tidy-22
+          RUN_CLANG_TIDY: run-clang-tidy-22
         run: |
           if [[ "${{ github.event_name }}" == pull_request ]]; then
             ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/include-hygiene-changed"
