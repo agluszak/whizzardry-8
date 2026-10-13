@@ -627,8 +627,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         sscanf(line, "%s %s %d %f %f %f", command, cycle_name, &frame, &intensity,
                                &duration, &value);
                         W8MonsterCycle shake_cycle = ParseMonsterCycleName(cycle_name, &subcycle);
-                        ShakeDefinition effect(
-                            duration, true, intensity, value * g_world_scale, 0);
+                        ShakeDefinition effect(duration, true, intensity, value * g_world_scale, 0);
                         effect.frame = frame;
                         effect.cycle = shake_cycle;
                         effect.subcycle = subcycle - 1;

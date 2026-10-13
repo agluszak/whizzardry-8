@@ -80,7 +80,9 @@ try
         success = success && (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
     }
     success = success && (handle->read(discarded, sizeof(discarded)).bytes == static_cast<std::size_t>(sizeof(discarded)));
-    if (!success || animation->group_count > std::size(animation->entries)) return false;
+    if (!success || animation->group_count > std::size(animation->entries)) {
+        return false;
+    }
     for (index = 0; index < static_cast<signed char>(animation->group_count); ++index) {
         success = success && (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
     }
@@ -222,7 +224,10 @@ try
             signed char channel = 0;
 
             success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
-            if (!success || channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) return false;
+            if (!success || channel < 0 ||
+                channel >= static_cast<int>(std::size(animation->entries))) {
+                return false;
+            }
             mesh->list_index = channel;
             if (!LoadAniMeshFromInfo(info, mesh.get(), load_all)) {
                 return false;
@@ -245,8 +250,12 @@ try
                 signed char channel;
                 const char* saved_filename;
 
-                if (handle->read(&channel, 1).bytes != 1) return false;
-                if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) return false;
+                if (handle->read(&channel, 1).bytes != 1) {
+                    return false;
+                }
+                if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) {
+                    return false;
+                }
                 mesh->list_index = channel;
                 saved_filename = info->mesh_filename;
                 info->mesh_filename = 0;

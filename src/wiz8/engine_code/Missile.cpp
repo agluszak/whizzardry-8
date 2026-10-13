@@ -548,7 +548,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                                 }
                                 cycle = missileCycleIndex(pacName);
                                 ShakeDefinition effect(duration, true, intensity,
-                                                                 seconds * g_world_scale, 0);
+                                                       seconds * g_world_scale, 0);
                                 effect.cycle = cycle;
                                 effect.frame = frame;
                                 effect.subcycle = 0;
@@ -719,7 +719,8 @@ W8MissileRep::W8MissileRep() = default;
    their emitter. */
 // FUNCTION: WIZ8 0x004a2db0
 W8MissileRep::W8MissileRep(const W8MissileRep& other)
-    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0), resources(other.resources)
+    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
+      resources(other.resources)
 {
 }
 
@@ -736,7 +737,8 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
     if (info == 0 || info->hFile == 0 || missile == 0) {
         srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
     }
-    return ReadEmitterCycle(*this, resources.cycles, info, *missile, cycle_index, missile->m_pRep != nullptr);
+    return ReadEmitterCycle(*this, resources.cycles, info, *missile, cycle_index,
+                            missile->m_pRep != nullptr);
 }
 
 /* Retail constructs the +0x2d8 growable vector normally, then clears the

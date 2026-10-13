@@ -1,3 +1,4 @@
+#include <optional>
 #include <memory>
 #include "wiz8/modal_content.h"
 #include <cstdint>
@@ -752,7 +753,12 @@ class W8TriggerShakeEvent : public W8TriggerEvent {
 public:
     W8TriggerShakeEvent();
     virtual void Update() override;
-    ~W8TriggerShakeEvent() override { if (effect) CameraShakes().Stop(*effect); }
+    ~W8TriggerShakeEvent() override
+    {
+        if (effect) {
+            CameraShakes().Stop(*effect);
+        }
+    }
 
     std::optional<ShakeDefinition> effect;
     int intensity;

@@ -1,3 +1,6 @@
+#include <cstddef>
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/emitter_resources.h"
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
@@ -310,7 +313,8 @@ static void WriteEmitterFixture(unsigned char cycle, bool truncate)
     }
 }
 
-TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles", "[resources][spell]")
+TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
+                 "[resources][spell]")
 {
     W8SpellVisual visual;
     auto& host = *visual.host;
@@ -353,7 +357,8 @@ static void RestartShakeFromCompletion()
     callback_system->Start(next, callback_key);
 }
 
-TEST_CASE("Shake instances retire before reentrant completion and can restart", "[resources][shake]")
+TEST_CASE("Shake instances retire before reentrant completion and can restart",
+          "[resources][shake]")
 {
     ShakeSystem system;
     ShakeDefinition definition(0, false, 1, 0, nullptr);
@@ -374,12 +379,18 @@ TEST_CASE("Shake instances retire before reentrant completion and can restart", 
     REQUIRE(shake_callbacks == 1);
 }
 
-TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights", "[resources][spell]")
+TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights",
+                 "[resources][spell]")
 {
     struct ObservedInstance : stModelInstance {
         explicit ObservedInstance(std::vector<std::size_t>& observations)
-            : stModelInstance(nullptr), observations(observations) {}
-        ~ObservedInstance() override { observations.push_back(g_world->transient_lights.size()); }
+            : stModelInstance(nullptr), observations(observations)
+        {
+        }
+        ~ObservedInstance() override
+        {
+            observations.push_back(g_world->transient_lights.size());
+        }
         std::vector<std::size_t>& observations;
     };
     std::vector<std::size_t> observations;

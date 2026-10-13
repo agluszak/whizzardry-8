@@ -1,3 +1,5 @@
+#include <utility>
+#include <deque>
 #include <optional>
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
@@ -71,12 +73,14 @@ const float g_lod_level_two_exit_threshold = 0.699999988079071f;
 const float g_float_two_hundred_fifty = 250.0f;
 // GLOBAL: WIZ8 0x0060da88
 static bool g_camera_shake_enabled = true;
-ShakeDefinition::ShakeDefinition(float duration, bool preset, float intensity,
-                                 float distance_cap, const srVector3T<float>* position)
-    : duration(duration), intensity(intensity), distance_cap(distance_cap),
-      limit_distance(preset), quadratic_falloff(preset), fade_out(preset)
+ShakeDefinition::ShakeDefinition(float duration, bool preset, float intensity, float distance_cap,
+                                 const srVector3T<float>* position)
+    : duration(duration), intensity(intensity), distance_cap(distance_cap), limit_distance(preset),
+      quadratic_falloff(preset), fade_out(preset)
 {
-    if (position) this->position = *position;
+    if (position) {
+        this->position = *position;
+    }
 }
 
 ShakeSystem& CameraShakes()
@@ -112,26 +116,35 @@ void ShakeSystem::Stop(const ShakeDefinition& key)
 
 bool ShakeSystem::IsActive(const ShakeDefinition& key) const
 {
-    return std::ranges::any_of(active, [&key](const auto& instance) { return instance->key == &key; });
+    return std::ranges::any_of(active,
+                               [&key](const auto& instance) { return instance->key == &key; });
 }
 
 bool ShakeSystem::Instance::Evaluate(const srVector3T<float>& camera, float& amount)
 {
-    if (definition.duration <= 0.0f) return false;
+    if (definition.duration <= 0.0f) {
+        return false;
+    }
     const float progress = timer.GetProgress();
-    if (progress >= 1.0f) return false;
+    if (progress >= 1.0f) {
+        return false;
+    }
     amount = 1.0f;
     if (definition.limit_distance) {
         const auto delta = definition.position - camera;
         const float distance = sqrtf(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
-        if (definition.distance_cap < distance) amount = 0.0f;
-        else if (definition.quadratic_falloff) {
+        if (definition.distance_cap < distance) {
+            amount = 0.0f;
+        } else if (definition.quadratic_falloff) {
             const float weight = distance / definition.distance_cap - 1.0f;
             amount = weight * weight;
         }
     }
-    if (definition.fade_out) amount *= 1.0f - progress;
-    else if (definition.fade_in) amount *= progress;
+    if (definition.fade_out) {
+        amount *= 1.0f - progress;
+    } else if (definition.fade_in) {
+        amount *= progress;
+    }
     return true;
 }
 
@@ -146,13 +159,16 @@ float ShakeSystem::Update(const srVector3T<float>& camera)
             intensity += amount;
             return false;
         }
-        if (instance->definition.completion_callback)
+        if (instance->definition.completion_callback) {
             callbacks.push_back(instance->definition.completion_callback);
+        }
         return true;
     });
     // Callbacks may start/stop shakes or destroy the definitions that keyed
     // them. Retire all completed instances before invoking any callback.
-    for (auto callback : callbacks) callback();
+    for (auto callback : callbacks) {
+        callback();
+    }
     return intensity;
 }
 
@@ -160,7 +176,8 @@ static void TriggerShakeEvents(std::deque<ShakeDefinition>& events, int cycle, u
                                int subcycle, const srVector3T<float>& position)
 {
     for (auto& event : events) {
-        if (event.cycle == cycle && event.frame == static_cast<int>(frame) && event.subcycle == subcycle) {
+        if (event.cycle == cycle && event.frame == static_cast<int>(frame) &&
+            event.subcycle == subcycle) {
             auto definition = event;
             definition.position = position;
             CameraShakes().Start(definition, &event);
@@ -170,7 +187,9 @@ static void TriggerShakeEvents(std::deque<ShakeDefinition>& events, int cycle, u
 
 void UpdateShakeEffects()
 {
-    if (!g_camera_shake_enabled) return;
+    if (!g_camera_shake_enabled) {
+        return;
+    }
     const float intensity = CameraShakes().Update(cameraLocation());
     if (intensity > g_float_zero) {
         const float amplitude = std::min(intensity, 1.0f) * g_float_two_hundred_fifty;
@@ -466,7 +485,9 @@ W8GrCycle::~W8GrCycle()
         DestroyLightVector(m_plsLights);
         m_plsLights = 0;
     }
-    for (const auto& event : shake_events) CameraShakes().Stop(event);
+    for (const auto& event : shake_events) {
+        CameraShakes().Stop(event);
+    }
     if (m_plsParticles != 0) {
         count = static_cast<int>(m_plsParticles->size());
         for (index = 0; index < count; ++index) {
@@ -554,8 +575,8 @@ void W8GrCycle::TickAnimation(float scale)
                                       representation->current_subcycle);
                     if (!shake_events.empty()) {
                         TriggerShakeEvents(shake_events, representation->current_cycle,
-                                            representation->subcycle,
-                                            representation->current_subcycle, position);
+                                           representation->subcycle,
+                                           representation->current_subcycle, position);
                     }
                 } while (frames != 0);
             }
@@ -609,8 +630,8 @@ unsigned char W8GrCycle::ApplyPendingCycle()
                           representation->current_subcycle);
         if (!shake_events.empty()) {
             TriggerShakeEvents(shake_events, representation->current_cycle,
-                                representation->subcycle, representation->current_subcycle,
-                                position);
+                               representation->subcycle, representation->current_subcycle,
+                               position);
         }
 
         signed char subcycle_count = GetNumSubCycles();

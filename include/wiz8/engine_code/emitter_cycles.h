@@ -28,25 +28,33 @@ inline void StartEmitterCycle(W8EmitterHost& host, const W8AnimObj& animation, s
 }
 
 inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResources> cycles,
-                             W8ReadLevelInfo* info, W8GrCycle& visual,
-                             int cycle_index, bool select_lod)
+                             W8ReadLevelInfo* info, W8GrCycle& visual, int cycle_index,
+                             bool select_lod)
 {
-    if (cycle_index < -1 || cycle_index >= static_cast<int>(cycles.size())) return false;
+    if (cycle_index < -1 || cycle_index >= static_cast<int>(cycles.size())) {
+        return false;
+    }
     EmitterCycleResources loaded;
     loaded.animation = std::make_unique<W8AnimObj>();
-    if (!AnimObjReadFromFile(info, loaded.animation.get(), 1, &loaded.lights.lights, 1))
+    if (!AnimObjReadFromFile(info, loaded.animation.get(), 1, &loaded.lights.lights, 1)) {
         return false;
+    }
     const int emitter = cycle_index == -1 ? loaded.animation->cycle : cycle_index;
     if (emitter < 0 || emitter >= static_cast<int>(cycles.size()) ||
-        !std::isfinite(loaded.animation->playback_scale) || loaded.animation->playback_scale <= 0)
+        !std::isfinite(loaded.animation->playback_scale) || loaded.animation->playback_scale <= 0) {
         return false;
+    }
 
     // Resolve any deferred frame resources before publishing the new cycle.
     signed char lod = host.m_bLOD;
     if (select_lod) {
-        if (AnimObjDispatch(loaded.animation.get(), 2, 0)) lod = 2;
-        else if (AnimObjDispatch(loaded.animation.get(), 1, 0)) lod = 1;
-        else lod = 0;
+        if (AnimObjDispatch(loaded.animation.get(), 2, 0)) {
+            lod = 2;
+        } else if (AnimObjDispatch(loaded.animation.get(), 1, 0)) {
+            lod = 1;
+        } else {
+            lod = 0;
+        }
     }
 
     // No allocations from here through installation. The retired resources
@@ -62,6 +70,8 @@ inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResource
     host.animation_behaviour = destination.animation->behaviour;
     host.frame_method = destination.animation->frame_method;
     host.animation_playing = destination.animation->animation_playing;
-    if (select_lod) host.m_bLOD = lod;
+    if (select_lod) {
+        host.m_bLOD = lod;
+    }
     return true;
 }

@@ -3387,9 +3387,9 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         point = effect->Source.point;
         level = effect->definition.duration_scale;
         {
-            ShakeDefinition shake(
-                level * g_navigator_vertical_phase_step + g_float_half, true,
-                level * g_navigator_snap_angle + g_camera_shake_intensity_base, 50000.0f, &point);
+            ShakeDefinition shake(level * g_navigator_vertical_phase_step + g_float_half, true,
+                                  level * g_navigator_snap_angle + g_camera_shake_intensity_base,
+                                  50000.0f, &point);
             shake.quadratic_falloff = false;
             shake.fade_out = false;
             CameraShakes().Start(shake);

@@ -72,6 +72,7 @@ public:
     void Stop(const ShakeDefinition& key);
     bool IsActive(const ShakeDefinition& key) const;
     float Update(const srVector3T<float>& camera);
+
 private:
     struct Instance {
         explicit Instance(const ShakeDefinition& definition, const ShakeDefinition* key);

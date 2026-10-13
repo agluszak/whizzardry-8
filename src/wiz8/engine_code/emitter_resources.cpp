@@ -1,3 +1,4 @@
+#include <memory>
 #include "wiz8/engine_code/emitter_resources.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/3d.h"

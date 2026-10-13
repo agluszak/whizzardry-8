@@ -359,17 +359,15 @@ void UpdateWorldSpellVisuals(W8World* world)
     }
 }
 
-W8SpellEmitterHost::W8SpellEmitterHost() : value_0ac(0), value_0b0(0), billboard(0)
-{
-}
+W8SpellEmitterHost::W8SpellEmitterHost() : value_0ac(0), value_0b0(0), billboard(0) {}
 
 /* Copy the two proven host values and the billboard flag, clone every
    populated animation, and deep-copy all optional per-emitter light
    vectors. */
 // FUNCTION: WIZ8 0x004aad20
 W8SpellEmitterHost::W8SpellEmitterHost(const W8SpellEmitterHost& other)
-    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0), resources(other.resources),
-      billboard(other.billboard)
+    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
+      resources(other.resources), billboard(other.billboard)
 {
     active = 1;
     current_cycle = other.current_cycle;
@@ -447,7 +445,6 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
         float distance;
         std::unique_ptr<W8SoundEvent> event;
 
-
         while (more && success) {
             ReadTextLine(handle.get(), line, sizeof(line), more);
             sscanf(line, "%s %s", pac_name, pac_value);
@@ -482,8 +479,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
                     sscanf(line, "%s %s %d %f %f %f", pac_command, pac_name, &frame, &intensity,
                            &duration, &distance);
                     index = FindSpellCycleByName(pac_name);
-                    ShakeDefinition effect(duration, true, intensity,
-                                                     distance * g_world_scale, 0);
+                    ShakeDefinition effect(duration, true, intensity, distance * g_world_scale, 0);
                     effect.cycle = index;
                     effect.frame = frame;
                     effect.subcycle = 0;
