@@ -69,7 +69,7 @@
 
 namespace {
 struct CampItemControls {
-    UiLayer input{0x2b};
+    UiLayer input{UiLayerOrder::CampPool};
     UiLayer secondary;
     std::array<std::unique_ptr<W8ButtonWidget>, 2> actions;
     std::array<std::unique_ptr<W8ButtonWidget>, 7> filters;
