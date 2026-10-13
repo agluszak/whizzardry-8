@@ -26,7 +26,7 @@
 struct MainGameHudButtons {
     // Screen state constructs HUD before world input at the same order.
     // The submenu (0x27) stays above both.
-    UiLayer input{0x28};
+    UiLayer input{UiLayerOrder::GameplayOverlays};
     std::array<W8ButtonWidget, 2> submenu_scroll{W8ButtonWidget{input}, W8ButtonWidget{input}};
     std::array<W8ButtonWidget, 2> submenu_panel{W8ButtonWidget{input}, W8ButtonWidget{input}};
     std::array<W8ButtonWidget, 6> layout_arrows{W8ButtonWidget{input}, W8ButtonWidget{input},

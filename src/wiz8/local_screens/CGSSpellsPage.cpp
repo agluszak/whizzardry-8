@@ -53,7 +53,7 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
                                            W8CharacterSpellEntry* entries)
     : m_owner(owner), m_bounds{0xc3 + x + 0x1a, 0x2b + y + 0x19, 0x9a, 0x60}, m_entries(entries)
 {
-    m_range = std::make_unique<W8RangeControl>(0xc3 + x + 0xb8, 0x2b + y + 0x1a, 0xc3 + x + 0xca,
+    m_range = std::make_unique<W8RangeControl>(owner.input, 0xc3 + x + 0xb8, 0x2b + y + 0x1a, 0xc3 + x + 0xca,
                                                0x2b + y + 0x78);
     m_range->on_change = [this](auto* range) {
         m_scroll_offset = range->m_value;

@@ -670,7 +670,7 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
 
 void W8PartySelectionController::Setup()
 {
-    m_range = std::make_unique<W8RangeControl>(0x1e9, 0x31, 0x1fb, 0x12b);
+    m_range = std::make_unique<W8RangeControl>(input, 0x1e9, 0x31, 0x1fb, 0x12b);
     m_range->on_change = [this](auto* range) {
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             g_party_selection_character_collection->first_visible = range->m_value;
