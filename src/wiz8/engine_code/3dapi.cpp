@@ -274,6 +274,8 @@ void UpdateWorld(W8World* world)
         UpdateSpellEffects();
     }
 
+    SweepFinishedParticles(world);
+
     auto& nodes = world->nodes_to_disable;
     for (srNode* node : nodes) {
         node->setFlag(srNode::FLAG_DISABLE);
@@ -395,6 +397,7 @@ static void DestroyWorldResources(W8World* world)
     DestroyAllWorldTriggers(world);
     wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
     world->particles.clear();
+    world->retired_particles.clear();
     DestroyAllMissiles(world);
     DestroyAllSpellVisuals(world);
     DestroyWorldLights(world);

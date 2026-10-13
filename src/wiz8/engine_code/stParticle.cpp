@@ -187,8 +187,8 @@ stParticle::stParticle(srNode* parent, int count, Ownership ownership)
 /* A copy shares material and static texture, but starts with no live
    particles, fresh animation frames and fresh timing. */
 // FUNCTION: WIZ8 0x00498180
-stParticle::stParticle(const stParticle& other)
-    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
+stParticle::stParticle(const stParticle& other, Ownership ownership)
+    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0), ownership)
 {
     persisted = other.persisted;
     start_frame = other.start_frame;
@@ -589,12 +589,15 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
 
    The retired path is the only one that can drop the system: a particle whose
    activity has run out notifies its shake callback and, when release_when_done marks
-   it as self-owned, releases itself. */
+   it as self-owned, marks itself finished for its owner to destroy. */
 // FUNCTION: WIZ8 0x004994D0
 void stParticle::SubmitToRenderer(srGERD* renderer)
 {
     glm::vec3 position;
 
+    if (finished) {
+        return;
+    }
     if (camera_relative == 1) {
         position = cameraLocation() + camera_offset;
 
@@ -613,9 +616,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
         if (callback != 0) {
             callback->RestoreAnimation();
         }
-        if (release_when_done) {
-            delete this;
-        }
+        finished = release_when_done;
         return;
     }
 
@@ -771,4 +772,16 @@ void stParticle::SetFlutter(W8ParticleFlutterMode mode)
     } else if (flutter_angles.empty()) {
         flutter_angles.assign(particle_count, 0.0f);
     }
+}
+
+// A particle still emitting when its cycle dies finishes under the world's care.
+void RetireParticle(W8World* world, std::unique_ptr<stParticle> particle)
+{
+    particle->release_when_done = true;
+    world->retired_particles.push_back(std::move(particle));
+}
+
+void SweepFinishedParticles(W8World* world)
+{
+    std::erase_if(world->retired_particles, [](const auto& particle) { return particle->finished; });
 }

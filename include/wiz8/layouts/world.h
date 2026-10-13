@@ -101,6 +101,8 @@ struct W8World {
     std::vector<Trigger*> triggers;
     // Level particles: the world owns them; the dynamic scene only attaches them.
     std::vector<std::unique_ptr<stParticle>> particles;
+    // Cycle particles that outlived their cycle while still emitting.
+    std::vector<std::unique_ptr<stParticle>> retired_particles;
     std::vector<W8NamedPosition> named_positions;
     unsigned char m_unknown_0d4[8];
 };

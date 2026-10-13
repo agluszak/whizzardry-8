@@ -8,7 +8,9 @@
    original relative order: W8GrObject is
    W8GrCycle's first base and W8Navigator its second. */
 
+#include <memory>
 #include <vector>
+#include "wiz8/engine_code/stParticle.h"
 
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -106,7 +108,7 @@ public:
     int cycle;
     signed char subcycle;
     unsigned char padding_05[3];
-    stParticle* m_pstParticles;
+    std::unique_ptr<stParticle> m_pstParticles;
     srVector3T<float> position;
     /* 0x004A7E50 composes this into the model instance's own rotation with
        MultiplyBy, which is what makes it a matrix rather than 0x24

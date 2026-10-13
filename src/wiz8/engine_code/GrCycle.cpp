@@ -383,7 +383,7 @@ try
         std::vector<std::unique_ptr<stParticle>> particles;
 
         success = ReadWorldParticles(info, g_world->dynamic_scene, &particles,
-                                   srNode::Ownership::parent);
+                                   srNode::Ownership::independent);
         if (!particles.empty()) {
             int index;
 
@@ -391,8 +391,8 @@ try
                 (*cycle)->m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>;
             }
             for (index = 0; index < static_cast<int>(particles.size()); ++index) {
-                // Still scene-owned: the attachment only borrows it (deleted by GrCycle or self-release).
-                stParticle* particle = particles[index].release();
+                // The attachment takes ownership below.
+                stParticle* particle = particles[index].get();
                 W8GrCycleParticleAttachment* event = new W8GrCycleParticleAttachment;
                 glm::dvec3 location;
 
@@ -402,7 +402,7 @@ try
                 }
                 event->cycle = cycle_index;
                 event->subcycle = -1;
-                event->m_pstParticles = particle;
+                event->m_pstParticles = std::move(particles[index]);
                 location = particle->getLocation();
                 event->position = glm::vec3(location);
                 event->rotation = particle->getRotation<glm::mat3>();
@@ -537,10 +537,11 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
 
                 event->cycle = source_event->cycle;
                 event->subcycle = source_event->subcycle;
-                event->m_pstParticles = new stParticle(*source_event->m_pstParticles);
+                event->m_pstParticles = std::make_unique<stParticle>(
+                    *source_event->m_pstParticles, srNode::Ownership::independent);
                 event->position = source_event->position;
                 event->rotation = source_event->rotation;
-                if (event->m_pstParticles == 0) {
+                if (!event->m_pstParticles) {
                     srAssertFail("m_pstParticles",
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x66, 0);
                 }
@@ -574,19 +575,13 @@ W8GrCycle::~W8GrCycle()
         count = static_cast<int>(m_plsParticles->size());
         for (index = 0; index < count; ++index) {
             W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
-            stParticle* owner = event->m_pstParticles;
+            std::unique_ptr<stParticle> owner = std::move(event->m_pstParticles);
 
-            if (owner == 0 || owner->active_particle_count == 0) {
-                if (event->m_pstParticles != 0) {
-                    delete event->m_pstParticles;
-                }
-                delete event;
-            } else {
-                event->m_pstParticles = 0;
-                delete event;
+            delete event;
+            if (owner && owner->active_particle_count != 0 && g_world != nullptr) {
                 owner->SetActive(1);
                 owner->emission_limit = 1;
-                owner->release_when_done = true;
+                RetireParticle(g_world, std::move(owner));
             }
         }
         delete m_plsParticles;
@@ -1112,7 +1107,7 @@ void W8GrCycle::UpdateParticleAttachments()
 
     for (index = 0; index < count; ++index) {
         W8GrCycleParticleAttachment* attachment = (*m_plsParticles)[index];
-        stParticle* particle = attachment->m_pstParticles;
+        stParticle* particle = attachment->m_pstParticles.get();
         if (particle->emitting == 0) {
             continue;
         }
