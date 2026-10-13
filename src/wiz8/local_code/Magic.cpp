@@ -2,6 +2,7 @@
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <initializer_list>
 #include <string>
 #include <iterator>
 #include <utility>
