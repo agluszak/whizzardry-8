@@ -174,8 +174,8 @@ void W8CharacterSpellsPage::Deactivate()
 // FUNCTION: WIZ8 0x005C8730
 void W8CharacterSpellsPage::Accept()
 {
-    for (int index = 0; index < 0x72; ++index) {
-        m_SpellData[index].selected = false;
+    for (auto& index : m_SpellData) {
+        index.selected = false;
     }
     ResetSpellSelections(m_character, m_creation_state);
     InvalidateAll();
