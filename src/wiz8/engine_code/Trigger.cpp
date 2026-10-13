@@ -2104,6 +2104,17 @@ char* NextTriggerRecipient(char** cursor)
     return g_trigger_parse_buffer;
 }
 
+/* The location variable a state-changing action writes. A missing variable is a retail assert. */
+static int FindModifiedLocationVar(const char* name, int line)
+{
+    const int id = GetLocationVarIDByName(name);
+    if (id == -1) {
+        srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
+                     line, 0);
+    }
+    return id;
+}
+
 // FUNCTION: WIZ8 0x004409b0
 void Trigger::CommitActionResult(bool apply_state_changes)
 {
@@ -2130,31 +2141,15 @@ void Trigger::CommitActionResult(bool apply_state_changes)
         int state_value;
 
         if (state_mod_mode == 1) {
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4297, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4297);
             state_value = 1;
         } else if (state_mod_mode == 2) {
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4297, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4297);
             state_value = 0;
         } else if (state_mod_mode == 3) {
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4317, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4317);
             state_value = g_location_variable_values[state_id] == 0;
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4297, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4297);
         } else {
             goto show_action_message;
         }
