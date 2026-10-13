@@ -1112,10 +1112,10 @@ unsigned char ShutdownMonsterManager(void)
         return 0;
     }
     // Direct member access retains the packed cache's alignment information.
-    for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
-        if (gXStatus.monster_record_cache[index] != 0) {
-            delete gXStatus.monster_record_cache[index];
-            gXStatus.monster_record_cache[index] = 0;
+    for (auto& index : gXStatus.monster_record_cache) {
+        if (index != 0) {
+            delete index;
+            index = 0;
         }
     }
     return 1;

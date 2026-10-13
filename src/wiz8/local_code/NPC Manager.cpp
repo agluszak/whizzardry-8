@@ -1,3 +1,4 @@
+#include "surrender/non_copyable.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
@@ -1434,7 +1435,7 @@ void LoadNpcStates(wiz8::File& file)
     unsigned int size;
     W8NpcState* npc;
 
-    struct StateRollback {
+    struct StateRollback : private NonCopyable {
         std::vector<W8NpcState*> previous;
         bool committed = false;
         StateRollback() { previous.swap(g_npc_states); }
@@ -2117,8 +2118,7 @@ void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name)
 // FUNCTION: WIZ8 0x0050c270
 void ClearPendingNpcLevelFlags(void)
 {
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index];
+    for (auto npc : g_npc_states) {
         if (npc->pending_restore && npc->binding_unavailable == 0 &&
             npc->pending_restore_level == g_status.current_level) {
             if (RestoreNpcMonster(npc, npc->restore_entity_name)) {
@@ -2149,8 +2149,7 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0050c2e0
 void ReleaseNpcMonsterBindings(void)
 {
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index];
+    for (auto npc : g_npc_states) {
         if (npc->pending_release && npc->binding_unavailable == 0 &&
             npc->pending_release_level == g_status.current_level) {
             W8NpcState* companion = GetNpcStateByKind(npc->name_style);
@@ -2332,8 +2331,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
 // FUNCTION: WIZ8 0x0050da00
 void ReleaseMarkedNpcBindings(void)
 {
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index];
+    for (auto npc : g_npc_states) {
         if (npc->binding_unavailable == 0) {
             if (npc->event_pending != 0) {
                 HandleMarkedNpcEvent(npc, 1);
@@ -2375,8 +2373,7 @@ void RebindNpcLevelTriggers(void)
 {
     unsigned int npc_index;
 
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index];
+    for (auto npc : g_npc_states) {
         if (npc->has_monster &&
             (npc->record->merchant != 0 || (npc->record->voice_script != 0 && !npc->is_present))) {
             npc->has_monster = false;
@@ -2419,12 +2416,12 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
     if (npc == 0) {
         srAssertFail("npc", __FILE__, __LINE__, 0);
     }
-    for (int index = 0; index < 40; ++index) {
-        if (npc->item_ids[index] == item_id) {
+    for (short & index : npc->item_ids) {
+        if (index == item_id) {
             if (out != 0) {
-                ReplaceOrCreateItem(out, npc->item_ids[index], true, true, false);
+                ReplaceOrCreateItem(out, index, true, true, false);
             }
-            npc->item_ids[index] = -1;
+            index = -1;
             return true;
         }
     }

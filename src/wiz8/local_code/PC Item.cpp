@@ -65,7 +65,6 @@
 #include "layouts/levels.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
-#include "retail_item_payloads.h"
 #include "spell_ids.h"
 #include "xstatus.h"
 
@@ -833,25 +832,26 @@ static bool FindUnmetItemRequirement(const W8Character* character,
                                      const W8ItemDatabaseRecord* record,
                                      unsigned short* message_id)
 {
-    for (unsigned int index = 0; index < 2; ++index) {
-        const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
-        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
+    const bool attribute_unmet = std::ranges::any_of(
+        record->attribute_requirements, [&](const auto& attribute_requirement) {
+            const int stat = static_cast<signed char>(attribute_requirement.stat_id);
+            if (attribute_requirement.stat_id == W8_ITEM_REQUIREMENT_NONE ||
+                character->attributes[stat].effective >= attribute_requirement.minimum)
+                return false;
             if (message_id)
                 *message_id = g_character_description_first_ids[stat];
             return true;
-        }
-    }
-    for (unsigned int index = 0; index < 2; ++index) {
-        const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
-        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->skills[stat].level < record->skill_requirements[index].minimum) {
-            if (message_id)
-                *message_id = g_character_skill_name_ids[stat];
-            return true;
-        }
-    }
-    return false;
+        });
+    if (attribute_unmet) return true;
+    return std::ranges::any_of(record->skill_requirements, [&](const auto& skill_requirement) {
+        const int stat = static_cast<signed char>(skill_requirement.stat_id);
+        if (skill_requirement.stat_id == W8_ITEM_REQUIREMENT_NONE ||
+            character->skills[stat].level >= skill_requirement.minimum)
+            return false;
+        if (message_id)
+            *message_id = g_character_skill_name_ids[stat];
+        return true;
+    });
 }
 
 /* Whether one character is allowed to use one item at all: profession, race
@@ -1096,7 +1096,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     int event_type;
     int fatigue_cost = -1;
     W8TargetSource target;
-    unsigned char used;
+    unsigned char used = 0;
 
     if (!CanCharacterUseItem(character, item->iItemNo)) {
         PostCharacterNotice(party_slot,
@@ -2450,8 +2450,8 @@ bool EveryCharacterHasItem(int item_id, int include_backpack)
 bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8ItemInstance** out,
                                      int include_backpack)
 {
-    for (int slot = 0; slot < 12; ++slot) {
-        W8ItemInstance* item = &character->EquippedItem[slot];
+    for (auto & slot : character->EquippedItem) {
+        W8ItemInstance* item = &slot;
         if (item->iItemNo != -1 &&
             g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
             if (out != 0) {
@@ -2461,8 +2461,8 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
         }
     }
     if (include_backpack != 0) {
-        for (int slot = 0; slot < 8; ++slot) {
-            W8ItemInstance* item = &character->backpack[slot];
+        for (auto & slot : character->backpack) {
+            W8ItemInstance* item = &slot;
             if (item->iItemNo != -1 &&
                 g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
                 if (out != 0) {
@@ -3335,8 +3335,8 @@ void UnequipUnusableItems(W8Character* character)
         return;
     }
 
-    for (int slot = 0; slot < 12; ++slot) {
-        W8ItemInstance* item = &character->EquippedItem[slot];
+    for (auto & slot : character->EquippedItem) {
+        W8ItemInstance* item = &slot;
         if (item->iItemNo == -1) {
             continue;
         }
