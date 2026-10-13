@@ -448,7 +448,6 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     float duration;
     float seconds;
     float intensity;
-    W8CameraShakeEffect* effect;
     std::unique_ptr<W8SoundEvent> sound;
     char path[100];
     char line[100];
@@ -547,15 +546,13 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
 #pragma clang diagnostic pop
                                     srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                                 }
-                                                                cycle = missileCycleIndex(pacName);
-                                effect = new W8CameraShakeEffect(duration, true, intensity,
+                                cycle = missileCycleIndex(pacName);
+                                ShakeDefinition effect(duration, true, intensity,
                                                                  seconds * g_world_scale, 0);
-                                if (effect != 0) {
-                                    effect->cycle = cycle;
-                                    effect->frame = frame;
-                                    effect->subcycle = 0;
-                                    (*ppMissile)->AddShakeEffect(effect);
-                                }
+                                effect.cycle = cycle;
+                                effect.frame = frame;
+                                effect.subcycle = 0;
+                                (*ppMissile)->AddShakeEffect(effect);
                             }
                             goto next_line;
                         }
@@ -686,12 +683,12 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
 srModelInstance* W8MissileRep::SetCycleFrameLod(signed char emitter, signed char frame,
                                                 signed char lod)
 {
-    return AnimObjDispatch(emitters[emitter], lod, frame);
+    return AnimObjDispatch(resources.cycles[emitter].animation.get(), lod, frame);
 }
 
 W8AniMesh* W8MissileRep::GetEmitterAniMesh(signed char emitter)
 {
-    W8AnimObj* target = emitters[emitter];
+    W8AnimObj* target = resources.cycles[emitter].animation.get();
 
     if (target == 0) {
         return 0;
@@ -703,7 +700,7 @@ W8AniMesh* W8MissileRep::GetEmitterAniMesh(signed char emitter)
 // FUNCTION: WIZ8 0x004A2710
 unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
 {
-    W8AnimObj* target = emitters[emitter];
+    W8AnimObj* target = resources.cycles[emitter].animation.get();
 
     if (target == 0) {
         srAssertFail("pao", MISSILE_CPP, 0x7e, 0);
@@ -714,10 +711,7 @@ unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
 /* The two emitter slots start empty and at the source default playback value.
    Construction of the two light-list vectors is ordinary array-member
    construction and precedes these assignments in the retail body. */
-W8MissileRep::W8MissileRep()
-{
-    ResetEmitterAnimations(*this);
-}
+W8MissileRep::W8MissileRep() = default;
 
 /* Copy the two proven representation values, clone each animation, and deep
    copy every optional light vector. The copied lights are ordinary scene
@@ -725,10 +719,8 @@ W8MissileRep::W8MissileRep()
    their emitter. */
 // FUNCTION: WIZ8 0x004a2db0
 W8MissileRep::W8MissileRep(const W8MissileRep& other)
-    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0)
+    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0), resources(other.resources)
 {
-    CloneEmitterAnimations(*this, other);
-    CloneEmitterLightLists(*this, other);
 }
 
 // FUNCTION: WIZ8 0x004a5d40
@@ -744,7 +736,7 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
     if (info == 0 || info->hFile == 0 || missile == 0) {
         srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
     }
-    return ReadEmitterCycle(*this, info, *missile, cycle_index, missile->m_pRep != nullptr);
+    return ReadEmitterCycle(*this, resources.cycles, info, *missile, cycle_index, missile->m_pRep != nullptr);
 }
 
 /* Retail constructs the +0x2d8 growable vector normally, then clears the
@@ -896,13 +888,7 @@ void DestroyAllMissiles(W8World* world)
     });
 }
 
-/* Release the two owned animations and every light vector before the ordinary
-   vector members and W8EmitterHost base tear themselves down. */
-// FUNCTION: WIZ8 0x004A3230
-W8MissileRep::~W8MissileRep()
-{
-    ReleaseEmitterCycles(emitters, light_lists);
-}
+W8MissileRep::~W8MissileRep() = default;
 
 /* Copy the effect definition, then replace its radius from the selected
    0x1e5-byte missile database row. */
@@ -924,20 +910,20 @@ W8EmitterHost* W8Missile::GetRepresentation()
 // FUNCTION: WIZ8 0x004a4570
 W8AnimObj* W8Missile::GetCurrentAnimation()
 {
-    return m_pRep->emitters[m_pRep->current_cycle];
+    return m_pRep->resources.cycles[m_pRep->current_cycle].animation.get();
 }
 
 /* That animation's own playback scale. */
 // FUNCTION: WIZ8 0x004a45c0
 float W8Missile::GetCurrentAnimationScale()
 {
-    return m_pRep->emitters[m_pRep->current_cycle]->playback_scale;
+    return m_pRep->resources.cycles[m_pRep->current_cycle].animation->playback_scale;
 }
 
 // FUNCTION: WIZ8 0x004a45f0
 W8AniMesh* W8Missile::GetCurrentAniMesh()
 {
-    W8AnimObj* animation = m_pRep->emitters[m_pRep->current_cycle];
+    W8AnimObj* animation = m_pRep->resources.cycles[m_pRep->current_cycle].animation.get();
 
     if (animation == 0) {
         srAssertFail("pao", MISSILE_CPP, 0x55e, 0);
@@ -952,11 +938,11 @@ signed char W8Missile::GetTotalAnimationCount()
 {
     signed char count = 0;
 
-    if (m_pRep->emitters[0] != 0) {
+    if (m_pRep->resources.cycles[0].animation != 0) {
         count = 1;
     }
 
-    if (m_pRep->emitters[1] != 0) {
+    if (m_pRep->resources.cycles[1].animation != 0) {
         ++count;
     }
     return count;
@@ -984,7 +970,7 @@ bool W8Missile::IsCycleSupported(signed char cycle)
     if (cycle >= 2) {
         srAssertFail("bCycle<MISSILE_NUM_CYCLES", MISSILE_CPP, 0x4bf, 0);
     }
-    return m_pRep->emitters[cycle] != 0;
+    return m_pRep->resources.cycles[cycle].animation != 0;
 }
 
 /* Select one of the missile representation's two emitters and rebuild its
@@ -1002,12 +988,12 @@ void W8Missile::SetCycle(signed char cycle)
                      0x4d6, 0);
     }
 
-    lights = m_pRep->light_lists[m_pRep->current_cycle][0];
+    lights = m_pRep->resources.cycles[m_pRep->current_cycle].lightView();
     DetachCycleLights(lights);
 
-    StartEmitterCycle(*m_pRep, cycle);
+    StartEmitterCycle(*m_pRep, *m_pRep->resources.cycles[cycle].animation, cycle);
 
-    lights = m_pRep->light_lists[cycle][0];
+    lights = m_pRep->resources.cycles[cycle].lightView();
     SetLights(lights);
     AttachCycleLights(lights);
 

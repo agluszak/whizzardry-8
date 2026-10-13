@@ -1,6 +1,8 @@
 #pragma once
 
+#include <deque>
 #include <optional>
+#include <memory>
 #include "surrender/srBoundingBox.h"
 #include <string_view>
 
@@ -43,57 +45,46 @@ struct W8PathAI;
 
 void DestroyLightVector(std::vector<stLight*>* vector); /* 0x004A8C50 */
 
-/* Live-list membership and ownership are independent: Trigger retains its
-   effect and clears LIST_OWNS before the live updater can release it. */
-class W8CameraShakeEffect {
-public:
-    struct Flags {
-        bool active : 1;
-        bool list_owns : 1;
-        bool limit_distance : 1;
-        bool quadratic_falloff : 1;
-        bool fade_out : 1;
-        bool fade_in : 1;
-        unsigned char reserved : 2;
-        unsigned char reserved_bytes[3];
-    };
-
-    W8CameraShakeEffect(float duration, bool preset, float intensity, float distance_cap,
-                        const srVector3T<float>* position); /* 0x004ADED0 */
-    W8CameraShakeEffect(const W8CameraShakeEffect& other);  /* 0x004AE000 */
-    /* Per-frame evaluation: answers whether the effect is still active and
-       reports how much it contributes this frame. */
-    unsigned char Evaluate(const srVector3T<float>* position, float* out_amount);
-
-    Flags flags;                /* 0x00: runtime effect and list state */
-    float intensity;            /* 0x04 */
-    float distance_cap;         /* 0x08: radius for LIMIT_DISTANCE effects */
-    srVector3T<float> position; /* 0x0c */
-    W8GameTimer timer;          /* 0x18 */
-    /* The key 0x004AE170 matches an animation event against. */
-    int cycle;                         /* 0x3c */
-    int frame;                         /* 0x40 */
-    int subcycle;                      /* 0x44 */
-    void (*completion_callback)(void); /* 0x48 */
+// Reusable animation event data. Starting a shake copies this definition;
+// neither the definition nor its caller owns a running instance.
+struct ShakeDefinition {
+    ShakeDefinition(float duration, bool preset, float intensity, float distance_cap,
+                    const srVector3T<float>* position);
+    float duration;
+    float intensity;
+    float distance_cap;
+    srVector3T<float> position{0, 0, 0};
+    bool limit_distance = false;
+    bool quadratic_falloff = false;
+    bool fade_out = false;
+    bool fade_in = false;
+    int cycle = 0;
+    int frame = 0;
+    int subcycle = 0;
+    void (*completion_callback)() = nullptr;
 };
 
-/* The live list every active effect is on, and the timer the first effect
-   creates alongside it. Both are built lazily by the constructor. */
-extern std::vector<W8CameraShakeEffect*>* g_shake_effects;
-extern W8GameTimer* g_shake_timer;
-extern const float g_float_two_hundred_fifty;
+class ShakeSystem {
+public:
+    // A key identifies a reusable definition that can be restarted/stopped.
+    // Unkeyed instances run once. The system exclusively owns every instance.
+    void Start(const ShakeDefinition&, const ShakeDefinition* key = nullptr);
+    void Stop(const ShakeDefinition& key);
+    bool IsActive(const ShakeDefinition& key) const;
+    float Update(const srVector3T<float>& camera);
+private:
+    struct Instance {
+        explicit Instance(const ShakeDefinition& definition, const ShakeDefinition* key);
+        ShakeDefinition definition;
+        W8GameTimer timer;
+        const ShakeDefinition* key;
+        bool Evaluate(const srVector3T<float>& camera, float& amount);
+    };
+    std::vector<std::unique_ptr<Instance>> active;
+};
 
-W8CameraShakeEffect* CreateCameraShakeEffect(float duration, bool preset, float intensity,
-                                             float distance_cap, const srVector3T<float>* position);
-/* Fire every effect in one cycle's vector whose key matches, moving it onto the
-   live list and restarting its timer. */
-void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle, unsigned int frame,
-                         int subcycle, const srVector3T<float>* position);
-/* Take every active effect in one cycle's vector back off the live list, and
-   release the ones that list owned. */
-void StopShakeEffects(std::vector<W8CameraShakeEffect*>* effects);
-/* The per-frame shake update: retire finished live effects and turn the
-   accumulated intensity into Trigger's action camera offset. */
+ShakeSystem& CameraShakes();
+extern const float g_float_two_hundred_fifty;
 void UpdateShakeEffects();
 
 /* 0x004A5F20 allocates 0x3c for each of these and copies them field by field:
@@ -151,7 +142,7 @@ public:
     void SetLights(std::vector<stLight*>* lights);
     void DetachCycleLights(std::vector<stLight*>* lights);
     void AttachCycleLights(std::vector<stLight*>* lights);
-    void AddShakeEffect(W8CameraShakeEffect* effect);
+    void AddShakeEffect(ShakeDefinition effect);
     void CreateGroundShadow(float width, float depth);
     void SetGroundShadowVisible(bool visible);
     void ResetRepresentation();
@@ -169,7 +160,7 @@ public:
 public:
     srModelInstance* current_model_instance;
     std::vector<stLight*>* m_plsLights;                  /* 0x1ac */
-    std::vector<W8CameraShakeEffect*>* m_plsShakeEvents; /* 0x1b0 */
+    std::deque<ShakeDefinition> shake_events;
     bool m_fDeleteLights;                             /* 0x1b4: named by GrCycle.cpp:1656 */
     /* 0x1b5: the subcycle the last update pass left on the representation. */
     unsigned char last_subcycle;

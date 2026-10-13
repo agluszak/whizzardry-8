@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/engine_code/emitter_resources.h"
+
 #include <string>
 #include <vector>
 
@@ -68,12 +70,10 @@ public:
     virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
     unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile, int cycle_index, int);
 
-    unsigned int value_0ac;
-    unsigned int value_0b0;
+    unsigned int value_0ac{};
+    unsigned int value_0b0{};
     unsigned char unknown_0b4[0x24];
-    W8AnimObj* emitters[2];
-    float emitter_playback_scales[2];
-    std::vector<std::vector<stLight*>*> light_lists[2];
+    EmitterResources<2> resources;
 };
 
 /* The copy path allocates 0x328 bytes and invokes W8GrCycle's copy constructor

@@ -127,20 +127,20 @@ W8EmitterHost* W8SpellVisual::GetRepresentation()
 // FUNCTION: WIZ8 0x004ac820
 W8AnimObj* W8SpellVisual::GetCurrentAnimation()
 {
-    return this->host->emitters[this->host->current_cycle];
+    return this->host->resources.cycles[this->host->current_cycle].animation.get();
 }
 
 /* That emitter's own value. */
 // FUNCTION: WIZ8 0x004ac870
 float W8SpellVisual::GetCurrentAnimationScale()
 {
-    return this->host->emitters[this->host->current_cycle]->playback_scale;
+    return this->host->resources.cycles[this->host->current_cycle].animation->playback_scale;
 }
 
 // FUNCTION: WIZ8 0x004ac8a0
 W8AniMesh* W8SpellVisual::GetCurrentAniMesh()
 {
-    W8AnimObj* emitter = this->host->emitters[this->host->current_cycle];
+    W8AnimObj* emitter = this->host->resources.cycles[this->host->current_cycle].animation.get();
 
     if (emitter == 0) {
         srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x653, 0);
@@ -154,11 +154,11 @@ signed char W8SpellVisual::GetTotalAnimationCount()
 {
     char count = 0;
 
-    if (this->host->emitters[0] != 0) {
+    if (this->host->resources.cycles[0].animation != 0) {
         count = 1;
     }
 
-    if (this->host->emitters[1] != 0) {
+    if (this->host->resources.cycles[1].animation != 0) {
         ++count;
     }
     return count;
@@ -180,7 +180,7 @@ bool W8SpellVisual::IsCycleSupported(signed char cycle)
         srAssertFail("bCycle<SPELL_NUM_CYCLES", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x55a, 0);
     }
-    return host->emitters[cycle] != 0;
+    return host->resources.cycles[cycle].animation != 0;
 }
 
 /* Reset the host's two frame counters before the ordinary GrCycle step. */
@@ -207,12 +207,12 @@ void W8SpellVisual::SetCycle(signed char cycle)
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x5c1, 0);
     }
 
-    lights = host->light_lists[host->current_cycle][0];
+    lights = host->resources.cycles[host->current_cycle].lightView();
     DetachCycleLights(lights);
 
-    StartEmitterCycle(*host, cycle);
+    StartEmitterCycle(*host, *host->resources.cycles[cycle].animation, cycle);
 
-    lights = host->light_lists[cycle][0];
+    lights = host->resources.cycles[cycle].lightView();
     SetLights(lights);
     AttachCycleLights(lights);
 
@@ -359,13 +359,8 @@ void UpdateWorldSpellVisuals(W8World* world)
     }
 }
 
-/* No standalone retail body exists: the only default-construction site is
-   the inlined expansion inside W8SpellVisual::W8SpellVisual at 0x004ABBB0,
-   whose member-init order (value_0ac, value_0b0, the 28 light_lists, then
-   flag_378 before the vptr store) and emitter/scale loop match this body. */
 W8SpellEmitterHost::W8SpellEmitterHost() : value_0ac(0), value_0b0(0), billboard(0)
 {
-    ResetEmitterAnimations(*this);
 }
 
 /* Copy the two proven host values and the billboard flag, clone every
@@ -373,13 +368,11 @@ W8SpellEmitterHost::W8SpellEmitterHost() : value_0ac(0), value_0b0(0), billboard
    vectors. */
 // FUNCTION: WIZ8 0x004aad20
 W8SpellEmitterHost::W8SpellEmitterHost(const W8SpellEmitterHost& other)
-    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
+    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0), resources(other.resources),
       billboard(other.billboard)
 {
-    CloneEmitterAnimations(*this, other);
     active = 1;
     current_cycle = other.current_cycle;
-    CloneEmitterLightLists(*this, other);
 }
 
 // FUNCTION: WIZ8 0x004AB340
@@ -390,7 +383,7 @@ unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVi
         srAssertFail("pInfo && pInfo->hFile && pSpell",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x25a, 0);
     }
-    return ReadEmitterCycle(*this, info, *visual, emitter_index, true);
+    return ReadEmitterCycle(*this, resources.cycles, info, *visual, emitter_index, true);
 }
 
 static int FindSpellCycleByName(const char* name)
@@ -453,7 +446,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
         float duration;
         float distance;
         std::unique_ptr<W8SoundEvent> event;
-        W8CameraShakeEffect* effect;
+
 
         while (more && success) {
             ReadTextLine(handle.get(), line, sizeof(line), more);
@@ -489,14 +482,12 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
                     sscanf(line, "%s %s %d %f %f %f", pac_command, pac_name, &frame, &intensity,
                            &duration, &distance);
                     index = FindSpellCycleByName(pac_name);
-                    effect = new W8CameraShakeEffect(duration, true, intensity,
+                    ShakeDefinition effect(duration, true, intensity,
                                                      distance * g_world_scale, 0);
-                    if (effect != 0) {
-                        effect->cycle = index;
-                        effect->frame = frame;
-                        effect->subcycle = 0;
-                        (*visual)->AddShakeEffect(effect);
-                    }
+                    effect.cycle = index;
+                    effect.frame = frame;
+                    effect.subcycle = 0;
+                    (*visual)->AddShakeEffect(effect);
                 }
                 continue;
             }
@@ -856,7 +847,7 @@ void SetTargetConeEnabled(bool enabled)
 srModelInstance* W8SpellEmitterHost::SetCycleFrameLod(signed char emitter, signed char frame,
                                                       signed char lod)
 {
-    return AnimObjDispatch(this->emitters[emitter], lod, frame);
+    return AnimObjDispatch(this->resources.cycles[emitter].animation.get(), lod, frame);
 }
 
 /* Apply the host setting to one required emitter.  The source assertion names
@@ -864,7 +855,7 @@ srModelInstance* W8SpellEmitterHost::SetCycleFrameLod(signed char emitter, signe
 // FUNCTION: WIZ8 0x004ab2c0
 unsigned int W8SpellEmitterHost::ApplyEmitterSetting(signed char emitter)
 {
-    W8AnimObj* target = this->emitters[emitter];
+    W8AnimObj* target = this->resources.cycles[emitter].animation.get();
 
     if (target == 0) {
         srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x200, 0);
@@ -877,7 +868,7 @@ unsigned int W8SpellEmitterHost::ApplyEmitterSetting(signed char emitter)
 // FUNCTION: WIZ8 0x004ab310
 W8AniMesh* W8SpellEmitterHost::GetEmitterAniMesh(signed char emitter)
 {
-    W8AnimObj* target = this->emitters[emitter];
+    W8AnimObj* target = this->resources.cycles[emitter].animation.get();
 
     if (target == 0) {
         return 0;
@@ -893,14 +884,7 @@ W8AnimRepBase* W8SpellEmitterHost::Clone()
     return new W8SpellEmitterHost(*this);
 }
 
-/* Release each owned emitter and every per-emitter vector of cloned lights.
-   The member-array and base destructors then run in reverse construction
-   order, matching the two vector/base cleanup phases in the image. */
-// FUNCTION: WIZ8 0x004ab1c0
-W8SpellEmitterHost::~W8SpellEmitterHost()
-{
-    ReleaseEmitterCycles(emitters, light_lists);
-}
+W8SpellEmitterHost::~W8SpellEmitterHost() = default;
 
 /* Whether one spell id is among the six that occupy a persistent combat
    effect slot - Armormelt, Acid Bomb, Toxic Cloud, Firestorm, Death Cloud and

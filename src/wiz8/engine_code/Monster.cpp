@@ -627,14 +627,12 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         sscanf(line, "%s %s %d %f %f %f", command, cycle_name, &frame, &intensity,
                                &duration, &value);
                         W8MonsterCycle shake_cycle = ParseMonsterCycleName(cycle_name, &subcycle);
-                        W8CameraShakeEffect* effect = new W8CameraShakeEffect(
+                        ShakeDefinition effect(
                             duration, true, intensity, value * g_world_scale, 0);
-                        if (effect != 0) {
-                            effect->frame = frame;
-                            effect->cycle = shake_cycle;
-                            effect->subcycle = subcycle - 1;
-                            (*monster)->AddShakeEffect(effect);
-                        }
+                        effect.frame = frame;
+                        effect.cycle = shake_cycle;
+                        effect.subcycle = subcycle - 1;
+                        (*monster)->AddShakeEffect(effect);
                     } else {
                         srAssertFail("FALSE", MONSTER_CPP, 0x636,
                                      fmt::format("Monster::ReadAllCycles: ERROR - Unrecognized MLS "

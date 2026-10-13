@@ -750,8 +750,9 @@ class W8TriggerShakeEvent : public W8TriggerEvent {
 public:
     W8TriggerShakeEvent();
     virtual void Update() override;
+    ~W8TriggerShakeEvent() override { if (effect) CameraShakes().Stop(*effect); }
 
-    W8CameraShakeEffect* effect;
+    std::optional<ShakeDefinition> effect;
     int intensity;
     bool reverse;
 };
@@ -761,7 +762,7 @@ public:
 /* Retail ICF folds this class's deleting destructor onto W8TriggerEvent's
    retained body at 0x00440980; there is no distinct retail emission to mark. */
 
-W8TriggerShakeEvent::W8TriggerShakeEvent() : effect(0), intensity(1), reverse(0) {}
+W8TriggerShakeEvent::W8TriggerShakeEvent() : intensity(1), reverse(0) {}
 
 // GLOBAL: WIZ8 0x006599a0
 srVector3T<float> g_trigger_camera;
@@ -856,22 +857,21 @@ void UpdateTimedTriggerEvents(void)
 // FUNCTION: WIZ8 0x00444ec0
 void W8TriggerShakeEvent::Update()
 {
-    if (effect == 0) {
+    if (!effect) {
         float intensity = this->intensity / g_float_two_hundred_fifty;
 
         if (intensity < g_float_one) {
             intensity = g_float_one;
         }
-        effect = CreateCameraShakeEffect(m_pCountdown->m_duration_seconds, false, intensity, 0, 0);
-        effect->flags.list_owns = false;
+        effect.emplace(m_pCountdown->m_duration_seconds, false, intensity, 0, nullptr);
         if (reverse) {
-            effect->flags.fade_out = true;
+            effect->fade_out = true;
         }
+        CameraShakes().Start(*effect, &*effect);
     }
 
-    if (!effect->flags.active) {
-        delete effect;
-        effect = 0;
+    if (!CameraShakes().IsActive(*effect)) {
+        effect.reset();
         if (trigger != 0) {
             trigger->FinishAction();
         }

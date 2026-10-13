@@ -67,199 +67,121 @@ const float g_lod_level_two_exit_threshold = 0.699999988079071f;
 // VTABLE: WIZ8 0x005ece78 W8GrObject
 // VTABLE: WIZ8 0x005eceb8 W8Navigator
 // class W8GrCycle
-// GLOBAL: WIZ8 0x005ecf98
-const float g_camera_shake_tick_seconds = 0.02500000037252903f;
 // GLOBAL: WIZ8 0x005ecf9c
 const float g_float_two_hundred_fifty = 250.0f;
 // GLOBAL: WIZ8 0x0060da88
 static bool g_camera_shake_enabled = true;
-// GLOBAL: WIZ8 0x0065be2c
-std::vector<W8CameraShakeEffect*>* g_shake_effects;
-// GLOBAL: WIZ8 0x0065be30
-W8GameTimer* g_shake_timer;
-
-/* Everything except the timer's own pacing carries across, and bit zero of the
-   flags is cleared so the copy is not treated as already started. The new timer
-   is seeded from the source's speed rather than its remaining time. */
-// FUNCTION: WIZ8 0x004ae000
-W8CameraShakeEffect::W8CameraShakeEffect(const W8CameraShakeEffect& other)
-    : flags(other.flags), intensity(other.intensity), distance_cap(other.distance_cap),
-      position(other.position), timer(other.timer.m_duration_seconds, 0), cycle(other.cycle),
-      frame(other.frame), subcycle(other.subcycle), completion_callback(other.completion_callback)
+ShakeDefinition::ShakeDefinition(float duration, bool preset, float intensity,
+                                 float distance_cap, const srVector3T<float>* position)
+    : duration(duration), intensity(intensity), distance_cap(distance_cap),
+      limit_distance(preset), quadratic_falloff(preset), fade_out(preset)
 {
-    flags.active = false;
+    if (position) this->position = *position;
 }
 
-/* The first effect built also builds the shared live list and its timer; every
-   later one finds them already there. The preset flag turns on the three bits
-   that go together, and a null position leaves the effect where the caller's
-   own default put it rather than at the origin. */
-// FUNCTION: WIZ8 0x004aded0
-W8CameraShakeEffect::W8CameraShakeEffect(float duration, bool preset, float intensity,
-                                         float distance_cap, const srVector3T<float>* position)
-    : intensity(intensity), distance_cap(distance_cap), timer(duration, 0), cycle(0), frame(0),
-      subcycle(0), completion_callback(0)
+ShakeSystem& CameraShakes()
 {
-    Flags initial_flags = {false, false, false, false, false, false, 0, {0, 0, 0}};
-    flags = initial_flags;
-    if (g_shake_effects == 0) {
-        g_shake_effects = new std::vector<W8CameraShakeEffect*>();
-        g_shake_timer = new W8GameTimer(g_camera_shake_tick_seconds, 0);
-        g_shake_timer->Restart();
-    }
-    if (preset) {
-        flags.limit_distance = true;
-        flags.quadratic_falloff = true;
-        flags.fade_out = true;
-    }
-    if (position != 0) {
-        this->position = *position;
-    }
+    static ShakeSystem system;
+    return system;
 }
 
-/* A shake made through the factory starts active and owned by the live list,
-   which is the pair of bits set here. Trigger.cpp clears the ownership bit
-   afterwards because it keeps its effect across frames and deletes it itself. */
-// FUNCTION: WIZ8 0x004ae080
-W8CameraShakeEffect* CreateCameraShakeEffect(float duration, bool preset, float intensity,
-                                             float distance_cap, const srVector3T<float>* position)
+ShakeSystem::Instance::Instance(const ShakeDefinition& definition, const ShakeDefinition* key)
+    : definition(definition), timer(definition.duration, false), key(key)
 {
-    W8CameraShakeEffect* effect =
-        new W8CameraShakeEffect(duration, preset, intensity, distance_cap, position);
-
-    effect->flags.active = true;
-    effect->flags.list_owns = true;
-    effect->timer.Restart();
-    g_shake_effects->push_back(effect);
-    return effect;
+    timer.Restart();
 }
 
-/* Fire the effects one animation event names. An effect already on the live
-   list is not added twice, but it is repositioned and restarted either way. */
-// FUNCTION: WIZ8 0x004ae170
-void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle, unsigned int frame,
-                         int subcycle, const srVector3T<float>* position)
+void ShakeSystem::Start(const ShakeDefinition& definition, const ShakeDefinition* key)
 {
-    int index;
-
-    for (index = 0; index < static_cast<int>(effects->size()); ++index) {
-        W8CameraShakeEffect* effect = (*effects)[index];
-
-        if (effect->cycle == cycle && effect->frame == static_cast<int>(frame) &&
-            effect->subcycle == subcycle) {
-            if (!effect->flags.active) {
-                g_shake_effects->push_back(effect);
+    auto instance = std::make_unique<Instance>(definition, key);
+    if (key) {
+        for (auto& current : active) {
+            if (current->key == key) {
+                current.swap(instance);
+                return;
             }
-            effect->position = *position;
-            effect->flags.active = true;
-            effect->timer.Restart();
+        }
+    }
+    active.push_back(std::move(instance));
+}
+
+void ShakeSystem::Stop(const ShakeDefinition& key)
+{
+    std::erase_if(active, [&key](const auto& instance) { return instance->key == &key; });
+}
+
+bool ShakeSystem::IsActive(const ShakeDefinition& key) const
+{
+    return std::ranges::any_of(active, [&key](const auto& instance) { return instance->key == &key; });
+}
+
+bool ShakeSystem::Instance::Evaluate(const srVector3T<float>& camera, float& amount)
+{
+    if (definition.duration <= 0.0f) return false;
+    const float progress = timer.GetProgress();
+    if (progress >= 1.0f) return false;
+    amount = 1.0f;
+    if (definition.limit_distance) {
+        const auto delta = definition.position - camera;
+        const float distance = sqrtf(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+        if (definition.distance_cap < distance) amount = 0.0f;
+        else if (definition.quadratic_falloff) {
+            const float weight = distance / definition.distance_cap - 1.0f;
+            amount = weight * weight;
+        }
+    }
+    if (definition.fade_out) amount *= 1.0f - progress;
+    else if (definition.fade_in) amount *= progress;
+    return true;
+}
+
+float ShakeSystem::Update(const srVector3T<float>& camera)
+{
+    float intensity = 0.0f;
+    std::vector<void (*)()> callbacks;
+    callbacks.reserve(active.size());
+    std::erase_if(active, [&](const auto& instance) {
+        float amount;
+        if (instance->Evaluate(camera, amount)) {
+            intensity += amount;
+            return false;
+        }
+        if (instance->definition.completion_callback)
+            callbacks.push_back(instance->definition.completion_callback);
+        return true;
+    });
+    // Callbacks may start/stop shakes or destroy the definitions that keyed
+    // them. Retire all completed instances before invoking any callback.
+    for (auto callback : callbacks) callback();
+    return intensity;
+}
+
+static void TriggerShakeEvents(std::deque<ShakeDefinition>& events, int cycle, unsigned int frame,
+                               int subcycle, const srVector3T<float>& position)
+{
+    for (auto& event : events) {
+        if (event.cycle == cycle && event.frame == static_cast<int>(frame) && event.subcycle == subcycle) {
+            auto definition = event;
+            definition.position = position;
+            CameraShakes().Start(definition, &event);
         }
     }
 }
 
-/* Stop every active effect this cycle owns. Coming off the live list and losing
-   the active bit is unconditional; the delete is not, because Trigger.cpp's
-   effects have already cleared the bit that says the list owns them. */
-// FUNCTION: WIZ8 0x004ae270
-void StopShakeEffects(std::vector<W8CameraShakeEffect*>* effects)
-{
-    int index;
-
-    for (index = 0; index < static_cast<int>(effects->size()); ++index) {
-        W8CameraShakeEffect* effect = (*effects)[index];
-
-        if (effect->flags.active) {
-            W8CameraShakeEffect::Flags flags;
-
-            wiz8::erase_first(*g_shake_effects, effect);
-            flags = effect->flags;
-            effect->flags.active = false;
-            if (flags.list_owns && effect != 0) {
-                delete effect;
-            }
-        }
-    }
-}
-
-/* Evaluate every live shake effect once per frame. An effect that reports
-   itself finished is removed from the live list; the list releases it only
-   when it owns it, after running its completion callback. The accumulated
-   amounts are clamped and scaled into the three random components of the
-   Trigger action camera offset, which the renderer adds to the scene. */
-// FUNCTION: WIZ8 0x004ae310
 void UpdateShakeEffects()
 {
-    if (!g_camera_shake_enabled || g_shake_effects == 0 ||
-        g_shake_timer->GetProgress() < g_float_one) {
-        return;
-    }
-    if (!g_shake_effects->empty()) {
-        float intensity = 0.0f;
-        srVector3T<float> camera = cameraLocation();
-        for (int index = 0; index < static_cast<int>(g_shake_effects->size()); ++index) {
-            W8CameraShakeEffect* effect = (*g_shake_effects)[index];
-            float amount;
-            if (effect->Evaluate(&camera, &amount) == 0) {
-                g_shake_effects->erase(g_shake_effects->begin() + index);
-                --index;
-                effect->flags.active = false;
-                if (effect->completion_callback != 0) {
-                    effect->completion_callback();
-                }
-                if (effect->flags.list_owns && effect != 0) {
-                    delete effect;
-                }
-            } else {
-                intensity += amount;
-            }
-        }
-        if (intensity > g_float_zero) {
-            float amplitude = intensity < g_float_one ? intensity : g_float_one;
-            amplitude *= g_float_two_hundred_fifty;
-            int span = static_cast<int>(amplitude) << 1;
-            g_trigger_action_scene_offset.x = Random(span) - amplitude;
-            g_trigger_action_scene_offset.y = Random(span) - amplitude;
-            g_trigger_action_scene_offset.z = Random(span) - amplitude;
-            g_trigger_action_active = true;
-            return;
-        }
-    }
-    g_trigger_action_active = false;
-}
-
-/* Bit 2 gates the distance test, bit 3 selects the quadratic falloff, bit 4
-   fades out with the remaining time and bit 5 fades in. */
-// FUNCTION: WIZ8 0x004AE4E0
-unsigned char W8CameraShakeEffect::Evaluate(const srVector3T<float>* position, float* out_amount)
-{
-    float progress = timer.GetProgress();
-    if (g_float_one <= progress) {
-        return 0;
-    }
-    if (flags.limit_distance) {
-        float dx = this->position.x - position->x;
-        float dy = this->position.y - position->y;
-        float dz = this->position.z - position->z;
-        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-        if (distance_cap < distance) {
-            *out_amount = 0.0f;
-        } else if (flags.quadratic_falloff) {
-            float weight = distance / distance_cap - g_float_one;
-            *out_amount = weight * weight;
-        } else {
-            *out_amount = 1.0f;
-        }
+    if (!g_camera_shake_enabled) return;
+    const float intensity = CameraShakes().Update(cameraLocation());
+    if (intensity > g_float_zero) {
+        const float amplitude = std::min(intensity, 1.0f) * g_float_two_hundred_fifty;
+        const int span = static_cast<int>(amplitude) << 1;
+        g_trigger_action_scene_offset.x = Random(span) - amplitude;
+        g_trigger_action_scene_offset.y = Random(span) - amplitude;
+        g_trigger_action_scene_offset.z = Random(span) - amplitude;
+        g_trigger_action_active = true;
     } else {
-        *out_amount = 1.0f;
+        g_trigger_action_active = false;
     }
-    if (flags.fade_out) {
-        *out_amount = (g_float_one - progress) * *out_amount;
-        return 1;
-    }
-    if (flags.fade_in) {
-        *out_amount = progress * *out_amount;
-    }
-    return 1;
 }
 
 // GLOBAL: WIZ8 0x005ec128
@@ -433,7 +355,6 @@ W8GrCycle::W8GrCycle()
 {
     current_model_instance = 0;
     m_plsLights = 0;
-    m_plsShakeEvents = 0;
     m_fDeleteLights = false;
     last_subcycle = 0;
     m_plsParticles = 0;
@@ -463,7 +384,6 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
 
     current_model_instance = 0;
     m_plsLights = 0;
-    m_plsShakeEvents = 0;
     m_fDeleteLights = other.m_fDeleteLights;
     last_subcycle = other.last_subcycle;
     m_plsParticles = 0;
@@ -503,23 +423,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
             m_plsLights->push_back(copied_light);
         }
     }
-    if (other.m_plsShakeEvents != 0 && !other.m_plsShakeEvents->empty()) {
-        count = static_cast<int>(other.m_plsShakeEvents->size());
-        m_plsShakeEvents = new std::vector<W8CameraShakeEffect*>();
-        if (m_plsShakeEvents == 0) {
-            srAssertFail("m_plsShakeEvents", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
-                         0xe3, 0);
-        }
-        for (index = 0; index < count; ++index) {
-            W8CameraShakeEffect* event = new W8CameraShakeEffect(*(*other.m_plsShakeEvents)[index]);
-
-            if (event == 0) {
-                srAssertFail("pEvent", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0xe9,
-                             0);
-            }
-            m_plsShakeEvents->push_back(event);
-        }
-    }
+    shake_events = other.shake_events;
     if (other.m_plsParticles != 0 && !other.m_plsParticles->empty()) {
         count = static_cast<int>(other.m_plsParticles->size());
         m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>();
@@ -562,12 +466,7 @@ W8GrCycle::~W8GrCycle()
         DestroyLightVector(m_plsLights);
         m_plsLights = 0;
     }
-    if (m_plsShakeEvents != 0) {
-        StopShakeEffects(m_plsShakeEvents);
-        wiz8::remove_all_and_delete_in_order(*m_plsShakeEvents);
-        delete m_plsShakeEvents;
-        m_plsShakeEvents = 0;
-    }
+    for (const auto& event : shake_events) CameraShakes().Stop(event);
     if (m_plsParticles != 0) {
         count = static_cast<int>(m_plsParticles->size());
         for (index = 0; index < count; ++index) {
@@ -653,10 +552,10 @@ void W8GrCycle::TickAnimation(float scale)
                                       W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_FOOTSTEP,
                                       representation->current_cycle, representation->subcycle,
                                       representation->current_subcycle);
-                    if (m_plsShakeEvents != 0) {
-                        TriggerShakeEffects(m_plsShakeEvents, representation->current_cycle,
+                    if (!shake_events.empty()) {
+                        TriggerShakeEvents(shake_events, representation->current_cycle,
                                             representation->subcycle,
-                                            representation->current_subcycle, &position);
+                                            representation->current_subcycle, position);
                     }
                 } while (frames != 0);
             }
@@ -708,10 +607,10 @@ unsigned char W8GrCycle::ApplyPendingCycle()
                           W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_CYCLE | W8_SOUND_EVENT_FOOTSTEP,
                           representation->current_cycle, representation->subcycle,
                           representation->current_subcycle);
-        if (m_plsShakeEvents != 0) {
-            TriggerShakeEffects(m_plsShakeEvents, representation->current_cycle,
+        if (!shake_events.empty()) {
+            TriggerShakeEvents(shake_events, representation->current_cycle,
                                 representation->subcycle, representation->current_subcycle,
-                                &position);
+                                position);
         }
 
         signed char subcycle_count = GetNumSubCycles();
@@ -1377,12 +1276,9 @@ void W8GrCycle::SetLights(std::vector<stLight*>* lights)
 }
 
 // FUNCTION: WIZ8 0x004a8530
-void W8GrCycle::AddShakeEffect(W8CameraShakeEffect* effect)
+void W8GrCycle::AddShakeEffect(ShakeDefinition effect)
 {
-    if (m_plsShakeEvents == 0) {
-        m_plsShakeEvents = new std::vector<W8CameraShakeEffect*>();
-    }
-    m_plsShakeEvents->push_back(effect);
+    shake_events.push_back(std::move(effect));
 }
 
 /* Index of the registered name whose cycle list holds this cycle, or -1. An empty
