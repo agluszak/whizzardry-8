@@ -1385,40 +1385,36 @@ void W8GrCycle::AddShakeEffect(W8CameraShakeEffect* effect)
     m_plsShakeEvents->push_back(effect);
 }
 
-// FUNCTION: WIZ8 0x004a8650
-const char* W8GrCycle::GetRegisteredName() const
+/* Index of the registered name whose cycle list holds this cycle, or -1. An empty
+   list is a retail assert, reported at assert_line. */
+static int FindRegisteredNameIndex(const W8GrCycle* cycle, int assert_line)
 {
-    int name_index;
-
-    for (name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size()); ++name_index) {
+    for (int name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size());
+         ++name_index) {
         std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
         if (cycles->empty()) {
             srAssertFail("plsCyclesOfAName->Length()",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x6c4, 0);
+                         "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", assert_line, 0);
         }
-        if (std::ranges::contains(*cycles, const_cast<W8GrCycle*>(this))) {
-            return g_grcycle_names[name_index];
+        if (std::ranges::contains(*cycles, const_cast<W8GrCycle*>(cycle))) {
+            return name_index;
         }
     }
-    return 0;
+    return -1;
+}
+
+// FUNCTION: WIZ8 0x004a8650
+const char* W8GrCycle::GetRegisteredName() const
+{
+    const int name_index = FindRegisteredNameIndex(this, 0x6c4);
+    return name_index < 0 ? 0 : g_grcycle_names[name_index];
 }
 
 // FUNCTION: WIZ8 0x004a8700
 bool W8GrCycle::IsSoleRegisteredCycleForName() const
 {
-    int name_index;
-
-    for (name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size()); ++name_index) {
-        std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-        if (cycles->empty()) {
-            srAssertFail("plsCyclesOfAName->Length()",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x6e6, 0);
-        }
-        if (std::ranges::contains(*cycles, const_cast<W8GrCycle*>(this))) {
-            return static_cast<int>(cycles->size()) == 1;
-        }
-    }
-    return true;
+    const int name_index = FindRegisteredNameIndex(this, 0x6e6);
+    return name_index < 0 || static_cast<int>(g_grcycles_by_name[name_index]->size()) == 1;
 }
 
 // FUNCTION: WIZ8 0x004a87a0
