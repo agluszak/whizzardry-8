@@ -1763,6 +1763,19 @@ unsigned int ChoosePowerLevelToRestore(W8Character* character, int spell_id,
     return power_level;
 }
 
+/* The worst of the listed conditions: the largest value, ties going to the later entry. */
+static unsigned int worstCondition(const w8_unaligned_uint* conditions,
+                                   std::initializer_list<int> ids)
+{
+    unsigned int worst = conditions[*ids.begin()];
+    for (const int id : ids) {
+        if (worst <= static_cast<unsigned int>(conditions[id])) {
+            worst = conditions[id];
+        }
+    }
+    return worst;
+}
+
 /* How hard the slot should cast the spell it has picked, from what its target
    actually needs. Everything it reads is the target's condition array - a
    character's at 0x0a01 or a monster's at 0x57, the same twenty entries with
@@ -1798,16 +1811,7 @@ unsigned int ChooseSpellPowerLevelForTarget(int party_slot, int spell_id, int id
             power_level = ChoosePowerLevelToRestore(caster, spell_id, target_character);
             break;
         case W8_SPELL_CURE_LESSER_COND:
-            worst = conditions[W8_CONDITION_NAUSEATED];
-            if (worst <= static_cast<unsigned int>(conditions[W8_CONDITION_AFRAID])) {
-                worst = conditions[W8_CONDITION_AFRAID];
-            }
-            if (worst <= static_cast<unsigned int>(conditions[W8_CONDITION_ASLEEP])) {
-                worst = conditions[W8_CONDITION_ASLEEP];
-            }
-            if (worst <= static_cast<unsigned int>(conditions[W8_CONDITION_BLIND])) {
-                worst = conditions[W8_CONDITION_BLIND];
-            }
+            worst = worstCondition(conditions, {W8_CONDITION_NAUSEATED, W8_CONDITION_AFRAID, W8_CONDITION_ASLEEP, W8_CONDITION_BLIND});
             power_level = ChoosePowerLevelForDuration(caster, spell_id, worst);
             break;
         case W8_SPELL_CURE_PARALYSIS:
@@ -1823,13 +1827,7 @@ unsigned int ChooseSpellPowerLevelForTarget(int party_slot, int spell_id, int id
                 ChoosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_DISEASED]);
             break;
         case W8_SPELL_SANE_MIND:
-            worst = conditions[W8_CONDITION_INSANE];
-            if (worst <= static_cast<unsigned int>(conditions[W8_CONDITION_TURNCOAT])) {
-                worst = conditions[W8_CONDITION_TURNCOAT];
-            }
-            if (worst <= static_cast<unsigned int>(conditions[W8_CONDITION_ASLEEP])) {
-                worst = conditions[W8_CONDITION_ASLEEP];
-            }
+            worst = worstCondition(conditions, {W8_CONDITION_INSANE, W8_CONDITION_TURNCOAT, W8_CONDITION_ASLEEP});
             power_level = ChoosePowerLevelForDuration(caster, spell_id, worst);
             break;
         case W8_SPELL_REMOVE_CURSE:
