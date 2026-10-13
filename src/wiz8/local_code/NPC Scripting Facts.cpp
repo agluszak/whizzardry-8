@@ -905,7 +905,8 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     } else if (g_status.endgame3_queued != 0) {
         QueueNpcAction(W8NpcStoryAction::phoonzang_notice);
     }
-    for (unsigned int entry_index = 0; entry_index < gXStatus.monster_roster.live().size(); ++entry_index) {
+    for (unsigned int entry_index = 0; entry_index < gXStatus.monster_roster.live().size();
+         ++entry_index) {
         W8MonsterInfo* entry = MonsterGetScriptPartByLocationIndex(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !entry->p3D->IsDying()) {

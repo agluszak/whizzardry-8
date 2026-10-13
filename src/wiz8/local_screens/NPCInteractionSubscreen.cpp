@@ -1144,8 +1144,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     g_npc_interaction_state->ui.reset();
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    for (unsigned int index = 0;
-         index < gXStatus.monster_roster.live().size(); index++) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); index++) {
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);

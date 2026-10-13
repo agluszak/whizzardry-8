@@ -503,11 +503,11 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
             return result;
         }
         detail = fmt::format("MonsterInfo: ERROR - missing entry, index {:d}, pList {}",
-                             monster_list_index, static_cast<const void*>(&gXStatus.monster_roster.live()));
+                             monster_list_index,
+                             static_cast<const void*>(&gXStatus.monster_roster.live()));
         line = 0x5de;
     } else {
-        if (monster_list_index - 10000 >=
-            gXStatus.monster_roster.unborn().size()) {
+        if (monster_list_index - 10000 >= gXStatus.monster_roster.unborn().size()) {
             srAssertFail("(uiMonsterListIndex-10000) < (UINT32) (&gXStatus.unborn_monsters ? "
                          "gXStatus.unborn_monsters.size() : 0)",
                          MONSTER_MANAGER_CPP, 0x5d1, 0);
@@ -517,7 +517,8 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
             return result;
         }
         detail = fmt::format("MonsterInfo: ERROR - missing entry, index {:d}, pList {}",
-                             monster_list_index, static_cast<const void*>(&gXStatus.monster_roster.live()));
+                             monster_list_index,
+                             static_cast<const void*>(&gXStatus.monster_roster.live()));
         line = 0x5d5;
     }
     srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, line, detail);
@@ -645,8 +646,7 @@ W8MonsterInfo* GetNextMonsterInfo(bool reset_iterator)
     if (reset_iterator) {
         g_monster_info_iterator_index = 0;
     }
-    if (g_monster_info_iterator_index <
-        static_cast<int>(gXStatus.monster_roster.live().size())) {
+    if (g_monster_info_iterator_index < static_cast<int>(gXStatus.monster_roster.live().size())) {
         index = g_monster_info_iterator_index++;
         result = GetMonsterListEntry(index);
     }
@@ -911,7 +911,8 @@ W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double 
     W8MonsterInfo* nearest = nullptr;
     double nearest_distance = 1.0e11;
 
-    for (const auto* monsters : {&gXStatus.monster_roster.live(), &gXStatus.monster_roster.unborn()}) {
+    for (const auto* monsters :
+         {&gXStatus.monster_roster.live(), &gXStatus.monster_roster.unborn()}) {
         for (W8MonsterInfo* monster_info : *monsters) {
             const double distance =
                 DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
@@ -1419,7 +1420,8 @@ void ProcessMonsterManagerFrame(void)
 {
     unsigned int monster_list_index;
 
-    for (monster_list_index = 0; monster_list_index < gXStatus.monster_roster.live().size(); ++monster_list_index) {
+    for (monster_list_index = 0; monster_list_index < gXStatus.monster_roster.live().size();
+         ++monster_list_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         W8Monster* monster = monster_info->p3D;
 
@@ -1719,7 +1721,8 @@ void EvaluateCombatDifficulty(void)
     unsigned int monster_index;
     int slot;
 
-    for (monster_index = 0; monster_index < gXStatus.monster_roster.live().size(); ++monster_index) {
+    for (monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
+         ++monster_index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster->fInCombat && monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster->hp_current > 0 && monster->highest_condition < W8_CONDITION_DEAD) {

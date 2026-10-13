@@ -1115,8 +1115,7 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
 
     for (index = 0; index < static_cast<int>(other->light_lists[other_cycle].size()); ++index) {
         std::vector<stLight*>* source_lights = other->light_lists[other_cycle][index];
-        std::vector<stLight*>* copied_lights =
-            CloneAnimationLightList(source_lights);
+        std::vector<stLight*>* copied_lights = CloneAnimationLightList(source_lights);
         light_lists[cycle].push_back(copied_lights);
     }
 }
@@ -4846,8 +4845,8 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             poster->setParent(g_world->dynamic_scene, 1);
             m_pRep->linked_runtime_objects.push_back(poster);
 
-            auto owned_particle = std::make_unique<stParticle>(
-                g_world->dynamic_scene, 0xa, srNode::Ownership::independent);
+            auto owned_particle = std::make_unique<stParticle>(g_world->dynamic_scene, 0xa,
+                                                               srNode::Ownership::independent);
             particle = owned_particle.get();
             auto material = std::make_shared<srMaterial>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);

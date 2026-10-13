@@ -783,5 +783,6 @@ void RetireParticle(W8World* world, std::unique_ptr<stParticle> particle)
 
 void SweepFinishedParticles(W8World* world)
 {
-    std::erase_if(world->retired_particles, [](const auto& particle) { return particle->finished; });
+    std::erase_if(world->retired_particles,
+                  [](const auto& particle) { return particle->finished; });
 }

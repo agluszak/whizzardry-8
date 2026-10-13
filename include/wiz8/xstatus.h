@@ -60,7 +60,7 @@ struct W8XStatus {
     /* 0x8f5 / 0x901: live and unborn monster lists (0x00683FAD) plus their owning storage. */
     W8MonsterRoster monster_roster;
     std::vector<W8MonsterGroup*> monster_groups; /* 0x8f9: 0x00683FB1 */
-    std::vector<W8WorldItem*> world_items; /* 0x8fd */
+    std::vector<W8WorldItem*> world_items;       /* 0x8fd */
     std::vector<W8MonsterGroup*> encounter_groups; /* 0x905 */
     unsigned char unknown_049[4];
     bool fSurprisePossible; /* 0x90d: 0x00683FC5 */

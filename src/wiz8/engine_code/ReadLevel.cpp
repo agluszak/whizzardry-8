@@ -1149,7 +1149,7 @@ try
         success = 0;
     } else {
         success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles,
-                                       srNode::Ownership::independent);
+                                     srNode::Ownership::independent);
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
     success = success && ReadNamedPositions(info.hFile, world->named_positions);

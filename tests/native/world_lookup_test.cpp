@@ -124,11 +124,15 @@ bool nodes(const std::filesystem::path& directory)
 
     srClock clock;
     g_shared_timer_base = &clock;
-    auto* gas = level.particles.emplace_back(std::make_unique<stParticle>(
-        level.world.dynamic_scene, 1, srNode::Ownership::independent)).get();
+    auto* gas = level.particles
+                    .emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1,
+                                                               srNode::Ownership::independent))
+                    .get();
     gas->setName("GAS");
-    auto* idle = level.particles.emplace_back(std::make_unique<stParticle>(
-        level.world.dynamic_scene, 1, srNode::Ownership::independent)).get();
+    auto* idle = level.particles
+                     .emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1,
+                                                                srNode::Ownership::independent))
+                     .get();
     idle->setName("IDLE");
     gas->persisted = true;
     gas->SetActive(0);

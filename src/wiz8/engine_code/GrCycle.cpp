@@ -384,7 +384,7 @@ try
         std::vector<std::unique_ptr<stParticle>> particles;
 
         success = ReadWorldParticles(info, g_world->dynamic_scene, &particles,
-                                   srNode::Ownership::independent);
+                                     srNode::Ownership::independent);
         if (!particles.empty()) {
             int index;
 

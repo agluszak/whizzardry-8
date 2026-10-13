@@ -3184,7 +3184,8 @@ void UpdateCombat(void)
             }
         }
     }
-    for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size(); ++monster_index) {
+    for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
+         ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->pCombat->sight_refresh_pending) {
@@ -3362,7 +3363,8 @@ void ScheduleCombatActor(void)
             }
         }
         if (g_combat_state->eCombatActionStatus == 0) {
-            for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size(); ++monster_index) {
+            for (unsigned int monster_index = 0;
+                 monster_index < gXStatus.monster_roster.live().size(); ++monster_index) {
                 W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 if (!monster_info->fInCombat) {
                     continue;

@@ -1065,7 +1065,8 @@ try
         return index < live ? index : static_cast<unsigned int>(index - live + kSecondaryListBase);
     };
     const unsigned int group_count = gXStatus.monster_groups.size() + gXStatus.encounter_groups.size();
-    const unsigned int monster_count = gXStatus.monster_roster.live().size() + gXStatus.monster_roster.unborn().size();
+    const unsigned int monster_count =
+        gXStatus.monster_roster.live().size() + gXStatus.monster_roster.unborn().size();
     chunks->WriteValue(group_count);
     chunks->WriteValue(monster_count);
     for (unsigned int index = 0; index < group_count; ++index) {

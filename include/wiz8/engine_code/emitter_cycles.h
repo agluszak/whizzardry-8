@@ -29,8 +29,7 @@ void CloneEmitterAnimations(Host& host, const Host& source)
     }
 }
 
-template<class Host>
-void CloneEmitterLightLists(Host& host, const Host& source)
+template <class Host> void CloneEmitterLightLists(Host& host, const Host& source)
 {
     for (std::size_t emitter = 0; emitter < std::size(host.light_lists); ++emitter) {
         for (auto* lights : source.light_lists[emitter]) {

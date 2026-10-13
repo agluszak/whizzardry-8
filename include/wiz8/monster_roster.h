@@ -33,7 +33,9 @@ public:
     bool promote(W8MonsterInfo* info)
     {
         const auto it = std::ranges::find(unborn_, info);
-        if (it == unborn_.end()) return false;
+        if (it == unborn_.end()) {
+            return false;
+        }
         unborn_.erase(it);
         live_.push_back(info);
         return true;
@@ -43,15 +45,28 @@ public:
     bool remove(W8MonsterInfo* info)
     {
         const auto owner = std::ranges::find(owned_, info, &std::unique_ptr<W8MonsterInfo>::get);
-        if (owner == owned_.end()) return false;
-        if (!std::erase(live_, info)) std::erase(unborn_, info);
+        if (owner == owned_.end()) {
+            return false;
+        }
+        if (!std::erase(live_, info)) {
+            std::erase(unborn_, info);
+        }
         owned_.erase(owner);
         return true;
     }
 
-    const std::vector<W8MonsterInfo*>& live() const { return live_; }
-    const std::vector<W8MonsterInfo*>& unborn() const { return unborn_; }
-    bool isUnborn(const W8MonsterInfo* info) const { return std::ranges::contains(unborn_, info); }
+    const std::vector<W8MonsterInfo*>& live() const
+    {
+        return live_;
+    }
+    const std::vector<W8MonsterInfo*>& unborn() const
+    {
+        return unborn_;
+    }
+    bool isUnborn(const W8MonsterInfo* info) const
+    {
+        return std::ranges::contains(unborn_, info);
+    }
 
 private:
     std::vector<std::unique_ptr<W8MonsterInfo>> owned_;

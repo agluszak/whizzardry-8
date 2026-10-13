@@ -592,7 +592,8 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             }
         }
     }
-    for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size(); ++monster_index) {
+    for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
+         ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
@@ -3036,7 +3037,6 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
                                     monster_info->location_id);
         }
-
     }
 }
 
@@ -3071,7 +3071,6 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
                                         candidate->location_id);
             }
         }
-
     }
 }
 
