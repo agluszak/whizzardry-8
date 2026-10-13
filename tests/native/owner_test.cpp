@@ -75,26 +75,6 @@
 #include "local_screens/RCSStatsPage.h"
 
 namespace {
-std::vector<int>* scrollbar_position_sink = nullptr;
-void RecordScrollPosition(W8DialogScrollBar*, int position)
-{
-    if (scrollbar_position_sink) scrollbar_position_sink->push_back(position);
-}
-
-class ScrollPositionCapture {
-public:
-    explicit ScrollPositionCapture(std::vector<int>& positions)
-        : previous_(scrollbar_position_sink)
-    {
-        scrollbar_position_sink = &positions;
-    }
-
-    ~ScrollPositionCapture() { scrollbar_position_sink = previous_; }
-
-private:
-    std::vector<int>* previous_;
-};
-
 std::vector<int> screen_leaves;
 int screen_entries, screen_frames;
 unsigned char enter() { ++screen_entries; return 1; }
@@ -1570,12 +1550,11 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
     PushButtonSoundScheme(0, true);
     std::vector<int> positions;
-    ScrollPositionCapture position_capture(positions);
     {
         UiLayer input;
         W8DialogScrollBar bar(input);
         const W8DialogScrollBar::Resources resources{
-            "arrows.sti", "track.sti", 0, RecordScrollPosition};
+            "arrows.sti", "track.sti", 0, [&positions](int position) { positions.push_back(position); }};
         REQUIRE(bar.CreateControls(&resources));
         bar.SetLayout(100, 20, 20, 5, 10, 30);
         GetInputState().mouse.y = 400;

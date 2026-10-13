@@ -86,10 +86,6 @@ private:
     /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
     void TextAreaButtonCallback(W8ButtonWidget* button);
-    void UpButtonCallback();
-    void DownButtonCallback();
-    void OkButtonCallback();
-    void CancelButtonCallback();
     void SliderTrackButtonCallback(W8ButtonWidget* button);
 
   public:

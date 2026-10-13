@@ -22,7 +22,6 @@ public:
 private:
     bool PopulateText();
     void DrawLabels(SDL_Surface& target);
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
     unsigned int m_spell;
     W8DialogScrollBar m_scroll_bar{InputLayer()};

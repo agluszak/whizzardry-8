@@ -95,12 +95,11 @@ int W8ProfRaceInfoDialogBase::CreateControls()
     resources.track_path = g_popup_race_profession_path;
     resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
     resources.track_frame = 1;
-    resources.on_scroll = ScrollCallback;
+    resources.on_scroll = [this](int first) { ScrollTextArea(m_text_area, first); };
     m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x159, m_y + 0x29, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb8);
-    m_scroll_bar.m_owner = this;
 
     CreateCloseButton(m_button, 0x14f, 0xe8);
     return 0;
@@ -188,16 +187,6 @@ void W8ProfRaceInfoDialogBase::OnRightButtonUp()
 void W8ProfRaceInfoDialogBase::OnMouseWheel(int delta)
 {
     m_scroll_bar.ScrollBy(delta);
-}
-
-// FUNCTION: WIZ8 0x005DF050
-void W8ProfRaceInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar,
-                                              int first_visible_entry)
-{
-    W8ProfRaceInfoDialogBase* dialog = static_cast<W8ProfRaceInfoDialogBase*>(scroll_bar->m_owner);
-    if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
-    }
 }
 
 /* Copies the row straight out of the table: every profession has minimums, so

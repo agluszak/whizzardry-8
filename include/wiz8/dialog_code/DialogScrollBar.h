@@ -2,10 +2,7 @@
 
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "Types.h"
-#include "compat/compiler.h"
-
-class W8DialogBase;
+#include <functional>
 
 class W8DialogScrollBar {
 public:
@@ -13,7 +10,7 @@ public:
         const char* arrows_path;
         const char* track_path;
         int track_frame;
-        void (*on_scroll)(W8DialogScrollBar*, int first_visible_entry);
+        std::function<void(int first_visible_entry)> on_scroll;
     };
     explicit W8DialogScrollBar(UiLayer& layer);
     W8DialogScrollBar(const W8DialogScrollBar&) = delete;
@@ -40,15 +37,9 @@ private:
     int m_entry_height;
     int m_view_height;
     W8ControlsRect m_track_bounds; /* left, top, right, bottom */
-public:
-    /* Owning dialog; MonsterInfoDialog stores this so the scroll callback can
-       retarget the text area. */
-    W8DialogBase* m_owner;
-
-private:
     W8ButtonWidget m_up_button;
     W8ButtonWidget m_down_button;
     W8ButtonWidget m_thumb_button;
     W8ButtonWidget m_track_button;
-    void (*m_on_scroll)(W8DialogScrollBar* scroll_bar, int first_visible_entry);
+    std::function<void(int first_visible_entry)> m_on_scroll;
 };

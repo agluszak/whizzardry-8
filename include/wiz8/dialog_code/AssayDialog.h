@@ -27,7 +27,6 @@ public:
     virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
 private:
     bool PopulateText();

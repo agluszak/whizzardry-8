@@ -84,12 +84,11 @@ int W8SpellInfoDialog::CreateControls()
     resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
     resources.track_path = g_spell_info_background_path;
     resources.track_frame = 1;
-    resources.on_scroll = ScrollCallback;
+    resources.on_scroll = [this](int first) { ScrollTextArea(m_text_area, first); };
     m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x43, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb9);
-    m_scroll_bar.m_owner = this;
 
     CreateCloseButton(m_button, 0x11a, 0x104);
     return 0;
@@ -311,15 +310,6 @@ void W8SpellInfoDialog::DrawLabels(SDL_Surface& target)
     width = g_wiz_text_font_secondary.textWidth(text);
     DrawText(target, g_wiz_text_font_secondary,
              {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33}, text);
-}
-
-// FUNCTION: WIZ8 0x005dc6c0
-void W8SpellInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8SpellInfoDialog* dialog = static_cast<W8SpellInfoDialog*>(scroll_bar->m_owner);
-    if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
-    }
 }
 
 /* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;

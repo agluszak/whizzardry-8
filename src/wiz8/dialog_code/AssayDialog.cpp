@@ -44,13 +44,6 @@
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
 
-// GLOBAL: WIZ8 0x0064f908
-static W8DialogScrollBar::Resources g_assay_scroll_resources = {
-    "Data\\Main Interface\\main_scroll.sti",
-    "Data\\Dialogs\\popup_iteminfo.sti",
-    4,
-    W8AssayDialog::ScrollCallback,
-};
 // GLOBAL: WIZ8 0x0064f918
 static int g_assay_scroll_x_offset = 0x160;
 // GLOBAL: WIZ8 0x0064f91c
@@ -121,7 +114,6 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
 W8AssayDialog::~W8AssayDialog()
 {
     DestroyControls();
-    NoOp();
 }
 
 // FUNCTION: WIZ8 0x005d7160
@@ -133,11 +125,16 @@ int W8AssayDialog::CreateControls()
         m_error = 7;
         return 7;
     }
-    if (m_scroll_bar.CreateControls(&g_assay_scroll_resources)) {
+    const W8DialogScrollBar::Resources resources{"Data\\Main Interface\\main_scroll.sti",
+                                                 "Data\\Dialogs\\popup_iteminfo.sti", 4, [this](int first) {
+                                                     m_text_area.SetFirstVisibleLine(first);
+                                                     m_buttons[4].m_dirty = true;
+                                                     m_text_area.m_dirty = true;
+                                                 }};
+    if (m_scroll_bar.CreateControls(&resources)) {
         m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
                                m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
                                g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
-        m_scroll_bar.m_owner = this;
         if (!PopulateRequirements()) {
             m_error = 7;
             return 7;
@@ -627,18 +624,6 @@ void W8AssayDialog::ShowPrimaryTab()
 void W8AssayDialog::ShowSecondaryTab()
 {
     ShowTab(false);
-}
-
-// FUNCTION: WIZ8 0x005d97a0
-void W8AssayDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8AssayDialog* dialog;
-    if (scroll_bar != 0) {
-        dialog = static_cast<W8AssayDialog*>(scroll_bar->m_owner);
-        dialog->m_text_area.SetFirstVisibleLine(first_visible_entry);
-        dialog->m_buttons[4].m_dirty = true;
-        dialog->m_text_area.m_dirty = true;
-    }
 }
 
 // FUNCTION: WIZ8 0x005d8850

@@ -21,7 +21,6 @@ public:
     virtual bool PopulateText();
 
 protected:
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
     W8DialogScrollBar scrollbar{InputLayer()};
     W8ButtonWidget button{InputLayer()};

@@ -66,11 +66,10 @@ int W8StatInfoDialogBase::CreateControls()
     resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
     resources.track_path = g_info_dialog_background;
     resources.track_frame = 1;
-    resources.on_scroll = ScrollCallback;
+    resources.on_scroll = [this](int first) { ScrollTextArea(textarea, first); };
     scrollbar.CreateControls(&resources);
     scrollbar.SetLayout(m_x + 299, m_y + 0x26, textarea.GetTotalLineCount(), 0,
                         textarea.GetLineHeight(), 0xb9);
-    scrollbar.m_owner = this;
 
     CreateCloseButton(button, 0x11a, 0xe6);
     return 0;
@@ -126,15 +125,6 @@ void W8StatInfoDialogBase::OnMouseWheel(int delta)
         for (int step = 0; step < -delta; ++step) {
             scrollbar.ScrollDown();
         }
-    }
-}
-
-// FUNCTION: WIZ8 0x005dfbf0
-void W8StatInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8StatInfoDialogBase* dialog = static_cast<W8StatInfoDialogBase*>(scroll_bar->m_owner);
-    if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->textarea, first_visible_entry);
     }
 }
 

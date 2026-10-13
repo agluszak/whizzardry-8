@@ -25,33 +25,6 @@ void W8ListBoxDialog::TextAreaButtonCallback(W8ButtonWidget* button)
     SetCurrentLine(line);
 }
 
-// FUNCTION: WIZ8 0x005ccf30
-void W8ListBoxDialog::UpButtonCallback()
-{
-    SetCurrentLine(m_selected_line - 1);
-}
-
-// FUNCTION: WIZ8 0x005ccfe0
-void W8ListBoxDialog::DownButtonCallback()
-{
-    SetCurrentLine(m_selected_line + 1);
-}
-
-// FUNCTION: WIZ8 0x005cd090
-void W8ListBoxDialog::OkButtonCallback()
-{
-    m_keep_open = false;
-    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-}
-
-// FUNCTION: WIZ8 0x005cd130
-void W8ListBoxDialog::CancelButtonCallback()
-{
-    m_keep_open = false;
-    SetCurrentLine(-1);
-    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-}
-
 // FUNCTION: WIZ8 0x005cd1e0
 void W8ListBoxDialog::SliderTrackButtonCallback(W8ButtonWidget* button)
 {

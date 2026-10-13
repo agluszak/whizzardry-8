@@ -221,19 +221,28 @@ int W8ListBoxDialog::CreateControls()
     const bool configured =
         m_up_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { UpButtonCallback(); }, UI_PRIORITY_HIGHEST - 1) &&
+            [this](W8ButtonWidget*) { SetCurrentLine(m_selected_line - 1); }, UI_PRIORITY_HIGHEST - 1) &&
         m_down_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { DownButtonCallback(); }, UI_PRIORITY_HIGHEST - 1) &&
+            [this](W8ButtonWidget*) { SetCurrentLine(m_selected_line + 1); }, UI_PRIORITY_HIGHEST - 1) &&
         m_slider_button.Configure(ButtonGraphics::Load("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE,
                                                        0, BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE),
                                   {}, UI_PRIORITY_HIGHEST - 2) &&
         m_ok_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { OkButtonCallback(); }, UI_PRIORITY_HIGHEST) &&
+            [this](W8ButtonWidget*) {
+                m_keep_open = false;
+                m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+            },
+            UI_PRIORITY_HIGHEST) &&
         m_cancel_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6),
-            [this](W8ButtonWidget*) { CancelButtonCallback(); }, UI_PRIORITY_HIGHEST);
+            [this](W8ButtonWidget*) {
+                m_keep_open = false;
+                SetCurrentLine(-1);
+                m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+            },
+            UI_PRIORITY_HIGHEST);
     if (!configured) {
         DestroyControls();
     } else {
@@ -1035,10 +1044,6 @@ void W8TriggerItemPickerDialog::ToggleAllItems()
         SetItemSelected(index, selected);
     }
 }
-
-/* Hand the selected items to the shared party pool. */
-
-/* Hand the selected items to the currently selected party member. */
 
 /* Toggle the flag on the first visible row and press its button to match. An
    out-of-range row just unpresses the clicked button. */

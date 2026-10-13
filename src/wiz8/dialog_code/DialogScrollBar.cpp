@@ -8,7 +8,6 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/ui_input.h"
-#include "Video2.h"
 #include "local_code/ControlsRect.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
@@ -148,7 +147,7 @@ void W8DialogScrollBar::ScrollUp()
     if (m_first_visible_entry != 0) {
         --m_first_visible_entry;
         if (m_on_scroll) {
-            m_on_scroll(this, m_first_visible_entry);
+            m_on_scroll(m_first_visible_entry);
         }
         UpdateThumb();
     }
@@ -162,7 +161,7 @@ void W8DialogScrollBar::ScrollDown()
         m_first_visible_entry < m_entry_count - visible_entries) {
         ++m_first_visible_entry;
         if (m_on_scroll) {
-            m_on_scroll(this, m_first_visible_entry);
+            m_on_scroll(m_first_visible_entry);
         }
         UpdateThumb();
     }
@@ -179,7 +178,7 @@ void W8DialogScrollBar::ScrollToMouse(int mouse_y)
         const int last_entry = m_entry_count - m_view_height / m_entry_height;
         m_first_visible_entry = last_entry * std::clamp(mouse_y - top, 0, range) / range;
         if (m_on_scroll) {
-            m_on_scroll(this, m_first_visible_entry);
+            m_on_scroll(m_first_visible_entry);
         }
         UpdateThumb();
     }
@@ -191,7 +190,6 @@ W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer)
 {
     m_initialized = false;
     m_visible = false;
-    m_owner = 0;
     m_entry_count = 1;
     m_first_visible_entry = 0;
     m_entry_height = -1;
