@@ -21,7 +21,6 @@
 #include <cstdint>
 #include <ctime>
 #include <exception>
-#include <new>
 #include <optional>
 #include <utility>
 
@@ -857,7 +856,7 @@ catch (const std::exception&) { return false; }
 
 /* Write the octree's point count and records to the mutable overlay. */
 // FUNCTION: WIZ8 0x00432d60
-bool W8Octree::SavePoints(char* path)
+bool W8Octree::SavePoints(const char* path)
 try
 {
     if (m_point_count == 0 || m_sample_points.empty()) {
@@ -1350,7 +1349,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
    Each key's table values are appended in chain order; the count is written
    first, then the keys and their short values. */
 // FUNCTION: WIZ8 0x004331f0
-bool W8Octree::SaveRegionLinks(char* path)
+bool W8Octree::SaveRegionLinks(const char* path)
 try
 {
     if (m_pRegionLinks == 0 || path == 0 || m_pRegionLinks->empty()) {

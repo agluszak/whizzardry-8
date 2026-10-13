@@ -1,5 +1,4 @@
 #include <list>
-#include <string>
 #include <optional>
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
@@ -1419,14 +1418,17 @@ W8GrCycle* FindFirstGrCycleByName(std::string_view name)
 
 unsigned char UnregisterGrCycle(W8GrCycle* cycle)
 {
-    const auto entry = std::ranges::find_if(g_registered_cycles, [cycle](const auto& entry) {
-        return wiz8::erase_first(entry.cycles, cycle);
-    });
-    if (entry == g_registered_cycles.end() || !entry->cycles.empty()) {
-        return false;
+    for (auto entry = g_registered_cycles.begin(); entry != g_registered_cycles.end(); ++entry) {
+        if (!wiz8::erase_first(entry->cycles, cycle)) {
+            continue;
+        }
+        if (!entry->cycles.empty()) {
+            return false;
+        }
+        g_registered_cycles.erase(entry);
+        return true;
     }
-    g_registered_cycles.erase(entry);
-    return true;
+    return false;
 }
 
 void RegisterGrCycle(const char* name, W8GrCycle* cycle)

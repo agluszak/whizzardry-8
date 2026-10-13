@@ -316,10 +316,10 @@ public:
     void UpdateCameraVisibility();
     void UpdateVisibility();
     unsigned char UpdateWorldTrace();
-    /* Store `path` with its extension stripped into m_owned_0c0; the sibling
+    /* Store `path` with its extension stripped into m_path_stem; the sibling
        data files are then derived from the stem. */
     bool SetPathStem(const char* path); /* 0x0042CF90 */
-    bool SavePoints(char* path);
+    bool SavePoints(const char* path);
     bool LoadPointFiles(const char* level_name);
     bool ReadRegionLinkFile(const char* level_name);
     /* Region containing `point` (1-based index into the volume array), else
@@ -337,7 +337,7 @@ public:
        `rebuild_all` sweeps every cell and discards the saved point list, a
        zero value samples a sparse checkerboard plus the stored points. */
     void BuildRegionLinks(bool rebuild_all); /* 0x004314C0 */
-    bool SaveRegionLinks(char* path);
+    bool SaveRegionLinks(const char* path);
     unsigned char ValidateRegionMeshLinks();
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
@@ -371,10 +371,7 @@ public:
     }
 
 public:
-    /* Same proven 0x9c value used by the level build tree.  Construction and
-       teardown operate on the offset-zero subobject, but current evidence does
-       not distinguish first-member composition from inheritance, so the
-       declaration makes the narrower composition claim. */
+    // Shared spatial queries borrow region volumes owned by this tree.
     W8OctSpatialState m_spatial;
     std::vector<W8OctRegionVolume> m_region_volumes; // Owns the spatial state's borrowed view.
     std::vector<W8OctPreTreeBranch> m_branches;
@@ -457,7 +454,7 @@ public:
     w8_ulong m_alpha_polygon_count;
     w8_ulong m_meshCount;
     w8_ulong m_gd_result_count;
-    std::array<w8_ulong, 10000> m_aulGDObjs; /* 0x1bc */
+    std::array<w8_ulong, 10000> m_aulGDObjs;
     W8OctreeView view;
     w8_ulong m_unknown_27c[6];
     bool m_visibility_suspended;

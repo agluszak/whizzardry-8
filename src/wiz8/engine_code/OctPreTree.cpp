@@ -522,7 +522,7 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                 ++model_index;
                 ++record_index;
             } while (record_index < m_spatial.submesh_count);
-                }
+        }
                 m_spatial.submesh_count = model_index;
                 m_meshCount = root_count;
                 m_root_mesh_count = kind_counts[0];
