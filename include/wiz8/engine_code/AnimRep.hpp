@@ -63,7 +63,8 @@ class W8AnimRepBase {
 public:
     W8AnimRepBase();
     W8AnimRepBase(const W8AnimRepBase& other);
-    virtual ~W8AnimRepBase() {}
+    virtual ~W8AnimRepBase() = default;
+    W8AnimRepBase& operator=(const W8AnimRepBase&) = default;
     virtual W8AnimRepBase* Clone();
 
     void SetLocation(const srVector3T<float>* location);
@@ -98,6 +99,8 @@ class W8AnimRep : public W8AnimRepBase {
 public:
     W8AnimRep();
     W8AnimRep(const W8AnimRep& other);
+    ~W8AnimRep() = default;
+    W8AnimRep& operator=(const W8AnimRep&) = default;
     void SetFrameMethod(signed char method);
 
 public:

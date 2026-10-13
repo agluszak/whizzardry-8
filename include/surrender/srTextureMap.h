@@ -21,6 +21,7 @@ public:
         return "srTextureMap";
     }
     srTextureMap& operator=(const srTextureMap& other);
+    srTextureMap(const srTextureMap&) = default;
     virtual void dump(std::ostream& stream) override;
 
 public:

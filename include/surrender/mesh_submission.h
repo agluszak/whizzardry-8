@@ -1,5 +1,7 @@
 #pragma once
 
+#include "surrender/non_copyable.h"
+
 #include <optional>
 #include "glm/ext/vector_float4.hpp"
 
@@ -10,46 +12,40 @@
 
 namespace srMeshSubmission {
 
-class AmbientScope {
+class AmbientScope : private NonCopyable {
 public:
     explicit AmbientScope(srGERD& renderer)
         : renderer(renderer), previous(renderer.getAmbientLight()) {}
     ~AmbientScope() { renderer.setAmbientLight(previous); }
     glm::vec4 ambient() const { return previous; }
-    AmbientScope(const AmbientScope&) = delete;
-    AmbientScope& operator=(const AmbientScope&) = delete;
 private:
     srGERD& renderer;
     glm::vec4 previous;
 };
 
-class WindingScope {
+class WindingScope : private NonCopyable {
 public:
     explicit WindingScope(srGERD& renderer) : renderer(renderer), previous(renderer.getWinding()) {}
     ~WindingScope() { renderer.setWinding(previous); }
-    WindingScope(const WindingScope&) = delete;
-    WindingScope& operator=(const WindingScope&) = delete;
 private:
     srGERD& renderer;
     srGERD::e_winding previous;
 };
 
-class PickScope {
+class PickScope : private NonCopyable {
 public:
     PickScope(srGERD& renderer, bool suppress) : renderer(renderer)
     {
         if (suppress) pick = renderer.popPick();
     }
     ~PickScope() { if (pick) renderer.pushPick(*pick); }
-    PickScope(const PickScope&) = delete;
-    PickScope& operator=(const PickScope&) = delete;
 
 private:
     srGERD& renderer;
     std::optional<srGERD::Pick> pick;
 };
 
-class EnableScope {
+class EnableScope : private NonCopyable {
 public:
     explicit EnableScope(srGERD& renderer, bool sorted) : renderer(renderer)
     {
@@ -58,8 +54,6 @@ public:
             renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
     }
     ~EnableScope() { renderer.popEnable(); }
-    EnableScope(const EnableScope&) = delete;
-    EnableScope& operator=(const EnableScope&) = delete;
 
 private:
     srGERD& renderer;

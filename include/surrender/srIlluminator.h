@@ -17,6 +17,7 @@ public:
     ~srIlluminator() override = default;
 
     SR_DLL_IMPORT srIlluminator& operator=(const srIlluminator& other);
+    srIlluminator(const srIlluminator&) = default;
     static SR_DLL_IMPORT const char* sGetClassName();
     virtual SR_DLL_IMPORT void traverse(TraverseInfo& info) override;
     virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type) override;

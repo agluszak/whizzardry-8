@@ -229,10 +229,10 @@ void srPalette::Quantizer::createRGBTable()
         blue_size = blue_steps;
     }
     unsigned char* row = lut_rgb;
-    for (w8_long index = 0; index < 0x100; ++index) {
+    for (auto& index : palette) {
         lut_row = row;
-        unsigned char red = palette[index].red;
-        unsigned char green = palette[index].green;
+        unsigned char red = index.red;
+        unsigned char green = index.green;
         for (w8_long block = 0; block < blue_blocks; ++block) {
             w8_long blue_lo = block * blue_size;
             initRGB(red, green, blue_lo, blue_lo + blue_size - 1);
@@ -843,9 +843,9 @@ void srPalette::Optimizer::findOptimalColor(Node* node, const LUT& lut)
         node->err_total = 0.0;
         node->err_min = 0.0;
         if (node->leaves == 0) {
-            for (w8_long index = 0; index < 8; ++index) {
-                if (node->children[index] != 0) {
-                    findOptimalColor(node->children[index], lut);
+            for (auto& index : node->children) {
+                if (index != 0) {
+                    findOptimalColor(index, lut);
                 }
             }
         } else {

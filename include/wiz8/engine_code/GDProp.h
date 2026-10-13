@@ -68,6 +68,8 @@ public:
            unsigned char footstep_surface, unsigned char footstep_material); /* 0x004B6E00 */
     ~GDProp();                                                               /* 0x004B6ED0 */
     void BindTrigger(Trigger* owner);
+    GDProp(const GDProp&) = default;
+    GDProp& operator=(const GDProp&) = default;
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
     bool HasSupportedItems();
     /* Rebuilds m_pVertices/m_pGDSurfaces for the given animation frame of the

@@ -41,6 +41,7 @@ public:
     stGroundShadow(srNode* parent);              /* 0x004D61B0 */
     stGroundShadow(const stGroundShadow& other); /* 0x004D6430 */
     stGroundShadow& operator=(const stGroundShadow&) = default;
+    virtual ~stGroundShadow() = default;
 
     virtual void traverse(TraverseInfo& info) override;                         /* 0x004D6540 */
     virtual void process(const ProcessInfo& info, e_processType type) override; /* 0x004D6640 */

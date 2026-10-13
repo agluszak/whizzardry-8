@@ -38,6 +38,8 @@ public:
     W8GameTimer();
     W8GameTimer(float duration, bool raw_time);
     virtual ~W8GameTimer();
+    W8GameTimer(const W8GameTimer&) = default;
+    W8GameTimer& operator=(const W8GameTimer&) = default;
     int ReadClock() const
     {
         switch (m_clock_mode) {

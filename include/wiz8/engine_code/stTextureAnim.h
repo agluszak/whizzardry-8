@@ -42,6 +42,7 @@ public:
 
 public:
     stTextureAnim& operator=(const stTextureAnim&) = default;
+    virtual ~stTextureAnim() = default;
     void UpdateFrame();
 
     std::vector<std::shared_ptr<srTextureIFace>> textures;

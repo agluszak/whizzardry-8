@@ -106,6 +106,9 @@ public:
 class W8StringTriggerActionData : public W8TriggerActionData {
 public:
     virtual ~W8StringTriggerActionData() override;
+    W8StringTriggerActionData() = default;
+    W8StringTriggerActionData(const W8StringTriggerActionData&) = default;
+    W8StringTriggerActionData& operator=(const W8StringTriggerActionData&) = default;
     char* owned_string;
 };
 
@@ -191,6 +194,7 @@ public:
     Trigger();
     virtual ~Trigger() override;
     Trigger& operator=(const Trigger&) = default;
+    Trigger(const Trigger&) = default;
 
     static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world);
 

@@ -18,7 +18,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "conditions.h"
-#include "equipment_slots.h"
 #include "gameplay_modifiers.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/main_game_screen.h"
@@ -137,11 +136,11 @@ bool RecalculateCarriedWeight(W8Character* character)
 {
     unsigned int previous = character->inventory_weight;
     character->inventory_weight = 0;
-    for (int index = 0; index < W8_EQUIP_SLOT_COUNT; ++index) {
-        character->inventory_weight += GetItemStackWeight(&character->EquippedItem[index]);
+    for (auto& item : character->EquippedItem) {
+        character->inventory_weight += GetItemStackWeight(&item);
     }
-    for (int backpack_index = 0; backpack_index < 8; ++backpack_index) {
-        character->inventory_weight += GetItemStackWeight(&character->backpack[backpack_index]);
+    for (auto& item : character->backpack) {
+        character->inventory_weight += GetItemStackWeight(&item);
     }
     if (previous < character->carrying_capacity &&
         character->carrying_capacity < character->inventory_weight) {

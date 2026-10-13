@@ -34,8 +34,8 @@ void RebuildPartyEffectBlock(void)
     if (gXStatus.fCombatMode) {
         unsigned char value = g_status.party_modifiers.armor_matchup;
 
-        for (int index = 0; index < 9; ++index) {
-            W8EffectSlot* slot = &g_combat_state->effect_slots[index];
+        for (auto & effect_slot : g_combat_state->effect_slots) {
+            W8EffectSlot* slot = &effect_slot;
             if (slot->active && slot->effect_id == 0x31) {
                 value -= slot->amount;
                 g_status.party_modifiers.armor_matchup = value;

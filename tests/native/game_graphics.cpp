@@ -44,7 +44,7 @@ extern unsigned char g_fullscreen;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
-struct FixtureRoot
+struct FixtureRoot  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
 {
     std::filesystem::path path;
     ~FixtureRoot()

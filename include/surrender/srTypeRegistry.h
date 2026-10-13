@@ -28,6 +28,7 @@ public:
     srRegistry() = default;
     srRegistry(const srRegistry&) = delete;
     srRegistry& operator=(const srRegistry&) = delete;
+    ~srRegistry() = default;
 
     ClassNode* getClassNode(w8_ulong class_id);
     w8_ulong getClassID(ClassNode* node);
@@ -77,6 +78,7 @@ private:
 
 class srClass : public srRuntimeClass {
 public:
+    virtual ~srClass() = default;
     typedef srClass RegistryClass;
 
     static SR_DLL_IMPORT const char* sGetClassName();
@@ -168,6 +170,8 @@ public:
     }
 
     srClassSupport& operator=(const srClassSupport&) = default;
+    virtual ~srClassSupport() = default;
+    srClassSupport(const srClassSupport&) = default;
 };
 
 /* Exact-class downcast by format class ID; the engine builds without RTTI. */

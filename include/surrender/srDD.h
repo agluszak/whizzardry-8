@@ -64,8 +64,8 @@ public:
             format_index = 0;
             parameter = 0;
             resident_size = 0;
-            for (w8_long level = 0; level < 12; ++level) {
-                levels[level] = 0;
+            for (auto& level : levels) {
+                level = 0;
             }
         }
 
@@ -281,4 +281,4 @@ public:
     virtual void setPolygonOffset(w8_long offset) = 0;
 };
 
-inline srDD::~srDD() {}
+inline srDD::~srDD() = default;

@@ -312,8 +312,8 @@ void InitializePartyMovementPhase(void)
 void AlignCombatantsToPartyMovementPhase(void)
 {
     RoundPhaseToStep(&g_combat_state->uiPartyActionPhase, g_combat_state->round_counter);
-    for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
+    for (auto & character : g_combat_state->characters) {
+        W8CombatCharacterRow* row = &character;
         if (row->phase >= g_combat_state->round_counter && !row->dead) {
             RoundPhaseToStep(&row->phase, g_combat_state->round_counter);
         }

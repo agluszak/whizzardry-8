@@ -9,7 +9,7 @@ public:
 
     // FUNCTION: SURRENDER 0x100032B0
     // RECOMP: ??1srFilter@@UAE@XZ
-    virtual ~srFilter() {}
+    virtual ~srFilter() = default;
 
     virtual const char* getName() const = 0;
     virtual double getWeight(double value) const = 0;

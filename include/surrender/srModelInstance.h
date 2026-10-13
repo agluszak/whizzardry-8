@@ -19,6 +19,7 @@ public:
     SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
 
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
+    srModelInstance(const srModelInstance&) = default;
 
     // FUNCTION: SURRENDER 0x1004FFE0
     static const char* sGetClassName()

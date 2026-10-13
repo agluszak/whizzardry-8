@@ -186,8 +186,8 @@ void AdvanceEnvironmentTime(int elapsed)
     }
 
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    for (int index = 0; index < 3; ++index) {
-        if (auto animation = g_sky_gradient_animations[index].lock()) {
+    for (const auto& sky_gradient_animation : g_sky_gradient_animations) {
+        if (auto animation = sky_gradient_animation.lock()) {
             animation->frame = static_cast<int>(phase);
         }
     }

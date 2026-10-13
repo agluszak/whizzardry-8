@@ -291,6 +291,9 @@ public:
     void invalidate() override {}
     void setupDefaultValues() override {}
     ~TestTexture() override { ++destroyed; }
+    TestTexture() = default;
+    TestTexture(const TestTexture&) = default;
+    TestTexture& operator=(const TestTexture&) = default;
 };
 
 static bool skins_and_automap()

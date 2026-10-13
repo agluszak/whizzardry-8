@@ -14,6 +14,7 @@ public:
         w8_ulong peekByte();
         SR_DLL_IMPORT w8_ulong getBit();
         SR_DLL_IMPORT void rewind(w8_long bits);
+        ~BitIStream() = default;
 
     private:
         BitIStream(const BitIStream& stream);
@@ -88,6 +89,7 @@ public:
         };
 
         SR_DLL_IMPORT Compressor(const Sampler& sampler);
+        ~Compressor() = default;
 
         SR_DLL_IMPORT void storeSymbolTable(BitOStream& stream);
         SR_DLL_IMPORT void buildSymbolTree();
@@ -112,6 +114,7 @@ public:
 
     private:
         Compressor(const Compressor& other);
+        Compressor& operator=(const Compressor&) = default;
 
         void dumpNode(BitOStream& stream, Node* node);
 
@@ -124,6 +127,7 @@ public:
         SR_DLL_IMPORT Decompressor(BitIStream& stream);
         SR_DLL_IMPORT w8_ulong decompressSymbol();
         SR_DLL_IMPORT w8_ulong getDataCount() const;
+        ~Decompressor() = default;
 
     private:
         struct Symbol {

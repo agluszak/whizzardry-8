@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <system_error>
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <mutex>
 #include <cerrno>
@@ -93,10 +94,10 @@ bool within(const std::string& path, const std::string& base)
 }
 bool immutable(const std::string& path)
 {
-    for (const auto& root : {roots.assets, roots.discs[0], roots.discs[1], roots.discs[2]})
-        if (within(path, root) || ancestry(path, root, false))
-            return true;
-    return false;
+    return std::ranges::any_of(std::array{roots.assets, roots.discs[0], roots.discs[1], roots.discs[2]},
+                               [&](const std::string& root) {
+        return within(path, root) || ancestry(path, root, false);
+    });
 }
 void validate_roots()
 {
@@ -187,7 +188,7 @@ Path parse(const char* input)
         return path;
     }
     std::replace(text.begin(), text.end(), '\\', '/');
-    if (text.rfind("//", 0) == 0)
+    if (text.starts_with("//"))
     {
         errno = ENOTSUP;
         path.drive = -1;
@@ -320,7 +321,7 @@ std::string read(const Path& path)
 
 void configure_paths(const Roots& configuration)
 {
-    std::lock_guard<std::recursive_mutex> guard(lock);
+    std::scoped_lock guard(lock);
     roots = configuration;
     roots.assets = absolute(roots.assets.empty() ? "." : roots.assets);
     if (!roots.user.empty())
@@ -335,13 +336,13 @@ void configure_paths(const Roots& configuration)
 }
 Roots path_roots()
 {
-    std::lock_guard<std::recursive_mutex> guard(lock);
+    std::scoped_lock guard(lock);
     initialize();
     return roots;
 }
 std::string full_path(const char* input)
 {
-    std::lock_guard<std::recursive_mutex> guard(lock);
+    std::scoped_lock guard(lock);
     Path path = parse(input);
     if (path.drive < 0)
         return "";
@@ -370,7 +371,7 @@ ResolvedPath resolve_path(std::string_view input, PathDomain domain)
 {
     if (input.empty() || input.find('\0') != std::string_view::npos)
         throw std::invalid_argument("empty file path or embedded NUL");
-    std::lock_guard<std::recursive_mutex> guard(lock);
+    std::scoped_lock guard(lock);
     initialize();
     const std::string text(input);
     if (domain == PathDomain::game && !(text.size() >= 2 && text[1] == ':') &&
@@ -418,7 +419,7 @@ ResolvedPath resolve_path(std::string_view input, PathDomain domain)
 
 int change_directory(const char* input)
 {
-    std::lock_guard<std::recursive_mutex> guard(lock);
+    std::scoped_lock guard(lock);
     const std::string physical = read(parse(input));
     std::error_code error;
     if (!fs::is_directory(native_path(physical), error))
@@ -438,7 +439,7 @@ int change_directory(const char* input)
 }
 std::string current_directory()
 {
-    std::lock_guard<std::recursive_mutex> guard(lock);
+    std::scoped_lock guard(lock);
     initialize();
     return cwd;
 }

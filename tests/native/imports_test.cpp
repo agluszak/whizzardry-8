@@ -1,3 +1,4 @@
+#include "surrender/non_copyable.h"
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_pixels.h>
@@ -61,7 +62,7 @@ static void assertion(const char* expression, const char* path, w8_long line, co
     ++assertions;
 }
 static int destroyed_nodes = 0;
-struct ClientNode : srNode
+struct ClientNode : private NonCopyable, srNode
 {
     bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
     ~ClientNode() override
@@ -72,8 +73,7 @@ struct ClientNode : srNode
 struct ClientMaterial : srMaterial
 {
     ~ClientMaterial() override
-    {
-    }
+    = default;
 };
 struct ClientTextureFile : srTextureFile
 {
@@ -81,8 +81,7 @@ struct ClientTextureFile : srTextureFile
     {
     }
     ~ClientTextureFile() override
-    {
-    }
+    = default;
 };
 // Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
 static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
@@ -189,6 +188,7 @@ static int shared_surface_lifetimes()
         using srTextureMap::srTextureMap;
         Map& operator=(const Map&) = default;
         ~Map() override = default;
+        Map(const Map&) = default;
     };
     std::weak_ptr<srColorSurfaceIFace> surface_lifetime;
     std::weak_ptr<srPalette> palette_lifetime;

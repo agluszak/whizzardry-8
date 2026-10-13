@@ -99,12 +99,12 @@ void mount_slf(std::string_view game_path, bool patch)
     for (std::size_t i = 1; i < archive.entries.size(); ++i)
         if (archive.entries[i - 1].name == archive.entries[i].name)
             throw std::runtime_error("duplicate SLF entry name");
-    std::lock_guard lock(mutex);
+    std::scoped_lock lock(mutex);
     archives.push_back(std::move(archive));
 }
 void clear_asset_archives()
 {
-    std::lock_guard lock(mutex);
+    std::scoped_lock lock(mutex);
     archives.clear();
 }
 void refresh_asset_archives()
@@ -159,7 +159,7 @@ std::optional<AssetEntry> archive_entry(std::string_view game_path)
     auto lookup = std::string_view(name);
     if (lookup.size() >= 2 && lookup[1] == ':') lookup.remove_prefix(2);
     while (lookup.starts_with('\\')) lookup.remove_prefix(1);
-    std::lock_guard lock(mutex);
+    std::scoped_lock lock(mutex);
     const Archive* best = nullptr;
     const Entry* found = nullptr;
     for (const auto& archive : archives)

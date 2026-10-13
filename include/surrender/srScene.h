@@ -26,6 +26,8 @@ public:
     srScene(srNode* parent = 0);
 
     srScene& operator=(const srScene& other);
+    virtual ~srScene() = default;
+    srScene(const srScene&) = default;
 
     virtual void dump(std::ostream& stream) override;
     virtual void traverse(TraverseInfo& info) override;

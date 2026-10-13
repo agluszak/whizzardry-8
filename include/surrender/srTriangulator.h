@@ -11,6 +11,7 @@ public:
     explicit srTriangulator(std::span<const glm::vec2> points);
     srTriangulator(const srTriangulator&) = delete;
     srTriangulator& operator=(const srTriangulator&) = delete;
+    ~srTriangulator() = default;
 
     std::optional<glm::ivec3> next();
 

@@ -139,7 +139,7 @@ public:
         return "stLight";
     }
 
-    stLight() {}
+    stLight() = default;
     explicit stLight(srNode* parent);         /* 0x0049C2C0 */
     stLight& operator=(const stLight& other); /* 0x0049C690 */
 
@@ -183,6 +183,7 @@ public:
     unsigned char m_unknown_238;     /* 0x238 */
     /* Oscillation direction: zero sweeps intensity down, nonzero sweeps up. */
     unsigned char m_direction;
+    stLight(const stLight&) = default;
     /* Raised by light-toggle triggers; the save path serializes the names of
        lights carrying it so their toggled state persists in savegames. */
     bool m_save_marked; /* 0x23a */
@@ -217,8 +218,7 @@ inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* sou
             srAssertFail("plsNewLights", file, list_line,
                          "Out of memory creating monster light list");
         }
-        for (int index = 0; index < static_cast<int>(source->size()); ++index) {
-            stLight* light = (*source)[index];
+        for (auto light : *source) {
             float x = light->positionalX();
             float y = light->positionalY();
             float z = light->positionalZ();

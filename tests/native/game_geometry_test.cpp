@@ -1,3 +1,4 @@
+#include "surrender/non_copyable.h"
 #include "wiz8/camera_motion.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/placement_math.h"
@@ -895,7 +896,7 @@ TEST_CASE("Ground shadow projection retains rotated scale center and coordinate 
 TEST_CASE_METHOD(SurRenderTestFixture, "Ground polygon queries return owned sorted runs beyond thirty faces", "[geometry][octree]")
 {
     W8World world{};
-    const struct RestoreWorld {
+    const struct RestoreWorld {  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         W8World* previous;
         ~RestoreWorld() { g_world = previous; }
     } restore{g_world};
@@ -959,7 +960,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     const srBoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
     const auto dense = tree.queryObjects(bounds, W8_OCTREE_KIND_LOCATION, -1);
     REQUIRE(dense.size() == 10000);
-    const auto original = dense;
+    const auto& original = dense;
 
     // The 10,000-result query above verifies the fixed cap. nearbyLocations
     // delegates to queryObjects, so exercise its bounds on the smaller data
@@ -1187,7 +1188,7 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
 
 TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geometry][viewport]")
 {
-    struct RestoreViewport {
+    struct RestoreViewport : private NonCopyable {
         W8ViewportRect saved = g_viewport;
         ~RestoreViewport() { g_viewport = saved; }
     } restore;
@@ -1228,7 +1229,7 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Navigator releases replaced and cleared paths", "[geometry][navigation]")
 {
-    struct TrackedPath : W8PathAI {
+    struct TrackedPath : private NonCopyable, W8PathAI {
         explicit TrackedPath(int& releases) : releases(releases) {}
         ~TrackedPath() override { ++releases; }
         int& releases;
@@ -1289,7 +1290,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and way
 }
 
 namespace {
-struct SharedClock {
+struct SharedClock : private NonCopyable {
     srClock clock;
     srClock* saved = std::exchange(g_shared_timer_base, &clock);
     ~SharedClock() { g_shared_timer_base = saved; }
@@ -1641,7 +1642,7 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
 
 TEST_CASE("Surface triangles are complete values and reject invalid vertex indices", "[geometry]")
 {
-    struct RestoreGameData {
+    struct RestoreGameData : private NonCopyable {
         W8GameData* previous = g_octree_game_data;
         ~RestoreGameData() { g_octree_game_data = previous; }
     } restore;
@@ -1664,7 +1665,7 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering", "[geometry]")
 {
-    struct RestoreClock {
+    struct RestoreClock : private NonCopyable {
         srClock* previous = g_shared_timer_base;
         ~RestoreClock() { g_shared_timer_base = previous; }
     } restore;
@@ -1771,7 +1772,7 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and light-bank rules", "[geometry]")
 {
-    struct RestoreLighting {
+    struct RestoreLighting : private NonCopyable {
         glm::vec3 offset = g_environment_offset;
         float scale = g_monster_light_scale;
         bool unlit = g_render_unlit;
@@ -1992,7 +1993,7 @@ TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled
 TEST_CASE("Wizardry light inactivity and missing definitions have distinct traversal policies", "[geometry][rendering]")
 {
     SurRenderTestFixture runtime;
-    struct RestoreFlags {
+    struct RestoreFlags : private NonCopyable {
         unsigned saved = g_light_update_flags;
         ~RestoreFlags() { g_light_update_flags = saved; }
     } restore;
@@ -2192,7 +2193,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds return complete boxes and re
     GDProp empty;
     REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
     W8Octree tree(0, 0);
-    struct RestoreOctree {
+    struct RestoreOctree {  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         W8Octree* previous;
         ~RestoreOctree() { g_octree = previous; }
     } restore{g_octree};
@@ -2569,7 +2570,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Material vertex splits preserve first-fa
     geometry.vertex_count = 5; // Three used vertices and one unused vertex after the sentinel.
     geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(geometry.vertex_count, sizeof(W8OctPreTreeVertex)));
     REQUIRE(geometry.m_vertices);
-    struct ReleaseVertices {
+    struct ReleaseVertices {  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         W8OctPreTreeGeometry& geometry;
         ~ReleaseVertices() { std::free(geometry.m_vertices); }
     } release{geometry};
@@ -2641,7 +2642,7 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
     geometry.m_polygon_count = 4;
     geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(7, sizeof(W8OctPreTreeVertex)));
     geometry.m_polygons = static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
-    struct ReleaseGeometry {
+    struct ReleaseGeometry {  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         W8OctPreTreeGeometry& geometry;
         ~ReleaseGeometry() { std::free(geometry.m_vertices); std::free(geometry.m_polygons); }
     } release{geometry};
@@ -2863,7 +2864,7 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     REQUIRE_FALSE(surface.edgeContactLimit({0, 4, 4}, triangle, 1));
 
     W8LevelDataRecord level{};
-    const struct RestoreLevel {
+    const struct RestoreLevel {  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         W8LevelDataRecord* previous;
         ~RestoreLevel() { g_level_data = previous; }
     } restore{g_level_data};
@@ -2940,7 +2941,7 @@ TEST_CASE("Camera rotation and movement share the level motion flag policy", "[g
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initialized values", "[geometry]")
 {
-    const struct RestoreRuntime {
+    const struct RestoreRuntime {  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         W8EnvironRecord* environ = g_environ;
         W8LevelDataRecord* level = g_level_data;
         unsigned int* flags = g_level_flags;

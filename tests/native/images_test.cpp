@@ -1,3 +1,4 @@
+#include "surrender/non_copyable.h"
 #include <SDL3/SDL_rect.h>
 #include <cstdint>
 #include <catch2/catch_test_macros.hpp>
@@ -283,7 +284,7 @@ static void check_pcx(const SDL_Surface& image)
     REQUIRE(palette[2] == 0x7c00);
 }
 
-struct ImageFixture
+struct ImageFixture : private NonCopyable
 {
     ScopedTemporaryDirectory directory{"wiz8-images"};
     fs::path root = directory.path;
@@ -735,7 +736,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
 TEST_CASE("SDL sprite drawing preserves opaque pixels across native formats")
 {
     const auto previous_format = g_sgp_pixel_format;
-    struct RestoreFormat {
+    struct RestoreFormat {  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         SDL_PixelFormat format;
         ~RestoreFormat() { g_sgp_pixel_format = format; }
     } restore{previous_format};

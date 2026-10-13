@@ -16,6 +16,7 @@ public:
     virtual ~srTextureFile() override;
     srTextureFile(std::string file_name = {}, int cached = 0);
 
+    srTextureFile(const srTextureFile&) = delete;
     srTextureFile& operator=(const srTextureFile& other);
 
     // FUNCTION: SURRENDER 0x1005FF10

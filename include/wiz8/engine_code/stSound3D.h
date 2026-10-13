@@ -42,6 +42,7 @@ public:
     char* wave_name;   /* 0x148: owned copy of the wave filename */
     bool auto_release; /* 0x14c: release the node when playback ends */
 
+    stSound3D(const stSound3D&) = default;
     /* srClassSupport::clone expands this class-specific assignment in the
        header-owned template body at 0x004AF460. The source name is duplicated
        rather than shared, while a live sound handle is deliberately not. */

@@ -61,6 +61,7 @@ public:
     W8MissileRep();
     W8MissileRep(const W8MissileRep& other);
     virtual ~W8MissileRep() override;
+    W8MissileRep& operator=(const W8MissileRep&) = default;
     virtual W8AnimRepBase* Clone() override;
     virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
                                               signed char lod) override;
@@ -83,6 +84,7 @@ class W8Missile : public W8GrCycle {
 public:
     W8Missile();
     W8Missile(const W8Missile& other); /* 0x004A3E50 */
+    W8Missile& operator=(const W8Missile&) = delete;
     virtual ~W8Missile() override;
 
     virtual void UpdateRepresentation(W8World* world) override;

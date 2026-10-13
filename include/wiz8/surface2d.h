@@ -23,6 +23,7 @@ public:
     stTexture2D();
     virtual ~stTexture2D() override;
     stTexture2D& operator=(const stTexture2D&) = default;
+    stTexture2D(const stTexture2D&) = default;
     virtual w8_ulong getTextureFrameHandle() override;
     virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;

@@ -21,6 +21,8 @@ public:
                  const srVector3T<float>* second_color); /* 0x0049D500 */
     MonsterLight(const MonsterLight& other);             /* 0x0049D660 */
     void SetVisible(bool visible);
+    ~MonsterLight() = default;
+    MonsterLight& operator=(const MonsterLight&) = default;
     void SetRange(float range);
     void Update(const srVector3T<float>* position);
     void StartFadeOut();

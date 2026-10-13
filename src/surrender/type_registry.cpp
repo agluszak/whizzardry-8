@@ -169,7 +169,7 @@ srRegistry::ClassNode* srRegistry::getRootNode()
 
 srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
 {
-    std::lock_guard lock(mutex);
+    std::scoped_lock lock(mutex);
     auto found = classes.find(class_id);
     return found == classes.end() ? nullptr : found->second.get();
 }
@@ -177,7 +177,7 @@ srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
 srRegistry::ClassNode* srRegistry::registerClass(const char* class_name, ClassNode* parent,
                                                w8_ulong class_id)
 {
-    std::lock_guard lock(mutex);
+    std::scoped_lock lock(mutex);
     if (auto* existing = getClassNode(class_id)) {
         return existing;
     }

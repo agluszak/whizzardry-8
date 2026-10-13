@@ -1,3 +1,4 @@
+#include "surrender/non_copyable.h"
 #include <algorithm>
 #include <optional>
 #include <span>
@@ -235,7 +236,7 @@ void W8OctBuildTree::AppendLink(W8OctBuildNode* node, void* payload, short kind)
 
 /* A query owns both ordered results and its membership index. Visit flags
    retain the kind-3/list-3 filter, and are cleared even if allocation throws. */
-struct W8OctBuildTree::SurfaceCollector {
+struct W8OctBuildTree::SurfaceCollector : private NonCopyable {
     std::vector<W8GDSurface*> results;
     std::unordered_set<W8GDSurface*> seen;
 

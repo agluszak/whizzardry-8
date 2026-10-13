@@ -86,6 +86,7 @@ struct W8MonsterRep : public W8EmitterHost {
     W8MonsterRep();
     W8MonsterRep(const W8MonsterRep& other);
     virtual ~W8MonsterRep() override;
+    W8MonsterRep& operator=(const W8MonsterRep&) = default;
     virtual W8AnimRepBase* Clone() override; /* 0x004CA9E0 */
     virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
                                               signed char lod) override;  /* 0x004BF8C0 */
@@ -156,6 +157,7 @@ public:
 
     W8Monster();
     W8Monster(const W8Monster& rhs);
+    W8Monster& operator=(const W8Monster&) = delete;
     virtual ~W8Monster() override;
 
     virtual unsigned char CanEnterCycle(signed char cycle) override;
@@ -419,7 +421,7 @@ void ApplyMonsterRepresentationScale(W8Monster* monster);
    table. Nothing recovered stores or dispatches through the base pointer. */
 class W8MonsterShakeCallbackBase {
 public:
-    virtual ~W8MonsterShakeCallbackBase() {}
+    virtual ~W8MonsterShakeCallbackBase() = default;
 };
 
 class W8MonsterShakeCallback : public W8MonsterShakeCallbackBase {

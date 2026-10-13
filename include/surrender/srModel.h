@@ -25,6 +25,7 @@ public:
     }
 
     virtual ~srModel() override;
+    srModel(const srModel&) = default;
 
 public:
     struct Bounds {

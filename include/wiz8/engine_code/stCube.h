@@ -22,7 +22,7 @@ public:
         pUserdata = 0;
         userdata_size = 0;
     }
-    virtual ~W8WorldCursorNode() {}
+    virtual ~W8WorldCursorNode() = default;
     /* 0x0048D050: copy the node's world location out; answers 0 when the node
        chain is absent. */
     unsigned char GetLocation(srVector3T<float>* position);

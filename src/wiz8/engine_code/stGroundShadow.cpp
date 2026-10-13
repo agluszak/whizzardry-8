@@ -159,10 +159,13 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
     if (polygons.empty()) return;
 
     const struct OffsetScope {
+        OffsetScope(srGERD& target, w8_long saved) : renderer(target), previous(saved) {}
         srGERD& renderer;
         w8_long previous;
         ~OffsetScope() { renderer.setPolygonOffset(previous); }
-    } offset{renderer, renderer.getPolygonOffset()};
+        OffsetScope(const OffsetScope&) = default;
+        OffsetScope& operator=(const OffsetScope&) = delete;
+        } offset{renderer, renderer.getPolygonOffset()};
     renderer.setPolygonOffset(2);
     g_ground_shadow_material_parameters.projection.emplace(position, width, depth, angle);
 

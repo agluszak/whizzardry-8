@@ -26,6 +26,7 @@ public:
     }
 
     stTextureFile(const char* file_name, int cached); /* 0x0047C630 */
+    stTextureFile(const stTextureFile&) = delete;
     stTextureFile& operator=(const stTextureFile& other);
 
     const char* getFileName() const

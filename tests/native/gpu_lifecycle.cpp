@@ -19,6 +19,8 @@ struct VideoSession {
         REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     }
     ~VideoSession() { SDL_Quit(); }
+    VideoSession(const VideoSession&) = default;
+    VideoSession& operator=(const VideoSession&) = default;
 };
 using Device = std::unique_ptr<SDL_GPUDevice, decltype(&SDL_DestroyGPUDevice)>;
 Device CreateDevice()

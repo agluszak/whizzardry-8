@@ -41,6 +41,8 @@ struct TemporaryDirectory
         throw std::runtime_error("create test directory");
     }
     ~TemporaryDirectory() { fs::remove_all(path); }
+    TemporaryDirectory(const TemporaryDirectory&) = default;
+    TemporaryDirectory& operator=(const TemporaryDirectory&) = default;
 };
 void fixture(const fs::path& path, const std::string& text)
 {

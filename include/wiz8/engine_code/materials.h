@@ -49,6 +49,8 @@ public:
 
 public:
     stMaterial& operator=(const stMaterial&) = default;
+    virtual ~stMaterial() = default;
+    stMaterial(const stMaterial&) = default;
     int m_surface_flags; /* 0x78 */
 };
 

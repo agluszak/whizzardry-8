@@ -12,6 +12,7 @@ public:
     W8ItemVideoObjectCache() = default;
     W8ItemVideoObjectCache(const W8ItemVideoObjectCache&) = delete;
     W8ItemVideoObjectCache& operator=(const W8ItemVideoObjectCache&) = delete;
+    ~W8ItemVideoObjectCache() = default;
     void Initialize(std::size_t item_count);
     void Clear();
     const SpriteSheet& Sprites(int item_id);

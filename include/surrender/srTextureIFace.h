@@ -111,6 +111,9 @@ public:
     virtual const char* getTextureName();
     virtual void invalidate() = 0;
     ~srTextureIFace() override;
+    srTextureIFace() = default;
+    srTextureIFace(const srTextureIFace&) = default;
+    srTextureIFace& operator=(const srTextureIFace&) = default;
 
 protected:
     virtual void setupDefaultValues() = 0;

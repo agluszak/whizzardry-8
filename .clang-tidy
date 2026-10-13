@@ -1,8 +1,10 @@
 Checks: >-
   -*,
+  cppcoreguidelines-special-member-functions,
   readability-redundant-smartptr-get,
   performance-noexcept-move-constructor,
   performance-move-const-arg,
+  performance-unnecessary-copy-initialization,
   bugprone-virtual-near-miss,
   bugprone-suspicious-memset-usage,
   bugprone-sizeof-container,
@@ -17,8 +19,14 @@ Checks: >-
   misc-header-include-cycle,
   readability-duplicate-include,
   bugprone-suspicious-include,
-  modernize-deprecated-headers
+  modernize-deprecated-headers,
+  modernize-use-equals-default,
+  modernize-use-emplace,
+  modernize-use-scoped-lock,
+  modernize-use-starts-ends-with,
+  readability-use-anyofallof
 WarningsAsErrors: >-
+  cppcoreguidelines-special-member-functions,
   readability-redundant-smartptr-get,
   performance-noexcept-move-constructor,
   performance-move-const-arg,
@@ -36,11 +44,22 @@ WarningsAsErrors: >-
   misc-header-include-cycle,
   readability-duplicate-include,
   bugprone-suspicious-include,
-  modernize-deprecated-headers
+  modernize-deprecated-headers,
+  modernize-use-equals-default,
+  performance-unnecessary-copy-initialization,
+  modernize-use-emplace,
+  modernize-use-scoped-lock,
+  modernize-use-starts-ends-with,
+  readability-use-anyofallof
 HeaderFilterRegex: '(^|/)(include|src|tests)/'
 ExcludeHeaderFilterRegex: '(^|/)(build[^/]*|vendor)/'
 SystemHeaders: false
 InheritParentConfig: false
 CheckOptions:
+  # Copy/move gaps are expressed by private NonCopyable bases and implicit deletion.
+  cppcoreguidelines-special-member-functions.AllowImplicitlyDeletedCopyOrMove: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: true
   # Check project include cycles, not implementation cycles in fetched libraries.
   misc-header-include-cycle.IgnoredFilesList: '(^|/)_deps/'

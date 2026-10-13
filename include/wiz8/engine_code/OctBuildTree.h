@@ -24,6 +24,8 @@ class OctPreTree;
 struct W8OctBuildNode {
     W8OctBuildNode();
     ~W8OctBuildNode();
+    W8OctBuildNode(const W8OctBuildNode&) = default;
+    W8OctBuildNode& operator=(const W8OctBuildNode&) = default;
 
     unsigned char RearrangeNodePolys(short current_depth, short target_depth);
     std::vector<void*> linkedSurfaces(short current_depth, short target_depth, short mode) const;
@@ -49,6 +51,8 @@ struct W8OctBuildNode {
 struct W8CountedOctBuildNode : W8OctBuildNode {
     W8CountedOctBuildNode();
     ~W8CountedOctBuildNode();
+    W8CountedOctBuildNode(const W8CountedOctBuildNode&) = default;
+    W8CountedOctBuildNode& operator=(const W8CountedOctBuildNode&) = default;
 };
 
 /* Original owner: Engine Code\OctBuildTree.cpp. The original class spelling
@@ -60,6 +64,8 @@ struct W8OctBuildTree {
     W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
                    unsigned short item_limit, short extent_mode);
     ~W8OctBuildTree();
+    W8OctBuildTree(const W8OctBuildTree&) = default;
+    W8OctBuildTree& operator=(const W8OctBuildTree&) = default;
 
     unsigned char InsertSurface(W8GDSurface* surface, w8_ulong mode);
     unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,

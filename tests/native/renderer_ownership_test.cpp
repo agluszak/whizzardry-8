@@ -51,6 +51,7 @@ public:
         : srNode(parent, ownership) {}
     ~TestNode() override { ++destroyed; }
     TestNode& operator=(const TestNode&) = default;
+    TestNode(const TestNode&) = default;
     static inline int destroyed = 0;
 };
 

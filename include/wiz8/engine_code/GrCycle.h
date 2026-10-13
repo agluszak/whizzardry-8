@@ -64,6 +64,8 @@ public:
     /* Per-frame evaluation: answers whether the effect is still active and
        reports how much it contributes this frame. */
     unsigned char Evaluate(const srVector3T<float>* position, float* out_amount);
+    ~W8CameraShakeEffect() = default;
+    W8CameraShakeEffect& operator=(const W8CameraShakeEffect&) = default;
 
     Flags flags;                /* 0x00: runtime effect and list state */
     float intensity;            /* 0x04 */
@@ -118,6 +120,7 @@ class W8GrCycle : public W8GrObject, public W8Navigator {
 public:
     W8GrCycle();
     W8GrCycle(const W8GrCycle& other); /* 0x004A5F20 */
+    W8GrCycle& operator=(const W8GrCycle&) = delete;
     virtual ~W8GrCycle() override;
     // FUNCTION: WIZ8 0x004a7140
     virtual unsigned char CanEnterCycle(signed char)

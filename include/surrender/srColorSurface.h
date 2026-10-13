@@ -34,6 +34,7 @@ public:
 
     SR_DLL_IMPORT srColorSurface(const srColorSurface& other);
     SR_DLL_IMPORT srColorSurface& operator=(const srColorSurface& other);
+    virtual ~srColorSurface() = default;
 
     static SR_DLL_IMPORT const char* sGetClassName();
 

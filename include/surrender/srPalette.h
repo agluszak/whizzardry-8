@@ -27,6 +27,8 @@ public:
         }
         // FUNCTION: SURRENDER 0x10004D00
         Quantizer(const Quantizer& other) = default;
+        ~Quantizer() = default;
+        Quantizer& operator=(const Quantizer&) = default;
         // Retail destructor: SURRENDER 0x10004B80 (implicit destruction).
 
         void setPalette(srARGB* colors, w8_long color_count, unsigned char* duplicates,
@@ -81,6 +83,8 @@ public:
         Sampler(w8_long sample_limit = 0);
         // FUNCTION: SURRENDER 0x10004BA0
         Sampler(const Sampler& other) = default;
+        ~Sampler() = default;
+        Sampler& operator=(const Sampler&) = default;
         // Retail destructor: SURRENDER 0x10006930 (implicit destruction).
 
         w8_long getColorCount();
@@ -181,6 +185,7 @@ public:
 
     SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
 
+    srPalette(const srPalette&) = delete;
     SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;

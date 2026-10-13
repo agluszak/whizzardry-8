@@ -115,7 +115,7 @@ public:
 
 #pragma pack(pop)
 
-template <class T> srVector3T<T>::srVector3T() {}
+template <class T> srVector3T<T>::srVector3T() = default;
 
 template <class T> void srVector3T<T>::SetZero()
 {

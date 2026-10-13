@@ -6,7 +6,7 @@ class srARGB {
 public:
     enum e_index { INDEX_ALPHA = 0, INDEX_RED = 1, INDEX_GREEN = 2, INDEX_BLUE = 3 };
 
-    srARGB() {}
+    srARGB() = default;
 
     unsigned char blue;
     unsigned char green;

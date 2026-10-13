@@ -295,8 +295,8 @@ void W8GameData::AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_
     surface->vertex_indices[1] = vertex_1;
     surface->vertex_indices[2] = vertex_2;
     ClassifySurfacePlane(m_pTrigVertices.data(), surface);
-    for (int index = 0; index < 3; ++index) {
-        surface->vertex_indices[index] += VerticesCount();
+    for (int& vertex_indice : surface->vertex_indices) {
+        vertex_indice += VerticesCount();
     }
     surface->edge_link[0] = -1;
     surface->edge_link[1] = -1;

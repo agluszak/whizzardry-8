@@ -13,6 +13,8 @@ public:
     srBounder(srNode* parent = 0);
 
     srBounder& operator=(const srBounder& other);
+    virtual ~srBounder() = default;
+    srBounder(const srBounder&) = default;
 
     // FUNCTION: SURRENDER 0x1004B070
     static const char* sGetClassName()

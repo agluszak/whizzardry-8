@@ -96,6 +96,7 @@ public:
     void flipFaces();
     w8_long findClosestVertex(const glm::vec3& point);
     srMeshModel& operator=(const srMeshModel&) = delete;
+    virtual ~srMeshModel() = default;
 
     // FUNCTION: SURRENDER 0x10041AF0
     static const char* sGetClassName()

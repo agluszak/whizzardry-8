@@ -1,3 +1,4 @@
+#include "surrender/non_copyable.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_gpu.h>
@@ -178,7 +179,7 @@ SDL_GPUBlendFactor destinationFactor(uint32_t blend)
     return blend < 6 ? factors[blend] : SDL_GPU_BLENDFACTOR_ZERO;
 }
 
-class SDLGPUDevice : public srDD {
+class SDLGPUDevice : private NonCopyable, public srDD {
 public:
     SDLGPUDevice()
         : device(0), window(0), color_target(0), depth_target(0), depth_format(),
@@ -430,9 +431,9 @@ public:
         }
         /* Queued draws may still sample it; release after the next flush. */
         released.push_back(handle);
-        for (int stage = 0; stage < 2; ++stage) {
-            if (bound[stage] == handle) {
-                bound[stage] = 0;
+        for (unsigned int& stage : bound) {
+            if (stage == handle) {
+                stage = 0;
             }
         }
         texture.resident_data = 0;
@@ -507,15 +508,14 @@ public:
             return;
         }
         closeWindow();
-        for (size_t index = 0; index < textures.size(); ++index) {
-            if (textures[index].texture != 0) {
-                SDL_ReleaseGPUTexture(device, textures[index].texture);
+        for (auto& texture : textures) {
+            if (texture.texture != 0) {
+                SDL_ReleaseGPUTexture(device, texture.texture);
             }
         }
         textures.clear();
-        for (std::map<PipelineKey, SDL_GPUGraphicsPipeline*>::iterator it = pipelines.begin();
-             it != pipelines.end(); ++it) {
-            SDL_ReleaseGPUGraphicsPipeline(device, it->second);
+        for (auto& pipeline : pipelines) {
+            SDL_ReleaseGPUGraphicsPipeline(device, pipeline.second);
         }
         pipelines.clear();
         for (const auto& entry : samplers) {
@@ -928,8 +928,8 @@ private:
     void uploadPending(SDL_GPUCommandBuffer* command)
     {
         size_t texture_bytes = 0;
-        for (size_t index = 0; index < uploads.size(); ++index) {
-            texture_bytes += uploads[index].pixels.size() * 4;
+        for (auto& upload : uploads) {
+            texture_bytes += upload.pixels.size() * 4;
         }
         const size_t vertex_bytes = vertices.size() * sizeof(Vertex);
         if (texture_bytes + vertex_bytes == 0) {
@@ -955,9 +955,9 @@ private:
             memcpy(mapped, vertices.data(), vertex_bytes);
         }
         offset += vertex_bytes;
-        for (size_t index = 0; index < uploads.size(); ++index) {
-            memcpy(mapped + offset, uploads[index].pixels.data(), uploads[index].pixels.size() * 4);
-            offset += uploads[index].pixels.size() * 4;
+        for (auto& upload : uploads) {
+            memcpy(mapped + offset, upload.pixels.data(), upload.pixels.size() * 4);
+            offset += upload.pixels.size() * 4;
         }
         SDL_UnmapGPUTransferBuffer(device, transfer);
 
@@ -968,8 +968,7 @@ private:
             SDL_UploadToGPUBuffer(copy, &source, &destination, true);
         }
         offset = vertex_bytes;
-        for (size_t index = 0; index < uploads.size(); ++index) {
-            const PendingUpload& upload = uploads[index];
+        for (const auto& upload : uploads) {
             const DeviceTexture& texture = textures[upload.texture - 1];
             if (texture.texture != 0) {
                 SDL_GPUTextureTransferInfo source = {transfer, (Uint32)offset, upload.width,
@@ -994,8 +993,7 @@ private:
     void replay(SDL_GPUCommandBuffer* command)
     {
         SDL_GPURenderPass* pass = 0;
-        for (size_t index = 0; index < commands.size(); ++index) {
-            const DrawCommand& entry = commands[index];
+        for (const auto& entry : commands) {
             if (entry.kind == DrawCommand::CLEAR) {
                 /* A clear starts a fresh pass whose load operations perform it. */
                 if (pass != 0) {
@@ -1084,8 +1082,8 @@ private:
 
     void releaseDeleted()
     {
-        for (size_t index = 0; index < released.size(); ++index) {
-            DeviceTexture& texture = textures[released[index] - 1];
+        for (unsigned int index : released) {
+            DeviceTexture& texture = textures[index - 1];
             if (texture.texture != 0) {
                 SDL_ReleaseGPUTexture(device, texture.texture);
             }

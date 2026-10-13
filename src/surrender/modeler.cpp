@@ -157,11 +157,11 @@ void AutoSmoother::assignGroups(w8_long group)
 {
     if (group >= 0x1f) {
         SDL_LogWarn(SDL_LOG_CATEGORY_RENDER, "%s", "srModeler::autoSmooth() ran out of groups.");
-        for (w8_ulong index = 0; index < edges.size(); ++index) {
-            if (edges[index].group == -1) {
-                entries[edges[index].first].groups |= 0x80000000;
-                entries[edges[index].second].groups |= 0x80000000;
-                edges[index].group = 0x1f;
+        for (auto& edge : edges) {
+            if (edge.group == -1) {
+                entries[edge.first].groups |= 0x80000000;
+                entries[edge.second].groups |= 0x80000000;
+                edge.group = 0x1f;
             }
         }
         return;
@@ -538,8 +538,8 @@ std::unique_ptr<srModeler::VertexHash> srModeler::getUniqueVertexList()
     const double scale = radius > 0 ? 1.0 / radius : 1.0;
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         w8_ulong flags = triangle->flags;
-        for (int vertex = 0; vertex < 3; ++vertex) {
-            Vertex* source = &triangle->vertices[vertex];
+        for (auto& triangle_vertex : triangle->vertices) {
+            Vertex* source = &triangle_vertex;
             w8_ulong group = 0xffffffff;
             w8_ulong bucket = VertexHash::hash(
                 source->position.x * scale, source->position.y * scale, source->position.z * scale);

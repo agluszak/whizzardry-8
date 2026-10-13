@@ -157,7 +157,7 @@ srNode::BoundInfo srNode::getLocalBounds()
 srNode& srNode::operator=(const srNode& other)
 {
     if (this != &other) {
-        std::lock_guard access(sceneGraphCSect);
+        std::scoped_lock access(sceneGraphCSect);
         srClass::operator=(other);
         flags.value = other.flags.value;
         location = other.location;
@@ -214,7 +214,7 @@ w8_long srNode::getHierarchyLevel() const
 srNode::srNode(srNode* parent, Ownership ownership)
     : parent_owns_(ownership == Ownership::parent)
 {
-    std::lock_guard access(sceneGraphCSect);
+    std::scoped_lock access(sceneGraphCSect);
     world_transform0 = glm::dmat4x3(1);
     world_transform1 = glm::mat4x3(1);
     if (s_flag_names1 == 0) {
@@ -235,13 +235,15 @@ srNode::srNode(srNode* parent, Ownership ownership)
 // FUNCTION: SURRENDER 0x10050E20
 srNode::~srNode()
 {
-    std::lock_guard access(sceneGraphCSect);
+    std::scoped_lock access(sceneGraphCSect);
     unlink();
     while (first_child_ != nullptr) {
-        if (first_child_->parent_owns_) {
-            delete first_child_;
+        srNode* child = first_child_;
+        if (child->parent_owns_) {
+            child->unlink();
+            delete child;
         } else {
-            first_child_->detach();
+            child->detach();
         }
     }
 }
@@ -253,7 +255,7 @@ srNode::~srNode()
 // FUNCTION: SURRENDER 0x10050F00
 int srNode::setParent(srNode* parent, int preserve_world_transform)
 {
-    std::lock_guard access(sceneGraphCSect);
+    std::scoped_lock access(sceneGraphCSect);
     if (parent == this) {
         return 0;
     }
@@ -294,7 +296,7 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
 
 void srNode::detach()
 {
-    std::lock_guard access(sceneGraphCSect);
+    std::scoped_lock access(sceneGraphCSect);
     unlink();
     parent_owns_ = false;
     setWSDirty();

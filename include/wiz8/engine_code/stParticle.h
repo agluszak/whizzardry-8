@@ -52,6 +52,7 @@ public:
                          srNode::e_processType type) override; /* 0x00498D60 */
 
     stParticle& operator=(const stParticle&) = default;
+    virtual ~stParticle() = default;
 
     unsigned int requires_sorted_renderer = 0;
     double particle_size = 1.0; /* billboard quad scale */

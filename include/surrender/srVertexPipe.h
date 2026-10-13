@@ -51,6 +51,7 @@ public:
     SR_DLL_IMPORT srVertexPipe();
     srVertexPipe(const srVertexPipe&) = delete;
     srVertexPipe& operator=(const srVertexPipe&) = delete;
+    ~srVertexPipe() = default;
 
     SR_DLL_IMPORT void applyDiffuseLight(const glm::vec4& light);
     SR_DLL_IMPORT void applyDiffuseLight(std::span<const float> values, const glm::vec4& light);

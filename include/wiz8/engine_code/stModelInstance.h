@@ -45,6 +45,8 @@ public:
        highlight state, the linked stMeshModel list, then the optional
        highlight shell pass with reversed winding. */
     void RenderMeshes(srGERD& renderer);
+    virtual ~stModelInstance() = default;
+    stModelInstance(const stModelInstance&) = default;
     /* Shadow-volume extrusion helper for the first mesh in the chain. */
     void RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh);
 
@@ -99,6 +101,8 @@ public:
     unsigned short GetScaledHeight();                                   /* 0x00480F70 */
     void SetGlowEnabled(bool enable);                                   /* 0x00480EB0 */
     void SetGlowColors(const glm::vec4& first, const glm::vec4& second);
+    ~stModelInstance2D() = default;
+    stModelInstance2D(const stModelInstance2D&) = default;
 
     unsigned char displayState() const
     {

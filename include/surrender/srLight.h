@@ -32,7 +32,10 @@ public:
     srLight(srNode* parent = 0, e_preset preset = PRESET_POINT);
     ~srLight() override = default;
 
-    srLight(const srLight& other);
+    /* WIZ8 0x0049D67C..0x0049D6C5 inlines the SDK copy: the illuminator base is
+       copied through srNode's copy constructor, which starts the copy unparented
+       with a fresh identity, so the copy never shares scene links. */
+    srLight(const srLight& other) = default;
 
     srLight& operator=(const srLight& other);
 

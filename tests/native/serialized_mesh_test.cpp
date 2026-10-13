@@ -245,6 +245,8 @@ TEST_CASE("serialized_mesh_test")
             TrackedInstance(srNode* parent, int& destroyed)
                 : srModelInstance(parent), destroyed(destroyed) {}
             ~TrackedInstance() override { ++destroyed; }
+            TrackedInstance(const TrackedInstance&) = default;
+            TrackedInstance& operator=(const TrackedInstance&) = default;
         };
         int destroyed = 0;
         srScene scene(nullptr);

@@ -950,9 +950,9 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
                             ReportBuildStatus(
                                 6, "One of your regions has more than 5000 polys in it!\n");
                         }
-                        for (int corner = 0; corner < 3; ++corner) {
+                        for (auto& vertex : game_data->m_polygons[poly].vertices) {
                             const glm::vec3* position =
-                                &game_data->m_polygons[poly].vertices[corner]->position;
+                                &vertex->position;
                             bounds.include(*position);
                         }
                     }

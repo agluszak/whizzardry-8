@@ -11,6 +11,7 @@ public:
     /* Copies share the palette stored in Dimensions. */
 
     srTexture& operator=(const srTexture& other);
+    srTexture(const srTexture&) = default;
     virtual void dump(std::ostream& stream) override;
     virtual w8_ulong getTextureFrameHandle() override;
     virtual float getPriority() override;

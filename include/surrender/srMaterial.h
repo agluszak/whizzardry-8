@@ -44,6 +44,8 @@ protected:
 
 public:
     srMaterial& operator=(const srMaterial& other);
+    virtual ~srMaterial() = default;
+    srMaterial(const srMaterial&) = default;
     void disable(e_oper operation);
     void enable(e_oper operation);
     glm::vec4 getAmbient() const;
