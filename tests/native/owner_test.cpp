@@ -82,7 +82,7 @@ void RecordScrollPosition(W8DialogScrollBar*, int position)
     if (scrollbar_position_sink) scrollbar_position_sink->push_back(position);
 }
 
-class ScrollPositionCapture {
+class ScrollPositionCapture : private NonCopyable {
 public:
     explicit ScrollPositionCapture(std::vector<int>& positions)
         : previous_(scrollbar_position_sink)
@@ -275,13 +275,13 @@ void image_and_sprite_ownership()
     image.frames[0].width = image.frames[0].height = 1;
 
     std::array<std::unique_ptr<SpriteSheet>, 64> objects{};
-    for (unsigned i = 0; i < objects.size(); ++i) {
-        objects[i] = std::make_unique<SpriteSheet>(image);
-        REQUIRE(objects[i]);
-        REQUIRE((objects[i]->frames.size() == 1 && objects[i]->frames[0].indices.size() == 1));
-        REQUIRE(objects[i]->frames[0].indices.data() != image.frames[0].indices.data());
-        REQUIRE(objects[i]->palette.data() != image.palette.data());
-        REQUIRE(objects[i]->colors.data() != image.colors.data());
+    for (auto& object : objects) {
+        object = std::make_unique<SpriteSheet>(image);
+        REQUIRE(object);
+        REQUIRE((object->frames.size() == 1 && object->frames[0].indices.size() == 1));
+        REQUIRE(object->frames[0].indices.data() != image.frames[0].indices.data());
+        REQUIRE(object->palette.data() != image.palette.data());
+        REQUIRE(object->colors.data() != image.colors.data());
     }
     image.frames[0].indices[0] = 2;
     image.frames[0].width = 2;
@@ -489,7 +489,7 @@ std::uint16_t surface_pixel(const SDL_Surface& surface, int x, int y)
     return row[x];
 }
 
-class CatalogArtworkAssets {
+class CatalogArtworkAssets : private NonCopyable {
 public:
     CatalogArtworkAssets()
         : previous_roots_(w8_native::path_roots())
@@ -1445,7 +1445,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 {
     UiStateSnapshot saved_state;
     ResetUiInput();
-    struct TooltipStateSnapshot {
+    struct TooltipStateSnapshot : private NonCopyable {
         bool tooltips_enabled = g_settings.tooltips_enabled;
         std::vector<std::string> localized_strings = std::move(g_localized_strings);
         ~TooltipStateSnapshot()

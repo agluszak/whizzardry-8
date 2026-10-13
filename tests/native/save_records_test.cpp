@@ -1037,7 +1037,7 @@ static void packed_camera_angles()
 
 #include <catch2/generators/catch_generators.hpp>
 
-struct NpcGlobalGuard
+struct NpcGlobalGuard  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
 {
     decltype(g_npc_records) previous_records = g_npc_records;
     decltype(gXStatus.uiNpcsInDatabase) previous_count = gXStatus.uiNpcsInDatabase;
@@ -1050,7 +1050,7 @@ struct NpcGlobalGuard
     }
 };
 
-struct CombatRecordGuard
+struct CombatRecordGuard  // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
 {
     decltype(g_spell_records) previous_spells = g_spell_records;
     decltype(g_status.buffers.Char) previous_characters = g_status.buffers.Char;
