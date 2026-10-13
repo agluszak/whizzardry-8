@@ -174,6 +174,27 @@ The world harness accepts additional `save`, `kill` and `angles` modes for
 its respective focused checks. The movie fixture can be regenerated with
 `tests/native/generate_movie.sh`.
 
+## Formatting
+
+The project uses clang-format 21 and the root `.clang-format` configuration.
+Function definitions have opening braces on their own lines; control-flow braces
+are attached (`if (...) {`, `} else {`). All control-flow bodies must use
+braces, including one-statement bodies. Class/struct braces stay attached, and
+access labels (`public:`, `private:`, `protected:`) are not indented.
+
+The formatter can insert missing control-flow braces (`InsertBraces: true`);
+review those edits, since clang-format does not fully understand C++ semantics.
+
+On a feature branch, format the changed C and C++ lines:
+
+```sh
+git clang-format-21 --binary clang-format-21 main -- include src tests
+```
+
+For a complete reformat of one file, run `clang-format-21 -i path/to/file.cpp`.
+PR #201 will apply a one-time repository-wide reformat and switch CI to checking
+whole changed files.
+
 ## Catch2 test cases
 
 Small, independent Catch2 test cases are registered individually with CTest.
