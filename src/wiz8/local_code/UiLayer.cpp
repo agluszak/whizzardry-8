@@ -33,11 +33,15 @@ bool g_ui_help_forced;
 namespace {
 unsigned dispatch_depth = 0;
 std::vector<std::function<void()>> pending_actions;
+// Targets removed during dispatch live on until it ends, because their
+// handler may be the code that removed them.
+std::vector<std::unique_ptr<HitTarget>> retired_targets;
 struct DispatchScope {
     DispatchScope() { ++dispatch_depth; }
     ~DispatchScope() noexcept(false)
     {
         if (--dispatch_depth) return;
+        retired_targets.clear();
         if (std::uncaught_exceptions()) { pending_actions.clear(); return; }
         auto actions = std::exchange(pending_actions, {});
         for (auto& action : actions) action();
@@ -236,6 +240,7 @@ UiLayer::UiLayer(UiLayerMode mode, int order) : UiLayer(order) { setModal(mode =
 UiLayer::~UiLayer()
 {
     setModal(false);
+    for (auto& target : targets_) retire(std::move(target));
     targets_.clear();
     auto& layers = State().layers;
     std::erase(layers, this);
@@ -247,9 +252,19 @@ HitTarget& UiLayer::add(HitShape shape, HitTarget::Handler handler, int priority
     targets_.push_back(std::move(target));
     return result;
 }
+void UiLayer::retire(std::unique_ptr<HitTarget> target)
+{
+    if (!dispatch_depth) return;
+    State().forget(*target);
+    retired_targets.push_back(std::move(target));
+}
 void UiLayer::remove(HitTarget& target)
 {
-    std::erase_if(targets_, [&](const auto& entry) { return entry.get() == &target; });
+    const auto entry = std::ranges::find_if(targets_, [&](const auto& t) { return t.get() == &target; });
+    if (entry == targets_.end()) return;
+    auto removed = std::move(*entry);
+    targets_.erase(entry);
+    retire(std::move(removed));
 }
 void UiLayer::setEnabled(bool enabled)
 {
@@ -334,9 +349,12 @@ bool DispatchUiInput(const InputEvent* input)
     const auto mask = button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
     int sound = -1;
     if (action == UiPointerAction::Down) {
-        target->captured_buttons_ |= mask;
-        g_ui.captured = g_ui.current = g_ui.hover = target;
-        sound = 2;
+        if (!target->passive_) {
+            target->captured_buttons_ |= mask;
+            g_ui.captured = target;
+        }
+        g_ui.current = g_ui.hover = target;
+        if (!target->passive_) sound = 2;
     } else if (action == UiPointerAction::Up && (target->capturedButtons() & mask)) sound = 3;
     const bool handled = state.send(*target, *input, action, button) == UiResult::Handled;
     // Removal clears the borrowed pointer; never inspect a destroyed target.

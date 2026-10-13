@@ -146,6 +146,7 @@ W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(&layer) {}
 
 W8ButtonWidget::~W8ButtonWidget()
 {
+    *m_alive = false;
     if (m_target) m_layer->remove(*m_target);
 }
 
@@ -243,7 +244,10 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
 {
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback)
         return UiResult::Handled;
-    // Text-style controls still use the temporary backend's ordinary sounds.
+    // Callbacks may destroy this button. Members are not touched afterwards.
+    const auto alive = m_alive;
+    // The dispatcher owns hover, press and release sounds. Controller-style
+    // buttons silence the next one while disabled.
     const bool backend_sound = event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave || event.action == UiPointerAction::Down ||
         (event.action == UiPointerAction::Up && event.captured_buttons != 0);
@@ -254,10 +258,12 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
             PushButtonSoundScheme(0, true);
         m_dirty = true;
         if (on_hover) on_hover(false);
-        if (m_enabled && !policy.controller_activation) PlayButtonSound(1);
         return UiResult::Handled;
     }
-    if (event.action == UiPointerAction::Enter && on_hover) on_hover(true);
+    if (event.action == UiPointerAction::Enter && on_hover) {
+        on_hover(true);
+        if (!*alive) return UiResult::Handled;
+    }
     if (!m_enabled) return UiResult::Handled;
     const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
     const auto callback = event.button == UiPointerButton::Right ? m_right_callback : m_left_callback;
@@ -266,7 +272,6 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     switch (event.action) {
     case UiPointerAction::Enter:
         m_dirty = true;
-        if (!policy.controller_activation) PlayButtonSound(0);
         return UiResult::Handled;
     case UiPointerAction::Move:
         if (const auto move = m_move_callback) move(this);
@@ -292,15 +297,13 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     default: return UiResult::Handled;
     }
     if (was_pressed != m_interaction.pressed) m_dirty = true;
-    if (response.press_sound && !policy.controller_activation) PlayButtonSound(2);
-    if (response.activate) {
-        if (callback) callback(this);
-        if (!policy.controller_activation || event.action == UiPointerAction::Repeat)
-            PlayButtonSound(3);
-    }
-    if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left &&
-        event.clicks >= 2 && (policy.primary_toggle == ButtonToggle::None || m_interaction.pressed)) {
-        if (const auto double_click = m_double_click_callback) double_click(this);
-    }
+    const bool double_click = event.action == UiPointerAction::Down &&
+        event.button == UiPointerButton::Left && event.clicks >= 2 &&
+        (policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
+    const auto double_click_callback = double_click ? m_double_click_callback : W8ButtonCallback{};
+    // Only repeats are silent in the dispatcher.
+    if (response.activate && event.action == UiPointerAction::Repeat) PlayButtonSound(3);
+    if (response.activate && callback) callback(this);
+    if (*alive && double_click_callback) double_click_callback(this);
     return UiResult::Handled;
 }
