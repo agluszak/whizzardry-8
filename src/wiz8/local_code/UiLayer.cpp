@@ -294,7 +294,10 @@ UiLayer::UiLayer(UiLayerOrder order) : order_(order)
         std::ranges::upper_bound(layers, order, {}, [](auto* layer) { return layer->order_; });
     layers.insert(pos, this);
 }
-UiLayer::UiLayer(UiLayerMode mode, UiLayerOrder order) : UiLayer(order) { setModal(mode == UiLayerMode::Modal); }
+UiLayer::UiLayer(UiLayerMode mode, UiLayerOrder order) : UiLayer(order)
+{
+    setModal(mode == UiLayerMode::Modal);
+}
 UiLayer::~UiLayer()
 {
     setModal(false);

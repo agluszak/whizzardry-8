@@ -55,8 +55,9 @@ struct SpriteSheet;
 // No visual parents, inherited hooks or arbitrary widget containers.
 struct NpcDialogueUi {
     ~NpcDialogueUi();
-    UiLayer transcript_input{UiLayerOrder::NpcTranscript},
-            trade_input{UiLayerOrder::NpcTrade}, options_input{UiLayerOrder::NpcOptions};
+    UiLayer transcript_input{UiLayerOrder::NpcTranscript};
+    UiLayer trade_input{UiLayerOrder::NpcTrade};
+    UiLayer options_input{UiLayerOrder::NpcOptions};
     struct Panel {
         SDL_Point origin;
         int background;
