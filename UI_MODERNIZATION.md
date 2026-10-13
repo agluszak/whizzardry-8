@@ -16,7 +16,9 @@ live layers and maintains hover, capture, modal scopes and the tooltip timer.
 - Lower layer order wins, then earlier creation. Within a layer, higher target
   priority wins, then earlier registration. Text fields use the cursor tip and
   take precedence over their backing artwork.
-- Down captures. Up outside still reaches the source; conventional buttons require
+- Down captures, whatever the handler returns: gameplay controls that `Pass` a
+  press still expect its release. Hover-only targets (tooltips, previews) call
+  `HitTarget::setPassive()` and never capture. Up outside still reaches the source; conventional buttons require
   a matching press and an inside release. Gameplay can release capture explicitly
   when a drag destination must receive the drop.
 - Disabling or deleting a target clears its hover, capture and displayed help,
@@ -27,7 +29,16 @@ live layers and maintains hover, capture, modal scopes and the tooltip timer.
 - `UiResult::Pass` delegates to screen policy, not to lower targets.
 - `AfterUiDispatch` commits target removal, owner destruction and screen transitions
   after the outermost dispatch transaction. The pump then yields, preserving queued
-  events for the next owner. Callbacks must defer destruction of their own target.
+  events for the next owner. Removing a target or layer from inside a dispatch is
+  also safe on its own: the target and its handler are retired and freed when the
+  outermost dispatch ends. Button callbacks may destroy their button; the button
+  touches no members afterwards.
+- The dispatcher owns hover, press and release sounds. Buttons only silence them
+  (`PushButtonSoundScheme(0, true)`) or play the repeat release, which has no
+  dispatcher event.
+- `OpenModal` is safe from inside the current modal's `ProcessInput()`; the
+  replaced modal is destroyed after that call returns, and `ProcessModalOwner()`
+  closes only the modal it ran, never its replacement.
 - Tooltip providers read current state when delayed help is displayed.
 
 The numeric region registry, templates, IDs, slot recycling, binding generations,
@@ -71,3 +82,6 @@ editing, menu re-entry, formation, NPC dialogue, journal, spell selection, portr
 options and save/load. Skipped licensed tests do not establish behavioral parity.
 Require green checks before merging. Measure the cumulative diff against the base;
 this migration must reduce code and lifetime protocols, not add a UI framework.
+
+Numeric split-field editors share their owning dialog's input layer for pointer
+caret placement and modal focus rather than creating a disabled private layer.

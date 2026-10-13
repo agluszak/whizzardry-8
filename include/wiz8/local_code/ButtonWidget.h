@@ -115,6 +115,7 @@ private:
     W8ButtonCallback m_right_callback;
     W8ButtonCallback m_move_callback;
     W8ButtonCallback m_double_click_callback;
+    std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
 public:
     ButtonPolicy policy;

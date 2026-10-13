@@ -1,3 +1,5 @@
+#include <memory>
+#include "wiz8/modal_content.h"
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
@@ -973,7 +975,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
             dialog->SetItemGroup(item);
             dialog->m_destroy_callback = OnItemPickerDialogDestroyed;
         }
-        g_modal_owner.reset(dialog);
+        OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;
     }
     if (item->p3D->trigger != 0) {

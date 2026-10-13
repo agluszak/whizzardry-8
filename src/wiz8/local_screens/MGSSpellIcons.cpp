@@ -61,6 +61,7 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
                 }
                 return UiResult::Pass;
             });
+        target.setPassive();
         target.setTooltip([&slot, show_duration] { return EffectHelp(slot, show_duration); });
         origin.x += step;
     }

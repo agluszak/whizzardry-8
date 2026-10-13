@@ -1,3 +1,5 @@
+#include <memory>
+#include "wiz8/modal_content.h"
 #include <cstdint>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -793,7 +795,7 @@ void UpdateWorldTriggers(W8World* world)
                     dialog->SetItemGroup(trigger->world_item_group);
                     dialog->m_destroy_callback = OnItemDialogClosed;
                     gXStatus.item_pick_pending = false;
-                    g_modal_owner.reset(dialog);
+                    OpenModal(std::unique_ptr<ModalContent>(dialog));
                 }
             }
         }

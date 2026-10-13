@@ -297,7 +297,13 @@ extern signed char g_spell_power_extent_index[8];
 struct W8ItemInstance;
 
 extern std::unique_ptr<ModalContent> g_modal_owner;
+/* Replaces the owner. Safe from inside the current owner's ProcessInput():
+   the replaced owner is destroyed after that call returns. */
 void OpenModal(std::unique_ptr<ModalContent> owner);
+/* Runs the current owner's input (g_modal_owner must be set). Returns true when
+   it closed, resuming the parked dialog if any; false when it stays open or
+   was replaced by another owner opened from its own callback. */
+bool ProcessModalOwner();
 extern std::unique_ptr<ModalContent> g_pending_main_game_dialog;
 
 /* Open the assay (item info) dialog for an item, evaluated against the party

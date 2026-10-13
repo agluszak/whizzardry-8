@@ -44,7 +44,7 @@ public:
     bool HandleInput(const InputEvent* input);
 
 private:
-    UiLayer m_editor_input;
+    UiLayer& m_editor_input;
     std::unique_ptr<TextFieldGroup> m_editor;
 
 public:
