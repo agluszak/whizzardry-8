@@ -2683,6 +2683,21 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* att
     return rolled;
 }
 
+/* One condition attack: resolves it against the target and counts a success
+   in the accumulator when the target does not resist. */
+static bool resolveConditionAttack(const W8TargetSource* source, W8CombatSlot* target,
+                                   W8SpellEffectResult* accumulator, W8Condition condition,
+                                   W8SpellRealm realm, unsigned int power_level, int argument,
+                                   int magnitude, bool verbose, bool announce)
+{
+    const bool resisted = ResolveAttackOnTarget(source, target, condition, realm, power_level,
+                                                argument, magnitude, verbose, announce, 0);
+    if (accumulator != nullptr) {
+        accumulator->condition_counts[condition] += (!resisted);
+    }
+    return resisted;
+}
+
 /* The condition pass behind ApplyEffectConditions: for each of the effect
    definition's sixteen condition chances, roll the percentage and, when it
    lands, resolve the condition or drain the case handles. A report passed in
@@ -2749,20 +2764,14 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                 }
                 switch (i) {
                 case W8_ATTACK_EFFECT_SLEEP:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_ASLEEP,
-                                                     W8_SPELL_REALM_AIR, definition->power_level, 0,
-                                                     magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_ASLEEP] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_ASLEEP, W8_SPELL_REALM_AIR,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_PARALYZE:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_PARALYZED,
-                                                     W8_SPELL_REALM_WATER, definition->power_level,
-                                                     0, magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_PARALYZED] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_PARALYZED, W8_SPELL_REALM_WATER,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_POISON:
                     magnitude = RollEffectDuration(definition);
@@ -2771,29 +2780,19 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                                 definition->magnitude_base);
                         magnitude = RollEffectMagnitude(definition) + 1;
                     }
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_POISONED,
-                                                     W8_SPELL_REALM_WATER, definition->power_level,
-                                                     definition->magnitude_base, magnitude, verbose,
-                                                     announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_POISONED] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_POISONED, W8_SPELL_REALM_WATER,
+                        definition->power_level, definition->magnitude_base, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_HEX:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_HEXED,
-                                                     W8_SPELL_REALM_DIVINE, definition->power_level,
-                                                     0, magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_HEXED] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_HEXED, W8_SPELL_REALM_DIVINE,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_DISEASE:
-                    resisted = ResolveAttackOnTarget(
-                        source, target, W8_CONDITION_DISEASED, W8_SPELL_REALM_WATER,
-                        definition->power_level, 0, W8_CONDITION_INDEFINITE, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_DISEASED] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_DISEASED, W8_SPELL_REALM_WATER,
+                        definition->power_level, 0, W8_CONDITION_INDEFINITE, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_KILL:
                     resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_DEAD,
@@ -2830,28 +2829,19 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                     }
                     break;
                 case W8_ATTACK_EFFECT_KNOCK_OUT:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_UNCONSCIOUS,
-                                                     W8_SPELL_REALM_EARTH, definition->power_level,
-                                                     0, magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_UNCONSCIOUS] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_UNCONSCIOUS, W8_SPELL_REALM_EARTH,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_BLIND:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_BLIND,
-                                                     W8_SPELL_REALM_FIRE, definition->power_level,
-                                                     0, magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_BLIND] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_BLIND, W8_SPELL_REALM_FIRE,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_FRIGHTEN:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_AFRAID,
-                                                     W8_SPELL_REALM_MENTAL, definition->power_level,
-                                                     0, magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_AFRAID] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_AFRAID, W8_SPELL_REALM_MENTAL,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_SWALLOW:
                     if (TargetSourceIsMonster(source, 0)) {
@@ -2877,12 +2867,9 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                 case W8_ATTACK_EFFECT_POSSESS:
                     if (TargetSourceIsMonster(source, 0) &&
                         target->iType == W8_TARGET_KIND_CHARACTER) {
-                        resisted = ResolveAttackOnTarget(
-                            source, target, W8_CONDITION_TURNCOAT, W8_SPELL_REALM_DIVINE,
-                            definition->power_level, 0, magnitude, verbose, announce, 0);
-                        if (accumulator != nullptr) {
-                            accumulator->condition_counts[W8_CONDITION_TURNCOAT] += (!resisted);
-                        }
+                                                resisted = resolveConditionAttack(source, target, accumulator,
+                                                    W8_CONDITION_TURNCOAT, W8_SPELL_REALM_DIVINE,
+                            definition->power_level, 0, magnitude, verbose, announce);
                     }
                     break;
                 case W8_ATTACK_EFFECT_DRAIN_HP:
@@ -2961,20 +2948,14 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                     }
                     break;
                 case W8_ATTACK_EFFECT_NAUSEATE:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_NAUSEATED,
-                                                     W8_SPELL_REALM_AIR, definition->power_level, 0,
-                                                     magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_NAUSEATED] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_NAUSEATED, W8_SPELL_REALM_AIR,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 case W8_ATTACK_EFFECT_INSANE:
-                    resisted = ResolveAttackOnTarget(source, target, W8_CONDITION_INSANE,
-                                                     W8_SPELL_REALM_MENTAL, definition->power_level,
-                                                     0, magnitude, verbose, announce, 0);
-                    if (accumulator != nullptr) {
-                        accumulator->condition_counts[W8_CONDITION_INSANE] += (!resisted);
-                    }
+                                        resisted = resolveConditionAttack(source, target, accumulator,
+                                            W8_CONDITION_INSANE, W8_SPELL_REALM_MENTAL,
+                        definition->power_level, 0, magnitude, verbose, announce);
                     break;
                 }
             }
