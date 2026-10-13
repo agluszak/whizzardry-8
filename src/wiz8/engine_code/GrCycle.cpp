@@ -1299,7 +1299,7 @@ void W8GrCycle::SetLights(std::vector<stLight*>* lights)
 // FUNCTION: WIZ8 0x004a8530
 void W8GrCycle::AddShakeEffect(ShakeDefinition effect)
 {
-    shake_events.push_back(std::move(effect));
+    shake_events.push_back(effect);
 }
 
 /* Index of the registered name whose cycle list holds this cycle, or -1. An empty
