@@ -4,7 +4,6 @@
 
 #include "surrender/srLight.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/layouts/world.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
@@ -140,7 +139,12 @@ public:
     }
 
     stLight() {}
-    explicit stLight(srNode* parent);         /* 0x0049C2C0 */
+    explicit stLight(Ownership ownership)
+        : srClassSupport<stLight, srLight, 0x10006>(static_cast<srNode*>(nullptr),
+                                                    srLight::PRESET_POINT, ownership)
+    {
+    }
+    explicit stLight(srNode* parent, Ownership ownership = Ownership::parent); /* 0x0049C2C0 */
     stLight& operator=(const stLight& other); /* 0x0049C690 */
 
 public:
@@ -205,37 +209,6 @@ void SaveLightStates(wiz8::File& handle);
 void LoadLightStates(wiz8::File& handle);
 
 /* Animation copies retain per-light position before assignment, detach the new
-   light and register it with the world before adding it to the owned list. */
-inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source,
-                                                      const char* file, int list_line,
-                                                      int light_line)
-{
-    std::vector<stLight*>* copy = 0;
-    if (source != 0) {
-        copy = new std::vector<stLight*>;
-        if (copy == 0) {
-            srAssertFail("plsNewLights", file, list_line,
-                         "Out of memory creating monster light list");
-        }
-        for (int index = 0; index < static_cast<int>(source->size()); ++index) {
-            stLight* light = (*source)[index];
-            float x = light->positionalX();
-            float y = light->positionalY();
-            float z = light->positionalZ();
-            stLight* copied_light = new stLight;
-            if (copied_light != 0) {
-                *copied_light = *light;
-            }
-            if (copied_light == 0) {
-                srAssertFail("pstNewLight", file, light_line,
-                             "Out of memory creating monster light");
-            }
-            copied_light->ConfigureMonsterCopy();
-            copied_light->setLocation(x, y, z);
-            copied_light->setParent(0, 0);
-            g_world->transient_lights.push_back(copied_light);
-            copy->push_back(copied_light);
-        }
-    }
-    return copy;
-}
+   light and register it with the world, which owns it, before adding it to the
+   returned list. */
+std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source);

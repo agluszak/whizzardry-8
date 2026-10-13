@@ -103,9 +103,8 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    while (!world->transient_lights.empty()) {
-        WorldRemoveLight(world, world->transient_lights.front());
-    }
+    world->lights_to_update.clear();
+    world->transient_lights.clear();
 }
 
 /* Put static-scene illuminators in group one and the world's camera light in
@@ -313,54 +312,50 @@ std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& i
     return copy;
 }
 
+static void ConfigureLightDefaults(stLight& light, const char* name)
+{
+    light.setName(name ? name : "");
+    light.attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
+    light.enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
+    light.enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
+}
+
 // FUNCTION: WIZ8 0x0046DF90
 stLight* CreateLight(srNode* parent, const char* name)
 {
     stLight* light = new stLight(parent);
-
-    if (light != 0) {
-        light->setName(name ? name : "");
-        light->attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
-        light->enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
-        light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
-    }
+    ConfigureLightDefaults(*light, name);
     return light;
+}
+
+stLight* AddWorldLight(W8World* world, std::unique_ptr<stLight> light)
+{
+    stLight* borrowed = light.get();
+    world->transient_lights.push_back(std::move(light));
+    return borrowed;
 }
 
 // FUNCTION: WIZ8 0x0046E030
 stLight* CreateWorldLight(W8World* world, const char* name)
 {
-    stLight* light;
-
     if (name == 0) {
         srAssertFail("name", THREE_D_CPP, 570, 0);
     }
 
-    if (world != 0) {
-        light = new stLight(world->static_scene);
-    } else {
-        light = new stLight(0);
+    if (world == 0) {
+        // Not tied to a world (animation template): scene-owned like any other node.
+        auto* light = new stLight(static_cast<srNode*>(nullptr));
+        ConfigureLightDefaults(*light, name);
+        return light;
     }
-
-    if (light == 0) {
-        srAssertFail("pLight", THREE_D_CPP, 579, 0);
-    }
-    light->setName(name ? name : "");
-    light->attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
-    light->enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
-    light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
-
-    if (world != 0) {
-        world->transient_lights.push_back(light);
-    }
-    return light;
+    auto light = std::make_unique<stLight>(world->static_scene, srNode::Ownership::independent);
+    ConfigureLightDefaults(*light, name);
+    return AddWorldLight(world, std::move(light));
 }
 
 // FUNCTION: WIZ8 0x0046E140
 stLight* CreateRangedWorldLight(W8World* world, const char* name)
 {
-    stLight* light;
-
     if (name == 0) {
         srAssertFail("name", THREE_D_CPP, 603, 0);
     }
@@ -368,23 +363,15 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
         srAssertFail("pWorld", THREE_D_CPP, 604, 0);
     }
 
-    light = CreateLight(world->static_scene, name);
-    if (light == 0) {
-        srAssertFail("pLight", THREE_D_CPP, 608, 0);
-    }
-
-    light->attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
-    light->enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
-    light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
-    light->setName(name ? name : "");
+    auto light = std::make_unique<stLight>(world->static_scene, srNode::Ownership::independent);
+    ConfigureLightDefaults(*light, name);
     light->near_start = 0.0;
     light->near_end = 0.0;
     light->far_start = 0.0;
     light->far_end = 1500.0;
     light->safe_range = 5000.0f;
     light->setLinearAttenuation(1500.0f, 0.0019569471f);
-    world->transient_lights.push_back(light);
-    return light;
+    return AddWorldLight(world, std::move(light));
 }
 
 /* Take a light out of both world collections and release it. */
@@ -397,11 +384,10 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    wiz8::erase_first(world->transient_lights, light);
     wiz8::erase_first(world->lights_to_update, light);
-    if (light != 0) {
-        delete light;
-    }
+    // The world owns the light: erasing it from the list destroys it.
+    std::erase_if(world->transient_lights,
+                  [light](const std::unique_ptr<stLight>& owned) { return owned.get() == light; });
 }
 
 // FUNCTION: WIZ8 0x0046E300

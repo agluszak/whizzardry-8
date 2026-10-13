@@ -32,7 +32,8 @@
    attenuation, bit5 = far-range attenuation active. */
 
 // FUNCTION: SURRENDER 0x1004DDA0
-srLight::srLight(srNode* parent, e_preset preset)
+srLight::srLight(srNode* parent, e_preset preset, Ownership ownership)
+    : srClassSupport<srLight, srIlluminator, 0x1220>(static_cast<srNode*>(nullptr), ownership)
 {
     enable_flags = 0;
     derived_flags = 0;

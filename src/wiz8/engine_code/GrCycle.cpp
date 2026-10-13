@@ -485,21 +485,14 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
             float x = source_light->positionalX();
             float y = source_light->positionalY();
             float z = source_light->positionalZ();
-            stLight* copied_light = new stLight;
-
-            if (copied_light != 0) {
-                *copied_light = *source_light;
-            }
-            if (copied_light == 0) {
-                srAssertFail("pstLight", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0xcb,
-                             "Out of memory creating monster light");
-            }
+            auto owned_light = std::make_unique<stLight>(srNode::Ownership::independent);
+            *owned_light = *source_light;
+            stLight* copied_light = AddWorldLight(g_world, std::move(owned_light));
             copied_light->ConfigureMonsterCopy();
             copied_light->setLocation(x, y, z);
             /* Monster lights light group 2, like the ones AnimObjReadFromFile
                builds; the copy is not terminated. */
             copied_light->setGroupMask(2);
-            g_world->transient_lights.push_back(copied_light);
             if (copied_light->definition() != 0) {
                 g_world->lights_to_update.push_back(copied_light);
             }

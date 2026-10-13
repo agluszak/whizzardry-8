@@ -13,7 +13,7 @@ class srIlluminator : public srClassSupport<srIlluminator, srNode, 0x1200>,
                                     public srVertexProcessor {
 public:
     using srVertexProcessor::process;
-    SR_DLL_IMPORT srIlluminator(srNode* parent = 0);
+    SR_DLL_IMPORT srIlluminator(srNode* parent = 0, Ownership ownership = Ownership::parent);
     ~srIlluminator() override = default;
 
     SR_DLL_IMPORT srIlluminator& operator=(const srIlluminator& other);

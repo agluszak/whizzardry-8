@@ -18,6 +18,7 @@ class stLight;
 #include "wiz8/named_position.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
+#include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
 
 class srCamera;
@@ -92,7 +93,8 @@ struct W8World {
     float render_range;
     unsigned char m_unknown_07c[0x20];
     std::vector<srNode*> nodes_to_disable;
-    std::vector<stLight*> transient_lights;
+    // Lights created for this world (including monster-cycle copies); the world owns them.
+    std::vector<std::unique_ptr<stLight>> transient_lights;
     std::vector<W8SpellVisual*> spell_visuals;
     std::vector<W8Missile*> missiles;
     std::vector<stLight*> lights_to_update;

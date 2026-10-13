@@ -382,7 +382,6 @@ static void UnregisterWorld(W8World* world)
     world->psrMeshes.clear();
     world->update_mesh_source = nullptr;
     world->collidable_props.clear();
-    world->transient_lights.clear();
     wiz8::erase_first(g_worlds, world);
 }
 

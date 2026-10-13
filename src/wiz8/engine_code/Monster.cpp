@@ -1116,7 +1116,7 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
     for (index = 0; index < static_cast<int>(other->light_lists[other_cycle].size()); ++index) {
         std::vector<stLight*>* source_lights = other->light_lists[other_cycle][index];
         std::vector<stLight*>* copied_lights =
-            CloneAnimationLightList(source_lights, MONSTER_CPP, 0x1e5, 0x1ed);
+            CloneAnimationLightList(source_lights);
         light_lists[cycle].push_back(copied_lights);
     }
 }
