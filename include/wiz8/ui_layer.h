@@ -82,42 +82,49 @@ private:
     SDL_MouseButtonFlags captured_buttons_ = 0;
 };
 
-// Named overlay ordering. Lower orders win, and equal layers use insertion order.
-// Legacy retail region ranks are represented only here, not in screen code.
-enum class UiLayerOrder : int {
-    LockInput = 0x03,
-    Combat = 0x04,
-    PortraitButtons = 0x05,
-    PortraitStatus = 0x06,
-    PortraitSlotFirst = 0x07, // Eight contiguous portrait hit layers.
-    ScreenEdges = 0x10,
-    Radar = 0x12,
-    FormationBase = 0x13,
-    MessageBox = 0x14,
-    NpcTranscript = 0x16,
-    NpcTrade = 0x17,
-    NpcOptions = 0x18,
-    SpellCasting = 0x19,
-    ItemSelection = 0x1a,
-    FormationPanel = 0x1b,
-    PartyMovement = 0x1c,
-    PartyQuotes = 0x1d,
-    NpcQuoteBubble = 0x25,
-    KeyboardMenu = 0x26,
-    Submenu = 0x27,
-    GameplayOverlays = 0x28,
-    CampMain = 0x29,
-    CampInventory = 0x2a,
-    CampPool = 0x2b,
-    CampSpells = 0x2c,
-    CampButtons = 0x2d,
-    CharacterChoices = 0x32,
-    Standard = 0x33,
+// Named overlay ordering. Lower orders win, and equal layers use insertion
+// order. Only relative precedence matters; no retail region-set IDs survive.
+enum class UiLayerOrder {
+    LockInput,
+    Combat,
+    PortraitButtons,
+    PortraitStatus,
+    PortraitSlot0,
+    PortraitSlot1,
+    PortraitSlot2,
+    PortraitSlot3,
+    PortraitSlot4,
+    PortraitSlot5,
+    PortraitSlot6,
+    PortraitSlot7,
+    ScreenEdges,
+    Radar,
+    FormationBase,
+    MessageBox,
+    NpcTranscript,
+    NpcTrade,
+    NpcOptions,
+    SpellCasting,
+    ItemSelection,
+    FormationPanel,
+    PartyMovement,
+    PartyQuotes,
+    NpcQuoteBubble,
+    KeyboardMenu,
+    Submenu,
+    GameplayOverlays,
+    CampMain,
+    CampInventory,
+    CampPool,
+    CampSpells,
+    CampButtons,
+    CharacterChoices,
+    Standard,
 };
 
 constexpr UiLayerOrder PortraitSlotOrder(int slot)
 {
-    return static_cast<UiLayerOrder>(static_cast<int>(UiLayerOrder::PortraitSlotFirst) + slot);
+    return static_cast<UiLayerOrder>(static_cast<int>(UiLayerOrder::PortraitSlot0) + slot);
 }
 
 // Lower layer orders win; within a layer higher priorities win, then first registration.

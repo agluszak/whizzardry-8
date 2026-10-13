@@ -134,10 +134,10 @@ caret placement and modal focus rather than creating a disabled private layer.
 
 ## Layer precedence and scrollbar ownership
 
-Screens and overlays use named `UiLayerOrder` values instead of passing recovered
-region-set numbers throughout gameplay code. The ranking retains the established
-hit-test order, including eight consecutive portrait slots; equal-ranked layers
-still use registration order. Only the enum defines numeric precedence.
+Screens and overlays use an ordered `UiLayerOrder` enum rather than recovered
+region-set numbers. The enum's declaration order preserves established hit-test
+precedence, including eight consecutive portrait slots; equal-ranked layers
+still use registration order. No legacy rank values remain.
 
 A reusable `W8RangeControl` registers its three targets with its owning screen's
 `UiLayer`. It unregisters them on destruction and activates only its own targets.
