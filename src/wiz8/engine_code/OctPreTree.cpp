@@ -111,7 +111,8 @@ void OctPreTree::CollectLeafPolygons(const glm::ivec3& cell)
     m_gd_result_count = 0;
     unsigned int leaf_index = LeafIndexForCell(cell);
     if (leaf_index != 0 && m_leaves[leaf_index].polygon_offset != 0) {
-        const w8_ulong* stream = m_polygon_index_stream + m_leaves[leaf_index].polygon_offset;
+        const w8_ulong* stream =
+            m_polygon_index_stream.data() + m_leaves[leaf_index].polygon_offset;
         for (int remaining = *stream; remaining != 0; --remaining) {
             ++stream;
             if (!SetBit(m_visited_polygon_bits, *stream)) {
@@ -260,35 +261,38 @@ try
         return 0;
     }
     file->write(&sentinel, 4);
-    if ((file->write(m_branches, header.m_branch_count * sizeof(W8OctPreTreeBranch)), true) == 0) {
+    if ((file->write(m_branches.data(), header.m_branch_count * sizeof(W8OctPreTreeBranch)),
+         true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Node info.\n");
         return 0;
     }
-    if ((file->write(m_leaves, header.m_leaf_count * sizeof(W8OctPreTreeLeaf)), true) == 0) {
+    if ((file->write(m_leaves.data(), header.m_leaf_count * sizeof(W8OctPreTreeLeaf)), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Leaves info.\n");
         return 0;
     }
-    if ((file->write(m_polygon_index_stream, header.m_leaf_polygon_stream_len * 4), true) == 0) {
+    if ((file->write(m_polygon_index_stream.data(), header.m_leaf_polygon_stream_len * 4), true) ==
+        0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Poly List info.\n");
         return 0;
     }
     unsigned int grid_cells =
         m_leaf_grid_dimensions.z * m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.x;
-    if (grid_cells < 250000 && (file->write(m_leaf_lookup, grid_cells * 4), true) == 0) {
+    if (grid_cells < 250000 && (file->write(m_leaf_lookup.data(), grid_cells * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write uiLeafGrid info.\n");
         return 0;
     }
-    if ((file->write(m_aulPolyLookup, header.m_polygon_count * 4), true) == 0) {
+    if ((file->write(m_aulPolyLookup.data(), header.m_polygon_count * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Poly Lookup table.\n");
         return 0;
     }
     if (header.m_region_list_len != 0 &&
-        (file->write(m_region_index_stream, header.m_region_list_len * 2), true) == 0) {
+        (file->write(m_region_index_stream.data(), header.m_region_list_len * 2), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write region list.\n");
         return 0;
     }
     if (header.m_gd_surface_stream_len != 0 &&
-        (file->write(m_gd_surface_index_stream, header.m_gd_surface_stream_len * 4), true) == 0) {
+        (file->write(m_gd_surface_index_stream.data(), header.m_gd_surface_stream_len * 4), true) ==
+            0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Game Data Poly List.\n");
         return 0;
     }
@@ -296,7 +300,7 @@ try
        reads it back as 2-byte elements (0x4688c3 vs 0x42c351): the asymmetry
        is authentic.  In practice the count is always zero. */
     if (header.m_trigger_count != 0 &&
-        (file->write(m_trigger_indices, header.m_trigger_count * 4), true) == 0) {
+        (file->write(m_trigger_indices.data(), header.m_trigger_count * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Trigger list.\n");
         return 0;
     }
@@ -307,8 +311,8 @@ try
     }
     file->write(&sentinel, 4);
     if (header.m_submesh_count != 0) {
-        if ((file->write(m_pSubmeshes, (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)), true) ==
-            0) {
+        if ((file->write(m_pSubmeshes.data(), (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)),
+             true) == 0) {
             ReportBuildStatus(7, "WriteOctFile: Couldn't write submesh array.\n");
             return 0;
         }
@@ -405,132 +409,119 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
         memset(records, 0, (m_spatial.submesh_count + 1) * 3 * sizeof(W8OctSubmeshBuild));
         AllocateSubMesh(records);
         SplitMeshes(geometry, records);
-        m_aulPolyLookup = static_cast<w8_ulong*>(malloc(geometry->m_polygon_count * sizeof(*m_aulPolyLookup) + sizeof(*m_aulPolyLookup)));
-        if (m_aulPolyLookup == 0) {
-            ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate m_aulPolyLookup.\n");
-            FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
-        } else {
-            m_pSubmeshes = static_cast<W8OctSubmesh*>(
-                malloc((m_spatial.submesh_count + 1) * sizeof(W8OctSubmesh)));
-            std::vector<OctMeshModel> models(m_spatial.submesh_count + 1);
-            if (m_pSubmeshes != 0) {
-                memset(m_pSubmeshes, 0, (m_spatial.submesh_count + 1) * sizeof(W8OctSubmesh));
-                root_count = 0;
-                kind_counts[3] = 0;
-                kind_counts[2] = 0;
-                kind_counts[1] = 0;
-                kind_counts[0] = 0;
-                record_index = 1;
-                model_index = 0;
-                if (m_spatial.submesh_count > 1) {
-                    W8OctSubmeshBuild* record = records + 1;
-                    W8OctSubmesh* submesh = m_pSubmeshes + 1;
+        m_aulPolyLookup.resize(geometry->m_polygon_count + 1);
+
+        m_pSubmeshes.resize(m_spatial.submesh_count + 1);
+        std::vector<OctMeshModel> models(m_spatial.submesh_count + 1);
+
+        root_count = 0;
+        kind_counts[3] = 0;
+        kind_counts[2] = 0;
+        kind_counts[1] = 0;
+        kind_counts[0] = 0;
+        record_index = 1;
+        model_index = 0;
+        if (m_spatial.submesh_count > 1) {
+            W8OctSubmeshBuild* record = records + 1;
+            W8OctSubmesh* submesh = m_pSubmeshes.data() + 1;
                     /* Retail writes models from index 0: records[1..] and
                        submeshes[1..] are one-based, but the model cursor
                        starts at models[0]. */
-                    OctMeshModel* model = models.data();
-                    do {
-                        if (record->m_polygon_count == 0) {
-                            ReportBuildStatus(7, "CreateSubMeshes: Found mesh with no polys.\n");
+            OctMeshModel* model = models.data();
+            do {
+                if (record->m_polygon_count == 0) {
+                    ReportBuildStatus(7, "CreateSubMeshes: Found mesh with no polys.\n");
+                    FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
+                    goto cleanup;
+                }
+                submesh->mesh = model_index;
+                submesh->polygon_count = record->m_polygon_count;
+                submesh->next_link = record->m_next_link;
+                model->m_packed_header = record->m_kind;
+                model->version = m_sun_count;
+                kind_counts[record->m_kind] += 1;
+                model->m_vertex_count = record->vertex_count;
+                model->m_map_count = record->m_map_count;
+                model->m_polygon_count = record->m_polygon_count;
+                model->m_link_index = record->m_prev_link - 1;
+                if (record->m_prev_link == 0) {
+                    ++root_count;
+                }
+                model->next_link = record->m_next_link - 1;
+                model->m_vertex_locations = static_cast<srVector3T<float>*>(
+                    std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
+                model->m_vertex_map = record->m_uv_map;
+                model->m_poly_vertices = record->m_poly_vertices;
+                model->m_poly_uv_index = record->m_poly_uv_index;
+                model->m_poly_equations = static_cast<glm::vec4*>(
+                    std::malloc(record->m_polygon_count * sizeof(*model->m_poly_equations)));
+                model->m_vertex_normals = static_cast<srVector3T<float>*>(
+                    std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
+                model->m_vertex_lights = static_cast<srVector3T<float>*>(
+                    std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
+                model->m_vertex_materials =
+                    static_cast<int*>(malloc(record->vertex_count * sizeof(int)));
+                model->m_poly_textures = static_cast<int*>(
+                    malloc(record->m_polygon_count * sizeof(*model->m_poly_textures)));
+                if (m_sun_count != 0) {
+                    model->m_sun_lights = static_cast<float**>(
+                        malloc(static_cast<int>(m_sun_count) * sizeof(*model->m_sun_lights)));
+                    if (model->m_sun_lights == 0) {
+                        ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate "
+                                             "ppsrSunLights.\n");
+                        FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
+                        goto cleanup;
+                    }
+                    for (short sun = 0; sun < static_cast<short>(m_sun_count); ++sun) {
+                        model->m_sun_lights[sun] = static_cast<float*>(
+                            malloc(record->vertex_count * sizeof(*model->m_sun_lights[sun])));
+                        if (model->m_sun_lights[sun] == 0) {
+                            ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate "
+                                                 "ppsrSunLights array.\n");
                             FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
                             goto cleanup;
                         }
-                        submesh->mesh = model_index;
-                        submesh->polygon_count = record->m_polygon_count;
-                        submesh->next_link = record->m_next_link;
-                        model->m_packed_header = record->m_kind;
-                        model->version = m_sun_count;
-                        kind_counts[record->m_kind] += 1;
-                        model->m_vertex_count = record->vertex_count;
-                        model->m_map_count = record->m_map_count;
-                        model->m_polygon_count = record->m_polygon_count;
-                        model->m_link_index = record->m_prev_link - 1;
-                        if (record->m_prev_link == 0) {
-                            ++root_count;
-                        }
-                        model->next_link = record->m_next_link - 1;
-                        model->m_vertex_locations = static_cast<srVector3T<float>*>(
-                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
-                        model->m_vertex_map = record->m_uv_map;
-                        model->m_poly_vertices = record->m_poly_vertices;
-                        model->m_poly_uv_index = record->m_poly_uv_index;
-                        model->m_poly_equations = static_cast<glm::vec4*>(
-                            std::malloc(record->m_polygon_count *
-                                sizeof(*model->m_poly_equations)));
-                        model->m_vertex_normals = static_cast<srVector3T<float>*>(
-                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
-                        model->m_vertex_lights = static_cast<srVector3T<float>*>(
-                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
-                        model->m_vertex_materials =
-                            static_cast<int*>(malloc(record->vertex_count * sizeof(int)));
-                        model->m_poly_textures =
-                            static_cast<int*>(malloc(record->m_polygon_count *
-                                   sizeof(*model->m_poly_textures)));
-                        if (m_sun_count != 0) {
-                            model->m_sun_lights =
-                                static_cast<float**>(malloc(static_cast<int>(m_sun_count) * sizeof(*model->m_sun_lights)));
-                            if (model->m_sun_lights == 0) {
-                                ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate "
-                                                     "ppsrSunLights.\n");
-                                FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
-                                goto cleanup;
-                            }
-                            for (short sun = 0; sun < static_cast<short>(m_sun_count); ++sun) {
-                                model->m_sun_lights[sun] =
-                                    static_cast<float*>(malloc(record->vertex_count *
-                                         sizeof(*model->m_sun_lights[sun])));
-                                if (model->m_sun_lights[sun] == 0) {
-                                    ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate "
-                                                         "ppsrSunLights array.\n");
-                                    FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
-                                    goto cleanup;
-                                }
-                            }
-                        }
-                        if (model->m_vertex_locations == 0 || model->m_vertex_map == 0 ||
-                            model->m_poly_vertices == 0 || model->m_poly_equations == 0 ||
-                            model->m_vertex_normals == 0 || model->m_vertex_lights == 0 ||
-                            model->m_vertex_materials == 0 || model->m_poly_textures == 0) {
-                            ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate mesh "
-                                                 "model arrays.\n");
-                            FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
-                            goto cleanup;
-                        }
-                        for (w8_ulong polygon = 0; polygon < record->m_polygon_count;
-                             ++polygon) {
-                            w8_ulong id = record->m_polygon_ids[polygon];
-                            m_aulPolyLookup[id] = model_index * 0x10000 + polygon;
-                            model->m_poly_textures[polygon] = geometry->m_polygons[id].texture;
-                            model->m_poly_equations[polygon].x =
-                                geometry->m_polygons[id].plane.normal.x;
-                            model->m_poly_equations[polygon].y =
-                                geometry->m_polygons[id].plane.normal.y;
-                            model->m_poly_equations[polygon].z =
-                                geometry->m_polygons[id].plane.normal.z;
-                            model->m_poly_equations[polygon].w = geometry->m_polygons[id].plane.w;
-                        }
-                        model->m_material_index =
-                            geometry->m_vertices[record->m_vertex_ids[0]].m_material;
-                        for (w8_ulong vertex = 0; vertex < record->vertex_count; ++vertex) {
-                            W8OctPreTreeVertex* source =
-                                &geometry->m_vertices[record->m_vertex_ids[vertex]];
-                            model->m_vertex_locations[vertex] = source->position;
-                            model->m_vertex_normals[vertex] = source->m_normal;
-                            model->m_vertex_lights[vertex] = source->m_light;
-                            model->m_vertex_materials[vertex] = source->m_material;
-                            for (short sun = 0; sun < static_cast<short>(m_sun_count); ++sun) {
-                                model->m_sun_lights[sun][vertex] = source->m_sun_lights[sun];
-                            }
-                            if (model->m_vertex_materials[vertex] != model->m_material_index) {
-                                model->m_material_index = -1;
-                            }
-                        }
-                        ++record;
-                        ++submesh;
-                        ++model;
-                        ++model_index;
-                        ++record_index;
-                    } while (record_index < m_spatial.submesh_count);
+                    }
+                }
+                if (model->m_vertex_locations == 0 || model->m_vertex_map == 0 ||
+                    model->m_poly_vertices == 0 || model->m_poly_equations == 0 ||
+                    model->m_vertex_normals == 0 || model->m_vertex_lights == 0 ||
+                    model->m_vertex_materials == 0 || model->m_poly_textures == 0) {
+                    ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate mesh "
+                                         "model arrays.\n");
+                    FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
+                    goto cleanup;
+                }
+                for (w8_ulong polygon = 0; polygon < record->m_polygon_count; ++polygon) {
+                    w8_ulong id = record->m_polygon_ids[polygon];
+                    m_aulPolyLookup[id] = model_index * 0x10000 + polygon;
+                    model->m_poly_textures[polygon] = geometry->m_polygons[id].texture;
+                    model->m_poly_equations[polygon].x = geometry->m_polygons[id].plane.normal.x;
+                    model->m_poly_equations[polygon].y = geometry->m_polygons[id].plane.normal.y;
+                    model->m_poly_equations[polygon].z = geometry->m_polygons[id].plane.normal.z;
+                    model->m_poly_equations[polygon].w = geometry->m_polygons[id].plane.w;
+                }
+                model->m_material_index = geometry->m_vertices[record->m_vertex_ids[0]].m_material;
+                for (w8_ulong vertex = 0; vertex < record->vertex_count; ++vertex) {
+                    W8OctPreTreeVertex* source =
+                        &geometry->m_vertices[record->m_vertex_ids[vertex]];
+                    model->m_vertex_locations[vertex] = source->position;
+                    model->m_vertex_normals[vertex] = source->m_normal;
+                    model->m_vertex_lights[vertex] = source->m_light;
+                    model->m_vertex_materials[vertex] = source->m_material;
+                    for (short sun = 0; sun < static_cast<short>(m_sun_count); ++sun) {
+                        model->m_sun_lights[sun][vertex] = source->m_sun_lights[sun];
+                    }
+                    if (model->m_vertex_materials[vertex] != model->m_material_index) {
+                        model->m_material_index = -1;
+                    }
+                }
+                ++record;
+                ++submesh;
+                ++model;
+                ++model_index;
+                ++record_index;
+            } while (record_index < m_spatial.submesh_count);
                 }
                 m_spatial.submesh_count = model_index;
                 m_meshCount = root_count;
@@ -551,10 +542,10 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                 free(records);
                 models.resize(model_index);
                 return models;
-            }
+
             ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate mesh arrays.\n");
             FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
-        }
+
     cleanup:
         free(records);
     }
@@ -1144,7 +1135,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
             ReportBuildStatus(7, "Could not create PrePathing object\n");
         }
         pre_pathing->ConfigureForLevel(path_node_count, m_region_cell, m_path_clearance,
-                                       m_spatial.bounds(), m_owned_0c0);
+                                       m_spatial.bounds(), m_path_stem.c_str());
         /* Verified retail behavior: this early return runs only the two
            local hash-table destructors.  preprops (and its pStopMeshes
            arrays), object_registry and g_octree_game_data are all
