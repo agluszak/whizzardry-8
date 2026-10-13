@@ -915,6 +915,18 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 }
 
+/* Moves a monster group to a position, then each allied group that exists. */
+static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, srVector3T<float>* position, float yaw)
+{
+    MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
+    for (int index = 0; index < 4; ++index) {
+        if (group->allied_group_ids[index] != 0) {
+            group = FindMonsterGroup(group->allied_group_ids[index]);
+            MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
+        }
+    }
+}
+
 /* Advance one monster's whole aging cycle by the elapsed minutes: the
    look-around timers, the sight bookkeeping around its last-seen position,
    the per-turn regeneration and fatigue bookkeeping, condition, enchantment
@@ -959,15 +971,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 srVector3T<float> notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
-                MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(), false, false,
-                                           false, false);
-                for (int index = 0; index < 4; ++index) {
-                    if (group->allied_group_ids[index] != 0) {
-                        group = FindMonsterGroup(group->allied_group_ids[index]);
-                        MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(),
-                                                   false, false, false, false);
-                    }
-                }
+                MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
             }
         }
         goto after_early;
@@ -1021,17 +1025,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                                 srVector3T<float> notify_position = next_position;
                                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
-                                MoveMonsterGroupToPosition(group, &notify_position,
-                                                           monster->GetYaw(), false, false, false,
-                                                           false);
-                                for (int index = 0; index < 4; ++index) {
-                                    if (group->allied_group_ids[index] != 0) {
-                                        group = FindMonsterGroup(group->allied_group_ids[index]);
-                                        MoveMonsterGroupToPosition(group, &notify_position,
-                                                                   monster->GetYaw(), false, false,
-                                                                   false, false);
-                                    }
-                                }
+                                MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
                                 cleared = true;
                             }
                         }
@@ -1069,16 +1063,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             srVector3T<float> notify_position = monster->formation;
                             W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
-                            MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(),
-                                                       false, false, false, false);
-                            for (int index = 0; index < 4; ++index) {
-                                if (group->allied_group_ids[index] != 0) {
-                                    group = FindMonsterGroup(group->allied_group_ids[index]);
-                                    MoveMonsterGroupToPosition(group, &notify_position,
-                                                               monster->GetYaw(), false, false,
-                                                               false, false);
-                                }
-                            }
+                            MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
                         }
                         cycle_cleared = true;
                         flags_cleared = true;
