@@ -1,11 +1,13 @@
+#include "wiz8/ui_layer.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include <array>
+#include <string>
 #pragma once
 
 #include <string_view>
 #include <memory>
-#include <array>
 #include <cstddef>
-#include "wiz8/regions.h"
-#include <string>
+#include "wiz8/ui_input.h"
 #include <vector>
 #include <cstdint>
 
@@ -17,26 +19,14 @@
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "input.h"
 #include "compat/compiler.h"
-#include "local_code/Controls.h"
-#include "local_code/TextControl.h"
 
-class W8Widget;
 struct W8Character;
 struct W8CombatSlot;
-struct W8Region;
 
-extern ScreenRegionSet g_camp_main_regions;
-extern ScreenRegionSet g_camp_inventory_regions;
-extern ScreenRegionSet g_camp_item_pool_regions;
-extern ScreenRegionSet g_camp_spell_list_regions;
-extern ScreenRegionSet g_camp_page_regions;
-extern ScreenRegionSet g_camp_item_action_regions;
-extern ScreenRegionSet g_camp_automap_regions;
-extern ScreenRegionSet g_camp_overlay_regions;
 
 enum CampMainRegionOffset {
-    kCampPartyPortraitRegionOffset = 3,
-    kCampCharacterHeaderRegionOffset = 11
+    kCampPartyPortraitRegionOffset = 1,
+    kCampCharacterHeaderRegionOffset = 9
 };
 
 enum CampInventoryRegionOffset {
@@ -85,39 +75,22 @@ enum W8CampItemFilter {
     W8_CAMP_ITEM_FILTER_COUNT = 6
 };
 
-/* The three listeners own different range controls. Their callbacks update
-   the item, spell-realm and stats effect-list scroll positions respectively.
-   W8CampStatsRange and W8CampStatsControls are authored in RCSStatsPage.cpp
-   (declared in RCSStatsPage.h). */
-// VTABLE: WIZ8 0x005eed08
-class W8CampItemRange final : public W8CampRangeListener {
-public:
-    W8CampItemRange();
-    virtual void OnRangeChanged(W8RangeControl* control) override;
-};
-
-// VTABLE: WIZ8 0x005ef298
-class W8CampSpellRange final : public W8CampRangeListener {
-public:
-    explicit W8CampSpellRange(W8SpellRealm realm);
-    virtual void OnRangeChanged(W8RangeControl* control) override;
-    W8SpellRealm m_realm;
-};
-
-// VTABLE: WIZ8 0x005ef278 Controls
-// VTABLE: WIZ8 0x005ef270 W8TextControl::Listener
-class W8CampCharacterInfo : public Controls, public W8TextControl::Listener {
+class W8CampCharacterInfo {
 public:
     W8CampCharacterInfo();
-    virtual void SetActive(bool enabled) override;
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnPrimary(W8TextControl* control) override;
+    void SetActive(bool enabled);
+    void Redraw(SDL_Surface& target, bool full_redraw);
     void SetCombatView(bool enabled);
-    bool m_combat_view;
-    unsigned char m_pad_051[3];
-    W8TextControl* m_combat_tab;
-    W8TextControl* m_stats_tab;
-    W8HelpTextControl* m_values[4];
+    void InvalidateAll() { m_dirty = true; }
+    UiLayer input;
+    bool m_combat_view = true;
+    bool m_active = false;
+    bool m_dirty = true;
+    int m_backgroundImage = 0;
+    std::unique_ptr<W8ButtonWidget> m_combat_tab;
+    std::unique_ptr<W8ButtonWidget> m_stats_tab;
+    std::array<HitTarget*, 4> m_values;
+    std::array<std::string, 4> m_help;
 };
 
 /* W8CampScreenState::redraw_flags. Party-slot bits are shifted by the slot
@@ -154,7 +127,12 @@ enum W8CampItemRedrawFlag {
 struct W8CampScreenState {
     std::string text_buffer;
     W8CampPage page;
-    unsigned int hover_region;
+    UiLayer main_input{0x29}, inventory_input{0x2a}, pool_input{0x2b}, spell_input{0x2c};
+    std::array<HitTarget*, 11> main_targets{};
+    std::array<HitTarget*, 20> inventory_targets{};
+    std::array<HitTarget*, 8> pool_targets{};
+    std::array<HitTarget*, 6> spell_targets{};
+    std::unique_ptr<UiLayer> skill_input;
     unsigned int redraw_flags;
     unsigned int item_redraw_flags;
     W8LearnedSpellState learned_spells;
@@ -166,9 +144,9 @@ struct W8CampScreenState {
        handler reads it through item_scroll. */
     unsigned int item_list_count;
     int item_list[500];
-    std::unique_ptr<W8CampItemRange> item_range;
-    std::array<std::unique_ptr<W8CampSpellRange>, 6> spell_ranges;
-    std::unique_ptr<W8CampStatsRange> stats_range;
+    std::unique_ptr<W8RangeControl> item_range;
+    std::array<std::unique_ptr<W8RangeControl>, 6> spell_ranges;
+    std::unique_ptr<W8RangeControl> stats_range;
     std::unique_ptr<W8CampStatsControls> stats_controls;
     uint64_t item_timer;
     bool item_timer_active;
@@ -225,15 +203,6 @@ extern bool g_camp_character_pending;
    CreateItemsTabPanel and read here and in RCSItemsPage.cpp. The
    secondary panel owns the Items/Character info page tabs, the character-info
    help text, the seven attribute rows and the four secondary value labels. */
-extern std::unique_ptr<Controls> g_camp_secondary_panel;
-extern W8Widget* g_camp_info_labels[4];
-extern W8TextControl* g_camp_page_tabs[2];
-extern W8HelpTextControl* g_camp_help_text;
-extern W8Widget* g_camp_stat_labels[7];
-extern std::unique_ptr<Controls> g_camp_action_panel;
-extern W8TextControl* g_camp_action_buttons[2];
-extern W8TextControl* g_camp_item_filter_buttons[7];
-extern std::unique_ptr<Controls> g_camp_item_filter_panel;
 /* One g_localized_strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
 extern int g_attribute_label_ids[7];
@@ -282,8 +251,6 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
    hand - split one off into the hand, or add one onto the held stack. */
 void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin origin);
 
-void CampScreenInitializeRegions(void);
-void LayoutCampSecondaryRegions(void);
 unsigned char CampScreenEnter(void);
 void CampScreenFrame(void);
 unsigned char CampScreenLeave(int leaving);
@@ -295,7 +262,7 @@ void SetCampSpellRangesEnabled(bool enable);
 void RefreshCampSpellRanges(void);
 void DrawCampSpellPages(void);
 void DrawCampResistances(void);
-unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
+UiResult HandleCampSpellList(const UiPointerEvent& event, int realm);
 void OpenSpellInfoDialog(unsigned int spell_id);
 void SyncReviewCharInputRegion(void);
 bool IsEquippableItemClass(W8ItemInstance* item);

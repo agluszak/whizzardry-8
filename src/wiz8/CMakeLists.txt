@@ -15,7 +15,9 @@ add_library(WIZ8_GAME_CORE STATIC
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
     local_code/ThingEditorShared.cpp
-    local_code/Controls.cpp
+    local_code/TextBuffer.cpp
+    local_code/RangeControl.cpp
+    local_code/UiLayer.cpp
     local_code/Factions.cpp
     local_code/LoadSaveGame.cpp
     local_code/Magic.cpp
@@ -53,7 +55,6 @@ add_library(WIZ8_GAME_CORE STATIC
     local_screens/MGSTextBox.cpp
     local_screens/MainGameScreen.cpp
     local_screens/combat_portrait_image.cpp
-    local_screens/formation_panel_refresh.cpp
     local_screens/NPCInteractionSubscreen.cpp
     local_screens/CharacterScreen.cpp
     local_screens/CharacterPages.cpp
@@ -71,8 +72,6 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/Strings.cpp
     local_code/Configuration.cpp
     local_code/ButtonSound.cpp
-    dialog_code/NotificationDialog.cpp
-    dialog_code/MessageDialogBase.cpp
     dialog_code/stMessageDialog.cpp
     dialog_code/DialogBase.cpp
     dialog_code/DialogFactoryDialogs.cpp
@@ -120,7 +119,6 @@ add_library(WIZ8_GAME_CORE STATIC
     learned_spells.cpp
     packed_bits.cpp
     local_code/Noise.cpp
-    local_code/RegionManager.cpp
     local_code/chunk.cpp
     local_code/DifficultyScaling.cpp
     engine_code/GrCycle.cpp

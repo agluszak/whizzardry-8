@@ -8,7 +8,7 @@
 #include <string_view>
 
 #include "input.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 struct W8MonsterInfo;
 namespace wiz8 { class File; }
@@ -76,7 +76,7 @@ enum TextBoxArrowState : int {
 
 void InitTextBoxRegions();
 void ShutdownTextBoxRegions();
-extern ScreenRegionSet g_text_box_regions;
+void SetTextBoxEnabled(bool enabled);
 void EnableDialogueTextBoxRegions();
 void DisableDialogueTextBoxRegions();
 void SetTextBoxScrollInput(bool enabled);

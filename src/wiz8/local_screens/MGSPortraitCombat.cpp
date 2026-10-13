@@ -1,7 +1,7 @@
 
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Search.h"
@@ -98,36 +98,36 @@ unsigned char CreateSubMenuButtons(void)
 
     g_submenu_buttons[0].Configure(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c,
                                     SubMenuButtonPendingScreen, BUTTON_NO_CALLBACK, false,
-                                    REGION_PRIORITY_HIGHEST, 0x42, BUTTON_NO_CALLBACK,
+                                    UI_PRIORITY_HIGHEST, 0x42, BUTTON_NO_CALLBACK,
                                     BUTTON_NO_CALLBACK);
     g_submenu_buttons[1].Configure(
         g_submenu_icons_path, 0x3, 0x0, 0x1, 0x2, 0x4, SubMenuButtonSurprise, BUTTON_NO_CALLBACK,
-        false, REGION_PRIORITY_HIGHEST, 0x43, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+        false, UI_PRIORITY_HIGHEST, 0x43, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_submenu_buttons[2].Configure(
         g_submenu_icons_path, 0x8, 0x5, 0x6, 0x7, 0x9, SubMenuButtonToggleFlag, BUTTON_NO_CALLBACK,
-        true, REGION_PRIORITY_HIGHEST, 0x44, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+        true, UI_PRIORITY_HIGHEST, 0x44, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_submenu_buttons[3].Configure(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18,
                                     SubMenuButtonUseItem, BUTTON_NO_CALLBACK, true,
-                                    REGION_PRIORITY_HIGHEST, 0x45, BUTTON_NO_CALLBACK,
+                                    UI_PRIORITY_HIGHEST, 0x45, BUTTON_NO_CALLBACK,
                                     BUTTON_NO_CALLBACK);
     g_submenu_buttons[4].Configure(g_submenu_icons_path, 0x1c, 0x19, 0x1a, 0x1b, 0x1d,
                                     SubMenuButtonSpellView, BUTTON_NO_CALLBACK, true,
-                                    REGION_PRIORITY_HIGHEST, 0x46, BUTTON_NO_CALLBACK,
+                                    UI_PRIORITY_HIGHEST, 0x46, BUTTON_NO_CALLBACK,
                                     BUTTON_NO_CALLBACK);
     g_submenu_buttons[5].Configure(g_submenu_icons_path, 0x12, 0xf, 0x10, 0x11, 0x13,
                                     SubMenuButtonOpenMenu1, BUTTON_NO_CALLBACK, false,
-                                    REGION_PRIORITY_HIGHEST, 0x4a, BUTTON_NO_CALLBACK,
+                                    UI_PRIORITY_HIGHEST, 0x4a, BUTTON_NO_CALLBACK,
                                     BUTTON_NO_CALLBACK);
     g_submenu_buttons[6].Configure(
         g_submenu_icons_path, 0xd, 0xa, 0xb, 0xc, 0xe, SubMenuButtonOpenMenu0, BUTTON_NO_CALLBACK,
-        false, REGION_PRIORITY_HIGHEST, 0x49, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+        false, UI_PRIORITY_HIGHEST, 0x49, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_submenu_buttons[7].Configure(g_submenu_combat_icons_path, 0x3, 0x0, 0x1, 0x2, 0x2,
                                     SubMenuButtonToggleCombat, BUTTON_NO_CALLBACK, false,
-                                    REGION_PRIORITY_HIGHEST, 0x47, BUTTON_NO_CALLBACK,
+                                    UI_PRIORITY_HIGHEST, 0x47, BUTTON_NO_CALLBACK,
                                     BUTTON_NO_CALLBACK);
     g_submenu_buttons[8].Configure(g_submenu_combat_icons_path, 0x7, 0x4, 0x5, 0x6, 0x6,
                                     SubMenuButtonToggleCombat, BUTTON_NO_CALLBACK, false,
-                                    REGION_PRIORITY_HIGHEST, 0x48, BUTTON_NO_CALLBACK,
+                                    UI_PRIORITY_HIGHEST, 0x48, BUTTON_NO_CALLBACK,
                                     BUTTON_NO_CALLBACK);
     for (index = 0; index < 9; ++index) {
         g_submenu_buttons[index].SetPosition(g_submenu_button_positions[index].x,
@@ -311,7 +311,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
     }
     if (gXStatus.fCombatMode) {
         OpenSubMenuPanel(3);
-        g_ui.captured = 0;
+        ReleaseUiCapture();
         return;
     }
     OpenUseItemSelectView(g_status.selected_character);
@@ -349,13 +349,6 @@ static void SubMenuButtonToggleCombat(W8ButtonWidget* button)
     DrawSubMenuCharacterAction();
 }
 
-/* Delete the panel and its owned rows, including failed construction. */
-void DestroySubMenuPanel()
-{
-    gpSubMenuPanel.reset();
-    for (auto& row : g_submenu_rows) row = nullptr;
-}
-
 /* Drop the combat-end notification and tear down the panel and its rows.
    Retail expands this operation throughout the submenu callbacks; callers
    share this body and leave the inlining decision to the compiler. */
@@ -365,8 +358,6 @@ void DestroySubMenuControls(void)
     SetSubMenuButtonTooltips(1);
     g_level_block->combat_end_notification = -1;
     g_submenu_entry_count = 0;
-    g_main_submenu_regions.Disable();
-    g_main_submenu_regions.DisableInput();
     DestroySubMenuPanel();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }

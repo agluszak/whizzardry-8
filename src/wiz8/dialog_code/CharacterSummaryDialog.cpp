@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <cctype>
 #include <cstring>
 
@@ -5,7 +6,6 @@
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -20,7 +20,7 @@
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its
@@ -108,19 +108,19 @@ bool W8CharacterSummaryDialog::CreateQuoteText()
 }
 
 // FUNCTION: WIZ8 0x005e07b0
-void W8CharacterSummaryDialog::Draw()
+void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 {
     if (m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) {
         if (!m_initialized) {
             CreateControls();
         }
         m_quote_text->SetGeometryDirty();
-        W8DialogBase::Draw();
+        W8DialogBase::Draw(target);
     }
     if (m_quote_text != 0) {
-        m_quote_text->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_quote_text->RenderToTarget(0, false, target);
     }
-    RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, {}, 1, 0);
+    RenderPartyPortrait(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 1, 0);
     if (!m_portrait_clock_started) {
         m_portrait_clock_started = true;
         m_portrait_clock = w8_get_ticks();
@@ -128,9 +128,9 @@ void W8CharacterSummaryDialog::Draw()
 }
 
 // FUNCTION: WIZ8 0x005e0830
-void W8CharacterSummaryDialog::DrawPortraitAnimationFrame()
+void W8CharacterSummaryDialog::DrawPortraitAnimationFrame(SDL_Surface& target)
 {
-    BlitPartyPortraitAnimation(m_character->portrait_index, m_x + 11, m_y + 11, {}, 0, false);
+    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0, false);
 }
 
 // FUNCTION: WIZ8 0x005e0860
@@ -205,7 +205,3 @@ bool W8CharacterSummaryDialog::ProcessInput()
 }
 
 // FUNCTION: WIZ8 0x005e0c30
-W8DialogKind W8CharacterSummaryDialog::GetDialogType()
-{
-    return W8_DIALOG_CHARACTER_SUMMARY;
-}

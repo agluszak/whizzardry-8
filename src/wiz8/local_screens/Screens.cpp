@@ -24,7 +24,6 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
-#include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "Font.h"
@@ -371,7 +370,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
-    (*g_main_effect_regions)[kMonsterListRegionOffset].SetInputEnabled(false);
+    g_main_input->monster_list->setEnabled(false);
     g_level_block->action_group = -1;
     g_level_block->value_2ac = 0;
     g_level_block->value_2b4 = 0;

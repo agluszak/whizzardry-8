@@ -6,9 +6,10 @@
 #include <vector>
 
 #include "input.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_layer.h"
 
 struct Font;
+struct SDL_Surface;
 class W8TextField;
 
 struct TextFieldStyle {
@@ -38,6 +39,7 @@ class TextFieldGroup {
 public:
     explicit TextFieldGroup(int scheme);
     explicit TextFieldGroup(Font& font);
+    TextFieldGroup(UiLayer& layer, Font& font);
     ~TextFieldGroup();
     TextFieldGroup(const TextFieldGroup&) = delete;
     TextFieldGroup& operator=(const TextFieldGroup&) = delete;
@@ -66,26 +68,28 @@ public:
     std::size_t Cursor() const;
     void SetCursor(std::size_t cursor);
 
-    void RenderFocused();
-    void RenderAll();
+    void RenderAll(SDL_Surface& target);
 
 private:
     friend class W8TextField;
+    TextFieldGroup(Font& font, UiLayer* layer);
 
     W8TextField* Find(int id) const;
     void Suspend();
     void Resume();
     void SetEditing(bool editing);
     void FocusField(W8TextField& field);
-    void RenderBackground(W8TextField& field);
-    void RenderInactive(W8TextField& field);
+    void RenderFocused(SDL_Surface& target);
+    void RenderBackground(W8TextField& field, SDL_Surface& target);
+    void RenderInactive(W8TextField& field, SDL_Surface& target);
     void InsertCharacter(char32_t character);
     void InsertRestricted(char32_t character);
     void DeleteSelection(std::size_t first, std::size_t last);
     void SelectWordAtMouse(int mouse_x);
 
     TextFieldStyle style_;
-    RegionSetRef layer_; /* the input layer the group was made in */
+    std::unique_ptr<UiLayer> owned_layer_;
+    UiLayer* layer_; // Borrowed owner layer, or this group's own layer.
     std::vector<std::unique_ptr<W8TextField>> fields_;
     W8TextField* focused_ = nullptr;
     W8TextField* suspended_focus_ = nullptr;

@@ -1,3 +1,6 @@
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_mouse.h>
+#include "wiz8/ui_layer.h"
 #include <algorithm>
 #include <array>
 #include <memory>
@@ -5,7 +8,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
-#include <span>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
@@ -19,7 +21,6 @@
 #include "wiz8/integer_constants.h"
 #include "compat/native.h"
 #include "conditions.h"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "audio_resources.h"
@@ -60,7 +61,6 @@
 #include "timer.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/regions.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/local_screens/mipe.h"
@@ -485,7 +485,8 @@ W8CharacterEventQueue::W8CharacterEventQueue()
 }
 
 // FUNCTION: WIZ8 0x0052d5b0
-W8CharacterEventQueue::~W8CharacterEventQueue() { DestroyAllEvents(); }
+static void ReleasePartyQuoteInput();
+W8CharacterEventQueue::~W8CharacterEventQueue() { DestroyAllEvents(); ReleasePartyQuoteInput(); }
 
 /* Completes every active event, then drops the undispatched ones. */
 // FUNCTION: WIZ8 0x0052db80
@@ -848,70 +849,56 @@ finish_without_dispatch:
     return 0;
 }
 
-// Retail sets 0x1d-0x24, regions 302-309
-static constexpr std::array<RegionTemplate, 8> g_party_portrait_event_templates{{
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 0, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 1, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 2, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 3, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 4, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 5, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 6, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 7, false, -1},
-}};
-/* Retail kept these eight single-region sets for the whole process; the main
-   game and camp both drive them while the other screen is suspended, so no
-   screen owns them. They are created on first use and never torn down. */
-static std::array<ScreenRegionSet, 8>& PartyPortraitEventRegions()
-{
-    static std::array<ScreenRegionSet, 8> regions{
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1),
-                        0x1d + 0},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1),
-                        0x1d + 1},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1),
-                        0x1d + 2},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1),
-                        0x1d + 3},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1),
-                        0x1d + 4},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1),
-                        0x1d + 5},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1),
-                        0x1d + 6},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1),
-                        0x1d + 7},
-    };
-    return regions;
-}
-void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
-                                 unsigned short right, unsigned short bottom)
-{
-    auto& regions = PartyPortraitEventRegions();
-    if (slot >= regions.size()) return;
-    regions[slot].Create();
-    (*regions[slot])[0].SetBounds(x, y, right, bottom);
-}
-void EnablePartyPortraitEvent(unsigned int slot)
-{
-    auto& regions = PartyPortraitEventRegions();
-    if (slot >= regions.size()) return;
-    regions[slot].Create();
-    regions[slot].Enable();
-    regions[slot].EnableInput();
-}
-void DisablePartyPortraitEvent(unsigned int slot)
-{
-    auto& regions = PartyPortraitEventRegions();
-    if (slot < regions.size() && regions[slot]) {
-        regions[slot].Disable();
-        regions[slot].DisableInput();
+namespace {
+struct PartyQuoteInput {
+    UiLayer input{0x1d};
+    std::array<HitTarget*, 8> targets;
+    PartyQuoteInput()
+    {
+        for (int slot = 0; slot < 8; ++slot) {
+            targets[slot] = &input.add(SDL_Rect{0, 0, 1, 1}, [slot](const UiPointerEvent& event) {
+                if (event.action == UiPointerAction::Up && event.inside &&
+                    event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+                    AfterUiDispatch([slot] {
+                        auto* active = gXStatus.monster_manager_entries[slot].active_character_event;
+                        if (slot > 1 && active) gXStatus.character_event_queue->CompleteActiveEvent(active);
+                        else TryFinishNpcVoicePlayback(true);
+                    });
+                }
+                return UiResult::Handled;
+            });
+            targets[slot]->setEnabled(false);
+        }
     }
+};
+// Quotes persist while switching between camp and the live game.
+std::unique_ptr<PartyQuoteInput> party_quote_input;
 }
+
+static void ReleasePartyQuoteInput() { party_quote_input.reset(); }
 
 void CreatePartyPortraitEventRegions()
 {
-    for (auto& region_set : PartyPortraitEventRegions()) region_set.Create();
+    if (!party_quote_input) party_quote_input = std::make_unique<PartyQuoteInput>();
+}
+
+void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
+                                 unsigned short right, unsigned short bottom)
+{
+    CreatePartyPortraitEventRegions();
+    if (slot < 8) party_quote_input->targets[slot]->setShape(SDL_Rect{x, y, right - x + 1, bottom - y + 1});
+}
+
+void EnablePartyPortraitEvent(unsigned int slot)
+{
+    CreatePartyPortraitEventRegions();
+    party_quote_input->input.setEnabled(true);
+    if (slot < 8) party_quote_input->targets[slot]->setEnabled(true);
+}
+
+void DisablePartyPortraitEvent(unsigned int slot)
+{
+    if (party_quote_input && slot < 8) party_quote_input->targets[slot]->setEnabled(false);
 }
 
 /* Turn a party-slot portrait/voice event on or off, optionally
@@ -1905,22 +1892,22 @@ int UpdateCharacterEventState(void)
    for the animated form the frame blitter runs first, and the death,
    in-combat or exhausted state adds the darkened overlay. */
 // FUNCTION: WIZ8 0x0052eb00
-void RenderPartyPortrait(int portrait, int left, int top, SpriteDraw options, unsigned char value,
+void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, unsigned char value,
                          int party_slot)
 {
-    CatalogArtwork::Load(0x12, portrait).draw(GetFrameBufferSurface(), 0, left, top, options);
+    CatalogArtwork::Load(0x12, portrait).draw(target, 0, left, top, options);
     if (party_slot == -1) {
         return;
     }
     if (value != 0 && g_portrait_frame_flags[portrait] != 0) {
-        bool drawn = BlitPartyPortraitAnimation(portrait, left, top, options, party_slot, true);
+        bool drawn = BlitPartyPortraitAnimation(target, portrait, left, top, options, party_slot, true);
         value = !drawn;
     }
     if ((((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
           gXStatus.fSurprisePossible) ||
          g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) &&
         value != 0) {
-        ShadowRect(GetFrameBufferSurface(), {left, top, 0x5a, 0x48});
+        ShadowRect(target, {left, top, 0x5a, 0x48});
     }
 }
 
@@ -1929,7 +1916,7 @@ void RenderPartyPortrait(int portrait, int left, int top, SpriteDraw options, un
    frame and its blend predecessor; the A track draws the frame the animation
    is moving to, and a dead character stops after the B track. */
 // FUNCTION: WIZ8 0x0052ebe0
-bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw options, int party_slot,
+bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, int party_slot,
                                 bool animate)
 {
     W8MonsterManagerEntry* state = &gXStatus.monster_manager_entries[party_slot];
@@ -1959,12 +1946,12 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
         rect.bottom = height + rect.top;
         if (!animate && ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
                          gXStatus.fSurprisePossible)) {
-            RenderPartyPortrait(portrait, left, top, options, 0, party_slot);
+            RenderPartyPortrait(target, portrait, left, top, options, 0, party_slot);
         }
         if (g_status.buffers.Char[party_slot].hp_current == 0) {
             return true;
         }
-        artwork.draw(GetFrameBufferSurface(), state->portrait_pose, left, top, options);
+        artwork.draw(target, state->portrait_pose, left, top, options);
         drawn = true;
         if (state->rendered_portrait_pose != -1) {
             const SDL_Point previous_size = artwork.size(state->rendered_portrait_pose);
@@ -1997,9 +1984,9 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
         image_y = image_position.y;
         if (!animate && !drawn && gXStatus.fCombatMode &&
             g_combat_state->characters[party_slot].dead) {
-            RenderPartyPortrait(portrait, left, top, options, 0, party_slot);
+            RenderPartyPortrait(target, portrait, left, top, options, 0, party_slot);
         }
-        artwork.draw(GetFrameBufferSurface(), state->portrait_frame, left, top, options);
+        artwork.draw(target, state->portrait_frame, left, top, options);
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot, state->portrait_frame, portrait);
 #endif
@@ -2028,36 +2015,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
     if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
          gXStatus.fSurprisePossible) ||
         g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) {
-        ShadowRect(GetFrameBufferSurface(), {left, top, 0x5a, 0x48});
+        ShadowRect(target, {left, top, 0x5a, 0x48});
     }
     return drawn;
-}
-
-// FUNCTION: WIZ8 0x0052FD80
-unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[id];
-    W8CharacterEvent* active;
-
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        break;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            if (id != 0 && id != 1) {
-                active = entry->active_character_event;
-                if (active != 0) {
-                    gXStatus.character_event_queue->CompleteActiveEvent(active);
-                    return 1;
-                }
-            }
-            TryFinishNpcVoicePlayback(true);
-            return 1;
-        }
-        break;
-    default:
-        return 0;
-    }
-    return 1;
 }

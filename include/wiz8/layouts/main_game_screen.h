@@ -102,7 +102,6 @@ struct W8LevelRuntimeBlock {
     unsigned int saved_redraw_flags;           /* Historical offset 0x0f8 */
     W8MainUiMode main_ui_mode;                 /* Historical offset 0x0fc: portraits / formation / radar */
     int camera_mode;                           /* Historical offset 0x100 */
-    unsigned int hover_region;                 /* Historical offset 0x104 */
     bool portrait_strip_dirty;                 /* Historical offset 0x108: portrait strip needs a redraw */
     unsigned char portrait_refresh_pending[8]; /* Historical offset 0x109 */
     unsigned char padding_111[3];
@@ -132,7 +131,7 @@ struct W8LevelRuntimeBlock {
     int vitals_hover_party_slot;        /* Historical offset 0x17c */
     int combat_action_hover_party_slot; /* Historical offset 0x180 */
     int assay_hover_party_slot;         /* Historical offset 0x184 */
-    /* Historical offset 0x188: PortraitAssaySidebarRegionEvent hover zone — 1 upper weapon
+    /* Historical offset 0x188: PortraitAssaySidebarInput hover zone — 1 upper weapon
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     int portrait_assay_hover_mode;
     int formation_highlight_party_slot; /* Historical offset 0x18c */
@@ -153,8 +152,8 @@ struct W8LevelRuntimeBlock {
     std::unique_ptr<W8DialogueTextState> dialogue_text_input;
     int portrait_overlay_party_slot; /* Historical offset 0x200: -1 while untracked */
     /* Historical offset 0x204 / 0x208: party slot whose condition / enchantment orb is held or
-       drag-hovering; PortraitConditionOrbRegionEvent and
-       PortraitEnchantmentOrbRegionEvent own them (-1 while idle). */
+       drag-hovering; PortraitConditionOrbInput and
+       PortraitEnchantmentOrbInput own them (-1 while idle). */
     int condition_orb_party_slot;
     int enchantment_orb_party_slot;
     int condition_highlight_party_slot; /* Historical offset 0x20c: -1 while untracked */
@@ -260,7 +259,7 @@ struct W8LevelRuntimeBlock {
     unsigned char cursor_grace;
     unsigned char padding_31d[3];
     uint64_t countdown4; /* Historical offset 0x320: portrait right-hold arm clock */
-    /* Historical offset 0x324: PortraitSelectRegionEvent right-button hold armed for camp. */
+    /* Historical offset 0x324: PortraitSelectInput right-button hold armed for camp. */
     bool portrait_right_hold_armed;
     unsigned char formation_board_alternate; /* Historical offset 0x325: highlighted board art while hovered */
     unsigned char radar_map_alternate;       /* Historical offset 0x326: radar uses alternate frame art */

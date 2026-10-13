@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Font.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/local_code/Widget.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_layer.h"
 
-#include <cstdint>
+#include <memory>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
 #include <functional>
 #include <string_view>
 
@@ -13,36 +15,35 @@
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
 
 class W8DialogBase;
+class UiLayer;
 class W8ButtonWidget;
 
 /* Callbacks stored through Configure and dispatched with the button as the subject. */
 using W8ButtonCallback = std::function<void(W8ButtonWidget*)>;
-enum class DialogButtonActivation { Press, Release };
 
-/* Sprite or generic-frame push button. Draws through ButtonAppearance and
-   receives input through the W8Widget region dispatch. A button may be a
-   plain member (its region lives in the shared control set) or a child of a
-   Controls panel. */
+/* Ordinary sprite or generic-frame button. Its layer owns input registration;
+   this control owns behavior and appearance without a visual parent tree. */
 // VTABLE: WIZ8 0x005efa98
-class W8ButtonWidget : public W8Widget {
+class W8ButtonWidget {
 public:
     W8ButtonWidget();
-    ~W8ButtonWidget() override;
+    explicit W8ButtonWidget(UiLayer& layer);
+    ~W8ButtonWidget();
     void Draw(SDL_Surface& target);
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
     void Reset();
-    bool IsConfigured() const { return OwnsRegion(); }
+    bool IsConfigured() const { return m_target != nullptr; }
+    const SDL_Rect& Bounds() const { return m_bounds; }
+    bool m_dirty = true;
     void SetPosition(int x, int y);
     void Resize(int width, int height);
     void SetText(std::string_view text);
-    void SetTextOffsets(int x, int y, bool shift);
     void SetMultiColor(bool enabled);
-    SDL_Point GetMousePosition() const { return GetRegionMousePosition(); }
+    SDL_Point GetMousePosition() const;
     bool IsLeftButtonHeld() const
     {
-        return OwnsRegion() && (Region().flags & W8_REGION_LEFT_BUTTON_HELD) != 0;
+        return m_target && (m_target->capturedButtons() & SDL_BUTTON_LMASK) != 0;
     }
-    void SetEnabled(bool enabled) override;
+    void SetEnabled(bool enabled);
     void UpdateEnabledState(bool enabled)
     {
         if (!enabled) {
@@ -53,15 +54,20 @@ public:
             m_dirty = true;
         }
     }
-    bool IsEnabled() const { return OwnsRegion() && m_visual.enabled; }
+    bool IsEnabled() const { return m_target && m_enabled; }
     void SetPressed(bool pressed);
-    bool IsPressed() const { return m_visual.pressed; }
+    bool IsPressed() const { return m_interaction.pressed; }
     void SetVisible(bool visible);
-    /* Installs the tooltip string on the mouse region (when one is configured
+    bool IsVisible() const { return m_visible; }
+    void SetImage(ButtonImage image);
+    void SetCircularHitArea(SDL_Point center, int radius);
+    void SetTooltip(std::function<std::string()> text);
+    std::function<void(bool)> on_hover;
+    /* Installs the tooltip string on the input target (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
     int GetUserData() const { return m_user_data; }
-    /* Load the frame images, configure the owned region, and store the
+    /* Load the frame images, configure the input target, and store the
        per-button callbacks, left-toggle flag, priority and tooltip index. */
     bool Configure(const char* image_path, int gray_frame, int off_normal_frame,
                    int off_hover_frame, int on_normal_frame, int on_hover_frame,
@@ -86,57 +92,34 @@ public:
     bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
                              W8ButtonCallback left_callback, int user_data,
-                             GenericButtonImage image = {}, int priority = REGION_PRIORITY_HIGHEST);
+                             GenericButtonImage image = {}, int priority = 127);
     /* Store the tooltip string-table index and, when tooltips are
-       enabled, push its text onto the mouse region. */
+       enabled, push its text onto the input target. */
     void SetTooltipIndex(int tooltip_index);
 
-    void OnMouseEnter(int) override;
-    void OnMouseLeave(int) override;
-    void OnMouseMove(int) override;
-    void OnLeftButtonDown(int) override;
-    void OnLeftButtonUp(int) override;
-    void OnLeftButtonDoubleClick(int) override;
-    void ActivatePrimary(int) override;
-    void OnRightButtonDown(int) override;
-    void OnRightButtonUp(int) override;
-    void ActivateSecondary(int) override;
-
 private:
+    std::unique_ptr<UiLayer> m_owned_layer;
+    UiLayer* m_layer;
+    HitTarget* m_target = nullptr;
+    SDL_Rect m_bounds{};
+    bool m_enabled = true;
+    bool m_visible = true;
+    void SetBounds(SDL_Rect bounds);
+    UiResult HandlePointer(const UiPointerEvent& event);
     ButtonAppearance m_appearance;
-    ButtonVisualState m_visual;
-    SDL_MouseButtonFlags m_armed_buttons = 0;
-    SDL_MouseButtonFlags m_repeated_buttons = 0;
+    ButtonInteraction m_interaction;
     int m_user_data = 0;
-    W8Region& Region() const { return g_regions[m_region]; }
-    void ConfigureRegion(int priority);
-    enum class ButtonEvent { Enter, Leave, Move, Press, Release, Repeat, DoubleClick };
-    void HandleButtonEvent(ButtonEvent event, SDL_MouseButtonFlags mask);
-    int m_tooltip_index; /* g_localized_strings index, or -1 */
+    void ConfigureInput(int priority);
+    int m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP; /* g_localized_strings index, or -1 */
     W8ButtonCallback m_left_callback;
     W8ButtonCallback m_right_callback;
     W8ButtonCallback m_move_callback;
     W8ButtonCallback m_double_click_callback;
-    bool m_left_toggles; /* left down xors CLICKED_ON */
 
 public:
-    /* Raised by the dialog factories on their item-row buttons; right
-       down then toggles CLICKED_ON the same way left-toggle does. */
-    bool m_right_toggles;
-private:
-    bool silent;       /* suppresses all button sounds */
-    bool hover_silent; /* suppresses hover/exit sounds only */
-
-public:
-    /* Spinner repeats activate while held; a repeated press does not activate again on release. */
-    bool m_repeat_enabled;
-    DialogButtonActivation m_activation = DialogButtonActivation::Release;
+    ButtonPolicy policy;
     /* Set by the dialog factories to the owning dialog; the per-button
        dispatch callback reads it back when a stored callback needs it. */
-    W8DialogBase* m_owner;
+    W8DialogBase* m_owner = nullptr;
 
-private:
-    /* The input layer (dialog) this button was made in; it claims its
-       region there, so it takes input only while that layer is modal. */
-    RegionSetRef m_layer;
 };

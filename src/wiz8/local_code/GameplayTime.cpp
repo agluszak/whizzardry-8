@@ -1,10 +1,8 @@
 #include <fmt/printf.h>
-#include <array>
 #include <vector>
 #include <memory>
 #include <string>
 
-#include "input.h"
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
@@ -23,7 +21,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/regions.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -47,15 +44,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 
-unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-
-namespace {
-static constexpr std::array<RegionTemplate, 1> g_game_time_combat_bar_template{{
-    {0x00000001, 0, 0, 0, 0, CombatBarRegionEvent, 0, false, 0},
-}};
-}
-
-ScreenRegionSet g_game_time_combat_bar_region{g_game_time_combat_bar_template};
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/dice.h"
 #include "wiz8/fact_state.h"
@@ -95,8 +83,7 @@ static void BeginPartyCamping()
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
-    (*g_game_time_combat_bar_region)[0].SetInputEnabled(true);
-    ActivateDialogRegion(g_game_time_combat_bar_region->index(0));
+            SetWorldResumeInput(true);
     gXStatus.surprise_deadline_turns = 0;
     CreateSurpriseFade();
     gXStatus.surprise_phase = 0;
@@ -339,8 +326,7 @@ void EndSurprise(void)
 {
     gXStatus.fSurprisePossible = false;
     ResolveSurpriseWake();
-    ClearActiveRegionIfMatches(g_game_time_combat_bar_region->index(0));
-    (*g_game_time_combat_bar_region)[0].SetInputEnabled(false);
+            SetWorldResumeInput(false);
 
     std::string text;
     if (!gXStatus.surprise_unengaged) {

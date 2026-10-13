@@ -21,12 +21,12 @@ public:
     virtual ~W8CharacterSummaryDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override;
+    virtual void Draw(SDL_Surface& target) override;
+
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
 
-    void DrawPortraitAnimationFrame();
+    void DrawPortraitAnimationFrame(SDL_Surface& target);
 
 private:
     bool CreateQuoteText();

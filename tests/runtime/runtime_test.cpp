@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
@@ -54,13 +55,16 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/cursor.h"
+#include "layouts/party_formation.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/item_tables.h"
@@ -86,12 +90,10 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_skills.h"
@@ -103,10 +105,9 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/npc_script_file.h"
 #include "wiz8/text_input.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -116,7 +117,6 @@
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "local_code/CharGeneration.h"
-#include "local_code/ControlSelection.h"
 #include "local_code/Factions.h"
 #include "local_code/SpellEffect.h"
 #include "mgs_commands.h"
@@ -156,54 +156,15 @@ const char* ScreenName(int id)
     return id >= 0 && id < int(std::size(names)) ? names[id] : "none";
 }
 
-bool RegionLive(unsigned region)
-{
-    if (region >= g_regions.size() || (g_regions[region].flags & W8_REGION_INPUT_DISABLED))
-        return false;
-    for (unsigned set = 0; set < g_region_sets.size(); ++set)
-        if (g_region_sets[set].enabled &&
-            std::ranges::find(g_region_sets[set].Regions(), region) !=
-                g_region_sets[set].Regions().end())
-            return true;
-    return false;
-}
-
-int LiveRegionAt(int x, int y)
-{
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].ContainsPoint(x, y))
-            return int(region);
-    return -1;
-}
-
-int LiveRegionWithHelp(int help_text_id)
-{
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].help_text_id == help_text_id)
-            return int(region);
-    return -1;
-}
-
-/* UI interactions use real screen positions, not decomp-era region numbers.
-   Check that each expected hit target is owned and enabled. */
-int MainMenuRegion(short item)
+SDL_Point MainMenuRegion(short item)
 {
     static constexpr std::array<SDL_Point, 6> centers = {{
-        {320, 160}, {320, 209}, {320, 257},
-        {320, 306}, {320, 357}, {320, 445},
+        {320, 160}, {320, 209}, {320, 257}, {320, 306}, {320, 357}, {320, 445},
     }};
-    if (item < 0 || static_cast<std::size_t>(item) >= centers.size()) return -1;
-    const auto point = centers[item];
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].ContainsPoint(point.x, point.y))
-            return static_cast<int>(region);
-    return -1;
-}
-
-int ControlRegion(const W8TextControl* control)
-{
-    return control && control->m_region >= 0 && RegionLive(control->m_region) ? control->m_region
-                                                                              : -1;
+    REQUIRE(item >= 0);
+    REQUIRE(static_cast<std::size_t>(item) < centers.size());
+    REQUIRE(UiTargetAt(centers[item]) != nullptr);
+    return centers[item];
 }
 
 class Game
@@ -300,16 +261,10 @@ class Game
         wait(step, [&] { return g_current_screen_state.id == screen && settled(); }, seconds);
     }
 
-    void click(const char* step, int region)
+    void click(const char* step, SDL_Point point)
     {
-        if (region < 0)
-            Fail(step, "target region is not live");
-        const W8Region& bounds = g_regions[region];
-        if ((bounds.flags & (W8_REGION_RECTANGLE | W8_REGION_CIRCLE)) == W8_REGION_CIRCLE) {
-            click_at(bounds.x1, bounds.y1); // Circle fields are centre and radius.
-        } else {
-            click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
-        }
+        if (!UiTargetAt(point)) Fail(step, "target is not live");
+        click_at(point.x, point.y);
     }
 
     void click_at(int x, int y)
@@ -320,12 +275,12 @@ class Game
         frame();
     }
 
-    void release_outside(int region)
+    void press_at(int x, int y) { mouse_button(x, y, true); frame(); }
+    void release_at(int x, int y) { mouse_button(x, y, false); frame(); }
+
+    void release_outside(SDL_Point point)
     {
-        if (region < 0)
-            Fail("release-outside", "target region is not live");
-        const W8Region& bounds = g_regions[region];
-        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
+        mouse_button(point.x, point.y, true);
         frame();
         mouse_button(0, 0, false);
         frame();
@@ -344,16 +299,14 @@ class Game
         frame();
     }
 
-    void drag(int source, int destination)
+    void drag(SDL_Rect from, SDL_Rect to)
     {
-        REQUIRE((source >= 0 && destination >= 0));
-        const auto from = g_regions[source];
-        const auto to = g_regions[destination];
-        mouse_button((from.x1 + from.x2) / 2, (from.y1 + from.y2) / 2, true);
+        mouse_button(from.x + from.w / 2, from.y + from.h / 2, true);
         frame();
-        // The formation callback begins the drag on leaving the source while held.
-        move_pointer((to.x1 + to.x2) / 2, (to.y1 + to.y2) / 2);
-        mouse_button((to.x1 + to.x2) / 2, (to.y1 + to.y2) / 2, false);
+        // Leaving the source while held starts the gameplay drag.
+        move_pointer(to.x + to.w / 2, to.y + to.h / 2);
+        mouse_button(to.x + to.w / 2 - g_cursor_hotspot_x,
+                     to.y + to.h / 2 - g_cursor_hotspot_y, false);
         frame();
     }
 
@@ -537,23 +490,16 @@ void ReachMainMenu(Game& game)
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
 }
 
-/* The menu's hit targets must be widget-owned, survive screen re-entry, and
+/* The menu's hit targets must be screen-owned, survive screen re-entry, and
    never activate from an unpaired mouse release. */
 void MainMenuUiScenario()
 {
     Game game(false);
     ReachMainMenu(game);
     const auto verify_controls = [] {
-        std::array<unsigned, 6> bound{};
-        for (short item = 0; item < static_cast<short>(bound.size()); ++item) {
-            const int region = MainMenuRegion(item);
-            REQUIRE(region >= 0);
-            REQUIRE(g_regions[region].handler != nullptr);
-            bound[item] = static_cast<unsigned>(region);
-        }
-        return bound;
+        for (short item = 0; item < 6; ++item) REQUIRE(UiTargetAt(MainMenuRegion(item)) != nullptr);
     };
-    const auto bound = verify_controls();
+    verify_controls();
     REQUIRE(!g_main_menu_has_save_games);
     game.click("disabled-load", MainMenuRegion(2));
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
@@ -563,9 +509,6 @@ void MainMenuUiScenario()
     REQUIRE(game.settled());
     game.click("credits", MainMenuRegion(3));
     game.wait_screen("credits", W8_SCREEN_CREDITS);
-    for (auto region : bound) {
-        REQUIRE(g_regions[region].handler == nullptr);
-    }
     game.click_at(320, 240);
     game.wait_screen("main-menu-return", W8_SCREEN_MAIN_MENU);
     verify_controls();
@@ -593,7 +536,9 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
         while (!complete && *entry->m_second < *entry->m_third)
         {
             const int before = *entry->m_second;
-            game.click(step, ControlRegion(entry->m_increment));
+            INFO(step);
+            const auto bounds = entry->m_increment->Bounds();
+            game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
             if (!game.within_frames(2, [&] { return complete || *entry->m_second != before; }))
                 break; // The entry is capped by something else (race maximum).
         }
@@ -613,9 +558,9 @@ std::string CreateCharacter(Game& game)
     game.click("new-game", MainMenuRegion(1));
     game.wait("party-selection", [&] {
         return g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
-               LiveRegionAt(kCreateCharacterButton.x, kCreateCharacterButton.y) >= 0;
+               UiTargetAt(kCreateCharacterButton) != nullptr;
     });
-    game.click("create-character", LiveRegionAt(kCreateCharacterButton.x, kCreateCharacterButton.y));
+    game.click("create-character", kCreateCharacterButton);
     game.wait("character-screen", [&] {
         return g_current_screen_state.id == W8_SCREEN_CHARACTER && game.settled() && StatsPage() &&
                g_character_screen->m_page_index == 0;
@@ -623,11 +568,14 @@ std::string CreateCharacter(Game& game)
 
     W8CharacterStatsPage* stats = StatsPage();
     REQUIRE((stats->m_profession_row && stats->m_race_row && stats->m_gender_row));
-    game.click("profession", ControlRegion(stats->m_profession_row->m_increment));
+    { const auto bounds = stats->m_profession_row->m_increment->Bounds();
+      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
     REQUIRE(game.within_frames(2, [&] { return stats->m_profession_row->m_index != -1; }));
-    game.click("race", ControlRegion(stats->m_race_row->m_increment));
+    { const auto bounds = stats->m_race_row->m_increment->Bounds();
+      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
     REQUIRE(game.within_frames(2, [&] { return stats->m_race_row->m_index != -1; }));
-    game.click("gender", ControlRegion(stats->m_gender_row->m_increment));
+    { const auto bounds = stats->m_gender_row->m_increment->Bounds();
+      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
     REQUIRE(game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
     REQUIRE((game.within_frames(2, [&] {
         return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled;
@@ -635,14 +583,14 @@ std::string CreateCharacter(Game& game)
     SpendPool(game, "attributes", 0, g_character_screen->m_creation_state.attributes_complete);
 
     // The first profession is a non-caster, so Next skips the spell page.
-    game.click("to-skills", ControlRegion(g_character_screen->m_next));
+    game.click_at(616, 464);
     game.wait("skills", [&] {
         W8CharacterPage* page = g_character_screen->m_pages[2].get();
         return g_character_screen->m_page_index == 2 && page && !page->m_entries.empty();
     });
     SpendPool(game, "skills", 2, g_character_screen->m_creation_state.skills_complete);
 
-    game.click("to-personality", ControlRegion(g_character_screen->m_next));
+    game.click_at(616, 464);
     game.wait("personality", [&] {
         W8CharacterPage* page = g_character_screen->m_pages[3].get();
         return g_character_screen->m_page_index == 3 && page && !page->m_prepared;
@@ -655,7 +603,7 @@ std::string CreateCharacter(Game& game)
     const std::string name = typed.name;
     REQUIRE(!name.empty());
 
-    game.click("commit", ControlRegion(g_character_screen->m_next));
+    game.click_at(616, 464);
     game.wait_screen("committed", W8_SCREEN_PARTY_SELECTION);
     const auto saved = game.user_root() / "Saves" / "Characters" / (name + ".CHR");
     if (!fs::is_regular_file(saved))
@@ -678,8 +626,8 @@ void StartGame(Game& game)
                         game.settled();
          ++press)
     {
-        game.click("start", LiveRegionWithHelp(0x6cb));
-        if (InputSinkCaptured())
+        game.click_at(430, 447);
+        if (UiModalActive())
             game.key(SDLK_RETURN);
     }
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);
@@ -765,6 +713,67 @@ void StartPremadeGame(Game& game)
     REQUIRE(CountActiveCharacters() == 1);
     RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");
+}
+
+// The formation layer must keep gameplay dragging independent of its artwork.
+void FormationUiScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    const int slot = PremadeSlot();
+    constexpr std::array<SDL_Point, 15> cell_offsets{{
+        {90, 28}, {61, 37}, {119, 37}, {152, 90}, {143, 61},
+        {143, 119}, {90, 152}, {119, 143}, {61, 143}, {28, 90},
+        {37, 119}, {37, 61}, {90, 72}, {72, 97}, {108, 97},
+    }};
+    const auto center = [&](int cell) {
+        return SDL_Point{214 + cell_offsets[cell].x + 16, 60 + cell_offsets[cell].y + 16};
+    };
+    const int original_row = g_status.formation.positions[slot].bQuadrant;
+    const int destination_row = (original_row + 1) % 5;
+    const auto destination = center(destination_row * 3);
+    const auto begin_drag = [&] {
+        const auto& position = gXStatus.edited_formation.positions[slot];
+        const auto source = center(position.bQuadrant * 3 + position.bQuadrantSlot);
+        game.press_at(source.x, source.y);
+        REQUIRE(g_ui.captured != 0);
+        for (int frame = 0; frame < 5; ++frame) game.frame();
+        REQUIRE(g_ui.captured != 0); // Below the 250 ms hold threshold.
+        REQUIRE(game.within_frames(60, [] { return g_ui.captured == 0; }));
+        REQUIRE(gXStatus.iCurrentCursor == W8_CURSOR_INVALID_TARGET);
+    };
+    const auto drop_at = [&](SDL_Point point) {
+        game.release_at(point.x - g_cursor_hotspot_x, point.y - g_cursor_hotspot_y);
+    };
+
+    OpenFormationPanel();
+    game.frame();
+    REQUIRE(gXStatus.fReviewCharacterMode);
+    begin_drag();
+    drop_at(destination);
+    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(g_status.formation.positions[slot].bQuadrant == original_row);
+
+    // Reset preserves the live formation; dropping on the panel edge cancels.
+    game.click_at(242, 278);
+    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == original_row);
+    begin_drag();
+    drop_at({220, 70});
+    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == original_row);
+
+    begin_drag();
+    drop_at(destination);
+    game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
+    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(g_ui.captured == 0);
+
+    OpenFormationPanel();
+    game.frame();
+    REQUIRE(gXStatus.fReviewCharacterMode);
+    game.click_at(394, 276); // Cancel after re-entry.
+    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
 }
 
 std::vector<fs::path> SaveFiles(const fs::path& user)
@@ -879,7 +888,7 @@ void InventoryChestScenario()
     game.wait("chest-picker", [] { return g_modal_owner != nullptr; });
     game.frame();
     REQUIRE(gXStatus.world_update_blocked);
-    auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner);
+    auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner.get());
     REQUIRE_FALSE(picker->items.empty());
     const auto click_button = [&](int index) {
         auto& button = *picker->m_buttons[index];
@@ -1050,11 +1059,16 @@ void CheckGameplayUi(Game& game)
     const int source = position.bQuadrant * 3 + position.bQuadrantSlot;
     REQUIRE((source >= 0 && source < 15));
     const int destination = ((position.bQuadrant + 1) % 5) * 3;
-    game.drag(ControlRegion(g_formation_cell_controls[source]),
-              ControlRegion(g_formation_cell_controls[destination]));
+    constexpr std::array<SDL_Point, 15> cells{{
+        {90, 28}, {61, 37}, {119, 37}, {152, 90}, {143, 61},
+        {143, 119}, {90, 152}, {119, 143}, {61, 143}, {28, 90},
+        {37, 119}, {37, 61}, {90, 72}, {72, 97}, {108, 97},
+    }};
+    game.drag({214 + cells[source].x, 60 + cells[source].y, 32, 32},
+              {214 + cells[destination].x, 60 + cells[destination].y, 32, 32});
     REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination / 3);
-    game.click("accept-formation", ControlRegion(g_formation_action_buttons[0]));
-    REQUIRE(!g_formation_panel);
+    game.click_at(360, 276);
+    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
     REQUIRE(g_status.formation.positions[slot].bQuadrant == destination / 3);
     g_status.formation = original_formation;
     RefreshFormationBoard();
@@ -1070,20 +1084,21 @@ void CheckGameplayUi(Game& game)
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     REQUIRE(OpenSpellCastingView(slot));
     game.frame();
-    const auto realm_bounds = gpSCSV->realm_buttons[realm]->ScreenBounds();
+    const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();
     game.move_pointer(0, 200);
-    g_default_help_text.clear();
+    VideoRemoveToolTip();
     game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
-    REQUIRE(g_default_help_text.starts_with(g_localized_strings[0x27 + realm]));
-    game.click("spell-realm", ControlRegion(gpSCSV->realm_buttons[realm]));
+    ResetUiHelp(false);
+    REQUIRE(HasScreenTransitionObjects());
+    game.click_at(realm_bounds.x + realm_bounds.w / 2, realm_bounds.y + realm_bounds.h / 2);
     REQUIRE(gpSCSV->iSpellRealm == realm);
     REQUIRE(gpSCSV->uiSpellsInList == 1);
     game.click_at(250, 372); // First spell in the ordinary text-box list.
     REQUIRE(gpSCSV->uiSpellToCast == W8_SPELL_LIGHT);
-    game.click("spell-power", ControlRegion(gpSCSV->power_controls[1]));
+    game.click_at(0x1f4, 0x172);
     if (gpSCSV) {
         REQUIRE(gpSCSV->iSpellPower == 1);
-        game.click("cancel-spell", ControlRegion(gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]));
+        game.click_at(0x247, 0x179);
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.
@@ -1099,12 +1114,11 @@ void CheckGameplayUi(Game& game)
     g_status.effect_slots[0].duration = 600;
     RefreshSpellIconHudRows();
     game.frame();
-    REQUIRE(g_spell_icon_count > 0);
-    const auto icon = g_spell_icon_strip->ControlAt(0)->ScreenBounds();
     game.move_pointer(0, 200);
-    g_default_help_text.clear();
-    game.move_pointer(icon.x + icon.w / 2, icon.y + icon.h / 2);
-    REQUIRE(g_default_help_text.starts_with(g_spell_records[W8_SPELL_LIGHT].display_name));
+    VideoRemoveToolTip();
+    game.move_pointer(0x277, 9);
+    ResetUiHelp(false);
+    REQUIRE(HasScreenTransitionObjects());
     g_status.effect_slots[0] = original_effect;
     RefreshSpellIconHudRows();
 
@@ -1114,7 +1128,7 @@ void CheckGameplayUi(Game& game)
     g_status.buffers.XChar[slot].portrait_advance = true;
     EnablePortraitAdvanceRegions();
     UpdatePortraitAdvanceButtons();
-    game.click("level-up-portrait", g_main_portrait_controls->index(slot));
+    game.click_at( ((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
     game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
     REQUIRE(g_character_screen->m_mode == 2);
     REQUIRE(g_character_screen->m_original == &g_status.buffers.Char[slot]);
@@ -1153,13 +1167,46 @@ void ResourceLifecycleScenario()
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
         REQUIRE(g_automap_buttons.empty());
     }
+    game.command(W8_MGS_COMMAND_OPTIONS);
+    game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
+    game.click_at(30, 250);
+    REQUIRE(g_options_screen->m_selected_panel == 2);
+    game.click_at(580, 430);
+    REQUIRE(g_options_screen->m_panel[2]->m_current == 1);
+    game.click_at(290, 430);
+    REQUIRE(g_options_screen->m_panel[2]->m_current == 0);
+    game.press_at(30, 60);
+    game.release_at(200, 190);
+    REQUIRE(g_options_screen->m_selected_panel == 2);
+    game.click_at(30, 60); // Artwork hotspot selects the same panel as its button.
+    REQUIRE(g_options_screen->m_selected_panel == 0);
+    const float combat_speed = g_options_values.combat_speed;
+    game.click_at(480, 50);
+    const float clicked_speed = g_options_values.combat_speed;
+    REQUIRE(clicked_speed < 0.5f);
+    game.press_at(480, 50);
+    game.move_pointer(520, 50);
+    REQUIRE(g_options_values.combat_speed > clicked_speed);
+    game.release_at(200, 190); // Captured release outside ends the drag.
+    const float released_speed = g_options_values.combat_speed;
+    game.move_pointer(490, 50);
+    REQUIRE(g_options_values.combat_speed == released_speed);
+    game.click_at(30, 250); // An inactive panel must not retain slider input.
+    game.click_at(480, 50);
+    REQUIRE(g_options_values.combat_speed == released_speed);
+    g_options_values.combat_speed = combat_speed;
+    game.click_at(20, 445);
+    game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
     const std::size_t return_depth = g_screen_return_stack.size();
     game.command(W8_MGS_COMMAND_JOURNAL);
     game.wait_screen("journal", W8_SCREEN_JOURNAL);
     REQUIRE(g_screen_return_stack.size() == return_depth + 1);
     REQUIRE(g_screen_return_stack.back().id == W8_SCREEN_MAIN_GAME);
-    game.key(SDLK_ESCAPE);
+    // Exercise the ordinary toggle and close buttons.
+    game.click_at(540, 450);
+    game.click_at(540, 450);
+    game.click_at(600, 450);
     game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
     REQUIRE(g_screen_return_stack.size() == return_depth);
     REQUIRE((GetWorld() && GetWorld()->level));
@@ -1288,9 +1335,9 @@ void LoadGameScenario(const fs::path& fixture)
         return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.
-    game.click("select-save", ControlRegion(panel->m_rows[0]));
-    REQUIRE(panel->m_selection.m_selectedIndex == 0);
-    game.click("load", ControlRegion(panel->m_action_button));
+    game.click_at(300, 40);
+    REQUIRE(panel->m_selected == 0);
+    game.click_at(540, 445);
     WaitMainGame(game, "loaded");
     Settle(game, "loaded");
     ExpectAt("loaded", anchor);
@@ -1344,37 +1391,27 @@ void Ask(Game& game, std::string_view keyword)
     game.key(SDLK_RETURN);
 }
 
-/* Live regions bound to a dialog control through their W8RegionHandler. */
-std::vector<unsigned> HandlerRegions()
-{
-    std::vector<unsigned> regions;
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].handler)
-            regions.push_back(region);
-    return regions;
-}
-
-/* Clicks the reply dialog's first button (the first option, or "yes"): of
-   the regions the dialog added to those live in `before`, its buttons sit
-   above the dialog body; take the leftmost. */
-void ChooseFirstReply(Game& game, const char* step, const std::vector<unsigned>& before)
+/* Reply buttons sit at y=214 (price) or y=219 (options), above the modal body. */
+void ChooseFirstReply(Game& game, const char* step)
 {
     WaitDialogue(game, step, [] { return g_modal_owner != nullptr; });
-    int first = -1;
-    for (unsigned region : HandlerRegions())
-        if (std::ranges::find(before, region) == before.end() &&
-            (first < 0 || g_regions[region].priority > g_regions[first].priority ||
-             (g_regions[region].priority == g_regions[first].priority &&
-              g_regions[region].x1 < g_regions[first].x1)))
-            first = int(region);
-    game.click(step, first);
+    HitTarget* first = nullptr;
+    for (const int y : {214, 219}) {
+        for (int x = 0; x < 640; ++x) {
+            auto* target = UiTargetAt({x, y});
+            if (target && target->bounds().h <= 24 && (!first || target->bounds().x < first->bounds().x))
+                first = target;
+        }
+    }
+    REQUIRE(first != nullptr);
+    const auto bounds = first->bounds();
+    game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
     game.wait(step, [] { return g_modal_owner == nullptr; });
 }
 
 /* Buys one paid answer: the price prompt, "yes", the gold and the fact. */
 void BuyAnswer(Game& game, const char* step, W8FactId fact)
 {
-    const auto before = HandlerRegions();
     WaitDialogue(game, step, [] {
         return g_modal_owner != nullptr && g_npc_scripting.price_check.has_value();
     });
@@ -1383,7 +1420,7 @@ void BuyAnswer(Game& game, const char* step, W8FactId fact)
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
-    ChooseFirstReply(game, step, before);
+    ChooseFirstReply(game, step);
     WaitDialogue(game, step, DialogueAwaitingPlayer);
     REQUIRE(g_status.party_gold == gold - unsigned(price));
     REQUIRE(GetFact(fact) != 0);
@@ -1419,9 +1456,8 @@ void NpcDialogueScenario()
     g_status.party_gold = 200;
 
     StartConversation(game, "greeting", burz);
-    const auto before = HandlerRegions();
     Ask(game, "messenger");
-    ChooseFirstReply(game, "messenger-options", before);
+    ChooseFirstReply(game, "messenger-options");
     BuyAnswer(game, "messenger-price", W8_FACT_QUEST_BURZ_MARTEN_TRYNTON);
     Ask(game, "ship");
     BuyAnswer(game, "ship-price", W8_FACT_QUEST_BURZ_REPORT_SHIP);
@@ -1429,6 +1465,26 @@ void NpcDialogueScenario()
     Walk(game, "walk-after-farewell", 2.0f);
 
     StartConversation(game, "second-greeting", burz);
+    // Keyword popups own their editor and restore the transcript's focus.
+    auto* transcript_fields = TextFieldGroup::Focused();
+    REQUIRE(transcript_fields);
+    W8NpcQuoteEntry keyword_request{};
+    keyword_request.kind = W8_NPC_ENTRY_KEYWORD_INPUT;
+    OpenNpcDialog(&keyword_request, 0);
+    game.frame();
+    REQUIRE(TextFieldGroup::Focused() != transcript_fields);
+    game.enter_text("cancelled");
+    game.key(SDLK_ESCAPE);
+    REQUIRE_FALSE(g_modal_owner);
+    REQUIRE(TextFieldGroup::Focused() == transcript_fields);
+    OpenNpcDialog(&keyword_request, 0);
+    game.frame();
+    game.enter_text("hello");
+    REQUIRE(TextFieldGroup::Focused()->Text(0) == "hello");
+    game.key(SDLK_RETURN);
+    REQUIRE_FALSE(g_modal_owner);
+    REQUIRE(TextFieldGroup::Focused() == transcript_fields);
+    WaitDialogue(game, "keyword-reply", DialogueAwaitingPlayer);
     SayFarewell(game, "second-farewell");
     std::printf("npc-dialogue: two visits after %lu frames\n", game.frames());
 }
@@ -1523,6 +1579,11 @@ void RunScenario(Scenario scenario)
 TEST_CASE("main-menu-ui", "[runtime]")
 {
     RunScenario(MainMenuUiScenario);
+}
+
+TEST_CASE("formation-ui", "[runtime]")
+{
+    RunScenario(FormationUiScenario);
 }
 
 TEST_CASE("video", "[runtime]")

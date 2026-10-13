@@ -13,7 +13,7 @@
 #include "wiz8/asset_paths.h"
 #include "temporary_directory.h"
 #include "scoped_asset_roots.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 
 static void CheckStopped()
@@ -21,7 +21,7 @@ static void CheckStopped()
     REQUIRE(SDL_WasInit(0) == 0);
     REQUIRE((!gfProgramIsRunning && !gfGameInitialized && !gfApplicationActive));
     REQUIRE(ghWindow == nullptr);
-    REQUIRE(LiveDynamicRegionCount() == 0);
+    REQUIRE(LiveUiTargetCount() == 0);
 }
 
 TEST_CASE("application_test")

@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <fmt/format.h>
 #include <string>
@@ -11,7 +12,6 @@
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
@@ -27,7 +27,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "Font.h"
@@ -465,13 +465,13 @@ void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int firs
 {
     W8MonsterInfoDialog* dialog = static_cast<W8MonsterInfoDialog*>(scroll_bar->m_owner);
     if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry, 0x11, 0x26, 0x10e, 0xb9);
+        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
     }
 }
 
 
 // FUNCTION: WIZ8 0x005d6080
-void W8MonsterInfoDialog::Draw()
+void W8MonsterInfoDialog::Draw(SDL_Surface& target)
 {
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
         if (!m_initialized) {
@@ -480,15 +480,15 @@ void W8MonsterInfoDialog::Draw()
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
-        W8DialogBase::Draw();
+        W8DialogBase::Draw(target);
         g_wiz_text_font_secondary.resetPalette();
         W8MonsterInfo* monster_info = FindMonster(m_location_id);
         auto name = GetMonsterName(monster_info, 0, 0);
         std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+        DrawText(target, g_wiz_text_font_secondary,
                  {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, name);
     }
-    m_text_area.Draw(false);
-    m_scroll_bar.Draw(false);
-    m_button.Draw(GetFrameBufferSurface());
+    m_text_area.Draw(target, false);
+    m_scroll_bar.Draw(target, false);
+    m_button.Draw(target);
 }

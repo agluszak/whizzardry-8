@@ -8,7 +8,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 /* Numeric split dialogs release the active field before forwarding button-up,
    and forward repeat events unchanged. The field reference remains live across
@@ -49,11 +49,6 @@ extern unsigned char g_dialog_font_background;
 void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
                          unsigned char background);
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character);
-W8DialogBase* CreateDialogByKind(W8DialogKind kind);
+W8MessageDialogBase* CreateMessageDialog();
 bool GetDialogResult(W8DialogBase* dialog);
-void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, int, int);
-void DrawDialog(W8DialogBase* dialog);
-bool ProcessDialogInput(W8DialogBase* dialog);
-void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
-/* The shared empty wide string dialogs hand to SetText; defined in
-   OptionsScreen.cpp, referenced across dialog and screen TUs. */
+void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text);

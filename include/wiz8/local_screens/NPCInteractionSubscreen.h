@@ -8,17 +8,7 @@
 #include <string>
 
 void SyncNpcDialogueTranscriptScrollButtons();
-class ScreenRegionSet;
-extern ScreenRegionSet g_npc_dialogue_transcript_panel_regions;
-extern ScreenRegionSet g_npc_dialogue_trade_panel_regions;
-extern ScreenRegionSet g_npc_dialogue_options_panel_regions;
-extern ScreenRegionSet g_npc_quote_bubble_regions;
-enum NpcDialogueTranscriptRegionOffset {
-    kNpcDialogueMiscButtonRegionOffset = 11,
-};
-enum NpcDialogueTradeRegionOffset {
-    kNpcDialogueText35RegionOffset = 11,
-};
+void SetNpcDialogueInputEnabled(int group, bool enabled);
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
 void HideNpcQuoteBubbleRegion();
 
@@ -27,7 +17,11 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/message_box.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/button_interaction.h"
+#include <array>
+#include <functional>
 #include "wiz8/xstatus.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 
@@ -46,44 +40,43 @@ enum W8NpcTradeFilter {
 };
 
 class W8DialogBase;
-class W8Widget;
 struct W8ControlsRect;
 struct W8NpcQuoteEntry;
 struct W8NpcScriptQuote;
 struct W8NpcState;
-struct W8Region;
 
-/* The panel hosting the six option buttons. SetEnabled keeps them inactive
-   unless the main-text-box dialogue layout is up, and Redraw substitutes
-   m_main_text_box_image for m_backgroundImage in that layout. */
-// VTABLE: WIZ8 0x005ee9f0
-class W8NpcDialogueOptionsPanel : public Controls {
-public:
-    W8NpcDialogueOptionsPanel(int left, int top, int new_right, int new_bottom,
-                              std::optional<CatalogArtwork> background, int background_image)
-        : Controls(left, top, new_right, new_bottom, std::move(background), background_image)
-    {
-        m_main_text_box_image = 0x11;
-    }
-    virtual void SetActive(bool enable) override;
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
+class W8NpcDialogueTextController;
+struct SpriteSheet;
 
-    int m_main_text_box_image;
-};
-
-/* The typed-dialogue panel. Enabling it starts text-input scheme 1 and
-   installs the input field; Redraw draws the input frame one row lower while
-   where_is_query is raised. */
-// VTABLE: WIZ8 0x005ee9e4
-class W8NpcTypedDialoguePanel : public Controls {
-public:
-    W8NpcTypedDialoguePanel(int left, int top, int new_right, int new_bottom,
-                            std::optional<CatalogArtwork> background, int background_image)
-        : Controls(left, top, new_right, new_bottom, std::move(background), background_image)
-    {
-    }
-    virtual void SetActive(bool enable) override;
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
+// Fixed NPC dialogue composition: seven painted areas and their local actions.
+// No visual parents, inherited hooks or arbitrary widget containers.
+struct NpcDialogueUi {
+    ~NpcDialogueUi();
+    UiLayer transcript_input{0x16}, trade_input{0x17}, options_input{0x18};
+    struct Panel {
+        SDL_Point origin;
+        int background;
+        bool active = false, dirty = true;
+    };
+    std::array<Panel, 7> panels{{{{0x17, 0x166}, 0}, {{0xa4, 0x166}, 1},
+        {{0x1dc, 0x11b}, 2}, {{0x1dc, 0x12f}, 5}, {{0x1dc, 0x166}, 7},
+        {{0x1dc, 0x166}, 6}, {{0x1dc, 0x166}, 13}}};
+    struct Action {
+        int panel = -1;
+        SDL_Rect bounds{};
+        std::shared_ptr<const SpriteSheet> sprites;
+        int image_offset = 0;
+        std::array<int, 5> frames{-1, -1, -1, -1, -1};
+        HitTarget* target = nullptr;
+        W8TextBuffer text;
+        ButtonInteraction interaction;
+        ButtonPolicy policy{.controller_activation = true};
+        std::function<void()> primary, secondary, down;
+        bool visible = true, enabled = true, dirty = true;
+    };
+    std::array<Action, 39> actions;
+    std::shared_ptr<const SpriteSheet> item_preview;
+    std::unique_ptr<W8NpcDialogueTextController> transcript;
 };
 
 struct W8PendingNoticeLine {
@@ -182,8 +175,7 @@ struct W8NpcInteractionState {
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout;
     W8ItemInstance* trade_item;
-    W8Widget* dialogue_controls[39]; /* indexed by region callback id */
-    Controls* dialogue_panels[7];
+    std::unique_ptr<NpcDialogueUi> ui;
     /* The cursor position of the last mouse event the region handler acted
        on; repeat events at the same point are dropped. */
     int last_mouse_x;
@@ -304,9 +296,6 @@ void SyncDialogueNpcStateAndMarkPending(void);
 /* A script notice is staged in g_pending_notice */
 extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(int party_slot);
-/* Forward mouse events to W8NpcInteractionState control slots indexed by
-   id in dialogue_controls (id 0x27 is ignored). */
-unsigned char MainScreenControlRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force);
@@ -353,11 +342,10 @@ unsigned char IsNpcDialogueCursorActive(void);
 /* Forward a portrait pick into an active NPC dialogue. */
 void TryNpcDialoguePickpocket(int party_slot);
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
-unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
 void ActivateNpcDialoguePanels(bool active);
 bool HasNpcDialogueDirtyPanels(void);
-unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+UiResult HandleNpcTextBox(const UiPointerEvent& event);
 void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and
    report that the click was consumed. */

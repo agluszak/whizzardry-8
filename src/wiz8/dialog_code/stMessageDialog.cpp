@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/Video2.h"
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <algorithm>
 #include <string_view>
@@ -12,11 +12,10 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
-#include "Video2.h"
 #include "input.h"
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
@@ -35,14 +34,14 @@ W8MessageDialogBase::W8MessageDialogBase()
 }
 
 // FUNCTION: WIZ8 0x005d2660
-void W8MessageDialogBase::Draw()
+void W8MessageDialogBase::Draw(SDL_Surface& target)
 {
     int y;
     unsigned int index;
 
-    W8DialogBase::Draw();
+    W8DialogBase::Draw(target);
     m_message_button.m_dirty = true;
-    m_message_button.Draw(GetFrameBufferSurface());
+    m_message_button.Draw(target);
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
@@ -59,7 +58,7 @@ void W8MessageDialogBase::Draw()
             for (index = 0; index < m_line_count; ++index) {
                 const auto& line = m_lines[index];
                 short width = g_dialog_interface_font->textWidth(line);
-                DrawText(GetFrameBufferSurface(), *g_dialog_interface_font,
+                DrawText(target, *g_dialog_interface_font,
                          {m_x + (m_width - width) / 2, y}, line, options);
                 y += g_dialog_interface_font->height();
             }
@@ -67,10 +66,10 @@ void W8MessageDialogBase::Draw()
     }
     if (m_show_confirm) {
         m_confirm_button.m_dirty = true;
-        m_confirm_button.Draw(GetFrameBufferSurface());
+        m_confirm_button.Draw(target);
         if (allow_cancel) {
             m_cancel_button.m_dirty = true;
-            m_cancel_button.Draw(GetFrameBufferSurface());
+            m_cancel_button.Draw(target);
         }
     }
 }
@@ -181,13 +180,13 @@ int W8MessageDialogBase::CreateControls()
     m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
                                         g_dialog_font_background, m_x + 9, m_y + 9,
                                         m_width - 0x12, m_height - 0x12, nullptr, 0,
-                                        m_edge_image, REGION_PRIORITY_HIGHEST - 1);
+                                        m_edge_image, UI_PRIORITY_HIGHEST - 1);
 
     if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
-                                   MessageDialogConfirmCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
+                                   MessageDialogConfirmCallback, nullptr, false, UI_PRIORITY_HIGHEST,
                                    W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
-                                  MessageDialogCancelCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
+                                  MessageDialogCancelCallback, nullptr, false, UI_PRIORITY_HIGHEST,
                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
         m_confirm_button.m_owner = this;
         m_cancel_button.m_owner = this;

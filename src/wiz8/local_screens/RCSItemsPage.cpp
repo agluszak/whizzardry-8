@@ -1,10 +1,17 @@
+#include "wiz8/button_interaction.h"
+#include <algorithm>
+#include <SDL3/SDL_mouse.h>
+#include <utility>
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
+#include <array>
+#include <functional>
 #include <memory>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,11 +34,8 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/Widget.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -52,13 +56,31 @@
 #include "local_code/ControlsRect.h"
 #include "local_code/RangeControl.h"
 #include "local_code/TextBuffer.h"
-#include "regions.h"
+#include "ui_input.h"
 
 /* Retail Local Screens\RCSItemsPage.cpp - the items page of the camp
    review screen: page-mode toggling, the item-info/split/stat dialogs,
    use-item and targeting entry points, and the five region callbacks the
    camp region table registers for the backpack, equipment, item-pool,
    realm-tab and panel-tab areas. */
+
+namespace {
+struct CampItemControls {
+    UiLayer input{0x2b};
+    UiLayer secondary;
+    std::array<std::unique_ptr<W8ButtonWidget>, 2> actions;
+    std::array<std::unique_ptr<W8ButtonWidget>, 7> filters;
+    std::array<std::unique_ptr<W8ButtonWidget>, 2> tabs;
+    std::array<HitTarget*, 7> stats;
+    std::array<HitTarget*, 4> info;
+    HitTarget* help;
+    std::string help_text;
+    bool dirty = true;
+};
+std::unique_ptr<CampItemControls> item_controls;
+}
+
+void SetCampItemHelp(std::string text) { item_controls->help_text = std::move(text); }
 
 static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag);
 
@@ -103,27 +125,27 @@ void SetCampInfoPageMode(char mode)
                      "Info toggle error");
         break;
     case W8_CAMP_INFO_PAGE_CHARACTER:
-        g_camp_page_tabs[0]->DisableSecondaryState(true);
-        g_camp_page_tabs[1]->EnableSecondaryState(true);
-        g_camp_help_text->SetActive(false);
+        item_controls->tabs[0]->SetPressed(false);
+        item_controls->tabs[1]->SetPressed(true);
+        item_controls->help->setEnabled(false);
         g_camp_screen->character_info->SetActive(true);
         for (index = 0; index < 7; ++index) {
-            g_camp_stat_labels[index]->SetActive(false);
+            item_controls->stats[index]->setEnabled(false);
         }
         for (index = 0; index < 4; ++index) {
-            g_camp_info_labels[index]->SetActive(false);
+            item_controls->info[index]->setEnabled(false);
         }
         break;
     case W8_CAMP_INFO_PAGE_ITEMS:
-        g_camp_page_tabs[0]->EnableSecondaryState(true);
-        g_camp_page_tabs[1]->DisableSecondaryState(true);
-        g_camp_help_text->SetActive(true);
+        item_controls->tabs[0]->SetPressed(true);
+        item_controls->tabs[1]->SetPressed(false);
+        item_controls->help->setEnabled(true);
         g_camp_screen->character_info->SetActive(false);
         for (index = 0; index < 7; ++index) {
-            g_camp_stat_labels[index]->SetActive(true);
+            item_controls->stats[index]->setEnabled(true);
         }
         for (index = 0; index < 4; ++index) {
-            g_camp_info_labels[index]->SetActive(true);
+            item_controls->info[index]->setEnabled(true);
         }
         break;
     }
@@ -151,7 +173,7 @@ void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_ca
 /* The secondary-activation callbacks the seven attribute labels and four
    secondary labels on the camp secondary panel carry: each opens the stat
    info dialog at its own index. Note retail wires both
-   g_camp_info_labels[2] and [3] to the index-3 thunk. */
+   item_controls->info[2] and [3] to the index-3 thunk. */
 // FUNCTION: WIZ8 0x005BA200
 void OpenStrengthInfoDialog(void)
 {
@@ -669,15 +691,15 @@ void UnequipBothHands(void)
 // FUNCTION: WIZ8 0x005BB140
 void TogglePartyRowFlag(void)
 {
-    if (g_camp_action_buttons[1]->IsSelected()) {
+    if (item_controls->actions[1]->IsPressed()) {
         g_status.buffers.XChar[giReviewCharSlot].item_action_pending = true;
-        g_camp_action_buttons[0]->SetEnabled(false);
-        g_camp_action_buttons[0]->Invalidate(false);
+        item_controls->actions[0]->SetEnabled(false);
+        item_controls->actions[0]->m_dirty = true;
         return;
     }
     g_status.buffers.XChar[giReviewCharSlot].item_action_pending = false;
-    g_camp_action_buttons[0]->SetEnabled(true);
-    g_camp_action_buttons[0]->Invalidate(false);
+    item_controls->actions[0]->SetEnabled(true);
+    item_controls->actions[0]->m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005BB1C0
@@ -754,15 +776,15 @@ void ToggleCampItemFilter(W8CampItemFilterButton tab)
     default:
         filter = static_cast<W8CampItemFilter>(tab);
     }
-    if (!g_camp_item_filter_buttons[tab]->IsSelected()) {
+    if (!item_controls->filters[tab]->IsPressed()) {
         g_camp_screen->item_filters[filter] = 0;
     } else {
         g_camp_screen->item_filters[filter] = 1;
         if (filter != W8_CAMP_ITEM_FILTER_USABLE && filter != W8_CAMP_ITEM_FILTER_UNIDENTIFIED) {
             ClearOtherCampItemGroupFilters(filter);
             for (index = 0; index < 4; ++index) {
-                if (index != tab && g_camp_item_filter_buttons[index]->IsSelected()) {
-                    g_camp_item_filter_buttons[index]->DisableSecondaryState(true);
+                if (index != tab && item_controls->filters[index]->IsPressed()) {
+                    item_controls->filters[index]->SetPressed(false);
                 }
             }
         }
@@ -793,317 +815,74 @@ static void ShowCampItemInfo(W8ItemInstance* item)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005BB350
-unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+static std::pair<W8ItemInstance*, int> CampItemAt(int slot, int origin)
 {
-    int slot;
-    W8ItemInstance* item;
-
-    slot = id;
-    item = g_review_character->backpack + slot;
-    if (item->iItemNo == -1 && !g_status.item_in_cursor) {
-        PushButtonSoundScheme(0, true);
-    }
-    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
-        if (event->type == InputEventType::RightButtonDown) {
-            region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-            return 1;
-        }
-        if (event->type == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        } else {
-            if (event->type != InputEventType::LeftButtonUp) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-                return 1;
-            }
-            HandleCampItemClick(item, slot, W8_ITEM_ORIGIN_BACKPACK);
-            if (item->iItemNo != -1) {
-                SetItemTooltip(item, region);
-                SetRegionHelpForceEnabled(true);
-                return 1;
-            }
-        }
-        DisableRegionHelpFlag(region);
-        return 1;
-    }
-    if (event->type == InputEventType::RightButtonUp) {
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && item->iItemNo != -1 &&
-            g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
-            ShowCampItemInfo(item);
-        }
-        return 1;
-    }
-    if (event->type == InputEventType::MouseMove) {
-        if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-            if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST
-                                                    << (slot & 0x1f);
-            }
-            UpdateItemCursorForState((region->flags & W8_REGION_MOUSE_ENTER) != 0, item, 0);
-            if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                    return 0;
-                }
-            } else if (item->iItemNo != -1) {
-                SetItemTooltip(item, region);
-                SetRegionHelpForceEnabled(true);
-                return 0;
-            }
-            DisableRegionHelpFlag(region);
-        }
-        return 0;
-    }
-    return 0;
+    if (origin == W8_ITEM_ORIGIN_BACKPACK) return {g_review_character->backpack + slot, slot};
+    if (origin == W8_ITEM_ORIGIN_EQUIPPED) return {g_review_character->EquippedItem + slot, slot};
+    const auto visible = g_camp_screen->item_scroll + slot;
+    const int index = visible < g_camp_screen->item_list_count &&
+        g_status.party_item_pool[g_camp_screen->item_list[visible]].iItemNo != -1
+        ? g_camp_screen->item_list[visible] : g_status.party_item_count;
+    return {g_status.party_item_pool + index, index};
 }
 
-// FUNCTION: WIZ8 0x005BB560
-unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+static std::string CampItemTooltip(int slot, int origin)
 {
-    int slot;
-    int delay;
-    W8ItemInstance* item;
-    std::string name;
+    const auto [item, index] = CampItemAt(slot, origin);
+    std::string text = item->iItemNo == -1 ? std::string{} : FormatItemDisplayName(item, false);
+    if (origin == W8_ITEM_ORIGIN_EQUIPPED) {
+        const auto& label = g_localized_strings[g_equip_slot_label_ids[slot]];
+        return text.empty() ? std::string(label) : fmt::format("{} ({})", text, label);
+    }
+    if (item->iItemNo != -1) {
+        const auto& record = g_item_records[item->iItemNo];
+        if (record.category == W8_ITEM_CATEGORY_SPELL_SOURCE && record.spell_id != W8_SPELL_NONE &&
+            g_review_character->spell_learned[record.spell_id] && (item->identified || item->spell_hint))
+            text += fmt::format(" ({})", g_localized_strings[0x930]);
+    }
+    return text;
+}
 
-    slot = id;
-    item = g_review_character->EquippedItem + slot;
-    if (item->iItemNo == -1 &&
-        (!g_status.item_in_cursor || g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
+UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
+{
+    const auto [item, index] = CampItemAt(slot, origin);
+    const bool equipped = origin == W8_ITEM_ORIGIN_EQUIPPED;
+    const bool pool = origin == W8_ITEM_ORIGIN_PARTY_POOL;
+    auto& target = *(pool ? g_camp_screen->pool_targets[slot] :
+        g_camp_screen->inventory_targets[slot + (equipped ? 8 : 0)]);
+    if (item->iItemNo == -1 && (!g_status.item_in_cursor || (equipped &&
+        (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
          !CanEquipItemInSlot(g_review_character, g_status.item_in_hand.iItemNo,
-                             static_cast<unsigned char>(slot), true) ||
-         !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo))) {
+                            static_cast<unsigned char>(slot), true) ||
+         !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo)))))
         PushButtonSoundScheme(0, true);
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+        if (item->iItemNo != -1 || g_status.item_in_cursor)
+            g_camp_screen->item_redraw_flags |= (pool ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST :
+                equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST) << slot;
+        UpdateItemCursorForState(event.action == UiPointerAction::Enter, item, 0);
     }
-    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
-        if (event->type == InputEventType::RightButtonDown) {
-            region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-            return 1;
-        }
-        if (event->type == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            DisableRegionHelpFlag(region);
-            return 1;
-        }
-        if (event->type != InputEventType::LeftButtonUp) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            HandleCampItemClick(item, slot, W8_ITEM_ORIGIN_EQUIPPED);
-            delay = g_settings.tooltip_delay_ms;
-            if (static_cast<unsigned int>(delay) > 300) {
-                delay = 300;
-            }
-            SetRegionHelpDelay(delay);
-            SetRegionHelpForceEnabled(true);
-            EnableRegionHelpFlag(region);
-            if (item->iItemNo != -1) {
-                name = FormatItemDisplayName(item, false);
-                g_camp_screen->text_buffer =
-                    fmt::format("{} ({})", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
-                SetRegionHelpText(g_camp_screen->text_buffer);
-                return 1;
-            }
-            g_camp_screen->text_buffer =
-                fmt::format("{}", g_localized_strings[g_equip_slot_label_ids[slot]]);
-            SetRegionHelpText(g_camp_screen->text_buffer);
-            return 1;
-        }
-    } else {
-        if (event->type != InputEventType::RightButtonUp) {
-            if (event->type != InputEventType::MouseMove) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-                if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                    g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
-                                                        << (slot & 0x1f);
-                }
-                UpdateItemCursorForState(1, item, 0);
-                EnableRegionHelpFlag(region);
-                delay = g_settings.tooltip_delay_ms;
-                if (static_cast<unsigned int>(delay) > 300) {
-                    delay = 300;
-                }
-                SetRegionHelpDelay(delay);
-                SetRegionHelpForceEnabled(true);
-                if (item->iItemNo == -1) {
-                    g_camp_screen->text_buffer =
-                        fmt::format("{}", g_localized_strings[g_equip_slot_label_ids[slot]]);
-                } else {
-                    name = FormatItemDisplayName(item, false);
-                    g_camp_screen->text_buffer = fmt::format(
-                        "{} ({})", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
-                }
-                SetRegionHelpText(g_camp_screen->text_buffer);
-            }
-            if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-                if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                    g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
-                                                        << (slot & 0x1f);
-                }
-                UpdateItemCursorForState(0, item, 0);
-                DisableRegionHelpFlag(region);
-            }
-            return 0;
-        }
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && item->iItemNo != -1 &&
-            g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
-            ShowCampItemInfo(item);
-        }
+    if (event.action == UiPointerAction::Leave ||
+        (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)) {
+        target.setTooltip({});
+        return UiResult::Handled;
     }
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005BB900
-unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    unsigned int slot;
-    unsigned int pool_index;
-    int delta;
-    int count;
-    W8ItemInstance* item;
-
-    slot = id;
-    pool_index = g_camp_screen->item_scroll + slot;
-    if (g_camp_screen->item_list_count <= pool_index ||
-        g_status.party_item_pool[g_camp_screen->item_list[pool_index]].iItemNo == -1) {
-        pool_index = g_status.party_item_count;
-    } else {
-        pool_index = g_camp_screen->item_list[pool_index];
+    if (event.action == UiPointerAction::Wheel && pool)
+        g_camp_screen->item_range->AdjustValue(event.wheel);
+    if (event.action == UiPointerAction::Up && event.inside) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
+            AfterUiDispatch([item, index, origin] { HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin)); });
+        if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
+            item->iItemNo != -1 && g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY)
+            AfterUiDispatch([item] { ShowCampItemInfo(item); });
     }
-    item = g_status.party_item_pool + pool_index;
-    if (item->iItemNo == -1 && !g_status.item_in_cursor) {
-        PushButtonSoundScheme(0, true);
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Up ||
+        event.action == UiPointerAction::Wheel) {
+        SetUiHelpDelay(std::min(g_settings.tooltip_delay_ms, 300));
+        SetUiHelpForced(true);
+        target.setTooltip([slot, origin] { return CampItemTooltip(slot, origin); });
     }
-    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown || event->type == InputEventType::RightButtonUp) {
-        if (event->type == InputEventType::RightButtonUp) {
-            if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 &&
-                pool_index < g_status.party_item_count &&
-                g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
-                ShowCampItemInfo(item);
-            }
-            return 1;
-        }
-        if (event->type == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            DisableRegionHelpFlag(region);
-            return 1;
-        }
-        if (event->type != InputEventType::LeftButtonUp) {
-            if (event->type != InputEventType::RightButtonDown) {
-                return 0;
-            }
-            region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-            return 1;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
-        }
-        HandleCampItemClick(item, pool_index, W8_ITEM_ORIGIN_PARTY_POOL);
-        if (item->iItemNo != -1) {
-            SetItemTooltip(item, region);
-            return 1;
-        }
-    } else {
-        if (event->type == InputEventType::MouseMove) {
-            if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-                if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                    g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
-                                                        << (slot & 0x1f);
-                }
-                UpdateItemCursorForState((region->flags & W8_REGION_MOUSE_ENTER) != 0, item, 0);
-                if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                    if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                        return 0;
-                    }
-                } else if (item->iItemNo != -1) {
-                    SetItemTooltip(item, region);
-                    return 0;
-                }
-                DisableRegionHelpFlag(region);
-            }
-            return 0;
-        }
-        if (event->type != InputEventType::MouseWheel) {
-            return 0;
-        }
-        delta = event->wheel;
-        count = delta;
-        if (delta > 0) {
-            do {
-                g_camp_screen->item_range->m_range->Decrement();
-                --count;
-            } while (count != 0);
-            delta = 0;
-        }
-        if (delta < 0) {
-            count = -delta;
-            do {
-                g_camp_screen->item_range->m_range->Increment();
-                --count;
-            } while (count != 0);
-        }
-        pool_index = g_camp_screen->item_scroll + slot;
-        if (g_camp_screen->item_list_count <= pool_index) {
-            pool_index = g_status.party_item_count;
-        } else {
-            pool_index = g_camp_screen->item_list[pool_index];
-        }
-        if (g_status.party_item_pool[pool_index].iItemNo != -1) {
-            SetItemTooltip(g_status.party_item_pool + pool_index, region);
-            return 1;
-        }
-    }
-    DisableRegionHelpFlag(region);
-    return 1;
-}
-
-/* Reason 0x40/0x8 press the tab control, 0x10 releases it, and the 0x400
-   enter/leave transition forwards the matching mouse events. */
-// FUNCTION: WIZ8 0x005BBBB0
-unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    return DispatchButtonRegionEvent(event, region,
-                                     g_camp_item_filter_buttons[id]);
-}
-
-// FUNCTION: WIZ8 0x005BBC70
-unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    return DispatchButtonRegionEvent(event, region, g_camp_action_buttons[id]);
-}
-
-// FUNCTION: WIZ8 0x005BBD30
-void SetItemTooltip(W8ItemInstance* item, W8Region* region)
-{
-    int delay;
-    std::string name;
-    const W8ItemDatabaseRecord* record;
-
-    delay = g_settings.tooltip_delay_ms;
-    if (static_cast<unsigned int>(delay) > 300) {
-        delay = 300;
-    }
-    SetRegionHelpDelay(delay);
-    SetRegionHelpForceEnabled(true);
-    EnableRegionHelpFlag(region);
-    name = FormatItemDisplayName(item, false);
-    g_camp_screen->text_buffer = name;
-    record = g_item_records + item->iItemNo;
-    if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
-        if (record->spell_id == W8_SPELL_NONE) {
-            srAssertFail("ubSpell != SPELL_NONE",
-                         "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0xa7a, 0);
-        }
-        if (g_review_character->spell_learned[record->spell_id] == 1 &&
-            (item->identified || item->spell_hint)) {
-            g_camp_screen->text_buffer += " (";
-            g_camp_screen->text_buffer += g_localized_strings[0x930];
-            g_camp_screen->text_buffer += ")";
-        }
-    }
-    SetRegionHelpText(g_camp_screen->text_buffer);
+    return UiResult::Handled;
 }
 
 /* The items page's per-row label boxes: the backpack grid (two columns of
@@ -1207,196 +986,105 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     }
 }
 
-/* The camp screen's clickable labels: the seven attribute rows and the four
-   secondary value labels on the character-info panel are plain text controls
-   that additionally play the button sound on entry and on left presses. The
-   left-button handlers compile identically to W8HelpTextControl's and fold to
-   0x005B7CB0/0x005B7CD0. */
-// VTABLE: WIZ8 0x005ef2b0
-class W8CampInfoLabel : public W8TextControl {
-public:
-    using W8TextControl::W8TextControl;
-
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-    virtual void OnLeftButtonDoubleClick(int event) override;
-};
-
-/* Identical body to W8HelpTextControl::OnLeftButtonDown; ICF folds it to
-   0x005B7CB0. */
-void W8CampInfoLabel::OnLeftButtonDown(int event)
+void CreateCampItemControls()
 {
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnLeftButtonDown(event);
-}
-
-/* Identical body to W8HelpTextControl::OnLeftButtonUp; ICF folds it to
-   0x005B7CD0. */
-void W8CampInfoLabel::OnLeftButtonUp(int event)
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnLeftButtonUp(event);
-}
-
-// FUNCTION: WIZ8 0x005b7c90
-void W8CampInfoLabel::OnMouseEnter(int event)
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnMouseEnter(event);
-}
-
-// FUNCTION: WIZ8 0x005b7cf0
-void W8CampInfoLabel::OnLeftButtonDoubleClick(int event)
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnLeftButtonDoubleClick(event);
-}
-
-/* The bottom-left panel and its two buttons: drop the held equipment and
-   toggle the character's party-row flag. */
-// FUNCTION: WIZ8 0x005b9070
-int CreateCampActionPanel(void)
-{
-    int index;
-
-    g_camp_action_panel.reset();
-    for (index = 0; index < 2; ++index) {
-        if (g_camp_action_buttons[index] != 0) {
-            g_camp_action_buttons[index] = 0;
-        }
+    item_controls = std::make_unique<CampItemControls>();
+    const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds,
+                           int help, bool toggle, void (*action)()) {
+        auto result = std::make_unique<W8ButtonWidget>(layer);
+        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4],
+            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+        result->policy.controller_activation = true;
+        result->policy.primary_toggle = toggle ? ButtonToggle::Release : ButtonToggle::None;
+        result->SetPosition(bounds.x, bounds.y);
+        result->Resize(bounds.w, bounds.h);
+        return result;
+    };
+    item_controls->actions[0] = button(item_controls->input, 0x11e, {3, 0, 1, 2, 2},
+        {0x7d, 0x19c, 28, 24}, 2385, false, UnequipBothHands);
+    item_controls->actions[1] = button(item_controls->input, 0x11e, {11, 8, 9, 4, 5},
+        {0x9e, 0x19c, 28, 24}, 2386, true, TogglePartyRowFlag);
+    constexpr int frames[] = {0, 15, 20, 5, 10, 40, 30};
+    constexpr int y[] = {0, 25, 75, 50, 108, 142, 176};
+    const std::array actions{ToggleCampHandItemFilter, ToggleCampBodyItemFilter,
+        ToggleCampOtherItemFilter, ToggleCampAccessoryItemFilter, ToggleCampUsabilityFilter,
+        ToggleCampUnidentifiedItemFilter, SortCampItemPool};
+    for (int index = 0; index < 7; ++index) {
+        const int f = frames[index];
+        item_controls->filters[index] = button(item_controls->input, 0x11f,
+            {f + 3, f, f + 1, f + 2, f + 4}, {0x1e5, 0xc1 + y[index], 24, 24},
+            2378 + index, index < 6, actions[index]);
     }
-    g_camp_action_panel = std::make_unique<Controls>(0x78, 0x19c, 0xbf, 0x1b4, std::nullopt, 0);
-    if (!g_camp_action_panel) {
-        return 0;
+    for (int index = 0; index < 2; ++index) {
+        const int f = index * 5;
+        item_controls->tabs[index] = button(item_controls->secondary, 0x121,
+            {f + 3, f, f + 1, f + 2, f + 4}, {0x13e, 9 + index * 21, 20, 20},
+            0x95d + index, true, index ? ShowCampCharacterPage : ShowCampItemsPage);
     }
-    g_camp_action_buttons[0] =
-        g_camp_action_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(15), 5, 0, 0x21, 0x18,
-                          CatalogArtwork::Load(0x11e, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
-    g_camp_action_buttons[1] = g_camp_action_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(16), 0x26, 0, 0x42, 0x18,
-        CatalogArtwork::Load(0x11e, 0), W8SpriteStates{.normal = 8, .pressed = 4, .alternate_normal = 9, .alternate_pressed = 5, .disabled = 0xb});
-    index = 0;
-    while (g_camp_action_buttons[index] != 0) {
-        ++index;
-        if (index > 1) {
-            g_camp_action_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-            g_camp_action_buttons[0]->m_onPrimary = UnequipBothHands;
-            g_camp_action_buttons[1]->m_onPrimary = TogglePartyRowFlag;
-            g_camp_action_panel->SetActive(true);
-            return 1;
-        }
-    }
-    return 0;
+    const auto label = [](SDL_Rect bounds, std::function<void()> action, int help) {
+        auto& target = item_controls->secondary.add(bounds,
+            [action](const UiPointerEvent& event) {
+                if (event.button != UiPointerButton::Right) PushButtonSoundScheme(0, true);
+                if (event.action == UiPointerAction::Up && event.inside &&
+                    event.button == UiPointerButton::Right && event.captured_buttons)
+                    AfterUiDispatch(action);
+                return UiResult::Handled;
+            });
+        if (help >= 0) target.setTooltip([help] { return std::string(g_localized_strings[help]); });
+        return &target;
+    };
+    for (int index = 0; index < 7; ++index)
+        item_controls->stats[index] = label({0x1c2, 0x3a + index * 14, 77, 13},
+            [index] { OpenAttributeInfoDialog(static_cast<W8Attribute>(index)); }, 0x958);
+    constexpr int info_y[] = {0x3a, 0x48, 0x80, 0x8e};
+    for (int index = 0; index < 4; ++index)
+        item_controls->info[index] = label({0x144, info_y[index], 118, 13},
+            [index] { OpenSecondaryAttributeInfoDialog(index < 2 ? index : 3); }, 0x958);
+    item_controls->help = label({0x141, 0x54, 120, 13}, OpenSecondaryAttributeInfoDialog4, -1);
+    item_controls->help->setTooltip([] { return item_controls->help_text; });
 }
 
-// FUNCTION: WIZ8 0x005B9220
-void ReleaseCampActionPanel(void)
-{
-    g_camp_action_panel.reset();
-    for (auto& button : g_camp_action_buttons) button = nullptr;
-}
+void DestroyCampItemControls() { item_controls.reset(); }
 
 // FUNCTION: WIZ8 0x005b9270
 void EnableCampActionButtons(void)
 {
-    g_camp_action_buttons[0]->SetActive(true);
-    g_camp_action_buttons[1]->SetActive(true);
+    item_controls->actions[0]->SetVisible(true);
+    item_controls->actions[1]->SetVisible(true);
     if (g_status.game_started) {
-        g_camp_action_buttons[1]->SetEnabled(true);
+        item_controls->actions[1]->SetEnabled(true);
         if (g_status.buffers.XChar[giReviewCharSlot].item_action_pending) {
-            g_camp_action_buttons[1]->EnableSecondaryState(false);
-            g_camp_action_buttons[0]->SetEnabled(false);
+            item_controls->actions[1]->SetPressed(true);
+            item_controls->actions[0]->SetEnabled(false);
         } else {
-            g_camp_action_buttons[1]->DisableSecondaryState(false);
-            g_camp_action_buttons[0]->SetEnabled(true);
+            item_controls->actions[1]->SetPressed(false);
+            item_controls->actions[0]->SetEnabled(true);
         }
     } else {
-        g_camp_action_buttons[0]->SetEnabled(false);
-        g_camp_action_buttons[1]->SetEnabled(false);
+        item_controls->actions[0]->SetEnabled(false);
+        item_controls->actions[1]->SetEnabled(false);
     }
 }
 
 // FUNCTION: WIZ8 0x005b9310
 void DisableCampActionButtons(void)
 {
-    g_camp_action_buttons[0]->SetActive(false);
-    g_camp_action_buttons[1]->SetActive(false);
+    item_controls->actions[0]->SetVisible(false);
+    item_controls->actions[1]->SetVisible(false);
 }
 
 // FUNCTION: WIZ8 0x005b9330
 void RefreshCampActionPanel(bool invalidate)
 {
-    if (invalidate) {
-        g_camp_action_panel->InvalidateAll();
+    for (const auto& button : item_controls->actions) {
+        button->m_dirty |= invalidate;
+        button->Draw(GetFrameBufferSurface());
     }
-    g_camp_action_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* The right-hand panel of seven tabs: the six realm filters and the pool sort
    button. */
 // FUNCTION: WIZ8 0x005b9350
-int CreateItemsTabPanel(void)
-{
-    int index;
-
-    g_camp_item_filter_panel.reset();
-    for (index = 0; index < 7; ++index) {
-        if (g_camp_item_filter_buttons[index] != 0) {
-            g_camp_item_filter_buttons[index] = 0;
-        }
-    }
-    g_camp_item_filter_panel = std::make_unique<Controls>(0x1e5, 0xc1, 0x1fd, 0x189, std::nullopt, 0);
-    if (!g_camp_item_filter_panel) {
-        return 0;
-    }
-    g_camp_item_filter_buttons[0] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(8), 0, 0, 0x18, 0x18,
-        CatalogArtwork::Load(0x11f, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
-    g_camp_item_filter_buttons[1] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(9), 0, 0x19,
-                          0x18, 0x31, CatalogArtwork::Load(0x11f, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
-    g_camp_item_filter_buttons[2] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(10), 0, 0x4b,
-                          0x18, 0x63, CatalogArtwork::Load(0x11f, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x16, .alternate_normal = 0x15, .alternate_pressed = 0x18, .disabled = 0x17});
-    g_camp_item_filter_buttons[3] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(11), 0, 0x32, 0x18, 0x4a,
-        CatalogArtwork::Load(0x11f, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 9, .disabled = 8});
-    g_camp_item_filter_buttons[4] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(12), 0, 0x6c, 0x18, 0x84,
-        CatalogArtwork::Load(0x11f, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
-    g_camp_item_filter_buttons[5] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(13), 0, 0x8e,
-                          0x18, 0xa6, CatalogArtwork::Load(0x11f, 0), W8SpriteStates{.normal = 0x28, .pressed = 0x2a, .alternate_normal = 0x29, .alternate_pressed = 0x2c, .disabled = 0x2b});
-    g_camp_item_filter_buttons[6] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(14), 0, 0xb0,
-                          0x18, 0xc8, CatalogArtwork::Load(0x11f, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x20, .alternate_normal = 0x1f, .alternate_pressed = 0x22, .disabled = 0x21});
-    index = 0;
-    while (g_camp_item_filter_buttons[index] != 0) {
-        ++index;
-        if (index > 6) {
-            for (index = 0; index < 6; ++index) {
-                g_camp_item_filter_buttons[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-            }
-            g_camp_item_filter_buttons[0]->m_onPrimary = ToggleCampHandItemFilter;
-            g_camp_item_filter_buttons[1]->m_onPrimary = ToggleCampBodyItemFilter;
-            g_camp_item_filter_buttons[2]->m_onPrimary = ToggleCampOtherItemFilter;
-            g_camp_item_filter_buttons[3]->m_onPrimary =
-                ToggleCampAccessoryItemFilter;
-            g_camp_item_filter_buttons[4]->m_onPrimary = ToggleCampUsabilityFilter;
-            g_camp_item_filter_buttons[5]->m_onPrimary =
-                ToggleCampUnidentifiedItemFilter;
-            g_camp_item_filter_buttons[6]->m_onPrimary = SortCampItemPool;
-            g_camp_item_filter_panel->SetActive(true);
-            return 1;
-        }
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x005B9760
-void ReleaseItemsTabPanel(void)
-{
-    g_camp_item_filter_panel.reset();
-    for (auto& button : g_camp_item_filter_buttons) button = nullptr;
-}
-
 /* Item filter buttons keep their secondary state when the corresponding
    filter is set. The sort button has no item-filter flag. */
 // FUNCTION: WIZ8 0x005b97b0
@@ -1406,16 +1094,16 @@ void UpdateCampItemFilters(void)
     unsigned char flag;
 
     for (index = 0; index < 7; ++index) {
-        g_camp_item_filter_buttons[index]->SetActive(true);
+        item_controls->filters[index]->SetVisible(true);
     }
     if (!g_status.game_started) {
         for (index = 0; index < 7; ++index) {
-            g_camp_item_filter_buttons[index]->SetEnabled(false);
+            item_controls->filters[index]->SetEnabled(false);
         }
         return;
     }
     for (index = 0; index < 7; ++index) {
-        g_camp_item_filter_buttons[index]->SetEnabled(true);
+        item_controls->filters[index]->SetEnabled(true);
         switch (index) {
         case 0:
             flag = g_camp_screen->item_filters[W8_CAMP_ITEM_FILTER_HAND];
@@ -1439,7 +1127,7 @@ void UpdateCampItemFilters(void)
             continue;
         }
         if (flag != 0) {
-            g_camp_item_filter_buttons[index]->EnableSecondaryState(false);
+            item_controls->filters[index]->SetPressed(true);
         }
     }
 }
@@ -1450,122 +1138,23 @@ void DisableItemsRealmTabs(void)
     int index;
 
     for (index = 0; index < 7; ++index) {
-        g_camp_item_filter_buttons[index]->SetActive(false);
+        item_controls->filters[index]->SetVisible(false);
     }
 }
 
 // FUNCTION: WIZ8 0x005b98e0
 void RefreshItemsTabPanel(bool invalidate)
 {
-    if (invalidate) {
-        g_camp_item_filter_panel->InvalidateAll();
+    for (const auto& button : item_controls->filters) {
+        button->m_dirty |= invalidate;
+        button->Draw(GetFrameBufferSurface());
     }
-    g_camp_item_filter_panel->Redraw(GetFrameBufferSurface(), false);
-}
-
-/* The top secondary panel: the Items/Character info page tabs, the help line,
-   the seven attribute labels and the four secondary value labels. The labels
-   are W8CampInfoLabel controls created with absolute coordinates
-   relative to the panel origin. */
-// FUNCTION: WIZ8 0x005b9900
-int CreateCampSecondaryPanel(void)
-{
-    Controls* panel;
-    int index;
-    int left;
-    int right;
-    int top;
-
-    g_camp_secondary_panel.reset();
-    for (index = 0; index < 2; ++index) {
-        if (g_camp_page_tabs[index] != 0) {
-            g_camp_page_tabs[index] = 0;
-        }
-    }
-    g_camp_help_text = 0;
-    for (index = 0; index < 7; ++index) {
-        if (g_camp_stat_labels[index] != 0) {
-            g_camp_stat_labels[index] = 0;
-        }
-    }
-    for (index = 0; index < 4; ++index) {
-        if (g_camp_info_labels[index] != 0) {
-            g_camp_info_labels[index] = 0;
-        }
-    }
-    g_camp_secondary_panel =
-        std::make_unique<Controls>(0x13c, 7, 0x154, 0x34, CatalogArtwork::Load(0x120, 0), 0);
-    panel = g_camp_secondary_panel.get();
-    panel->CreateRegionSet();
-    g_camp_page_tabs[0] =
-        panel->EmplaceControl<W8TextControl>(-1, 2, 2, 0x16, 0x16, CatalogArtwork::Load(0x121, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
-    g_camp_page_tabs[1] =
-        panel->EmplaceControl<W8TextControl>(-1, 2, 0x17, 0x16, 0x2b, CatalogArtwork::Load(0x121, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 9, .disabled = 8});
-    for (index = 0; index < 2; ++index) {
-        if (g_camp_page_tabs[index] == 0) {
-            return 0;
-        }
-    }
-    g_camp_help_text = panel->EmplaceControl<W8HelpTextControl>(-1, 5, 0x4d, 0x7c, 0x59);
-    if (g_camp_help_text == 0) {
-        return 0;
-    }
-    left = 0x1c2 - panel->ScreenBounds().x;
-    right = 0x20e - panel->ScreenBounds().x;
-    top = 0x3a - panel->ScreenBounds().y;
-    for (index = 0; index < 7; ++index) {
-        g_camp_stat_labels[index] =
-            panel->EmplaceControl<W8CampInfoLabel>(-1, left, top, right, top + 0xc);
-        g_camp_stat_labels[index]->EnableRegionHelp(0x958);
-        top += 0xe;
-    }
-    left = 0x144 - panel->ScreenBounds().x;
-    right = 0x1b9 - panel->ScreenBounds().x;
-    top = -panel->ScreenBounds().y;
-    g_camp_info_labels[0] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x3a, right,
-                                                top + 0x46);
-    g_camp_info_labels[1] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x48, right,
-                                                top + 0x54);
-    g_camp_info_labels[2] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x80, right,
-                                                top + 0x8c);
-    g_camp_info_labels[3] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x8e, right,
-                                                top + 0x9a);
-    g_camp_stat_labels[0]->m_onSecondary = OpenStrengthInfoDialog;
-    g_camp_stat_labels[1]->m_onSecondary = OpenIntelligenceInfoDialog;
-    g_camp_stat_labels[2]->m_onSecondary = OpenPietyInfoDialog;
-    g_camp_stat_labels[3]->m_onSecondary = OpenVitalityInfoDialog;
-    g_camp_stat_labels[4]->m_onSecondary = OpenDexterityInfoDialog;
-    g_camp_stat_labels[5]->m_onSecondary = OpenSpeedInfoDialog;
-    g_camp_stat_labels[6]->m_onSecondary = OpenSensesInfoDialog;
-    g_camp_info_labels[0]->m_onSecondary = OpenSecondaryAttributeInfoDialog0;
-    g_camp_info_labels[1]->m_onSecondary = OpenSecondaryAttributeInfoDialog1;
-    g_camp_info_labels[2]->m_onSecondary = OpenSecondaryAttributeInfoDialog3;
-    g_camp_info_labels[3]->m_onSecondary = OpenSecondaryAttributeInfoDialog3;
-    for (index = 0; index < 4; ++index) {
-        g_camp_info_labels[index]->EnableRegionHelp(0x958);
-    }
-    g_camp_help_text->m_onSecondary = OpenSecondaryAttributeInfoDialog4;
-    g_camp_page_tabs[0]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_camp_page_tabs[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_camp_page_tabs[0]->m_onPrimary = ShowCampItemsPage;
-    g_camp_page_tabs[1]->m_onPrimary = ShowCampCharacterPage;
-    g_camp_page_tabs[0]->EnableRegionHelp(0x95d);
-    g_camp_page_tabs[1]->EnableRegionHelp(0x95e);
-    panel->SetActive(true);
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005B9EA0
-void ReleaseCampSecondaryPanel(void)
-{
-    g_camp_secondary_panel.reset();
-    for (auto& tab : g_camp_page_tabs) tab = nullptr;
 }
 
 // FUNCTION: WIZ8 0x005b9ef0
 void InvalidateCampPanel(void)
 {
-    g_camp_secondary_panel->InvalidateAll();
+    item_controls->dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005b9f00
@@ -1573,10 +1162,10 @@ void EnableCampSecondaryPanel(void)
 {
     int index;
 
-    g_camp_secondary_panel->EnableRegionSet(true);
+    item_controls->secondary.setEnabled(true);
     for (index = 0; index < 2; ++index) {
-        g_camp_page_tabs[index]->SetActive(true);
-        g_camp_page_tabs[index]->SetEnabled(true);
+        item_controls->tabs[index]->SetVisible(true);
+        item_controls->tabs[index]->SetEnabled(true);
     }
     if (g_camp_screen->info_page == W8_CAMP_INFO_PAGE_ITEMS) {
         SetCampInfoPageMode(W8_CAMP_INFO_PAGE_ITEMS);
@@ -1590,9 +1179,9 @@ void DisableCampSecondaryPanel(void)
 {
     int index;
 
-    g_camp_secondary_panel->EnableRegionSet(false);
+    item_controls->secondary.setEnabled(false);
     for (index = 0; index < 2; ++index) {
-        g_camp_page_tabs[index]->SetActive(false);
+        item_controls->tabs[index]->SetVisible(false);
     }
 }
 
@@ -1602,5 +1191,10 @@ void RefreshCampSecondaryPanel(bool invalidate)
     if (invalidate) {
         InvalidateCampPanel();
     }
-    g_camp_secondary_panel->Redraw(GetFrameBufferSurface(), false);
+    for (const auto& tab : item_controls->tabs) item_controls->dirty |= tab->m_dirty;
+    if (item_controls->dirty) {
+        CatalogArtwork::Load(0x120, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x13c, 7);
+        for (const auto& tab : item_controls->tabs) { tab->m_dirty = true; tab->Draw(GetFrameBufferSurface()); }
+        item_controls->dirty = false;
+    }
 }

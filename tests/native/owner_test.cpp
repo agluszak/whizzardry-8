@@ -1,5 +1,4 @@
 #include "wiz8/dialog_code/DialogBase.h"
-#include <deque>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include "image.h"
@@ -33,7 +32,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -46,6 +44,7 @@
 #include "image_assets.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -58,7 +57,8 @@
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
 #include "input.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 #include "imgfmt.h"
 #include "temporary_directory.h"
 #include "scoped_asset_roots.h"
@@ -192,7 +192,7 @@ void camp_effects()
         g_camp_screen = std::make_unique<W8CampScreenState>();
         auto* state = g_camp_screen.get();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
-        state->stats_range = std::make_unique<W8CampStatsRange>();
+        state->stats_range = std::make_unique<W8RangeControl>(0x264, 0xbe, 0x276, 0x1b5);
         auto& range = *state->stats_range;
         state->effect_list = {
             {false, false, true, false, 0, 0, 0, 3, 10}, {false, false, false, true, 0, 1, 0, 3, 9},
@@ -202,11 +202,11 @@ void camp_effects()
         FilterCampEffectList();
         REQUIRE((state->effect_visible_lines == 24 && state->effect_scroll == 7));
         REQUIRE((state->effect_first_visible == 0 && state->effect_last_visible == 3));
-        REQUIRE((range.m_range->m_enabled && range.m_range->m_value == 7));
+        REQUIRE((range.m_enabled && range.m_value == 7));
         state->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         FilterCampEffectList();
         REQUIRE((state->effect_visible_lines == 14 && state->effect_scroll == 0));
-        REQUIRE((!range.m_range->m_enabled && !state->effect_list[1].visible));
+        REQUIRE((!range.m_enabled && !state->effect_list[1].visible));
         state->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         FilterCampEffectList();
         REQUIRE((state->effect_visible_lines == 13 && state->effect_list[3].visible));
@@ -223,11 +223,11 @@ void camp_effects()
         REQUIRE(state->effect_list.size() == 28);
         REQUIRE((state->effect_detrimental_count == 20 && state->effect_beneficial_count == 8));
         REQUIRE((state->effect_list.front().index == 19 && state->effect_list.back().index == 0));
-        REQUIRE((state->effect_visible_lines == 64 && range.m_range->m_enabled));
+        REQUIRE((state->effect_visible_lines == 64 && range.m_enabled));
         character = {};
         RebuildCampEffectList();
         REQUIRE((state->effect_list.empty() && state->effect_visible_lines == 0));
-        REQUIRE((state->effect_beneficial_count == 0 && !range.m_range->m_enabled));
+        REQUIRE((state->effect_beneficial_count == 0 && !range.m_enabled));
         g_review_character = nullptr;
     }
 }
@@ -248,665 +248,21 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
                     bool right = false, std::uint8_t click_count = 0)
 {
     const auto input = mouse_atom(event, x, y, left, right, click_count);
-    if (event == InputEventType::MouseMove) UpdateRegionMousePosition(x, y);
-    DispatchRegionInput(&input);
+    if (event == InputEventType::MouseMove) UpdateUiPointer(x, y);
+    DispatchUiInput(&input);
 }
 
-unsigned int new_test_region_set()
-{
-    const auto set = CreateRegionSet();
-    g_region_sets[set].enabled = 1;
-    return set;
-}
-
-struct RegionStateSnapshot {
-    std::vector<unsigned int> set_enabled;
-    std::vector<unsigned int> region_flags;
-    unsigned int current = g_ui.current;
-    unsigned int captured = g_ui.captured;
-    unsigned int hover = g_ui.hover;
-    int help_delay = g_region_help_delay;
-    bool help_force_enabled = g_region_help_force_enabled;
-
-    RegionStateSnapshot()
+struct UiStateSnapshot {
+    int help_delay = g_ui_help_delay;
+    bool force = g_ui_help_forced;
+    ~UiStateSnapshot()
     {
-        for (const auto& set : g_region_sets) set_enabled.push_back(set.enabled);
-        for (const auto& region : g_regions) region_flags.push_back(region.flags);
-    }
-
-    ~RegionStateSnapshot()
-    {
-        for (std::size_t index = 0; index < g_region_sets.size(); ++index) {
-            if (index < set_enabled.size()) {
-                g_region_sets[index].enabled = set_enabled[index];
-            } else {
-                g_region_sets[index].enabled = 0;
-            }
-        }
-        for (std::size_t index = 0;
-             index < region_flags.size() && index < g_regions.size(); ++index) {
-            g_regions[index].flags = region_flags[index];
-        }
-        g_ui.current = current;
-        g_ui.captured = captured;
-        g_ui.hover = hover;
-        g_region_help_delay = help_delay;
-        g_region_help_force_enabled = help_force_enabled;
+        ClearUiHover();
+        ReleaseUiCapture();
+        g_ui_help_delay = help_delay;
+        g_ui_help_forced = force;
     }
 };
-
-std::deque<RegionFunctionHandler> test_region_handlers;
-
-unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1, int x2, int y2,
-                             int priority, W8RegionCallback callback)
-{
-    const auto index = AddRegionToSet(set, priority);
-    g_regions[index].flags = W8_REGION_RECTANGLE;
-    g_regions[index].SetBounds(static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
-                    static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
-    g_regions[index].handler = &test_region_handlers.emplace_back(callback, id);
-    ++g_regions[index].binding_generation;
-    return index;
-}
-
-std::vector<std::pair<int, int>> region_events;
-struct TestOwnedRegionHandler final : W8RegionHandler {
-    std::vector<std::int32_t> reasons;
-
-    int HandleRegionInput(W8Region& region, const InputEvent& input) override
-    {
-        reasons.push_back(RegionReasonForInput(region, input));
-        return 1;
-    }
-};
-
-unsigned char record_region_event(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    region_events.emplace_back(id, static_cast<int>(event->type));
-    return 1;
-}
-unsigned char hover_region(const InputEvent*, W8Region* region, unsigned short id)
-{
-    if (region->flags & W8_REGION_MOUSE_LEAVE)
-        region_events.emplace_back(id, REGION_REASON_LOST_MOUSE);
-    else if (region->flags & W8_REGION_MOUSE_ENTER)
-        region_events.emplace_back(id, REGION_REASON_GAIN_MOUSE);
-    else
-        region_events.emplace_back(id, REGION_REASON_MOVE);
-    return 1;
-}
-
-unsigned int nested_region_set = 0;
-unsigned int nested_region_index = 0;
-bool remove_nested_region = false;
-std::vector<InputEventType> nested_region_events;
-unsigned char nested_region_callback(const InputEvent* event, W8Region*, unsigned short)
-{
-    if (event->type == InputEventType::LeftButtonDown) {
-        nested_region_events.push_back(InputEventType::LeftButtonDown);
-        g_ui.captured = nested_region_index;
-        const auto up = mouse_atom(InputEventType::LeftButtonUp, 100, 100);
-        DispatchRegionInput(&up);
-    } else if (event->type == InputEventType::LeftButtonUp) {
-        nested_region_events.push_back(InputEventType::LeftButtonUp);
-        if (remove_nested_region) {
-            remove_nested_region = false;
-            RemoveRegionFromSet(nested_region_set, nested_region_index);
-        }
-    }
-    return 1;
-}
-void region_nested_input()
-{
-    nested_region_set = new_test_region_set();
-    nested_region_index =
-        add_test_region(nested_region_set, 1, 0, 0, 40, 40, 0, nested_region_callback);
-    nested_region_events.clear();
-    remove_nested_region = true;
-    {
-        ExclusiveRegionSet scope(nested_region_set);
-        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
-    }
-    REQUIRE((nested_region_events == std::vector<InputEventType>{InputEventType::LeftButtonDown, InputEventType::LeftButtonUp}));
-    REQUIRE(g_ui.captured == 0);
-
-    const auto region_count = g_regions.size();
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        const auto index = AddRegionToSet(nested_region_set, 0);
-        REQUIRE(index == nested_region_index);
-        RemoveRegionFromSet(nested_region_set, index);
-    }
-    REQUIRE(g_regions.size() == region_count);
-}
-void nested_hover_transitions()
-{
-    const auto set = new_test_region_set();
-    add_test_region(set, 1, 0, 0, 10, 10, 0, hover_region);
-    add_test_region(set, 2, 20, 0, 30, 10, 0, hover_region);
-    region_events.clear();
-    {
-        ExclusiveRegionSet scope(set);
-        UpdateRegionMousePosition(5, 5);
-        region_events.clear();
-        UpdateRegionMousePosition(25, 5);
-    }
-    REQUIRE(region_events.size() >= 2);
-    REQUIRE((region_events[0] == std::pair<int, int>{1, REGION_REASON_LOST_MOUSE}));
-    REQUIRE((region_events[1] == std::pair<int, int>{2, REGION_REASON_GAIN_MOUSE}));
-}
-void owned_region_captures_across_frames()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto set = ControlRegionSetIndex();
-    TestOwnedRegionHandler handler;
-    OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
-    region.region().flags = W8_REGION_RECTANGLE;
-    region.region().SetBounds(10, 10, 30, 30);
-    ExclusiveRegionSet scope(set);
-
-    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    REQUIRE(g_ui.captured == region.index());
-    UpdateRegionMousePosition(100, 100);
-    REQUIRE(g_ui.captured == region.index());
-    dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
-
-    REQUIRE(g_ui.captured == 0);
-    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
-                      REGION_REASON_LBUTTON_DWN) != handler.reasons.end());
-    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
-                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
-}
-
-void modal_scope_persists_across_frames()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto set = new_test_region_set();
-    const auto region = add_test_region(set, 1, 0, 0, 20, 20, 0, hover_region);
-    region_events.clear();
-
-    std::optional<ExclusiveRegionSet> scope;
-    scope.emplace(set);
-    UpdateRegionMousePosition(5, 5);
-    UpdateRegionMousePosition(5, 5);
-
-    REQUIRE(g_ui.hover == region);
-    REQUIRE(std::count_if(region_events.begin(), region_events.end(), [](const auto& event) {
-                return event.second == REGION_REASON_GAIN_MOUSE;
-            }) == 1);
-}
-
-void modal_scope_preserves_capture_across_frames()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto button_set = ControlRegionSetIndex();
-    TestOwnedRegionHandler handler;
-    OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
-    region.region().flags = W8_REGION_RECTANGLE;
-    region.region().SetBounds(10, 10, 30, 30);
-
-    std::optional<ExclusiveRegionSet> scope;
-    scope.emplace(button_set);
-    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15);
-    REQUIRE(g_ui.captured == region.index());
-    UpdateRegionMousePosition(100, 100);
-    REQUIRE(g_ui.captured == region.index());
-    dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
-
-    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
-                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
-    REQUIRE(g_ui.captured == 0);
-}
-
-void exclusive_scopes_destroy_out_of_order()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto outer_set = new_test_region_set();
-    const auto outer_region = add_test_region(outer_set, 1, 0, 0, 10, 10, 0, record_region_event);
-    const auto inner_set = new_test_region_set();
-    const auto inner_region = add_test_region(inner_set, 2, 20, 0, 30, 10, 0, record_region_event);
-    const auto fallback_set = new_test_region_set();
-    const auto fallback_region =
-        add_test_region(fallback_set, 3, 40, 0, 50, 10, 0, record_region_event);
-
-    std::optional<ExclusiveRegionSet> outer_scope;
-    std::optional<ExclusiveRegionSet> inner_scope;
-    outer_scope.emplace(outer_set);
-    UpdateRegionMousePosition(5, 5);
-    REQUIRE(g_ui.hover == outer_region);
-    inner_scope.emplace(inner_set);
-    outer_scope.reset();
-    UpdateRegionMousePosition(25, 5);
-    REQUIRE(g_ui.hover == inner_region);
-    inner_scope.reset();
-    REQUIRE(g_ui.hover == 0);
-    UpdateRegionMousePosition(45, 5);
-    REQUIRE(g_ui.hover == fallback_region);
-}
-
-void reset_regions_preserves_hidden_buttons()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto button_set = ControlRegionSetIndex();
-    TestOwnedRegionHandler handler;
-    OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
-    region.region().flags = W8_REGION_RECTANGLE;
-    region.region().SetBounds(70, 70, 90, 90);
-    const auto region_index = region.index();
-    g_regions[region_index].SetInputEnabled(false);
-    REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
-
-    ResetRegions();
-
-    REQUIRE(g_region_sets[button_set].enabled == 1);
-    REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
-    UpdateRegionMousePosition(75, 75);
-    REQUIRE(g_ui.hover != region_index);
-}
-
-void later_region_set_precedes_button_set()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto button_set = ControlRegionSetIndex();
-    TestOwnedRegionHandler handler;
-    OwnedRegion control(button_set, REGION_PRIORITY_NORMAL, handler);
-    control.region().flags = W8_REGION_RECTANGLE;
-    control.region().SetBounds(100, 100, 120, 120);
-    const auto screen_set = new_test_region_set();
-    const auto screen_region =
-        add_test_region(screen_set, 7, 100, 100, 120, 120, 0, record_region_event);
-    REQUIRE(screen_set > button_set);
-    region_events.clear();
-
-    UpdateRegionMousePosition(105, 105);
-    REQUIRE(g_ui.hover == screen_region);
-    dispatch_mouse(InputEventType::LeftButtonDown, 105, 105);
-
-    REQUIRE(std::find(region_events.begin(), region_events.end(),
-                      std::pair<int, int>{7, static_cast<int>(InputEventType::LeftButtonDown)}) != region_events.end());
-    REQUIRE(handler.reasons.empty());
-}
-
-void owned_region_move_and_teardown()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto set = new_test_region_set();
-    TestOwnedRegionHandler handler;
-    ExclusiveRegionSet scope(set);
-
-    OwnedRegion owned(set, 0, handler);
-    owned.region().flags = W8_REGION_RECTANGLE;
-    owned.region().SetBounds(10, 10, 30, 30);
-    const auto index = owned.index();
-    UpdateRegionMousePosition(15, 15);
-    REQUIRE(g_ui.hover == index);
-    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    REQUIRE(g_ui.captured == index);
-
-    {
-        OwnedRegion moved(std::move(owned));
-        REQUIRE_FALSE(owned);
-        owned.reset();
-        REQUIRE(g_regions[index].handler == &handler);
-        REQUIRE(g_ui.captured == index);
-        REQUIRE(g_ui.hover == index);
-    }
-    REQUIRE(g_regions[index].handler == nullptr);
-    REQUIRE(g_ui.captured == 0);
-    REQUIRE(g_ui.hover == 0);
-}
-void owned_region_set_templates_and_teardown()
-{
-    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-
-    constexpr std::array<RegionTemplate, 3> templates{{
-        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 11, true, 101},
-        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 12, false, -1},
-        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 13, true, 103},
-    }};
-
-    const auto baseline_region_count = LiveDynamicRegionCount();
-    unsigned int released_set_index;
-    {
-        std::optional<OwnedRegionSet> regions;
-        regions.emplace(templates);
-        released_set_index = regions->set();
-        REQUIRE(regions->size() == templates.size());
-        REQUIRE(g_region_sets[regions->set()].Regions().size() == templates.size());
-
-        for (std::size_t index = 0; index < templates.size(); ++index) {
-            const auto& region = (*regions)[index];
-            const auto& entry = templates[index];
-            REQUIRE(region.flags == entry.flags);
-            REQUIRE(region.x1 == entry.x1);
-            REQUIRE(region.y1 == entry.y1);
-            REQUIRE(region.x2 == entry.x2);
-            REQUIRE(region.y2 == entry.y2);
-            REQUIRE((region.handler != nullptr) == (entry.callback != nullptr));
-            REQUIRE(region.help_enabled == entry.help_enabled);
-            REQUIRE(region.help_text_id == entry.help_text_id);
-            REQUIRE(regions->index(index) < g_regions.size());
-        }
-
-        std::optional<ExclusiveRegionSet> scope;
-        scope.emplace(regions->set());
-        regions->Enable();
-        region_events.clear();
-        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-        REQUIRE(g_ui.captured == regions->index(1));
-        REQUIRE(std::find(region_events.begin(), region_events.end(),
-                          std::pair<int, int>{12, left_button_down}) != region_events.end());
-        dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
-
-        regions->Disable();
-        region_events.clear();
-        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-        REQUIRE(region_events.empty());
-
-        regions->Enable();
-        UpdateRegionMousePosition(45, 15);
-        REQUIRE(g_ui.hover == regions->index(1));
-        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-        REQUIRE(g_ui.captured == regions->index(1));
-        regions.reset();
-        REQUIRE(g_ui.hover == 0);
-        REQUIRE(g_ui.captured == 0);
-        scope.reset();
-    }
-
-    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-    {
-        OwnedRegionSet reused_set(templates);
-        REQUIRE(reused_set.set() == released_set_index);
-    }
-    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-}
-
-void region_set_views_share_owned_regions()
-{
-    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-
-    constexpr std::array<RegionTemplate, 3> templates{{
-        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 21, false, -1},
-        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 22, false, -1},
-        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 23, false, -1},
-    }};
-
-    const auto baseline_region_count = LiveDynamicRegionCount();
-    unsigned int released_view_set;
-    {
-        OwnedRegionSet source(templates);
-        source.Disable();
-        const auto source_index = source.index(0);
-        const auto baseline_with_source = LiveDynamicRegionCount();
-        {
-            RegionSetView view(source, 0, 2);
-            released_view_set = view.set();
-            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
-            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(0));
-            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(1));
-
-            view.Enable();
-            region_events.clear();
-            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-            REQUIRE(g_ui.captured == source.index(0));
-            REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{21, left_button_down}) != region_events.end());
-            dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
-
-            region_events.clear();
-            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-            REQUIRE(g_ui.captured == source.index(1));
-            REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{22, left_button_down}) != region_events.end());
-            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
-
-            region_events.clear();
-            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
-            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
-                                 [](const auto& event) { return event.first == 23; }));
-        }
-
-        {
-            RegionSetView view(source, 1, 2);
-            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
-            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(1));
-            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(2));
-
-            view.Enable();
-            region_events.clear();
-            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-            REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{22, left_button_down}) != region_events.end());
-            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
-
-            region_events.clear();
-            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
-            REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{23, left_button_down}) != region_events.end());
-            dispatch_mouse(InputEventType::LeftButtonUp, 75, 15);
-
-            region_events.clear();
-            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
-                                 [](const auto& event) { return event.first == 21; }));
-        }
-        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
-
-        REQUIRE(source.index(0) == source_index);
-        REQUIRE(source[0].handler != nullptr);
-        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
-
-        source.Enable();
-        region_events.clear();
-        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-        REQUIRE(std::find(region_events.begin(), region_events.end(),
-                          std::pair<int, int>{21, left_button_down}) != region_events.end());
-        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
-
-        {
-            RegionSetView reused_view(source, 0, 2);
-            REQUIRE(reused_view.set() == released_view_set);
-        }
-        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
-    }
-
-    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-}
-
-void screen_region_set_lifecycle()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-
-    constexpr std::array<RegionTemplate, 1> templates{{
-        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 31, false, -1},
-    }};
-
-    const auto baseline_region_count = LiveDynamicRegionCount();
-    ScreenRegionSet regions{templates};
-    regions.Enable();
-    regions.Disable();
-    regions.EnableInput();
-    regions.DisableInput();
-    REQUIRE_FALSE(regions);
-
-    regions.Create();
-    REQUIRE(regions);
-    const auto set = regions->set();
-    const auto region_index = regions->index(0);
-    REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
-
-    regions.Create();
-    REQUIRE(regions->set() == set);
-    REQUIRE(regions->index(0) == region_index);
-
-    regions.Disable();
-    REQUIRE_FALSE(regions->IsEnabled());
-    regions.Enable();
-    REQUIRE(regions->IsEnabled());
-    regions.Destroy();
-    REQUIRE_FALSE(regions);
-    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-}
-
-void widget_owned_regions_release_with_widget()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto baseline_region_count = LiveDynamicRegionCount();
-    const auto baseline_set_count = LiveRegionSetCount();
-    {
-        Controls panel;
-        panel.CreateRegionSet();
-        auto* widget = panel.EmplaceControl<W8Widget>();
-        REQUIRE(widget->m_pPanel == &panel);
-        REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
-        REQUIRE(LiveRegionSetCount() == baseline_set_count + 1);
-    }
-    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-    REQUIRE(LiveRegionSetCount() == baseline_set_count);
-}
-
-void input_sink_capture_can_be_released()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    CaptureInputSink();
-    const auto sink_index = g_ui.captured;
-    REQUIRE(sink_index != 0);
-    ReleaseInputSinkCapture();
-    REQUIRE(g_ui.captured == 0);
-
-    // The released sink must not keep swallowing clicks at its zero-sized origin.
-    constexpr std::array<RegionTemplate, 1> origin_templates{{
-        {W8_REGION_RECTANGLE, 0, 0, 5, 5, record_region_event, 42, false, -1},
-    }};
-    OwnedRegionSet origin{origin_templates};
-    origin.Enable();
-    REQUIRE(FindRegionAtPoint(0, 0) == origin.index(0));
-
-    constexpr std::array<RegionTemplate, 1> templates{{
-        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 41, false, -1},
-    }};
-    OwnedRegionSet other{templates};
-    other.Enable();
-    ActivateDialogRegion(other.index(0));
-    REQUIRE(g_ui.captured == other.index(0));
-    ReleaseInputSinkCapture();
-    REQUIRE(g_ui.captured == other.index(0));
-    ClearActiveRegionIfMatches(other.index(0));
-}
-
-void region_set_order_beats_creation_order()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    constexpr std::array<RegionTemplate, 1> templates{{
-        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 51, false, -1},
-    }};
-
-    ScreenRegionSet later{templates, 0x20};
-    ScreenRegionSet earlier{templates, 0x10};
-    later.Create();
-    earlier.Create();
-    later.Enable();
-    earlier.Enable();
-    REQUIRE(FindRegionAtPoint(20, 20) == earlier->index(0));
-
-    // Dynamic sets rank behind every retail-ordered set.
-    earlier.Destroy();
-    auto dynamic_first = std::make_unique<OwnedRegionSet>(templates);
-    dynamic_first->Enable();
-    REQUIRE(FindRegionAtPoint(20, 20) == later->index(0));
-    later.Destroy();
-    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
-
-    // Dynamic sets keep creation order even when a released slot is reused.
-    OwnedRegionSet dynamic_second{templates};
-    dynamic_second.Enable();
-    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
-    const auto recycled_set = dynamic_first->set();
-    dynamic_first.reset();
-    OwnedRegionSet dynamic_third{templates};
-    dynamic_third.Enable();
-    REQUIRE(dynamic_third.set() == recycled_set);
-    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_second.index(0));
-}
-
-void stale_exclusive_scope_blocks_reused_set_slot()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    constexpr std::array<RegionTemplate, 1> templates{{
-        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 52, false, -1},
-    }};
-    auto modal = std::make_unique<OwnedRegionSet>(templates);
-    modal->Enable();
-    ExclusiveRegionSet scope(modal->set());
-    REQUIRE(FindRegionAtPoint(20, 20) == modal->index(0));
-
-    const auto modal_set = modal->set();
-    modal.reset();
-    OwnedRegionSet replacement{templates};
-    replacement.Enable();
-    REQUIRE(replacement.set() == modal_set);
-    REQUIRE(FindRegionAtPoint(20, 20) == 0);
-}
-
-void region_registration_and_callback_lifetimes()
-{
-    const auto set = new_test_region_set();
-    const auto first = add_test_region(set, 1, 0, 0, 40, 40, 0, record_region_event);
-    const auto latest = add_test_region(set, 2, 0, 0, 40, 40, 0, record_region_event);
-    {
-        ExclusiveRegionSet scope(set);
-        region_events.clear();
-        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
-    }
-    REQUIRE(region_events.front().first == 1);
-    RemoveRegionFromSet(set, first);
-    region_events.clear();
-    {
-        ExclusiveRegionSet scope(set);
-        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
-    }
-    REQUIRE(region_events.front().first == 2);
-    RemoveRegionFromSet(set, latest);
-}
-void owned_regions_honor_priority()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto set = ControlRegionSetIndex();
-    TestOwnedRegionHandler low_handler;
-    TestOwnedRegionHandler high_handler;
-    OwnedRegion low(set, REGION_PRIORITY_LOW, low_handler);
-    OwnedRegion high(set, REGION_PRIORITY_HIGH, high_handler);
-    low.region().flags = high.region().flags = W8_REGION_RECTANGLE;
-    low.region().SetBounds(0, 0, 40, 40);
-    high.region().SetBounds(0, 0, 20, 20);
-
-    ExclusiveRegionSet scope(set);
-    dispatch_mouse(InputEventType::MouseMove, 10, 10);
-    REQUIRE(g_ui.hover == high.index());
-    dispatch_mouse(InputEventType::LeftButtonDown, 10, 10, true);
-    REQUIRE(g_ui.captured == high.index());
-    REQUIRE(high_handler.reasons.back() == REGION_REASON_LBUTTON_DWN);
-    REQUIRE(low_handler.reasons.empty());
-    dispatch_mouse(InputEventType::LeftButtonUp, 10, 10);
-    REQUIRE(g_ui.captured == 0);
-}
 
 void image_and_sprite_ownership()
 {
@@ -978,49 +334,35 @@ void text_input_ownership()
     Font font{};
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         TextFieldGroup outer(font);
-        const auto first = outer.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "alpha", 32, 0, false);
-        const auto middle = outer.Add(0, 20, 80, 20, REGION_PRIORITY_NORMAL, "beta", 32, 0, false);
-        const auto last = outer.Add(0, 40, 80, 20, REGION_PRIORITY_NORMAL, "gamma", 32, 0, false);
+        const auto first = outer.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "alpha", 32, 0, false);
+        const auto middle = outer.Add(0, 20, 80, 20, UI_PRIORITY_NORMAL, "beta", 32, 0, false);
+        const auto last = outer.Add(0, 40, 80, 20, UI_PRIORITY_NORMAL, "gamma", 32, 0, false);
         REQUIRE((first == 0 && middle == 1 && last == 2));
         REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(first) == 5));
         if (repeat == 0) {
-            const auto field_region = std::find_if(
-                g_regions.begin(), g_regions.end(),
-                [](const W8Region& region) {
-                    return region.text_field && region.y1 == 0;
-                });
-            REQUIRE(field_region != g_regions.end());
-            const auto region_index =
-                static_cast<unsigned int>(field_region - g_regions.begin());
-            {
-                ExclusiveRegionSet scope(ControlRegionSetIndex());
-                dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
-                REQUIRE(g_ui.captured == region_index);
-                dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
-                REQUIRE(g_ui.captured == 0);
-            }
-            // A field wins over its hosting panel, whose set is scanned before the control set.
-            constexpr std::array<RegionTemplate, 1> panel_templates{{
-                {W8_REGION_RECTANGLE, 0, 0, 640, 480, nullptr, 0, false, -1},
-            }};
-            OwnedRegionSet panel(panel_templates);
-            panel.Enable();
-            panel.EnableInput();
-            dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
-            REQUIRE(g_ui.captured == region_index);
+            const auto* target = UiTargetAt({5, 5});
+            REQUIRE(target != nullptr);
+            dispatch_mouse(InputEventType::LeftButtonDown, 80, 10);
+            REQUIRE(g_ui.captured == target); // Inclusive retail text-field edge.
             dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
-            REQUIRE(g_ui.captured == 0);
+            REQUIRE(g_ui.captured == nullptr);
+            UiLayer panel(1);
+            panel.add(SDL_Rect{0, 0, 640, 480}, {});
+            dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
+            REQUIRE(g_ui.captured == target); // Editor precedes its hosting plate.
+            dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
         }
+
         outer.Remove(middle);
         REQUIRE(outer.ByteLength(last) == 5);
         {
             TextFieldGroup inner(font);
             REQUIRE(TextFieldGroup::Focused() == &inner);
-            REQUIRE(inner.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
+            REQUIRE(inner.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
         }
         REQUIRE(TextFieldGroup::Focused() == &outer);
         REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(last) == 5));
-        REQUIRE(outer.Add(0, 60, 80, 20, REGION_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
+        REQUIRE(outer.Add(0, 60, 80, 20, UI_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
         outer.Remove(first);
         outer.Remove(3);
         outer.Remove(last);
@@ -1172,8 +514,8 @@ private:
 void generic_button_images()
 {
     initialize_test_framebuffer();
-    RegionStateSnapshot saved_regions;
-    ResetRegions();
+    UiStateSnapshot saved_regions;
+    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-button-images"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -1253,55 +595,50 @@ void generic_button_images()
     ButtonAppearance first_appearance;
     ButtonAppearance second_appearance;
     first_appearance.quick_image = second_appearance.quick_image = graphics;
-    // Verify blits for normal and checkbox highlights in every visual state.
     const auto& frame_colors = graphics->object().colors;
     auto target_owner = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565);
     REQUIRE(target_owner);
     auto& target = *target_owner;
-    const auto old_hilights = gfRenderHilights;
-    gfRenderHilights = true;
-    for (bool checkbox : {false, true}) {
-        for (bool enabled : {false, true}) {
-            for (bool pressed : {false, true}) {
-                for (bool hover : {false, true}) {
-                    for (bool mouse_down : {false, true}) {
-                        DrawButtonAppearance(target, first_appearance, SDL_Rect{0, 0, 8, 8},
-                                              {enabled, pressed, hover, checkbox, mouse_down});
-                        auto* pixels = static_cast<std::uint16_t*>(target.pixels);
-                        REQUIRE(pixels);
-                        const auto color = pixels[0];
-                        const bool highlight = hover && (!checkbox || mouse_down);
-                        const unsigned expected_frame = !enabled ? 0 :
-                            pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
-                        REQUIRE(color == frame_colors[expected_frame + 1]);
-                    }
-                }
+    for (bool enabled : {false, true}) {
+        for (bool pressed : {false, true}) {
+            for (bool hover : {false, true}) {
+                DrawButtonAppearance(target, first_appearance, {0, 0, 8, 8}, {enabled, pressed, hover});
+                const auto* pixels = static_cast<const std::uint16_t*>(target.pixels);
+                const unsigned frame = !enabled ? 0 : pressed ? (hover ? 4 : 3) : (hover ? 2 : 1);
+                REQUIRE(pixels[0] == frame_colors[frame + 1]);
             }
         }
     }
-    // Panel painting must use the supplied canvas, including forced repaints.
+    // Menu artwork preserves blank states and its enlarged-hover positioning.
+    auto menu_sprites = std::make_shared<SpriteSheet>(graphics->object());
+    menu_sprites->frames[2].width = 3;
+    menu_sprites->frames[2].indices.assign(3, 3);
+    ButtonAppearance menu{.quick_image = ButtonGraphics::Load(menu_sprites, 0, 1, 2, -1, -1)};
+    SDL_FillSurfaceRect(&target, nullptr, 0);
+    DrawButtonAppearance(target, menu, {1, 1, 1, 1}, {.hovered = true, .menu_artwork = true});
+    const auto* menu_pixels = static_cast<const std::uint16_t*>(target.pixels);
+    REQUIRE(menu_pixels[target.pitch / 2 + 1] == 0);
+    REQUIRE(menu_pixels[target.pitch / 2 + 2] == frame_colors[3]);
+    SDL_FillSurfaceRect(&target, nullptr, 0);
+    DrawButtonAppearance(target, menu, {1, 1, 1, 1}, {.pressed = true, .menu_artwork = true});
+    REQUIRE(menu_pixels[target.pitch / 2 + 1] == 0);
+    // Ordinary buttons paint to the supplied canvas, including forced repaints.
     {
-        Controls panel;
-        panel.CreateRegionSet();
-        panel.SetActive(true);
-        auto* button = panel.EmplaceControl<W8ButtonWidget>();
-        REQUIRE(button->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+        UiLayer layer;
+        W8ButtonWidget button(layer);
+        REQUIRE(button.ConfigureIcon("button.sti", 0, 1, UI_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
-        button->SetPosition(2, 3);
+        button.SetPosition(2, 3);
         SDL_FillSurfaceRect(&target, nullptr, 0);
-        panel.Redraw(target, true);
+        button.Draw(target);
         auto* pixels = static_cast<std::uint16_t*>(target.pixels);
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
         SDL_FillSurfaceRect(&target, nullptr, 0);
-        panel.Redraw(target, true);
+        button.m_dirty = true;
+        button.Draw(target);
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
 
-        auto* frame = panel.EmplaceControl<W8DialogFrame>();
-        frame->Configure(first_appearance, {4, 5, 1, 1}, panel.RegionSet());
-        panel.Redraw(target, true);
-        REQUIRE(pixels[5 * (target.pitch / 2) + 4] == frame_colors[2]);
     }
-    gfRenderHilights = old_hilights;
     target_owner.reset();
     graphics.reset();
     ShutdownButtonImageManager();
@@ -1329,39 +666,28 @@ void generic_button_images()
     REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
                         [](const auto& item) { return item != nullptr; }));
     quick_images.clear();
-    const auto widget_count = std::count_if(
-        g_regions.begin(), g_regions.end(),
-        [](const W8Region& region) { return region.handler != nullptr; });
+    const auto widget_count = LiveUiTargetCount();
     {
         auto dialog = std::make_unique<W8ButtonWidget>();
-        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, UI_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
         dialog->SetPosition(12, 13);
-        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, REGION_PRIORITY_NORMAL,
+        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, UI_PRIORITY_NORMAL,
                                        W8_DIALOG_BUTTON_NO_TOOLTIP));
         REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
-        REQUIRE(std::any_of(g_regions.begin(), g_regions.end(),
-                            [&dialog](const W8Region& region) {
-                                return region.handler == dialog.get();
-                            }));
-        REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
-                              [](const W8Region& region) {
-                                  return region.handler != nullptr;
-                              }) == widget_count + 1);
+        REQUIRE(UiTargetAt({12, 13}) != nullptr);
+        REQUIRE(LiveUiTargetCount() == widget_count + 1);
     }
-    REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
-                          [](const W8Region& region) { return region.handler != nullptr; }) ==
-            widget_count);
+    REQUIRE(LiveUiTargetCount() == widget_count);
     // A dialog's click callback can close it. The dispatcher must not read
     // the released dialog while completing the click (including its sound).
     auto closing_dialog = std::make_unique<W8ButtonWidget>();
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
-        [&](W8ButtonWidget*) { closing_dialog.reset(); }, nullptr, false,
-        REGION_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
+        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); }, nullptr, false,
+        UI_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
     {
-        ExclusiveRegionSet scope(ControlRegionSetIndex());
         dispatch_mouse(InputEventType::LeftButtonDown, 12, 13, true, false, 1);
         dispatch_mouse(InputEventType::LeftButtonUp, 12, 13, false, false, 1);
     }
@@ -1606,7 +932,7 @@ void generic_button_images()
     REQUIRE(g_font12point1.load(filename));
     {
     TextFieldGroup fields(g_font12point1);
-    const auto field = fields.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "", 1000, 0x0f, false);
+    const auto field = fields.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "", 1000, 0x0f, false);
     fields.Focus(field);
     const std::string clusters = "é👩‍👩‍👧‍👦中";
     fields.SetText(field, clusters);
@@ -1664,24 +990,301 @@ TEST_CASE("Camp effect ownership", "[owner]")
     camp_effects();
 }
 
-TEST_CASE("Owned control region priority", "[owner]")
+
+TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner][ui-layer]")
 {
-    owned_regions_honor_priority();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    std::vector<int> hits;
+    const auto record = [&](int id) {
+        return [&, id](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Wheel) hits.push_back(id);
+            return UiResult::Handled;
+        };
+    };
+    UiLayer later(20);
+    later.add(SDL_Rect{10, 10, 11, 11}, record(1), 100);
+    UiLayer earlier(10);
+    auto& first = earlier.add(SDL_Rect{10, 10, 11, 11}, record(2), 5);
+    auto& tie = earlier.add(SDL_Rect{10, 10, 11, 11}, record(3), 5);
+    auto& circle = earlier.add(UiCircle{{15, 15}, 5}, record(4), 6);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 15); // Circumference included.
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20); // Rectangle's last pixel.
+    dispatch_mouse(InputEventType::MouseWheel, 21, 20); // Outside SDL extent.
+    REQUIRE(hits == std::vector<int>{4, 2});
+    first.setEnabled(false);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    earlier.remove(tie);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    circle.setShape(SDL_Rect{20, 20, 1, 1});
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    earlier.setEnabled(false);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    REQUIRE(hits == std::vector<int>{4, 2, 3, 1, 4, 1});
+
+    earlier.setEnabled(true);
+    first.setEnabled(true);
+    circle.setEnabled(false);
+    UiLayer same_order(10);
+    same_order.add(SDL_Rect{10, 10, 11, 11}, record(5), 1000);
+    dispatch_mouse(InputEventType::MouseWheel, 15, 15);
+    REQUIRE(hits.back() == 2); // Equal layer orders use creation order.
 }
 
-TEST_CASE("Callback reentrancy and region teardown", "[owner]")
+TEST_CASE("Input layers keep capture outside and release it for gameplay drops", "[owner][ui-layer]")
 {
-    region_registration_and_callback_lifetimes();
-    region_nested_input();
-    nested_hover_transitions();
-    owned_region_captures_across_frames();
-    owned_region_move_and_teardown();
-    modal_scope_persists_across_frames();
-    modal_scope_preserves_capture_across_frames();
-    exclusive_scopes_destroy_out_of_order();
-    reset_regions_preserves_hidden_buttons();
-    later_region_set_precedes_button_set();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    std::vector<UiPointerEvent> events;
+    int drops = 0;
+    HitTarget* drag_source = nullptr;
+    UiLayer layer;
+    auto& source = layer.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        events.push_back(event);
+        if (drag_source && event.action == UiPointerAction::Leave)
+            drag_source->releaseCapture();
+        return UiResult::Handled;
+    });
+    layer.add(SDL_Rect{40, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up) ++drops;
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 2);
+    REQUIRE(events.back().clicks == 2);
+    REQUIRE(events.back().local.x == 5);
+    REQUIRE(events.back().local.y == 5);
+    UpdateUiPointer(45, 15);
+    REQUIRE(events.back().action == UiPointerAction::Leave);
+    dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+    REQUIRE(events.back().action == UiPointerAction::Up);
+    REQUIRE_FALSE(events.back().inside);
+    REQUIRE(events.back().captured_buttons == SDL_BUTTON_LMASK);
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(drops == 0);
+
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    drag_source = &source;
+    UpdateUiPointer(45, 15);
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(source.capturedButtons() == 0);
+    dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+    REQUIRE(drops == 1);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    source.setEnabled(false);
+    REQUIRE(g_ui.captured == 0);
+    dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+    REQUIRE(drops == 2);
 }
+
+TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-layer]")
+{
+    initialize_test_framebuffer();
+    auto& framebuffer = GetFrameBufferSurface();
+    SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234);
+    auto before = CopyCpuStorage(framebuffer);
+    auto target = CreateCpuStorage(100, 50, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(before);
+    REQUIRE(target);
+    SDL_FillSurfaceRect(target.get(), nullptr, 0xffff);
+    Font font{};
+    TextFieldGroup fields(font);
+    const auto field = fields.Add(0, 0, 80, 20, 0, "", 32, 0, false);
+    fields.Focus(field);
+    fields.ClearFocus();
+    fields.RenderAll(*target);
+    REQUIRE(*static_cast<std::uint16_t*>(target->pixels) == 0);
+    REQUIRE(std::memcmp(framebuffer.pixels, before->pixels,
+                        framebuffer.pitch * framebuffer.h) == 0);
+}
+
+TEST_CASE("Modal layers isolate editors and restore focus after deferred close", "[owner][ui-layer]")
+{
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    Font font{};
+    TextFieldGroup outer(font);
+    const int outer_field = outer.Add(0, 0, 80, 20, 0, "outer", 32, 0xf, false);
+    outer.Focus(outer_field);
+    outer.SetCursor(2);
+    struct Editor {
+        UiLayer input{UiLayerMode::Modal};
+        TextFieldGroup fields;
+        explicit Editor(Font& font) : fields(input, font)
+        {
+            fields.Focus(fields.Add(0, 30, 80, 20, 0, "inner", 32, 0xf, false));
+        }
+    };
+    auto editor = std::make_unique<Editor>(font);
+    REQUIRE(TextFieldGroup::Focused() == &editor->fields);
+    REQUIRE_FALSE(outer.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'x'}));
+    REQUIRE(editor->fields.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'é'}));
+    REQUIRE(editor->fields.Text(0) == "é");
+    {
+        Editor nested(font);
+        REQUIRE(TextFieldGroup::Focused() == &nested.fields);
+        REQUIRE_FALSE(editor->fields.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'x'}));
+    }
+    REQUIRE(TextFieldGroup::Focused() == &editor->fields);
+    editor->input.add(SDL_Rect{90, 30, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up) {
+            AfterUiDispatch([&] { editor.reset(); });
+            REQUIRE(editor != nullptr);
+        }
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 95, 35, true);
+    dispatch_mouse(InputEventType::LeftButtonUp, 95, 35);
+    REQUIRE_FALSE(editor);
+    REQUIRE(TextFieldGroup::Focused() == &outer);
+    REQUIRE(outer.FocusedId() == outer_field);
+    REQUIRE(outer.Cursor() == 2);
+    REQUIRE(outer.Text(outer_field) == "outer");
+    REQUIRE(g_ui.captured == 0);
+}
+
+TEST_CASE("Modal layers block underlying input and restore valid capture", "[owner][ui-layer]")
+{
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    int releases = 0;
+    UiLayer screen;
+    auto& target = screen.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up) ++releases;
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    const auto captured = g_ui.captured;
+    REQUIRE(captured != 0);
+    {
+        UiLayer modal(UiLayerMode::Modal);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE(releases == 0);
+        REQUIRE(g_ui.captured == 0);
+        {
+            UiLayer nested(UiLayerMode::Modal);
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+            REQUIRE(g_ui.captured == 0);
+        }
+    }
+    REQUIRE(g_ui.captured == captured);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(releases == 1);
+
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    {
+        UiLayer modal(UiLayerMode::Modal);
+        SECTION("A disabled target cannot regain suspended capture") { target.setEnabled(false); }
+        SECTION("A disabled layer cannot regain suspended capture") { screen.setEnabled(false); }
+        SECTION("A removed target cannot regain suspended capture") { screen.remove(target); }
+    }
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(g_ui.current == 0);
+    REQUIRE(g_ui.hover == 0);
+}
+
+TEST_CASE("Split fields share editing and restore focus after rejecting excessive amounts", "[owner][text-input]")
+{
+    UiStateSnapshot saved_state;
+    Font font{};
+    TextFieldGroup outer(font);
+    outer.Add(0, 0, 80, 20, 0, "name", 20, 2, false);
+    outer.Focus(0);
+    W8DialogBase dialog;
+    W8ButtonWidget button(dialog.InputLayer());
+    W8ControlsRect bounds{10, 10, 110, 30};
+    W8DialogNumericInput amount(0, &bounds, 12, font, &dialog, &button);
+    amount.m_maximum = 200;
+    const SDL_Point point{110, 20};
+    amount.SetActive(true, &point);
+    const InputEvent digit{.type = InputEventType::Text, .text = U'3'};
+    REQUIRE(amount.HandleInput(&digit));
+    REQUIRE(amount.m_value == 123);
+    REQUIRE(amount.HandleInput(&digit)); // 1233 is rejected without moving the caret.
+    REQUIRE(amount.m_value == 123);
+    const InputEvent backspace{.type = InputEventType::KeyDown, .key = VK_BACK};
+    REQUIRE(amount.HandleInput(&backspace));
+    REQUIRE(amount.m_value == 12);
+    const InputEvent letter{.type = InputEventType::Text, .text = U'x'};
+    REQUIRE(amount.HandleInput(&letter));
+    REQUIRE(amount.m_value == 12);
+    const InputEvent escape{.type = InputEventType::KeyDown, .key = VK_ESCAPE};
+    REQUIRE(amount.HandleInput(&escape));
+    REQUIRE_FALSE(amount.m_active);
+    REQUIRE(TextFieldGroup::Focused() == &outer);
+    REQUIRE(outer.Editing());
+}
+
+TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[owner][ui-layer]")
+{
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    const auto region_count = LiveUiTargetCount();
+    const auto set_count = LiveUiLayerCount();
+    auto layer = std::make_unique<UiLayer>();
+    bool finished = false;
+    layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Down) {
+            AfterUiDispatch([&] {
+                REQUIRE(finished);
+                layer.reset();
+            });
+            // Reentrant dispatch must not flush the outer callback's close.
+            dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+            REQUIRE(layer != nullptr);
+            finished = true;
+        }
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    REQUIRE(layer == nullptr);
+    REQUIRE(g_ui.current == 0);
+    REQUIRE(g_ui.hover == 0);
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(LiveUiTargetCount() == region_count);
+    REQUIRE(LiveUiLayerCount() == set_count);
+
+    layer = std::make_unique<UiLayer>();
+    layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Enter)
+            AfterUiDispatch([&] { layer.reset(); });
+        return UiResult::Handled;
+    });
+    UpdateUiPointer(15, 15);
+    REQUIRE(layer == nullptr);
+    REQUIRE(g_ui.hover == 0);
+    REQUIRE(g_ui.current == 0);
+}
+
+TEST_CASE("The input pump finishes its policy before committing a layer close", "[owner][ui-layer]")
+{
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    InputEvent pending;
+    while (DequeueEvent(&pending)) {}
+    auto layer = std::make_unique<UiLayer>();
+    layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Down)
+            AfterUiDispatch([&] { layer.reset(); });
+        return UiResult::Handled;
+    });
+    QueueEvent(InputEventType::LeftButtonDown, {15, 15});
+    QueueEvent(InputEventType::LeftButtonUp, {15, 15});
+    int consumed = 0;
+    UiInputPolicy policy;
+    policy.track_hover = false;
+    policy.consumed = [&](const InputEvent&) {
+        REQUIRE(layer != nullptr);
+        ++consumed;
+        return InputRoute::Handled;
+    };
+    REQUIRE(PumpUiInput(policy));
+    REQUIRE(consumed == 1);
+    REQUIRE(layer == nullptr);
+    REQUIRE(DequeueEvent(&pending));
+    REQUIRE(pending.type == InputEventType::LeftButtonUp);
+    REQUIRE_FALSE(DequeueEvent(&pending));
+}
+
 
 TEST_CASE("Sprite ownership", "[owner]")
 {
@@ -1743,9 +1346,8 @@ TEST_CASE("Generic button image ownership", "[owner]")
 
 TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    ExclusiveRegionSet button_scope(ControlRegionSetIndex());
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     struct TooltipStateSnapshot {
         bool tooltips_enabled = g_settings.tooltips_enabled;
         std::vector<std::string> localized_strings = std::move(g_localized_strings);
@@ -1769,16 +1371,8 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
             }, 42));
         button.SetTooltipIndex(0);
         button.SetTooltipEnabled(true);
-        auto region = std::find_if(g_regions.begin(), g_regions.end(),
-                                   [&button](const W8Region& item) {
-                                       return item.handler == &button;
-                                   });
-        REQUIRE(region != g_regions.end());
-        REQUIRE(region->help_enabled);
-        REQUIRE(region->help_text == "Button tooltip");
+        REQUIRE(UiTargetAt({15, 15}) != nullptr);
         button.SetTooltipEnabled(false);
-        REQUIRE_FALSE(region->help_enabled);
-        REQUIRE(region->help_text.empty());
         GetInputState().left_button = false;
         GetInputState().mouse = {400, 400};
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 1);
@@ -1814,15 +1408,15 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE(activations == 2);
         button.SetPosition(10, 10);
         button.Resize(40, 20);
-        button.m_repeat_enabled = true;
+        button.policy.repeat = true;
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
         REQUIRE(activations == 4);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE((!button.IsPressed() && activations == 4));
-        button.m_repeat_enabled = false;
-        button.m_activation = DialogButtonActivation::Press;
+        button.policy.repeat = false;
+        button.policy.activation = ButtonActivation::Press;
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         REQUIRE(activations == 5);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
@@ -1836,7 +1430,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 
     auto closing = std::make_unique<W8ButtonWidget>();
     closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
-        [&](W8ButtonWidget*) { closing.reset(); }, 0);
+        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); }, 0);
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
@@ -1845,9 +1439,8 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
 {
     initialize_test_framebuffer();
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    ExclusiveRegionSet button_scope(ControlRegionSetIndex());
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -1866,7 +1459,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     std::vector<int> positions;
     ScrollPositionCapture position_capture(positions);
     {
-        W8DialogScrollBar bar;
+        UiLayer input;
+        W8DialogScrollBar bar(input);
         const W8DialogScrollBar::Resources resources{
             "arrows.sti", "track.sti", 0, RecordScrollPosition};
         REQUIRE(bar.CreateControls(&resources));
@@ -1908,12 +1502,12 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             // A dialog opened on top owns the modal scope: the one beneath
             // keeps its controls but takes no input until it is closed.
             MessageDialog inner;
-            ExclusiveRegionSet inner_scope(inner.RegionSet());
+            inner.InputLayer().setModal(true);
             dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
             dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
             REQUIRE(dialog.is_open);
         }
-        ExclusiveRegionSet dialog_scope(dialog.RegionSet());
+        dialog.InputLayer().setModal(true);
         dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
         REQUIRE(dialog.is_open);
         dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
@@ -1929,8 +1523,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         list.SetBackground("background.sti", 0);
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
-        list.Draw();
-        ExclusiveRegionSet list_scope(list.RegionSet());
+        list.Draw(GetFrameBufferSurface());
+        list.InputLayer().setModal(true);
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
                        list.m_area_button.Bounds().y + 21, true);
@@ -1957,16 +1551,12 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         short_list.SetBackground("background.sti", 0);
         short_list.m_lines.emplace_back("X");
         REQUIRE(short_list.CreateControls() == 0);
-        short_list.Draw();
+        short_list.Draw(GetFrameBufferSurface());
         REQUIRE_FALSE(short_list.m_scrollable);
         for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
                                    &short_list.m_slider_button,
                                    &short_list.m_third_text_button}) {
-            const auto region = std::find_if(
-                g_regions.begin(), g_regions.end(),
-                [button](const W8Region& item) { return item.handler == button; });
-            REQUIRE(region != g_regions.end());
-            REQUIRE((region->flags & W8_REGION_INPUT_DISABLED) != 0);
+            REQUIRE_FALSE(button->IsVisible());
             REQUIRE_FALSE(button->m_dirty);
         }
     }
@@ -1985,8 +1575,8 @@ void message_box_callback()
 TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
 {
     initialize_test_framebuffer();
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     ScopedTemporaryDirectory directory{"wiz8-message-box"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
@@ -2015,12 +1605,13 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
     } restore{previous_roots};
 
     REQUIRE(InitializeButtonImageManager());
-    TestOwnedRegionHandler screen_handler;
-    const auto screen_set = new_test_region_set();
-    OwnedRegion underlying(screen_set, REGION_PRIORITY_NORMAL, screen_handler);
-    underlying.region().flags = W8_REGION_RECTANGLE;
-    underlying.region().SetBounds(275, 256, 315, 276);
-    const auto baseline_regions = LiveDynamicRegionCount();
+    int screen_events = 0;
+    UiLayer screen;
+    screen.add(SDL_Rect{275, 256, 41, 21}, [&](const UiPointerEvent&) {
+        ++screen_events;
+        return UiResult::Handled;
+    });
+    const auto baseline_regions = LiveUiTargetCount();
 
     Font font{};
     PushButtonSoundScheme(0, true);
@@ -2028,76 +1619,27 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
         message_box_callback_count = 0;
         REQUIRE(CreateMessageBox("", font, 0, true, true, message_box_callback));
         REQUIRE(IsMessageBoxActive());
-        REQUIRE(LiveDynamicRegionCount() > baseline_regions);
+        REQUIRE(LiveUiTargetCount() > baseline_regions);
 
         const auto x = accepted ? 280 : 340;
         dispatch_mouse(InputEventType::LeftButtonDown, x, 260, true);
         dispatch_mouse(InputEventType::LeftButtonUp, x, 260);
-        REQUIRE(screen_handler.reasons.empty());
+        REQUIRE(screen_events == 0);
 
         RenderMessageBox();
         RenderMessageBox();
         REQUIRE_FALSE(IsMessageBoxActive());
         REQUIRE(message_box_callback_count == (accepted ? 1 : 0));
-        REQUIRE(LiveDynamicRegionCount() == baseline_regions);
+        REQUIRE(LiveUiTargetCount() == baseline_regions);
     }
 }
 
-TEST_CASE("Owned regions use SDL click counts", "[owner]")
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto set = ControlRegionSetIndex();
-    TestOwnedRegionHandler handler;
-    OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
-    region.region().flags = W8_REGION_RECTANGLE;
-    region.region().SetBounds(0, 0, 40, 40);
-    ExclusiveRegionSet scope(set);
-    for (const std::uint8_t click_count : {0, 1, 2, 3, 4}) {
-        const auto down = mouse_atom(InputEventType::LeftButtonDown, 10, 10, true, false, click_count);
-        DispatchRegionInput(&down);
-        const auto reason = handler.reasons.back();
-        REQUIRE((reason & REGION_REASON_LBUTTON_DWN) != 0);
-        REQUIRE(((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) == (click_count >= 2));
-        const auto up = mouse_atom(InputEventType::LeftButtonUp, 10, 10);
-        DispatchRegionInput(&up);
-    }
-}
 
-TEST_CASE("Owned region sets copy templates and release dynamic slots", "[owner]")
-{
-    owned_region_set_templates_and_teardown();
-}
 
-TEST_CASE("Region set views share owned regions", "[owner]")
-{
-    region_set_views_share_owned_regions();
-}
 
-TEST_CASE("Screen region sets follow their screen lifecycle", "[owner]")
-{
-    screen_region_set_lifecycle();
-}
 
-TEST_CASE("Widget-owned regions release with their widget", "[owner]")
-{
-    widget_owned_regions_release_with_widget();
-}
 
-TEST_CASE("Input sink capture releases only its own capture", "[owner]")
-{
-    input_sink_capture_can_be_released();
-}
 
-TEST_CASE("Region set hit-test order follows declared order, not creation", "[owner]")
-{
-    region_set_order_beats_creation_order();
-}
-
-TEST_CASE("A stale exclusive scope hides a reused set slot", "[owner]")
-{
-    stale_exclusive_scope_blocks_reused_set_slot();
-}
 
 TEST_CASE("assert-plain", "[.death]")
 {
@@ -2246,36 +1788,6 @@ TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[o
     REQUIRE(surface_pixel(framebuffer, 71, 70) == 0);
     bitmap.drawRect(framebuffer, {0, 0, 1, 1}, 80, 80);
     REQUIRE(surface_pixel(framebuffer, 80, 80) == 0);
-}
-
-TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]")
-{
-    initialize_test_framebuffer();
-    CatalogArtworkAssets assets;
-    auto& framebuffer = GetFrameBufferSurface();
-    const auto sprites = CatalogArtwork::Load(0x86);
-    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
-    Controls with_background(100, 100, 140, 120, sprites, 0);
-    with_background.m_active = true;
-    with_background.m_dirty = true;
-    with_background.Redraw(GetFrameBufferSurface(), false);
-    REQUIRE(surface_pixel(framebuffer, 102, 103) == sprites.spriteSheet()->colors[1]);
-    Controls without_background(150, 100, 190, 120, std::nullopt, 0);
-    without_background.m_active = true;
-    without_background.m_dirty = true;
-    without_background.Redraw(GetFrameBufferSurface(), false);
-    REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
-
-    // A bounded invalidation must not narrow a pending whole-panel one.
-    const SDL_Point extent = sprites.size(0);
-    const W8ControlsRect corner{100, 100, 101, 101};
-    TakeUiUpload();
-    with_background.InvalidateAll();
-    with_background.InvalidateArea(corner);
-    with_background.Redraw(GetFrameBufferSurface(), false);
-    const SDL_Rect whole{100, 100, extent.x, extent.y};
-    const auto upload = TakeUiUpload();
-    REQUIRE(SDL_RectsEqual(&upload, &whole));
 }
 
 TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")

@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #pragma once
 
 #include <memory>
@@ -8,9 +9,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "input.h"
 
-struct Controls;
-class W8TextControl;
-struct W8Region;
 
 /* Button order differs from W8CampItemAction's byte values. */
 enum W8CampItemActionButton {
@@ -79,32 +77,19 @@ void TryGiveHeldItemToCampPortrait(int slot);
 void RedrawRcsLevelUpPanel(void);
 void RedrawRcsDismissPanel(void);
 
-extern std::unique_ptr<Controls> g_level_up_panel;
-extern std::unique_ptr<Controls> g_dismiss_panel;
-extern W8TextControl* g_level_up_button;
-extern W8TextControl* g_dismiss_button;
 /* Five bottom page buttons created with the item-action strip by
    CreateCampButtonPanel (Items/Skills/...). */
-extern W8TextControl* g_camp_page_buttons[5];
-extern W8TextControl* g_item_action_controls[W8_CAMP_ACTION_BUTTON_COUNT];
 /* The bottom Controls panel CreateCampButtonPanel parents
    the page and item-action strips to. */
-extern std::unique_ptr<Controls> g_item_actions_panel;
 
-unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+UiResult HandleCampDismissPortrait(const UiPointerEvent& event);
+UiResult HandleCampPortrait(const UiPointerEvent& event, int slot);
+UiResult HandleCampCharacterHeader(const UiPointerEvent& event);
+UiResult HandleCampProfessionHistory(const UiPointerEvent& event);
 
-void CreateRcsLevelUpPanel(void);
-void DestroyRcsLevelUpPanel(void);
+void CreateCampHeaderButtons();
+void DestroyCampHeaderButtons();
 void UpdateRcsLevelUpPanel(void);
-void CreateRcsDismissPanel(void);
-void DestroyRcsDismissPanel(void);
 void UpdateRcsDismissPanel(void);
 void DrawRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
 void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsigned int layout_mode);

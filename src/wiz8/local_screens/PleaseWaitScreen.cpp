@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "wiz8/fonts.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
@@ -126,7 +126,7 @@ unsigned char PleaseWaitScreenEnter(void)
             break;
         }
     }
-    ResetRegions();
+    ResetUiInput();
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
@@ -157,7 +157,7 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
             }
             std::string message =
                 fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
-            SetDialogPrompt(g_swap_disc_dialog.get(), message, 0, 0);
+            SetDialogPrompt(g_swap_disc_dialog.get(), message);
             EnableCursorScene();
             return false;
         }
@@ -192,7 +192,7 @@ void PleaseWaitScreenFrame(void)
 {
     if (g_load_descriptor->waiting) {
         if (g_swap_disc_dialog->is_open) {
-            g_swap_disc_dialog->Draw();
+            g_swap_disc_dialog->Draw(GetFrameBufferSurface());
             if (!g_swap_disc_dialog->ProcessInput()) {
                 if (!g_swap_disc_dialog->accepted) {
                     g_swap_disc_dialog.reset();
@@ -334,7 +334,7 @@ unsigned char PleaseWaitScreenLeave(int leaving)
         g_load_descriptor.reset();
     }
     NoOp();
-    ResetRegions();
+    ResetUiInput();
     EnableCursorScene();
     return 1;
 }

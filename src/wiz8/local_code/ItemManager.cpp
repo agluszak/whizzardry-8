@@ -973,7 +973,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
             dialog->SetItemGroup(item);
             dialog->m_destroy_callback = OnItemPickerDialogDestroyed;
         }
-        g_modal_owner = dialog;
+        g_modal_owner.reset(dialog);
         return 1;
     }
     if (item->p3D->trigger != 0) {

@@ -45,7 +45,6 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/regions.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/xstatus.h"
 #include "compat/native.h"
@@ -159,7 +158,7 @@ void BeginNpcScriptedScene(void)
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
             EnableMainGamePortraitSlot(party_slot);
-            (*g_main_portrait_edge_regions)[party_slot].SetInputEnabled(true);
+            g_main_input->edge_targets[party_slot]->setEnabled(true);
         }
     }
 }
@@ -190,7 +189,7 @@ void EndScriptedPortraitPick(int party_slot)
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
             DisableMainGamePortraitSlot(slot);
-            (*g_main_portrait_edge_regions)[slot].SetInputEnabled(false);
+            g_main_input->edge_targets[slot]->setEnabled(false);
         }
     }
     ClearScriptedSceneActive();
@@ -235,7 +234,7 @@ void EndScriptedPortraitPick(int party_slot)
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
             EnableMainGamePortraitSlot(slot);
-            (*g_main_portrait_edge_regions)[slot].SetInputEnabled(true);
+            g_main_input->edge_targets[slot]->setEnabled(true);
         }
     }
 }

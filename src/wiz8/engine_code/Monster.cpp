@@ -78,7 +78,7 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/item_spawning.h"

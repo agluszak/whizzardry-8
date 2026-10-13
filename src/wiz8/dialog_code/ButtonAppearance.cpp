@@ -13,13 +13,9 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "image.h"
+#include "himage.h"
 #include "image_assets.h"
 #include "sprite.h"
-
-#define FONT_MCOLOR_BLACK 0
-
-// GLOBAL: WIZ8 0x005ff824
-bool gfRenderHilights = true;
 
 static GenericButtonImage default_generic_image;
 
@@ -30,52 +26,19 @@ GenericButtonImage DefaultGenericButtonImage()
 
 
 
-static std::int8_t DisabledOverlayStyle(const ButtonAppearance& appearance,
-                                       const ButtonVisualState& state);
-static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                                   const SDL_Rect& bounds, const ButtonVisualState& state);
-static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                                     const SDL_Rect& bounds, const ButtonVisualState& state);
+static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* appearance,
+                            const SDL_Rect& bounds, const ButtonVisualState& state);
+static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appearance,
+                              const SDL_Rect& bounds, const ButtonVisualState& state);
 static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appearance,
                              const SDL_Rect& bounds, const ButtonVisualState& state);
-static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* appearance, const SDL_Rect& bounds);
-static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* appearance, const SDL_Rect& bounds);
 
 ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
                                  std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
 {
-    const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
-    if (filename.empty() || std::all_of(frames.begin(), frames.end(),
-                                      [](int frame) { return frame == BUTTON_NO_IMAGE; }))
-        return {};
-
-    auto image = std::make_shared<ButtonGraphics>();
-    image->sprites = g_image_assets.sprites(filename);
-    if (!image->sprites)
-        return {};
-
-    image->MaxWidth = image->MaxHeight = 0;
-    for (const int index : frames) {
-        if (index == BUTTON_NO_IMAGE)
-            continue;
-        if (index < 0 ||
-            static_cast<std::size_t>(index) >= image->object().frames.size()) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
-                         index, std::string(filename).c_str());
-            return {};
-        }
-        const auto& frame = image->object().frames[index];
-        image->MaxWidth = std::max(image->MaxWidth,
-            static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
-        image->MaxHeight = std::max(image->MaxHeight,
-            static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
-    }
-    image->Grayed = grayed;
-    image->OffNormal = off_normal;
-    image->OffHilite = off_hilite;
-    image->OnNormal = on_normal;
-    image->OnHilite = on_hilite;
-    return image;
+    if (filename.empty()) return {};
+    return Load(g_image_assets.sprites(filename), grayed, off_normal, off_hilite,
+                on_normal, on_hilite);
 }
 
 ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
@@ -171,263 +134,107 @@ void ShutdownButtonImageManager(void)
     default_generic_image.reset();
 }
 
-static std::int8_t DisabledOverlayStyle(const ButtonAppearance& button, const ButtonVisualState& state)
-{
-    if (button.bDisabledStyle == DISABLED_STYLE_DEFAULT)
-        return !state.checkbox && !button.string.empty()
-            ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
-    return button.bDisabledStyle;
-}
-
 void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
                           const SDL_Rect& bounds, const ButtonVisualState& state)
 {
-    const auto* b = &appearance;
-    const auto disabled_style = b->quick_image ? DrawQuickButton(target, b, bounds, state) : DrawGenericButton(target, b, bounds, state);
-    if (!b->string.empty()) DrawTextOnButton(target, b, bounds, state);
-    if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(target, b, bounds);
-    else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(target, b, bounds);
+    const bool overlay = appearance.quick_image ? DrawQuickButton(target, &appearance, bounds, state)
+                                               : DrawGenericButton(target, &appearance, bounds, state);
+    if (!appearance.string.empty()) DrawTextOnButton(target, &appearance, bounds, state);
+    if (overlay) {
+        if (appearance.string.empty()) HatchRect(target, bounds);
+        else ShadowRect(target, bounds);
+    }
 }
 
 // FUNCTION: WIZ8 0x0040e060
-static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b,
+static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b,
                                    const SDL_Rect& bounds, const ButtonVisualState& state)
 {
-    std::int8_t disabled_style = DISABLED_STYLE_NONE;
-    if (!b->quick_image) return disabled_style;
+    bool overlay = false;
+    if (!b->quick_image) return overlay;
     const auto& image = *b->quick_image;
-    const bool checkbox = state.checkbox;
     const bool pressed = state.pressed;
-    std::int32_t frame = 0;
+    std::int32_t frame = state.menu_artwork ? BUTTON_NO_IMAGE : 0;
     if (state.enabled) {
-        const bool highlighted = (state.hovered) && gfRenderHilights &&
-                                 (!checkbox || state.mouse_down);
         const auto normal = pressed ? image.OnNormal : image.OffNormal;
         const auto hilite = pressed ? image.OnHilite : image.OffHilite;
-        if (highlighted && hilite != BUTTON_NO_IMAGE) frame = hilite;
+        if (state.hovered && hilite != BUTTON_NO_IMAGE) frame = hilite;
         else if (normal != BUTTON_NO_IMAGE) frame = normal;
     } else if (image.Grayed != BUTTON_NO_IMAGE) {
         frame = image.Grayed;
     } else {
-        frame = checkbox ? (pressed ? image.OnHilite : image.OffHilite) : image.OffNormal;
-        disabled_style = DisabledOverlayStyle(*b, state);
+        frame = image.OffNormal;
+        overlay = true;
     }
-    if (frame != BUTTON_NO_IMAGE)
-        DrawSprite(target, image.object(), static_cast<std::size_t>(frame),
-                   bounds.x, bounds.y);
-    return disabled_style;
+    if (frame != BUTTON_NO_IMAGE) {
+        SDL_Point origin{bounds.x, bounds.y};
+        if (state.menu_artwork && state.hovered) {
+            const auto& sprite = image.object().frames[frame];
+            origin.x += std::max(0, sprite.width - bounds.w) / 2;
+            origin.y += std::max(0, sprite.height - bounds.h) / 2;
+        }
+        DrawSprite(target, image.object(), static_cast<std::size_t>(frame), origin.x, origin.y);
+    }
+    return overlay;
 }
 
-static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* b, const SDL_Rect& bounds)
-{
-    const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
-    HatchRect(target, area);
-}
-
-static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* b, const SDL_Rect& bounds)
-{
-    const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
-    ShadowRect(target, area);
-}
-
-// FUNCTION: WIZ8 0x0040e5d0
 static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
                              const SDL_Rect& bounds, const ButtonVisualState& state)
 {
-    std::int32_t text_x, text_y, button_width, button_height, text_origin_x, text_origin_y;
-    SDL_Rect text_clip, previous_clip;
-
-    // If this button actually has a string to print
-    if (!b->string.empty()) {
-        // Get the width and height of this button
-        button_width = bounds.w;
-        button_height = bounds.h;
-
-        // Compute the viewable area on this button
-        text_clip = {bounds.x + 3, bounds.y + 2, button_width - 6, button_height - 4};
-
-        // Get the starting coordinates to print
-        text_origin_x = text_clip.x;
-        text_origin_y = text_clip.y;
-
-        // Get the current clipping area and clip the viewable area to it
-        SDL_GetSurfaceClipRect(&target, &previous_clip);
-        if (!SDL_GetRectIntersection(&text_clip, &previous_clip, &text_clip))
-            return;
-        ScopedClipRect clipping(target, text_clip);
-
-        // Compute the coordinates to center the text
-        if (b->bTextYOffset == -1) {
-            text_y = ((button_height - b->usFont->height()) / 2) + text_origin_y - 1;
-        } else {
-            text_y = bounds.y + b->bTextYOffset;
-        }
-        if (b->bTextXOffset == -1) {
-            switch (b->bJustification) {
-            case BUTTON_TEXT_LEFT:
-                text_x = text_origin_x + 3;
-                break;
-            case BUTTON_TEXT_RIGHT:
-                text_x =
-                    (text_clip.x + text_clip.w) - b->usFont->textWidth(b->string) - 3;
-                break;
-            case BUTTON_TEXT_CENTER:
-            default:
-                text_x = (((button_width - 6) - b->usFont->textWidth(b->string)) / 2) +
-                         text_origin_x;
-                break;
-            }
-        } else {
-            text_x = bounds.x + b->bTextXOffset;
-        }
-
-        // Set the printing font to the button text font
-        TextOptions options;
-        options.colors.background = b->usFont->color(FONT_MCOLOR_BLACK);
-        options.colors.foreground = b->usFont->color(static_cast<std::uint8_t>(b->sForeColor));
-        if (b->sShadowColor != -1)
-            options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(b->sShadowColor));
-        if (options.colors.shadow == 0 && b->sShadowColor > 0)
-            options.colors.shadow = 1;
-        //Override the colors if necessary.
-        if (state.enabled && state.hovered &&
-            b->sForeColorHilited != -1) {
-            options.colors.foreground =
-                b->usFont->color(static_cast<std::uint8_t>(b->sForeColorHilited));
-        } else if (state.pressed && b->sForeColorDown != -1) {
-            options.colors.foreground =
-                b->usFont->color(static_cast<std::uint8_t>(b->sForeColorDown));
-        }
-        if (state.enabled && state.hovered &&
-            b->sShadowColorHilited != -1) {
-            options.colors.shadow =
-                b->usFont->color(static_cast<std::uint8_t>(b->sShadowColorHilited));
-        } else if (state.pressed && b->sShadowColorDown != -1) {
-            options.colors.shadow =
-                b->usFont->color(static_cast<std::uint8_t>(b->sShadowColorDown));
-        }
-        if (options.colors.shadow == 0 &&
-            ((state.enabled && state.hovered && b->sShadowColorHilited > 0) ||
-             (state.pressed && b->sShadowColorDown > 0) || b->sShadowColor > 0))
-            options.colors.shadow = 1;
-        if (state.pressed &&
-            b->fShiftText) { // Was the button clicked on? if so, move the text slightly for the illusion
-            // that the text moved into the screen.
-            text_x++;
-            text_y++;
-        }
-        options.mono = !b->fMultiColor;
-        DrawText(target, *b->usFont, {text_x, text_y}, b->string, options);
-        // Restore the old text printing settings
-    }
+    SDL_Rect clip{bounds.x + 3, bounds.y + 2, bounds.w - 6, bounds.h - 4};
+    SDL_Rect previous;
+    SDL_GetSurfaceClipRect(&target, &previous);
+    if (!SDL_GetRectIntersection(&clip, &previous, &clip)) return;
+    ScopedClipRect clipping(target, clip);
+    SDL_Point origin{bounds.x + 3 + (bounds.w - 6 - b->usFont->textWidth(b->string)) / 2,
+                     bounds.y + 1 + (bounds.h - b->usFont->height()) / 2};
+    if (state.pressed) { ++origin.x; ++origin.y; }
+    TextOptions options;
+    options.colors.background = b->usFont->color(0);
+    options.colors.foreground = b->usFont->color(static_cast<std::uint8_t>(b->sForeColor));
+    if (b->sShadowColor != -1)
+        options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(b->sShadowColor));
+    if (options.colors.shadow == 0 && b->sShadowColor > 0) options.colors.shadow = 1;
+    options.mono = !b->fMultiColor;
+    DrawText(target, *b->usFont, origin, b->string, options);
 }
 
-// FUNCTION: WIZ8 0x0040e890
-static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b,
-                                     const SDL_Rect& bounds, const ButtonVisualState& state)
+static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b,
+                              const SDL_Rect& bounds, const ButtonVisualState& state)
 {
-    std::int8_t disabled_style = DISABLED_STYLE_NONE;
-    if (!b->generic_image) return disabled_style;
-    std::int32_t NumChunksWide, NumChunksHigh, cx, cy, width, height, hremain, wremain;
-    std::int32_t q, ImgNum, ox, oy;
-    std::int32_t iBorderHeight, iBorderWidth;
-    std::size_t picture_index = 0;
-
-    // Select the graphics to use depending on the current state of the button
-    if (state.enabled) {
-        if (state.pressed) {
-            if ((state.hovered) &&
-                (b->generic_image->frames[4] != nullptr) && gfRenderHilights)
-                picture_index = 4;
-            else
-                picture_index = 1;
-        } else {
-            if ((state.hovered) &&
-                (b->generic_image->frames[3] != nullptr) && gfRenderHilights)
-                picture_index = 3;
-            else
-                picture_index = 0;
-        }
-    } else if (b->generic_image->frames[2])
-        picture_index = 2;
-    else {
-        picture_index = 0;
-        disabled_style = DisabledOverlayStyle(*b, state);
+    if (!b->generic_image) return false;
+    const auto& image = *b->generic_image;
+    const bool overlay = !state.enabled && !image.frames[2];
+    const int normal = state.pressed ? 1 : 0;
+    const int hover = state.pressed ? 4 : 3;
+    const int frame = !state.enabled ? (image.frames[2] ? 2 : 0)
+                    : state.hovered && image.frames[hover] ? hover : normal;
+    const auto& sprites = *image.frames[frame];
+    const int width = sprites.frames[0].width;
+    const int height = sprites.frames[0].height;
+    const int columns = bounds.w / width;
+    const int rows = bounds.h / height;
+    const int right = bounds.x + bounds.w - width;
+    const int bottom = bounds.y + bounds.h - height;
+    SDL_FillSurfaceRect(&target, &bounds, image.fill_color);
+    if (image.frames[5]) {
+        const int inset = state.pressed ? 1 : 0;
+        TileSprite(target, {bounds.x + inset, bounds.y + inset, bounds.w - inset, bounds.h - inset},
+                   *image.frames[5], image.background_frame, {image.offset_x, image.offset_y});
     }
-
-    const auto& BPic = *b->generic_image->frames[picture_index];
-    const auto& first_frame = BPic.frames[0];
-    iBorderHeight = first_frame.height;
-    iBorderWidth = first_frame.width;
-
-    // Compute the number of button "chunks" needed to be blitted
-    width = bounds.w;
-    height = bounds.h;
-    NumChunksWide = width / iBorderWidth;
-    NumChunksHigh = height / iBorderHeight;
-    hremain = height % iBorderHeight;
-    wremain = width % iBorderWidth;
-
-    cx = (bounds.x + ((NumChunksWide - 1) * iBorderWidth) + wremain);
-    cy = (bounds.y + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
-
-    const SDL_Rect button_area{bounds.x, bounds.y, bounds.w, bounds.h};
-    SDL_FillSurfaceRect(&target, &button_area, b->generic_image->fill_color);
-
-    // If there is a background image, fill the button's area with it
-    if (b->generic_image->frames[5] != nullptr) {
-        ox = oy = 0;
-        // if the button was clicked on, adjust the background image so that we get
-        // the illusion that it is sunk into the screen.
-        if (state.pressed)
-            ox = oy = 1;
-
-        const SDL_Rect background_area{bounds.x + ox, bounds.y + oy,
-                                       bounds.w - ox, bounds.h - oy};
-        TileSprite(target, background_area, *b->generic_image->frames[5],
-                   b->generic_image->background_frame,
-                   {b->generic_image->offset_x, b->generic_image->offset_y});
+    for (int column = 0; column < columns; ++column) {
+        DrawSprite(target, sprites, column == 0 ? 0 : 1, bounds.x + column * width, bounds.y);
+        DrawSprite(target, sprites, column == 0 ? 5 : 6, bounds.x + column * width, bottom);
     }
-
-    const auto draw_frame = [&](std::size_t frame, int x, int y) {
-        DrawSprite(target, BPic, frame, x, y);
-    };
-
-    // Draw the button's borders and corners (horizontally)
-    for (q = 0; q < NumChunksWide; q++) {
-        if (q == 0)
-            ImgNum = 0;
-        else
-            ImgNum = 1;
-
-        draw_frame(static_cast<std::size_t>(ImgNum),
-                   bounds.x + q * iBorderWidth, bounds.y);
-
-        if (q == 0)
-            ImgNum = 5;
-        else
-            ImgNum = 6;
-
-        draw_frame(static_cast<std::size_t>(ImgNum), bounds.x + q * iBorderWidth, cy);
+    DrawSprite(target, sprites, 2, right, bounds.y);
+    DrawSprite(target, sprites, 7, right, bottom);
+    if (bounds.h % height != 0) {
+        DrawSprite(target, sprites, 3, bounds.x, bottom - height);
+        DrawSprite(target, sprites, 4, right, bottom - height);
     }
-    // Blit the right side corners
-    draw_frame(2, cx, bounds.y);
-    draw_frame(7, cx, cy);
-    // Draw the vertical members of the button's borders
-    NumChunksHigh--;
-
-    if (hremain != 0) {
-        q = NumChunksHigh;
-        const int y = bounds.y + q * iBorderHeight - (iBorderHeight - hremain);
-        draw_frame(3, bounds.x, y);
-        draw_frame(4, cx, y);
+    for (int row = 1; row < rows - 1; ++row) {
+        DrawSprite(target, sprites, 3, bounds.x, bounds.y + row * height);
+        DrawSprite(target, sprites, 4, right, bounds.y + row * height);
     }
-
-    for (q = 1; q < NumChunksHigh; q++) {
-        const int y = bounds.y + q * iBorderHeight;
-        draw_frame(3, bounds.x, y);
-        draw_frame(4, cx, y);
-    }
-
-    return disabled_style;
+    return overlay;
 }

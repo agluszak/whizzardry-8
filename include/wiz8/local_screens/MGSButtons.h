@@ -15,13 +15,9 @@
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 
-struct Controls;
-struct W8Region;
-class W8TextControl;
 class W8ButtonWidget;
 
 /* Owned globals. */
-extern std::unique_ptr<Controls> gpSubMenuPanel;
 extern std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
 extern std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
 extern std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
@@ -34,7 +30,6 @@ extern bool g_submenu_close_pending;
 /* The cancel row lands at [built-1] where built is the available-entry count
    plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
    Pray (priest trait 0x0b) can never be available together. */
-extern W8TextControl* g_submenu_rows[5];
 extern std::array<W8ButtonWidget, 9> g_submenu_buttons;
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
@@ -129,9 +124,7 @@ void SetSubMenuButtonTooltips(int enabled);
    banks around the surprise/camp sequence. */
 void EnableMenuButtonBanks(void);
 void DisableMenuButtonBanks(void);
-unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Region callback the five sub-menu rows share. */
-unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 
 /* Enable the panel region set and one input region per live row. */
 void EnableSubMenuRegions(void);
@@ -142,7 +135,6 @@ void OpenSubMenuPanel(short notification);
    menu. */
 unsigned char BuildSubMenuPanel(short notification);
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
-void AssignSubMenuCallback(W8TextControl* row, short menu, short item);
 /* The row availability states the refresh maps icon frames through. */
 W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot);
 /* Store the (W8SubMenuPage, entry) pair's pending command in the level block. */

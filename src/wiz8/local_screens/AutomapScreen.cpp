@@ -61,7 +61,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
@@ -330,25 +330,6 @@ static void ClearAutomapMarkers()
     wiz8::remove_all_and_delete_in_order(g_automap_markers);
 }
 
-/* Full-screen automap background: arm on left-down, dismiss on left-up. */
-unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
-{
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        break;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            RequestScreenTransition();
-            return 1;
-        }
-        break;
-    default:
-        return 0;
-    }
-    return 1;
-}
-
 static void ClearAutomapNotes()
 {
     g_automap_editing_note = nullptr;
@@ -485,7 +466,7 @@ void CreateAutomapButtons(void)
         if (action) callback = [action](W8ButtonWidget*) { action(); };
         if (button->Configure(std::move(sprites), base_frame + 3, base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
-                              REGION_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
+                              UI_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
             button->SetPosition(g_automap_button_positions[index].x,
                                 g_automap_button_positions[index].y);
         }
@@ -835,7 +816,7 @@ void AutomapScreenFrame(void)
             }
             SDL_Point point;
             SGPMouseGetPos(&point);
-            UpdateRegionMousePosition(point.x, point.y);
+            UpdateUiPointer(point.x, point.y);
             return InputRoute::Pass;
         }
         if (!g_automap_cursor_inside) {

@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -56,7 +57,7 @@ void W8DialogTextArea::Configure(const W8ControlsRect* bounds, Font& font, unsig
 }
 
 // FUNCTION: WIZ8 0x005d1900
-void W8DialogTextArea::Draw(bool force)
+void W8DialogTextArea::Draw(SDL_Surface& target, bool force)
 {
     unsigned int font_height = m_font->height();
     if (force || m_dirty || m_selection_dirty) {
@@ -74,7 +75,7 @@ void W8DialogTextArea::Draw(bool force)
                 m_visible_lines[index]->SetLayoutBounds(&bounds, false, false);
                 bounds.top = bounds.bottom + m_entry_spacing;
             }
-            m_visible_lines[index]->Draw(force || m_dirty);
+            m_visible_lines[index]->Draw(target, force || m_dirty);
         }
         m_relayout_needed = false;
         m_dirty = false;

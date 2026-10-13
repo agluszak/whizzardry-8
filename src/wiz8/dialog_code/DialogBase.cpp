@@ -1,74 +1,30 @@
 #include <SDL3/SDL_surface.h>
-#include <utility>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/regions.h"
-#include "wiz8/catalog_artwork.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 
-// GLOBAL: WIZ8 0x0069CA28
-static std::vector<W8DialogBase*> g_live_dialogs;
-
-RegionSetRef CurrentInputLayer()
-{
-    return CaptureRegionSet(g_live_dialogs.empty() ? ControlRegionSetIndex()
-                                                   : g_live_dialogs.back()->RegionSet());
-}
-
-unsigned int InputLayerSet(const RegionSetRef& layer)
-{
-    return RegionSetLive(layer) ? layer.index : ControlRegionSetIndex();
-}
-
-void W8DialogFrame::Configure(ButtonAppearance appearance, const SDL_Rect& bounds,
-                              unsigned int set)
-{
-    m_appearance = std::move(appearance);
-    SetBounds(bounds);
-    ClaimRegion(REGION_PRIORITY_BACKGROUND, set);
-}
-
-void W8DialogFrame::Reset()
-{
-    ReleaseRegion();
-    m_appearance = {};
-    SetBounds({});
-}
-
-void W8DialogFrame::Draw(SDL_Surface& target) const
-{
-    DrawButtonAppearance(target, m_appearance, ScreenBounds(), {});
-}
-
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
-                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
+                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, UI_PRIORITY_HIGHEST,
                      W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     button.SetPosition(m_x + left, m_y + top);
     button.m_owner = this;
 }
 
-void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
-                                  int width, int height)
+void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line)
 {
     area.SetFirstVisibleLine(first_visible_line);
-    left += m_x;
-    top += m_y;
-    int right = left + width;
-    int bottom = top + height;
-    InvalidateRegion(left, top, right, bottom);
-    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
-    area.m_dirty = true;
+    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
 // FUNCTION: WIZ8 0x005dc7a0
@@ -84,13 +40,10 @@ W8DialogBase::W8DialogBase()
     m_width = -1;
     m_height = -1;
     m_background_flags = 0;
-    m_field_4c = 0;
     m_initialized = false;
     m_keep_open = true;
     m_destroy_callback = 0;
     m_destroy_callback_context = 0;
-    m_region_set.Enable();
-    g_live_dialogs.push_back(this);
     m_right_button_down = false;
 }
 
@@ -102,11 +55,10 @@ W8DialogBase::~W8DialogBase()
         m_destroy_callback(this);
     }
     DestroyControls();
-    std::erase(g_live_dialogs, this);
 }
 
 // FUNCTION: WIZ8 0x005dc890
-void W8DialogBase::Draw()
+void W8DialogBase::Draw(SDL_Surface& target)
 {
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) {
         return;
@@ -114,11 +66,10 @@ void W8DialogBase::Draw()
     if (!m_initialized) {
         CreateControls();
     }
-    if (m_error == 0 && m_frame.IsConfigured()) {
-        if (m_width != m_frame.Bounds().w || m_height != m_frame.Bounds().h) {
-            m_frame.SetBounds({m_x, m_y, m_width, m_height});
-        }
-        m_frame.Draw(GetFrameBufferSurface());
+    if (m_error == 0 && m_body) {
+        m_body->setShape(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1});
+        DrawButtonAppearance(target, {.generic_image = m_border},
+                             {m_x, m_y, m_width, m_height}, {});
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
@@ -136,9 +87,7 @@ void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
     m_y = y;
-    if (m_frame.IsConfigured()) {
-        m_frame.SetBounds({x, y, m_frame.Bounds().w, m_frame.Bounds().h});
-    }
+    if (m_body) m_body->setShape(SDL_Rect{x, y, m_width + 1, m_height + 1});
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
@@ -147,7 +96,6 @@ void W8DialogBase::SetExtent(int width, int height)
 {
     if (m_width != width || m_height != height) {
         if (m_initialized && m_width > 0 && m_height > 0) {
-            ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
             InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
         }
         m_width = width;
@@ -185,7 +133,8 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    m_frame.Configure({.generic_image = m_border}, {m_x, m_y, m_width, m_height}, RegionSet());
+    if (m_body) m_input.remove(*m_body);
+    m_body = &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, UI_PRIORITY_BACKGROUND);
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     m_initialized = true;
     return 0;
@@ -195,13 +144,13 @@ int W8DialogBase::CreateControls()
 void W8DialogBase::DestroyControls()
 {
     EndModalInput();
-    m_frame.Reset();
+    if (m_body) m_input.remove(*m_body);
+    m_body = nullptr;
     m_border.reset();
     m_text.clear();
     m_background_path.clear();
     m_background_flags = 0;
     if (m_initialized && m_x >= 0 && m_y >= 0 && m_width >= 0 && m_height >= 0) {
-        ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
         InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
     }
     m_initialized = false;
@@ -209,14 +158,12 @@ void W8DialogBase::DestroyControls()
 
 void W8DialogBase::BeginModalInput()
 {
-    if (!m_input_scope) {
-        m_input_scope.emplace(RegionSet());
-    }
+    m_input.setModal(true);
 }
 
 void W8DialogBase::EndModalInput()
 {
-    m_input_scope.reset();
+    m_input.setModal(false);
 }
 
 // FUNCTION: WIZ8 0x005dcce0
@@ -257,10 +204,6 @@ void DialogCloseButtonCallback(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x005d6fa0
-W8DialogKind W8DialogBase::GetDialogType()
-{
-    return W8_DIALOG_BASIC;
-}
 
 /* Retail ICF shares this one-argument no-op with the retained widget Redraw
    body at 0x005B1BE0; this override has no separate retail address marker. */

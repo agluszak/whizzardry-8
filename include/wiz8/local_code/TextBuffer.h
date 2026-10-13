@@ -7,7 +7,7 @@
 
 #include "wiz8/local_code/ControlsRect.h"
 
-/* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
+extern char g_W8TextSeparator[];
 
 extern const unsigned int g_W8TextBufferAlignLeft;
 extern const unsigned int g_W8TextBufferAlignCenter;
@@ -29,7 +29,7 @@ public:
     int GetHorizontalPosition(int width);
     int GetVerticalPosition();
     void SetLineHeight(unsigned int height);
-    void FillBounds(int colour);
+    void FillBounds(SDL_Surface& target, int colour);
     void RenderText(SDL_Surface& target, int x_offset, int y_offset, bool force);
     void RenderToTarget(int offset, bool force, SDL_Surface& target);
     void UpdateLayout();

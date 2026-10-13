@@ -1,3 +1,4 @@
+#include <deque>
 #pragma once
 
 #include <array>
@@ -23,7 +24,7 @@ public:
     virtual ~W8AssayDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
     static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
@@ -40,9 +41,9 @@ private:
     static void PrimaryTabCallback(W8ButtonWidget* button);
     static void SecondaryTabCallback(W8ButtonWidget* button);
 
-    std::array<W8ButtonWidget, W8_ASSAY_BUTTON_COUNT> m_buttons;
+    std::deque<W8ButtonWidget> m_buttons;
     W8TextBuffer* m_text_buffers[W8_ASSAY_TEXT_BUFFER_COUNT];
-    W8DialogScrollBar m_scroll_bar;
+    W8DialogScrollBar m_scroll_bar{InputLayer()};
     W8ItemInstance* m_item;
     bool m_item_portrait_dirty;
     W8DialogTextArea m_text_area;

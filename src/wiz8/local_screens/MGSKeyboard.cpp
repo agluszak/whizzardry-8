@@ -1,10 +1,11 @@
+#include <SDL3/SDL_mouse.h>
+#include "wiz8/local_code/ButtonSound.h"
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <array>
 #include <memory>
 #include <optional>
 #include <utility>
-#include <cstring>
 #include <exception>
 #include <string>
 
@@ -24,7 +25,9 @@
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -35,7 +38,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
@@ -52,7 +54,7 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/version.h"
 #include "wiz8/world_cursor.h"
@@ -76,23 +78,6 @@ struct W8ItemInstance;
 MGSKeyboard* g_mgs_keyboard;
 
 // Retail set 0x26, regions 180-193.
-static constexpr std::array<RegionTemplate, 14> g_keyboard_menu_region_templates{{
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 6, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 7, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 8, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 9, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 10, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 11, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 12, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuBackgroundRegionEvent, 0, false, -1},
-}};
-ScreenRegionSet g_keyboard_menu_regions{g_keyboard_menu_region_templates, 0x26};
 
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
@@ -684,14 +669,23 @@ srVector2i g_keyboard_row_positions[13] = {
     {5, 1},  {23, 1},  {41, 1},  {59, 1},  {59, 19}, {32, 28},
 };
 
-// GLOBAL: WIZ8 0x0069b7ec
-short g_keyboard_menu_items[12];
-// GLOBAL: WIZ8 0x0069b804
-std::unique_ptr<Controls> g_keyboard_menu_panel;
-// GLOBAL: WIZ8 0x0069b808
-short g_keyboard_menu_pages[12];
-// GLOBAL: WIZ8 0x0069b820
-W8TextControl* g_keyboard_menu_rows[13];
+namespace {
+struct KeyboardMenuRow {
+    int menu = -1;
+    int item = -1;
+    bool enabled = true;
+    HitTarget* target = nullptr;
+    ButtonInteraction press;
+    ButtonAppearance appearance;
+};
+struct KeyboardMenu {
+    UiLayer input{0x26};
+    SDL_Point origin;
+    std::array<KeyboardMenuRow, 13> rows;
+    bool dirty = true;
+};
+std::unique_ptr<KeyboardMenu> keyboard_menu;
+}
 
 static void KeyboardMenuSelectAttack(void);
 static void KeyboardMenuSelectBerserk(void);
@@ -709,9 +703,8 @@ static void KeyboardMenuUseRecordedItem(void);
 // FUNCTION: WIZ8 0x00592C70
 void OpenKeyboardMenuForSlot(int slot)
 {
-    memset(g_keyboard_menu_rows, 0, sizeof(g_keyboard_menu_rows));
     g_selected_party_slot = slot;
-    g_keyboard_menu_panel.reset();
+    keyboard_menu.reset();
     g_level_block->keyboard_menu_open = true;
     SelectPartyCharacter(g_selected_party_slot);
     if (BuildKeyboardMenu() == 0) {
@@ -722,8 +715,8 @@ void OpenKeyboardMenuForSlot(int slot)
     gXStatus.monster_manager_entries[slot].keyboard_menu_open = true;
     DisableMainGamePortraitSlot(slot);
 
-    (*g_main_portrait_edge_regions)[slot].SetInputEnabled(false);
-    (*g_main_combat_actions)[slot].SetInputEnabled(false);
+    g_main_input->edge_targets[slot]->setEnabled(false);
+    g_main_input->combat_targets[slot]->setEnabled(false);
     EnableKeyboardMenuInput();
     RequestRedraw(1 << slot);
 }
@@ -738,236 +731,153 @@ void CloseKeyboardMenu(void)
     g_level_block->cursor_grace = 0;
     RefreshPartySlotRegions();
     if (gXStatus.fCombatMode) {
-        g_main_combat_actions.Enable();
+        g_main_input->combat.setEnabled(true);
     } else {
-        g_main_combat_actions.Disable();
-        g_main_combat_actions.DisableInput();
+        g_main_input->combat.setEnabled(false);
     }
-    g_keyboard_menu_regions.Disable();
-    if (g_keyboard_menu_regions) {
-        g_keyboard_menu_regions->DisableInput();
+    if (keyboard_menu && g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
+        ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,
+                         keyboard_menu->origin.x + 0x52,
+                         keyboard_menu->origin.y + 0x4a);
+        InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y,
+                         keyboard_menu->origin.x + 0x52,
+                         keyboard_menu->origin.y + 0x4a);
     }
-    if (g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
-        ClearSurfaceRect(g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
-                         g_keyboard_menu_panel->ScreenBounds().x + 0x52,
-                         g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
-        InvalidateRegion(g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
-                         g_keyboard_menu_panel->ScreenBounds().x + 0x52,
-                         g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
-    }
-    g_keyboard_menu_panel.reset();
-    for (auto& row : g_keyboard_menu_rows) row = nullptr;
+    keyboard_menu.reset();
     RequestRedraw(1 << g_selected_party_slot);
 }
 
-// FUNCTION: WIZ8 0x00592F90
+static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
+{
+    if (row.menu == -1) return g_localized_strings[0x11];
+    if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
+        if (!row.enabled) return g_localized_strings[0x5a];
+        const auto& spell = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id];
+        return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
+                           GetAffordableSpellPowerLevel(g_selected_party_slot));
+    }
+    if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
+        if (!row.enabled) return g_localized_strings[0x5d];
+        const auto& party = g_status.buffers.XChar[g_selected_party_slot];
+        auto* item = FindCharacterItemAt(g_selected_party_slot, party.item_origin, party.item_slot);
+        return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
+    }
+    return g_localized_strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
+}
+
 unsigned char BuildKeyboardMenu(void)
 {
-    int left;
-    int top;
-    int unused_4;
-    int unused_5;
-    int unused_6;
-    int unused_7;
-    short menu;
-    short item;
-    short row;
-    W8TextControl* control;
-    short message;
+    int left, top, unused_4, unused_5, unused_6, unused_7;
     GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
                            &unused_7, 0);
-    left += 0x17;
-    g_keyboard_menu_panel = std::make_unique<Controls>(left, top, left + 0x52, top + 0x4a, CatalogArtwork::Load(0xa6, 0), 0);
-    if (!g_keyboard_menu_panel) {
-        return 0;
+    keyboard_menu = std::make_unique<KeyboardMenu>();
+    keyboard_menu->origin = {left + 0x17, top};
+    static void (*const actions[4][5])() = {
+        {KeyboardMenuSelectAttack, KeyboardMenuSelectBerserk, KeyboardMenuSelectBreathe,
+         KeyboardMenuSelectTurnUndead, KeyboardMenuSelectPray},
+        {KeyboardMenuSelectDefend, KeyboardMenuSelectProtect},
+        {KeyboardMenuSelectEquip, KeyboardMenuOpenUseItemView, KeyboardMenuUseRecordedItem},
+        {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}
+    };
+    int index = 0;
+    for (int menu = 0; menu < 4; ++menu) for (int item = 0; item < 5; ++item) {
+        if (g_submenu_entry_message_ids[menu * 5 + item] == -1) continue;
+        keyboard_menu->rows[index].menu = menu;
+        keyboard_menu->rows[index++].item = item;
     }
-    (*g_keyboard_menu_regions)[13].SetBounds(left, top, left + 0x52, top + 0x4a);
-    row = 0;
-    for (menu = 0; menu < 4; ++menu) {
-        for (item = 0; item < 5; ++item) {
-            message = g_submenu_entry_message_ids[menu * 5 + item];
-            if (message == -1) {
-                continue;
-            }
-            control = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row),
-                g_keyboard_row_positions[row].x,
-                g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-                g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.disabled = message + 6});
-            g_keyboard_menu_rows[row] = control;
-            if (control == 0) {
-                g_keyboard_menu_panel.reset();
-                for (auto& row : g_keyboard_menu_rows) row = nullptr;
-                return 0;
-            }
-            AssignKeyboardMenuCallback(menu, item, control);
-            control->m_onSecondary = CloseKeyboardMenu;
-            g_keyboard_menu_pages[row] = menu;
-            g_keyboard_menu_items[row] = item;
-            (*g_keyboard_menu_regions)[row].SetHelp(true,
-                          g_submenu_entry_help_ids[menu * 5 + item]);
-            ++row;
-        }
+    for (int i = 0; i < 13; ++i) {
+        auto& row = keyboard_menu->rows[i];
+        row.target = &keyboard_menu->input.add(
+            SDL_Rect{left + 0x17 + g_keyboard_row_positions[i].x,
+                     top + g_keyboard_row_positions[i].y, 19, 19},
+            [&row](const UiPointerEvent& event) {
+                keyboard_menu->dirty = true;
+                const ButtonPolicy policy{.controller_activation = true};
+                if (event.action == UiPointerAction::Leave) row.press.leave(policy);
+                if (event.action == UiPointerAction::Enter &&
+                    ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
+                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
+                    SetUiHelpForced(true);
+                if (!row.enabled) {
+                    PushButtonSoundScheme(0, true);
+                    return UiResult::Handled;
+                }
+                const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+                if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
+                if (event.action == UiPointerAction::Up && event.inside &&
+                    (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
+                    auto action = event.button == UiPointerButton::Right || row.menu == -1
+                        ? CloseKeyboardMenu : actions[row.menu][row.item];
+                    if (action) AfterUiDispatch(action);
+                }
+                return UiResult::Handled;
+            });
+        row.target->setTooltip([&row] { return KeyboardMenuTooltip(row); });
     }
-    g_keyboard_menu_rows[row] = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
-        g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-        g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = 0xbd, .pressed = 0xbd, .alternate_normal = 0xbf, .alternate_pressed = 0xbf});
-    g_keyboard_menu_rows[row]->m_onPrimary = CloseKeyboardMenu;
-    g_keyboard_menu_rows[row]->m_onSecondary = CloseKeyboardMenu;
-    (*g_keyboard_menu_regions)[row].SetHelp(true, 0x11);
-    g_keyboard_menu_panel->SetActive(true);
+    keyboard_menu->rows[12].appearance.quick_image = ButtonGraphics::Load(
+        CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
+    keyboard_menu->input.add(SDL_Rect{left + 0x17, top, 0x53, 0x4b},
+        [](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+                AfterUiDispatch(CloseKeyboardMenu);
+            return UiResult::Handled;
+        });
     RefreshKeyboardMenuRows();
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005932D0
 void EnableKeyboardMenuInput(void)
 {
-    int index;
-
-    g_keyboard_menu_regions.Enable();
-    (*g_keyboard_menu_regions)[13].SetInputEnabled(true);
-    for (index = 0; index < 13; ++index) {
-        (*g_keyboard_menu_regions)[index].SetInputEnabled(true);
-    }
+    keyboard_menu->input.setEnabled(true);
 }
 
-// FUNCTION: WIZ8 0x00593300
 bool KeyboardMenuContainsCursor(void)
 {
-    return IsCursorInRectangle(
-        g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
-        g_keyboard_menu_panel->ScreenBounds().x + 0x52, g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
+    const auto [x, y] = keyboard_menu->origin;
+    return IsCursorInRectangle(x, y, x + 0x52, y + 0x4a);
 }
 
-// FUNCTION: WIZ8 0x00593360
 void RefreshKeyboardMenuRows(void)
 {
-    int remaining;
-    short item;
-    short menu;
-    short message;
-    short icon;
-    W8TextControl* row;
-    int adjust;
-    int index;
-
-    index = 0;
-    remaining = 12;
-    row = g_keyboard_menu_rows[0];
-    do {
-        item = g_keyboard_menu_items[index];
-        menu = g_keyboard_menu_pages[index];
-        message = g_submenu_entry_message_ids[menu * 5 + item];
-        switch (GetSubMenuEntryState(menu, item, g_selected_party_slot)) {
-        case W8_SUBMENU_ENTRY_USABLE:
-            icon = message + 2;
-            break;
-        case W8_SUBMENU_ENTRY_USABLE_SELECTED:
-            message += 1;
-            icon = message + 1;
-            break;
-        case W8_SUBMENU_ENTRY_UNUSABLE:
-            message += 3;
-            icon = message + 2;
-            break;
-        case W8_SUBMENU_ENTRY_UNUSABLE_SELECTED:
-            message += 4;
-            icon = message + 1;
-            break;
-        case W8_SUBMENU_ENTRY_UNAVAILABLE:
-            message = -1;
-            break;
+    const auto art = CatalogArtwork::Load(0x89, 0);
+    for (auto& row : keyboard_menu->rows) {
+        if (row.menu == -1) continue;
+        const int base = g_submenu_entry_message_ids[row.menu * 5 + row.item];
+        int normal = base;
+        int hover = base + 2;
+        row.enabled = true;
+        switch (GetSubMenuEntryState(row.menu, row.item, g_selected_party_slot)) {
+        case W8_SUBMENU_ENTRY_USABLE: break;
+        case W8_SUBMENU_ENTRY_USABLE_SELECTED: normal += 1; break;
+        case W8_SUBMENU_ENTRY_UNUSABLE: normal += 3; hover += 3; break;
+        case W8_SUBMENU_ENTRY_UNUSABLE_SELECTED: normal += 4; hover += 3; break;
+        case W8_SUBMENU_ENTRY_UNAVAILABLE: row.enabled = false; break;
         }
-        if (message == -1) {
-            if (menu == W8_SUBMENU_SPELLS && item == 1) {
-                icon +=
-                    g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm *
-                    7;
-            }
-            row->SetEnabled(false);
-        } else {
-            if (menu == W8_SUBMENU_SPELLS && item == 1) {
-                adjust =
-                    g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm *
-                    7;
-                message += adjust;
-                icon += adjust;
-            } else if (menu == W8_SUBMENU_ATTACK && item == 0) {
-                adjust = GetAttackMenuWeaponOffset(
-                    g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill);
-                adjust *= 7;
-                message += adjust;
-                icon += adjust;
-            }
-            row->m_normalSprite = message;
-            row->m_pressedSprite = message;
-            row->m_alternateNormalSprite = icon;
-            row->m_alternatePressedSprite = icon;
-            row->SetActive(true);
-        }
-        row->Invalidate(false);
-        ++index;
-        row = g_keyboard_menu_rows[index];
-        --remaining;
-    } while (remaining != 0);
-}
-
-// FUNCTION: WIZ8 0x005935E0
-void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row)
-{
-    switch (menu) {
-    case W8_SUBMENU_ATTACK:
-        switch (item) {
-        case 0:
-            row->m_onPrimary = KeyboardMenuSelectAttack;
-            break;
-        case 1:
-            row->m_onPrimary = KeyboardMenuSelectBerserk;
-            break;
-        case 2:
-            row->m_onPrimary = KeyboardMenuSelectBreathe;
-            break;
-        case 4:
-            row->m_onPrimary = KeyboardMenuSelectPray;
-            break;
-        case 3:
-            row->m_onPrimary = KeyboardMenuSelectTurnUndead;
-            break;
-        }
-        break;
-    case W8_SUBMENU_DEFEND:
-        if (item == 0) {
-            row->m_onPrimary = KeyboardMenuSelectDefend;
-        } else if (item == 1) {
-            row->m_onPrimary = KeyboardMenuSelectProtect;
-        }
-        break;
-    case W8_SUBMENU_ITEMS:
-        if (item == 0) {
-            row->m_onPrimary = KeyboardMenuSelectEquip;
-        } else if (item == 1) {
-            row->m_onPrimary = KeyboardMenuOpenUseItemView;
-        } else if (item == 2) {
-            row->m_onPrimary = KeyboardMenuUseRecordedItem;
-        }
-        break;
-    case W8_SUBMENU_SPELLS:
-        if (item == 0) {
-            row->m_onPrimary = KeyboardMenuOpenSpellView;
-        } else if (item == 1) {
-            row->m_onPrimary = KeyboardMenuCastRecordedSpell;
-        }
-        break;
+        int offset = 0;
+        if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
+            offset = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
+        else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
+            offset = GetAttackMenuWeaponOffset(g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) * 7;
+        row.appearance.quick_image = ButtonGraphics::Load(art.spriteSheet(), base + 6,
+            normal + offset, hover + offset, normal + offset, hover + offset);
     }
+    keyboard_menu->dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005936F0
 void RedrawKeyboardMenuPanel(bool invalidate)
 {
-    if (invalidate) {
-        g_keyboard_menu_panel->InvalidateAll();
+    if (!invalidate && !keyboard_menu->dirty) return;
+    const auto [x, y] = keyboard_menu->origin;
+    auto& target = GetFrameBufferSurface();
+    CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
+    for (int index = 0; index < 13; ++index) {
+        const auto& row = keyboard_menu->rows[index];
+        DrawButtonAppearance(target, row.appearance,
+            {x + g_keyboard_row_positions[index].x, y + g_keyboard_row_positions[index].y, 18, 18},
+            {.enabled = row.enabled, .pressed = row.press.pressed,
+             .hovered = row.target->hovered(), .menu_artwork = true});
     }
-    g_keyboard_menu_panel->Redraw(GetFrameBufferSurface(), false);
+    keyboard_menu->dirty = false;
 }
 
 static void ChooseKeyboardMenuAction(W8ActionKind action)
@@ -1071,93 +981,6 @@ static void KeyboardMenuUseRecordedItem(void)
     CloseKeyboardMenu();
     StartCharacterItemUse(g_selected_party_slot);
     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-}
-
-// FUNCTION: WIZ8 0x00594760
-unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    W8TextControl* row = g_keyboard_menu_rows[id];
-    unsigned short row_id;
-    W8PartySlotRow* party_row;
-    W8ItemInstance* item;
-    std::string name;
-    int power;
-
-    if (row == 0) {
-        return 0;
-    }
-    switch (event->type) {
-    case InputEventType::RightButtonDown:
-        row->OnRightButtonDown(0);
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonDown:
-    case InputEventType::LeftButtonRepeat:
-    case InputEventType::LeftButtonUp:
-        return DispatchButtonRegionEvent(event, region, row);
-    case InputEventType::RightButtonUp:
-        row->OnRightButtonUp(0);
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        }
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            row->OnMouseLeave(0);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-            return 0;
-        }
-        row->OnMouseEnter(0);
-        row_id = id;
-        if (g_keyboard_menu_pages[row_id] == W8_SUBMENU_SPELLS &&
-            g_keyboard_menu_items[row_id] == 1) {
-            SetRegionHelpForceEnabled(true);
-            if (g_keyboard_menu_rows[id]->m_enabled == 0) {
-                SetRegionHelpText(g_localized_strings[0x5a]);
-                return 1;
-            }
-            name = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id]
-                       .display_name;
-            power = GetAffordableSpellPowerLevel(g_selected_party_slot);
-            SetRegionHelpText(fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], name, power));
-            return 1;
-        }
-        if (g_keyboard_menu_pages[row_id] != W8_SUBMENU_ITEMS) {
-            return 1;
-        }
-        if (g_keyboard_menu_items[row_id] != 2) {
-            return 1;
-        }
-        SetRegionHelpForceEnabled(true);
-        if (g_keyboard_menu_rows[id]->m_enabled == 0) {
-            SetRegionHelpText(g_localized_strings[0x5d]);
-            return 1;
-        }
-        party_row = &g_status.buffers.XChar[g_selected_party_slot];
-        item = FindCharacterItemAt(g_selected_party_slot, party_row->item_origin,
-                                   party_row->item_slot);
-        name = FormatItemDisplayName(item, false);
-        SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
-        return 1;
-    default:
-        break;
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x005949A0
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*, unsigned short)
-{
-    if (!g_level_block->keyboard_menu_open) {
-        return 0;
-    }
-    if (event->type != InputEventType::RightButtonUp) {
-        return 0;
-    }
-    CloseKeyboardMenu();
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x005929d0

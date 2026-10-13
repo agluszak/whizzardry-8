@@ -15,14 +15,14 @@ public:
         int track_frame;
         void (*on_scroll)(W8DialogScrollBar*, int first_visible_entry);
     };
-    W8DialogScrollBar();
+    explicit W8DialogScrollBar(UiLayer& layer);
     W8DialogScrollBar(const W8DialogScrollBar&) = delete;
     W8DialogScrollBar& operator=(const W8DialogScrollBar&) = delete;
     bool CreateControls(const Resources* resources);
     void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height,
                    int view_height);
     void UpdateThumb();
-    void Draw(bool force);
+    void Draw(SDL_Surface& target, bool force);
     void ScrollUp();
     void ScrollBy(int delta);
     void ScrollDown();

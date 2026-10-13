@@ -4,29 +4,8 @@ extern char g_default_level[];
 #include <vector>
 
 #include "wiz8/fact_state.h"
-#include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/Controls.h"
-#include "compat/compiler.h"
 
-class W8TextBuffer;
 namespace wiz8 { class File; }
-
-class W8JournalPanel : public Controls, public W8TextControl::Listener {
-public:
-    W8JournalPanel();
-    virtual ~W8JournalPanel();
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnPrimary(W8TextControl* control) override;
-    void Refresh();
-
-    W8TextControl* m_next;
-    W8TextControl* m_previous;
-    W8TextControl* m_close;
-    W8TextControl* m_mode;
-    W8TextBuffer* m_page_text;
-    unsigned char m_alternate_mode;
-    unsigned char m_pad_065[3];
-};
 
 struct W8JournalEntry {
     int level;

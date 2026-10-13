@@ -2,9 +2,8 @@
 
 struct W8Character;
 struct W8MonsterInfo;
-class ScreenRegionSet;
 
-extern ScreenRegionSet g_game_time_combat_bar_region;
+
 
 void UpdateGameClock(int elapsed);
 /* The 120-second aging tick - wait-state machine, per-character

@@ -22,14 +22,13 @@ extern const unsigned int g_W8DialogTextAreaShortenText;
    text-buffer base. Both vectors belong to this object; only all_lines owns
    the entries. visible_lines references entries selected/ordered from it. */
 class W8DialogTextArea {
-    friend class W8NpcDialogueScrollWidget;
     friend class W8NpcDialogueTextController;
 
 public:
     W8DialogTextArea();
     ~W8DialogTextArea() = default;
     void Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags);
-    void Draw(bool force);
+    void Draw(SDL_Surface& target, bool force);
     void SetFirstVisibleLine(int line);
     int GetTotalLineCount();
     unsigned int GetLineHeight();
@@ -75,7 +74,6 @@ public:
 
 private:
     bool m_selection_dirty; /* repaint after a selection change */
-    unsigned char unknown_03f;
     int m_entry_spacing;
     int m_behavior_flags;
     int m_line_height_override;
@@ -84,5 +82,4 @@ private:
     bool m_relayout_needed;
     signed char m_category_filter;
     bool m_sorted;
-    unsigned char unknown_057;
 };

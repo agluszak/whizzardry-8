@@ -1,6 +1,10 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/ui_layer.h"
 #include <memory>
 
 #include "input.h"
@@ -10,21 +14,14 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "compat/compiler.h"
 
-class W8TextControl;
-class ScreenRegionSet;
-struct Controls;
 struct W8Character;
 
-enum {
-    W8_SPELL_POWER_PIP_COUNT = 9,
-    W8_SPELL_NAME_CONTROL = 9,
-    W8_SPELL_CANCEL_CONTROL = 10,
-    W8_SPELL_POWER_CONTROL_COUNT = 11
-};
+inline constexpr int W8_SPELL_POWER_PIP_COUNT = 9;
 
-/* The spell-casting view state gpSCSV, malloc'd when the view opens. */
+/* The view owns its input and controls for exactly as long as it is open. */
 struct W8SpellCastingView {
-    unsigned char unknown_000[0xf8];
+    UiLayer input{0x19};
+    HitTarget* name_target = nullptr;
     W8Character* caster;
     W8SpellRealm iSpellRealm; /* selected realm, -1 when none */
     int uiSpellToCast;
@@ -37,16 +34,14 @@ struct W8SpellCastingView {
     W8LearnedSpellState learned;
     int uiSpellIndex; /* clicked list row */
     int selected_spell_index;
-    int field_500;
-    std::unique_ptr<Controls> panels[3];
-    W8TextControl* realm_buttons[6];
-    W8TextControl* realm_icons[6];
-    /* Indexed by region callback id. */
-    W8TextControl* power_controls[W8_SPELL_POWER_CONTROL_COUNT];
+    std::array<std::unique_ptr<W8ButtonWidget>, 6> realm_buttons;
+    std::array<W8TextBuffer, 6> realm_text;
+    std::array<std::unique_ptr<W8ButtonWidget>, 9> power_controls;
+    std::array<std::array<int, 5>, 9> power_frames;
+    std::unique_ptr<W8ButtonWidget> cancel;
+    W8TextBuffer spell_name;
+    std::array<bool, 3> dirty{true, true, true};
     W8MainUiMode saved_game_mode;
-    bool input_blocked;
-    unsigned char pad_571[3];
-    int field_574;
     W8NpcDialogueLayout interact_id;
     int location_id;
     unsigned int uiSpellsInList;
@@ -58,10 +53,6 @@ struct W8SpellCastingView {
 
 unsigned char OpenSpellCastingView(int party_slot);
 void CloseSpellCastingView(void);
-extern ScreenRegionSet g_spell_casting_regions;
-enum SpellCastingRegionOffset {
-    kSpellPowerPipRegionOffset = 11,
-};
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
@@ -73,16 +64,12 @@ void CommitSpellCastingSelection(void);
 void SetSpellCastingMode(W8MainUiMode value);
 int GetSpellCastingSelection(void);
 
-struct W8Region;
 class W8DialogBase;
 
 /* Destroy callback for the spell/use-item reason notices. */
 void SpellCastingNoticeClosed(W8DialogBase* dialog);
-unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region* region, unsigned short);
 /* Text-box body callback while spell casting is active. */
-unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+UiResult HandleSpellTextBox(const UiPointerEvent& event);
 
 /* Live spell-casting view, or null when the panel is closed. */
 extern std::unique_ptr<W8SpellCastingView> gpSCSV;

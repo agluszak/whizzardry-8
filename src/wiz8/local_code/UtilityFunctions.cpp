@@ -21,7 +21,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "input.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "random.h"
 #include "wiz8/layouts/game_status.h"
 #include "Font.h"
@@ -30,10 +30,8 @@
 #include "dice.h"
 
 struct MessageBoxState {
-    W8ButtonWidget background;
-    W8ButtonWidget accept;
-    W8ButtonWidget cancel;
-    std::optional<ExclusiveRegionSet> input_scope;
+    UiLayer input;
+    W8ButtonWidget background{input}, accept{input}, cancel{input};
 
     int state = 0;
     void (*callback)(void) = nullptr;
@@ -539,7 +537,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (!message_box.background.ConfigureTextButton(
             text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
             [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-            0, background_image, REGION_PRIORITY_BACKGROUND)) {
+            0, background_image, UI_PRIORITY_BACKGROUND)) {
         return fail_creation();
     }
     message_box.background.SetMultiColor(true);
@@ -550,7 +548,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
         if (!message_box.accept.Configure(
                 "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
                 [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
+                nullptr, false, UI_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }
@@ -560,7 +558,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
         if (!message_box.cancel.Configure(
                 "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
                 [](W8ButtonWidget*) { SetMessageBoxResult(false); },
-                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
+                nullptr, false, UI_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }
@@ -573,8 +571,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     message_box.shade = shade;
     message_box.state = 2;
     message_box.callback = callback;
-    // The box's buttons took the current input layer when they were made.
-    message_box.input_scope.emplace(InputLayerSet(CurrentInputLayer()));
+    message_box.input.setModal(true);
     const auto bounds = MessageBoxBounds(message_box);
     InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
     return true;
@@ -585,7 +582,7 @@ static void ReleaseMessageBoxControls()
     if (!g_message_box) return;
 
     auto& message_box = *g_message_box;
-    message_box.input_scope.reset();
+    message_box.input.setModal(false);
     const auto bounds = MessageBoxBounds(message_box);
     message_box.accept.Reset();
     message_box.cancel.Reset();

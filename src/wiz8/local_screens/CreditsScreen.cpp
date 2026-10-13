@@ -16,7 +16,7 @@
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
 #include "wiz8/filesystem.h"
@@ -66,7 +66,7 @@ try
     std::string line;
 
     SetViewport(0, 0, 0x280, 0x1e0);
-    ResetRegions();
+    ResetUiInput();
     DisableCursorScene();
     std::vector<W8CreditLine> pending;
 
@@ -123,7 +123,7 @@ catch (const std::exception&) { return false; }
 unsigned char CreditsScreenLeave(int)
 {
     g_credit_lines.clear();
-    ResetRegions();
+    ResetUiInput();
     EnableCursorScene();
     if (IsCurrentMusicPlaylist("EndCredit.MPL")) {
         StopMusicPlaylist(true);

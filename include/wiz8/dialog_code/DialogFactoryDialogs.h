@@ -1,3 +1,4 @@
+#include <deque>
 #include "Font.h"
 #pragma once
 
@@ -14,6 +15,7 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "input.h"
+#include "wiz8/text_input.h"
 #include "Types.h"
 #include "compat/compiler.h"
 
@@ -38,24 +40,15 @@ public:
     void SetValue(int value);
     void SetActive(bool active);
     void SetActive(bool active, const SDL_Point* point);
-    void Draw(bool force);
+    void Draw(SDL_Surface& target, bool force);
     bool HandleInput(const InputEvent* input);
 
 private:
-    /* Write a digit character at the caret position and re-parse
-       the text into m_value, rejecting results above m_maximum. */
-    void TypeDigit(char digit);
-    void NotifyValueChanged();
-    /* VK_DELETE — remove the character right of the caret. */
-    void DeleteForward();
-    /* VK_BACK — remove the character left of the caret. */
-    void Backspace();
+    UiLayer m_editor_input;
+    std::unique_ptr<TextFieldGroup> m_editor;
 
 public:
     W8ControlsRect m_bounds;
-    /* -1 while inactive; otherwise the count of characters to the right
-       of the caret. */
-    int m_caret;
     Font* m_font;
     int m_value;
     bool m_dirty;
@@ -75,8 +68,8 @@ public:
     virtual ~W8ListBoxDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override;
+    virtual void Draw(SDL_Surface& target) override;
+
     virtual void SetText(std::string_view text) override;
     virtual bool ProcessInput() override;
 
@@ -108,17 +101,17 @@ public:
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
     SDL_Color m_fill_colour; /* highlight fill colour */
-    W8ButtonWidget m_text_button;
-    W8ButtonWidget m_second_text_button;
+    W8ButtonWidget m_text_button{InputLayer()};
+    W8ButtonWidget m_second_text_button{InputLayer()};
     GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
-    W8ButtonWidget m_area_button; /* scrolling text area */
-    W8ButtonWidget m_up_button;
-    W8ButtonWidget m_down_button;
-    W8ButtonWidget m_slider_button;
+    W8ButtonWidget m_area_button{InputLayer()}; /* scrolling text area */
+    W8ButtonWidget m_up_button{InputLayer()};
+    W8ButtonWidget m_down_button{InputLayer()};
+    W8ButtonWidget m_slider_button{InputLayer()};
     GenericButtonImage third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    W8ButtonWidget m_third_text_button;
-    W8ButtonWidget m_ok_button;
-    W8ButtonWidget m_cancel_button;
+    W8ButtonWidget m_third_text_button{InputLayer()};
+    W8ButtonWidget m_ok_button{InputLayer()};
+    W8ButtonWidget m_cancel_button{InputLayer()};
     bool m_scrollable; /* scrolling area is scrollable */
     int m_first_visible_line;
     int m_selected_line;
@@ -140,7 +133,7 @@ public:
     virtual ~W8SplitAmountDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
 
@@ -192,8 +185,8 @@ public:
     virtual ~W8TriggerItemPickerDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override;
+    virtual void Draw(SDL_Surface& target) override;
+
     virtual bool ProcessInput() override;
 
     int AddItem(W8WorldItem* item);
@@ -260,7 +253,7 @@ public:
     virtual ~W8SplitItemDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
 
@@ -295,9 +288,9 @@ private:
     static void OnCountFieldClick(W8ButtonWidget* button);
 
 public:
-    std::array<W8ButtonWidget, 10> m_buttons; /* minus/plus, frames, accept/cancel */
+    std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */
     W8TextBuffer* m_texts[14];
-    W8DialogNumericInput* m_count_input;
+    std::unique_ptr<W8DialogNumericInput> m_count_input;
     /* The numeric field while a click or keypress owns it. */
     W8DialogNumericInput* m_active_input;
     int m_remaining; /* the count left in the source stack */

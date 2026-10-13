@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/Video2.h"
+#include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <fmt/printf.h>
 #include <string>
@@ -7,7 +7,6 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "Font.h"
-#include "Video2.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/fonts.h"
@@ -77,7 +76,7 @@ int W8StatInfoDialogBase::CreateControls()
 }
 
 // FUNCTION: WIZ8 0x005dfae0
-void W8StatInfoDialogBase::Draw()
+void W8StatInfoDialogBase::Draw(SDL_Surface& target)
 {
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
         if (!m_initialized) {
@@ -86,21 +85,21 @@ void W8StatInfoDialogBase::Draw()
         textarea.m_dirty = true;
         scrollbar.m_dirty = true;
         button.m_dirty = true;
-        W8DialogBase::Draw();
-        DrawTitle();
+        W8DialogBase::Draw(target);
+        DrawTitle(target);
     }
-    textarea.Draw(false);
-    scrollbar.Draw(false);
-    button.Draw(GetFrameBufferSurface());
+    textarea.Draw(target, false);
+    scrollbar.Draw(target, false);
+    button.Draw(target);
 }
 
 // FUNCTION: WIZ8 0x005dfb40
-void W8StatInfoDialogBase::DrawTitle()
+void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
 {
     g_wiz_text_font_secondary.resetPalette();
     std::string title = g_localized_strings[m_title_id];
     std::int16_t width = g_wiz_text_font_secondary.textWidth(title);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+    DrawText(target, g_wiz_text_font_secondary,
              {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, title);
 }
 
@@ -130,7 +129,7 @@ void W8StatInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar, int fir
 {
     W8StatInfoDialogBase* dialog = static_cast<W8StatInfoDialogBase*>(scroll_bar->m_owner);
     if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->textarea, first_visible_entry, 0x11, 0x26, 0x10e, 0xb9);
+        dialog->ScrollTextArea(dialog->textarea, first_visible_entry);
     }
 }
 
