@@ -24,6 +24,11 @@ PointerAlignment: Left
 DerivePointerAlignment: false
 NamespaceIndentation: None
 SortIncludes: Never
+# Avoid reshuffling unrelated lines when a declaration or comment changes.
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignTrailingComments:
+  Kind: Leave
 ReflowComments: false
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
