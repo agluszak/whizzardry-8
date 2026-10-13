@@ -1,4 +1,4 @@
-
+#include "wiz8/button_interaction.h"
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/ui_input.h"
@@ -98,40 +98,43 @@ unsigned char CreateSubMenuButtons(void)
 
     g_hud_buttons.submenu[0].SetTooltipIndex(0x42);
     g_hud_buttons.submenu[0].Configure(
-        ButtonGraphics::Load(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c), SubMenuButtonPendingScreen,
-        UI_PRIORITY_HIGHEST);
+        ButtonGraphics::Load(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c),
+        SubMenuButtonPendingScreen, UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[1].SetTooltipIndex(0x43);
-    g_hud_buttons.submenu[1].Configure(ButtonGraphics::Load(g_submenu_icons_path, 0x3, 0x0, 0x1, 0x2, 0x4),
-                                       SubMenuButtonSurprise, UI_PRIORITY_HIGHEST);
+    g_hud_buttons.submenu[1].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x3, 0x0, 0x1, 0x2, 0x4), SubMenuButtonSurprise,
+        UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[2].policy.primary_toggle = ButtonToggle::Press;
     g_hud_buttons.submenu[2].SetTooltipIndex(0x44);
-    g_hud_buttons.submenu[2].Configure(ButtonGraphics::Load(g_submenu_icons_path, 0x8, 0x5, 0x6, 0x7, 0x9),
-                                       SubMenuButtonToggleFlag, UI_PRIORITY_HIGHEST);
+    g_hud_buttons.submenu[2].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x8, 0x5, 0x6, 0x7, 0x9),
+        SubMenuButtonToggleFlag, UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[3].policy.primary_toggle = ButtonToggle::Press;
     g_hud_buttons.submenu[3].SetTooltipIndex(0x45);
     g_hud_buttons.submenu[3].Configure(
-        ButtonGraphics::Load(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18), SubMenuButtonUseItem,
-        UI_PRIORITY_HIGHEST);
+        ButtonGraphics::Load(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18),
+        SubMenuButtonUseItem, UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[4].policy.primary_toggle = ButtonToggle::Press;
     g_hud_buttons.submenu[4].SetTooltipIndex(0x46);
     g_hud_buttons.submenu[4].Configure(
-        ButtonGraphics::Load(g_submenu_icons_path, 0x1c, 0x19, 0x1a, 0x1b, 0x1d), SubMenuButtonSpellView,
-        UI_PRIORITY_HIGHEST);
+        ButtonGraphics::Load(g_submenu_icons_path, 0x1c, 0x19, 0x1a, 0x1b, 0x1d),
+        SubMenuButtonSpellView, UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[5].SetTooltipIndex(0x4a);
     g_hud_buttons.submenu[5].Configure(
-        ButtonGraphics::Load(g_submenu_icons_path, 0x12, 0xf, 0x10, 0x11, 0x13), SubMenuButtonOpenMenu1,
-        UI_PRIORITY_HIGHEST);
+        ButtonGraphics::Load(g_submenu_icons_path, 0x12, 0xf, 0x10, 0x11, 0x13),
+        SubMenuButtonOpenMenu1, UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[6].SetTooltipIndex(0x49);
-    g_hud_buttons.submenu[6].Configure(ButtonGraphics::Load(g_submenu_icons_path, 0xd, 0xa, 0xb, 0xc, 0xe),
-                                       SubMenuButtonOpenMenu0, UI_PRIORITY_HIGHEST);
+    g_hud_buttons.submenu[6].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0xd, 0xa, 0xb, 0xc, 0xe), SubMenuButtonOpenMenu0,
+        UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[7].SetTooltipIndex(0x47);
     g_hud_buttons.submenu[7].Configure(
-        ButtonGraphics::Load(g_submenu_combat_icons_path, 0x3, 0x0, 0x1, 0x2, 0x2), SubMenuButtonToggleCombat,
-        UI_PRIORITY_HIGHEST);
+        ButtonGraphics::Load(g_submenu_combat_icons_path, 0x3, 0x0, 0x1, 0x2, 0x2),
+        SubMenuButtonToggleCombat, UI_PRIORITY_HIGHEST);
     g_hud_buttons.submenu[8].SetTooltipIndex(0x48);
     g_hud_buttons.submenu[8].Configure(
-        ButtonGraphics::Load(g_submenu_combat_icons_path, 0x7, 0x4, 0x5, 0x6, 0x6), SubMenuButtonToggleCombat,
-        UI_PRIORITY_HIGHEST);
+        ButtonGraphics::Load(g_submenu_combat_icons_path, 0x7, 0x4, 0x5, 0x6, 0x6),
+        SubMenuButtonToggleCombat, UI_PRIORITY_HIGHEST);
     for (index = 0; index < 9; ++index) {
         g_hud_buttons.submenu[index].SetPosition(g_submenu_button_positions[index].x,
                                                  g_submenu_button_positions[index].y);

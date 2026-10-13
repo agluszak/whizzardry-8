@@ -28,8 +28,8 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         m_down_button.Configure(
             ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10),
             [this](W8ButtonWidget*) { ScrollDown(); }, UI_PRIORITY_HIGHEST - 1) &&
-        m_thumb_button.Configure(ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6), nullptr,
-                                 UI_PRIORITY_HIGHEST - 2) &&
+        m_thumb_button.Configure(ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6),
+                                 nullptr, UI_PRIORITY_HIGHEST - 2) &&
         // FUNCTION: WIZ8 0x005e13d0
         m_track_button.Configure(
             ButtonGraphics::Load(resources->track_path, BUTTON_NO_IMAGE, resources->track_frame,
@@ -107,8 +107,9 @@ void W8DialogScrollBar::UpdateThumb()
 // FUNCTION: WIZ8 0x005e10b0
 void W8DialogScrollBar::Draw(SDL_Surface& target, bool force)
 {
-    if (m_initialized && m_visible && (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
-        m_track_button.m_dirty || m_thumb_button.m_dirty)) {
+    if (m_initialized && m_visible &&
+        (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
+         m_track_button.m_dirty || m_thumb_button.m_dirty)) {
         m_track_button.Draw(target);
         InvalidateRegion(m_track_button.Bounds());
         m_track_button.m_dirty = false;

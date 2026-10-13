@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/button_interaction.h"
 #include <algorithm>
 #include <SDL3/SDL_mouse.h>
@@ -993,7 +994,8 @@ void CreateCampItemControls()
         auto result = std::make_unique<W8ButtonWidget>(layer);
         result->SetTooltipIndex(help);
         result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]),
+            ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), f[0], f[1], f[2], f[3],
+                                 f[4]),
             [action](auto*) { AfterUiDispatch(action); }, 0);
         result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         result->menu_artwork = true;

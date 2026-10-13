@@ -1,3 +1,5 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/button_interaction.h"
 #include <memory>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>

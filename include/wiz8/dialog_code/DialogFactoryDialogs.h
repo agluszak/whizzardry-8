@@ -88,7 +88,7 @@ private:
     void TextAreaButtonCallback(W8ButtonWidget* button);
     void SliderTrackButtonCallback(W8ButtonWidget* button);
 
-  public:
+public:
     std::vector<std::string> m_lines;
     SDL_Color m_fill_colour; /* highlight fill colour */
     W8ButtonWidget m_text_button{InputLayer()};
@@ -148,7 +148,7 @@ private:
     void SplitCancel();
     void SplitActivateField(W8ButtonWidget* button);
 
-  private:
+private:
     std::array<std::unique_ptr<W8ButtonWidget>, 6> m_buttons;
     /* The labels named by g_split_amount_string_ids; [2] shows the
        amount still remaining. */
@@ -203,12 +203,12 @@ private:
        Their configuration captures the owning picker directly. */
     void ToggleAllItems();
 
-  private:
+private:
     void ScrollItemsUp();
     void ScrollItemsDown();
     void ScrollItemsToMouse(W8ButtonWidget* button);
 
-  public:
+public:
     std::vector<W8WorldItem*> items;
     std::vector<unsigned char> flags;
     std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
@@ -259,7 +259,7 @@ private:
     void OnCancel();
     void OnCountFieldClick(W8ButtonWidget* button);
 
-  public:
+public:
     std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */
     W8TextBuffer* m_texts[14];
     std::unique_ptr<W8DialogNumericInput> m_count_input;

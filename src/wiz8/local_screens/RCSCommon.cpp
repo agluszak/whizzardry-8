@@ -386,7 +386,8 @@ void CreateCampHeaderButtons()
         auto result = std::make_unique<W8ButtonWidget>(header_buttons->input);
         result->SetTooltipIndex(help);
         result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), 3, 0, 1, 2, pressed_hover),
+            ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), 3, 0, 1, 2,
+                                 pressed_hover),
             [action](auto*) { AfterUiDispatch(action); }, 0);
         result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         result->menu_artwork = true;
@@ -855,8 +856,9 @@ int CreateCampButtonPanel(void)
         auto result = std::make_unique<W8ButtonWidget>(camp_buttons->input);
         result->SetTooltipIndex(help);
         result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frame + 3, frame, frame + 1,
-                                 page ? frame + 4 : frame + 2, page ? frame + 2 : frame + 4),
+            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 1, page ? frame + 4 : frame + 2,
+                                 page ? frame + 2 : frame + 4),
             [action](auto*) { AfterUiDispatch(action); }, 0);
         result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         result->menu_artwork = true;

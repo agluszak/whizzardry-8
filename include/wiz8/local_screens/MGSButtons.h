@@ -19,8 +19,7 @@
 
 // The HUD banks share a screen-owned input group. Modal submenu controls
 // retain their separate layer because they activate independently.
-struct MainGameHudButtons
-{
+struct MainGameHudButtons {
     UiLayer input{0x33};
     std::array<W8ButtonWidget, 2> submenu_scroll{W8ButtonWidget{input}, W8ButtonWidget{input}};
     std::array<W8ButtonWidget, 2> submenu_panel{W8ButtonWidget{input}, W8ButtonWidget{input}};
@@ -34,7 +33,8 @@ struct MainGameHudButtons
         W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input},
         W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input},
         W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input}};
-    std::array<W8ButtonWidget, 3> roof{W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 3> roof{W8ButtonWidget{input}, W8ButtonWidget{input},
+                                       W8ButtonWidget{input}};
     W8ButtonWidget options_disk{input};
 };
 extern MainGameHudButtons g_hud_buttons;

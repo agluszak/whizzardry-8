@@ -186,18 +186,21 @@ bool W8SplitItemDialog::CreateButtons()
     m_buttons[1].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6),
         [this](W8ButtonWidget*) { OnSplitIncrement(); }, UI_PRIORITY_HIGHEST);
-    m_buttons[2].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
+    m_buttons[2].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
+                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
+                                                BUTTON_NO_IMAGE),
                            {}, UI_PRIORITY_LOWEST);
     m_buttons[3].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                             BUTTON_NO_IMAGE),
+        ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
+                             BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
         [this](W8ButtonWidget* button) { OnCountFieldClick(button); }, UI_PRIORITY_HIGHEST);
-    m_buttons[4].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
+    m_buttons[4].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
+                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
+                                                BUTTON_NO_IMAGE),
                            {}, UI_PRIORITY_LOWEST);
-    m_buttons[5].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
+    m_buttons[5].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
+                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
+                                                BUTTON_NO_IMAGE),
                            {}, UI_PRIORITY_LOWEST);
     m_buttons[6].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2),
@@ -206,18 +209,20 @@ bool W8SplitItemDialog::CreateButtons()
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7),
         [this](W8ButtonWidget*) { OnCancel(); }, UI_PRIORITY_HIGHEST);
     if (m_mode == W8_ITEM_SPLIT_SELL || m_mode == W8_ITEM_SPLIT_BUY) {
-        m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                                    BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
+        m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
+                                                    BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
+                                                    BUTTON_NO_IMAGE),
                                {}, UI_PRIORITY_LOWEST);
-        m_buttons[9].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                                    BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
+        m_buttons[9].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
+                                                    BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
+                                                    BUTTON_NO_IMAGE),
                                {}, UI_PRIORITY_LOWEST);
     }
     m_buttons[0].policy.repeat = true;
     m_buttons[1].policy.repeat = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index].SetPosition(g_split_button_offsets[index].x + m_x,
-                                      g_split_button_offsets[index].y + m_y);
+                                     g_split_button_offsets[index].y + m_y);
     }
     return true;
 }

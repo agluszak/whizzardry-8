@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <array>
 #include <memory>
 

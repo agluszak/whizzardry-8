@@ -1,3 +1,4 @@
+#include "wiz8/button_interaction.h"
 #include <span>
 #include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_surface.h>
@@ -30,7 +31,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -126,7 +126,8 @@ int W8AssayDialog::CreateControls()
         return 7;
     }
     const W8DialogScrollBar::Resources resources{"Data\\Main Interface\\main_scroll.sti",
-                                                 "Data\\Dialogs\\popup_iteminfo.sti", 4, [this](int first) {
+                                                 "Data\\Dialogs\\popup_iteminfo.sti", 4,
+                                                 [this](int first) {
                                                      m_text_area.SetFirstVisibleLine(first);
                                                      m_buttons[4].m_dirty = true;
                                                      m_text_area.m_dirty = true;
@@ -658,20 +659,22 @@ bool W8AssayDialog::PopulateRequirements()
     m_buttons[5].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2),
         [this](W8ButtonWidget*) { m_keep_open = false; }, UI_PRIORITY_HIGHEST);
-    const auto configure_icons = [this](int first, std::string_view image, std::span<const int> help) {
+    const auto configure_icons = [this](int first, std::string_view image,
+                                        std::span<const int> help) {
         for (std::size_t icon = 0; icon < help.size(); ++icon) {
             auto& button = m_buttons[first + icon];
             const int frame = static_cast<int>(icon) * 2;
-            button.Configure(
-                ButtonGraphics::Load(image, frame + 1, frame, BUTTON_NO_IMAGE, frame, BUTTON_NO_IMAGE), {},
-                UI_PRIORITY_HIGHEST);
+            button.Configure(ButtonGraphics::Load(image, frame + 1, frame, BUTTON_NO_IMAGE, frame,
+                                                  BUTTON_NO_IMAGE),
+                             {}, UI_PRIORITY_HIGHEST);
             button.SetTooltipIndex(help[icon]);
         }
     };
     constexpr int professions_help[]{0x2ad, 0x2a7, 0x2b0, 0x2ac, 0x2a6, 0x2a4, 0x2aa, 0x2b1,
                                      0x2a8, 0x2ae, 0x2a9, 0x2af, 0x2a5, 0x2b2, 0x2ab};
     configure_icons(6, "Data\\Dialogs\\icons_profession.sti", professions_help);
-    constexpr int races_help[]{0x28a, 0x28c, 0x285, 0x28e, 0x284, 0x28b, 0x286, 0x288, 0x287, 0x28d, 0x289};
+    constexpr int races_help[]{0x28a, 0x28c, 0x285, 0x28e, 0x284, 0x28b,
+                               0x286, 0x288, 0x287, 0x28d, 0x289};
     configure_icons(21, "Data\\Dialogs\\icons_race.sti", races_help);
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
@@ -726,16 +729,16 @@ bool W8AssayDialog::PopulateRequirements()
             break;
         }
         m_buttons[button_index].SetTooltipIndex(tooltip_index);
-        m_buttons[button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", frame + 1,
-                                                               frame, BUTTON_NO_IMAGE, frame,
-                                                               BUTTON_NO_IMAGE),
+        m_buttons[button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti",
+                                                               frame + 1, frame, BUTTON_NO_IMAGE,
+                                                               frame, BUTTON_NO_IMAGE),
                                           {}, UI_PRIORITY_HIGHEST);
         m_buttons[button_index].SetVisible(false);
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
         m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
-                                      m_y + g_assay_button_offsets[index].y);
+                                     m_y + g_assay_button_offsets[index].y);
     }
     return true;
 }

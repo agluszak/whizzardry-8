@@ -1,3 +1,5 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/button_interaction.h"
 #include <algorithm>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -816,9 +818,10 @@ W8CampCharacterInfo::W8CampCharacterInfo()
         auto result = std::make_unique<W8ButtonWidget>(input);
         result->SetTooltipIndex(help);
         result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3, frame, frame + 2,
-                                 frame + 1, frame + 4),
-            [this, combat](auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); }, 0);
+            ButtonGraphics::Load(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 2, frame + 1, frame + 4),
+            [this, combat](auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
+            0);
         result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         result->menu_artwork = true;
         result->SetPosition(0x13e, 0x8b);

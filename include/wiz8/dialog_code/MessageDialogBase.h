@@ -37,11 +37,11 @@ public:
     bool accepted; /* cleared; a derived close passes it on */
     bool is_open;  /* set, and gates the close path */
 
-  private:
+private:
     void Confirm();
     void Cancel();
 
-  protected:
+protected:
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
     W8ButtonWidget m_message_button{InputLayer()};
     W8ButtonWidget m_confirm_button{InputLayer()};

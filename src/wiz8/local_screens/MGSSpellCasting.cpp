@@ -110,8 +110,8 @@ static void CreateSpellCastingViewControls(void)
         auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
         button->SetTooltipIndex(help);
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frames[0], frames[1],
-                                 frames[2], frames[3], frames[4]),
+            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frames[0],
+                                 frames[1], frames[2], frames[3], frames[4]),
             [action](auto*) { AfterUiDispatch(action); }, 0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;

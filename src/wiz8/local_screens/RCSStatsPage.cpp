@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -112,8 +113,9 @@ W8CampStatsControls::W8CampStatsControls()
         button = std::make_unique<W8ButtonWidget>(input);
         button->SetTooltipIndex(0x954 + index);
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3, frame, frame + 2,
-                                 index == 2 ? 15 : frame + 1, index == 2 ? 17 : frame + 4),
+            ButtonGraphics::Load(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 2, index == 2 ? 15 : frame + 1,
+                                 index == 2 ? 17 : frame + 4),
             [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); }, 0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;
@@ -850,9 +852,10 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         button = std::make_unique<W8ButtonWidget>(input);
         button->SetTooltipIndex(action == 4 ? 0xf5 : -1);
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame, frame + 1,
-                                 frame + 2, frame + 4),
-            [this, action](auto*) { AfterUiDispatch([this, action] { ChangePortrait(action); }); }, 0);
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 1, frame + 2, frame + 4),
+            [this, action](auto*) { AfterUiDispatch([this, action] { ChangePortrait(action); }); },
+            0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;
         button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);

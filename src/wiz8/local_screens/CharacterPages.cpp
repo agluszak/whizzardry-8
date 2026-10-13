@@ -1,3 +1,5 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/engine_code/Video2.h"
 #include <string>
 #include <SDL3/SDL_rect.h>
@@ -82,8 +84,8 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
         };
         result->on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); };
         result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame, frame + 1,
-                                 frame + 2, frame + 4),
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 1, frame + 2, frame + 4),
             [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); }, 0);
         result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         result->menu_artwork = true;

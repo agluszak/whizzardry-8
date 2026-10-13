@@ -540,8 +540,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
                              .usFont = &(font),
                              .sForeColor = 0xff,
                              .sShadowColor = 0},
-            {(0x280 - width) / 2, y, width, height}, [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-            UI_PRIORITY_BACKGROUND)) {
+            {(0x280 - width) / 2, y, width, height},
+            [](W8ButtonWidget*) { SetMessageBoxResult(true); }, UI_PRIORITY_BACKGROUND)) {
         return fail_creation();
     }
     message_box.background.SetMultiColor(true);

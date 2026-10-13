@@ -1,3 +1,4 @@
+#include "wiz8/button_interaction.h"
 #include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -147,8 +148,8 @@ void W8CharacterScreen::BuildControls()
         auto result = std::make_unique<W8ButtonWidget>(m_input);
         result->SetTooltipIndex(help);
         result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3, frame, frame + 1,
-                                 frame + 2, frame + 2),
+            ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 1, frame + 2, frame + 2),
             [action](auto*) { AfterUiDispatch(action); }, 0);
         result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         result->menu_artwork = true;

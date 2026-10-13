@@ -1,3 +1,5 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
 #include <memory>
@@ -68,7 +70,8 @@ unsigned char CreatePartyMovementPanel(void)
         button->SetTooltipIndex(37 + index);
         button->Configure(
             ButtonGraphics::Load(art.spriteSheet(), 7, 4, 5, 6, 6),
-            [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); }, 0);
+            [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); },
+            0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;
         button->SetPosition(0x1bb, 0x13f);

@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
 #include "wiz8/ui_layer.h"
@@ -801,8 +802,9 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
         auto& button = buttons[i] = std::make_unique<W8ButtonWidget>(input);
         button->SetTooltipIndex(help[i]);
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(i == 3 ? 0x8e : 0x1b0, 0).spriteSheet(), normal[i] + 3,
-                                 normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2),
+            ButtonGraphics::Load(CatalogArtwork::Load(i == 3 ? 0x8e : 0x1b0, 0).spriteSheet(),
+                                 normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2,
+                                 normal[i] + 2),
             [this](auto* control) { AfterUiDispatch([this, control] { OnPrimary(control); }); }, 0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;
@@ -1605,8 +1607,9 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
         auto& button = m_action_controls[i] = std::make_unique<W8ButtonWidget>(input);
         button->SetTooltipIndex(help[i]);
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(), normal[i] + 3,
-                                 normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2),
+            ButtonGraphics::Load(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
+                                 normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2,
+                                 normal[i] + 2),
             [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); }, 0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;

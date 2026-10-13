@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
 #include <SDL3/SDL_rect.h>
@@ -133,8 +134,8 @@ static void CreateUseItemSelectControls(void)
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
         button->SetTooltipIndex(help);
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), disabled, normal, hover,
-                                 pressed, pressed_hover),
+            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), disabled, normal,
+                                 hover, pressed, pressed_hover),
             [action](auto*) { AfterUiDispatch(action); }, 0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;

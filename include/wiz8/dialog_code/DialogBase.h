@@ -81,7 +81,7 @@ public:
 public:
   // Completion can capture its actual actor. List and picker destructors
   // notify while their derived state is still live, before base teardown.
-  W8DialogDestroyCallback m_destroy_callback;
+    W8DialogDestroyCallback m_destroy_callback;
 
 protected:
     bool m_right_button_down;

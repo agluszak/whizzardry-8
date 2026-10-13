@@ -101,17 +101,18 @@ int W8NpcDialog::CreateControls()
         for (index = 0; index < m_message->sub_entry_count; ++index) {
             line = m_message->sub_entries[index].text;
             m_buttons[index] = std::make_unique<W8ButtonWidget>(m_input);
-            m_buttons[index]->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
-                                                         .string = std::string(line),
-                                                         .usFont = &(g_wiz_text_mono_font),
-                                                         .sForeColor = 4,
-                                                         .sShadowColor = 5},
-                                        {static_cast<short>(m_bounds.x + x),
-                                         static_cast<short>(m_bounds.y + 0x23), m_text_width, 0x14},
-                                        [this, index](W8ButtonWidget*) {
-                                            m_selected_option = index;
-                                            AfterUiDispatch([this] { m_keep_open = false; });
-                                        });
+            m_buttons[index]->Configure(
+                ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
+                                 .string = std::string(line),
+                                 .usFont = &(g_wiz_text_mono_font),
+                                 .sForeColor = 4,
+                                 .sShadowColor = 5},
+                {static_cast<short>(m_bounds.x + x), static_cast<short>(m_bounds.y + 0x23),
+                 m_text_width, 0x14},
+                [this, index](W8ButtonWidget*) {
+                    m_selected_option = index;
+                    AfterUiDispatch([this] { m_keep_open = false; });
+                });
             x += m_text_width + 10;
         }
         bounds.left = m_bounds.x + 10;
@@ -125,17 +126,17 @@ int W8NpcDialog::CreateControls()
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         short x = static_cast<short>((m_bounds.w - static_cast<short>((m_text_width + 5) * 2)) / 2);
         m_buttons[0] = std::make_unique<W8ButtonWidget>(m_input);
-        m_buttons[0]->Configure(
-            ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
-                             .string = std::string(g_localized_strings[0x7df]),
-                             .usFont = &(g_wiz_text_mono_font),
-                             .sForeColor = 4,
-                             .sShadowColor = 5},
-            {static_cast<short>(m_bounds.x + x), static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14},
-            [this](W8ButtonWidget*) {
-                m_selected_option = 0;
-                AfterUiDispatch([this] { m_keep_open = false; });
-            });
+        m_buttons[0]->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
+                                                 .string = std::string(g_localized_strings[0x7df]),
+                                                 .usFont = &(g_wiz_text_mono_font),
+                                                 .sForeColor = 4,
+                                                 .sShadowColor = 5},
+                                {static_cast<short>(m_bounds.x + x),
+                                 static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14},
+                                [this](W8ButtonWidget*) {
+                                    m_selected_option = 0;
+                                    AfterUiDispatch([this] { m_keep_open = false; });
+                                });
         m_buttons[1] = std::make_unique<W8ButtonWidget>(m_input);
         m_buttons[1]->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
                                                  .string = std::string(g_localized_strings[0x7e0]),

@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <functional>
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
@@ -517,8 +518,9 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
     auto art = CatalogArtwork::Load(0xf9, 0);
     const int normal = save_mode ? 0 : 2;
     button.on_double_click = [&owner, this, index](auto*) {
-        if (!m_editing && owner.m_selected == index)
+        if (!m_editing && owner.m_selected == index) {
             AfterUiDispatch([&owner] { owner.OnPrimary(owner.m_action_button); });
+        }
     };
     button.Configure(
         ButtonGraphics::Load(art.spriteSheet(), 4, normal, -1, normal + 1, -1),
@@ -542,7 +544,9 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
 
 void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!full_redraw && !button.m_dirty) return;
+    if (!full_redraw && !button.m_dirty) {
+        return;
+    }
     button.Draw(target);
     InvalidateRegion(button.Bounds());
     button.m_dirty = false;
@@ -671,9 +675,9 @@ void W8OptionsKeyboardPanel::Populate()
                 const ButtonPolicy policy{.primary_toggle = ButtonToggle::StayLatched,
                                           .input_rule = ButtonInputRule::PrimaryPressedState};
                 m_dirty = true;
-                if (event.action == UiPointerAction::Leave)
+                if (event.action == UiPointerAction::Leave) {
                     key->interaction.leave(policy);
-                else if (event.button == UiPointerButton::Left) {
+                } else if (event.button == UiPointerButton::Left) {
                     if (event.action == UiPointerAction::Down)
                         key->interaction.press(SDL_BUTTON_LMASK, policy);
                     else if (event.action == UiPointerAction::Up && event.inside &&
@@ -681,8 +685,9 @@ void W8OptionsKeyboardPanel::Populate()
                         if (key->m_primary_binding == W8_MGS_COMMAND_NONE) {
                             key->interaction = {};
                             AfterUiDispatch([this] { g_options_screen->ShowNotification(true, 0x834, [this](bool accepted) { OnDialogClosed(accepted, 0); }); });
-                        } else
+                        } else {
                             SelectKey(key);
+                        }
                     }
                 }
                 return UiResult::Handled;
@@ -1117,13 +1122,17 @@ void W8OptionsScreen::CreateControls()
         auto& button = m_menu_buttons[item];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
         button->Configure(
-            ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]), frame(frames[2]),
-                                 frame(frames[1]), frame(frames[3])),
-            [this, item](W8ButtonWidget*) { AfterUiDispatch([this, item] { ActivateMenu(item); }); }, 0);
+            ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]),
+                                 frame(frames[2]), frame(frames[1]), frame(frames[3])),
+            [this, item](W8ButtonWidget*) {
+                AfterUiDispatch([this, item] { ActivateMenu(item); });
+            },
+            0);
         const auto size = artwork.size(frames[0]);
         button->SetPosition(row.bounds.left, row.bounds.top);
         button->Resize(size.x, size.y);
-        button->policy = {.primary_toggle = item < 6 ? ButtonToggle::StayLatched : ButtonToggle::None,
+        button->policy = {.primary_toggle =
+                              item < 6 ? ButtonToggle::StayLatched : ButtonToggle::None,
                           .input_rule = ButtonInputRule::PrimaryPressedState};
         button->menu_artwork = true;
         if (item == 5) button->SetEnabled(g_status.game_started);

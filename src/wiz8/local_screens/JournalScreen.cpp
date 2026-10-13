@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <SDL3/SDL_surface.h>
 #include "himage.h"
 #include "image.h"
@@ -311,12 +312,16 @@ JournalScreen::JournalScreen()
         button = std::make_unique<W8ButtonWidget>(m_input);
         const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
         button->Configure(
-            ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]), frame(frames[2]),
-                                 frame(frames[1]), frame(frames[3])),
-            [this, action](W8ButtonWidget*) { AfterUiDispatch([this, action] { Activate(action); }); }, 0);
+            ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]),
+                                 frame(frames[2]), frame(frames[1]), frame(frames[3])),
+            [this, action](W8ButtonWidget*) {
+                AfterUiDispatch([this, action] { Activate(action); });
+            },
+            0);
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
-        button->policy = {.primary_toggle = toggle, .input_rule = ButtonInputRule::PrimaryPressedState};
+        button->policy = {.primary_toggle = toggle,
+                          .input_rule = ButtonInputRule::PrimaryPressedState};
         button->menu_artwork = true;
     };
     add(Previous, 0xf4, {0x69, 0x1be}, {0, 2, 1, -1, 3});

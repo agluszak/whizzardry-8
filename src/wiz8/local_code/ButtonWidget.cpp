@@ -4,7 +4,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/button_interaction.h"
 
-#include "Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
@@ -172,9 +171,11 @@ void W8ButtonWidget::ConfigureInput(int priority)
 
 bool W8ButtonWidget::Configure(ButtonImage image, W8ButtonCallback action, int priority)
 {
-    if (!image)
+    if (!image) {
         return false;
-    const SDL_Rect bounds{0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)};
+    }
+    const SDL_Rect bounds{0, 0, static_cast<int>(image->MaxWidth),
+                          static_cast<int>(image->MaxHeight)};
     m_appearance = ButtonAppearance{.quick_image = std::move(image)};
     SetBounds(bounds);
     m_left_callback = std::move(action);
@@ -182,8 +183,8 @@ bool W8ButtonWidget::Configure(ButtonImage image, W8ButtonCallback action, int p
     return true;
 }
 
-bool W8ButtonWidget::Configure(ButtonAppearance appearance, SDL_Rect bounds, W8ButtonCallback action,
-                               int priority)
+bool W8ButtonWidget::Configure(ButtonAppearance appearance, SDL_Rect bounds,
+                               W8ButtonCallback action, int priority)
 {
     m_appearance = std::move(appearance);
     bounds.w = std::max(bounds.w, 4);
@@ -196,8 +197,9 @@ bool W8ButtonWidget::Configure(ButtonAppearance appearance, SDL_Rect bounds, W8B
 
 UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
 {
-    if (!m_left_callback && !on_right_click && !on_move && !on_double_click)
+    if (!m_left_callback && !on_right_click && !on_move && !on_double_click) {
         return UiResult::Handled;
+    }
     // Callbacks may destroy this button. Members are not touched afterwards.
     const auto alive = m_alive;
     // The dispatcher owns hover, press and release sounds. Controller-style
@@ -205,12 +207,14 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     const bool backend_sound = event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave || event.action == UiPointerAction::Down ||
         (event.action == UiPointerAction::Up && event.captured_buttons != 0);
-    if (policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled && backend_sound)
+    if (policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled && backend_sound) {
         PushButtonSoundScheme(0, true);
+    }
     if (event.action == UiPointerAction::Leave) {
-        if (m_interaction.leave(policy) && policy.input_rule == ButtonInputRule::PrimaryPressedState &&
-            policy.repeat)
+        if (m_interaction.leave(policy) &&
+            policy.input_rule == ButtonInputRule::PrimaryPressedState && policy.repeat) {
             PushButtonSoundScheme(0, true);
+        }
         m_dirty = true;
         if (on_hover) on_hover(false);
         return UiResult::Handled;
@@ -229,8 +233,9 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         m_dirty = true;
         return UiResult::Handled;
     case UiPointerAction::Move:
-        if (const auto move = on_move)
+        if (const auto move = on_move) {
             move(this);
+        }
         return UiResult::Handled;
     case UiPointerAction::Down:
         response = m_interaction.press(mask, policy);
@@ -243,8 +248,10 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         }
         if (!(event.captured_buttons & mask)) return UiResult::Handled;
         response = m_interaction.release(mask, policy);
-        if (response.repeated_release && policy.input_rule == ButtonInputRule::PrimaryPressedState)
+        if (response.repeated_release &&
+            policy.input_rule == ButtonInputRule::PrimaryPressedState) {
             PushButtonSoundScheme(0, true);
+        }
         break;
     case UiPointerAction::Repeat:
         if (!(event.captured_buttons & mask)) return UiResult::Handled;

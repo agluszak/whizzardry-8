@@ -40,11 +40,13 @@ public:
             selected = pressed;
             return {.activate = true};
         }
-        if (policy.input_rule == ButtonInputRule::MatchingPress && (armed_ & button))
+        if (policy.input_rule == ButtonInputRule::MatchingPress && (armed_ & button)) {
             return {};
+        }
         armed_ |= button;
-        if (policy.input_rule == ButtonInputRule::MatchingPress || button == SDL_BUTTON_LMASK)
+        if (policy.input_rule == ButtonInputRule::MatchingPress || button == SDL_BUTTON_LMASK) {
             pressed = true;
+        }
         return {.activate = policy.activation == ButtonActivation::Press};
     }
 
@@ -69,9 +71,10 @@ public:
         const bool repeated = policy.input_rule == ButtonInputRule::PrimaryPressedState
                                   ? repeated_ != 0
                                   : (repeated_ & button) != 0;
-        if (policy.input_rule == ButtonInputRule::PrimaryPressedState)
+        if (policy.input_rule == ButtonInputRule::PrimaryPressedState) {
             repeated_ = 0;
-        else repeated_ &= ~button;
+        } else
+            repeated_ &= ~button;
         return {.activate = !repeated && policy.activation == ButtonActivation::Release,
                 .repeated_release = repeated};
     }
@@ -94,8 +97,9 @@ public:
         armed_ = repeated_ = 0;
         if (policy.input_rule == ButtonInputRule::PrimaryPressedState
                 ? !selected
-                : policy.primary_toggle == ButtonToggle::None)
+                : policy.primary_toggle == ButtonToggle::None) {
             pressed = false;
+        }
         return repeated;
     }
 

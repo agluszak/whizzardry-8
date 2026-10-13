@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <SDL3/SDL_pixels.h>
 #include "glm/ext/vector_double3.hpp"
 #include <SDL3/SDL_surface.h>

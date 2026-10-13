@@ -607,9 +607,9 @@ void generic_button_images()
     {
         UiLayer layer;
         W8ButtonWidget button(layer);
-        REQUIRE(
-            button.Configure(ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
-                             {}, UI_PRIORITY_NORMAL));
+        REQUIRE(button.Configure(
+            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE), {},
+            UI_PRIORITY_NORMAL));
         button.SetPosition(2, 3);
         const auto previous_upload = TakeUiUpload();
         InvalidateRegion(4, 4, 5, 5);
@@ -626,8 +626,9 @@ void generic_button_images()
         REQUIRE_FALSE(button.m_dirty);
         REQUIRE(TakeUiUpload().w == 0);
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
-        if (previous_upload.w > 0)
+        if (previous_upload.w > 0) {
             InvalidateRegion(previous_upload);
+        }
     }
     target_owner.reset();
     graphics.reset();
@@ -660,13 +661,13 @@ void generic_button_images()
     const auto widget_count = LiveUiTargetCount();
     {
         auto dialog = std::make_unique<W8ButtonWidget>(layer);
-        REQUIRE(
-            dialog->Configure(ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
-                              {}, UI_PRIORITY_NORMAL));
+        REQUIRE(dialog->Configure(
+            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE), {},
+            UI_PRIORITY_NORMAL));
         dialog->SetPosition(12, 13);
-        REQUIRE(
-            !dialog->Configure(ButtonGraphics::Load("missing.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
-                               {}, UI_PRIORITY_NORMAL));
+        REQUIRE(!dialog->Configure(
+            ButtonGraphics::Load("missing.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE), {},
+            UI_PRIORITY_NORMAL));
         REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
         REQUIRE(UiTargetAt({12, 13}) != nullptr);
         REQUIRE(LiveUiTargetCount() == widget_count + 1);
@@ -677,7 +678,8 @@ void generic_button_images()
     auto closing_dialog = std::make_unique<W8ButtonWidget>(layer);
     REQUIRE(closing_dialog->Configure(
         ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4),
-        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); }, UI_PRIORITY_NORMAL));
+        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); },
+        UI_PRIORITY_NORMAL));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
     {
@@ -971,7 +973,7 @@ void generic_button_images()
 
     g_image_assets.clear();
 }
-}
+} // namespace
 
 TEST_CASE("Screen stack ownership", "[owner]")
 {
@@ -1457,7 +1459,8 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
                                                   .usFont = &(font),
                                                   .sForeColor = 0,
                                                   .sShadowColor = 0},
-                                 {10, 10, 40, 20}, [&](W8ButtonWidget* control) { ++activations; }));
+                                 {10, 10, 40, 20},
+                                 [&](W8ButtonWidget* control) { ++activations; }));
         button.SetTooltipIndex(0);
         button.SetTooltipEnabled(true);
         REQUIRE(UiTargetAt({15, 15}) != nullptr);
@@ -1523,7 +1526,8 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
                                         .usFont = &(font),
                                         .sForeColor = 0,
                                         .sShadowColor = 0},
-                       {10, 10, 40, 20}, [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); });
+                       {10, 10, 40, 20},
+                       [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); });
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
@@ -1554,7 +1558,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         UiLayer input;
         W8DialogScrollBar bar(input);
         const W8DialogScrollBar::Resources resources{
-            "arrows.sti", "track.sti", 0, [&positions](int position) { positions.push_back(position); }};
+            "arrows.sti", "track.sti", 0,
+            [&positions](int position) { positions.push_back(position); }};
         REQUIRE(bar.CreateControls(&resources));
         bar.SetLayout(100, 20, 20, 5, 10, 30);
         GetInputState().mouse.y = 400;
@@ -1611,9 +1616,10 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     // Empty item rows can still receive a click after a transfer, before the
     // next screen recomposition hides their targets.
     for (const auto* image :
-         {"DialogBackground.STI", "popup_chest_selectionbuttons.sti", "chest_confirmationbuttons.sti",
-          "popup_chest2.sti", "maininterface_scroll.STI"})
+         {"DialogBackground.STI", "popup_chest_selectionbuttons.sti",
+          "chest_confirmationbuttons.sti", "popup_chest2.sti", "maininterface_scroll.STI"}) {
         button_image_fixture(assets / "Data" / "Dialogs", image, 16);
+    }
     {
         W8TriggerItemPickerDialog picker;
         REQUIRE(picker.CreateControls() == 0);
@@ -2008,7 +2014,8 @@ TEST_CASE("Dialog completion captures context and runs before derived teardown",
         list.m_lines = {"Completion must see these live members"};
         list.m_destroy_callback = [&completions](W8DialogBase* base) {
             const auto& list = *static_cast<W8ListBoxDialog*>(base);
-            REQUIRE(list.m_lines == std::vector<std::string>{"Completion must see these live members"});
+            REQUIRE(list.m_lines ==
+                    std::vector<std::string>{"Completion must see these live members"});
             ++completions;
             // Resetting the stored callback cannot destroy the currently
             // executing closure, nor cause a second base-class notification.

@@ -1,3 +1,5 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_rect.h>
 #include "wiz8/ui_layer.h"
@@ -107,9 +109,10 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
         auto button = std::make_unique<W8ButtonWidget>(m_owner.input);
         button->SetTooltipIndex(help);
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame, frame + 1,
-                                 frame + 2, frame + 4),
-            [this, direction](auto*) { AfterUiDispatch([this, direction] { Step(direction); }); }, 0);
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 1, frame + 2, frame + 4),
+            [this, direction](auto*) { AfterUiDispatch([this, direction] { Step(direction); }); },
+            0);
         button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
         button->menu_artwork = true;
         button->SetPosition(x, m_y + 4);
