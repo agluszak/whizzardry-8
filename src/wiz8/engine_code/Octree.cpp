@@ -2960,18 +2960,27 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
     ToggleUpdateSuspension(0);
 }
 
+/* Appends an item to a null-terminated list that holds at most `capacity` items. */
+template<class Item>
+static void AppendLoadedItem(Item** items, unsigned short& loaded, w8_ulong capacity, Item* item,
+                             const char* expression, int line, const char* message)
+{
+    if (loaded >= static_cast<unsigned short>(capacity)) {
+        srAssertFail(expression, "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", line,
+                     message);
+    }
+    items[loaded] = item;
+    loaded++;
+    items[loaded] = 0;
+}
+
 // FUNCTION: WIZ8 0x0042e440
 void W8Octree::AddLoadedProp(W8Prop* prop)
 {
     if (m_fAccumulating) {
-        if (m_usNumPropsLoaded >= static_cast<unsigned short>(m_ulNumProps)) {
-            srAssertFail("m_usNumPropsLoaded<(UINT16)m_ulNumProps",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", 0x485,
+        AppendLoadedItem(m_papProps, m_usNumPropsLoaded, m_ulNumProps, prop,
+                         "m_usNumPropsLoaded<(UINT16)m_ulNumProps", 0x485,
                          "Too many props loaded for Octree");
-        }
-        m_papProps[m_usNumPropsLoaded] = prop;
-        m_usNumPropsLoaded++;
-        m_papProps[m_usNumPropsLoaded] = 0;
     }
 }
 
@@ -2979,14 +2988,9 @@ void W8Octree::AddLoadedProp(W8Prop* prop)
 void W8Octree::AddLoadedParticle(stParticle* particle)
 {
     if (m_fAccumulating) {
-        if (m_usNumParticlesLoaded >= static_cast<unsigned short>(m_ulNumParticles)) {
-            srAssertFail("m_usNumParticlesLoaded<(UINT16)m_ulNumParticles",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", 0x49d,
+        AppendLoadedItem(m_papParticles, m_usNumParticlesLoaded, m_ulNumParticles, particle,
+                         "m_usNumParticlesLoaded<(UINT16)m_ulNumParticles", 0x49d,
                          "Too many particles loaded for Octree");
-        }
-        m_papParticles[m_usNumParticlesLoaded] = particle;
-        m_usNumParticlesLoaded++;
-        m_papParticles[m_usNumParticlesLoaded] = 0;
     }
 }
 
