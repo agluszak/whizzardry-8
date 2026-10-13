@@ -363,6 +363,19 @@ bool CombatMayAdvanceContinuously(void)
     return false;
 }
 
+/* True when some monster in combat satisfies the predicate. */
+template<class Predicate>
+static bool AnyCombatMonster(Predicate predicate)
+{
+    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+        const W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        if (monster->fActive && monster->fInCombat && predicate(monster)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // FUNCTION: WIZ8 0x004ED710
 bool QueueNpcCombatScript(void)
 {
@@ -442,24 +455,20 @@ bool CombatHasContinuingEffects(void)
         if (g_combat_state->effect_slots[slot].active) {
             return true;
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
-            W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
-            if (monster->fActive && monster->fInCombat &&
-                monster->pCombat->combat_effects[slot].active) {
-                return true;
-            }
+        if (AnyCombatMonster([slot](const W8MonsterInfo* monster) {
+                return monster->pCombat->combat_effects[slot].active;
+            })) {
+            return true;
         }
     }
     for (slot = 0; slot < 6; ++slot) {
         if (g_combat_state->effect_slots0[slot].active) {
             return true;
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
-            W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
-            if (monster->fActive && monster->fInCombat &&
-                monster->pCombat->combat_effects_2[slot].active) {
-                return true;
-            }
+        if (AnyCombatMonster([slot](const W8MonsterInfo* monster) {
+                return monster->pCombat->combat_effects_2[slot].active;
+            })) {
+            return true;
         }
     }
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
