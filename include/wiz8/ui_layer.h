@@ -82,13 +82,51 @@ private:
     SDL_MouseButtonFlags captured_buttons_ = 0;
 };
 
+// Named overlay ordering. Lower orders win, and equal layers use insertion order.
+// Legacy retail region ranks are represented only here, not in screen code.
+enum class UiLayerOrder : int {
+    LockInput = 0x03,
+    Combat = 0x04,
+    PortraitButtons = 0x05,
+    PortraitStatus = 0x06,
+    PortraitSlotFirst = 0x07, // Eight contiguous portrait hit layers.
+    ScreenEdges = 0x10,
+    Radar = 0x12,
+    FormationBase = 0x13,
+    MessageBox = 0x14,
+    NpcTranscript = 0x16,
+    NpcTrade = 0x17,
+    NpcOptions = 0x18,
+    SpellCasting = 0x19,
+    ItemSelection = 0x1a,
+    FormationPanel = 0x1b,
+    PartyMovement = 0x1c,
+    PartyQuotes = 0x1d,
+    NpcQuoteBubble = 0x25,
+    KeyboardMenu = 0x26,
+    Submenu = 0x27,
+    GameplayOverlays = 0x28,
+    CampMain = 0x29,
+    CampInventory = 0x2a,
+    CampPool = 0x2b,
+    CampSpells = 0x2c,
+    CampButtons = 0x2d,
+    CharacterChoices = 0x32,
+    Standard = 0x33,
+};
+
+constexpr UiLayerOrder PortraitSlotOrder(int slot)
+{
+    return static_cast<UiLayerOrder>(static_cast<int>(UiLayerOrder::PortraitSlotFirst) + slot);
+}
+
 // Lower layer orders win; within a layer higher priorities win, then first registration.
 enum class UiLayerMode { Normal, Modal };
 
 class UiLayer {
 public:
-    explicit UiLayer(int order = 0x33);
-    explicit UiLayer(UiLayerMode mode, int order = 0x33);
+    explicit UiLayer(UiLayerOrder order = UiLayerOrder::Standard);
+    explicit UiLayer(UiLayerMode mode, UiLayerOrder order = UiLayerOrder::Standard);
     ~UiLayer();
     UiLayer(const UiLayer&) = delete;
     UiLayer& operator=(const UiLayer&) = delete;
@@ -107,7 +145,7 @@ private:
     friend void ResetUiInput();
     friend std::size_t LiveUiTargetCount();
     friend class HitTarget;
-    int order_;
+    UiLayerOrder order_;
     bool enabled_ = true, modal_ = false;
     std::vector<std::unique_ptr<HitTarget>> targets_;
     HitTarget *saved_hover_ = nullptr, *saved_capture_ = nullptr;

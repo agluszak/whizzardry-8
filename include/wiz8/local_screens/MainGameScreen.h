@@ -24,7 +24,9 @@ struct MainGameScreenState {
     bool resume_world = false;
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
-    UiLayer combat{0x04}, edges{0x10}, radar{0x12}, formation{0x13}, world{0x28};
+    UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},
+            radar{UiLayerOrder::Radar}, formation{UiLayerOrder::FormationBase},
+            world{UiLayerOrder::GameplayOverlays};
     std::array<std::unique_ptr<UiLayer>, 8> portraits;
     std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
@@ -68,7 +70,7 @@ public:
     void SetSelectedLine(int line);
     char HandleKey(SDL_Keycode key);
     UiLayer input;
-    W8RangeControl m_range{0x1d0, 0x16b, 0x1e2, 0x1bf};
+    W8RangeControl m_range{input, 0x1d0, 0x16b, 0x1e2, 0x1bf};
     int m_line_count = 15, m_visible_lines = 6;
     int m_selected_line = 0, m_hover_line = -1, m_first_visible_line = 0;
     bool m_dirty = true;
@@ -135,7 +137,7 @@ public:
     void Redraw(SDL_Surface& target, bool full_redraw);
     void InvalidateAll() { m_dirty = true; }
     void InvalidateLayout() { m_dirty = true; }
-    UiLayer input{0x03};
+    UiLayer input{UiLayerOrder::LockInput};
     HitTarget* expanded_target = nullptr;
     bool m_active = false, m_dirty = true;
     bool HandleScrollDownCommand(bool check_only);

@@ -10,7 +10,8 @@
 // A scrollbar owns three input targets and paints its retail artwork directly.
 class W8RangeControl {
 public:
-    W8RangeControl(int left, int top, int right, int bottom);
+    W8RangeControl(UiLayer& input, int left, int top, int right, int bottom);
+    ~W8RangeControl();
     void SetRange(int first, int second);
     void SetValue(int value);
     void Decrement() { AdjustValue(1); }
@@ -29,7 +30,7 @@ public:
 
 private:
     UiResult HandlePointer(int part, const UiPointerEvent& event);
-    UiLayer m_input;
+    UiLayer& m_input;
     CatalogArtwork m_artwork = CatalogArtwork::Load(0x86);
     std::array<HitTarget*, 3> m_targets;
     std::array<ButtonInteraction, 2> m_arrows;

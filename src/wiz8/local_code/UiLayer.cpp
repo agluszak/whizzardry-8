@@ -287,17 +287,14 @@ void HitTarget::useTextCursor()
     text_cursor_ = true;
 }
 
-UiLayer::UiLayer(int order) : order_(order)
+UiLayer::UiLayer(UiLayerOrder order) : order_(order)
 {
     auto& layers = State().layers;
     const auto pos =
         std::ranges::upper_bound(layers, order, {}, [](auto* layer) { return layer->order_; });
     layers.insert(pos, this);
 }
-UiLayer::UiLayer(UiLayerMode mode, int order) : UiLayer(order)
-{
-    setModal(mode == UiLayerMode::Modal);
-}
+UiLayer::UiLayer(UiLayerMode mode, UiLayerOrder order) : UiLayer(order) { setModal(mode == UiLayerMode::Modal); }
 UiLayer::~UiLayer()
 {
     setModal(false);
