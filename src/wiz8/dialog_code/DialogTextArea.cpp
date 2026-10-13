@@ -111,8 +111,8 @@ void W8DialogTextArea::SetFirstVisibleLine(int requested_line)
 int W8DialogTextArea::GetTotalLineCount()
 {
     int total = 0;
-    for (int index = 0; index < static_cast<int>(m_visible_lines.size()); ++index) {
-        int lines = m_visible_lines[index]->m_lineCount;
+    for (auto& visible_line : m_visible_lines) {
+        int lines = visible_line->m_lineCount;
         total += lines + static_cast<unsigned int>(m_entry_spacing) / m_font->height();
     }
     if (total != 0) {

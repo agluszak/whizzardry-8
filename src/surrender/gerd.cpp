@@ -115,7 +115,9 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
 public:
     LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
+    LockSurface(const LockSurface&) = default;
     LockSurface& operator=(const LockSurface&) = default;
+    ~LockSurface() override = default;
     w8_long getDataSize() override { return 0; }
     // FUNCTION: SURRENDER 0x1001F780
     static const char* sGetClassName()
@@ -299,14 +301,14 @@ srDD* srGERD::getDD() const
 // FUNCTION: SURRENDER 0x10017A50
 void srGERD::setTextureReduction(w8_long reduction)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     texture_reduction = std::clamp(reduction, w8_long{0}, w8_long{7});
 }
 
 // FUNCTION: SURRENDER 0x10017AC0
 void srGERD::setTexture(srTextureIFace* texture, w8_ulong layer)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (layer < device.info.max_texture_stages && texture_iface[layer] != texture) {
         texture_iface[layer] = texture;
         changeTexture(texture, layer, 0);
@@ -317,14 +319,14 @@ void srGERD::setTexture(srTextureIFace* texture, w8_ulong layer)
 // FUNCTION: SURRENDER 0x10017F30
 w8_ulong srGERD::getTextureCacheSize() const
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     return texture_cache_size;
 }
 
 // FUNCTION: SURRENDER 0x10017F50
 w8_ulong srGERD::getTextureCacheUsed() const
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     return texture_cache_used;
 }
 
@@ -345,7 +347,7 @@ w8_long srGERD::getDisplayMode(w8_ulong width, w8_ulong height, w8_ulong depth) 
 // FUNCTION: SURRENDER 0x1001AAF0
 srGERD::Statistics srGERD::getStatistics()
 {
-    std::lock_guard access(renderers_section);
+    std::scoped_lock access(renderers_section);
     this->statistics.input_triangles = 0;
     this->statistics.input_vertices = 0;
     this->statistics.triangle_chunks = 0;
@@ -629,7 +631,7 @@ srGERD* srGERD::getNextOpen() const
 void srGERD::unbindTexture(const srTextureIFace* texture)
 {
     for (srGERD* gerd = getFirstOpen(); gerd != 0; gerd = gerd->getNextOpen()) {
-        std::lock_guard access(gerd->state_section);
+        std::scoped_lock access(gerd->state_section);
         for (auto*& bound : gerd->texture_iface) {
             if (bound == texture) {
                 bound = 0;
@@ -641,7 +643,7 @@ void srGERD::unbindTexture(const srTextureIFace* texture)
 // FUNCTION: SURRENDER 0x10018330
 void srGERD::invalidateTexture(srTextureIFace* texture)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (texture != 0) {
         invalidateTextureByFrameHandle(texture->getTextureFrameHandle());
     }
@@ -715,7 +717,7 @@ void srGERD::markTextureAsDeleted(Texture& texture)
 // FUNCTION: SURRENDER 0x10018390
 void srGERD::invalidateTextureByFrameHandle(w8_ulong handle)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (handle != 0 && texture_hash_enabled) {
         const auto entry = texture_lookup.find(handle);
         Texture* texture = entry == texture_lookup.end() ? nullptr : entry->second;
@@ -729,7 +731,7 @@ void srGERD::invalidateTextureByFrameHandle(w8_ulong handle)
 void srGERD::invalidateResidentTextures()
 {
     flushImmediateRenderers();
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     Texture* texture = texture_head;
     while (texture != 0) {
         Texture* next = texture->next;
@@ -743,7 +745,7 @@ void srGERD::invalidateResidentTextures()
 void srGERD::invalidateResidentTexture(srTextureIFace* texture)
 {
     flushImmediateRenderers();
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (texture != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
         const auto entry = texture_lookup.find(handle);
@@ -757,7 +759,7 @@ void srGERD::invalidateResidentTexture(srTextureIFace* texture)
 // FUNCTION: SURRENDER 0x10017EC0
 void srGERD::setTextureCacheSize(w8_ulong bytes)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     texture_cache_size = bytes;
     if (bytes != 0 && bytes < texture_cache_used) {
         releaseTextureMemory(texture_cache_used - bytes);
@@ -768,7 +770,7 @@ void srGERD::setTextureCacheSize(w8_ulong bytes)
 void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y, w8_long width,
                                 w8_long height)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (isWindowOpen() == 0) {
         return;
     }
@@ -843,7 +845,7 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
 // FUNCTION: SURRENDER 0x10018480
 void srGERD::invalidateTextureCache()
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (texture_hash_enabled) {
         Texture* texture = texture_head;
         while (texture != 0) {
@@ -859,7 +861,7 @@ void srGERD::invalidateTextureCache()
 // FUNCTION: SURRENDER 0x10018500
 w8_ulong srGERD::getResidentTextureMemUsed() const
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     w8_ulong used = 0;
     for (Texture* texture = texture_head; texture != 0; texture = texture->next) {
         if (texture->device.resident_data != 0 && texture->device.resident_size > 0) {
@@ -984,7 +986,7 @@ void srGERD::flushImmediateRenderers()
 // FUNCTION: SURRENDER 0x10019BF0
 srGERD::RendererEntry* srGERD::createRenderer(int sorted)
 {
-    std::lock_guard access(renderers_section);
+    std::scoped_lock access(renderers_section);
     Renderer::Parameters parameters;
     parameters.gerd = this;
     parameters.sorted = sorted != 0;
@@ -1029,7 +1031,7 @@ srGERD::Renderer* srGERD::_lockRenderer(RendererEntry* entry)
 // FUNCTION: SURRENDER 0x10019D90
 void srGERD::unlockRenderer(Renderer* renderer, int submit)
 {
-    std::lock_guard access(renderers_section);
+    std::scoped_lock access(renderers_section);
     for (auto& owned : renderers) {
         auto* entry = &owned;
         if (entry->renderer.get() == renderer) {
@@ -1048,7 +1050,7 @@ void srGERD::unlockRenderer(Renderer* renderer, int submit)
 void srGERD::flushNonBusyRenderers()
 {
     if (std::this_thread::get_id() == owner_thread) {
-        std::lock_guard access(renderers_section);
+        std::scoped_lock access(renderers_section);
         for (auto& owned : renderers) {
             auto* entry = &owned;
             if (entry->busy == 0 && entry->renderer->isBatchFull() != 0) {
@@ -2275,7 +2277,7 @@ srBoundingSphere srGERD::eyeSpaceBounds(const srBoundingSphere& sphere)
 // FUNCTION: SURRENDER 0x1001B570
 void srGERD::applyDrawStateChanges()
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if ((dirty & DIRTY_FOG_COLOR) != 0) {
         getDD()->setFogColor(fog_color);
     }
@@ -2337,8 +2339,8 @@ void srGERD::removeDeletedTextures()
 // FUNCTION: SURRENDER 0x100286B0
 void srGERD::releaseTextureSurfaceData(Texture& texture)
 {
-    for (w8_long index = 0; index < 12; ++index) {
-        texture.device.levels[index] = 0;
+    for (auto& level : texture.device.levels) {
+        level = 0;
     }
     decltype(texture.surface_data){}.swap(texture.surface_data);
     texture_cache_used -= texture.device.size;
@@ -2798,7 +2800,7 @@ void srGERD::dump(std::ostream& stream, const srFlags<e_info>& info)
 // FUNCTION: SURRENDER 0x1001EB20
 void srGERD::dumpTextureCache(std::ostream& stream)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (!texture_hash_enabled) {
         srStreamPrintf(stream, "Texture cache hibernating\n");
         return;
@@ -2962,7 +2964,7 @@ void srGERD::unlockBuffer()
 // FUNCTION: SURRENDER 0x1001A5F0
 void srGERD::closeWindow(e_closeHint hint)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (isWindowOpen() != 0) {
         state_flags |= STATE_CLOSING_WINDOW;
         flush();
@@ -3056,7 +3058,7 @@ srGERD::e_error srGERD::openWindow(w8_long mode)
 // FUNCTION: SURRENDER 0x1001A290
 srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if ((w8_ulong)info.width > (w8_ulong)info.window_width ||
         (w8_ulong)info.height > (w8_ulong)info.window_height) {
         return ERROR_INVALID_VALUE;
@@ -3393,7 +3395,7 @@ w8_long srGERD::getMaxTextureAspectRatio() const
 // FUNCTION: SURRENDER 0x10017960
 void srGERD::setGlobalPalette(const srPalette& palette)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (palette.matchPalette(global_palette, 0x100) != 0) {
         return;
     }
@@ -3411,7 +3413,7 @@ void srGERD::setGlobalPalette(const srPalette& palette)
 // FUNCTION: SURRENDER 0x10017AA0
 w8_long srGERD::getTextureReduction() const
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     return texture_reduction;
 }
 
@@ -3428,7 +3430,7 @@ void srGERD::invalidateResidentPalette(srPalette* palette)
 // FUNCTION: SURRENDER 0x10017D00
 int srGERD::isTextureCached(srTextureIFace* texture) const
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (texture != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
         return texture_lookup.contains(handle);
@@ -3439,7 +3441,7 @@ int srGERD::isTextureCached(srTextureIFace* texture) const
 // FUNCTION: SURRENDER 0x10017DD0
 int srGERD::isTextureResident(srTextureIFace* texture) const
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     if (texture != 0 && isWindowOpen() != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
         const auto entry = texture_lookup.find(handle);
@@ -3456,12 +3458,12 @@ int srGERD::isTextureResident(srTextureIFace* texture) const
 void srGERD::initGlobalPalette()
 {
     float level = 0.0f;
-    for (w8_long i = 0; i < 0x100; ++i) {
+    for (auto& i : global_palette) {
         unsigned char gray = (unsigned char)srFloatToInt(level * 255.0);
-        global_palette[i].blue = gray;
-        global_palette[i].green = gray;
-        global_palette[i].red = gray;
-        global_palette[i].alpha = 0xff;
+        i.blue = gray;
+        i.green = gray;
+        i.red = gray;
+        i.alpha = 0xff;
         level += 0.003921569f;
     }
     /* reinterpret-ok: the DD receives the palette entries as raw dwords. */

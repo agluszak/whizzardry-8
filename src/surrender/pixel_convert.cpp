@@ -357,9 +357,9 @@ std::string srPixelConvert::PixelFormat::getName() const
     for (int k = 0; k < 4; k++)
         if (bits[k] != 0)
             name.push_back(channel_letters[color_model * 4 + order[k]]);
-    for (int j = 0; j < 4; j++)
-        if (bits[j] != 0)
-            name.push_back(static_cast<char>(bits[j] + '0'));
+    for (unsigned char bit : bits)
+        if (bit != 0)
+            name.push_back(static_cast<char>(bit + '0'));
     name += '/';
     name += std::to_string(pixel_size * 8 + 8);
     return name;

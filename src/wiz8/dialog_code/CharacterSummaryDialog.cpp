@@ -146,9 +146,9 @@ void W8CharacterSummaryDialog::OnNumericInputChanged(int value)
 bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
 {
     W8DialogNumericInput* inputs[] = {m_numeric_input};
-    for (int index = 0; index < 1; ++index) {
-        if (inputs[index] != 0 && inputs[index]->m_active) {
-            if (inputs[index]->HandleInput(input)) {
+    for (auto& index : inputs) {
+        if (index != 0 && index->m_active) {
+            if (index->HandleInput(input)) {
                 return true;
             }
             break;
