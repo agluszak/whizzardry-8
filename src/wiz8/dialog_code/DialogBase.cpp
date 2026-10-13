@@ -2,6 +2,7 @@
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -32,8 +33,6 @@ W8DialogBase::W8DialogBase()
     m_dirty_flags = 0;
     m_error = 0;
     m_font = g_dialog_interface_font;
-    m_foreground = g_dialog_font_foreground;
-    m_background = g_dialog_font_background;
     m_x = -1;
     m_y = -1;
     m_width = -1;
@@ -42,7 +41,6 @@ W8DialogBase::W8DialogBase()
     m_initialized = false;
     m_keep_open = true;
     m_destroy_callback = 0;
-    m_destroy_callback_context = 0;
     m_right_button_down = false;
 }
 
@@ -50,8 +48,9 @@ W8DialogBase::W8DialogBase()
 W8DialogBase::~W8DialogBase()
 {
     EndModalInput();
-    if (m_destroy_callback) {
-        m_destroy_callback(this);
+    if (const auto callback = std::exchange(m_destroy_callback, {})) {
+        callback(this);
+        m_destroy_callback = {};
     }
     DestroyControls();
 }

@@ -90,12 +90,6 @@ private:
 
   public:
     std::vector<std::string> m_lines;
-    std::vector<void (*)(int)> m_field_064;
-    int m_field_074;
-    float m_field_078; /* 0.05 */
-    float m_field_07c; /* 0.2 */
-    float m_field_080; /* 0.9 */
-    float m_field_084; /* 0.75 */
     SDL_Color m_fill_colour; /* highlight fill colour */
     W8ButtonWidget m_text_button{InputLayer()};
     W8ButtonWidget m_second_text_button{InputLayer()};
@@ -196,7 +190,7 @@ private:
     bool IsItemSelected(int index);
     void SetItemSelected(int index, bool selected);
     void ToggleItem(int index, W8ButtonWidget* button);
-    void ShowVisibleItemInfo(W8ButtonWidget* button, int row);
+    void ShowVisibleItemInfo(int row);
     /* Move every flagged item to the destination: -1 copies it into the shared
        party pool, any other value gives it to that party slot's character.
        Each successful transfer unlinks the item and its flag; a failure plays
@@ -210,10 +204,6 @@ private:
     void ToggleAllItems();
 
   private:
-    void ToggleVisibleItem0(W8ButtonWidget* button);
-    void ToggleVisibleItem1(W8ButtonWidget* button);
-    void ToggleVisibleItem2(W8ButtonWidget* button);
-    void ToggleVisibleItem3(W8ButtonWidget* button);
     void ScrollItemsUp();
     void ScrollItemsDown();
     void ScrollItemsToMouse(W8ButtonWidget* button);

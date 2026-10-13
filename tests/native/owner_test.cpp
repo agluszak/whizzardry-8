@@ -1608,6 +1608,21 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
 
     REQUIRE(font.load("font.sti"));
+    // Empty item rows can still receive a click after a transfer, before the
+    // next screen recomposition hides their targets.
+    for (const auto* image :
+         {"DialogBackground.STI", "popup_chest_selectionbuttons.sti", "chest_confirmationbuttons.sti",
+          "popup_chest2.sti", "maininterface_scroll.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image, 16);
+    {
+        W8TriggerItemPickerDialog picker;
+        REQUIRE(picker.CreateControls() == 0);
+        for (int row = 0; row < 4; ++row) {
+            auto& button = *picker.m_buttons[5 + row];
+            button.on_right_click(&button);
+            REQUIRE_FALSE(g_modal_owner);
+        }
+    }
     {
         W8ListBoxDialog list;
         list.SetOrigin(10, 10);
@@ -1982,4 +1997,24 @@ TEST_CASE("Button release and repeat rules preserve independent and primary stat
     REQUIRE(interaction.release(SDL_BUTTON_LMASK, primary).repeated_release);
     REQUIRE_FALSE(interaction.pressed);
     REQUIRE(interaction.release(SDL_BUTTON_RMASK, primary).activate);
+}
+
+TEST_CASE("Dialog completion captures context and runs before derived teardown", "[owner]")
+{
+    UiStateSnapshot saved_state;
+    int completions = 0;
+    {
+        W8ListBoxDialog list;
+        list.m_lines = {"Completion must see these live members"};
+        list.m_destroy_callback = [&completions](W8DialogBase* base) {
+            const auto& list = *static_cast<W8ListBoxDialog*>(base);
+            REQUIRE(list.m_lines == std::vector<std::string>{"Completion must see these live members"});
+            ++completions;
+            // Resetting the stored callback cannot destroy the currently
+            // executing closure, nor cause a second base-class notification.
+            base->m_destroy_callback = {};
+            base->m_destroy_callback = [&completions](W8DialogBase*) { completions += 100; };
+        };
+    }
+    REQUIRE(completions == 1);
 }

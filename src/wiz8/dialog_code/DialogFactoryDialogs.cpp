@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <string_view>
+#include <utility>
 
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "image.h"
@@ -42,9 +43,7 @@
 void W8ListBoxDialog::ClearLines()
 {
     m_lines.clear();
-    m_field_064.clear();
     m_selected_line = -1;
-    m_field_074 = 0;
     m_scrollable = false;
     m_first_visible_line = 0;
 }
@@ -52,11 +51,6 @@ void W8ListBoxDialog::ClearLines()
 // FUNCTION: WIZ8 0x005cbb40
 W8ListBoxDialog::W8ListBoxDialog()
 {
-    m_field_078 = 0.05f;
-    m_field_07c = 0.2f;
-    m_field_080 = 0.9f;
-    m_field_084 = 0.75f;
-    m_field_074 = 0;
     m_fill_colour = {0, 0x60, 0, SDL_ALPHA_OPAQUE};
     ClearLines();
 }
@@ -64,9 +58,9 @@ W8ListBoxDialog::W8ListBoxDialog()
 // FUNCTION: WIZ8 0x005cbce0
 W8ListBoxDialog::~W8ListBoxDialog()
 {
-    if (m_destroy_callback != 0) {
-        m_destroy_callback(this);
-        m_destroy_callback = 0;
+    if (const auto callback = std::exchange(m_destroy_callback, {})) {
+        callback(this);
+        m_destroy_callback = {};
     }
     DestroyControls();
 }
@@ -813,9 +807,9 @@ W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 // FUNCTION: WIZ8 0x005cd820
 W8TriggerItemPickerDialog::~W8TriggerItemPickerDialog()
 {
-    if (m_destroy_callback != 0) {
-        m_destroy_callback(this);
-        m_destroy_callback = 0;
+    if (const auto callback = std::exchange(m_destroy_callback, {})) {
+        callback(this);
+        m_destroy_callback = {};
     }
 }
 
@@ -855,38 +849,17 @@ bool W8TriggerItemPickerDialog::CreateButtons()
                                                      BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE),
                                 {}, UI_PRIORITY_LOWEST) &&
         configured;
-    m_buttons[5]->on_right_click = [this](W8ButtonWidget* button) { ShowVisibleItemInfo(button, 0); };
-    m_buttons[5]->policy.primary_toggle = ButtonToggle::Press;
-    configured =
-        m_buttons[5]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2,
-                                 BUTTON_NO_IMAGE),
-            [this](W8ButtonWidget* button) { ToggleVisibleItem0(button); }, UI_PRIORITY_HIGHEST - 1) &&
-        configured;
-    m_buttons[6]->on_right_click = [this](W8ButtonWidget* button) { ShowVisibleItemInfo(button, 1); };
-    m_buttons[6]->policy.primary_toggle = ButtonToggle::Press;
-    configured =
-        m_buttons[6]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2,
-                                 BUTTON_NO_IMAGE),
-            [this](W8ButtonWidget* button) { ToggleVisibleItem1(button); }, UI_PRIORITY_HIGHEST - 1) &&
-        configured;
-    m_buttons[7]->on_right_click = [this](W8ButtonWidget* button) { ShowVisibleItemInfo(button, 2); };
-    m_buttons[7]->policy.primary_toggle = ButtonToggle::Press;
-    configured =
-        m_buttons[7]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2,
-                                 BUTTON_NO_IMAGE),
-            [this](W8ButtonWidget* button) { ToggleVisibleItem2(button); }, UI_PRIORITY_HIGHEST - 1) &&
-        configured;
-    m_buttons[8]->on_right_click = [this](W8ButtonWidget* button) { ShowVisibleItemInfo(button, 3); };
-    m_buttons[8]->policy.primary_toggle = ButtonToggle::Press;
-    configured =
-        m_buttons[8]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2,
-                                 BUTTON_NO_IMAGE),
-            [this](W8ButtonWidget* button) { ToggleVisibleItem3(button); }, UI_PRIORITY_HIGHEST - 1) &&
-        configured;
+    for (int row = 0; row < 4; ++row) {
+        auto& button = *m_buttons[5 + row];
+        button.on_right_click = [this, row](W8ButtonWidget*) { ShowVisibleItemInfo(row); };
+        button.policy.primary_toggle = ButtonToggle::Press;
+        configured = button.Configure(
+                         ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1,
+                                              BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+                         [this, row](W8ButtonWidget* control) { ToggleItem(m_first_item + row, control); },
+                         UI_PRIORITY_HIGHEST - 1) &&
+                     configured;
+    }
     configured = m_buttons[9]->Configure(
                      ButtonGraphics::Load("Data\\Dialogs\\maininterface_scroll.STI", 3, 0, 1, 2, 2),
                      [this](W8ButtonWidget*) { ScrollItemsUp(); }, UI_PRIORITY_HIGHEST) &&
@@ -1045,49 +1018,14 @@ void W8TriggerItemPickerDialog::ToggleAllItems()
     }
 }
 
-/* Toggle the flag on the first visible row and press its button to match. An
-   out-of-range row just unpresses the clicked button. */
-// FUNCTION: WIZ8 0x005ce6f0
-void W8TriggerItemPickerDialog::ToggleVisibleItem0(W8ButtonWidget* button)
+// Item rows can disappear after a transfer while their input targets still
+// exist. Ignore a stale click before indexing the remaining items.
+void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
 {
-    ToggleItem(m_first_item, button);
-}
-
-// FUNCTION: WIZ8 0x005ce790
-void W8TriggerItemPickerDialog::ToggleVisibleItem1(W8ButtonWidget* button)
-{
-    if (m_first_item < static_cast<int>(items.size()) + 1) {
-        ToggleItem(m_first_item + 1, button);
-    }
-}
-
-// FUNCTION: WIZ8 0x005ce830
-void W8TriggerItemPickerDialog::ToggleVisibleItem2(W8ButtonWidget* button)
-{
-    if (m_first_item < static_cast<int>(items.size()) + 2) {
-        ToggleItem(m_first_item + 2, button);
-    }
-}
-
-// FUNCTION: WIZ8 0x005ce8d0
-void W8TriggerItemPickerDialog::ToggleVisibleItem3(W8ButtonWidget* button)
-{
-    if (m_first_item < static_cast<int>(items.size()) + 3) {
-        ToggleItem(m_first_item + 3, button);
-    }
-}
-
-/* The four right-click callbacks copy the visible row's world item and open
-   the assay dialog on it. */
-void W8TriggerItemPickerDialog::ShowVisibleItemInfo(W8ButtonWidget* button, int row)
-{
-    if (button != 0) {
-        auto* dialog = this;
-        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + row) {
-            W8ItemInstance* instance = CopyWorldItemInstance(dialog->items[dialog->m_first_item + row]);
-            OpenAssayDialog(instance, -1);
-        }
-    }
+    const int index = m_first_item + row;
+    if (index < 0 || index >= static_cast<int>(items.size()))
+        return;
+    OpenAssayDialog(CopyWorldItemInstance(items[index]), -1);
 }
 
 /* The two scroll arrows step the first visible row through SetFirstVisible. */

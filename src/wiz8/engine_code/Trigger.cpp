@@ -768,8 +768,6 @@ W8TriggerShakeEvent::W8TriggerShakeEvent() : effect(0), intensity(1), reverse(0)
 // GLOBAL: WIZ8 0x006599a0
 srVector3T<float> g_trigger_camera;
 
-static void OnItemDialogClosed(W8DialogBase* base);
-
 /* Advance every world trigger: raise the item picker when a prop-bearing
    activation asks for one, then run proximity activations for kind-two
    triggers. The camera position is cached when no trigger fired. */
@@ -789,14 +787,14 @@ void UpdateWorldTriggers(W8World* world)
              trigger->m_pProp->Rep()->animation_playing == 0)) {
             trigger->GenerateItemGroup();
             if (g_modal_owner == 0 && trigger->world_item_group != 0) {
-                W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
-                if (dialog != 0) {
-                    dialog->m_destroy_callback_context = trigger;
-                    dialog->SetItemGroup(trigger->world_item_group);
-                    dialog->m_destroy_callback = OnItemDialogClosed;
-                    gXStatus.item_pick_pending = false;
-                    OpenModal(std::unique_ptr<ModalContent>(dialog));
-                }
+                auto dialog = std::make_unique<W8TriggerItemPickerDialog>();
+                dialog->SetItemGroup(trigger->world_item_group);
+                dialog->m_destroy_callback = [trigger, picker = dialog.get()](W8DialogBase*) {
+                    picker->ReturnItemsToGroup();
+                    trigger->flags &= ~W8_TRIGGER_ITEM_PICKER;
+                };
+                gXStatus.item_pick_pending = false;
+                OpenModal(std::move(dialog));
             }
         }
         if (g_environment_load_flag != 0 && trigger->trigger_kind == 2 &&
@@ -822,19 +820,6 @@ void UpdateWorldTriggers(W8World* world)
     }
     if (world == g_world && !activated) {
         g_trigger_camera = camera;
-    }
-}
-
-/* The item picker's destroy callback: hand its items back to the owning
-   trigger and clear the trigger's pending-picker bit. */
-// FUNCTION: WIZ8 0x004456c0
-static void OnItemDialogClosed(W8DialogBase* base)
-{
-    W8TriggerItemPickerDialog* dialog = static_cast<W8TriggerItemPickerDialog*>(base);
-
-    if (dialog != 0) {
-        dialog->ReturnItemsToGroup();
-        static_cast<Trigger*>(dialog->m_destroy_callback_context)->flags &= ~W8_TRIGGER_ITEM_PICKER;
     }
 }
 
