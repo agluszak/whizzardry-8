@@ -1100,8 +1100,8 @@ unsigned char CampScreenEnter(void)
     CreatePartyPortraitEventRegions();
     CreateCampInput();
     g_camp_screen->item_action = initial_item_action;
-    for (unsigned int filter = 0; filter < W8_CAMP_ITEM_FILTER_COUNT; ++filter) {
-        g_camp_screen->item_filters[filter] = 0;
+    for (unsigned char& item_filter : g_camp_screen->item_filters) {
+        item_filter = 0;
     }
     g_camp_screen->item_timer_active = false;
     g_camp_screen->item_timer_expired = false;

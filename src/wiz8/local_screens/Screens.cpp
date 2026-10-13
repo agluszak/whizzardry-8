@@ -381,8 +381,8 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->refresh_party_panel = 1;
     g_level_block->text_scroll_drag_idle = 1;
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-    for (int line = 0; line < 12; ++line) {
-        g_level_block->text_lines[line] = 0;
+    for (unsigned int& text_line : g_level_block->text_lines) {
+        text_line = 0;
     }
     for (int slot_index = 0; slot_index < 4; ++slot_index) {
         g_level_block->hovered_text_lines[slot_index] = -1;
