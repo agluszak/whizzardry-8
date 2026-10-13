@@ -83,12 +83,12 @@ int g_empty_hand_catalog_ids[32] = {
 // GLOBAL: WIZ8 0x0069B940
 namespace {
 struct PortraitButtons {
-    UiLayer input{0x05};
+    UiLayer input{UiLayerOrder::PortraitButtons};
     std::array<std::unique_ptr<W8ButtonWidget>, 8> buttons;
 };
 std::unique_ptr<PortraitButtons> portrait_buttons;
 struct ConditionIcons {
-    UiLayer input{0x06};
+    UiLayer input{UiLayerOrder::PortraitStatus};
     struct Icon {
         HitTarget* target;
         SDL_Point position;

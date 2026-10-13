@@ -95,7 +95,7 @@ static bool g_use_item_commit_active;
 
 namespace {
 struct UseItemView {
-    UiLayer input{0x1a};
+    UiLayer input{UiLayerOrder::ItemSelection};
     std::array<std::unique_ptr<W8ButtonWidget>, 2> pools;
     std::unique_ptr<W8ButtonWidget> filter;
     std::unique_ptr<W8ButtonWidget> close;

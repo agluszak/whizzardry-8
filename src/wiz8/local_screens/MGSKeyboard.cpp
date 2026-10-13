@@ -675,7 +675,7 @@ struct KeyboardMenuRow {
     ButtonAppearance appearance;
 };
 struct KeyboardMenu {
-    UiLayer input{0x26};
+    UiLayer input{UiLayerOrder::KeyboardMenu};
     SDL_Point origin;
     std::array<KeyboardMenuRow, 13> rows;
     bool dirty = true;

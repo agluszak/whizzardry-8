@@ -66,7 +66,7 @@ std::unique_ptr<W8MainGameScreen> g_main_game_screen;
 
 namespace {
 struct MessageBoxInput {
-    UiLayer body{0x14}, tabs{0x14};
+    UiLayer body{UiLayerOrder::MessageBox}, tabs{UiLayerOrder::MessageBox};
     std::array<HitTarget*, 8> targets{};
 };
 std::unique_ptr<MessageBoxInput> message_input;
