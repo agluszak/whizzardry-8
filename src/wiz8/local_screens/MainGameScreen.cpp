@@ -2478,7 +2478,7 @@ MainGameScreenState::MainGameScreenState()
     for (int slot = 0; slot < 8; ++slot) {
         const int row = slot / 2;
         const bool right = slot % 2;
-        portraits[slot] = std::make_unique<UiLayer>(0x07 + slot);
+        portraits[slot] = std::make_unique<UiLayer>(PortraitSlotOrder(slot));
         auto& input = *portraits[slot];
         auto& targets = portrait_targets[slot];
         const auto add = [&](int index, HitShape shape, auto handler, int help = -1) {

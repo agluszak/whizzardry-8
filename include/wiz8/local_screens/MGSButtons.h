@@ -46,7 +46,7 @@ struct MainGameHudButtons {
 
 // An active submenu owns its independently enabled input and button rows.
 struct MainGameSubMenu {
-    UiLayer input{0x27};
+    UiLayer input{UiLayerOrder::Submenu};
     SDL_Rect bounds{};
     int background = 0;
     bool dirty = true;

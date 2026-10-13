@@ -128,7 +128,7 @@ static std::unique_ptr<UiLayer> npc_quote_input;
 
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 {
-    npc_quote_input = std::make_unique<UiLayer>(0x25);
+    npc_quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
     npc_quote_input->add(
         SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1}, [](const UiPointerEvent& event) {
             if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
