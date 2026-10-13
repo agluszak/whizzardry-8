@@ -5559,15 +5559,6 @@ void W8PathingService::EditTeleportalLink(const srVector3T<float>* destination,
     waypoints_dirty = true;
 }
 
-/* Modal waypoint-link flag editor: renders the link's direction, movement,
-   size, nav-group, collision and door bits over nine heap-allocated text/wide
-   line buffers and services a keyboard loop. 'C' and 'T' toggle the collide
-   and through-door bits, 'D'/'G'/'M'/'S' arm a pending second-key prompt for
-   the direction/group/movement/size bits, ENTER commits and ESC cancels. Only
-   the pending-'D' direction keys actually change state; the 'G' second key
-   computes a bit the retail code drops, and the 'M'/'S' second keys are dead.
-   Returns the accepted direction mask, zero on cancel. */
-/* Appends each name whose bit is set in value, in table order. */
 struct FlagName {
     unsigned int bit;
     const char* name;
@@ -5587,6 +5578,7 @@ static const FlagName kSizeNames[] = {
     {W8_NAV_HUGE, "Huge "},
 };
 
+/* Appends each name whose bit is set in value, in table order. */
 template<std::size_t Count>
 static void appendFlagNames(char* line, unsigned int value, const FlagName (&names)[Count])
 {
@@ -5595,6 +5587,14 @@ static void appendFlagNames(char* line, unsigned int value, const FlagName (&nam
     }
 }
 
+/* Modal waypoint-link flag editor: renders the link's direction, movement,
+   size, nav-group, collision and door bits over nine heap-allocated text/wide
+   line buffers and services a keyboard loop. 'C' and 'T' toggle the collide
+   and through-door bits, 'D'/'G'/'M'/'S' arm a pending second-key prompt for
+   the direction/group/movement/size bits, ENTER commits and ESC cancels. Only
+   the pending-'D' direction keys actually change state; the 'G' second key
+   computes a bit the retail code drops, and the 'M'/'S' second keys are dead.
+   Returns the accepted direction mask, zero on cancel. */
 // FUNCTION: WIZ8 0x0045f530
 unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned int* flags,
                                                      unsigned int direction)

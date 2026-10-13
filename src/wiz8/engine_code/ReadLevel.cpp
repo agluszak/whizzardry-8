@@ -514,7 +514,7 @@ try
     int index;
     int collidable_index;
     int model_index;
-    unsigned char success;
+    unsigned char success = 1;
 
     collidable_index = 0;
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
@@ -652,7 +652,7 @@ try
 {
     int count;
     int index;
-    unsigned char success;
+    unsigned char success = 1;
     bool has_options;
     bool update_representation;
     bool active;
