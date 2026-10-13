@@ -188,7 +188,16 @@ void camp_effects()
         g_camp_screen = std::make_unique<W8CampScreenState>();
         auto* state = g_camp_screen.get();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
-        state->stats_range = std::make_unique<W8RangeControl>(0x264, 0xbe, 0x276, 0x1b5);
+        const auto layer_count = LiveUiLayerCount();
+        state->stats_range = std::make_unique<W8RangeControl>(state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
+        REQUIRE(LiveUiLayerCount() == layer_count);
+        // Disabling one scrollbar must not disable unrelated targets in its layer.
+        auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480},
+            [](const UiPointerEvent&) { return UiResult::Handled; });
+        state->stats_range->SetActive(true);
+        state->stats_range->SetActive(false);
+        REQUIRE(sibling.hitAt({0, 0}));
+        state->scroll_input.remove(sibling);
         auto& range = *state->stats_range;
         state->effect_list = {{false, false, true, false, 0, 0, 0, 3, 10},
                               {false, false, false, true, 0, 1, 0, 3, 9},
@@ -339,7 +348,7 @@ void text_input_ownership()
             REQUIRE(g_ui.captured == target); // Inclusive retail text-field edge.
             dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
             REQUIRE(g_ui.captured == nullptr);
-            UiLayer panel(1);
+            UiLayer panel(UiLayerOrder::Combat);
             panel.add(SDL_Rect{0, 0, 640, 480}, {});
             dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
             REQUIRE(g_ui.captured == target); // Editor precedes its hosting plate.
@@ -1054,9 +1063,9 @@ TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner
             return UiResult::Handled;
         };
     };
-    UiLayer later(20);
+    UiLayer later(UiLayerOrder::KeyboardMenu);
     later.add(SDL_Rect{10, 10, 11, 11}, record(1), 100);
-    UiLayer earlier(10);
+    UiLayer earlier(UiLayerOrder::Combat);
     auto& first = earlier.add(SDL_Rect{10, 10, 11, 11}, record(2), 5);
     auto& tie = earlier.add(SDL_Rect{10, 10, 11, 11}, record(3), 5);
     auto& circle = earlier.add(UiCircle{{15, 15}, 5}, record(4), 6);
@@ -1077,7 +1086,7 @@ TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner
     earlier.setEnabled(true);
     first.setEnabled(true);
     circle.setEnabled(false);
-    UiLayer same_order(10);
+    UiLayer same_order(UiLayerOrder::Combat);
     same_order.add(SDL_Rect{10, 10, 11, 11}, record(5), 1000);
     dispatch_mouse(InputEventType::MouseWheel, 15, 15);
     REQUIRE(hits.back() == 2); // Equal layer orders use creation order.
