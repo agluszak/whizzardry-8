@@ -20,8 +20,8 @@
 static std::vector<std::uint16_t> g_font_translation;
 
 Font::Font(Font&& other) noexcept
-    : glyphs(std::move(other.glyphs)), customPalette(other.customPalette),
-      shades(std::move(other.shades)), currentShade(other.currentShade)
+    : glyphs(std::move(other.glyphs)), customPalette(other.customPalette), shades(std::move(other.shades)),
+      currentShade(other.currentShade)
 {
     other.clear();
 }
@@ -204,9 +204,7 @@ std::int16_t GetIndex(char32_t siChar)
         return static_cast<std::int16_t>(glyph - g_font_translation.begin());
     }
     const auto fallback = std::find(g_font_translation.begin(), g_font_translation.end(), '?');
-    return fallback == g_font_translation.end()
-               ? 0
-               : static_cast<std::int16_t>(fallback - g_font_translation.begin());
+    return fallback == g_font_translation.end() ? 0 : static_cast<std::int16_t>(fallback - g_font_translation.begin());
 }
 
 SDL_Point Font::rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const
@@ -219,8 +217,7 @@ SDL_Point Font::centeredPosition(const SDL_Rect& bounds, std::string_view text) 
     return {bounds.x + (bounds.w - textWidth(text) + 1) / 2, bounds.y + (bounds.h - height()) / 2};
 }
 
-void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
-              TextOptions options)
+void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text, TextOptions options)
 {
     if (!font.glyphs) {
         return;
@@ -249,8 +246,7 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
     }
 }
 
-void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
-                           TextOptions options)
+void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text, TextOptions options)
 {
     DrawText(target, font, at, text, options);
     InvalidateRegion(at.x, at.y, at.x + font.textWidth(text), at.y + font.height());

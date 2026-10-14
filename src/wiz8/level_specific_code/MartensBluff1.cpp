@@ -101,8 +101,8 @@ void MartensBluff1Setup(void)
                 particle->SetActive(0);
             } else {
                 position = glm::vec3(particle->getLocation());
-                g_gas_sound0 = CreateAndPlaySoundNode(
-                    "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
+                g_gas_sound0 =
+                    CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
         }
         particle = FindParticleByName(g_world, "GasSpray-01");
@@ -111,8 +111,8 @@ void MartensBluff1Setup(void)
                 particle->SetActive(0);
             } else {
                 position = glm::vec3(particle->getLocation());
-                g_gas_sound1 = CreateAndPlaySoundNode(
-                    "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
+                g_gas_sound1 =
+                    CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
         }
     }
@@ -245,15 +245,15 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());
-        g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
-                                              position, 0.3f, 30.0f, true);
+        g_gas_sound0 =
+            CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
     }
     particle = FindParticleByName(g_world, "GasSpray-01");
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());
-        g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
-                                              position, 0.3f, 30.0f, true);
+        g_gas_sound1 =
+            CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
     }
     position = glm::vec3(GetWorld()->camera->getLocation());
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
@@ -300,8 +300,7 @@ bool MartensBluff1TransportSpawn(void)
     if (!FindEntityByName("ANTRHACAX2", &position_b, 0, 0)) {
         return true;
     }
-    CreateAndPlaySoundNode("Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f, 30.0f,
-                           false);
+    CreateAndPlaySoundNode("Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f, 30.0f, false);
     group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
@@ -335,8 +334,7 @@ void MartensBluff1Transporter(int command)
                 g_transport_gate = new W8IntervalGate(60.0f, false, true);
             }
             if (GetLocationVarIDByName("TransportSpawn") != -1) {
-                g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") *
-                                              g_movement_speed_step);
+                g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") * g_movement_speed_step);
             }
             g_master_functions.push_back(MartensBluff1Transporter);
             return;

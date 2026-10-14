@@ -49,8 +49,8 @@ static void checkConsumers()
         output.flush();
     }
     const auto size = SDL_GetIOSize(io.get());
-    const auto* bytes = static_cast<const Uint8*>(SDL_GetPointerProperty(
-        SDL_GetIOProperties(io.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
+    const auto* bytes = static_cast<const Uint8*>(
+        SDL_GetPointerProperty(SDL_GetIOProperties(io.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     uint64_t hash = 14695981039346656037ull;
     for (Sint64 i = 0; i < size; ++i) {
         hash = (hash ^ bytes[i]) * 1099511628211ull;

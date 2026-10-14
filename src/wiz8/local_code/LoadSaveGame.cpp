@@ -294,8 +294,7 @@ int PeekGroupLevel(W8Chunk& chunk)
 unsigned int ReadWorldItemCount(W8Chunk& chunk)
 {
     const auto count = chunk.ReadValue<unsigned int>();
-    if (count >
-        static_cast<std::uint64_t>(chunk.RemainingBytes()) / sizeof(wiz8::retail::WorldItem)) {
+    if (count > static_cast<std::uint64_t>(chunk.RemainingBytes()) / sizeof(wiz8::retail::WorldItem)) {
         throw std::runtime_error("invalid item section count");
     }
     return count;
@@ -329,10 +328,8 @@ W8StatusHeader CaptureStatusHeader()
     header.next_monster_location_id = g_status.next_monster_location_id;
     header.next_world_item_id = g_status.next_world_item_id;
     header.next_trigger_id = g_status.next_trigger_id;
-    std::memcpy(header.status_block, g_status.status_header_prefix,
-                sizeof(g_status.status_header_prefix));
-    std::memcpy(header.status_block + kStatusTurnsOffset, &g_status.uiTurnsElapsed,
-                sizeof(g_status.uiTurnsElapsed));
+    std::memcpy(header.status_block, g_status.status_header_prefix, sizeof(g_status.status_header_prefix));
+    std::memcpy(header.status_block + kStatusTurnsOffset, &g_status.uiTurnsElapsed, sizeof(g_status.uiTurnsElapsed));
     std::memcpy(header.status_block + kStatusSuffixOffset, g_status.status_header_suffix,
                 sizeof(g_status.status_header_suffix));
     return header;
@@ -342,14 +339,11 @@ W8StatusHeader CaptureStatusHeader()
 void ApplyStatusHeader(const W8StatusHeader& header)
 {
     g_status.next_group_id = header.next_group_id ? header.next_group_id : 1;
-    g_status.next_monster_location_id =
-        header.next_monster_location_id ? header.next_monster_location_id : 1;
+    g_status.next_monster_location_id = header.next_monster_location_id ? header.next_monster_location_id : 1;
     g_status.next_world_item_id = header.next_world_item_id ? header.next_world_item_id : 1;
     g_status.next_trigger_id = header.next_trigger_id ? header.next_trigger_id : 1;
-    std::memcpy(g_status.status_header_prefix, header.status_block,
-                sizeof(g_status.status_header_prefix));
-    std::memcpy(&g_status.uiTurnsElapsed, header.status_block + kStatusTurnsOffset,
-                sizeof(g_status.uiTurnsElapsed));
+    std::memcpy(g_status.status_header_prefix, header.status_block, sizeof(g_status.status_header_prefix));
+    std::memcpy(&g_status.uiTurnsElapsed, header.status_block + kStatusTurnsOffset, sizeof(g_status.uiTurnsElapsed));
     std::memcpy(g_status.status_header_suffix, header.status_block + kStatusSuffixOffset,
                 sizeof(g_status.status_header_suffix));
 }
@@ -605,8 +599,7 @@ void RestoreMonsterSpellIcons(const W8MonsterInfo& info, W8Monster* monster)
     }
     for (const auto& effect : info.effect_slots) {
         if (effect.duration != 0) {
-            SetMonsterSpellIcon(monster, g_effect_visual_table[effect.effect_id].monster_icon,
-                                true);
+            SetMonsterSpellIcon(monster, g_effect_visual_table[effect.effect_id].monster_icon, true);
         }
     }
     if (info.charm_strength > 0) {
@@ -645,8 +638,7 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
     const unsigned char unborn = std::ranges::contains(gXStatus.unborn_monsters, info);
     chunk.WriteValue(unborn);
 
-    const unsigned char has_movement =
-        !monster.linked_navigator && (monster.flags & kMonsterHasMovement) != 0;
+    const unsigned char has_movement = !monster.linked_navigator && (monster.flags & kMonsterHasMovement) != 0;
     chunk.WriteValue(has_movement);
     if (has_movement) {
         SavedMonsterMovement::Capture(monster).Write(chunk);
@@ -869,8 +861,8 @@ void FillCurrentSaveSlot(W8SaveSlot& slot)
 
 /* Read one save's listing entry: its status, version and screenshot. Saves
    without a status, flagged saves and saves past the endgame are not listed. */
-static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
-                                                const wiz8::FileStatus& metadata, int utc_offset)
+static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name, const wiz8::FileStatus& metadata,
+                                                int utc_offset)
 {
     W8Chunk chunks;
     if (!chunks.OpenRead("Saves\\" + name)) {
@@ -906,8 +898,8 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
         return nullptr;
     }
     slot->name = name.substr(0, name.find_last_of('.'));
-    slot->local_write_time = wiz8::file_time_with_legacy_local_bias(
-        wiz8::file_time_from_sdl(metadata.info.modify_time), utc_offset);
+    slot->local_write_time =
+        wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(metadata.info.modify_time), utc_offset);
     slot->timestamp = wiz8::file_time_to_utc(slot->local_write_time);
     slot->level_id = status.current_level;
     slot->game_time_ms = status.game_time_ms;
@@ -943,10 +935,9 @@ try {
             continue;
         }
         const auto ticks = slot->local_write_time.ticks();
-        const auto position =
-            std::find_if(slots.begin() + first, slots.end(), [&](const auto& listed) {
-                return ticks > listed->local_write_time.ticks();
-            });
+        const auto position = std::find_if(slots.begin() + first, slots.end(), [&](const auto& listed) {
+            return ticks > listed->local_write_time.ticks();
+        });
         slots.insert(position, std::move(slot));
     }
     return true;
@@ -985,9 +976,8 @@ try {
 static void PrepareStatusForSave(const wiz8::File& file)
 {
     g_status.pending_move_location = cameraState(*GetWorld());
-    ForEachShownMessage([](auto& message) {
-        message.saved_remaining_ms = std::uint32_t(TimeUntilDeadline(message.clock));
-    });
+    ForEachShownMessage(
+        [](auto& message) { message.saved_remaining_ms = std::uint32_t(TimeUntilDeadline(message.clock)); });
     gXStatus.gameplay_timer->Restart();
     DestroyUngroupedMonsters();
     SaveMasterFunctions();
@@ -1007,8 +997,7 @@ static void PrepareStatusForSave(const wiz8::File& file)
    LVLS group last. */
 static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot, W8Chunk& chunks)
 {
-    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 &&
-        wiz8::file_status(kCurrentGamePath)) {
+    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 && wiz8::file_status(kCurrentGamePath)) {
         W8Chunk current_game;
         if (!current_game.OpenRead(kCurrentGamePath)) {
             throw std::runtime_error("open current game");
@@ -1039,21 +1028,18 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     chunks.WriteChunk(W8_CHUNK_SCREENSHOT, [&] { chunks.WriteValue(*screenshot); });
 
     auto& file = chunks.Stream();
-    chunks.WriteChunk(W8_CHUNK_MESSAGE_STORAGE,
-                      [&] { RequireSection(SaveMessageStorage(file), "message storage"); });
+    chunks.WriteChunk(W8_CHUNK_MESSAGE_STORAGE, [&] { RequireSection(SaveMessageStorage(file), "message storage"); });
     if (!g_location_variable_values.empty()) {
         chunks.WriteChunk(W8_CHUNK_LOCATION_VARIABLES, [&] { SaveLocationVariables(file); });
     }
     chunks.WriteChunk(W8_CHUNK_NPC_TRANSCRIPT,
                       [&] { RequireSection(SaveNpcDialogueTranscript(file), "NPC transcript"); });
-    chunks.WriteChunk(W8_CHUNK_NPC_STATES,
-                      [&] { RequireSection(SaveNpcStates(file), "NPC states"); });
+    chunks.WriteChunk(W8_CHUNK_NPC_STATES, [&] { RequireSection(SaveNpcStates(file), "NPC states"); });
     chunks.WriteChunk(W8_CHUNK_FACT_STATE, [&] { SaveFactState(file); });
     chunks.WriteChunk(W8_CHUNK_FACTION_STATE, [&] { SaveFactionState(file); });
     chunks.WriteChunk(W8_CHUNK_JOURNAL, [&] { SaveFactJournal(file); });
     if (FindMonsterControlSpellEffect()) {
-        chunks.WriteChunk(W8_CHUNK_MONSTER_CONTROL,
-                          [&] { SaveMonsterControlSpellEffect(&chunks); });
+        chunks.WriteChunk(W8_CHUNK_MONSTER_CONTROL, [&] { SaveMonsterControlSpellEffect(&chunks); });
     }
     RequireSection(SaveStatusHeader(&chunks), "level status");
 }
@@ -1083,8 +1069,7 @@ std::string BuildLevelStatusPath(unsigned int level)
         return "Levels\\Test\\DefaultLevel.STS";
     }
     if (level < 56) {
-        return fmt::format("Levels\\{}\\{}.STS", g_level_folders[level].folder_name,
-                           g_level_folders[level].level_name);
+        return fmt::format("Levels\\{}\\{}.STS", g_level_folders[level].folder_name, g_level_folders[level].level_name);
     }
     return fmt::format("Levels\\Test\\Level{:c}.STS", static_cast<char>(level - 56));
 }
@@ -1148,10 +1133,8 @@ try {
     auto& file = chunks->Stream();
     chunks->WriteGroup(W8_CHUNK_LEVEL_STATUS, [&] {
         chunks->WriteValue(g_status.current_level);
-        chunks->WriteChunk(W8_CHUNK_STATUS_HEADER,
-                           [&] { chunks->WriteValue(CaptureStatusHeader()); });
-        chunks->WriteChunk(W8_CHUNK_MONSTERS,
-                           [&] { RequireSection(SaveMonsterStatus(chunks), "monster status"); });
+        chunks->WriteChunk(W8_CHUNK_STATUS_HEADER, [&] { chunks->WriteValue(CaptureStatusHeader()); });
+        chunks->WriteChunk(W8_CHUNK_MONSTERS, [&] { RequireSection(SaveMonsterStatus(chunks), "monster status"); });
         chunks->WriteChunk(W8_CHUNK_WORLD_ITEMS, [&] { WriteWorldItems(*chunks); });
 
         if (g_level_status_loading) {
@@ -1160,11 +1143,9 @@ try {
                 SaveWorldCursorNodeStates(file);
             });
             chunks->WriteChunk(W8_CHUNK_ENCOUNTERS, [&] { SaveEncounterState(file); });
-            chunks->WriteChunk(W8_CHUNK_TRIGGER_LOCKS, [&] {
-                SaveTriggerRuntimeStates(g_world, file, g_level_status_loading);
-            });
-            chunks->WriteChunk(W8_CHUNK_TRIGGER_ACTIONS,
-                               [&] { SaveTriggerActionData(g_world, file); });
+            chunks->WriteChunk(W8_CHUNK_TRIGGER_LOCKS,
+                               [&] { SaveTriggerRuntimeStates(g_world, file, g_level_status_loading); });
+            chunks->WriteChunk(W8_CHUNK_TRIGGER_ACTIONS, [&] { SaveTriggerActionData(g_world, file); });
             return;
         }
 
@@ -1175,9 +1156,8 @@ try {
         chunks->WriteChunk(W8_CHUNK_PROPS, [&] { SaveWorldProps(g_world, file); });
         chunks->WriteChunk(W8_CHUNK_CURSOR_NODE_STATES, [&] { SaveWorldCursorNodeStates(file); });
         chunks->WriteChunk(W8_CHUNK_MONSTER_GENERATORS, [&] { SaveMonsterGenerators(file); });
-        chunks->WriteChunk(W8_CHUNK_TRIGGER_STATES, [&] {
-            SaveTriggerRuntimeStates(g_world, file, g_level_status_loading);
-        });
+        chunks->WriteChunk(W8_CHUNK_TRIGGER_STATES,
+                           [&] { SaveTriggerRuntimeStates(g_world, file, g_level_status_loading); });
         chunks->WriteChunk(W8_CHUNK_AMBIENT_SOUNDS, [&] { SaveAmbientSoundList(file); });
         chunks->WriteChunk(W8_CHUNK_PARTICLES, [&] { SaveParticleStates(file); });
         chunks->WriteChunk(W8_CHUNK_LIGHTS, [&] { SaveLightStates(file); });
@@ -1196,14 +1176,12 @@ try {
     const auto list_index = [](unsigned int index, std::size_t live) {
         return index < live ? index : static_cast<unsigned int>(index - live + kSecondaryListBase);
     };
-    const unsigned int group_count =
-        gXStatus.monster_groups.size() + gXStatus.encounter_groups.size();
+    const unsigned int group_count = gXStatus.monster_groups.size() + gXStatus.encounter_groups.size();
     const unsigned int monster_count = gXStatus.monsters.size() + gXStatus.unborn_monsters.size();
     chunks->WriteValue(group_count);
     chunks->WriteValue(monster_count);
     for (unsigned int index = 0; index < group_count; ++index) {
-        W8MonsterGroup* group =
-            GetMonsterGroupByListIndex(list_index(index, gXStatus.monster_groups.size()));
+        W8MonsterGroup* group = GetMonsterGroupByListIndex(list_index(index, gXStatus.monster_groups.size()));
         if (!group) {
             return false;
         }
@@ -1361,8 +1339,7 @@ try {
     }
 
     for (const auto& effect : info.effect_slots) {
-        if (effect.duration &&
-            static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table)) {
+        if (effect.duration && static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table)) {
             return false;
         }
     }
@@ -1390,8 +1367,7 @@ try {
     monsters.push_back(borrowed);
     group->monsters.push_back(info.location_id);
     const auto leader = static_cast<unsigned int>(group->leader_location_id);
-    if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN ||
-        leader < static_cast<unsigned int>(info.location_id)) {
+    if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN || leader < static_cast<unsigned int>(info.location_id)) {
         group->leader_location_id = info.location_id;
     }
     ++group->member_count;
@@ -1500,8 +1476,7 @@ try {
     std::vector<MallocPtr<W8WorldItem>> owners;
     std::vector<std::unique_ptr<W8Searchable>> searchables;
     for (const auto& item : staged) {
-        auto& owner =
-            owners.emplace_back(static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem))), &free);
+        auto& owner = owners.emplace_back(static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem))), &free);
         if (!owner) {
             throw std::bad_alloc();
         }
@@ -1544,8 +1519,7 @@ try {
 bool SaveGameExists(void)
 {
     const auto saves = wiz8::list_directory("Saves", std::string("*.") + g_save_extension);
-    return std::ranges::any_of(saves,
-                               [](const auto& name) { return !IsCurrentGameFileName(name); });
+    return std::ranges::any_of(saves, [](const auto& name) { return !IsCurrentGameFileName(name); });
 }
 
 /* Write a character record. Before the game starts it is a loose file (its
@@ -1834,8 +1808,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     }
     for (auto& character : saved_characters) {
         wiz8::retail::read_sized(*chunks, character);
-        if (character.record_version < 2 &&
-            character.original_profession == W8_PROFESSION_FIGHTER &&
+        if (character.record_version < 2 && character.original_profession == W8_PROFESSION_FIGHTER &&
             character.profession_levels[W8_PROFESSION_FIGHTER] == 0) {
             character.original_profession = character.iProfession;
         }
@@ -1859,10 +1832,9 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
         const auto origin = static_cast<signed char>(party_row.item_origin);
         const auto item_slot = static_cast<short>(party_row.item_slot);
         W8ItemInstance* item = nullptr;
-        if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM && origin != -1 &&
-            item_slot != -1) {
-            item = FindCharacterItemAt(slot, static_cast<unsigned char>(origin),
-                                       static_cast<unsigned short>(item_slot));
+        if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM && origin != -1 && item_slot != -1) {
+            item =
+                FindCharacterItemAt(slot, static_cast<unsigned char>(origin), static_cast<unsigned short>(item_slot));
         }
         party_row.pending_action_detail.item_use.item = item;
         party_row.action_detail1.item_use.item = nullptr;
@@ -1979,8 +1951,7 @@ try {
         }
     });
     chunks.Close();
-    ForEachShownMessage(
-        [](auto& message) { message.clock = w8_get_ticks() + message.saved_remaining_ms; });
+    ForEachShownMessage([](auto& message) { message.clock = w8_get_ticks() + message.saved_remaining_ms; });
     gXStatus.gameplay_timer->Restart();
     ResetMainGameScreenState();
     if (g_status.item_in_hand.iItemNo == -1) {

@@ -25,11 +25,7 @@ class W8SpellVisual;
 
 /* OnCollision produces HIT or DEFLECTED; attack setup also seeds the result
    when collision is bypassed. The shared combat-state field remains one byte. */
-enum W8MissileHitResult {
-    W8_MISSILE_HIT_NONE = 0,
-    W8_MISSILE_HIT = 1,
-    W8_MISSILE_HIT_DEFLECTED = 2
-};
+enum W8MissileHitResult { W8_MISSILE_HIT_NONE = 0, W8_MISSILE_HIT = 1, W8_MISSILE_HIT_DEFLECTED = 2 };
 
 /* One party slot row. */
 struct W8PartySlotRow {
@@ -121,7 +117,7 @@ struct W8CombatCharacterRow {
        hand's skills and the character's dual-wield flag are refreshed. */
     W8CombatHandRecord hand_records[2];
     unsigned int uiSwingsRemaining; /* Historical offset 0x68 */
-    int current_hand; /* Historical offset 0x6c: indexes the slot row's attack modes */
+    int current_hand;               /* Historical offset 0x6c: indexes the slot row's attack modes */
     W8EquipSlot current_equip_slot; /* Historical offset 0x70: indexes the character's equipment */
     /* Historical offset 0x74: the paired weapon slot GetPairedEquipSlot answered for
        current_equip_slot, -1 when nothing is paired with it. */
@@ -221,24 +217,23 @@ struct W8CombatState {
     /* Historical offset 0x7ac: the pacing clock the scheduler arms as a w8_get_ticks deadline
        before the scheduled actor's action may execute. */
     uint64_t action_clock;
-    int eCombatActionStatus; /* Historical offset 0x7b0 */
-    int iActionChar; /* Historical offset 0x7b4: -1 when nobody's turn */
+    int eCombatActionStatus;                  /* Historical offset 0x7b0 */
+    int iActionChar;                          /* Historical offset 0x7b4: -1 when nobody's turn */
     struct W8MonsterInfo* pActionMonsterInfo; /* Historical offset 0x7b8 */
     wiz8::sound::Playback hit_sound;
     bool hit_sound_active;
-    W8EffectSlot effect_slots[9]; /* Historical offset 0x7c1, 0x11 stride */
+    W8EffectSlot effect_slots[9];  /* Historical offset 0x7c1, 0x11 stride */
     W8EffectSlot effect_slots0[6]; /* Historical offset 0x85a..0x8bf */
-    W8Missile*
-        engaged_missile; /* Historical offset 0x8c0: live missile that blocks ending combat */
+    W8Missile* engaged_missile;    /* Historical offset 0x8c0: live missile that blocks ending combat */
     /* Historical offset 0x8c4: staged hit result of the in-flight missile (0 = pending, 1 = hit, 2 = deflected) */
     char missile_hit_result; /* W8MissileHitResult */
     W8CombatSlot TargetHit;
     unsigned char padding_8e5[3];
-    int pending_deaths[8]; /* Historical offset 0x8e8 */
-    int pending_death_count; /* Historical offset 0x908 */
-    W8PartyAction uiNextPartyAction; /* Historical offset 0x90c */
-    W8PartyAction uiCurrentPartyAction; /* Historical offset 0x910 */
-    unsigned int uiPartyActionPhase; /* Historical offset 0x914 */
+    int pending_deaths[8];                          /* Historical offset 0x8e8 */
+    int pending_death_count;                        /* Historical offset 0x908 */
+    W8PartyAction uiNextPartyAction;                /* Historical offset 0x90c */
+    W8PartyAction uiCurrentPartyAction;             /* Historical offset 0x910 */
+    unsigned int uiPartyActionPhase;                /* Historical offset 0x914 */
     W8PartyActionStatus uiCurrentPartyActionStatus; /* Historical offset 0x918 */
     /* Historical offset 0x91c: countdown used to pace synthetic movement progress when
        continuous combat is enabled and the world did not advance this frame. */

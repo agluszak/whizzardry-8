@@ -9,8 +9,7 @@
 // VTABLE: SURRENDER 0x10077068 srVertexProcessor
 // VTABLE: SURRENDER 0x10077074 srClassSupport<srIlluminator, srNode, 4608>
 // class srIlluminator
-class srIlluminator : public srClassSupport<srIlluminator, srNode, 0x1200>,
-                      public srVertexProcessor {
+class srIlluminator : public srClassSupport<srIlluminator, srNode, 0x1200>, public srVertexProcessor {
 public:
     using srVertexProcessor::process;
     SR_DLL_IMPORT srIlluminator(srNode* parent = 0);

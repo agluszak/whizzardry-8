@@ -35,8 +35,7 @@ W8MessageDialogBase* CreateMessageDialog()
 }
 
 // FUNCTION: WIZ8 0x005cf250
-void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
-                         unsigned char background)
+void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground, unsigned char background)
 {
     g_dialog_interface_font = &font;
     g_dialog_font_enabled = enabled;

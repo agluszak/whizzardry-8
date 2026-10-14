@@ -52,20 +52,17 @@ class stMeshModel;
 class srMeshModel;
 
 // Loaders return detached owned instances; failure returns an empty result.
-std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name,
-                                                     bool load_materials);
-std::vector<std::unique_ptr<stModelInstance>>
-ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name);
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name, bool load_materials);
+std::vector<std::unique_ptr<stModelInstance>> ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count,
+                                                                      const char* name);
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
-std::shared_ptr<stMeshModel>
-BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
-                     const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count,
-                     std::vector<std::vector<int>>& vertex_maps, std::vector<short>* mapped_values,
-                     std::vector<short>* mapped_keys);
+std::shared_ptr<stMeshModel> BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
+                                                  const std::vector<W8MeshMaterial>& materials,
+                                                  unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,
+                                                  std::vector<short>* mapped_values, std::vector<short>* mapped_keys);
 
 void OptimizeMeshOrder(srMeshModel* model);
 
 void ClearMaterialRecordPadding(W8MaterialRecord* material);
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
-                       srVector3T<float>* scale);
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation, srVector3T<float>* scale);

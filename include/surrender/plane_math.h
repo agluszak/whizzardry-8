@@ -13,8 +13,7 @@ inline glm::vec4 normalized(const glm::vec4& plane)
     const float length = glm::length(glm::vec3(plane));
     return length > 0 ? plane / length : plane;
 }
-inline glm::vec3 triangleNormal(const glm::vec3& first, const glm::vec3& second,
-                                const glm::vec3& third)
+inline glm::vec3 triangleNormal(const glm::vec3& first, const glm::vec3& second, const glm::vec3& third)
 {
     return glm::cross(second - first, third - first);
 }
@@ -29,8 +28,7 @@ inline glm::vec4 triangle(const glm::vec3& first, const glm::vec3& second, const
 template<std::ranges::input_range Planes>
 inline bool containsSphere(const Planes& planes, const glm::vec3& center, float radius)
 {
-    return std::ranges::none_of(planes, [&](const glm::vec4& plane) {
-        return glm::dot(center, glm::vec3(plane)) + plane.w < -radius;
-    });
+    return std::ranges::none_of(
+        planes, [&](const glm::vec4& plane) { return glm::dot(center, glm::vec3(plane)) + plane.w < -radius; });
 }
 } // namespace srPlaneMath

@@ -60,21 +60,17 @@ unsigned char CreatePartyMovementPanel(void)
 {
     movement = std::make_unique<PartyMovementPanel>();
     const W8ControlsRect bounds{0xc3, 0x13f, 0x1b9, 0x153};
-    movement->caption =
-        std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
-                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    movement->caption = std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
+                                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     const auto art = CatalogArtwork::Load(0x94, 0);
     for (int index = 0; index < 2; ++index) {
         auto& button = movement->buttons[index];
         button = std::make_unique<W8ButtonWidget>(movement->input);
-        button->Configure(art.spriteSheet(), {7, 4, 5, 6, 6},
-                          {.on_click =
-                               [index](auto*) {
-                                   AfterUiDispatch(index ? CancelPartyMovement
-                                                         : BeginFreeTurnPhase);
-                               },
-                           .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = 37 + index});
+        button->Configure(
+            art.spriteSheet(), {7, 4, 5, 6, 6},
+            {.on_click = [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = 37 + index});
         button->policy.controller_activation = true;
         button->SetPosition(0x1bb, 0x13f);
         button->Resize(20, 20);
@@ -168,8 +164,7 @@ void DrawPartyMovementPanel(void)
     if (panel_live) {
         clip = {right, 0, 0x1b9 - right, 0x1e0};
         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3,
-                                                        0x144);
+        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3, 0x144);
     }
     DrawPartyMovementGauge(right, image, panel_live, caption);
     if (panel_live) {
@@ -229,12 +224,11 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         return;
     }
     CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(),
-                                                    movement->animation_frame + frame_base + frame,
-                                                    right - 0xf, 0x142);
+                                                    movement->animation_frame + frame_base + frame, right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
-        movement->caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
-                                        false, GetFrameBufferSurface());
+        movement->caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary, false,
+                                        GetFrameBufferSurface());
     }
 }
 
@@ -270,8 +264,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
         W8Character* character = &g_status.buffers.Char[party_slot];
-        if (!row->fOccupied || character->stamina <= 0 ||
-            character->highest_condition >= W8_CONDITION_ASLEEP) {
+        if (!row->fOccupied || character->stamina <= 0 || character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
         amount = *frame_elapsed;
@@ -295,8 +288,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
             multiplier = 3.0f;
             break;
         default:
-            srAssertFail("FALSE", PARTY_MOVEMENT_CPP, 0x2a9,
-                         "HandlePartyMovement: ERROR - Invalid load category");
+            srAssertFail("FALSE", PARTY_MOVEMENT_CPP, 0x2a9, "HandlePartyMovement: ERROR - Invalid load category");
         }
         if (gXStatus.fCombatMode) {
             multiplier += multiplier;
@@ -306,8 +298,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
         }
         row->movement_fatigue = multiplier * amount + row->movement_fatigue;
         if (row->movement_fatigue > g_position_height_epsilon) {
-            ticks =
-                static_cast<unsigned int>(row->movement_fatigue * g_movement_fatigue_tick_scale);
+            ticks = static_cast<unsigned int>(row->movement_fatigue * g_movement_fatigue_tick_scale);
             FatigueCharacter(party_slot, ticks, false, 0);
             row->movement_fatigue = row->movement_fatigue - (ticks * 0x9c4);
         }

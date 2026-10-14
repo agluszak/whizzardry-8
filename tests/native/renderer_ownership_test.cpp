@@ -46,10 +46,7 @@
 namespace {
 class TestNode : public srNode {
 public:
-    explicit TestNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent)
-        : srNode(parent, ownership)
-    {
-    }
+    explicit TestNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent) : srNode(parent, ownership) {}
     ~TestNode() override
     {
         ++destroyed;
@@ -89,8 +86,7 @@ bool recursiveSceneGraph()
         finished.set_value();
     });
     started.get_future().wait();
-    const bool blocked =
-        done.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
+    const bool blocked = done.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
     srNode::unlockSceneGraph();
     worker.join();
     REQUIRE((blocked && !srNode::isSceneGraphLocked()));
@@ -151,10 +147,10 @@ public:
         const auto z_distances = pipe.getEyeSpaceZDist();
         const auto alpha = pipe.getAlpha();
         const auto fog = pipe.getFog();
-        valid &= directions.size() == pipe.getVertexCount() &&
-                 distances.size() == directions.size() && z_distances.size() == directions.size() &&
-                 normals.size() == directions.size() && alpha.size() == directions.size() &&
-                 fog.size() == directions.size() && indices.size() == directions.size();
+        valid &= directions.size() == pipe.getVertexCount() && distances.size() == directions.size() &&
+                 z_distances.size() == directions.size() && normals.size() == directions.size() &&
+                 alpha.size() == directions.size() && fog.size() == directions.size() &&
+                 indices.size() == directions.size();
         if (indices[0] == 0) {
             first_alpha = alpha.data();
             valid &= reinterpret_cast<std::uintptr_t>(alpha.data()) % 16 == 0;
@@ -337,8 +333,8 @@ bool coverageFinalization()
     for (unsigned channels = 1; channels < 16; ++channels) {
         unsigned enabled = 0;
         const srVertexProcessor::e_channel kinds[] = {
-            srVertexProcessor::CHANNEL_DIFFUSE, srVertexProcessor::CHANNEL_ALPHA,
-            srVertexProcessor::CHANNEL_SPECULAR, srVertexProcessor::CHANNEL_FOG};
+            srVertexProcessor::CHANNEL_DIFFUSE, srVertexProcessor::CHANNEL_ALPHA, srVertexProcessor::CHANNEL_SPECULAR,
+            srVertexProcessor::CHANNEL_FOG};
         for (unsigned bit = 0; bit < 4; ++bit) {
             if (channels & (1u << bit)) {
                 enabled |= 1u << kinds[bit];
@@ -357,8 +353,7 @@ bool coverageFinalization()
                 auto clamp = [](float value) { return value < 0 ? 0 : value > 1 ? 1 : value; };
                 const float expected_alpha =
                     channels & 2 ? channels & 1 ? clamp(scale * source) : scale * clamped : .5f;
-                const float expected_fog =
-                    channels & 8 ? channels & 4 ? clamp(scale * source) : scale * clamped : .5f;
+                const float expected_fog = channels & 8 ? channels & 4 ? clamp(scale * source) : scale * clamped : .5f;
                 CAPTURE(channels, scale, index);
                 REQUIRE(diffuse[index].w == expected_alpha);
                 REQUIRE(specular[index].w == expected_fog);
@@ -396,9 +391,7 @@ public:
         light.process(pipe);
         REQUIRE(statistics.diffuse_operations - before_diffuse == (channels & 1 ? count : 0));
         REQUIRE(statistics.specular_operations - before_specular == (channels & 2 ? count : 0));
-        const float attenuation = directional || attenuation_kind == 0 ? 1.f
-                                  : attenuation_kind == 4              ? .25f
-                                                                       : .5f;
+        const float attenuation = directional || attenuation_kind == 0 ? 1.f : attenuation_kind == 4 ? .25f : .5f;
         if (channels & 1) {
             const auto colors = pipe.getDiffuse();
             const float expected = (ready & 1 ? .25f : .125f) + .25f * attenuation;
@@ -477,25 +470,19 @@ bool surfaceLighting()
                         probe.directional = directional;
                         probe.attenuation_kind = attenuation_kind;
                         auto& light = probe.light;
-                        light.channel_mask =
-                            (channels & 1 ? 1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE : 0) |
-                            (channels & 2 ? 1u << srVertexProcessor::CHANNEL_SPECULAR : 0);
-                        light.derived_flags = directional ? srLight::DERIVED_DIRECTIONAL
-                                              : attenuation_kind == 1
-                                                  ? srLight::DERIVED_OPENGL_ATTENUATION |
-                                                        srLight::DERIVED_CONSTANT_ATTENUATION
-                                                  : 0;
+                        light.channel_mask = (channels & 1 ? 1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE : 0) |
+                                             (channels & 2 ? 1u << srVertexProcessor::CHANNEL_SPECULAR : 0);
+                        light.derived_flags = directional             ? srLight::DERIVED_DIRECTIONAL
+                                              : attenuation_kind == 1 ? srLight::DERIVED_OPENGL_ATTENUATION |
+                                                                            srLight::DERIVED_CONSTANT_ATTENUATION
+                                                                      : 0;
                         light.eye_location = directional ? glm::vec3(0, 0, 1) : glm::vec3(0);
-                        light.attenuation_model = attenuation_kind == 0 ? srLight::ATTENUATION_NONE
-                                                  : attenuation_kind == 1
-                                                      ? srLight::ATTENUATION_OPENGL
-                                                      : srLight::ATTENUATION_3DSTUDIO_MAX;
-                        light.enable_flags = (attenuation_kind == 2 || attenuation_kind == 4
-                                                  ? 1u << srLight::ENABLE_RANGE_NEAR
-                                                  : 0) |
-                                             (attenuation_kind == 3 || attenuation_kind == 4
-                                                  ? 1u << srLight::ENABLE_RANGE_FAR
-                                                  : 0);
+                        light.attenuation_model = attenuation_kind == 0   ? srLight::ATTENUATION_NONE
+                                                  : attenuation_kind == 1 ? srLight::ATTENUATION_OPENGL
+                                                                          : srLight::ATTENUATION_3DSTUDIO_MAX;
+                        light.enable_flags =
+                            (attenuation_kind == 2 || attenuation_kind == 4 ? 1u << srLight::ENABLE_RANGE_NEAR : 0) |
+                            (attenuation_kind == 3 || attenuation_kind == 4 ? 1u << srLight::ENABLE_RANGE_FAR : 0);
                         light.scaled_near_start = 0;
                         light.scaled_far_end = 20;
                         light.near_attenuation = light.far_attenuation = .05f;
@@ -503,8 +490,7 @@ bool surfaceLighting()
                         light.scaled_diffuse = glm::vec4(.5f);
                         light.scaled_specular = glm::vec4(.25f);
                         input.active_vertices = std::span{indices}.first(count);
-                        record.channels =
-                            ~(light.channel_mask | (1u << srVertexProcessor::CHANNEL_DIFFUSE));
+                        record.channels = ~(light.channel_mask | (1u << srVertexProcessor::CHANNEL_DIFFUSE));
                         const int before = probe.calls;
                         srVertexPipe pipe;
                         pipe.process(input);
@@ -633,11 +619,9 @@ bool materialChannelOperations()
     material.setSpecular(glm::vec4(1));
     srVertexPipe::Record record{};
     record.material = &material;
-    record.channels =
-        ~((1u << srVertexProcessor::CHANNEL_DIFFUSE) | (1u << srVertexProcessor::CHANNEL_SPECULAR) |
-          (1u << srVertexProcessor::CHANNEL_ALPHA) |
-          (1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE) |
-          (1u << srVertexProcessor::CHANNEL_LIGHT_AMBIENT));
+    record.channels = ~((1u << srVertexProcessor::CHANNEL_DIFFUSE) | (1u << srVertexProcessor::CHANNEL_SPECULAR) |
+                        (1u << srVertexProcessor::CHANNEL_ALPHA) | (1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE) |
+                        (1u << srVertexProcessor::CHANNEL_LIGHT_AMBIENT));
     srVertexPipe::Input input(identity, identity);
     input.active_vertices = indices;
     input.direct_vertex_indices = 1;
@@ -706,8 +690,7 @@ bool rendererOwnership()
     instance.setLocation(3, 4, 5);
     instance.setScale(glm::dvec3(2, 3, 4));
     for (float handedness : {-1.0f, 1.0f}) {
-        const auto view = glm::scale(glm::translate(glm::mat4(1), glm::vec3(7, 8, 9)),
-                                     glm::vec3(handedness * 2, 3, 4));
+        const auto view = glm::scale(glm::translate(glm::mat4(1), glm::vec3(7, 8, 9)), glm::vec3(handedness * 2, 3, 4));
         for (bool aligned : {false, true}) {
             instance.setAlignAngle(0.5);
             instance.setAlignAxis(glm::vec3(0, 0, 1));
@@ -718,8 +701,7 @@ bool rendererOwnership()
                 const auto transform = instance.scopedRenderTransform(gerd);
                 glm::mat4 expected;
                 if (aligned) {
-                    expected =
-                        glm::translate(glm::mat4(1), glm::vec3(view * glm::vec4(3, 4, 5, 1)));
+                    expected = glm::translate(glm::mat4(1), glm::vec3(view * glm::vec4(3, 4, 5, 1)));
                     expected = glm::rotate(expected, 0.5f, glm::vec3(0, 0, 1));
                     const float sign = handedness > 0 ? -1 : 1;
                     expected = glm::scale(expected, sign * glm::vec3(4, 9, -16));
@@ -783,8 +765,7 @@ bool rendererOwnership()
         acquired.set_value(borrowed);
         gerd.unlockRenderer(borrowed, 0);
     });
-    const bool waited =
-        ready.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
+    const bool waited = ready.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
     gerd.unlockRenderer(renderer, 0);
     auto* resumed = ready.get();
     contender.join();
@@ -824,12 +805,9 @@ bool rendererTextureStages()
             renderer.programVertexArrays(&arrays, 3);
             const auto mask = gerd.getVertexArrayMask().value;
             for (unsigned stage = 0; stage < 2; ++stage) {
-                const bool enabled =
-                    stage < stages && (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
-                REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage))) ==
-                        enabled);
-                const bool combined =
-                    enabled && (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
+                const bool enabled = stage < stages && (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
+                REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage))) == enabled);
+                const bool combined = enabled && (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
                 REQUIRE(renderer.stq[stage].size() == (combined ? 3u : 0u));
                 if (combined) {
                     for (unsigned i = 0; i < 3; ++i) {
@@ -933,13 +911,11 @@ bool pipelineRecordTexcoords()
     for (unsigned record = 0; record < arrays.size(); ++record) {
         auto& slot = *pipeline->current_record;
         slot.flags = srVertexPipe::Record::HAS_TEXCOORD0 | srVertexPipe::Record::HAS_TEXCOORD1;
-        slot.channels =
-            ~((1u << srVertexProcessor::CHANNEL_ST0) | (1u << srVertexProcessor::CHANNEL_ST1));
+        slot.channels = ~((1u << srVertexProcessor::CHANNEL_ST0) | (1u << srVertexProcessor::CHANNEL_ST1));
         for (unsigned layer = 0; layer < 2; ++layer) {
             const unsigned channel = record * 2 + layer;
             for (unsigned vertex = 0; vertex < positions.size(); ++vertex) {
-                source[channel][vertex] =
-                    glm::vec2(float(10 * channel + vertex), float(20 + vertex));
+                source[channel][vertex] = glm::vec2(float(10 * channel + vertex), float(20 + vertex));
             }
             slot.st_source[layer] = source[channel].data();
         }
@@ -981,12 +957,10 @@ bool countedGeometryTransforms()
             const auto attributes = pipe.getAVT();
             for (unsigned index = 0; index < locations.size(); ++index) {
                 const auto source = input->geometryIndex(processed + index);
-                REQUIRE(locations[index] ==
-                        input->model_view * glm::vec4(input->positions[source], 1));
-                const auto expected =
-                    input->normals.empty()
-                        ? glm::vec3(0, 0, -1)
-                        : glm::vec3(input->normal_matrix * glm::vec4(input->normals[source], 1));
+                REQUIRE(locations[index] == input->model_view * glm::vec4(input->positions[source], 1));
+                const auto expected = input->normals.empty()
+                                          ? glm::vec3(0, 0, -1)
+                                          : glm::vec3(input->normal_matrix * glm::vec4(input->normals[source], 1));
                 REQUIRE(normals[index] == expected);
                 REQUIRE(attributes[index] == input->active_vertices[processed + index]);
             }
@@ -1110,8 +1084,7 @@ TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache po
         return pixels;
     };
     struct PreparedFile : srTextureFile {
-        PreparedFile(std::unique_ptr<srColorSurfaceIFace> pixels, int cache)
-            : srTextureFile({}, cache)
+        PreparedFile(std::unique_ptr<srColorSurfaceIFace> pixels, int cache) : srTextureFile({}, cache)
         {
             surface = std::move(pixels);
         }
@@ -1172,8 +1145,7 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     const auto performPick = [&] {
         batch.reset(0);
         batch.allocVertexArray(input.vertex_count);
-        std::copy_n(positions.begin(), input.vertex_count,
-                    batch.vertices.positions.begin() + batch.first_vertex);
+        std::copy_n(positions.begin(), input.vertex_count, batch.vertices.positions.begin() + batch.first_vertex);
         batch.render(input);
     };
     renderer.pushPick({{0, 0, 1}, nullptr, 0});

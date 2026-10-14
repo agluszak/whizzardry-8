@@ -91,14 +91,12 @@ struct OctBuildPreTree : W8OctBuildTree {
     unsigned short BuildRegions();
     bool assignPointToVolumes(const glm::vec3& point, short object, OctRegionObjectLinks& links);
     unsigned char BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles);
-    unsigned char BuildGeometryRegions(std::span<const W8LevelFileProp> records, int base_index,
-                                       bool finalize);
+    unsigned char BuildGeometryRegions(std::span<const W8LevelFileProp> records, int base_index, bool finalize);
 
     void AssignInitialRegions(const W8OctSpatialState* spatial);
     using RegionGeometry = std::variant<glm::vec3, srBoundingBox>;
     bool updateRegionForGeometry(const RegionGeometry& geometry, short value);
-    bool updateRegionMap(const W8OctSpatialState& state, const RegionGeometry& geometry,
-                         short value);
+    bool updateRegionMap(const W8OctSpatialState& state, const RegionGeometry& geometry, short value);
     W8OctBuildNode* FindNode(unsigned int path);
     unsigned char MergeAdjacentRegion(W8OctBuildNode* node, unsigned int path);
     unsigned char MergeRegion(W8OctBuildNode* node, const int* cell);
@@ -114,8 +112,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     /* Recursive inserter for InsertSurface: subdivides to the leaf, collecting
        overlapping region ids on first touch and appending the polygon to the
        leaf's mode link list. */
-    unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8OctRegionPolygon* polygon,
-                                         w8_ulong mode);
+    unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8OctRegionPolygon* polygon, w8_ulong mode);
     /* Fill the leaf's region-id list with every region volume overlapping
        `bounds`; grows a 50-entry scratch list on first use. */
     void FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox* bounds);

@@ -27,8 +27,7 @@ enum { W8_MONSTER_HIT_LOCATIONS = 7, W8_MONSTER_BODY_TYPES = 6 };
 extern unsigned short g_pc_hit_location_labels[5][2];
 /* GppStringList indices naming each monster hit location for
    each body type. */
-extern unsigned short g_monster_hit_location_labels[W8_MONSTER_HIT_LOCATIONS]
-                                                   [W8_MONSTER_BODY_TYPES];
+extern unsigned short g_monster_hit_location_labels[W8_MONSTER_HIT_LOCATIONS][W8_MONSTER_BODY_TYPES];
 
 /* GppStringList indices naming the sixteen secondary hit effects the
    missile_values arrays on monster attacks and item records carry. */
@@ -47,8 +46,7 @@ void ClearAttackBlock(W8SpellEffectDefinition* block);
 W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
                                      W8SpellEffectDefinition* attack, bool use_default_accuracy,
                                      W8RangeCategory range_category, int accuracy);
-void ScatterMissileAimPoint(const srVector3T<float>* from, srVector3T<float>* to, int accuracy,
-                            bool blind);
+void ScatterMissileAimPoint(const srVector3T<float>* from, srVector3T<float>* to, int accuracy, bool blind);
 
 /* A physical missile reached its combat target - announce the
    hit, roll penetration against the target's armour and apply the damage.
@@ -63,9 +61,8 @@ int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, i
 /* Roll the effect definition's condition chances against the
    target and apply the ones that take, reporting into `result` when one is
    given. */
-void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
-                           W8SpellEffectDefinition* definition, bool announce, bool verbose,
-                           W8SpellEffectResult* result);
+void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target, W8SpellEffectDefinition* definition,
+                           bool announce, bool verbose, W8SpellEffectResult* result);
 
 struct W8MonsterRecord;
 struct W8MonsterAttack;
@@ -85,21 +82,16 @@ bool CanMonsterProtect(W8MonsterInfo* monster_info);
 
 /* What RateMonsterAttack reports for one of a monster's three attacks: zero
    when the attack can be made, otherwise why not. */
-enum {
-    W8_MONSTER_ATTACK_USABLE = 0,
-    W8_MONSTER_ATTACK_NOT_USABLE = 1,
-    W8_MONSTER_ATTACK_OUT_OF_REACH = 3
-};
+enum { W8_MONSTER_ATTACK_USABLE = 0, W8_MONSTER_ATTACK_NOT_USABLE = 1, W8_MONSTER_ATTACK_OUT_OF_REACH = 3 };
 
 /* An attack the record does not carry, or carries with bad data, is not
    usable; otherwise the attack is usable when it can reach someone, judged as
    though the monster were idle. `friendly_targets` selects friendly rather than hostile targets.
    RateMonsterBestAttack answers zero as soon as any attack is usable, one for a
    motionless monster, and otherwise the highest reason it saw. */
-unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                                unsigned int attack, int, bool friendly_targets);
-unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                                    bool friendly_targets);
+unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record, unsigned int attack, int,
+                                bool friendly_targets);
+unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool friendly_targets);
 bool CanAnyHandReachTarget(int party_slot);
 /* Whether `hand` is in play and has a range category at all. */
 bool CanHandReachTarget(int party_slot, unsigned int hand);
@@ -116,8 +108,7 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes);
 /* How much of a hit a monster actually takes - its own adjustment
    and the record's reduction add, the remainder is taken as a percentage
    rounding to nearest, and nothing goes below zero. */
-int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                         int damage);
+int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecord* record, int damage);
 /* The character-side counterpart - the character's own reduction
    taken the same way, and having the damage-reduction skill practises it. */
 int ApplyCharacterDamageReduction(W8Character* character, int damage);
@@ -128,8 +119,8 @@ int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode);
 W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand);
 std::string SpellTargetString(W8TargetSource* source, W8CombatSlot* target);
 int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode);
-bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_value,
-                             int armor_value, unsigned int palette);
+bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_value, int armor_value,
+                             unsigned int palette);
 unsigned int CapAttackDamageByTargetHealth(unsigned int damage);
 void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_detail);
 void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report);
@@ -137,16 +128,15 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
 /* The monster side of the attack-score pipeline - the attack's
    own score plus modifier, mode, surprise, armour and attribute terms; ignore_target_defenses
    selects the fumble-redirect variant. */
-int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
-                          W8AttackMode attack_mode, char ignore_target_defenses);
+int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack, W8AttackMode attack_mode,
+                          char ignore_target_defenses);
 /* Roll the running monster attack's damage dice and reduce them
    by the target's damage reduction, reporting the dice count. */
-int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
-                               unsigned int* out_dice_count);
+int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack, unsigned int* out_dice_count);
 /* Build the candidate list the monster's fumbled or repicked
    attack chooses a new target from. */
-void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                            unsigned int attack, std::vector<W8CombatSlot>& out_list);
+void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record, unsigned int attack,
+                            std::vector<W8CombatSlot>& out_list);
 /* Announce a friendly-fire strike and highlight the name on the
    other side's notice palette when the two sides differ. */
 void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target);
@@ -159,8 +149,7 @@ bool CanMonsterProtectTarget(W8MonsterInfo* monster_info);
 /* The character counterpart of the same six checks. */
 bool CanCharacterAttackItsTarget(int party_slot);
 /* Build the monster attack announcement message and aim it at the target. */
-void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                           char target_changed);
+void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record, char target_changed);
 /* Resolve one queued swing of the monster's attack - rolls the
    hit and fumble-redirect chances, resolves guardian interception, picks the
    hit location, rolls penetration, applies damage and the struck target's

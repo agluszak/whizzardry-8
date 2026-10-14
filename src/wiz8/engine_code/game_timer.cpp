@@ -44,13 +44,11 @@ void PauseSharedGameTimers(void)
         return;
     }
 
-    g_shared_timer_pause_time =
-        g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_base;
+    g_shared_timer_pause_time = g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_base;
 
     if (g_game_time_accumulator != 0 && !g_game_time_accumulator->m_flags.paused) {
         g_game_time_accumulator->m_flags.paused = true;
-        g_game_time_accumulator->m_start =
-            g_game_time_accumulator->ReadClock() - g_game_time_accumulator->m_start;
+        g_game_time_accumulator->m_start = g_game_time_accumulator->ReadClock() - g_game_time_accumulator->m_start;
     }
 }
 
@@ -60,8 +58,7 @@ void ResumeSharedGameTimers(void)
     g_shared_timer_paused = false;
     g_shared_timer_flag0 = false;
     if (g_shared_timer != 0) {
-        g_shared_timer_pause_base =
-            g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_time;
+        g_shared_timer_pause_base = g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_time;
         g_shared_timer_pause_time = 0;
     }
 
@@ -203,8 +200,8 @@ float W8GameTimer::GetProgress()
     int sample = ReadClock();
     int start = m_start;
     int end = m_end;
-    float progress = static_cast<unsigned int>(sample - start) /
-                     static_cast<float>(static_cast<unsigned int>(end - start));
+    float progress =
+        static_cast<unsigned int>(sample - start) / static_cast<float>(static_cast<unsigned int>(end - start));
     int completed = static_cast<int>(progress);
 
     if (completed != 0 && completed > 0) {
@@ -232,16 +229,14 @@ bool W8GameTimer::Load(wiz8::File& handle)
 try {
     float progress;
     // Retail performs both reads and combines their results with bitwise OR.
-    bool loaded = (handle.read(&progress, sizeof(progress)).bytes ==
-                   static_cast<std::size_t>(sizeof(progress)));
+    bool loaded = (handle.read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
     loaded |= (handle.read(&m_duration_scale, sizeof(m_duration_scale)).bytes ==
                static_cast<std::size_t>(sizeof(m_duration_scale)));
     if (loaded != 0) {
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;
         unsigned int sample = ReadClock();
-        unsigned int elapsed =
-            static_cast<unsigned int>(static_cast<unsigned int>(m_duration) * progress);
+        unsigned int elapsed = static_cast<unsigned int>(static_cast<unsigned int>(m_duration) * progress);
         m_start = sample < elapsed ? 0 : sample - elapsed;
         m_end = m_start + m_duration;
     }

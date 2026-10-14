@@ -28,19 +28,16 @@ struct MGSKeyName {
 
 // GLOBAL: WIZ8 0x00647770
 static MGSKeyName g_mgs_key_names[] = {
-    {"F1", 112},        {"F2", 113},        {"F3", 114},        {"F4", 115},
-    {"F5", 116},        {"F6", 117},        {"F7", 118},        {"F8", 119},
-    {"F9", 120},        {"F10", 121},       {"F11", 122},       {"F12", 123},
-    {"ESC", 27},        {"TAB", 9},         {"PAUSE", 19},      {"NUM_LOCK", 144},
-    {"BACKSPACE", 8},   {"INSERT", 45},     {"DEL", 46},        {"KEY_END", 35},
-    {"PGDN", 34},       {"PGUP", 33},       {"HOME", 36},       {"ENTER", 13},
-    {"SPACE", 32},      {"DNARROW", 40},    {"LEFTARROW", 37},  {"RIGHTARROW", 39},
-    {"UPARROW", 38},    {"NUM_0", 96},      {"NUM_1", 97},      {"NUM_2", 98},
-    {"NUM_3", 99},      {"NUM_4", 100},     {"NUM_5", 101},     {"NUM_6", 102},
-    {"NUM_7", 103},     {"NUM_8", 104},     {"NUM_9", 105},     {"NUM_TIMES", 106},
-    {"NUM_PLUS", 107},  {"NUM_ENTER", 108}, {"NUM_MINUS", 109}, {"NUM_PERIOD", 110},
-    {"NUM_SLASH", 111}, {"SCRL_LOCK", 145}, {"/", 191},         {"-", 189},
-    {".", 190}};
+    {"F1", 112},        {"F2", 113},        {"F3", 114},        {"F4", 115},         {"F5", 116},
+    {"F6", 117},        {"F7", 118},        {"F8", 119},        {"F9", 120},         {"F10", 121},
+    {"F11", 122},       {"F12", 123},       {"ESC", 27},        {"TAB", 9},          {"PAUSE", 19},
+    {"NUM_LOCK", 144},  {"BACKSPACE", 8},   {"INSERT", 45},     {"DEL", 46},         {"KEY_END", 35},
+    {"PGDN", 34},       {"PGUP", 33},       {"HOME", 36},       {"ENTER", 13},       {"SPACE", 32},
+    {"DNARROW", 40},    {"LEFTARROW", 37},  {"RIGHTARROW", 39}, {"UPARROW", 38},     {"NUM_0", 96},
+    {"NUM_1", 97},      {"NUM_2", 98},      {"NUM_3", 99},      {"NUM_4", 100},      {"NUM_5", 101},
+    {"NUM_6", 102},     {"NUM_7", 103},     {"NUM_8", 104},     {"NUM_9", 105},      {"NUM_TIMES", 106},
+    {"NUM_PLUS", 107},  {"NUM_ENTER", 108}, {"NUM_MINUS", 109}, {"NUM_PERIOD", 110}, {"NUM_SLASH", 111},
+    {"SCRL_LOCK", 145}, {"/", 191},         {"-", 189},         {".", 190}};
 #pragma pack(pop)
 
 // FUNCTION: WIZ8 0x0055D800
@@ -82,9 +79,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
 
         unsigned short key = *token;
         int index;
-        for (index = 0;
-             index < static_cast<int>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0]));
-             ++index) {
+        for (index = 0; index < static_cast<int>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0])); ++index) {
             if (strcmp(token, g_mgs_key_names[index].name) == 0) {
                 key = g_mgs_key_names[index].key;
                 break;

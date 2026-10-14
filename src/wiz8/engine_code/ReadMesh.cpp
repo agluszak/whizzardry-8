@@ -44,8 +44,7 @@ class srMaterialIFace;
 class srTextureIFace;
 
 // FUNCTION: WIZ8 0x004896C0
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
-                       srVector3T<float>* scale)
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation, srVector3T<float>* scale)
 {
     float angle;
     srVector3T<float> axis;
@@ -59,8 +58,7 @@ void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3*
     file->read_exact(&axis.z, sizeof(axis.z));
 
     (*rotation) = glm::mat3(1);
-    (*rotation) *=
-        glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(axis.glmValue()))));
+    (*rotation) *= glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(axis.glmValue()))));
 
     file->read_exact(&scale->x, sizeof(scale->x));
     file->read_exact(&scale->y, sizeof(scale->y));
@@ -86,12 +84,10 @@ static void CacheLevelMesh(const char* name, const std::shared_ptr<stMeshModel>&
     }
 }
 
-static bool ReadMeshFaceNeedsSplit(const W8ReadMeshFace& face,
-                                   const std::vector<W8MeshMaterial>& materials)
+static bool ReadMeshFaceNeedsSplit(const W8ReadMeshFace& face, const std::vector<W8MeshMaterial>& materials)
 {
     return (face.flags & 4) != 0 ||
-           (static_cast<stMaterial*>(materials[face.material_index].material.get())
-                ->m_surface_flags &
+           (static_cast<stMaterial*>(materials[face.material_index].material.get())->m_surface_flags &
             W8_MATERIAL_TWO_SIDED) != 0;
 }
 
@@ -119,8 +115,7 @@ void OptimizeMeshOrder(srMeshModel* model)
             }
         }
         for (int side = 0; side < 2; ++side) {
-            if (const auto* materials =
-                    model->getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0)) {
+            if (const auto* materials = model->getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0)) {
                 material_tables.push_back(materials);
             }
         }
@@ -146,8 +141,7 @@ void OptimizeMeshOrder(srMeshModel* model)
     w8_ulong used = 0;
     const glm::ivec3* polygon_vertices = model->getPolyVertex();
     for (w8_ulong polygon : polygons) {
-        for (int vertex : {polygon_vertices[polygon].x, polygon_vertices[polygon].y,
-                           polygon_vertices[polygon].z}) {
+        for (int vertex : {polygon_vertices[polygon].x, polygon_vertices[polygon].y, polygon_vertices[polygon].z}) {
             if (first_use[vertex] == 0) {
                 first_use[vertex] = ++used;
             }
@@ -170,11 +164,10 @@ void OptimizeMeshOrder(srMeshModel* model)
 }
 
 // FUNCTION: WIZ8 0x00488650
-std::shared_ptr<stMeshModel>
-BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
-                     const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count,
-                     std::vector<std::vector<int>>& vertex_maps, std::vector<short>* mapped_values,
-                     std::vector<short>* mapped_keys)
+std::shared_ptr<stMeshModel> BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
+                                                  const std::vector<W8MeshMaterial>& materials,
+                                                  unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,
+                                                  std::vector<short>* mapped_values, std::vector<short>* mapped_keys)
 {
     std::vector<srShader> polygon_types;
     /* Each (material, source vertex) pair becomes one vertex per polygon type. */
@@ -208,8 +201,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
             int capacity = 0;
             for (face_index = 0; face_index < face_count; ++face_index) {
                 W8ReadMeshFace& face = faces[face_index];
-                if (materials[face.material_index].render_flags.value ==
-                    material.render_flags.value) {
+                if (materials[face.material_index].render_flags.value == material.render_flags.value) {
                     ++capacity;
                     if (ReadMeshFaceNeedsSplit(face, materials)) {
                         ++capacity;
@@ -248,8 +240,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         const W8MeshMaterial& material = materials[face.material_index];
         type = wiz8::index_of(polygon_types, material.render_flags.value, &srShader::value);
         if (type < 0) {
-            srAssertFail("iPolyType >=0", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
-                         0x45b, 0);
+            srAssertFail("iPolyType >=0", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x45b, 0);
         }
         glm::ivec3& poly = polygon_vertices[type][polygon_counts[type]];
         glm::ivec3& shade = polygon_shades[type][polygon_counts[type]];
@@ -301,8 +292,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                 split_shade[corner] = vertex;
                 ++vertex_counts[type];
             }
-            polygon_textures[type][polygon_counts[type]] =
-                polygon_textures[type][polygon_counts[type] - 1];
+            polygon_textures[type][polygon_counts[type]] = polygon_textures[type][polygon_counts[type] - 1];
             ++polygon_counts[type];
         }
     }
@@ -314,8 +304,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         auto owned_model = std::make_unique<stMeshModel>(polygon_counts[type], vertex_counts[type]);
         stMeshModel* model = owned_model.get();
         if (model == 0) {
-            srAssertFail("pstMeshModel[iCount]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
+            srAssertFail("pstMeshModel[iCount]", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
         }
 
         for (int mapped = 0; mapped < static_cast<int>(mapped_meshes.size()); ++mapped) {
@@ -341,8 +330,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         if (one_material) {
             model->setMaterial(vertex_materials[type][0], 0, srMeshModel::SIDE_FRONT);
         } else {
-            std::shared_ptr<srMaterialIFace>* model_materials =
-                model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+            std::shared_ptr<srMaterialIFace>* model_materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
             for (int vertex = 0; vertex < vertex_counts[type]; ++vertex) {
                 model_materials[vertex] = vertex_materials[type][vertex];
             }
@@ -352,8 +340,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         model->setUVCount(vertex_counts[type] + extra_uv_counts[type]);
         glm::vec2* model_uvs = model->getVertexTexCoords(0, 0, 1);
         memcpy(model_uvs, vertex_uvs[type].data(), vertex_counts[type] * sizeof(glm::vec2));
-        memcpy(model_uvs + vertex_counts[type], extra_uvs[type].data(),
-               extra_uv_counts[type] * sizeof(glm::vec2));
+        memcpy(model_uvs + vertex_counts[type], extra_uvs[type].data(), extra_uv_counts[type] * sizeof(glm::vec2));
         glm::ivec3* model_uv_indices = model->getPolyUVIndex(0, 1);
         for (int uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
             for (int uv_corner = 0; uv_corner < 3; ++uv_corner) {
@@ -365,8 +352,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
             }
         }
         w8_ulong* model_shades = model->getVertexShadeIndex(1);
-        memcpy(model_polygons, polygon_shades[type].data(),
-               polygon_counts[type] * sizeof(glm::ivec3));
+        memcpy(model_polygons, polygon_shades[type].data(), polygon_counts[type] * sizeof(glm::ivec3));
         memcpy(model_shades, vertex_shades[type].data(), vertex_counts[type] * sizeof(w8_ulong));
 
         srShader shader;
@@ -416,8 +402,7 @@ static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* inf
         }
     } else {
         info->hFile->read_exact(records[0].texture_modes, sizeof(records[0].texture_modes));
-        info->hFile->read_exact(records.data() + 1,
-                                static_cast<std::size_t>(count - 1) * sizeof(W8MaterialRecord));
+        info->hFile->read_exact(records.data() + 1, static_cast<std::size_t>(count - 1) * sizeof(W8MaterialRecord));
     }
 
     for (index = 0; index < count; ++index) {
@@ -425,8 +410,7 @@ static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* inf
     }
 
     if (records.size() == g_read_mesh_material_records.size() &&
-        memcmp(records.data(), g_read_mesh_material_records.data(),
-               count * sizeof(W8MaterialRecord)) == 0) {
+        memcmp(records.data(), g_read_mesh_material_records.data(), count * sizeof(W8MaterialRecord)) == 0) {
         return g_read_mesh_materials;
     }
 
@@ -442,11 +426,10 @@ static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* inf
 }
 
 // FUNCTION: WIZ8 0x00485B20
-static std::unique_ptr<stModelInstance>
-ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name, bool load_materials);
+static std::unique_ptr<stModelInstance> ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name,
+                                                                bool load_materials);
 
-std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name,
-                                                     bool load_materials)
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name, bool load_materials)
 try {
     if (!info || !info->hFile) {
         return {};
@@ -468,8 +451,8 @@ try {
 }
 
 // FUNCTION: WIZ8 0x00485C10
-static std::unique_ptr<stModelInstance>
-ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name, bool load_materials)
+static std::unique_ptr<stModelInstance> ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name,
+                                                                bool load_materials)
 try {
     std::vector<short> mapped_values;
     std::vector<short> mapped_keys;
@@ -573,14 +556,12 @@ try {
         }
     } else {
         std::vector<W8LevelFileCompressedFace> compressed_faces(face_count);
-        file->read_exact(compressed_faces.data(),
-                         compressed_faces.size() * sizeof(W8LevelFileCompressedFace));
+        file->read_exact(compressed_faces.data(), compressed_faces.size() * sizeof(W8LevelFileCompressedFace));
         for (int index = 0; index < face_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 faces[index].vertices[vertex] = compressed_faces[index].vertex_indices[vertex];
-                faces[index].texture_coordinates[vertex] = {
-                    compressed_faces[index].texture_coordinates[vertex][0],
-                    compressed_faces[index].texture_coordinates[vertex][1]};
+                faces[index].texture_coordinates[vertex] = {compressed_faces[index].texture_coordinates[vertex][0],
+                                                            compressed_faces[index].texture_coordinates[vertex][1]};
             }
             faces[index].material_index = compressed_faces[index].material_index;
             faces[index].flags = compressed_faces[index].flags;
@@ -601,8 +582,7 @@ try {
         return {};
     }
     for (const auto& face : faces) {
-        if (face.material_index < 0 ||
-            static_cast<std::size_t>(face.material_index) >= materials.size()) {
+        if (face.material_index < 0 || static_cast<std::size_t>(face.material_index) >= materials.size()) {
             return {};
         }
         for (int vertex : face.vertices) {
@@ -611,8 +591,8 @@ try {
             }
         }
     }
-    first_model = BuildSingleLevelMesh(face_count, faces.data(), vertex_count, materials,
-                                       &mesh_count, vertex_maps, &mapped_values, &mapped_keys);
+    first_model = BuildSingleLevelMesh(face_count, faces.data(), vertex_count, materials, &mesh_count, vertex_maps,
+                                       &mapped_values, &mapped_keys);
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
         int mesh_index = 0;
         for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
@@ -667,8 +647,8 @@ try {
 }
 
 // FUNCTION: WIZ8 0x00488240
-std::vector<std::unique_ptr<stModelInstance>>
-ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name)
+std::vector<std::unique_ptr<stModelInstance>> ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count,
+                                                                      const char* name)
 try {
     OctMeshModel reader;
     unsigned int mesh_count;
@@ -839,8 +819,7 @@ try {
         skip = static_cast<std::int64_t>(vertex_count) * frames *
                ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0 ? 6 : 12);
     }
-    skip += static_cast<std::int64_t>(face_count) *
-            ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0 ? 0x21 : 0x29);
+    skip += static_cast<std::int64_t>(face_count) * ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0 ? 0x21 : 0x29);
     if (skip > file.size() - file.tell()) {
         return 0;
     }

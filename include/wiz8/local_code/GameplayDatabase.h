@@ -3,8 +3,7 @@
 struct W8MonsterRecord;
 
 bool LoadMonsterDatabase(W8MonsterRecord** records);
-bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
-                              W8MonsterRecord* records);
+bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex, W8MonsterRecord* records);
 bool LoadMonsterDatabaseRecord(unsigned int monster_species, W8MonsterRecord* record);
 
 extern unsigned int g_starting_item_ids[];

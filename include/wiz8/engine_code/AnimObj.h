@@ -48,20 +48,17 @@ struct W8AnimObj {
     std::vector<W8FrameBounds> frame_bounds;
 };
 
-void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation,
-                     const srVector3T<float>* scale, srVector3T<float>* minimum,
-                     srVector3T<float>* maximum);
+void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation, const srVector3T<float>* scale,
+                     srVector3T<float>* minimum, srVector3T<float>* maximum);
 unsigned int AnimObjValue(W8AnimObj* animation, signed char index);
 unsigned int AnimObjListCount(W8AnimObj* animation, signed char index);
 W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index);
 bool AnimationIsRunning(W8AnimObj* animation);
-bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                         std::vector<stLight*>* light_list, int);
+bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all, std::vector<stLight*>* light_list,
+                         int);
 srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, unsigned char value);
-srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index,
-                                     signed char entry_index);
+srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index, signed char entry_index);
 W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned int entry_index);
-std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
-                                              unsigned int frame);
+std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int frame);
 
 #endif

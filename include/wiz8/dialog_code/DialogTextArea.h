@@ -46,8 +46,8 @@ public:
     W8DialogTextEntry* GetEntry(unsigned int index);
     int GetOwningEntryIndex(int visible_index);
     void SetEntryMarked(int index, bool state);
-    int AddEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
-                 unsigned int text_palette, unsigned char category);
+    int AddEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette, unsigned int text_palette,
+                 unsigned char category);
     void RemoveEntry(unsigned int index);
     void RebuildVisibleEntries();
     void SetCategoryFilter(signed char category);

@@ -49,9 +49,8 @@ void W8AnimRep::SetFrameMethod(signed char method)
    not touched by the canonical constructor. */
 // FUNCTION: WIZ8 0x004b87c0
 W8AnimRepBase::W8AnimRepBase(const W8AnimRepBase& other)
-    : location(other.location), local_location(other.local_location),
-      parent_location(other.parent_location), rotation(other.rotation),
-      highlight_colour(other.highlight_colour), instance_scale(1.0f), flag(false),
+    : location(other.location), local_location(other.local_location), parent_location(other.parent_location),
+      rotation(other.rotation), highlight_colour(other.highlight_colour), instance_scale(1.0f), flag(false),
       apply_instance_scale(0)
 {
 }
@@ -93,9 +92,9 @@ glm::mat3 W8AnimRepBase::GetRotation() const
 // FUNCTION: WIZ8 0x004b53d0
 W8AnimRep::W8AnimRep()
     : subcycle(0), pending_subcycle(0xffff), timer(0), active(0), animation_playing(0),
-      frame_direction(W8_ANIMATION_DIRECTION_NONE), frame_method(0), animation_behaviour(0),
-      pending_behaviour(-1), bounds_min(0.0f, 0.0f, 0.0f), bounds_max(0.0f, 0.0f, 0.0f),
-      bounds_extent(0), value(0), first_frame(0xff), last_frame(0xff)
+      frame_direction(W8_ANIMATION_DIRECTION_NONE), frame_method(0), animation_behaviour(0), pending_behaviour(-1),
+      bounds_min(0.0f, 0.0f, 0.0f), bounds_max(0.0f, 0.0f, 0.0f), bounds_extent(0), value(0), first_frame(0xff),
+      last_frame(0xff)
 {
     if (g_shared_timer_base == 0) {
         srAssertFail("gpsrTimer", "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 0x4e, 0);
@@ -116,11 +115,10 @@ W8AnimRepBase* W8AnimRepBase::Clone()
    that global `gpsrTimer`. */
 // FUNCTION: WIZ8 0x004b54a0
 W8AnimRep::W8AnimRep(const W8AnimRep& other)
-    : W8AnimRepBase(other), subcycle(other.subcycle), pending_subcycle(other.pending_subcycle),
-      timer(other.timer), active(other.active), animation_playing(other.animation_playing),
-      frame_direction(other.frame_direction), frame_method(other.frame_method),
-      animation_behaviour(other.animation_behaviour), pending_behaviour(other.pending_behaviour),
-      bounds_min(other.bounds_min), bounds_max(other.bounds_max),
+    : W8AnimRepBase(other), subcycle(other.subcycle), pending_subcycle(other.pending_subcycle), timer(other.timer),
+      active(other.active), animation_playing(other.animation_playing), frame_direction(other.frame_direction),
+      frame_method(other.frame_method), animation_behaviour(other.animation_behaviour),
+      pending_behaviour(other.pending_behaviour), bounds_min(other.bounds_min), bounds_max(other.bounds_max),
       bounds_extent(other.bounds_extent), value(other.value), first_frame(other.first_frame),
       last_frame(other.last_frame)
 {
@@ -134,15 +132,14 @@ W8AnimRep::W8AnimRep(const W8AnimRep& other)
    selected emitter and the canonical 00 00 FF FF transient byte pattern. */
 // FUNCTION: WIZ8 0x004b5680
 W8EmitterHost::W8EmitterHost(const W8EmitterHost& other)
-    : W8AnimRep(other), m_bLOD(other.m_bLOD), lod_near(other.lod_near), lod_far(other.lod_far),
-      current_cycle(0), current_subcycle(0), forced_subcycle(-1), pending_cycle(-1),
-      animation_radius(other.animation_radius)
+    : W8AnimRep(other), m_bLOD(other.m_bLOD), lod_near(other.lod_near), lod_far(other.lod_far), current_cycle(0),
+      current_subcycle(0), forced_subcycle(-1), pending_cycle(-1), animation_radius(other.animation_radius)
 {
 }
 
 // FUNCTION: WIZ8 0x004b5600
 W8EmitterHost::W8EmitterHost()
-    : m_bLOD(0), lod_near(g_lod_range_default0), lod_far(g_lod_range_default1), current_cycle(0),
-      current_subcycle(0), forced_subcycle(-1), pending_cycle(-1), animation_radius(0)
+    : m_bLOD(0), lod_near(g_lod_range_default0), lod_far(g_lod_range_default1), current_cycle(0), current_subcycle(0),
+      forced_subcycle(-1), pending_cycle(-1), animation_radius(0)
 {
 }

@@ -96,10 +96,10 @@ bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
 
     const auto packed_size = static_cast<Uint32>(SDL_GetIOSize(stream.get()));
     srIO::check(SDL_WriteU32LE(handle.io(), packed_size));
-    srIO::writeExact(handle.io(),
-                     SDL_GetPointerProperty(SDL_GetIOProperties(stream.get()),
-                                            SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
-                     packed_size);
+    srIO::writeExact(
+        handle.io(),
+        SDL_GetPointerProperty(SDL_GetIOProperties(stream.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
+        packed_size);
     srIO::check(SDL_WriteU32LE(handle.io(), kMagic));
     return true;
 }

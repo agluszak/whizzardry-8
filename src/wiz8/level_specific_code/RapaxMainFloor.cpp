@@ -69,8 +69,7 @@ static void SpawnActivatedItemAt(const char* entity, int item_id)
 
     if (FindEntityByName(entity, &entity_position, 0, 0)) {
         position = entity_position;
-        world_item =
-            SpawnItem(item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
+        world_item = SpawnItem(item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
         if (world_item != 0) {
             ActivateItem(world_item);
         }

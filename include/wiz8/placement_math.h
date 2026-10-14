@@ -27,8 +27,7 @@ struct Grid {
     }
 };
 
-inline std::optional<glm::vec3> grounded(const glm::vec3& candidate, float ground,
-                                         bool allow_large_drop)
+inline std::optional<glm::vec3> grounded(const glm::vec3& candidate, float ground, bool allow_large_drop)
 {
     const float height = std::abs(candidate.y - ground);
     if (!(height >= 1 && height <= g_navigator_vertical_snap_limit &&

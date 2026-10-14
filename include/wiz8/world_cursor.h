@@ -101,8 +101,7 @@ void SetWorldCursorRange(float distance); /* 0x00491650 */
 void SetWorldCursorGroupId(int group_id); /* 0x004916A0 */
 /* Arm footprint placement: the target resolver ground-probes the two fixed
    offsets instead of the probe box. */
-void SetWorldCursorExtents(const srVector3T<float>* minimum,
-                           const srVector3T<float>* maximum); /* 0x00492190 */
+void SetWorldCursorExtents(const srVector3T<float>* minimum, const srVector3T<float>* maximum); /* 0x00492190 */
 /* 0x00490C20: copies the cursor state vector at +0x28, or zero when there is
    no cursor. */
 void GetWorldCursorAnchor(srVector3T<float>* position);

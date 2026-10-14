@@ -12,10 +12,8 @@
 W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
 {
     for (int part = 0; part < 3; ++part) {
-        m_targets[part] =
-            &m_input.add(SDL_Rect{0, 0, 1, 1}, [this, part](const UiPointerEvent& event) {
-                return HandlePointer(part, event);
-            });
+        m_targets[part] = &m_input.add(
+            SDL_Rect{0, 0, 1, 1}, [this, part](const UiPointerEvent& event) { return HandlePointer(part, event); });
     }
     SetBounds({left, top, right - left, bottom - top});
     SetActive(false);
@@ -108,8 +106,7 @@ UiResult W8RangeControl::HandlePointer(int part, const UiPointerEvent& event)
         return UiResult::Handled;
     }
     if (part < 2) {
-        const ButtonPolicy policy{
-            .activation = ButtonActivation::Press, .repeat = true, .controller_activation = true};
+        const ButtonPolicy policy{.activation = ButtonActivation::Press, .repeat = true, .controller_activation = true};
         auto& press = m_arrows[part];
         if (event.action == UiPointerAction::Leave) {
             press.leave(policy);
@@ -162,8 +159,7 @@ UiResult W8RangeControl::HandlePointer(int part, const UiPointerEvent& event)
     }
     if (changed) {
         m_position = std::clamp(m_position, 0.f, 1.f);
-        const int value = std::min(
-            m_maximum, m_minimum + static_cast<int>(m_position * (m_maximum - m_minimum + 1)));
+        const int value = std::min(m_maximum, m_minimum + static_cast<int>(m_position * (m_maximum - m_minimum + 1)));
         if (value != m_value) {
             m_value = value;
             if (on_change) {
@@ -181,10 +177,7 @@ void W8RangeControl::Redraw(SDL_Surface& target, bool full_redraw)
     }
     m_dirty = false;
     for (int part = 0; part < 2; ++part) {
-        const int frame = part * 8 + (!m_enabled                   ? 3
-                                      : m_arrows[part].pressed     ? 2
-                                      : m_targets[part]->hovered() ? 1
-                                                                   : 0);
+        const int frame = part * 8 + (!m_enabled ? 3 : m_arrows[part].pressed ? 2 : m_targets[part]->hovered() ? 1 : 0);
         const auto size = m_artwork.size(frame);
         m_artwork.drawAndInvalidate(target, frame, m_bounds.x + 16 - size.x,
                                     m_bounds.y + (part ? m_bounds.h - 16 : 0) + (16 - size.y) / 2);

@@ -111,8 +111,8 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     position.x = static_cast<float>(camera_position.x);
     position.z = static_cast<float>(camera_position.z);
     const auto bounds = g_plate_prop->computeBounds();
-    if ((position.x >= bounds.minimum.x && position.x <= bounds.maximum.x &&
-         position.z >= bounds.minimum.z && position.z <= bounds.maximum.z) ||
+    if ((position.x >= bounds.minimum.x && position.x <= bounds.maximum.x && position.z >= bounds.minimum.z &&
+         position.z <= bounds.maximum.z) ||
         g_plate_prop->HasSupportedItems()) {
         if (g_plate_down) {
             return false;

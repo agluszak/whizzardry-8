@@ -35,8 +35,7 @@ using Bytes = std::vector<Uint8>;
 using OwnedSurface = std::unique_ptr<srColorSurfaceIFace>;
 static Bytes fixture(const char* name)
 {
-    std::ifstream input(std::filesystem::path(WIZ8_IMAGE_IMPORT_FIXTURE_DIR) / name,
-                        std::ios::binary);
+    std::ifstream input(std::filesystem::path(WIZ8_IMAGE_IMPORT_FIXTURE_DIR) / name, std::ios::binary);
     REQUIRE(input.good());
     return {std::istreambuf_iterator<char>(input), {}};
 }
@@ -63,10 +62,9 @@ static Bytes encode(srColorSurfaceIFace& surface, int quality = 100)
 {
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save("sample.jpg", output.get(), surface, quality);
-    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) &&
-             SDL_GetIOSize(output.get()) > 2));
-    auto* data = static_cast<const Uint8*>(SDL_GetPointerProperty(
-        SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
+    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2));
+    auto* data = static_cast<const Uint8*>(
+        SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     return {data, data + SDL_GetIOSize(output.get())};
 }
 // Fixtures generated with libjpeg quality 95 from a constant 32x32 RGB image
@@ -84,8 +82,8 @@ static void jpegValidationTests()
         auto surface = loadJpeg(bytes);
         REQUIRE((surface && surface->getWidth() == 32 && surface->getHeight() == 32));
         const auto pixel = surface->getPixel(0, 0);
-        REQUIRE((abs(int((pixel >> 16) & 255) - 40) <= 2 &&
-                 abs(int((pixel >> 8) & 255) - 90) <= 2 && abs(int(pixel & 255) - 150) <= 2));
+        REQUIRE((abs(int((pixel >> 16) & 255) - 40) <= 2 && abs(int((pixel >> 8) & 255) - 90) <= 2 &&
+                 abs(int(pixel & 255) - 150) <= 2));
         for (const auto removed : {size_t(2), size_t(8), bytes.size() / 2}) {
             Bytes truncated(bytes.begin(), bytes.end() - removed);
             REQUIRE(!loadJpeg(truncated));
@@ -117,8 +115,7 @@ static void jpegTests()
             p[3] = 40;
         }
     }
-    auto source =
-        std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16);
+    auto source = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16);
     const auto rgb = encode(*source);
     REQUIRE(rgb == encode(*source, 100));
     REQUIRE(rgb == encode(*source, 200));
@@ -133,8 +130,7 @@ static void jpegTests()
         SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
         srColorSurfaceIFace::SurfaceDesc description;
         REQUIRE(srImage::describe(description, "sample.JPEG", input.get()));
-        REQUIRE(
-            (SDL_TellIO(input.get()) == 7 && SDL_GetIOStatus(input.get()) != SDL_IO_STATUS_ERROR));
+        REQUIRE((SDL_TellIO(input.get()) == 7 && SDL_GetIOStatus(input.get()) != SDL_IO_STATUS_ERROR));
         REQUIRE((description.width == 3 && description.height == 2));
         auto surface = loadJpeg(*data);
         REQUIRE((surface && surface->getWidth() == 3 && surface->getHeight() == 2));
@@ -144,31 +140,26 @@ static void jpegTests()
         auto io = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
         srImage::Surface decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
         REQUIRE(decoded);
-        srImage::Surface reference(SDL_ConvertSurface(decoded.get(), four_channels
-                                                                         ? SDL_PIXELFORMAT_BGRA32
-                                                                         : SDL_PIXELFORMAT_BGR24),
-                                   SDL_DestroySurface);
+        srImage::Surface reference(
+            SDL_ConvertSurface(decoded.get(), four_channels ? SDL_PIXELFORMAT_BGRA32 : SDL_PIXELFORMAT_BGR24),
+            SDL_DestroySurface);
         REQUIRE(reference);
         for (unsigned y = 0; y < 2; ++y) {
-            const auto* expected =
-                static_cast<const Uint8*>(reference->pixels) + y * reference->pitch;
-            const auto* row =
-                static_cast<const Uint8*>(surface->getDataPtr()) + y * surface->getPitch();
+            const auto* expected = static_cast<const Uint8*>(reference->pixels) + y * reference->pitch;
+            const auto* row = static_cast<const Uint8*>(surface->getDataPtr()) + y * surface->getPitch();
             for (unsigned x = 0; x < 3; ++x) {
                 if (monochrome) {
                     REQUIRE(row[x] == expected[x * 3]);
                     REQUIRE(abs(int(row[x]) - int(20 + 9 * (3 * y + x))) <= 1);
                 } else {
-                    REQUIRE(memcmp(row + x * pixel_bytes, expected + x * pixel_bytes,
-                                   pixel_bytes) == 0);
+                    REQUIRE(memcmp(row + x * pixel_bytes, expected + x * pixel_bytes, pixel_bytes) == 0);
                     if (four_channels) {
                         REQUIRE(row[x * 4 + 3] == 255);
                     }
                     if (data == &rgb) {
                         const auto* original = pixels.data() + y * 16 + x * 4;
                         for (unsigned component = 0; component < 3; ++component) {
-                            REQUIRE(abs(int(row[x * 3 + component]) - int(original[component])) <=
-                                    3);
+                            REQUIRE(abs(int(row[x * 3 + component]) - int(original[component])) <= 3);
                         }
                     }
                 }
@@ -177,8 +168,7 @@ static void jpegTests()
         REQUIRE(!encode(*surface).empty());
     }
     // SDL/libjpeg tolerates missing EOI; the SDL entry point must reject it.
-    for (size_t length :
-         {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2}) {
+    for (size_t length : {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2}) {
         REQUIRE(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length)));
     }
     auto invalid = rgb;
@@ -208,16 +198,14 @@ static void pitchTests()
                               Format{SDL_PIXELFORMAT_ARGB1555, srPixelConvert::SURFACE_ARGB1555, 2},
                               Format{SDL_PIXELFORMAT_BGR24, srPixelConvert::SURFACE_BGR24, 3},
                               Format{SDL_PIXELFORMAT_BGRA32, srPixelConvert::SURFACE_BGRA32, 4}}) {
-        const unsigned row_bytes = 3 * format.bytes, src_pitch = row_bytes + 5,
-                       dst_pitch = row_bytes + 7;
+        const unsigned row_bytes = 3 * format.bytes, src_pitch = row_bytes + 5, dst_pitch = row_bytes + 7;
         Bytes src(2 * src_pitch, 0xac), dst(2 * dst_pitch, 0xcd);
         for (unsigned y = 0; y < 2; ++y) {
             for (unsigned x = 0; x < row_bytes; ++x) {
                 src[y * src_pitch + x] = 20 * y + x;
             }
         }
-        srImage::Surface view(SDL_CreateSurfaceFrom(3, 2, format.sdl, src.data(), src_pitch),
-                              SDL_DestroySurface);
+        srImage::Surface view(SDL_CreateSurfaceFrom(3, 2, format.sdl, src.data(), src_pitch), SDL_DestroySurface);
         auto destination = std::make_unique<srColorSurface>(format.sr, dst.data(), 3, 2, dst_pitch);
         REQUIRE((view && destination));
         for (bool mirror : {false, true}) {
@@ -251,13 +239,12 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
 {
     TgaFixture fixture;
     fixture.bytes = depth / 8;
-    fixture.format =
-        indexed       ? srPixelConvert::SURFACE_P8
-        : depth == 8  ? srPixelConvert::SURFACE_L8
-        : depth == 16 ? (alpha ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555)
-        : depth == 24 ? srPixelConvert::SURFACE_BGR24
-        : alpha       ? srPixelConvert::SURFACE_BGRA32
-                      : srPixelConvert::SURFACE_BGRX32;
+    fixture.format = indexed       ? srPixelConvert::SURFACE_P8
+                     : depth == 8  ? srPixelConvert::SURFACE_L8
+                     : depth == 16 ? (alpha ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555)
+                     : depth == 24 ? srPixelConvert::SURFACE_BGR24
+                     : alpha       ? srPixelConvert::SURFACE_BGRA32
+                                   : srPixelConvert::SURFACE_BGRX32;
     Bytes& file = fixture.encoded;
     file.resize(18);
     file[0] = 3;
@@ -294,9 +281,8 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
             const unsigned word = value == 0 ? 0 : value == 1 ? 0xfc03 : 0x03e0;
             fixture.expected.insert(fixture.expected.end(), {Uint8(word), Uint8(word >> 8)});
         } else {
-            fixture.expected.insert(
-                fixture.expected.end(),
-                {Uint8(10 + value * 50), Uint8(70 + value * 30), Uint8(210 - value * 40)});
+            fixture.expected.insert(fixture.expected.end(),
+                                    {Uint8(10 + value * 50), Uint8(70 + value * 30), Uint8(210 - value * 40)});
             if (depth == 32) {
                 fixture.expected.push_back(value * 100);
             }
@@ -305,10 +291,8 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
     Bytes serialized;
     for (unsigned y = 0; y < 2; ++y) {
         for (unsigned x = 0; x < 3; ++x) {
-            const unsigned canonical =
-                ((origin & 0x20) ? y : 1 - y) * 3 + ((origin & 0x10) ? 2 - x : x);
-            serialized.insert(serialized.end(),
-                              fixture.expected.begin() + canonical * fixture.bytes,
+            const unsigned canonical = ((origin & 0x20) ? y : 1 - y) * 3 + ((origin & 0x10) ? 2 - x : x);
+            serialized.insert(serialized.end(), fixture.expected.begin() + canonical * fixture.bytes,
                               fixture.expected.begin() + (canonical + 1) * fixture.bytes);
         }
     }
@@ -317,9 +301,8 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
     } else {
         for (unsigned p = 0; p < 6;) {
             unsigned run = 1;
-            while (p + run < 6 &&
-                   memcmp(serialized.data() + p * fixture.bytes,
-                          serialized.data() + (p + run) * fixture.bytes, fixture.bytes) == 0) {
+            while (p + run < 6 && memcmp(serialized.data() + p * fixture.bytes,
+                                         serialized.data() + (p + run) * fixture.bytes, fixture.bytes) == 0) {
                 ++run;
             }
             file.push_back(run > 1 ? 0x80 | (run - 1) : 0);
@@ -355,8 +338,7 @@ static void tgaTests()
                     const auto fixture = tgaFixture(depth, false, rle, origin, alpha);
                     auto surface = loadTga(fixture.encoded);
                     if (!surface) {
-                        fprintf(stderr, "TGA depth=%u rle=%d origin=%u alpha=%d\n", depth, rle,
-                                origin, alpha);
+                        fprintf(stderr, "TGA depth=%u rle=%d origin=%u alpha=%d\n", depth, rle, origin, alpha);
                     }
                     REQUIRE(surface);
                     checkTga(fixture, *surface);
@@ -381,8 +363,7 @@ static void tgaTests()
                     const auto color = palette->getColor(7 + i);
                     REQUIRE(color.alpha == (palette_bits == 32 ? 40 + i : 255));
                     if (palette_bits != 16) {
-                        REQUIRE(
-                            (color.blue == 10 + i && color.green == 30 + i && color.red == 90 + i));
+                        REQUIRE((color.blue == 10 + i && color.green == 30 + i && color.red == 90 + i));
                     } else {
                         REQUIRE((color.red >= 248 && color.blue != 0));
                     }
@@ -451,8 +432,7 @@ struct FaultIO {
     }
     static size_t SDLCALL read(void* cookie, void*, size_t, SDL_IOStatus* status)
     {
-        *status =
-            static_cast<FaultIO*>(cookie)->fault == 3 ? SDL_IO_STATUS_ERROR : SDL_IO_STATUS_EOF;
+        *status = static_cast<FaultIO*>(cookie)->fault == 3 ? SDL_IO_STATUS_ERROR : SDL_IO_STATUS_EOF;
         return 0;
     }
     static size_t SDLCALL write(void* cookie, const void*, size_t bytes, SDL_IOStatus* status)

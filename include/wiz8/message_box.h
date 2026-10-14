@@ -24,8 +24,7 @@ struct W8LevelUpNotice {
 };
 
 /* Work a portrait bubble owes on dismissal; empty for plain text bubbles. */
-using W8QuoteNotice =
-    std::variant<std::monostate, W8ExperienceNoticePayload, W8SkillNoticePayload, W8LevelUpNotice>;
+using W8QuoteNotice = std::variant<std::monostate, W8ExperienceNoticePayload, W8SkillNoticePayload, W8LevelUpNotice>;
 
 /* Quest-specific world changes a script fact or level script queues behind
    the conversation. RunNpcStoryAction (npc_story_events.cpp) performs them. */
@@ -158,10 +157,9 @@ struct W8NpcTravelConfirm {
 };
 
 using W8NpcAction =
-    std::variant<W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedNotice, W8NpcCommand,
-                 W8NpcStoryAction, W8NpcRecruit, W8NpcDismiss, W8NpcPartySpeakerEvent,
-                 W8NpcLevelUpReaction, W8NpcPartyScriptLine, W8NpcPortraitString, W8NpcMarkMissing,
-                 W8NpcLeaveCombat, W8NpcTravelConfirm>;
+    std::variant<W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedNotice, W8NpcCommand, W8NpcStoryAction, W8NpcRecruit,
+                 W8NpcDismiss, W8NpcPartySpeakerEvent, W8NpcLevelUpReaction, W8NpcPartyScriptLine, W8NpcPortraitString,
+                 W8NpcMarkMissing, W8NpcLeaveCombat, W8NpcTravelConfirm>;
 
 /* Queue record consumed by ProcessMessageBoxQueue. */
 struct W8MessageBoxLine {

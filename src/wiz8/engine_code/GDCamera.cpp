@@ -195,8 +195,7 @@ void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* conte
     const auto forward = (*rotation)[2];
     if (context && forward != glm::vec3(0, 0, 1)) {
         context->camera_motion_velocity = forward * g_camera_level_forward_scale;
-        context->camera_motion_displacement =
-            context->camera_motion_velocity * context->camera_scale;
+        context->camera_motion_displacement = context->camera_motion_velocity * context->camera_scale;
     }
     const auto angles = directionAngles(forward);
     SetOrientation(angles.yaw, angles.pitch);
@@ -205,8 +204,8 @@ void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* conte
 
 bool GDCamera::CanTrackTarget() const
 {
-    return gXStatus.fNpcDialogueMode || (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) &&
-                                         m_manual_input_timer->PollFinished());
+    return gXStatus.fNpcDialogueMode ||
+           (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) && m_manual_input_timer->PollFinished());
 }
 
 /* Angles that aim from position at target, with yaw wrapped into one turn. Targets
@@ -270,8 +269,7 @@ unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pi
 }
 
 // FUNCTION: WIZ8 0x00477180
-unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
-                                                   float* pitch)
+unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* target, float* angle, float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
     if (g_level_block->camera_mode == 1 || g_level_block->camera_mode == 2) {
@@ -312,8 +310,7 @@ unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* targ
 }
 
 // FUNCTION: WIZ8 0x00477440
-unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float target_angle,
-                                                   bool force)
+unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float target_angle, bool force)
 {
     if (!force && !CanTrackTarget()) {
         return 0;
@@ -340,11 +337,9 @@ unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float tar
         m_start_yaw = m_yaw;
         m_transition_active = true;
         const float distance = std::max(m_yaw_distance, m_pitch_distance);
-        m_transition_duration =
-            distance * g_camera_transition_duration_scale * g_camera_transition_duration_factor;
+        m_transition_duration = distance * g_camera_transition_duration_scale * g_camera_transition_duration_factor;
         m_pitch_velocity = pitch_delta / distance * speed;
-        m_yaw_velocity =
-            m_yaw_distance <= g_camera_angle_dead_zone ? 0.0f : yaw_delta / distance * speed;
+        m_yaw_velocity = m_yaw_distance <= g_camera_angle_dead_zone ? 0.0f : yaw_delta / distance * speed;
         if (m_yaw_velocity != 0) {
             m_orientation_flags |= W8_CAMERA_YAW_MOVING;
         }
@@ -363,26 +358,23 @@ void GDCamera::Update(float elapsed)
         return;
     }
 
-    const float angle_traveled = std::min(
-        std::abs(std::remainder(m_start_yaw - m_yaw, g_camera_angle_period)), m_yaw_distance);
+    const float angle_traveled =
+        std::min(std::abs(std::remainder(m_start_yaw - m_yaw, g_camera_angle_period)), m_yaw_distance);
     const float pitch_traveled = std::min(std::abs(m_start_pitch - m_pitch), m_pitch_distance);
-    const float progress = m_yaw_distance <= m_pitch_distance ? pitch_traveled / m_pitch_distance
-                                                              : angle_traveled / m_yaw_distance;
+    const float progress =
+        m_yaw_distance <= m_pitch_distance ? pitch_traveled / m_pitch_distance : angle_traveled / m_yaw_distance;
     const float phase = m_forced_transition
                             ? g_float_one - progress
-                            : std::acos(glm::clamp(g_float_one - 2 * progress, -1.0f, 1.0f)) *
-                                  g_camera_smoothing_scale;
+                            : std::acos(glm::clamp(g_float_one - 2 * progress, -1.0f, 1.0f)) * g_camera_smoothing_scale;
 
     float next_time = phase * m_transition_duration + elapsed;
     if (next_time <= m_transition_duration) {
         float step;
         if (!m_forced_transition) {
-            float next_weight = static_cast<float>(sin((next_time / m_transition_duration) *
-                                                       static_cast<double>(g_camera_half_period)));
-            float current_weight =
-                static_cast<float>(sin(phase * static_cast<double>(g_camera_half_period)));
-            step = static_cast<float>(
-                fabs(((next_weight + current_weight) * elapsed) * g_double_half));
+            float next_weight = static_cast<float>(
+                sin((next_time / m_transition_duration) * static_cast<double>(g_camera_half_period)));
+            float current_weight = static_cast<float>(sin(phase * static_cast<double>(g_camera_half_period)));
+            step = static_cast<float>(fabs(((next_weight + current_weight) * elapsed) * g_double_half));
         } else {
             step = elapsed;
         }
@@ -442,8 +434,7 @@ void GDCamera::ApplyYawInput(float input)
             m_orientation_flags &= ~W8_CAMERA_YAW_MOVING;
             return;
         }
-        m_yaw_velocity =
-            glm::clamp(m_yaw_velocity, -g_camera_max_yaw_velocity, g_camera_max_yaw_velocity);
+        m_yaw_velocity = glm::clamp(m_yaw_velocity, -g_camera_max_yaw_velocity, g_camera_max_yaw_velocity);
         m_yaw += m_frame_elapsed * m_yaw_velocity;
         if ((m_orientation_flags & W8_CAMERA_LEVELING) != 0) {
             m_target_yaw = m_yaw;
@@ -487,11 +478,9 @@ void GDCamera::ApplyPitchInput(float input)
             return;
         }
     } else if (input <= g_float_zero) {
-        m_orientation_flags &=
-            ~(W8_CAMERA_LEVELING | W8_CAMERA_BRAKING_PITCH | W8_CAMERA_PITCH_UPPER_LIMIT);
+        m_orientation_flags &= ~(W8_CAMERA_LEVELING | W8_CAMERA_BRAKING_PITCH | W8_CAMERA_PITCH_UPPER_LIMIT);
     } else {
-        m_orientation_flags &=
-            ~(W8_CAMERA_LEVELING | W8_CAMERA_BRAKING_PITCH | W8_CAMERA_PITCH_LOWER_LIMIT);
+        m_orientation_flags &= ~(W8_CAMERA_LEVELING | W8_CAMERA_BRAKING_PITCH | W8_CAMERA_PITCH_LOWER_LIMIT);
     }
 
     m_pitch_velocity += input * m_frame_elapsed;
@@ -506,8 +495,8 @@ void GDCamera::ApplyPitchInput(float input)
         m_pitch_velocity = -CAMERA_TURN_RATE;
     }
 
-    float stopping_distance = m_pitch_velocity * g_camera_velocity_stop_scale *
-                              g_camera_velocity_factor * m_pitch_velocity * g_float_half;
+    float stopping_distance =
+        m_pitch_velocity * g_camera_velocity_stop_scale * g_camera_velocity_factor * m_pitch_velocity * g_float_half;
     if (m_pitch_velocity < g_float_zero) {
         stopping_distance = -stopping_distance;
     }
@@ -555,8 +544,7 @@ void GDCamera::BrakePitchAtLimit()
         } else {
             m_pitch = g_camera_pitch_upper;
         }
-        m_orientation_flags &=
-            ~(W8_CAMERA_BRAKING_PITCH | W8_CAMERA_PITCH_UPPER_LIMIT | W8_CAMERA_PITCH_LOWER_LIMIT);
+        m_orientation_flags &= ~(W8_CAMERA_BRAKING_PITCH | W8_CAMERA_PITCH_UPPER_LIMIT | W8_CAMERA_PITCH_LOWER_LIMIT);
     }
     SetPitch(m_pitch);
 }

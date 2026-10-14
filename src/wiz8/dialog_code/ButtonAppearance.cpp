@@ -24,31 +24,28 @@ GenericButtonImage DefaultGenericButtonImage()
     return default_generic_image;
 }
 
-static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                            const SDL_Rect& bounds, const ButtonVisualState& state);
-static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                              const SDL_Rect& bounds, const ButtonVisualState& state);
-static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                             const SDL_Rect& bounds, const ButtonVisualState& state);
+static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* appearance, const SDL_Rect& bounds,
+                            const ButtonVisualState& state);
+static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appearance, const SDL_Rect& bounds,
+                              const ButtonVisualState& state);
+static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appearance, const SDL_Rect& bounds,
+                             const ButtonVisualState& state);
 
-ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
-                                 std::int32_t off_normal, std::int32_t off_hilite,
-                                 std::int32_t on_normal, std::int32_t on_hilite)
+ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
+                                 std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
 {
     if (filename.empty()) {
         return {};
     }
-    return Load(g_image_assets.sprites(filename), grayed, off_normal, off_hilite, on_normal,
-                on_hilite);
+    return Load(g_image_assets.sprites(filename), grayed, off_normal, off_hilite, on_normal, on_hilite);
 }
 
 ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
-                                 std::int32_t off_normal, std::int32_t off_hilite,
-                                 std::int32_t on_normal, std::int32_t on_hilite)
+                                 std::int32_t off_normal, std::int32_t off_hilite, std::int32_t on_normal,
+                                 std::int32_t on_hilite)
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
-    if (!sprites || std::all_of(frames.begin(), frames.end(),
-                                [](int frame) { return frame == BUTTON_NO_IMAGE; })) {
+    if (!sprites || std::all_of(frames.begin(), frames.end(), [](int frame) { return frame == BUTTON_NO_IMAGE; })) {
         return {};
     }
 
@@ -63,11 +60,10 @@ ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites, std
             return {};
         }
         const auto& frame = image->object().frames[index];
-        image->MaxWidth = std::max(
-            image->MaxWidth, static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
+        image->MaxWidth =
+            std::max(image->MaxWidth, static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
         image->MaxHeight =
-            std::max(image->MaxHeight,
-                     static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
+            std::max(image->MaxHeight, static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
     }
     image->Grayed = grayed;
     image->OffNormal = off_normal;
@@ -78,9 +74,8 @@ ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites, std
 }
 
 namespace {
-GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& filenames,
-                                       std::int16_t background_frame, std::int16_t offset_x,
-                                       std::int16_t offset_y, bool optional_highlights = false)
+GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& filenames, std::int16_t background_frame,
+                                       std::int16_t offset_x, std::int16_t offset_y, bool optional_highlights = false)
 {
     if (filenames[0].empty() || filenames[1].empty()) {
         return {};
@@ -94,10 +89,8 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
         object = g_image_assets.sprites(filenames[index]);
         const bool valid =
             object &&
-            (index == 5 ? background_frame >= 0 &&
-                              static_cast<std::size_t>(background_frame) < object->frames.size()
-                        : object->frames.size() >= 9 && object->frames[0].width > 0 &&
-                              object->frames[0].height > 0);
+            (index == 5 ? background_frame >= 0 && static_cast<std::size_t>(background_frame) < object->frames.size()
+                        : object->frames.size() >= 9 && object->frames[0].width > 0 && object->frames[0].height > 0);
         if (!valid) {
             if (optional_highlights && (index == 3 || index == 4)) {
                 object.reset();
@@ -135,12 +128,11 @@ bool InitializeButtonImageManager()
 // FUNCTION: WIZ8 0x0040cb70
 GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_view off_normal,
                                            std::string_view off_hilite, std::string_view on_normal,
-                                           std::string_view on_hilite, std::string_view background,
-                                           std::int16_t index, std::int16_t offset_x,
-                                           std::int16_t offset_y)
+                                           std::string_view on_hilite, std::string_view background, std::int16_t index,
+                                           std::int16_t offset_x, std::int16_t offset_y)
 {
-    return LoadGenericGraphics({off_normal, on_normal, gray, off_hilite, on_hilite, background},
-                               index, offset_x, offset_y);
+    return LoadGenericGraphics({off_normal, on_normal, gray, off_hilite, on_hilite, background}, index, offset_x,
+                               offset_y);
 }
 
 // FUNCTION: WIZ8 0x0040ce60
@@ -149,12 +141,11 @@ void ShutdownButtonImageManager(void)
     default_generic_image.reset();
 }
 
-void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
-                          const SDL_Rect& bounds, const ButtonVisualState& state)
+void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance, const SDL_Rect& bounds,
+                          const ButtonVisualState& state)
 {
-    const bool overlay = appearance.quick_image
-                             ? DrawQuickButton(target, &appearance, bounds, state)
-                             : DrawGenericButton(target, &appearance, bounds, state);
+    const bool overlay = appearance.quick_image ? DrawQuickButton(target, &appearance, bounds, state)
+                                                : DrawGenericButton(target, &appearance, bounds, state);
     if (!appearance.string.empty()) {
         DrawTextOnButton(target, &appearance, bounds, state);
     }
@@ -233,8 +224,8 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b, con
     DrawText(target, *b->usFont, origin, b->string, options);
 }
 
-static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b,
-                              const SDL_Rect& bounds, const ButtonVisualState& state)
+static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b, const SDL_Rect& bounds,
+                              const ButtonVisualState& state)
 {
     if (!b->generic_image) {
         return false;
@@ -256,8 +247,8 @@ static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b,
     SDL_FillSurfaceRect(&target, &bounds, image.fill_color);
     if (image.frames[5]) {
         const int inset = state.pressed ? 1 : 0;
-        TileSprite(target, {bounds.x + inset, bounds.y + inset, bounds.w - inset, bounds.h - inset},
-                   *image.frames[5], image.background_frame, {image.offset_x, image.offset_y});
+        TileSprite(target, {bounds.x + inset, bounds.y + inset, bounds.w - inset, bounds.h - inset}, *image.frames[5],
+                   image.background_frame, {image.offset_x, image.offset_y});
     }
     for (int column = 0; column < columns; ++column) {
         DrawSprite(target, sprites, column == 0 ? 0 : 1, bounds.x + column * width, bounds.y);

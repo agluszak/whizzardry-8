@@ -49,8 +49,7 @@
 
 /* These are recovered in their owning Local Code units. Retail MonGen calls
    them out of line, so keep the cross-TU seams rather than cloning their logic. */
-unsigned char LinkMonsterGroupToLeader(W8MonsterGroup* leader,
-                                       W8MonsterGroup* monster_group); /* 0x0050FC20 */
+unsigned char LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* monster_group); /* 0x0050FC20 */
 
 // FUNCTION: WIZ8 0x0048A680
 MonGen::MonGen()
@@ -176,12 +175,7 @@ try {
 /* Flag bits on a generator: bit 0 suppresses spawning, bit 2 is armed, bit 3
    selects the shared default chance and interval, and bit 5 adds the
    story/faction gate. */
-enum {
-    W8_MONGEN_DISABLED = 1,
-    W8_MONGEN_ARMED = 4,
-    W8_MONGEN_USE_DEFAULT_SETTINGS = 8,
-    W8_MONGEN_STORY_GATED = 0x20
-};
+enum { W8_MONGEN_DISABLED = 1, W8_MONGEN_ARMED = 4, W8_MONGEN_USE_DEFAULT_SETTINGS = 8, W8_MONGEN_STORY_GATED = 0x20 };
 
 /* Ten hours of game time. Past that the elapsed span is not distributed over
    the live groups at all - a fresh roll replaces them instead. */
@@ -375,8 +369,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     group = CreateGroup(species, count, &spawn_position, false, false, true);
     group->encounter_registered = true;
     SetMonsterGroupFormation(group, &this->spawn_position);
-    if (group != 0 && group->encounter_registered &&
-        !std::ranges::contains(g_active_groups, group)) {
+    if (group != 0 && group->encounter_registered && !std::ranges::contains(g_active_groups, group)) {
         g_active_groups.push_back(group);
     }
 
@@ -390,26 +383,23 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
             continue;
         }
 
-        unsigned int companion_species =
-            static_cast<unsigned short>(companion_records[index].species);
+        unsigned int companion_species = static_cast<unsigned short>(companion_records[index].species);
         W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
         if (companion_record == 0) {
-            srAssertFail(
-                "pMonsterDB", MON_GEN_CPP, 0x193,
-                fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
+            srAssertFail("pMonsterDB", MON_GEN_CPP, 0x193,
+                         fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
         }
         if (companion_record->deleted != 0) {
-            DebugMessage(1,
-                         fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
-                                     "species {:d} has been DELETED, chum of species {:d}!",
-                                     companion_species, species));
+            DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
+                                        "species {:d} has been DELETED, chum of species {:d}!",
+                                        companion_species, species));
             return 0;
         }
 
         int companion_group_count = RollDice(&companion_record->group_size_dice);
         companion_count += companion_group_count;
-        W8MonsterGroup* companion_group = CreateGroup(companion_species, companion_group_count,
-                                                      &spawn_position, false, false, true);
+        W8MonsterGroup* companion_group =
+            CreateGroup(companion_species, companion_group_count, &spawn_position, false, false, true);
         companion_group->encounter_registered = true;
         SetMonsterGroupFormation(companion_group, &this->spawn_position);
         LinkMonsterGroupToLeader(group, companion_group);
@@ -417,13 +407,11 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
 
     if (g_dev_mode && gfCapturingVideo == 0 && g_current_screen_state.id != W8_SCREEN_PLEASE_WAIT) {
         W8MonsterRecord* group_record = MonsterGroupGetRecord(group);
-        std::string group_name =
-            group->member_count == 1 ? group_record->name0 : group_record->name1;
+        std::string group_name = group->member_count == 1 ? group_record->name0 : group_record->name1;
         const char* companion_word = companion_count == 1 ? "chum" : "chums";
         ShowNotice(W8_FONT_PALETTE_BROWN,
-                   fmt::format("MonGen ({}): spawned {:d} {} & {:d} {} (lvl {:d})", name,
-                               group->member_count, group_name, companion_count, companion_word,
-                               selected->challenge_level));
+                   fmt::format("MonGen ({}): spawned {:d} {} & {:d} {} (lvl {:d})", name, group->member_count,
+                               group_name, companion_count, companion_word, selected->challenge_level));
     }
     return 1;
 }
@@ -468,29 +456,24 @@ bool MonGen::CanGenerateEncounter(bool force)
     }
 
     if (g_encounter_culling_scale_fast == 1.0f) {
-        srVector3T<float> lower(spawn_position.x - 5000.0f, spawn_position.y - 5000.0f,
-                                spawn_position.z - 5000.0f);
-        srVector3T<float> upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
-                                spawn_position.z + 5000.0f);
+        srVector3T<float> lower(spawn_position.x - 5000.0f, spawn_position.y - 5000.0f, spawn_position.z - 5000.0f);
+        srVector3T<float> upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f, spawn_position.z + 5000.0f);
         const auto locations = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, 0);
         if (!locations.empty()) {
             return false;
         }
     }
 
-    int chance = (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? g_generator_interval_min
-                                                               : custom_spawn_chance;
+    int chance = (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? g_generator_interval_min : custom_spawn_chance;
     return Chance(chance) != 0;
 }
 
 /* Restore the level's encounter budget and population bounds. */
 static void ClampRandomEncounterLimits(const W8LevelDatabaseRecord& level)
 {
-    ClampInteger(&g_random_encounter_budget, level.minimum_encounter_budget,
-                 level.maximum_encounter_budget);
+    ClampInteger(&g_random_encounter_budget, level.minimum_encounter_budget, level.maximum_encounter_budget);
     g_random_encounter_limit = g_random_encounter_budget;
-    ClampInteger(&g_random_encounter_limit, level.minimum_random_encounters,
-                 level.maximum_random_encounters);
+    ClampInteger(&g_random_encounter_limit, level.minimum_random_encounters, level.maximum_random_encounters);
 }
 
 /* Advances the random-encounter budget for the current level.
@@ -512,13 +495,10 @@ void UpdateRandomEncounterBudget(bool reset_budget)
     int index;
 
     if (!reset_budget) {
-        elapsed =
-            g_status.world_clock - g_status.level_progress[g_status.current_level].sight_clock;
-        g_random_encounter_budget +=
-            elapsed / g_level_records[g_status.current_level].encounter_budget_period;
+        elapsed = g_status.world_clock - g_status.level_progress[g_status.current_level].sight_clock;
+        g_random_encounter_budget += elapsed / g_level_records[g_status.current_level].encounter_budget_period;
     } else {
-        g_random_encounter_budget =
-            g_level_records[g_status.current_level].maximum_encounter_budget;
+        g_random_encounter_budget = g_level_records[g_status.current_level].maximum_encounter_budget;
         elapsed = W8_ENCOUNTER_STALE_SECONDS + 1;
     }
     level = &g_level_records[g_status.current_level];
@@ -588,8 +568,7 @@ void CullExpiredEncounters(void)
     if (!IsSightRangeOverridden()) {
         span = g_encounter_culling_time_seconds * g_sight_default;
     } else {
-        span = g_encounter_culling_time_seconds * g_encounter_culling_scale_fast *
-               g_encounter_culling_rate;
+        span = g_encounter_culling_time_seconds * g_encounter_culling_scale_fast * g_encounter_culling_rate;
     }
     for (index = 0; index < static_cast<int>(g_active_groups.size()); ++index) {
         W8MonsterGroup* group = g_active_groups[index];
@@ -797,8 +776,7 @@ void UnregisterActiveEncounterGroup(W8MonsterGroup* group)
 // FUNCTION: WIZ8 0x0048c750
 void RegisterActiveEncounterGroup(W8MonsterGroup* group)
 {
-    if (group == 0 || !group->encounter_registered ||
-        std::ranges::contains(g_active_groups, group)) {
+    if (group == 0 || !group->encounter_registered || std::ranges::contains(g_active_groups, group)) {
         return;
     }
     g_active_groups.push_back(group);
@@ -923,16 +901,13 @@ void MonGen::Reset()
     if (m_pTimer == 0) {
         m_pTimer = new W8IntervalGate;
         if (m_pTimer == 0) {
-            srAssertFail("m_pTimer", MON_GEN_CPP, 0x217,
-                         "MonGen::Reset() out of memory allocating m_pTimer");
+            srAssertFail("m_pTimer", MON_GEN_CPP, 0x217, "MonGen::Reset() out of memory allocating m_pTimer");
         }
         m_pTimer->m_flags.one_shot = false;
     }
-    interval = (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? g_generator_default_interval
-                                                             : custom_interval_seconds;
+    interval = (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? g_generator_default_interval : custom_interval_seconds;
     jitter = interval * g_generator_jitter_fraction;
-    m_pTimer->SetDuration(static_cast<float>(Random(static_cast<int>(jitter) * 2 + 1)) + interval -
-                          jitter);
+    m_pTimer->SetDuration(static_cast<float>(Random(static_cast<int>(jitter) * 2 + 1)) + interval - jitter);
     m_pTimer->Arm();
 }
 
@@ -1109,8 +1084,7 @@ void MonGen::SetName(const char* new_name)
 void MonGen::SetEncounterTable(int index)
 {
     encounter_table_index = index;
-    if (auto* table = GetEncounterTable(index);
-        table && _strnicmp(table->name, "HARASSMENT", 10) == 0) {
+    if (auto* table = GetEncounterTable(index); table && _strnicmp(table->name, "HARASSMENT", 10) == 0) {
         flags |= W8_MONGEN_STORY_GATED;
     }
 }

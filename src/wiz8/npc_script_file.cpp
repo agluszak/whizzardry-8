@@ -68,8 +68,7 @@ try {
         entry.operand1 = stored.operand1;
         entry.operand2 = stored.operand2;
         entry.sub_entry_count = stored.sub_entry_count;
-        if (entry.sub_entry_count >
-            (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::SubEntry)) {
+        if (entry.sub_entry_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::SubEntry)) {
             return std::nullopt;
         }
         entry.sub_entries.reserve(entry.sub_entry_count);

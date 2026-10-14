@@ -52,10 +52,10 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
 void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes);
 /* Settle an enchantment on a character or monster with its argument, rolled
    duration and definition percentage. */
-void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argument,
-                             unsigned int duration, unsigned int percent);
-void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument,
-                           unsigned int duration, unsigned int percent);
+void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argument, unsigned int duration,
+                             unsigned int percent);
+void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument, unsigned int duration,
+                           unsigned int percent);
 bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence);
 /* Record a bound monster in a party member's condition record -
    the level the binding was made on and the monster's location id, with the
@@ -64,8 +64,7 @@ bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence);
 void RemoveAllConditionsFromParty(void);
 /* Bind a monster into one of a character's two dependence
    condition records; a slot-one binding also retires the monster's group. */
-void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int dependence_slot,
-                                      int monster_id);
+void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int dependence_slot, int monster_id);
 
 /* Rescan uiCondition from slot 0x13 downward and write the
    first live index into W8Character::highest_condition. */
@@ -75,9 +74,8 @@ void RecomputeCharacterHighestCondition(int party_slot);
    runs it before the faction fallout. */
 void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info);
 
-unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int duration,
-                                    int poison_strength, char alternate_missing_notice,
-                                    char announce);
+unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int duration, int poison_strength,
+                                    char alternate_missing_notice, char announce);
 
 void RemoveConditionFromEveryone(W8Condition condition);
 void RemoveConditionFromParty(W8Condition condition);

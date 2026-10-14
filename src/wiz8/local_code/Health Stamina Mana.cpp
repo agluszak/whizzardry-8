@@ -61,9 +61,8 @@
 #define HEALTH_STAMINA_MANA_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Health Stamina Mana.cpp"
 
 // FUNCTION: WIZ8 0x0052A890
-unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce,
-                                    bool short_notice, W8SpellEffectResult* result_stats,
-                                    bool detailed)
+unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce, bool short_notice,
+                                    W8SpellEffectResult* result_stats, bool detailed)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     unsigned int absorbed;
@@ -83,8 +82,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     if (character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
         absorbed = character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
         if (amount <= absorbed) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
+            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
             character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
                 static_cast<unsigned short>(absorbed - amount);
             if (result_stats != 0) {
@@ -93,8 +91,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             return 0;
         }
 
-        PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
         amount -= absorbed;
         ClearCharacterEnchantmentSlot(party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
         PostCharacterNotice(party_slot, g_localized_strings[0x194]);
@@ -112,8 +109,8 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
         } else if (short_notice) {
             ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x254], amount));
         } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x255], amount,
-                                                         quiet ? g_localized_strings[0x257] : ""));
+            PostCharacterNotice(
+                party_slot, fmt::sprintf(g_localized_strings[0x255], amount, quiet ? g_localized_strings[0x257] : ""));
         }
     }
 
@@ -143,8 +140,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             report->value = party_slot;
             result_stats->reports.push_back(std::move(report));
         }
-        SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
-                              result_stats == 0);
+        SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, result_stats == 0);
     }
 
     if (character->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
@@ -180,8 +176,7 @@ void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* res
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied &&
             g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_DEAD) {
-            ApplyDamageToCharacter(party_slot, RollDice(dice), false, announce, false, result,
-                                   false);
+            ApplyDamageToCharacter(party_slot, RollDice(dice), false, announce, false, result, false);
         }
     }
 }
@@ -231,8 +226,7 @@ void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount)
 
     if (amount != 0) {
         if (character->iSPLeft[realm] < amount) {
-            srAssertFail("pPC->iSPLeft[uiRealm] >= (INT32) uiSPs", HEALTH_STAMINA_MANA_CPP, 1067,
-                         0);
+            srAssertFail("pPC->iSPLeft[uiRealm] >= (INT32) uiSPs", HEALTH_STAMINA_MANA_CPP, 1067, 0);
         }
         character->iSPLeft[realm] -= amount;
         RequestPartySlotRedraw(party_slot);
@@ -297,8 +291,8 @@ char g_poison_suffix[] = "POISON ";
 /* Roll the dice once for every live monster inside the radius of a point and
    apply each roll as damage through the monster-side effect pass. */
 // FUNCTION: WIZ8 0x0052BA80
-void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const W8Dice* dice,
-                            W8TargetSource* source, W8SpellEffectResult* result)
+void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const W8Dice* dice, W8TargetSource* source,
+                            W8SpellEffectResult* result)
 {
     unsigned int index;
     int damage;
@@ -310,8 +304,7 @@ void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive) {
             location = MonsterGetLocation(monster_info->p3D);
-            offset = srVector3T<float>(center.x - location.x, center.y - location.y,
-                                       center.z - location.z);
+            offset = srVector3T<float>(center.x - location.x, center.y - location.y, center.z - location.z);
             if (offset.Length() <= radius) {
                 damage = RollDice(dice);
                 ApplyDamageToMonster(monster_info, damage, source, false, 1, 0, result, false);
@@ -326,9 +319,8 @@ void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const
    and the remainder comes off hit points - a lethal hit logs a kill record
    and starts the death sequence. Returns the amount actually applied. */
 // FUNCTION: WIZ8 0x0052BB60
-unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amount,
-                                  W8TargetSource* source, bool quiet, unsigned char in_combat,
-                                  char a, W8SpellEffectResult* result_stats, bool c)
+unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amount, W8TargetSource* source, bool quiet,
+                                  unsigned char in_combat, char a, W8SpellEffectResult* result_stats, bool c)
 {
     unsigned int absorbed;
     unsigned int applied;
@@ -340,8 +332,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
     if (monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
         absorbed = monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
         if (amount <= absorbed) {
-            PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
+            PostMonsterNotice(monster_info, fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
             monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
                 static_cast<unsigned short>(absorbed - amount);
             if (result_stats != 0) {
@@ -349,8 +340,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             return 0;
         }
-        PostMonsterNotice(monster_info,
-                          fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
+        PostMonsterNotice(monster_info, fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
         amount -= absorbed;
         ClearMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_GUARDIAN_ANGEL);
     }
@@ -367,21 +357,19 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             if (in_combat != 0) {
                 if (c) {
-                    ShowNotice(category, fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                                     g_localized_strings[0x268]));
+                    ShowNotice(category,
+                               fmt::format("{} {}", GetMonsterName(monster_info, 0, 0), g_localized_strings[0x268]));
                 } else if (a != 0) {
                     ShowNotice(category, fmt::sprintf(g_localized_strings[0x254], amount));
                 } else {
-                    ShowNotice(category, fmt::sprintf(g_localized_strings[0x256],
-                                                      GetMonsterName(monster_info, 0, 0), amount,
-                                                      quiet ? g_poison_suffix : ""));
+                    ShowNotice(category, fmt::sprintf(g_localized_strings[0x256], GetMonsterName(monster_info, 0, 0),
+                                                      amount, quiet ? g_poison_suffix : ""));
                 }
             }
         }
         if (!source->fBackfire && !source->fReflection && source->target_diverted == 0 && !quiet) {
             monster_info->condition_target = *source;
-            if (monster_info->fInCombat && TargetSourceIsCharacter(source, 0) &&
-                source->iChar != -1) {
+            if (monster_info->fInCombat && TargetSourceIsCharacter(source, 0) && source->iChar != -1) {
                 monster_info->pCombat->character_hate[source->iChar] += amount;
             }
         }
@@ -414,8 +402,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
 // FUNCTION: WIZ8 0x0052bfd0
 void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce)
 {
-    if (monster_info->hp_current == 0 ||
-        monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax) ||
+    if (monster_info->hp_current == 0 || monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax) ||
         amount == 0) {
         return;
     }
@@ -429,12 +416,11 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 
     if (announce) {
         if (monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax)) {
-            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x259],
-                                                          GetMonsterName(monster_info, 0, 0)));
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(g_localized_strings[0x259], GetMonsterName(monster_info, 0, 0)));
         } else {
             ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(g_localized_strings[0x25b], GetMonsterName(monster_info, 0, 0),
-                                    amount));
+                       fmt::sprintf(g_localized_strings[0x25b], GetMonsterName(monster_info, 0, 0), amount));
         }
     }
 }
@@ -487,12 +473,7 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
 
 /* The two fatigue-band thresholds and the four bands they cut the stamina
    fraction into. Both characters and monsters use the same ladder. */
-enum {
-    W8_FATIGUE_BAND_1 = 0x32,
-    W8_FATIGUE_BAND_2 = 0x46,
-    W8_FATIGUE_BAND_3 = 0x55,
-    W8_FATIGUE_BAND_4 = 0x5e
-};
+enum { W8_FATIGUE_BAND_1 = 0x32, W8_FATIGUE_BAND_2 = 0x46, W8_FATIGUE_BAND_3 = 0x55, W8_FATIGUE_BAND_4 = 0x5e };
 
 /* How much stamina shakes exhaustion off again. */
 enum { W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION = 9 };
@@ -595,8 +576,7 @@ void HealCharacter(int party_slot, int amount, bool announce)
                 gXStatus.character_event_queue->SetEventCharacterMask(g_effect2, party_slot, false);
             }
             if (gXStatus.character_event_queue->HasEventCharacter(g_effect17, party_slot)) {
-                gXStatus.character_event_queue->SetEventCharacterMask(g_effect17, party_slot,
-                                                                      false);
+                gXStatus.character_event_queue->SetEventCharacterMask(g_effect17, party_slot, false);
             }
         }
     }
@@ -635,8 +615,7 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
 
     previous_band = character->fatigue_band;
     band = FatigueBandFromMissing(
-        100 - static_cast<int>((character->stamina * 100) /
-                               static_cast<unsigned int>(character->uiStaminaMax)));
+        100 - static_cast<int>((character->stamina * 100) / static_cast<unsigned int>(character->uiStaminaMax)));
     character->fatigue_band = band;
     if (band != previous_band) {
         CalcArmorClasses(character);
@@ -677,9 +656,8 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
             }
             SpendCharacterSpellPoints(party_slot, realm, taken);
             if (announce) {
-                ShowNotice(W8_FONT_PALETTE_WHITE,
-                           fmt::sprintf(g_localized_strings[0x263], amount,
-                                        g_localized_strings[g_realm_message_offsets[realm]]));
+                ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x263], amount,
+                                                               g_localized_strings[g_realm_message_offsets[realm]]));
             }
             remaining = amount - taken;
             amount = remaining;
@@ -727,11 +705,10 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
             break;
         }
         for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
-            if (order[index].deficit == 0 || (index != W8_SPELL_REALM_COUNT - 1 &&
-                                              order[index].deficit < order[index + 1].deficit)) {
+            if (order[index].deficit == 0 ||
+                (index != W8_SPELL_REALM_COUNT - 1 && order[index].deficit < order[index + 1].deficit)) {
                 if (index == W8_SPELL_REALM_COUNT - 1) {
-                    PostCharacterNotice(party_slot,
-                                        fmt::sprintf(g_localized_strings[0x1a3], granted));
+                    PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a3], granted));
                     return;
                 }
                 continue;
@@ -774,8 +751,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
         character->hp_adjustment -= damage;
         RecalculateCharacterHitPoints(character);
         if (character->uiCondition[W8_CONDITION_DRAINED] == 0) {
-            SetCharacterCondition(party_slot, W8_CONDITION_DRAINED, W8_CONDITION_INDEFINITE, 0, 0,
-                                  0);
+            SetCharacterCondition(party_slot, W8_CONDITION_DRAINED, W8_CONDITION_INDEFINITE, 0, 0, 0);
         }
         if (character->hp_current != 0) {
             QueueDamageReactionEvents(character);
@@ -787,8 +763,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
    exhausted condition indefinitely, and tells whoever asked for the fatigue
    that it landed. */
 // FUNCTION: WIZ8 0x0052c070
-void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
-                    W8SpellEffectResult* report_to)
+void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount, W8SpellEffectResult* report_to)
 {
     W8TargetSource target_block;
 
@@ -805,14 +780,12 @@ void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
     }
 
     monster_info->fatigue_band = FatigueBandFromMissing(
-        100 - static_cast<int>((monster_info->stamina * 100) /
-                               static_cast<unsigned int>(monster_info->stamina_max)));
+        100 - static_cast<int>((monster_info->stamina * 100) / static_cast<unsigned int>(monster_info->stamina_max)));
 
-    if (monster_info->stamina == 0 &&
-        monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
+    if (monster_info->stamina == 0 && monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
         ResetTargetSource(&target_block);
-        SetMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS,
-                            W8_CONDITION_INDEFINITE, 0, &target_block, report_to == 0);
+        SetMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
+                            &target_block, report_to == 0);
         if (report_to != 0) {
             ++report_to->condition_counts[W8_CONDITION_UNCONSCIOUS];
         }
@@ -852,18 +825,16 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
     }
     if (announce) {
         if (static_cast<unsigned int>(monster_info->stamina) == stamina_max) {
-            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x25d],
-                                                          GetMonsterName(monster_info, 0, 0)));
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(g_localized_strings[0x25d], GetMonsterName(monster_info, 0, 0)));
         } else {
             ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(g_localized_strings[0x25f], GetMonsterName(monster_info, 0, 0),
-                                    amount));
+                       fmt::sprintf(g_localized_strings[0x25f], GetMonsterName(monster_info, 0, 0), amount));
         }
     }
 
     monster_info->fatigue_band = FatigueBandFromMissing(
-        100 - static_cast<int>((monster_info->stamina * 100) /
-                               static_cast<unsigned int>(monster_info->stamina_max)));
+        100 - static_cast<int>((monster_info->stamina * 100) / static_cast<unsigned int>(monster_info->stamina_max)));
 
     if (monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE &&
         static_cast<unsigned int>(monster_info->stamina) > W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION) {
@@ -882,8 +853,7 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
 
     if (monster_info->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
-        Random(100) < static_cast<unsigned int>(
-                          (monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] >> 1) + 0x32)) {
+        Random(100) < static_cast<unsigned int>((monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] >> 1) + 0x32)) {
         ClearMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP);
     }
     if (monster_info->control_state == W8_MONSTER_CONTROL_LURED) {
@@ -893,15 +863,13 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
     if (!TargetSourceIsCharacter(attacker, 0) && !TargetSourceIsMonster(attacker, 0)) {
         return;
     }
-    if (!attacker->fBackfire && !attacker->fReflection && attacker->target_diverted == 0 &&
-        !quiet && monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
+    if (!attacker->fBackfire && !attacker->fReflection && attacker->target_diverted == 0 && !quiet &&
+        monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
         if (TargetSourceIsCharacter(attacker, 0)) {
-            if (MonsterVsCharDisposition(attacker->iChar, monster_info) ==
-                W8_DISPOSITION_FRIENDLY) {
+            if (MonsterVsCharDisposition(attacker->iChar, monster_info) == W8_DISPOSITION_FRIENDLY) {
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
-        } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) ==
-                   W8_DISPOSITION_FRIENDLY) {
+        } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) == W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
         }
     }
@@ -916,8 +884,7 @@ enum { W8_FATIGUE_BAND_DEEP = 2, W8_FATIGUE_BAND_RECOVERED = 2 };
    exhausted condition; merely dropping into the deep band applies the
    deep-fatigue effect once. */
 // FUNCTION: WIZ8 0x0052af50
-void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
-                      W8SpellEffectResult* report_to)
+void FatigueCharacter(int party_slot, int amount, bool scale_by_load, W8SpellEffectResult* report_to)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     int previous_band;
@@ -929,7 +896,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
     }
 
 #pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
+#pragma clang diagnostic ignored                                                                                       \
     "-Wsometimes-uninitialized" // uninit-ok: retail's invalid-load assertion continues without
                                 // assigning a percentage; that unresolved value still affects
                                 // stamina
@@ -951,8 +918,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
             load_percent = 200;
             break;
         default:
-            srAssertFail("FALSE", HEALTH_STAMINA_MANA_CPP, 813,
-                         "FatigueCharacter: ERROR - Invalid load category");
+            srAssertFail("FALSE", HEALTH_STAMINA_MANA_CPP, 813, "FatigueCharacter: ERROR - Invalid load category");
             break;
         }
         if (character->uiCondition[W8_CONDITION_SLOWED] == 0) {
@@ -975,8 +941,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
 
     previous_band = character->fatigue_band;
     band = FatigueBandFromMissing(
-        100 - static_cast<int>((character->stamina * 100) /
-                               static_cast<unsigned int>(character->uiStaminaMax)));
+        100 - static_cast<int>((character->stamina * 100) / static_cast<unsigned int>(character->uiStaminaMax)));
     character->fatigue_band = band;
     if (band != previous_band) {
         CalcArmorClasses(character);
@@ -984,16 +949,14 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
 
     if (character->stamina < 1) {
         if (character->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
-            SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
-                                  0, report_to == 0);
+            SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0, 0, report_to == 0);
             if (report_to != 0) {
                 ++report_to->condition_counts[W8_CONDITION_UNCONSCIOUS];
             }
         }
     } else if (band != previous_band && band > W8_FATIGUE_BAND_DEEP) {
         if (!character->deep_fatigue_applied) {
-            QueueCharacterEvent(character, g_effect4, 0, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(character, g_effect4, 0, g_character_event_no_flags, g_character_event_full_volume);
             character->deep_fatigue_applied = true;
         }
         if (static_cast<unsigned int>(character->fatigue_band) < W8_FATIGUE_BAND_RECOVERED) {
@@ -1019,16 +982,14 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
     switch (action_kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
-        attack_mode = static_cast<W8AttackMode>(
-            g_status.buffers.XChar[party_slot].attack_mode[combat_row->current_hand]);
+        attack_mode =
+            static_cast<W8AttackMode>(g_status.buffers.XChar[party_slot].attack_mode[combat_row->current_hand]);
         if (attack_mode == W8_ATTACK_MODE_PUNCH) {
             cost = Random(3) + 2;
         } else if (attack_mode == W8_ATTACK_MODE_KICK) {
             cost = Random(3) + 3;
         } else {
-            item_id = g_status.buffers.Char[party_slot]
-                          .EquippedItem[combat_row->current_equip_slot]
-                          .iItemNo;
+            item_id = g_status.buffers.Char[party_slot].EquippedItem[combat_row->current_equip_slot].iItemNo;
             if (item_id == -1) {
                 cost = Random(4) + 3;
             } else {
@@ -1071,8 +1032,7 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
 /* Drain spell points from one named realm, taking no more than it holds.
    Announced with the realm's own name. */
 // FUNCTION: WIZ8 0x0052b6d0
-void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned int amount,
-                                    bool announce)
+void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned int amount, bool announce)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     unsigned int available;
@@ -1086,9 +1046,8 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     }
 
     if (g_status.world_suspended) {
-        PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x262], amount,
-                                         g_localized_strings[g_realm_message_offsets[realm]]));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x262], amount,
+                                                     g_localized_strings[g_realm_message_offsets[realm]]));
         return;
     }
 
@@ -1103,9 +1062,8 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     }
     SpendCharacterSpellPoints(party_slot, realm, amount);
     if (announce) {
-        ShowNotice(W8_FONT_PALETTE_WHITE,
-                   fmt::sprintf(g_localized_strings[0x263], amount,
-                                g_localized_strings[g_realm_message_offsets[realm]]));
+        ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x263], amount,
+                                                       g_localized_strings[g_realm_message_offsets[realm]]));
     }
 }
 
@@ -1210,8 +1168,8 @@ void RecalculateCharacterHitPoints(W8Character* character)
         character->uiHPMax = hit_points;
         character->hp_current = remaining;
         if (remaining == 0) {
-            SetCharacterCondition(CharacterPointerToPartySlot(character), W8_CONDITION_DEAD,
-                                  W8_CONDITION_INDEFINITE, 0, 0, 1);
+            SetCharacterCondition(CharacterPointerToPartySlot(character), W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0,
+                                  0, 1);
         }
     }
 }
@@ -1229,8 +1187,7 @@ void RecalculateCharacterStamina(W8Character* character)
 {
     unsigned int previous = character->uiStaminaMax;
     unsigned int value = static_cast<unsigned int>(
-        ((character->attributes[W8_ATTRIBUTE_STRENGTH].effective +
-          character->attributes[W8_ATTRIBUTE_PIETY].effective +
+        ((character->attributes[W8_ATTRIBUTE_STRENGTH].effective + character->attributes[W8_ATTRIBUTE_PIETY].effective +
           character->attributes[W8_ATTRIBUTE_VITALITY].effective) *
          (1.0f / 3.0f)) *
             (character->uiExpLevel * g_item_weight_display_scale + g_environment_near_scale) +
@@ -1245,8 +1202,7 @@ void RecalculateCharacterStamina(W8Character* character)
     if (value != previous) {
         character->stamina += value - previous;
     }
-    int fatigue =
-        100 - static_cast<int>(static_cast<unsigned int>(character->stamina) * 100 / value);
+    int fatigue = 100 - static_cast<int>(static_cast<unsigned int>(character->stamina) * 100 / value);
     if (fatigue < 0x32) {
         character->fatigue_band = 0;
         return;
@@ -1268,8 +1224,7 @@ void RecalculateCharacterStamina(W8Character* character)
 void RecalculateRealmSpellPoints(W8Character* character)
 {
     W8Profession profession = character->iProfession;
-    if (profession != W8_PROFESSION_FIGHTER &&
-        (profession < W8_PROFESSION_ROGUE || profession > W8_PROFESSION_BARD)) {
+    if (profession != W8_PROFESSION_FIGHTER && (profession < W8_PROFESSION_ROGUE || profession > W8_PROFESSION_BARD)) {
         character->skill_unlocks[0x24] = RebuildRealmSpellPointCeilings(character);
         return;
     }
@@ -1307,8 +1262,8 @@ int RebuildRealmSpellPointCeilings(W8Character* character)
     }
     qsort(realm_skills, 4, sizeof(realm_skills[0]), CompareUnsignedDescending);
 
-    float weighted = static_cast<float>(realm_skills[0] + (realm_skills[1] >> 1) +
-                                        (realm_skills[2] >> 2) + (realm_skills[3] >> 3));
+    float weighted =
+        static_cast<float>(realm_skills[0] + (realm_skills[1] >> 1) + (realm_skills[2] >> 2) + (realm_skills[3] >> 3));
     if (weighted > 125.0f) {
         weighted = 125.0f;
     }
@@ -1316,12 +1271,11 @@ int RebuildRealmSpellPointCeilings(W8Character* character)
     for (index = 0; index < 6; ++index) {
         int old = character->sp_max[index];
         unsigned int learned = character->skill_unlocks[0x1c + index];
-        int computed =
-            static_cast<int>(((weighted + character->skills[W8_SKILL_FIRE_MAGIC + index].level * 3 +
-                               character->attributes[W8_ATTRIBUTE_PIETY].effective) *
-                              g_float_two_hundredths) *
-                                 (learned + character->uiExpLevel + 1) +
-                             g_double_half);
+        int computed = static_cast<int>(((weighted + character->skills[W8_SKILL_FIRE_MAGIC + index].level * 3 +
+                                          character->attributes[W8_ATTRIBUTE_PIETY].effective) *
+                                         g_float_two_hundredths) *
+                                            (learned + character->uiExpLevel + 1) +
+                                        g_double_half);
         if (best < computed) {
             best = computed;
         }
@@ -1359,10 +1313,8 @@ unsigned int FindPartySlotWithLowestHitPoints(void)
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied &&
-            character->highest_condition < W8_CONDITION_DEAD) {
-            unsigned int percent =
-                (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
+        if (g_status.buffers.XChar[slot].fOccupied && character->highest_condition < W8_CONDITION_DEAD) {
+            unsigned int percent = (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
             if (percent < best_percent) {
                 best_slot = slot;
                 best_percent = percent;
@@ -1383,8 +1335,7 @@ unsigned int FindPartySlotWithLowestSpellPoints(void)
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied &&
-            character->highest_condition < W8_CONDITION_DEAD) {
+        if (g_status.buffers.XChar[slot].fOccupied && character->highest_condition < W8_CONDITION_DEAD) {
             unsigned int pool_max = SumCharacterSpellPoints(character);
             if (pool_max > 0) {
                 int pool_left = SumCharacterSpellPointsLeft(character);
@@ -1422,8 +1373,7 @@ W8Character* FindPartyMemberWithLowestResistance4(void)
     int selected = 0;
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
         W8Character* character = &g_status.buffers.Char[party_slot];
-        if (g_status.buffers.XChar[party_slot].fOccupied &&
-            character->highest_condition < W8_CONDITION_DEAD &&
+        if (g_status.buffers.XChar[party_slot].fOccupied && character->highest_condition < W8_CONDITION_DEAD &&
             character->resistances[4].total < lowest) {
             selected = party_slot;
             lowest = character->resistances[4].total;

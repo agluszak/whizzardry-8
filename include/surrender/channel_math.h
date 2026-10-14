@@ -44,15 +44,13 @@ inline void normalize(std::span<float> values, float normalization, float amplit
 
 enum class RampDirection { increasing, decreasing };
 
-inline void distanceRamp(std::span<float> destination, std::span<const float> distances,
-                         float origin, float normalization, float amplitude,
-                         RampDirection direction)
+inline void distanceRamp(std::span<float> destination, std::span<const float> distances, float origin,
+                         float normalization, float amplitude, RampDirection direction)
 {
     assert(distances.size() >= destination.size());
     for (std::size_t i = 0; i < destination.size(); ++i) {
-        destination[i] = direction == RampDirection::increasing
-                             ? (origin == 0 ? distances[i] : -origin + distances[i])
-                             : (origin == 0 ? -distances[i] : origin - distances[i]);
+        destination[i] = direction == RampDirection::increasing ? (origin == 0 ? distances[i] : -origin + distances[i])
+                                                                : (origin == 0 ? -distances[i] : origin - distances[i]);
     }
     normalize(destination, normalization, amplitude);
 }

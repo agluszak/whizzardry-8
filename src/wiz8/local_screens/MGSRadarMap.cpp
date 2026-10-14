@@ -42,11 +42,10 @@
    facing/up orientation vectors. */
 // GLOBAL: WIZ8 0x0064ca90
 static float g_radar_blip_colors[18][3] = {
-    {0.5f, 0.5f, 0.0f}, {0.7f, 0.7f, 0.0f}, {1.0f, 1.0f, 0.0f}, {0.5f, 0.0f, 0.0f},
-    {0.7f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.5f, 0.0f}, {0.0f, 0.7f, 0.0f},
-    {0.0f, 1.0f, 0.0f}, {0.2f, 0.2f, 0.2f}, {0.5f, 0.5f, 0.5f}, {0.7f, 0.7f, 0.7f},
-    {0.5f, 0.5f, 0.5f}, {0.7f, 0.7f, 0.7f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.5f},
-    {0.0f, 0.0f, 0.7f}, {0.0f, 0.0f, 1.0f},
+    {0.5f, 0.5f, 0.0f}, {0.7f, 0.7f, 0.0f}, {1.0f, 1.0f, 0.0f}, {0.5f, 0.0f, 0.0f}, {0.7f, 0.0f, 0.0f},
+    {1.0f, 0.0f, 0.0f}, {0.0f, 0.5f, 0.0f}, {0.0f, 0.7f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.2f, 0.2f, 0.2f},
+    {0.5f, 0.5f, 0.5f}, {0.7f, 0.7f, 0.7f}, {0.5f, 0.5f, 0.5f}, {0.7f, 0.7f, 0.7f}, {1.0f, 1.0f, 1.0f},
+    {0.0f, 0.0f, 0.5f}, {0.0f, 0.0f, 0.7f}, {0.0f, 0.0f, 1.0f},
 };
 
 /* UbDisposition to blip class for live monsters. */
@@ -223,15 +222,13 @@ void RefreshRadarMap(void)
 
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index,
-                                                   g_radar_cell_offsets[cell].x,
+                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index, g_radar_cell_offsets[cell].x,
                                                    g_radar_cell_offsets[cell].y);
             }
         }
     }
 
-    const auto frame_artwork =
-        CatalogArtwork::Load(g_level_block->radar_map_alternate ? 0xa2 : 0xa1);
+    const auto frame_artwork = CatalogArtwork::Load(g_level_block->radar_map_alternate ? 0xa2 : 0xa1);
     auto frame_surface = RenderSpriteToImage(*frame_artwork.spriteSheet(), 0);
     if (!frame_surface) {
         return;
@@ -282,8 +279,7 @@ void UpdateRadarBlips(void)
         return;
     }
     if (g_radar_compass != 0) {
-        RotateNodeInDegrees(g_radar_compass, g_status.party_facing -
-                                                 static_cast<int>(g_status.party_heading) + 0x168);
+        RotateNodeInDegrees(g_radar_compass, g_status.party_facing - static_cast<int>(g_status.party_heading) + 0x168);
     }
     if (g_radar_frame != 0) {
         RotateNodeInDegrees(g_radar_frame, g_status.party_facing);
@@ -304,8 +300,7 @@ void UpdateRadarBlips(void)
                 position += center;
                 party = g_startup_world->GetPosition();
                 delta = position - party;
-                if ((detect_all || (rep->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
-                     HasCameraLineOfSight(&position)) &&
+                if ((detect_all || (rep->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 || HasCameraLineOfSight(&position)) &&
                     delta.Length() <= g_radar_outer_radius) {
                     if (PlaceRadarBlip(&delta, 4, item->IsRadarBlipLit()) != 0) {
                         rep->flags |= W8_ITEM_ENTITY_RADAR_SEEN;
@@ -320,14 +315,13 @@ void UpdateRadarBlips(void)
     while (info != 0) {
         W8Monster* monster = info->p3D;
 
-        if (monster != 0 && info->fActive && info->within_viewing_distance &&
-            (!monster->disabled || detect_all)) {
+        if (monster != 0 && info->fActive && info->within_viewing_distance && (!monster->disabled || detect_all)) {
             bool hostile = false;
 
             if (gXStatus.fCombatMode && g_status.selected_character != -1 &&
                 g_status.buffers.XChar[g_status.selected_character].fOccupied != 0 &&
-                (static_cast<unsigned char>(1 << g_status.selected_character) &
-                 MonsterGetHighlightMask(monster)) != 0) {
+                (static_cast<unsigned char>(1 << g_status.selected_character) & MonsterGetHighlightMask(monster)) !=
+                    0) {
                 hostile = true;
             }
             if (!monster->IsRenderable(true) && !detect_all) {
@@ -382,8 +376,7 @@ void UpdateRadarBlips(void)
                         distance = g_radar_outer_radius / (distance - monster->radius);
                         delta.x *= distance;
                         delta.z *= distance;
-                        PlaceRadarBlip(&delta, g_radar_disposition_class[info->ubDisposition],
-                                       hostile);
+                        PlaceRadarBlip(&delta, g_radar_disposition_class[info->ubDisposition], hostile);
                     }
                 }
             }
@@ -428,8 +421,7 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    const float angle =
-        static_cast<float>(360 - g_status.party_facing) * (std::numbers::pi_v<float> / 180.0f);
+    const float angle = static_cast<float>(360 - g_status.party_facing) * (std::numbers::pi_v<float> / 180.0f);
     *delta = glm::rotateY(delta->glmValue(), angle);
     delta->y = 0.0f;
 

@@ -106,8 +106,7 @@ private:
 std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode = OpenMode::read);
 // Native imports are explicitly separate, even for C:/... on Windows.
 // Host writes to immutable roots or symlink aliases of them are rejected.
-std::unique_ptr<File> open_host_file(const std::filesystem::path& path,
-                                     OpenMode mode = OpenMode::read);
+std::unique_ptr<File> open_host_file(const std::filesystem::path& path, OpenMode mode = OpenMode::read);
 
 // Validates the complete directory before publishing entries. Mounted archives
 // contain no live streams; each open owns its own bounded cursor. Loose files
@@ -127,13 +126,11 @@ void create_directory(std::string_view game_path);
 void clear_read_only(std::string_view game_path);
 // Basenames, merged overlay-first, ASCII case-insensitive * / ? matching.
 // *.* also matches extensionless game files. Missing directories throw.
-std::vector<std::string> list_directory(std::string_view game_directory,
-                                        std::string_view pattern = "*");
+std::vector<std::string> list_directory(std::string_view game_directory, std::string_view pattern = "*");
 
 // Streams opened for a copy are closed before destination replacement. Callers
 // must close independently owned destination streams themselves (also Windows).
-void copy_file(std::string_view source, std::string_view destination,
-               CopyMode mode = CopyMode::fail_if_exists);
+void copy_file(std::string_view source, std::string_view destination, CopyMode mode = CopyMode::fail_if_exists);
 // Owns a same-filesystem staging file. commit flushes and closes every shared
 // stream reference before publication; abandonment removes the temporary file.
 class StagedFile {

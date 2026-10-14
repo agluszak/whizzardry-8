@@ -32,8 +32,8 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
     if (m_finished) {
         return 1;
     }
-    unsigned int intervals = static_cast<unsigned int>(ReadClock() - m_start) /
-                             static_cast<unsigned int>(m_end - m_start);
+    unsigned int intervals =
+        static_cast<unsigned int>(ReadClock() - m_start) / static_cast<unsigned int>(m_end - m_start);
     if (static_cast<int>(intervals) > 0) {
         if (m_flags.one_shot) {
             m_finished = true;

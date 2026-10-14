@@ -15,8 +15,7 @@
 namespace srMeshMath {
 // UV tables may keep indices outside the geometry permutation. Other callers
 // require every corner to have a corresponding entry in the map.
-inline glm::ivec3 remapTriangle(glm::ivec3 triangle, std::span<const w8_ulong> indices,
-                                bool retain_external = false)
+inline glm::ivec3 remapTriangle(glm::ivec3 triangle, std::span<const w8_ulong> indices, bool retain_external = false)
 {
     for (int corner = 0; corner < 3; ++corner) {
         const auto index = static_cast<w8_ulong>(triangle[corner]);
@@ -31,8 +30,7 @@ inline glm::ivec3 remapTriangle(glm::ivec3 triangle, std::span<const w8_ulong> i
 
 inline glm::vec3 polygonNormal(std::span<const glm::vec3> positions, const glm::ivec3& triangle)
 {
-    return srPlaneMath::triangleNormal(positions[triangle.x], positions[triangle.y],
-                                       positions[triangle.z]);
+    return srPlaneMath::triangleNormal(positions[triangle.x], positions[triangle.y], positions[triangle.z]);
 }
 
 // Accumulate area-weighted polygon normals through optional shade groups. Keep
@@ -40,8 +38,7 @@ inline glm::vec3 polygonNormal(std::span<const glm::vec3> positions, const glm::
 // have different storage but must sum the same corners in the same order.
 template<glm::length_t Components>
 std::vector<glm::vec3> vertexNormalSums(std::span<const glm::ivec3> triangles,
-                                        std::span<const glm::vec<Components, float>> normals,
-                                        std::size_t vertex_count,
+                                        std::span<const glm::vec<Components, float>> normals, std::size_t vertex_count,
                                         std::span<const w8_ulong> shade_indices = {})
 {
     std::vector<glm::vec3> sums(vertex_count, glm::vec3(0));

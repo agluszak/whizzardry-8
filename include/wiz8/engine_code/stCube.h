@@ -53,8 +53,7 @@ void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size);
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale);
 void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale);
 void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale);
-void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, float green,
-                                       float blue);
+void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, float green, float blue);
 /* 0x0048DCA0 forwards to the full label painter at 0x0048DCB0. */
 void RefreshWorldCursorNodeLabel(W8WorldCursorNode* entry);
 /* Return the indexed cursor node, or the first node when the index is past the end. */
@@ -66,8 +65,7 @@ void SetWorldCursorNodeName(W8WorldCursorNode* entry, const char* name);
 void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
 /* 0x0048E3E0: the world-cursor node under the screen point, or 0. */
 W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
-void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum,
-                  w8_ulong color);
+void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum, w8_ulong color);
 unsigned char SaveWorldCursorNodeStates(wiz8::File& handle);
 unsigned char SaveWorldCursorNodes(wiz8::File& handle);
 unsigned int LoadWorldCursorNodes(wiz8::File& handle);

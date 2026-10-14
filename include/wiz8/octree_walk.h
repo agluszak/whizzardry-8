@@ -6,8 +6,7 @@
 
 // Inclusive x/y/z traversal; query callers choose whether to clip the range.
 // Break at the endpoint before incrementing, including at INT_MAX.
-template<class Visit>
-void visitOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last, Visit visit)
+template<class Visit> void visitOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last, Visit visit)
 {
     if (glm::any(glm::greaterThan(first, last))) {
         return;
@@ -37,8 +36,8 @@ void visitOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last, Visit v
 }
 
 template<class Visit>
-void visitClippedOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last,
-                               const glm::ivec3& dimensions, Visit visit)
+void visitClippedOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last, const glm::ivec3& dimensions,
+                               Visit visit)
 {
     visitOctreeCellBox(glm::max(first, glm::ivec3(0)), glm::min(last, dimensions - 1), visit);
 }
@@ -101,8 +100,7 @@ struct W8OctreeWalk {
 // Adjacent queries probe their quantized endpoints directly. Longer queries
 // lazily construct the fixed-point walk and can stop at the first blocked cell.
 template<class MakeWalk, class Visit>
-void visitOctreeSegment(const glm::ivec3& first, const glm::ivec3& last, MakeWalk makeWalk,
-                        Visit visit)
+void visitOctreeSegment(const glm::ivec3& first, const glm::ivec3& last, MakeWalk makeWalk, Visit visit)
 {
     const auto delta = glm::abs(last - first);
     const auto distance = delta.x + delta.y + delta.z;

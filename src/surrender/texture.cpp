@@ -255,8 +255,7 @@ void srTexture::setMipmapBias(float bias)
 }
 
 // Packed state keeps each field at a fixed shift; these helpers read and replace one field.
-template<class Enum>
-static w8_ulong withField(w8_ulong packed, w8_ulong field_mask, unsigned shift, Enum value)
+template<class Enum> static w8_ulong withField(w8_ulong packed, w8_ulong field_mask, unsigned shift, Enum value)
 {
     return (packed & ~field_mask) | (static_cast<w8_ulong>(value) << shift);
 }
@@ -275,22 +274,19 @@ void srTexture::setCorrection(e_correction correction)
 // FUNCTION: SURRENDER 0x1005EC80
 void srTexture::setMagFilter(e_filter filter)
 {
-    packed_state =
-        withField(packed_state, Parameters::MAG_FILTER_MASK, Parameters::MAG_FILTER_SHIFT, filter);
+    packed_state = withField(packed_state, Parameters::MAG_FILTER_MASK, Parameters::MAG_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECA0
 void srTexture::setMinFilter(e_filter filter)
 {
-    packed_state =
-        withField(packed_state, Parameters::MIN_FILTER_MASK, Parameters::MIN_FILTER_SHIFT, filter);
+    packed_state = withField(packed_state, Parameters::MIN_FILTER_MASK, Parameters::MIN_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECC0
 void srTexture::setMipmap(e_mipmap mipmap)
 {
-    packed_state =
-        withField(packed_state, Parameters::MIPMAP_MASK, Parameters::MIPMAP_SHIFT, mipmap);
+    packed_state = withField(packed_state, Parameters::MIPMAP_MASK, Parameters::MIPMAP_SHIFT, mipmap);
 }
 
 // FUNCTION: SURRENDER 0x1005ECE0

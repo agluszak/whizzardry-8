@@ -112,12 +112,11 @@ struct W8HandAttack {
     int swings;                  /* Retail offset 0x19 */
     int damage_bonus;            /* Retail offset 0x1d */
     int hit_bonus;               /* Retail offset 0x21 */
-    int attack_bonus; /* Retail offset 0x25: attack-score term, paired with modifier attack_bonus */
+    int attack_bonus;            /* Retail offset 0x25: attack-score term, paired with modifier attack_bonus */
     int damage_percent; /* Retail offset 0x29: percent damage multiplier, paired with modifier damage_percent */
     W8Dice damage_dice; /* Retail offset 0x2d */
     unsigned short attack_flags; /* Retail offset 0x31 */
-    unsigned char condition_chances
-        [W8_ATTACK_EFFECT_COUNT]; /* Retail offset 0x33: unarmed condition probabilities */
+    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT]; /* Retail offset 0x33: unarmed condition probabilities */
     unsigned char unknown_43[0x18];
 };
 #pragma pack(pop) /* Retail offset 0x5b */
@@ -145,7 +144,7 @@ struct W8Character {
     unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
     /* Retail offset 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
-    W8Profession iProfession; /* Retail offset 0x0069 */
+    W8Profession iProfession;         /* Retail offset 0x0069 */
     W8Profession original_profession; /* Retail offset 0x006d */
     /* Retail offset 0x0071: indexes the race resistance table. */
     W8Race iRace;
@@ -162,7 +161,7 @@ struct W8Character {
        by the character rebuild; all three accesses are four-byte stores. */
     int unknown_007d;
     int personality; /* indexes the state-5 descriptor text */
-    int voice; /* selected by the character voice control */
+    int voice;       /* selected by the character voice control */
     /* Retail offset 0x0089: the experience level; averaged across occupied slots. */
     unsigned int uiExpLevel;
     int profession_levels[W8_PROFESSION_COUNT]; /* Retail offset 0x008d */
@@ -213,11 +212,11 @@ struct W8Character {
     /* Retail offset 0x0b0d..0x0b20: the two pools with a ceiling each, plus the adjustment
        damage is booked against before hit points are recalculated. A character
        whose hp_current is zero is treated as out of the fight everywhere. */
-    int uiHPMax; /* Retail offset 0x0b0d */
-    unsigned int hp_current; /* Retail offset 0x0b11 */
-    int hp_adjustment; /* Retail offset 0x0b15 */
-    int uiStaminaMax; /* Retail offset 0x0b19 */
-    int stamina; /* Retail offset 0x0b1d */
+    int uiHPMax;                  /* Retail offset 0x0b0d */
+    unsigned int hp_current;      /* Retail offset 0x0b11 */
+    int hp_adjustment;            /* Retail offset 0x0b15 */
+    int uiStaminaMax;             /* Retail offset 0x0b19 */
+    int stamina;                  /* Retail offset 0x0b1d */
     unsigned int fatigue_penalty; /* Retail offset 0x0b21: taken off the stamina ceiling */
     /* Retail offset 0x0b25 and 0x0b45: the spell-point pools, one per spell realm. */
     int sp_max[W8_SPELL_REALM_COUNT]; /* Retail offset 0x0b25 */
@@ -241,10 +240,10 @@ struct W8Character {
     float stamina_regen_accumulator;
     float spell_regen_rates[12];
     unsigned char unknown_0ba9[0x10];
-    unsigned int inventory_weight; /* Retail offset 0x0bb9 */
-    unsigned int party_weight_share; /* Retail offset 0x0bbd */
+    unsigned int inventory_weight;     /* Retail offset 0x0bb9 */
+    unsigned int party_weight_share;   /* Retail offset 0x0bbd */
     unsigned int total_carried_weight; /* Retail offset 0x0bc1 */
-    unsigned int carrying_capacity; /* Retail offset 0x0bc5; displayed divided by 10 */
+    unsigned int carrying_capacity;    /* Retail offset 0x0bc5; displayed divided by 10 */
     /* Retail offset 0x0bc9: the load category, zero through four, which scales what an
        action costs in fatigue. FatigueCharacter's error text calls it that. */
     W8LoadCategory load_category;
@@ -310,7 +309,7 @@ struct W8Character {
     W8WorldCameraState saved_location; /* Retail offset 0x17d7 */
     /* Retail offset 0x1813: which level that anchor belongs to. The recall compares it
        against g_status.current_level and takes a different path when they differ. */
-    int saved_level; /* Retail offset 0x1813 */
+    int saved_level;                          /* Retail offset 0x1813 */
     W8CharacterConditionRecord conditions[4]; /* Retail offset 0x1817 .. 0x185a */
     /* Retail offset 0x185b: the deep-fatigue effect is already on this character, which is
        what stops FatigueCharacter re-applying it every turn. */

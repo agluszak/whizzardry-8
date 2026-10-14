@@ -104,8 +104,8 @@ bool g_world_update_requested = true;
    and ReadLevel parsers remain their original owners; this routine establishes
    their order, inputs, and rollback-visible world  */
 // FUNCTION: WIZ8 0x0044F5F0
-unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
-                        const char* asset_folder, bool use_octree)
+unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder, const char* asset_folder,
+                        bool use_octree)
 {
     char extension[4];
     char level_path[1024];
@@ -171,8 +171,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 
     world->psrMeshes.clear();
     if (world->octree != nullptr && world->octree->GetMeshCount() != 0) {
-        world->psrMeshes.resize(static_cast<std::size_t>(world->octree->GetMeshCount()) + 1,
-                                nullptr);
+        world->psrMeshes.resize(static_cast<std::size_t>(world->octree->GetMeshCount()) + 1, nullptr);
         strcpy(level_path, pvl_path);
     }
 
@@ -196,8 +195,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     }
     handle.reset();
     if (success == 0) {
-        srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd,
-                     "Problem loading level, please check files and versions.");
+        srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd, "Problem loading level, please check files and versions.");
     }
     /* ReadLevel failure is assertion-only in the canonical body. LoadWorld
        still performs the mesh update and returns success. */
@@ -329,10 +327,9 @@ void SetCameraSwayMode(srCamera* camera, int mode)
     if (mode != 0) {
         if (mode > 0) {
             g_camera_base_horizontal_fov =
-                static_cast<float>(camera->getHorizontalFOV() *
-                                   (g_world_camera_half_turn_degrees / g_world_camera_pi));
-            g_camera_base_vertical_fov = static_cast<float>(
-                camera->getVerticalFOV() * (g_world_camera_half_turn_degrees / g_world_camera_pi));
+                static_cast<float>(camera->getHorizontalFOV() * (g_world_camera_half_turn_degrees / g_world_camera_pi));
+            g_camera_base_vertical_fov =
+                static_cast<float>(camera->getVerticalFOV() * (g_world_camera_half_turn_degrees / g_world_camera_pi));
             if (!g_camera_sway_active) {
                 g_camera_sway_horizontal_phase = 0.0f;
                 g_camera_sway_vertical_phase = 0.0f;
@@ -340,8 +337,7 @@ void SetCameraSwayMode(srCamera* camera, int mode)
             }
         } else {
             double radians = g_world_camera_pi * g_float_inverse_half_turn_degrees;
-            camera->setViewPlane(radians * g_camera_base_horizontal_fov,
-                                 radians * g_camera_base_vertical_fov);
+            camera->setViewPlane(radians * g_camera_base_horizontal_fov, radians * g_camera_base_vertical_fov);
             EndCameraSway();
             return;
         }
@@ -360,11 +356,9 @@ void SetCameraSwayMode(srCamera* camera, int mode)
     }
 
     double radians = g_world_camera_pi * g_float_inverse_half_turn_degrees;
-    camera->setViewPlane(
-        (sin(radians * g_camera_sway_horizontal_phase) * 0.75 + g_camera_base_horizontal_fov) *
-            radians,
-        (sin(radians * g_camera_sway_vertical_phase) * 0.63f + g_camera_base_vertical_fov) *
-            radians);
+    camera->setViewPlane((sin(radians * g_camera_sway_horizontal_phase) * 0.75 + g_camera_base_horizontal_fov) *
+                             radians,
+                         (sin(radians * g_camera_sway_vertical_phase) * 0.63f + g_camera_base_vertical_fov) * radians);
 }
 
 /* Entity teardown still has gameplay/rendering side effects. Keep its order
@@ -475,20 +469,17 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         }
         if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            const auto orientation =
-                world->game_data->cameraRotation(flags, world->camera->getRotation<glm::mat3>());
+            const auto orientation = world->game_data->cameraRotation(flags, world->camera->getRotation<glm::mat3>());
             world->camera->setRotation(orientation.rotation);
             s_saved_camera_rotation = orientation.rotation;
             yaw = GetCameraYawInDegrees();
             pitch = GetCameraPitchInDegrees();
             g_startup_world->SetAngles(yaw);
             g_startup_world->SetPitch(pitch);
-            const auto motion =
-                world->game_data->cameraMotion(flags, camera_position, orientation.movement_basis);
+            const auto motion = world->game_data->cameraMotion(flags, camera_position, orientation.movement_basis);
             if (motion.moved) {
                 camera_position += motion.displacement;
-                navigator_position.Set(camera_position.x,
-                                       camera_position.y - g_default_world_height,
+                navigator_position.Set(camera_position.x, camera_position.y - g_default_world_height,
                                        camera_position.z);
                 if (world->camera_light != 0) {
                     render_position = glm::dvec3(camera_position);
@@ -776,8 +767,7 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         srAssertFail("pWorld", THREE_D_API_CPP, 0x321, 0);
     }
     if ((flags & W8_WORLD_INCREASE_FAR_CLIP) != 0) {
-        WorldSetFarClip(world,
-                        static_cast<float>(WorldGetFarClip(world)) + g_position_height_epsilon);
+        WorldSetFarClip(world, static_cast<float>(WorldGetFarClip(world)) + g_position_height_epsilon);
         scale = 2.0f;
         if (WorldGetFarClip(world) >= g_float_fifty_thousand) {
             scale = 1.5f;
@@ -785,16 +775,14 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
     }
     if ((flags & W8_WORLD_DECREASE_FAR_CLIP) != 0) {
-        WorldSetFarClip(world,
-                        static_cast<float>(WorldGetFarClip(world)) - g_position_height_epsilon);
+        WorldSetFarClip(world, static_cast<float>(WorldGetFarClip(world)) - g_position_height_epsilon);
         scale = 2.0f;
         if (WorldGetFarClip(world) >= g_float_fifty_thousand) {
             scale = 1.5f;
         }
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
     }
-    if ((flags & W8_WORLD_WIDEN_MESH_VIEW) != 0 &&
-        g_mesh_view_half_angle_degrees < g_float_half_turn_degrees) {
+    if ((flags & W8_WORLD_WIDEN_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees < g_float_half_turn_degrees) {
         g_mesh_view_half_angle_degrees += g_float_ten;
     }
     if ((flags & W8_WORLD_NARROW_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees > g_float_ten) {
@@ -807,12 +795,10 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         world->m_loaded = !world->m_loaded;
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world,
-                                     GetWorldEnvironmentIntensity(g_world) + g_float_one_fiftieth);
+        SetWorldEnvironmentIntensity(g_world, GetWorldEnvironmentIntensity(g_world) + g_float_one_fiftieth);
     }
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world,
-                                     GetWorldEnvironmentIntensity(g_world) - g_float_one_fiftieth);
+        SetWorldEnvironmentIntensity(g_world, GetWorldEnvironmentIntensity(g_world) - g_float_one_fiftieth);
     }
 }
 
@@ -836,8 +822,7 @@ W8World* ForwardCreateWorld(void)
 
 /* Resolve the PARTY alias or a named position stored with the current world. */
 // FUNCTION: WIZ8 0x004512C0
-bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,
-                      srVector3T<float>* direction)
+bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle, srVector3T<float>* direction)
 {
     if (name == 0) {
         return false;
@@ -867,8 +852,8 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
 /* Push a candidate position clear of static geometry, then reject it when it
    overlaps another world item or monster. */
 // FUNCTION: WIZ8 0x00451390
-unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
-                                           bool check_items, bool check_monsters)
+unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position, bool check_items,
+                                           bool check_monsters)
 {
     float threshold = radius * g_path_endpoint_scale;
     float angle = 0.0f;
@@ -940,8 +925,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 /* Try the requested point first, then the two retail half-turn probe points
    around it; only an unobstructed probe is handed to the overlap resolver. */
 // FUNCTION: WIZ8 0x00451800
-unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
-                                     bool check_monsters)
+unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items, bool check_monsters)
 {
     srVector3T<float> candidate = *position;
     if (AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
@@ -958,8 +942,7 @@ unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, 
         srVector3T<float> unblocked = candidate;
 
         g_octree->TraceLineOfSight(position, &candidate, true, -3, -3, true, 0);
-        if (candidate == unblocked &&
-            AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
+        if (candidate == unblocked && AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
             *position = candidate;
             return 1;
         }

@@ -12,10 +12,7 @@ namespace srMeshSubmission {
 
 class AmbientScope {
 public:
-    explicit AmbientScope(srGERD& renderer)
-        : renderer(renderer), previous(renderer.getAmbientLight())
-    {
-    }
+    explicit AmbientScope(srGERD& renderer) : renderer(renderer), previous(renderer.getAmbientLight()) {}
     ~AmbientScope()
     {
         renderer.setAmbientLight(previous);
@@ -92,8 +89,7 @@ private:
 // Side setup stays with the caller: native back faces reverse normals and may
 // reuse the front material, whereas software culling supplies a polygon span.
 template<class ConfigureSide, class ShaderAt>
-void drawSides(srGERD& renderer, const srMeshModel::TriMesh& mesh, ConfigureSide configure,
-               ShaderAt shaderAt)
+void drawSides(srGERD& renderer, const srMeshModel::TriMesh& mesh, ConfigureSide configure, ShaderAt shaderAt)
 {
     for (w8_long side = 1; side >= 0; --side) {
         if ((mesh.control_flags & (1u << side)) == 0) {

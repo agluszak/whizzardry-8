@@ -70,8 +70,7 @@ enum class InputEventType : std::uint8_t {
 inline bool IsLeftButtonEvent(InputEventType type)
 {
     return type == InputEventType::LeftButtonDown || type == InputEventType::LeftButtonUp ||
-           type == InputEventType::LeftButtonDoubleClick ||
-           type == InputEventType::LeftButtonRepeat;
+           type == InputEventType::LeftButtonDoubleClick || type == InputEventType::LeftButtonRepeat;
 }
 
 struct InputEvent {
@@ -169,8 +168,7 @@ inline bool IsTypingEvent(const InputEvent& event)
 
 inline char32_t TypedCharacter(const InputEvent& event)
 {
-    return event.type == InputEventType::Text ? event.text
-                                              : TranslateKeyToCharacter(event.key, event.modifiers);
+    return event.type == InputEventType::Text ? event.text : TranslateKeyToCharacter(event.key, event.modifiers);
 }
 
 #endif

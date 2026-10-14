@@ -72,8 +72,7 @@ enum W8Skill {
 
 /* 0x00553F10: add usage points to one skill, roll its increase, and report
    the result; suppress_notification keeps silent practice calls silent. */
-void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_points,
-                            bool suppress_notification);
+void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_points, bool suppress_notification);
 
 unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id);
 void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices);
@@ -95,33 +94,33 @@ void FlushDeferredSkillNotices(void);
 enum W8Trait {
     W8_TRAIT_NONE = -1,
     W8_TRAIT_CANNOT_LEARN = 0x1f,
-    W8_TRAIT_STAMINA_REGENERATION = 0x00, /* Fighter */
-    W8_TRAIT_HEALTH_REGENERATION = 0x01, /* Lord */
-    W8_TRAIT_CHEAT_DEATH = 0x02, /* Valkyrie */
-    W8_TRAIT_FEARLESS = 0x03, /* Samurai, Psionic */
-    W8_TRAIT_RANGED_CRITICALS = 0x04, /* Ranger */
-    W8_TRAIT_THROWN_CRITICALS = 0x05, /* Ninja */
-    W8_TRAIT_MONK_DAMAGE_RESISTANCE = 0x06, /* Monk */
-    W8_TRAIT_EFFECTIVE_WHILE_BLIND = 0x07, /* Monk */
-    W8_TRAIT_MERGE_GADGETS = 0x08, /* Gadgeteer */
-    W8_TRAIT_BACKSTAB = 0x09, /* Rogue */
-    W8_TRAIT_CAMP_RECOVERY_BONUS = 0x0a, /* Bard */
-    W8_TRAIT_PRAY = 0x0b, /* Priest */
-    W8_TRAIT_SEARCH = 0x0c, /* Ranger automatic searching */
-    W8_TRAIT_REMOVE_CURSED_ITEMS = 0x0d, /* Bishop */
-    W8_TRAIT_MENTAL_CONDITION_IMMUNITY = 0x0e, /* Psionic */
-    W8_TRAIT_MAGIC_RESISTANCE_BONUS = 0x0f, /* Mage */
-    W8_TRAIT_LIGHTNING_STRIKE = 0x10, /* Samurai */
-    W8_TRAIT_TURN_UNDEAD = 0x11, /* Priest, Bishop */
-    W8_TRAIT_MAKE_POTIONS = 0x12, /* Alchemist */
-    W8_TRAIT_KNOCKOUT = 0x13, /* Fighter */
-    W8_TRAIT_BERSERK = 0x14, /* Fighter */
-    W8_TRAIT_THROWN_AUTO_PENETRATE = 0x15, /* Ninja */
-    W8_TRAIT_FAERIE_BASE_ARMOR_CLASS = 0x16, /* Faerie */
+    W8_TRAIT_STAMINA_REGENERATION = 0x00,          /* Fighter */
+    W8_TRAIT_HEALTH_REGENERATION = 0x01,           /* Lord */
+    W8_TRAIT_CHEAT_DEATH = 0x02,                   /* Valkyrie */
+    W8_TRAIT_FEARLESS = 0x03,                      /* Samurai, Psionic */
+    W8_TRAIT_RANGED_CRITICALS = 0x04,              /* Ranger */
+    W8_TRAIT_THROWN_CRITICALS = 0x05,              /* Ninja */
+    W8_TRAIT_MONK_DAMAGE_RESISTANCE = 0x06,        /* Monk */
+    W8_TRAIT_EFFECTIVE_WHILE_BLIND = 0x07,         /* Monk */
+    W8_TRAIT_MERGE_GADGETS = 0x08,                 /* Gadgeteer */
+    W8_TRAIT_BACKSTAB = 0x09,                      /* Rogue */
+    W8_TRAIT_CAMP_RECOVERY_BONUS = 0x0a,           /* Bard */
+    W8_TRAIT_PRAY = 0x0b,                          /* Priest */
+    W8_TRAIT_SEARCH = 0x0c,                        /* Ranger automatic searching */
+    W8_TRAIT_REMOVE_CURSED_ITEMS = 0x0d,           /* Bishop */
+    W8_TRAIT_MENTAL_CONDITION_IMMUNITY = 0x0e,     /* Psionic */
+    W8_TRAIT_MAGIC_RESISTANCE_BONUS = 0x0f,        /* Mage */
+    W8_TRAIT_LIGHTNING_STRIKE = 0x10,              /* Samurai */
+    W8_TRAIT_TURN_UNDEAD = 0x11,                   /* Priest, Bishop */
+    W8_TRAIT_MAKE_POTIONS = 0x12,                  /* Alchemist */
+    W8_TRAIT_KNOCKOUT = 0x13,                      /* Fighter */
+    W8_TRAIT_BERSERK = 0x14,                       /* Fighter */
+    W8_TRAIT_THROWN_AUTO_PENETRATE = 0x15,         /* Ninja */
+    W8_TRAIT_FAERIE_BASE_ARMOR_CLASS = 0x16,       /* Faerie */
     W8_TRAIT_FAERIE_REDUCED_CARRY_CAPACITY = 0x18, /* Faerie */
     W8_TRAIT_LIZARDMAN_SLOW_MAGIC_RECOVERY = 0x1b, /* Lizardman */
-    W8_TRAIT_BREATHE = 0x1c, /* Dracon or breath enchantment */
-    W8_TRAIT_DWARF_DAMAGE_RESISTANCE = 0x1d /* Dwarf */
+    W8_TRAIT_BREATHE = 0x1c,                       /* Dracon or breath enchantment */
+    W8_TRAIT_DWARF_DAMAGE_RESISTANCE = 0x1d        /* Dwarf */
 };
 
 /* 0x00547A50: the cheat-death trait's revival - notice, unconsciousness, and
@@ -146,8 +145,7 @@ void ResetCharacterAttributes(W8Character* character);
 /* 0x00553A60: rebuild every skill level from its base, the profession bonus
    and the race and profession skill adjustments. */
 void ResetCharacterSkills(W8Character* character);
-bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
-                               const bool* expert_realm_flags);
+bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id, const bool* expert_realm_flags);
 void InvalidateAndRecalculateCharacterClassData(W8Character* character);
 bool CharacterHasTrait(const W8Character* character, W8Trait trait);
 int RevealCharacterItemBindingsByProfession(int party_slot, unsigned int target_slot);

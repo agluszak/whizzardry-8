@@ -50,9 +50,8 @@ void stTexture2D::getMipmapData(const MultiRequest& request)
 // FUNCTION: WIZ8 0x0047E740
 void stTexture2D::getMipmapLevelPartial(PartialRequest& request)
 {
-    request.destination->blit(request.destination_x, request.destination_y, *surface,
-                              left + request.destination_x, top + request.destination_y,
-                              left + request.source_right, top + request.source_bottom);
+    request.destination->blit(request.destination_x, request.destination_y, *surface, left + request.destination_x,
+                              top + request.destination_y, left + request.source_right, top + request.source_bottom);
 }
 
 // FUNCTION: WIZ8 0x0047DE40
@@ -72,15 +71,14 @@ void stTexture2D::setupDefaultValues()
 }
 
 // FUNCTION: WIZ8 0x0047DAE0
-stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width,
-                         int source_height, srNode* parent, int tile_extent)
+stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width, int source_height,
+                         srNode* parent, int tile_extent)
     : srClassSupport<stSurface2D, srNode, 0x1000e>(static_cast<srNode*>(0)),
-      vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0), shader_bits(0x100a017),
-      tile_size(tile_extent), columns((source_width + tile_extent - 1) / tile_extent),
-      rows((source_height + tile_extent - 1) / tile_extent), width(source_width),
-      height(source_height), tile_u(tile_extent / static_cast<float>(source_width)),
-      tile_v(tile_extent / static_cast<float>(source_height)), field_168(0), field_16c(1.0f),
-      scale(0.0f), texture_update_flags(0)
+      vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0), shader_bits(0x100a017), tile_size(tile_extent),
+      columns((source_width + tile_extent - 1) / tile_extent), rows((source_height + tile_extent - 1) / tile_extent),
+      width(source_width), height(source_height), tile_u(tile_extent / static_cast<float>(source_width)),
+      tile_v(tile_extent / static_cast<float>(source_height)), field_168(0), field_16c(1.0f), scale(0.0f),
+      texture_update_flags(0)
 {
     setParent(parent, 1);
     tiles.reserve(columns * rows);
@@ -231,8 +229,7 @@ void stSurface2D::setAlphaTestEnabled(bool enabled)
    source surface. Keeping the source locked brackets the immediate partial
    texture uploads exactly as the caller does. */
 // FUNCTION: WIZ8 0x0047E450
-void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, int top, int right,
-                                  int bottom)
+void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, int top, int right, int bottom)
 {
     int x = left;
     int y = top;
@@ -241,8 +238,7 @@ void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, in
         stTexture2D* texture = 0;
         for (auto& tile : tiles) {
             stTexture2D* candidate = tile.get();
-            if (candidate->left <= x && x < candidate->right && candidate->top <= y &&
-                y < candidate->bottom) {
+            if (candidate->left <= x && x < candidate->right && candidate->top <= y && y < candidate->bottom) {
                 texture = candidate;
                 break;
             }
@@ -267,8 +263,7 @@ void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, in
             update_width = tile_size;
             update_height = tile_size;
         }
-        renderer->setTextureSubImage(texture, 0, destination_x, destination_y, update_width,
-                                     update_height);
+        renderer->setTextureSubImage(texture, 0, destination_x, destination_y, update_width, update_height);
 
         x += tile_size - x % tile_size;
         if (right <= x) {

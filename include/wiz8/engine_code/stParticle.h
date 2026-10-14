@@ -50,8 +50,7 @@ public:
     srShader GetRenderFlags() const;
     unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
-    virtual void process(const srNode::ProcessInfo& info,
-                         srNode::e_processType type) override; /* 0x00498D60 */
+    virtual void process(const srNode::ProcessInfo& info, srNode::e_processType type) override; /* 0x00498D60 */
 
     stParticle& operator=(const stParticle&) = default;
 

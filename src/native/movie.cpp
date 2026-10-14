@@ -112,8 +112,7 @@ struct W8NativeVideo::State {
             return AVERROR_EOF;
         }
         try {
-            const auto result =
-                source.file->read(bytes, std::min<uint64_t>(size, source.length - source.position));
+            const auto result = source.file->read(bytes, std::min<uint64_t>(size, source.length - source.position));
             source.position += result.bytes;
             return result.bytes ? int(result.bytes) : result.eof ? AVERROR_EOF : AVERROR(EIO);
         } catch (...) {
@@ -124,8 +123,7 @@ struct W8NativeVideo::State {
     {
         auto& source = *static_cast<State*>(opaque);
         const auto limit = uint64_t(std::numeric_limits<int64_t>::max());
-        if (source.length > limit || source.position > source.length ||
-            source.start > limit - source.length) {
+        if (source.length > limit || source.position > source.length || source.start > limit - source.length) {
             return AVERROR(EINVAL);
         }
         if (whence & AVSEEK_SIZE) {
@@ -141,9 +139,8 @@ struct W8NativeVideo::State {
         }
         const uint64_t target = base + offset;
         try {
-            if (!source.file ||
-                source.file->seek(int64_t(source.start + target), wiz8::SeekOrigin::begin) !=
-                    int64_t(source.start + target)) {
+            if (!source.file || source.file->seek(int64_t(source.start + target), wiz8::SeekOrigin::begin) !=
+                                    int64_t(source.start + target)) {
                 return AVERROR(EIO);
             }
             source.position = target;
@@ -224,9 +221,8 @@ struct W8NativeVideo::State {
         if (audio_index >= 0) {
             codec(audio_index);
             AVChannelLayout stereo = AV_CHANNEL_LAYOUT_STEREO;
-            check(swr_alloc_set_opts2(&resample, &stereo, AV_SAMPLE_FMT_FLT, 44100,
-                                      &audio->ch_layout, audio->sample_fmt, audio->sample_rate, 0,
-                                      nullptr),
+            check(swr_alloc_set_opts2(&resample, &stereo, AV_SAMPLE_FMT_FLT, 44100, &audio->ch_layout,
+                                      audio->sample_fmt, audio->sample_rate, 0, nullptr),
                   "Movie resampler");
             check(swr_init(resample), "Movie resampler initialization");
             if (w8_native::movie_audio_available()) {
@@ -256,22 +252,18 @@ struct W8NativeVideo::State {
     }
     void video_frame()
     {
-        double time =
-            decoded->best_effort_timestamp == AV_NOPTS_VALUE
-                ? video_frames * frame_duration
-                : decoded->best_effort_timestamp * av_q2d(format->streams[video_index]->time_base) -
-                      origin;
+        double time = decoded->best_effort_timestamp == AV_NOPTS_VALUE
+                          ? video_frames * frame_duration
+                          : decoded->best_effort_timestamp * av_q2d(format->streams[video_index]->time_base) - origin;
         Frame frame{decoded->width, decoded->height, std::max(0.0, time), frame_duration, {}};
         frame.pixels.resize(size_t(frame.width) * frame.height);
-        scale =
-            sws_getCachedContext(scale, frame.width, frame.height, AVPixelFormat(decoded->format),
-                                 frame.width, frame.height, AV_PIX_FMT_RGB555LE,
-                                 SWS_BILINEAR | SWS_BITEXACT, nullptr, nullptr, nullptr);
+        scale = sws_getCachedContext(scale, frame.width, frame.height, AVPixelFormat(decoded->format), frame.width,
+                                     frame.height, AV_PIX_FMT_RGB555LE, SWS_BILINEAR | SWS_BITEXACT, nullptr, nullptr,
+                                     nullptr);
         if (!scale) {
             throw std::runtime_error("Cannot create movie RGB555 converter");
         }
-        uint8_t* output[] = {reinterpret_cast<uint8_t*>(frame.pixels.data()), nullptr, nullptr,
-                             nullptr};
+        uint8_t* output[] = {reinterpret_cast<uint8_t*>(frame.pixels.data()), nullptr, nullptr, nullptr};
         int pitch[] = {frame.width * 2, 0, 0, 0};
         check(sws_scale(scale, decoded->data, decoded->linesize, 0, frame.height, output, pitch),
               "Movie pixel conversion");
@@ -390,10 +382,10 @@ void W8NativeVideo::present(SDL_Surface* target)
     }
     const auto& description = *target;
     if (!state->presentation_surface) {
-        state->presentation_surface = std::make_shared<srColorSurface>(
-            srPixelConvert::SURFACE_RGB555, description.w, description.h);
-        state->presentation_tiles = new stSurface2D(state->presentation_surface, description.w,
-                                                    description.h, nullptr, 128);
+        state->presentation_surface =
+            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, description.w, description.h);
+        state->presentation_tiles =
+            new stSurface2D(state->presentation_surface, description.w, description.h, nullptr, 128);
         state->presentation_tiles->setAlphaTestEnabled(false);
     }
     if (!description.pixels) {
@@ -401,13 +393,12 @@ void W8NativeVideo::present(SDL_Surface* target)
     }
     for (int y = 0; y < description.h; ++y) {
         state->presentation_surface->setPixelRowRaw(
-            static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
-            description.w);
+            static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0, description.w);
     }
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.
-    state->presentation_tiles->updateRectangle(g_gerd, description.pixels, description.pitch, 0, 0,
-                                               description.w, description.h);
+    state->presentation_tiles->updateRectangle(g_gerd, description.pixels, description.pitch, 0, 0, description.w,
+                                               description.h);
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE) {
         throw std::runtime_error("Cannot begin movie presentation");
     }

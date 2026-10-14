@@ -19,8 +19,7 @@
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
 
-static void CheckImage(const char* name, const std::vector<unsigned char>& bytes,
-                       const w8_ulong* expected = colors)
+static void CheckImage(const char* name, const std::vector<unsigned char>& bytes, const w8_ulong* expected = colors)
 {
     auto stream = srIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
     auto surface = srImage::load(name, stream.get());
@@ -88,9 +87,8 @@ static std::vector<unsigned char> PCX(bool indexed)
     for (int y = 0; y < 2; ++y) {
         for (int channel = 0; channel < (indexed ? 1 : 3); ++channel) {
             for (int x = 0; x < 2; ++x) {
-                auto value =
-                    indexed ? static_cast<unsigned char>(y * 2 + x)
-                            : static_cast<unsigned char>(colors[y * 2 + x] >> ((2 - channel) * 8));
+                auto value = indexed ? static_cast<unsigned char>(y * 2 + x)
+                                     : static_cast<unsigned char>(colors[y * 2 + x] >> ((2 - channel) * 8));
                 if (value >= 192) {
                     bytes.push_back(193);
                 }
@@ -102,9 +100,7 @@ static std::vector<unsigned char> PCX(bool indexed)
         bytes.push_back(12);
         for (int entry = 0; entry < 256; ++entry) {
             for (int channel = 0; channel < 3; ++channel) {
-                bytes.push_back(
-                    entry < 4 ? static_cast<unsigned char>(colors[entry] >> ((2 - channel) * 8))
-                              : 0);
+                bytes.push_back(entry < 4 ? static_cast<unsigned char>(colors[entry] >> ((2 - channel) * 8)) : 0);
             }
         }
     }
@@ -129,17 +125,13 @@ static void CheckJPEG()
     REQUIRE(!source->getDataPtr());
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save("screenshot.JPG", output.get(), *source);
-    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) &&
-             SDL_GetIOSize(output.get()) > 2));
+    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2));
     REQUIRE((static_cast<unsigned char*>(SDL_GetPointerProperty(
-                 SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER,
-                 nullptr))[0] == 255 &&
+                 SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[0] == 255 &&
              static_cast<unsigned char*>(SDL_GetPointerProperty(
-                 SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER,
-                 nullptr))[1] == 216));
+                 SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[1] == 216));
     auto input = srIO::own(SDL_IOFromConstMem(
-        SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
-                               SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
+        SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
         SDL_GetIOSize(output.get())));
     auto decoded = srImage::load("screenshot.jpeg", input.get());
     REQUIRE((decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16));
@@ -163,14 +155,12 @@ static void CheckLossless(const char* name)
     }
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save(name, output.get(), source);
-    REQUIRE(
-        ((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get())));
-    const auto* bytes = static_cast<const unsigned char*>(SDL_GetPointerProperty(
-        SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
+    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get())));
+    const auto* bytes = static_cast<const unsigned char*>(
+        SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     CheckImage(name, {bytes, bytes + SDL_GetIOSize(output.get())});
     auto input = srIO::own(SDL_IOFromConstMem(
-        SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
-                               SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
+        SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
         SDL_GetIOSize(output.get())));
     SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
     srColorSurfaceIFace::SurfaceDesc description;
@@ -191,8 +181,8 @@ static void CheckLossless(const char* name)
 static void CheckErrors()
 {
     srColorSurface source(srPixelConvert::SURFACE_BGR24, 2, 2);
-    for (const char* path : {static_cast<const char*>(nullptr), "", "image.pcx", "image",
-                             "dir.png/image", "dir\\name.jpg\\image"}) {
+    for (const char* path :
+         {static_cast<const char*>(nullptr), "", "image.pcx", "image", "dir.png/image", "dir\\name.jpg\\image"}) {
         auto output = srIO::own(SDL_IOFromDynamicMem());
         bool rejected = false;
         try {
@@ -217,8 +207,7 @@ static void CheckErrors()
     auto input = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
     SDL_SeekIO(input.get(), 1, SDL_IO_SEEK_SET);
     srColorSurfaceIFace::SurfaceDesc description;
-    REQUIRE(
-        (!srImage::describe(description, "bad.jpg", input.get()) && SDL_TellIO(input.get()) == 1));
+    REQUIRE((!srImage::describe(description, "bad.jpg", input.get()) && SDL_TellIO(input.get()) == 1));
 }
 
 TEST_CASE("image_io_test")

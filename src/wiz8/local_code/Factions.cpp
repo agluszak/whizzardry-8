@@ -115,12 +115,10 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
     signed char disposition_score;
 
     if (faction < 0) {
-        srAssertFail("bFaction >= 0", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xaf,
-                     0);
+        srAssertFail("bFaction >= 0", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xaf, 0);
     }
     if (faction >= W8_FACTION_COUNT) {
-        srAssertFail("bFaction < FACTION_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xb0, 0);
+        srAssertFail("bFaction < FACTION_COUNT", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xb0, 0);
     }
 
     disposition_score = g_factions[faction].disposition_score;
@@ -172,8 +170,8 @@ void SetFactionDispositionBand(signed char faction, signed char band)
             notice = g_localized_strings[0x246];
             palette = 5;
         }
-        ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
-                                         g_localized_strings[g_faction_name_ids[faction]], notice));
+        ShowNotice(palette,
+                   fmt::sprintf(g_localized_strings[0x247], g_localized_strings[g_faction_name_ids[faction]], notice));
     }
 }
 
@@ -186,8 +184,7 @@ W8FactionDisposition GetFactionDispositionToward(signed char faction, signed cha
     if (other == W8_FACTION_PARTY) {
         return GetFactionDisposition(faction);
     }
-    return g_faction_relations[faction][other] != W8_FACTION_NEUTRAL ? W8_FACTION_FRIENDLY
-                                                                     : W8_FACTION_HOSTILE;
+    return g_faction_relations[faction][other] != W8_FACTION_NEUTRAL ? W8_FACTION_FRIENDLY : W8_FACTION_HOSTILE;
 }
 
 /* The faction-effect dispatcher every caller funnels through: op 1 is the
@@ -240,12 +237,10 @@ void RecordFactionOffense(signed char faction, unsigned int victim_location_inde
     case W8_FACTION_HIGARDI_HLL:
     case W8_FACTION_HIGARDI_COMMON:
         if (faction < 0) {
-            srAssertFail("bFaction >= 0", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp",
-                         0xaf, 0);
+            srAssertFail("bFaction >= 0", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xaf, 0);
         }
         if (faction >= W8_FACTION_COUNT) {
-            srAssertFail("bFaction < FACTION_COUNT",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xb0, 0);
+            srAssertFail("bFaction < FACTION_COUNT", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xb0, 0);
         }
         if (g_factions[faction].disposition_score >= 34) {
             SetFactionDispositionBand(faction, 0);
@@ -305,8 +300,8 @@ void AdjustFactionDisposition(signed char faction, char delta)
     } else {
         return;
     }
-    ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
-                                     g_localized_strings[g_faction_name_ids[faction]], notice));
+    ShowNotice(palette,
+               fmt::sprintf(g_localized_strings[0x247], g_localized_strings[g_faction_name_ids[faction]], notice));
 }
 
 /* Write both faction tables into the open FATA chunk: the 21x21 relation

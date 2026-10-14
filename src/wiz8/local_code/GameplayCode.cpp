@@ -64,11 +64,7 @@
 
 /* How much one level in a profession is worth towards physical combat
    experience. The professions split three ways. */
-enum {
-    W8_PHYS_COMBAT_WEIGHT_FIGHTER = 4,
-    W8_PHYS_COMBAT_WEIGHT_MIXED = 3,
-    W8_PHYS_COMBAT_WEIGHT_CASTER = 2
-};
+enum { W8_PHYS_COMBAT_WEIGHT_FIGHTER = 4, W8_PHYS_COMBAT_WEIGHT_MIXED = 3, W8_PHYS_COMBAT_WEIGHT_CASTER = 2 };
 
 /* One entry per sex, race and profession together. */
 // GLOBAL: WIZ8 0x00616308
@@ -76,31 +72,27 @@ unsigned char gubLocalACPercent[5] = {15, 40, 30, 10, 5};
 
 // GLOBAL: WIZ8 0x00616604
 static int g_character_table[480] = {
-    3,  1,  0,  0,  3,  56, 4,  2,  1,  2,  5,  4,  24, 4,  5,  13, 12, 0,  12, 13, 56, 13, 12, 12,
-    12, 14, 14, 14, 14, 14, 19, 19, 0,  19, 19, 56, 20, 20, 20, 20, 18, 18, 18, 18, 18, 24, 24, 0,
-    24, 24, 56, 24, 24, 25, 25, 25, 25, 25, 25, 25, 28, 28, 0,  28, 28, 56, 28, 28, 29, 29, 29, 29,
-    29, 29, 29, 32, 32, 0,  32, 32, 56, 32, 32, 33, 33, 33, 33, 33, 33, 33, 36, 36, 0,  36, 36, 56,
-    36, 36, 37, 37, 37, 37, 37, 37, 37, 40, 40, 0,  40, 40, 56, 41, 40, 41, 40, 41, 41, 41, 41, 41,
-    45, 45, 0,  45, 45, 56, 44, 44, 44, 44, 44, 44, 44, 44, 44, 48, 48, 0,  48, 48, 56, 48, 48, 49,
-    49, 49, 49, 49, 49, 49, 52, 52, 0,  52, 52, 56, 52, 52, 53, 53, 53, 53, 53, 53, 53, 0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    9,  11, 9,  10, 9,  57, 10, 11, 7,  7,  7,  8,  8,  8,  8,  15, 15, 15, 17, 15, 57, 17, 17, 16,
-    16, 17, 16, 16, 17, 16, 22, 21, 22, 22, 22, 57, 22, 21, 21, 23, 23, 23, 23, 23, 23, 26, 26, 26,
-    26, 26, 57, 26, 26, 27, 27, 27, 27, 27, 27, 27, 30, 30, 30, 30, 30, 57, 30, 30, 31, 31, 31, 31,
-    31, 31, 31, 35, 35, 35, 35, 35, 57, 35, 35, 34, 34, 34, 34, 34, 34, 34, 38, 38, 38, 38, 38, 57,
-    38, 38, 39, 39, 39, 39, 39, 39, 39, 42, 42, 42, 42, 42, 57, 42, 42, 43, 43, 43, 43, 43, 43, 43,
-    47, 47, 47, 47, 47, 57, 47, 47, 46, 46, 46, 46, 46, 46, 46, 50, 50, 50, 50, 50, 57, 50, 50, 51,
-    51, 51, 51, 51, 51, 51, 55, 55, 55, 55, 55, 57, 55, 55, 52, 52, 52, 52, 52, 52, 52, 0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
+    3,  1,  0,  0,  3,  56, 4,  2,  1,  2,  5,  4,  24, 4,  5,  13, 12, 0,  12, 13, 56, 13, 12, 12, 12, 14, 14, 14, 14,
+    14, 19, 19, 0,  19, 19, 56, 20, 20, 20, 20, 18, 18, 18, 18, 18, 24, 24, 0,  24, 24, 56, 24, 24, 25, 25, 25, 25, 25,
+    25, 25, 28, 28, 0,  28, 28, 56, 28, 28, 29, 29, 29, 29, 29, 29, 29, 32, 32, 0,  32, 32, 56, 32, 32, 33, 33, 33, 33,
+    33, 33, 33, 36, 36, 0,  36, 36, 56, 36, 36, 37, 37, 37, 37, 37, 37, 37, 40, 40, 0,  40, 40, 56, 41, 40, 41, 40, 41,
+    41, 41, 41, 41, 45, 45, 0,  45, 45, 56, 44, 44, 44, 44, 44, 44, 44, 44, 44, 48, 48, 0,  48, 48, 56, 48, 48, 49, 49,
+    49, 49, 49, 49, 49, 52, 52, 0,  52, 52, 56, 52, 52, 53, 53, 53, 53, 53, 53, 53, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  9,  11, 9,  10, 9,  57, 10, 11, 7,  7,  7,  8,  8,  8,  8,  15, 15, 15, 17, 15, 57,
+    17, 17, 16, 16, 17, 16, 16, 17, 16, 22, 21, 22, 22, 22, 57, 22, 21, 21, 23, 23, 23, 23, 23, 23, 26, 26, 26, 26, 26,
+    57, 26, 26, 27, 27, 27, 27, 27, 27, 27, 30, 30, 30, 30, 30, 57, 30, 30, 31, 31, 31, 31, 31, 31, 31, 35, 35, 35, 35,
+    35, 57, 35, 35, 34, 34, 34, 34, 34, 34, 34, 38, 38, 38, 38, 38, 57, 38, 38, 39, 39, 39, 39, 39, 39, 39, 42, 42, 42,
+    42, 42, 57, 42, 42, 43, 43, 43, 43, 43, 43, 43, 47, 47, 47, 47, 47, 57, 47, 47, 46, 46, 46, 46, 46, 46, 46, 50, 50,
+    50, 50, 50, 57, 50, 50, 51, 51, 51, 51, 51, 51, 51, 55, 55, 55, 55, 55, 57, 55, 55, 52, 52, 52, 52, 52, 52, 52, 0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
 
 // GLOBAL: WIZ8 0x006172F0
-static W8Dice g_unarmed_damage_dice[12] = {{0, 1, 2}, {0, 1, 3}, {0, 2, 2}, {0, 2, 3},
-                                           {0, 2, 4}, {0, 3, 3}, {1, 3, 3}, {2, 3, 3},
-                                           {0, 3, 5}, {0, 4, 4}, {2, 4, 4}, {4, 4, 4}};
+static W8Dice g_unarmed_damage_dice[12] = {{0, 1, 2}, {0, 1, 3}, {0, 2, 2}, {0, 2, 3}, {0, 2, 4}, {0, 3, 3},
+                                           {1, 3, 3}, {2, 3, 3}, {0, 3, 5}, {0, 4, 4}, {2, 4, 4}, {4, 4, 4}};
 
 /* Whether any monster is engaged with the party right now: in combat, in the
    engaged state, still alive and not yet on its way out. */
@@ -113,8 +105,7 @@ bool AnyMonsterEngaged(void)
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            monster_info->hp_current != 0 &&
-            monster_info->highest_condition < W8_CONDITION_WEBBED) {
+            monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED) {
             return true;
         }
     }
@@ -176,10 +167,8 @@ void CalcXPGoal(W8Character* character)
     if (character->uiExpLevel == 0) {
         srAssertFail("pPC->uiExpLevel > 0", GAMEPLAY_CODE_CPP, 0x726, 0);
     }
-    if (character->iProfession < W8_PROFESSION_FIGHTER ||
-        character->iProfession >= W8_PROFESSION_COUNT) {
-        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)",
-                     GAMEPLAY_CODE_CPP, 0x727, 0);
+    if (character->iProfession < W8_PROFESSION_FIGHTER || character->iProfession >= W8_PROFESSION_COUNT) {
+        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)", GAMEPLAY_CODE_CPP, 0x727, 0);
     }
     switch (character->iProfession) {
     case W8_PROFESSION_FIGHTER:
@@ -215,8 +204,8 @@ void CalcXPGoal(W8Character* character)
         return;
     }
     if (character->uiExpLevel <= 10) {
-        character->experience_goal = character->experience_previous_goal +
-                                     IntegerPower(2, character->uiExpLevel - 2) * weight;
+        character->experience_goal =
+            character->experience_previous_goal + IntegerPower(2, character->uiExpLevel - 2) * weight;
         return;
     }
     value = IntegerPower(2, 8) * weight;
@@ -269,8 +258,7 @@ void RefreshLevelUpReadyNotices(void)
                     if (row->portrait_advance == 0) {
                         std::string text = " ";
                         utf8::append(0xb4, std::back_inserter(text));
-                        utf8::append(GetPartyOrderTextColor(
-                                         static_cast<signed char>(row->party_order_index)),
+                        utf8::append(GetPartyOrderTextColor(static_cast<signed char>(row->party_order_index)),
                                      std::back_inserter(text));
                         text += " " + character->name + " ";
                         utf8::append(0xb5, std::back_inserter(text));
@@ -367,8 +355,7 @@ void CalcCharacterTableValue(W8Character* character)
         srAssertFail("pPC->iRace < PC_RACE_COUNT", GAMEPLAY_CODE_CPP, 2359, 0);
     }
     character->portrait_index =
-        g_character_table[(character->gender * 0x10 + character->iRace) * W8_PROFESSION_COUNT +
-                          character->iProfession];
+        g_character_table[(character->gender * 0x10 + character->iRace) * W8_PROFESSION_COUNT + character->iProfession];
 }
 
 // GLOBAL: WIZ8 0x00617894
@@ -384,8 +371,7 @@ void HandleLevelOverride(float fall)
     unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
     if (count > 0) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x252]);
-        wiz8::sound::play(s_fall_impact_wav,
-                          {.volume = std::uint32_t(g_settings.sound_effects_volume)});
+        wiz8::sound::play(s_fall_impact_wav, {.volume = std::uint32_t(g_settings.sound_effects_volume)});
         W8Dice dice;
         SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
         ApplyRolledHealthChangeToParty(&dice, 0, 1);
@@ -409,10 +395,8 @@ int CalcPhysCombatExperience(W8Character* character)
     if (character == 0) {
         srAssertFail("pPC != NULL", GAMEPLAY_CODE_CPP, 398, 0);
     }
-    if (character->iProfession < W8_PROFESSION_FIGHTER ||
-        character->iProfession > W8_PROFESSION_MAGE) {
-        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)",
-                     GAMEPLAY_CODE_CPP, 399, 0);
+    if (character->iProfession < W8_PROFESSION_FIGHTER || character->iProfession > W8_PROFESSION_MAGE) {
+        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)", GAMEPLAY_CODE_CPP, 399, 0);
     }
 
     for (profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
@@ -441,8 +425,7 @@ int CalcPhysCombatExperience(W8Character* character)
                 weight = W8_PHYS_COMBAT_WEIGHT_CASTER;
                 break;
             default:
-                srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 444,
-                             "CalcPhysCombatExperience: ERROR - Invalid profession");
+                srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 444, "CalcPhysCombatExperience: ERROR - Invalid profession");
             }
             total += levels * weight;
         }
@@ -480,8 +463,7 @@ void CalcInitiative(W8Character* character)
         character->initiative -= 8;
         break;
     default:
-        srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 380,
-                     "CalcInitiative: ERROR - Invalid load category");
+        srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 380, "CalcInitiative: ERROR - Invalid load category");
         break;
     }
 }
@@ -529,8 +511,7 @@ void CalcAttacks(W8Character* character)
             attack->combat_skill = W8_SKILL_RANGED_COMBAT;
             if (ItemHasSingledOutGenericName(equipment[hand]->iItemNo) &&
                 (equipment[hand == 0]->iItemNo == -1 ||
-                 !CompatiblePartnerItems(equipment[hand]->iItemNo,
-                                         equipment[hand == 0]->iItemNo))) {
+                 !CompatiblePartnerItems(equipment[hand]->iItemNo, equipment[hand == 0]->iItemNo))) {
                 attack->in_play = false;
             }
             if (ItemUsesShots(equipment[hand]->iItemNo) && equipment[hand]->uses_or_charges == 0) {
@@ -558,8 +539,8 @@ void CalcAttacks(W8Character* character)
         }
     }
 
-    character->dual_wielding = attacks[0]->uiHolds == 1 && attacks[0]->in_play &&
-                               attacks[1]->uiHolds == 1 && attacks[1]->in_play;
+    character->dual_wielding =
+        attacks[0]->uiHolds == 1 && attacks[0]->in_play && attacks[1]->uiHolds == 1 && attacks[1]->in_play;
 
     physical_experience = CalcPhysCombatExperience(character);
     for (hand = 0; hand < 2; ++hand) {
@@ -573,10 +554,9 @@ void CalcAttacks(W8Character* character)
             continue;
         }
 
-        score = ((character->skills[attack->combat_skill].level +
-                  character->skills[attack->weapon_skill].level * 2) *
-                 2) /
-                3;
+        score =
+            ((character->skills[attack->combat_skill].level + character->skills[attack->weapon_skill].level * 2) * 2) /
+            3;
         divisor = 20;
         if (other->uiHolds == 1 && other->in_play) {
             score += character->skills[other->weapon_skill].level >> 1;
@@ -605,30 +585,26 @@ void CalcAttacks(W8Character* character)
             load_penalty = -120;
             break;
         default:
-            srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 715,
-                         "CalcAttacks: ERROR - Invalid load category");
+            srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 715, "CalcAttacks: ERROR - Invalid load category");
         }
         if (attack->weapon_skill == W8_SKILL_MODERN_WEAPONS) {
             load_penalty /= 2;
         }
 
         if (character->dual_wielding) {
-            dual_penalty =
-                -10 * (hand + 1) - (100 - character->skills[W8_SKILL_DUAL_WEAPONS].level) / 4;
+            dual_penalty = -10 * (hand + 1) - (100 - character->skills[W8_SKILL_DUAL_WEAPONS].level) / 4;
         } else {
             dual_penalty = 0;
         }
 
-        attack->attack_score =
-            (dual_penalty + character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 2 +
-             attack->combined_skill * 2 + physical_experience) /
-                3 +
-            60;
+        attack->attack_score = (dual_penalty + character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 2 +
+                                attack->combined_skill * 2 + physical_experience) /
+                                   3 +
+                               60;
         if (character->fInParty && character->iRace == W8_RACE_ANDROID) {
             unsigned int party_slot = CharacterPointerToPartySlot(character);
             W8NpcState* npc = GetNpcState(g_status.buffers.XChar[party_slot].npc_index);
-            if (npc != 0 && npc->name_style == W8_NPC_RFS81_A &&
-                !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
+            if (npc != 0 && npc->name_style == W8_NPC_RFS81_A && !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
                 attack->attack_score /= 2;
             }
         }
@@ -652,8 +628,8 @@ void CalcAttacks(W8Character* character)
 
         /* Retail reads damage_bonus here before it is reset below, so the swing score sees the
            value left by the previous CalcAttacks pass (0x004ee5ef). */
-        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective + attack->damage_bonus * 10 +
-                 dual_penalty + physical_experience + load_penalty + attack->combined_skill) /
+        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective + attack->damage_bonus * 10 + dual_penalty +
+                 physical_experience + load_penalty + attack->combined_skill) /
                 3;
         attack->swings = 1;
         if (score > 66) {
@@ -688,8 +664,7 @@ void CalcAttacks(W8Character* character)
             if (character->skills[attack->weapon_skill].level > 4) {
                 attack->attack_flags = 0x60;
             }
-            attack->damage_dice =
-                g_unarmed_damage_dice[character->skills[attack->weapon_skill].level / 11];
+            attack->damage_dice = g_unarmed_damage_dice[character->skills[attack->weapon_skill].level / 11];
             if (hand == 0) {
                 attack->damage_dice.base += 2;
             }
@@ -719,24 +694,18 @@ void CalcAttacks(W8Character* character)
         if (!strength_applies) {
             /* These kinds skip the strength terms entirely (0x004ee78a -> 0x004ee7fe). */
         } else if (character->attributes[W8_ATTRIBUTE_STRENGTH].effective < 50) {
-            attack->hit_bonus -=
-                (50 - character->attributes[W8_ATTRIBUTE_STRENGTH].effective) / (divisor * 10);
-            attack->damage_percent -=
-                (50 - character->attributes[W8_ATTRIBUTE_STRENGTH].effective) / divisor;
+            attack->hit_bonus -= (50 - character->attributes[W8_ATTRIBUTE_STRENGTH].effective) / (divisor * 10);
+            attack->damage_percent -= (50 - character->attributes[W8_ATTRIBUTE_STRENGTH].effective) / divisor;
         } else if (character->attributes[W8_ATTRIBUTE_STRENGTH].effective > 50) {
             divisor *= hand + 1;
-            attack->hit_bonus +=
-                (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 50) / (divisor * 10);
-            attack->damage_percent +=
-                (character->attributes[W8_ATTRIBUTE_STRENGTH].effective * 2 - 100) / divisor;
+            attack->hit_bonus += (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 50) / (divisor * 10);
+            attack->damage_percent += (character->attributes[W8_ATTRIBUTE_STRENGTH].effective * 2 - 100) / divisor;
         }
 
         if (character->attributes[W8_ATTRIBUTE_DEXTERITY].effective < 50) {
-            attack->hit_bonus -=
-                (50 - character->attributes[W8_ATTRIBUTE_DEXTERITY].effective) / 10;
+            attack->hit_bonus -= (50 - character->attributes[W8_ATTRIBUTE_DEXTERITY].effective) / 10;
         } else if (character->attributes[W8_ATTRIBUTE_DEXTERITY].effective > 50) {
-            attack->hit_bonus +=
-                (character->attributes[W8_ATTRIBUTE_DEXTERITY].effective - 50) / 10;
+            attack->hit_bonus += (character->attributes[W8_ATTRIBUTE_DEXTERITY].effective - 50) / 10;
         }
         if (character->attributes[W8_ATTRIBUTE_SENSES].effective < 30) {
             attack->hit_bonus -= (30 - character->attributes[W8_ATTRIBUTE_SENSES].effective) / 10;
@@ -770,12 +739,10 @@ void CalcAttacks(W8Character* character)
             load_penalty /= 2;
         }
         attack->hit_bonus += load_penalty;
-        if (character->skills[W8_SKILL_EAGLE_EYE].active &&
-            attack->combat_skill == W8_SKILL_RANGED_COMBAT) {
+        if (character->skills[W8_SKILL_EAGLE_EYE].active && attack->combat_skill == W8_SKILL_RANGED_COMBAT) {
             attack->hit_bonus += character->skills[W8_SKILL_EAGLE_EYE].level / 20 + 1;
         }
-        if (character->skills[W8_SKILL_POWER_STRIKE].active &&
-            attack->combat_skill == W8_SKILL_CLOSE_COMBAT) {
+        if (character->skills[W8_SKILL_POWER_STRIKE].active && attack->combat_skill == W8_SKILL_CLOSE_COMBAT) {
             attack->hit_bonus += character->skills[W8_SKILL_POWER_STRIKE].level / 20 + 1;
         }
     }
@@ -790,8 +757,8 @@ void CalcArmorClasses(W8Character* character)
     int location_slot = 0;
     if (gXStatus.fCombatMode) {
         unsigned int slot = CharacterPointerToPartySlot(character);
-        defensive_action = TryCharacterAction(slot, W8_ACTION_DEFEND, false) ||
-                           TryCharacterAction(slot, W8_ACTION_PROTECT, false);
+        defensive_action =
+            TryCharacterAction(slot, W8_ACTION_DEFEND, false) || TryCharacterAction(slot, W8_ACTION_PROTECT, false);
     }
 
     unsigned int index;
@@ -801,12 +768,10 @@ void CalcArmorClasses(W8Character* character)
 
     for (index = 0; index < 12; ++index) {
         int item_id = character->EquippedItem[index].iItemNo;
-        if (index != 0 && index != 4 && index != 5 && index != 8 && index != 9 && index != 10 &&
-            index != 11 && item_id != -1) {
-            int component =
-                g_item_records[item_id].equip_class == W8_ITEM_EQUIP_CLASS_SHIELD ? 3 : 4;
-            character->armor_class_components[component] +=
-                g_item_records[item_id].armor_class_bonus;
+        if (index != 0 && index != 4 && index != 5 && index != 8 && index != 9 && index != 10 && index != 11 &&
+            item_id != -1) {
+            int component = g_item_records[item_id].equip_class == W8_ITEM_EQUIP_CLASS_SHIELD ? 3 : 4;
+            character->armor_class_components[component] += g_item_records[item_id].armor_class_bonus;
         }
     }
 
@@ -828,8 +793,7 @@ void CalcArmorClasses(W8Character* character)
             --character->armor_class_components[W8_AC_COMPONENT_SPEED];
         }
 
-        character->armor_class_components[W8_AC_COMPONENT_STEALTH] +=
-            character->skills[W8_SKILL_STEALTH].level / 10;
+        character->armor_class_components[W8_AC_COMPONENT_STEALTH] += character->skills[W8_SKILL_STEALTH].level / 10;
         if (character->skills[W8_SKILL_REFLEXTION].active) {
             character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] +=
                 character->skills[W8_SKILL_REFLEXTION].level / 20 + 1;
@@ -837,9 +801,8 @@ void CalcArmorClasses(W8Character* character)
 
         int shield = character->armor_class_components[W8_AC_COMPONENT_SHIELD];
         if (shield > 0) {
-            int skill_bonus = defensive_action
-                                  ? static_cast<int>(character->skills[W8_SKILL_SHIELD].level / 15)
-                                  : static_cast<int>(character->skills[W8_SKILL_SHIELD].level / 25);
+            int skill_bonus = defensive_action ? static_cast<int>(character->skills[W8_SKILL_SHIELD].level / 15)
+                                               : static_cast<int>(character->skills[W8_SKILL_SHIELD].level / 25);
             int ceiling = defensive_action ? shield * 3 / 2 : shield;
             if (skill_bonus > ceiling) {
                 skill_bonus = ceiling;
@@ -847,10 +810,8 @@ void CalcArmorClasses(W8Character* character)
             character->armor_class_components[W8_AC_COMPONENT_SHIELD] += skill_bonus;
         }
 
-        character->armor_class_components[W8_AC_COMPONENT_MAGIC_SPELLS] +=
-            character->bonus.armor_flat;
-        character->armor_class_components[W8_AC_COMPONENT_CONDITIONS] +=
-            character->bonus.armor_class_adjustment;
+        character->armor_class_components[W8_AC_COMPONENT_MAGIC_SPELLS] += character->bonus.armor_flat;
+        character->armor_class_components[W8_AC_COMPONENT_CONDITIONS] += character->bonus.armor_class_adjustment;
         if (defensive_action) {
             character->armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] += 2;
         }
@@ -867,10 +828,8 @@ void CalcArmorClasses(W8Character* character)
         default:
             break;
         }
-        character->armor_class_components[W8_AC_COMPONENT_FATIGUE] -=
-            FatigueArmorPenalty(character->fatigue_band) / 10;
-        character->armor_class_components[W8_AC_COMPONENT_VS_PENETRATION] +=
-            character->bonus.armor_matchup;
+        character->armor_class_components[W8_AC_COMPONENT_FATIGUE] -= FatigueArmorPenalty(character->fatigue_band) / 10;
+        character->armor_class_components[W8_AC_COMPONENT_VS_PENETRATION] += character->bonus.armor_matchup;
     }
 
     character->armor_class_total = 0;
@@ -886,8 +845,7 @@ void CalcArmorClasses(W8Character* character)
     int weighted_total = 0;
     for (index = 0; index < 5; ++index) {
         character->armor_class_by_location[index] = character->armor_class_total;
-        character->armor_class_by_location[index] +=
-            character->armor_class_components[W8_AC_COMPONENT_VS_PENETRATION];
+        character->armor_class_by_location[index] += character->armor_class_components[W8_AC_COMPONENT_VS_PENETRATION];
         switch (index) {
         case 0:
             location_slot = 0;
@@ -905,8 +863,7 @@ void CalcArmorClasses(W8Character* character)
             location_slot = 11;
             break;
         default:
-            srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 0x5a1,
-                         "CalcArmorClasses: ERROR - Invalid AC location");
+            srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 0x5a1, "CalcArmorClasses: ERROR - Invalid AC location");
         }
         int item_id = character->EquippedItem[location_slot].iItemNo;
         if (item_id != -1) {
@@ -914,18 +871,17 @@ void CalcArmorClasses(W8Character* character)
         }
         weighted_total += gubLocalACPercent[index] * character->armor_class_by_location[index];
     }
-    character->armor_class_average =
-        weighted_total < 0 ? (weighted_total - 50) / 100 : (weighted_total + 50) / 100;
+    character->armor_class_average = weighted_total < 0 ? (weighted_total - 50) / 100 : (weighted_total + 50) / 100;
 }
 
 /* Personality and voice values by sex and profession class,
    two dwords per row. It ends exactly where the sex/race/profession table
    at 0x00616604 begins. */
 // GLOBAL: WIZ8 0x006164F4
-static int g_character_value_table[34][2] = {
-    {0, 2}, {0, 1}, {6, 1}, {0, 1}, {0, 1}, {2, 2}, {0, 1}, {8, 1}, {7, 2}, {7, 2}, {7, 2}, {7, 2},
-    {7, 2}, {7, 2}, {4, 1}, {4, 1}, {1, 1}, {5, 2}, {7, 1}, {6, 2}, {6, 2}, {6, 1}, {3, 2}, {3, 2},
-    {5, 1}, {1, 1}, {1, 2}, {5, 2}, {1, 1}, {1, 2}, {2, 1}, {2, 1}, {2, 2}, {2, 2}};
+static int g_character_value_table[34][2] = {{0, 2}, {0, 1}, {6, 1}, {0, 1}, {0, 1}, {2, 2}, {0, 1}, {8, 1}, {7, 2},
+                                             {7, 2}, {7, 2}, {7, 2}, {7, 2}, {7, 2}, {4, 1}, {4, 1}, {1, 1}, {5, 2},
+                                             {7, 1}, {6, 2}, {6, 2}, {6, 1}, {3, 2}, {3, 2}, {5, 1}, {1, 1}, {1, 2},
+                                             {5, 2}, {1, 1}, {1, 2}, {2, 1}, {2, 1}, {2, 2}, {2, 2}};
 
 /* Derive the character's personality and voice from sex and profession.
    Unaligned characters pick a class through the race shortcut first. */
@@ -1096,8 +1052,7 @@ void RemoveCharacterFromParty(int party_slot)
     SetFormationPosition(&g_status.formation, party_slot, -1, -1, false, true, true);
     if (gXStatus.fCombatMode) {
         SetFormationPosition(&gXStatus.edited_formation, party_slot, -1, -1, false, true, true);
-        SetFormationPosition(&g_combat_state->saved_formation, party_slot, -1, -1, false, true,
-                             true);
+        SetFormationPosition(&g_combat_state->saved_formation, party_slot, -1, -1, false, true, true);
     }
     if (g_status.game_started) {
         PostCharacterNotice(party_slot, g_localized_strings[0x251]);
@@ -1123,8 +1078,7 @@ void RemoveCharacterFromParty(int party_slot)
    as a regular member. When the caller pays for it, the starting equipment is
    bought out of the party gold the way a new recruit would bring it. */
 // FUNCTION: WIZ8 0x004ef7e0
-unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* record,
-                                        bool buy_equipment)
+unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* record, bool buy_equipment)
 {
     unsigned int slot = CharacterPointerToPartySlot(character);
     int index;
@@ -1197,7 +1151,6 @@ void AwardPartyExperience(int amount, int alternate_message)
         }
     }
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
-    QueueNpcPortraitMessage(
-        std::move(text), W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
-                                                   static_cast<unsigned char>(alternate_message)});
+    QueueNpcPortraitMessage(std::move(text), W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
+                                                                       static_cast<unsigned char>(alternate_message)});
 }

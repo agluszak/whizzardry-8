@@ -33,9 +33,8 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0), m_taken(0),
-      m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
-      m_portrait_clock_started(0)
+    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0), m_taken(0), m_total(0), m_field_070(0),
+      m_character(character), m_use_original_character(0), m_portrait_clock_started(0)
 {
     SetExtent(0x171, 0x60);
     SetBackground("Data\\Dialogs\\popup_quote.sti", 0);
@@ -88,16 +87,13 @@ bool W8CharacterSummaryDialog::CreateQuoteText()
     W8TextBuffer** buffers[] = {&m_quote_text};
 
     for (int index = 0; index < 1; ++index) {
-        W8ControlsRect absolute = {g_character_summary_quote_bounds[index].left + m_x,
-                                   g_character_summary_quote_bounds[index].top + m_y,
-                                   g_character_summary_quote_bounds[index].right + m_x,
-                                   g_character_summary_quote_bounds[index].bottom + m_y};
+        W8ControlsRect absolute = {
+            g_character_summary_quote_bounds[index].left + m_x, g_character_summary_quote_bounds[index].top + m_y,
+            g_character_summary_quote_bounds[index].right + m_x, g_character_summary_quote_bounds[index].bottom + m_y};
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
-        W8CharacterEvent event(character, g_effect0, 0, g_character_event_no_flags,
-                               g_character_event_full_volume);
-        *buffers[index] =
-            new W8TextBuffer(&absolute, event.GetQuoteText(), g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        W8CharacterEvent event(character, g_effect0, 0, g_character_event_no_flags, g_character_event_full_volume);
+        *buffers[index] = new W8TextBuffer(&absolute, event.GetQuoteText(), g_wiz_text_font_secondary,
+                                           g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (*buffers[index] == 0) {
             delete m_quote_text;
             m_quote_text = 0;
@@ -130,8 +126,7 @@ void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 // FUNCTION: WIZ8 0x005e0830
 void W8CharacterSummaryDialog::DrawPortraitAnimationFrame(SDL_Surface& target)
 {
-    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0,
-                               false);
+    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0, false);
 }
 
 // FUNCTION: WIZ8 0x005e0860
@@ -175,15 +170,13 @@ bool W8CharacterSummaryDialog::ProcessInput()
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
-        QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags, g_character_event_full_volume);
     }
     bool keep_open = m_keep_open;
     PumpUiInput({
         .before =
             [this](const InputEvent& input) {
-                if (input.type == InputEventType::LeftButtonDown ||
-                    input.type == InputEventType::LeftButtonRepeat ||
+                if (input.type == InputEventType::LeftButtonDown || input.type == InputEventType::LeftButtonRepeat ||
                     input.type == InputEventType::RightButtonDown) {
                     m_keep_open = false;
                 }

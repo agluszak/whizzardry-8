@@ -37,8 +37,7 @@ enum W8CharacterEventFlag {
    dispatch path live with QueueCharacterEvent in QuoteManager.cpp; the
    original type name is unknown. */
 struct W8CharacterEvent {
-    W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags,
-                     int queue_mode, int volume);
+    W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags, int queue_mode, int volume);
     ~W8CharacterEvent();
     W8CharacterEvent(const W8CharacterEvent&) = delete;
     W8CharacterEvent& operator=(const W8CharacterEvent&) = delete;

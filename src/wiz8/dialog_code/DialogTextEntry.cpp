@@ -20,11 +20,9 @@
 unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 
 // FUNCTION: WIZ8 0x005d1050
-W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text,
-                                     unsigned int prefix_palette, unsigned int text_palette,
-                                     const W8ControlsRect* bounds, Font& font,
-                                     unsigned char category, unsigned int layout_mode,
-                                     unsigned char shorten)
+W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
+                                     unsigned int text_palette, const W8ControlsRect* bounds, Font& font,
+                                     unsigned char category, unsigned int layout_mode, unsigned char shorten)
 {
     m_prefix_palette = prefix_palette;
     m_font = &font;
@@ -43,8 +41,7 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     UpdateLayout();
 }
 
-int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int prefix_remaining,
-                                int y)
+int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int prefix_remaining, int y)
 {
     int x = GetHorizontalPosition(m_font->textWidth(line));
     if (prefix_remaining > 0) {
@@ -96,8 +93,7 @@ void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
         }
     }
     m_font->setPalette(palette);
-    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
-                  m_pendingBounds.right - m_pendingBounds.left,
+    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top, m_pendingBounds.right - m_pendingBounds.left,
                   m_pendingBounds.bottom - m_pendingBounds.top};
     ScopedClipRect clipping(target, clip);
     int y = GetVerticalPosition();
@@ -113,8 +109,7 @@ void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
         }
         remaining.remove_prefix(end + 1);
     }
-    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
-                     m_layoutBounds.bottom);
+    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right, m_layoutBounds.bottom);
     m_geometryDirty = false;
 }
 

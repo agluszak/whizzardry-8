@@ -3,11 +3,7 @@
 
 #pragma pack(push, 1)
 
-enum W8EncounterTimeCondition {
-    W8_ENCOUNTER_DAY = 0,
-    W8_ENCOUNTER_NIGHT = 1,
-    W8_ENCOUNTER_ANY_TIME = 2
-};
+enum W8EncounterTimeCondition { W8_ENCOUNTER_DAY = 0, W8_ENCOUNTER_NIGHT = 1, W8_ENCOUNTER_ANY_TIME = 2 };
 
 struct W8EncounterTableDiskHeader {
     unsigned char record_kind; /* 0x000: four in the reviewed corpus */

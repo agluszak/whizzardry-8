@@ -35,8 +35,7 @@ extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
 extern bool RestoreVideoManager(void);
-extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight,
-                                    std::uint8_t* ubBitDepth);
+extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight, std::uint8_t* ubBitDepth);
 /* Mark a game-space rectangle of the UI canvas for upload this frame. */
 void InvalidateRegion(int left, int top, int right, int bottom);
 /* The pending UI upload rectangle, cleared by the call. */
@@ -104,15 +103,13 @@ class srTextureIFace;
 class stModelInstance2D;
 template<class T> class srVector3T;
 
-srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
-                       bool additive);
+srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height, bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
-stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width,
-                                           double height, bool keep_aspect, bool overlay);
+stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width, double height,
+                                           bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
-unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect,
-                                   bool render_secondary);
+unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect, bool render_secondary);
 void SetPickKey(void* key);
 
 struct W8ControlsRect;
@@ -121,16 +118,15 @@ struct W8ControlsRect;
    and `color` becomes the material's emissive vector. MGSRadarMap's blip
    templates are its observed callers. */
 void SetFullscreenSceneLast(unsigned char value); /* 0x004298E0 */
-stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
-                                              bool fullscreen);
+stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color, bool fullscreen);
 /* 0x004253F0: the render-target sprite factory CreateSpriteFromSurface wraps; the
    radar overlay is created through it directly. */
-stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
-                                                int square, int, char overlay);
+stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds, int square, int,
+                                                char overlay);
 /* 0x004255C0: wrap the sprite-surface factory - image is a video surface
    handle (or a negative target id), rect an optional source rectangle. */
-stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode,
-                                           int unused, int overlay);
+stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode, int unused,
+                                           int overlay);
 /* 0x004257D0: position a 2D node without pixel snapping. */
 void Position2DNodeUnsnapped(srNode* node, int x, int y);
 /* 0x004264F0: write the display-state byte of a 2D model instance. */
@@ -155,19 +151,17 @@ void DrawVideoInspector(int left, unsigned int top);
 unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node);
 /* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
-srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface,
-                                  double width, double height, float mapping_x, float mapping_y,
-                                  float mapping_width, float mapping_height, unsigned char overlay);
+srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
+                                  double height, float mapping_x, float mapping_y, float mapping_width,
+                                  float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
-bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
-                                   srColorSurface& destination, int x, int y);
+bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region, srColorSurface& destination, int x,
+                                   int y);
 class stTextureAnim;
 
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
-std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
-                                                         unsigned short start_frame,
-                                                         unsigned short frame_count,
-                                                         bool use_argb1555);
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites, unsigned short start_frame,
+                                                         unsigned short frame_count, bool use_argb1555);
 /* 0x00428A90: mark the primary renderer mode word dirty. */
 void SetOverlayRenderMode(void);
 /* 0x00428AA0: mark both renderer mode words dirty. */
@@ -269,8 +263,7 @@ unsigned char InitializeVideoDevice(void);
 bool SetupDisablesAudio();
 unsigned char OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);
-void AssertFailureHandler(const char* expression, const char* file, w8_long line,
-                          const char* message);
+void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message);
 unsigned char DisableCursorScene(void);
 unsigned char EnableCursorScene(void);
 void SetWorldModelPickingEnabled(bool enabled);

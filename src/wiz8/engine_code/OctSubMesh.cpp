@@ -48,8 +48,7 @@ void ReleaseOctMeshDefaults()
 /* The loader verifies every array the same way: a null getter result and a
    failed bulk read each stop with the call site's own diagnostic. */
 template<class T>
-void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_message,
-                   const char* read_message)
+void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_message, const char* read_message)
 {
     static_assert(std::is_trivially_copyable_v<T>);
     if (!values.data()) {
@@ -59,9 +58,8 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
         if constexpr (std::is_same_v<T, glm::ivec3>) {
             std::vector<std::array<std::int32_t, 3>> records(values.size());
             file.read_exact(records.data(), records.size() * sizeof(records.front()));
-            std::ranges::transform(records, values.begin(), [](const auto& record) {
-                return glm::ivec3(record[0], record[1], record[2]);
-            });
+            std::ranges::transform(records, values.begin(),
+                                   [](const auto& record) { return glm::ivec3(record[0], record[1], record[2]); });
         } else {
             file.read_exact(values.data(), values.size_bytes());
         }
@@ -79,8 +77,7 @@ static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values, const
     }
     std::vector<srVector3> records(values.size());
     ReadMeshArray(file, std::span(records), get_message, read_message);
-    std::ranges::transform(records, values.begin(),
-                           [](const srVector3& value) { return value.glmValue(); });
+    std::ranges::transform(records, values.begin(), [](const srVector3& value) { return value.glmValue(); });
 }
 
 template<class T> static void ReleaseMeshArray(T*& values)
@@ -103,8 +100,7 @@ static void ReleaseMeshSunLights(float**& banks, short count)
 // Keep raw integer write exceptions and vector diagnostics distinct. Both
 // release their source only after successful I/O, in the field's disk order.
 template<class T>
-static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, int line,
-                                     const char* message)
+static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, int line, const char* message)
 {
     static_assert(std::is_trivially_copyable_v<T>);
     const auto write = [&] {
@@ -128,8 +124,7 @@ static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, in
         try {
             write();
         } catch (const std::exception&) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", line,
-                         message);
+            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", line, message);
         }
     }
     ReleaseMeshArray(values);
@@ -137,11 +132,10 @@ static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, in
 
 // FUNCTION: WIZ8 0x0049E4C0
 OctMeshModel::OctMeshModel()
-    : version(0), m_link_index(0), next_link(0), m_material_index(0), m_map_count(0),
-      m_vertex_locations(0), m_vertex_map(0), m_vertex_materials(0), m_poly_vertices(0),
-      m_poly_uv_index(0), m_poly_textures(0), m_vertex_normals(0), m_vertex_lights(0),
-      m_poly_equations(0), m_sun_lights(0), m_packed_header(0), m_vertex_count(0),
-      m_polygon_count(0)
+    : version(0), m_link_index(0), next_link(0), m_material_index(0), m_map_count(0), m_vertex_locations(0),
+      m_vertex_map(0), m_vertex_materials(0), m_poly_vertices(0), m_poly_uv_index(0), m_poly_textures(0),
+      m_vertex_normals(0), m_vertex_lights(0), m_poly_equations(0), m_sun_lights(0), m_packed_header(0),
+      m_vertex_count(0), m_polygon_count(0)
 {
 }
 
@@ -234,8 +228,7 @@ bool OctMeshModel::Write(wiz8::File& hFile)
 }
 
 // FUNCTION: WIZ8 0x0049E9A0
-std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
-                                                const std::vector<W8MeshMaterial>& materials)
+std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, const std::vector<W8MeshMaterial>& materials)
 {
     const int material_count = static_cast<int>(materials.size());
     if (materials.empty()) {
@@ -262,8 +255,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     if (m_vertex_count == 0 && m_material_index < 0) {
         throw std::runtime_error("Missing mesh vertex material");
     }
-    const auto vertex_bytes = static_cast<std::uint64_t>(m_vertex_count) *
-                              (36 + (m_material_index < 0 ? 4 : 0) + (version != 0 ? 4 : 0));
+    const auto vertex_bytes =
+        static_cast<std::uint64_t>(m_vertex_count) * (36 + (m_material_index < 0 ? 4 : 0) + (version != 0 ? 4 : 0));
     const auto polygon_bytes = static_cast<std::uint64_t>(m_polygon_count) * 44;
     input.require(vertex_bytes + static_cast<std::uint64_t>(m_map_count) * 8 + polygon_bytes + 4);
     // Read destinations borrow the model's buffers. They must never become
@@ -298,8 +291,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     int selected_material = m_material_index;
     int index;
     if (m_material_index < 0) {
-        std::shared_ptr<srMaterialIFace>* vertex_materials =
-            model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+        std::shared_ptr<srMaterialIFace>* vertex_materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex material array.\n");
         }
@@ -372,8 +364,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     if (vertex_locations == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex location array.\n");
     }
-    for (w8_ulong shade_index = 0; shade_index < static_cast<w8_ulong>(m_vertex_count);
-         ++shade_index) {
+    for (w8_ulong shade_index = 0; shade_index < static_cast<w8_ulong>(m_vertex_count); ++shade_index) {
         shade_indices[shade_index] = shade_index;
     }
 

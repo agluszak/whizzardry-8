@@ -122,8 +122,7 @@ public:
         int previous_width = 0;
         for (auto position = parking; position < text.size();) {
             const auto end = wiz8::text::next_grapheme(text, position);
-            const auto width =
-                font().textWidth(std::string_view(text).substr(parking, end - parking));
+            const auto width = font().textWidth(std::string_view(text).substr(parking, end - parking));
             if (offset < (width + previous_width) / 2) {
                 return position;
             }
@@ -249,8 +248,7 @@ TextFieldGroup::TextFieldGroup(Font& font) : TextFieldGroup(font, nullptr) {}
 TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : TextFieldGroup(font, &layer) {}
 
 TextFieldGroup::TextFieldGroup(Font& font, UiLayer* layer)
-    : owned_layer_(layer ? nullptr : new UiLayer()), layer_(layer ? layer : owned_layer_.get()),
-      previous_(g_ui.focus)
+    : owned_layer_(layer ? nullptr : new UiLayer()), layer_(layer ? layer : owned_layer_.get()), previous_(g_ui.focus)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
@@ -261,8 +259,7 @@ TextFieldGroup::TextFieldGroup(Font& font, UiLayer* layer)
     SetNativeTextInputEnabled(false);
 }
 
-TextFieldGroup::TextFieldGroup(int scheme)
-    : TextFieldGroup(scheme == 0 ? g_font12point1 : g_wiz_text_mono_font)
+TextFieldGroup::TextFieldGroup(int scheme) : TextFieldGroup(scheme == 0 ? g_font12point1 : g_wiz_text_mono_font)
 {
     Assert(scheme >= 0 && scheme <= 2);
     SetScheme(scheme);
@@ -310,9 +307,7 @@ void TextFieldGroup::Resume()
         field->target.setEnabled(true);
         field->enabled = true;
     }
-    focused_ = suspended_focus_  ? suspended_focus_
-               : fields_.empty() ? nullptr
-                                 : fields_.front().get();
+    focused_ = suspended_focus_ ? suspended_focus_ : fields_.empty() ? nullptr : fields_.front().get();
     suspended_focus_ = nullptr;
     SetNativeTextInputEnabled(editing_ && focused_);
 }
@@ -368,13 +363,12 @@ void TextFieldGroup::SetScheme(int scheme)
     s.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
 }
 
-int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
-                        std::string_view text, std::size_t capacity, short input_type,
-                        bool use_inactive_color)
+int TextFieldGroup::Add(int left, int top, int width, int height, int priority, std::string_view text,
+                        std::size_t capacity, short input_type, bool use_inactive_color)
 {
     const int id = fields_.empty() ? 0 : fields_.back()->id + 1;
-    auto& field = *fields_.emplace_back(
-        std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
+    auto& field =
+        *fields_.emplace_back(std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
     field.input_type = input_type;
     field.capacity = input_type == 0x1002 ? 6 : capacity;
     field.text.assign(text);
@@ -525,8 +519,7 @@ void TextFieldGroup::InsertCharacter(char32_t character)
     auto& field = *focused_;
     std::string bytes;
     utf8::append(character, std::back_inserter(bytes));
-    if (wiz8::text::to_utf16(field.text).size() + wiz8::text::to_utf16(bytes).size() >
-        field.capacity) {
+    if (wiz8::text::to_utf16(field.text).size() + wiz8::text::to_utf16(bytes).size() > field.capacity) {
         return;
     }
     field.text.insert(field.cursor, bytes);
@@ -541,8 +534,8 @@ void TextFieldGroup::InsertRestricted(char32_t character)
     auto& field = *focused_;
     const auto is_digit = [](char32_t c) { return c >= '0' && c <= '9'; };
     if (field.input_type == 0x1000) {
-        if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 &&
-            !is_digit(character) && character != '_' && character != '.') {
+        if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 && !is_digit(character) &&
+            character != '_' && character != '.') {
             return;
         }
         if (field.cursor == 0 && is_digit(character)) {
@@ -617,10 +610,8 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         normalized.modifiers = 0;
     }
     const auto& input = normalized;
-    if (!editing_ || !focused_ ||
-        (input.type != InputEventType::KeyDown && input.type != InputEventType::KeyRepeat) ||
-        input.key == VK_ESCAPE || input.key == VK_RETURN || input.key == VK_TAB ||
-        (input.modifiers & ALT_DOWN) != 0 ||
+    if (!editing_ || !focused_ || (input.type != InputEventType::KeyDown && input.type != InputEventType::KeyRepeat) ||
+        input.key == VK_ESCAPE || input.key == VK_RETURN || input.key == VK_TAB || (input.modifiers & ALT_DOWN) != 0 ||
         ((input.modifiers & CTRL_DOWN) != 0 && input.key != VK_DELETE && input.key != VK_RIGHT &&
          input.key != VK_LEFT) ||
         (input.key > 0x6f && input.key < 0x7c)) {
@@ -733,9 +724,8 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     default:
         break;
     }
-    char32_t character = committed ? event.text
-                                   : TranslateKeyToCharacter(static_cast<unsigned short>(input.key),
-                                                             input.modifiers);
+    char32_t character =
+        committed ? event.text : TranslateKeyToCharacter(static_cast<unsigned short>(input.key), input.modifiers);
     if (!committed && NativeTextInputEnabled()) {
         return true;
     }
@@ -791,9 +781,8 @@ void TextFieldGroup::RenderBackground(W8TextField& field, SDL_Surface& target)
         SDL_FillSurfaceRect(&target, &darker, style_.darker_color);
         SDL_FillSurfaceRect(&target, &brighter, style_.brighter_color);
     }
-    unsigned short colour = !field.enabled && !style_.disabled_auto_shade
-                                ? style_.disabled_field_color
-                                : style_.field_color;
+    unsigned short colour =
+        !field.enabled && !style_.disabled_auto_shade ? style_.disabled_field_color : style_.field_color;
     if (field.use_inactive_color && &field != focused_) {
         colour = style_.inactive_field_color;
     }
@@ -803,8 +792,7 @@ void TextFieldGroup::RenderBackground(W8TextField& field, SDL_Surface& target)
 }
 
 namespace {
-TextOptions FieldTextOptions(Font& font, unsigned char fore, unsigned char shadow,
-                             unsigned char background)
+TextOptions FieldTextOptions(Font& font, unsigned char fore, unsigned char shadow, unsigned char background)
 {
     TextOptions options;
     options.colors.foreground = font.color(fore);
@@ -845,8 +833,7 @@ void TextFieldGroup::RenderFocused(SDL_Surface& target)
         }
     }
     const unsigned short font_height = font.height();
-    const int text_top =
-        field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
+    const int text_top = field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
     RenderBackground(field, target);
     const std::string_view visible = std::string_view(field.text).substr(field.parking);
     const bool has_selection = field.selecting && field.selection_start != field.selection_end;
@@ -855,16 +842,14 @@ void TextFieldGroup::RenderFocused(SDL_Surface& target)
     for (std::size_t index = 0; index < field.visible_count && index < visible.size();) {
         const short prefix = font.prefixWidth(visible, index);
         const auto absolute = field.parking + index;
-        const bool selected =
-            has_selection && selection_first <= absolute && absolute < selection_last;
-        const auto options =
-            selected ? FieldTextOptions(font, style_.highlight_fore_color,
-                                        style_.highlight_shadow_color, style_.highlight_back_color)
-                     : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
+        const bool selected = has_selection && selection_first <= absolute && absolute < selection_last;
+        const auto options = selected ? FieldTextOptions(font, style_.highlight_fore_color,
+                                                         style_.highlight_shadow_color, style_.highlight_back_color)
+                                      : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
         std::size_t end = index;
         wiz8::text::next(visible, end);
-        DrawText(target, font, {field.Edges().left + prefix + 3, text_top},
-                 visible.substr(index, end - index), options);
+        DrawText(target, font, {field.Edges().left + prefix + 3, text_top}, visible.substr(index, end - index),
+                 options);
         index = end;
     }
     if (editing_ && !IsLeftButtonHeld() && w8_get_ticks() % 1000 < 500) {
@@ -877,13 +862,10 @@ void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
 {
     auto& font = *style_.font;
     const bool disabled = !field.enabled && style_.disabled_auto_shade;
-    const auto options =
-        disabled
-            ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
-            : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
+    const auto options = disabled ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
+                                  : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
     const unsigned short font_height = font.height();
-    const int text_top =
-        field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
+    const int text_top = field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
     RenderBackground(field, target);
     const std::string_view text = field.text;
     for (std::size_t index = 0; index < text.size();) {
@@ -893,8 +875,7 @@ void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
         }
         std::size_t end = index;
         wiz8::text::next(text, end);
-        DrawText(target, font, {field.Edges().left + prefix + 3, text_top},
-                 text.substr(index, end - index), options);
+        DrawText(target, font, {field.Edges().left + prefix + 3, text_top}, text.substr(index, end - index), options);
         index = end;
     }
     if (disabled) {

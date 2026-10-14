@@ -16,12 +16,11 @@ union W8ActionDetailBlock;
 W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether a party action aims at enemies (melee kinds, or a spell /
    item-spell whose target type is an enemy band). */
-bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_kind,
-                                   int action_detail, W8ActionDetailBlock* detail);
+bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_kind, int action_detail,
+                                   W8ActionDetailBlock* detail);
 /* The monster-side counterpart; action kinds 0 and 3 always count,
    kind 2 defers to MonsterCanAimSpell. */
-bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_detail,
-                                 unsigned int* spell_power_level);
+bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_detail, unsigned int* spell_power_level);
 bool MonsterCanAimSpell(int spell_id);
 bool CombatAllowsLiveGroups(void);
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);

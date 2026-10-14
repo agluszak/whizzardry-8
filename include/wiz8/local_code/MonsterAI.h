@@ -44,8 +44,8 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group);
 /* Whether the monster has a living target it can see; `party_only` skips the
    monster scan, `hostility` selects the class (three and four are wildcards),
    and `within_reach` also requires the target inside engagement range. */
-bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
-                             W8VisibleTargetFilter hostility, bool within_reach);
+bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only, W8VisibleTargetFilter hostility,
+                             bool within_reach);
 float GetGroupNearestDistance(W8MonsterGroup* group);
 
 /* Two dwords per special attack kind. */
@@ -56,15 +56,14 @@ bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id);
 bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* combat_slot);
 /* Whether the spell's area effect would catch a disposition-neutral monster,
    which vetoes it - the AI does not turn neutrals hostile by accident. */
-bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
-                                 W8CombatSlot* combat_slot);
+bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* combat_slot);
 /* Whether the spell's markers catch at least one party member when cast at
    `slot`. */
 bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* slot);
 /* Whether any live member of the group has a visible target; the arguments
    forward to MonsterHasVisibleTarget. */
-bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only,
-                                  W8VisibleTargetFilter hostility, bool within_reach);
+bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only, W8VisibleTargetFilter hostility,
+                                  bool within_reach);
 /* The out-of-combat sweep: refreshes sight, alerts same-faction groups of
    groups already fighting, and enters combat for the groups that should. */
 void CheckMonsterGroupsEnterCombat(void);
@@ -104,12 +103,10 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only);
 /* Fill `targets` with the combat slots `spell_id` may be cast at by this
    monster; the monster's action fields carry the spell while the probe runs
    and are restored after. */
-void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
-                                std::vector<W8CombatSlot>& targets);
+void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id, std::vector<W8CombatSlot>& targets);
 /* Whether at least half of the group's live in-combat members the caster is
    hostile to accept the spell. */
-bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id,
-                                       W8MonsterGroup* target_group);
+bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id, W8MonsterGroup* target_group);
 /* Whether at least half of the party members the caster is hostile to accept
    the spell. */
 bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id);

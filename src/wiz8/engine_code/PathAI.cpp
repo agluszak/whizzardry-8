@@ -85,9 +85,8 @@ try {
         auto& rotation = path->rotations[index];
         rotation = glm::mat3(1);
         if (angle != g_double_zero) {
-            rotation *=
-                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                              normalizedOrZero(glm::vec3(axis.glmValue()))));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                      normalizedOrZero(glm::vec3(axis.glmValue()))));
         }
         if (path->version == 2) {
             handle->read_exact(&path->scales[index], sizeof(path->scales[index]));
@@ -338,16 +337,15 @@ bool PathAITick(W8PathAI* path, signed char direction)
                 PathAIAdvanceNormalized(path, elapsed * g_float_one_thousandth);
             } else {
                 point_count = static_cast<float>(path->nodes.size());
-                PathAIAdvanceByDistance(path, path->total_length / point_count * path->speed *
-                                                  elapsed * g_float_one_thousandth);
+                PathAIAdvanceByDistance(path, path->total_length / point_count * path->speed * elapsed *
+                                                  g_float_one_thousandth);
             }
             path->last_update_tick = now;
             return true;
         }
     } else {
         if (!path->step_by_node) {
-            amount =
-                (now - path->last_update_tick) * g_float_one_thousandth * direction * path->speed;
+            amount = (now - path->last_update_tick) * g_float_one_thousandth * direction * path->speed;
         } else {
             amount = g_negative_one;
             if (direction > 0) {
@@ -384,9 +382,8 @@ void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
         return;
     }
     if (!path->animated) {
-        int index = path->discrete_mode
-                        ? srFloatToInt(path->position + g_double_one_tenth)
-                        : srFloatToInt((path->nodes.size() - 1) * path->position + g_double_half);
+        int index = path->discrete_mode ? srFloatToInt(path->position + g_double_one_tenth)
+                                        : srFloatToInt((path->nodes.size() - 1) * path->position + g_double_half);
         index = std::min(index, static_cast<int>(path->nodes.size()) - 1);
         if (index >= 0) {
             *value = path->nodes[index];

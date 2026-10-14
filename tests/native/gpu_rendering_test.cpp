@@ -37,8 +37,7 @@ struct Fixture {
         const std::array colors{color, color, color};
         srRendererDefs::VertexArrayInfo arrays{};
         arrays.mask.value = (1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
-                            (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE) |
-                            (1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0);
+                            (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE) | (1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0);
         arrays.components[0] = arrays.components[1] = 4;
         arrays.components[4] = 3;
         arrays.arrays[0] = positions;
@@ -63,8 +62,7 @@ TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
 {
     Fixture fixture;
     srShader shader;
-    shader.value = unsigned(srShader::PASS_LESS) | srShader::MASK_DEPTH_WRITE |
-                   srShader::MASK_COLOR_WRITE |
+    shader.value = unsigned(srShader::PASS_LESS) | srShader::MASK_DEPTH_WRITE | srShader::MASK_COLOR_WRITE |
                    (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.triangle(0, {1, 0, 0, 1});
@@ -87,8 +85,8 @@ TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
     fixture.device->texImage(texture, 0);
     fixture.device->bindTexture(0, texture);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
-                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     // U clamps to the green column, V repeats into the top row.
     fixture.device->setTextureParameters(0, {(1 << 4) | (1 << 6) | (1 << 10), 0});

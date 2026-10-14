@@ -109,6 +109,5 @@ bool PointInsideBounds(const srVector3T<float>* point, const srVector3T<float>* 
 // FUNCTION: WIZ8 0x004BE940
 bool projectsToCamera(const glm::vec3& position)
 {
-    return g_world->camera->project(glm::dvec3(position)).result ==
-           srCamera::PROJECTION_RESULT_ACCEPTED;
+    return g_world->camera->project(glm::dvec3(position)).result == srCamera::PROJECTION_RESULT_ACCEPTED;
 }

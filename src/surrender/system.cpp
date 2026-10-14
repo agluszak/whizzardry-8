@@ -51,8 +51,7 @@ w8_long srSystem::chDir(const char* path)
     return w8_native::change_directory(path);
 }
 
-w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directory,
-                            const char* pattern)
+w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directory, const char* pattern)
 {
     if (pattern == 0) {
         return 0;
@@ -61,9 +60,8 @@ w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directo
     w8_long count = 0;
     try {
         const auto host = wiz8::path_from_utf8(base);
-        const bool virtual_drive =
-            base.size() >= 2 && base[1] == ':' &&
-            ((base[0] >= 'C' && base[0] <= 'F') || (base[0] >= 'c' && base[0] <= 'f'));
+        const bool virtual_drive = base.size() >= 2 && base[1] == ':' &&
+                                   ((base[0] >= 'C' && base[0] <= 'F') || (base[0] >= 'c' && base[0] <= 'f'));
         if (!virtual_drive && host.is_absolute()) {
             const std::string host_path = wiz8::path_to_utf8(host);
             std::unique_ptr<char*, decltype(&SDL_free)> entries(
@@ -146,8 +144,7 @@ char* srSystem::fullPath(char* absolute_path, const char* path, w8_ulong size)
     return absolute_path;
 }
 
-void srSystem::splitPath(const char* path, char* drive, char* directory, char* filename,
-                         char* extension)
+void srSystem::splitPath(const char* path, char* drive, char* directory, char* filename, char* extension)
 {
     std::string text = path != nullptr ? path : "";
     std::string prefix;

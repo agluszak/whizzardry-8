@@ -108,8 +108,8 @@ void SaveMasterFunctions(void)
    ground when asked, create the group, apply hostility, refresh its centre
    cache and re-run outward sight for the new arrivals. */
 // FUNCTION: WIZ8 0x004D8F00
-W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* position, int hostility,
-                              bool settle, bool a, bool b)
+W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* position, int hostility, bool settle,
+                              bool a, bool b)
 {
     W8MonsterGroup* group;
     srVector3T<float> position_copy;
@@ -131,8 +131,8 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* posi
    loudness fraction, clamp anything above one, then create the node at the
    requested spot, scale its base volume and falloff and start playback. */
 // FUNCTION: WIZ8 0x004D8F80
-stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> position, float volume,
-                                  float scale, bool play_flag)
+stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> position, float volume, float scale,
+                                  bool play_flag)
 {
     if (volume > g_float_one) {
         volume = 1.0f;
@@ -157,22 +157,16 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> posi
    (command, node, context); the context slot normally carries the address of
    the command's argument byte, while command 4 smuggles the byte itself
    through it. */
-typedef unsigned char (*W8WorldCursorNodeHandler)(int command, W8WorldCursorNode* node,
-                                                  int context);
+typedef unsigned char (*W8WorldCursorNodeHandler)(int command, W8WorldCursorNode* node, int context);
 
-static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node,
-                                                    int context);
-static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node,
-                                                       int context);
+static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node, int context);
+static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node, int context);
 static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node,
-                                                    int context);
-static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node,
-                                                       int context);
+static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node, int context);
+static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node, int context);
 static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* node, int context);
 static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node,
-                                                         int context);
+static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node, int context);
 static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context);
 
 /* The character-event kind constants the cursor-node handlers queue. */
@@ -245,13 +239,11 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
         switch (command) {
         case 0:
             if (previous != 0 && previous != node) {
-                result = g_world_cursor_node_handlers[GetWorldCursorNodeParameter(previous, 2)](
-                    2, previous, context);
+                result = g_world_cursor_node_handlers[GetWorldCursorNodeParameter(previous, 2)](2, previous, context);
             }
             previous = g_active_cursor_node;
             if (node != 0 && previous != node) {
-                result = g_world_cursor_node_handlers[GetWorldCursorNodeParameter(node, 2)](
-                    1, node, context);
+                result = g_world_cursor_node_handlers[GetWorldCursorNodeParameter(node, 2)](1, node, context);
             }
             g_active_cursor_node = node;
             break;
@@ -290,8 +282,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
    Parameter 1 additionally gates the message on a living party member with
    trait 0x0c while the party is neither searching nor under effect 0x11. */
 // FUNCTION: WIZ8 0x004D9260
-static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node,
-                                                    int context)
+static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node, int context)
 {
     int message_id;
     const char* folder;
@@ -346,8 +337,7 @@ command_check:
 /* Type-2 nodes: command 4 with a nonzero context flag shows the node's
    message while the main game screen is up. */
 // FUNCTION: WIZ8 0x004D93E0
-static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node,
-                                                       int context)
+static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node, int context)
 {
     const char* folder;
     int message_id;
@@ -402,12 +392,10 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
 /* Type-4 nodes: entering applies the node's item effect to a random party
    member. */
 // FUNCTION: WIZ8 0x004D9560
-static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node,
-                                                    int context)
+static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node, int context)
 {
     if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0,
-                                         g_character_event_no_flags);
+        ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0, g_character_event_no_flags);
     }
     return 1;
 }
@@ -415,8 +403,7 @@ static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNo
 /* Type-9 nodes: entering while the fact-0x14c gate holds queues the male
    event for the indexed party member when that member is male. */
 // FUNCTION: WIZ8 0x004D9590
-static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node,
-                                                       int context)
+static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node, int context)
 {
     W8Character* character;
 
@@ -447,10 +434,8 @@ static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* n
     if (command == 1) {
         if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
             if (CountAscensionPeakItems() == 3) {
-                if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
-                    GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
-                    ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0,
-                                                     g_character_event_no_flags);
+                if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 || GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
+                    ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0, g_character_event_no_flags);
                     CreateLocationVar("AP_SeenBodies", 1);
                     if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
@@ -468,12 +453,10 @@ static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* n
 /* Type-6 nodes: entering applies the node's item effect to a random party
    member. */
 // FUNCTION: WIZ8 0x004D96C0
-static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node,
-                                                         int context)
+static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node, int context)
 {
     if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0,
-                                         g_character_event_no_flags);
+        ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0, g_character_event_no_flags);
     }
     return 1;
 }
@@ -570,8 +553,8 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
             *shown = 1;
             slot = PickRandomPartySpeaker(event_type, 0xff);
             if (slot != -1) {
-                QueueCharacterEvent(g_status.buffers.Char + slot, event_type, 0,
-                                    g_character_event_no_flags, g_character_event_full_volume);
+                QueueCharacterEvent(g_status.buffers.Char + slot, event_type, 0, g_character_event_no_flags,
+                                    g_character_event_full_volume);
             }
         }
     }

@@ -68,21 +68,18 @@ CivilTime file_time_to_utc(DiskFileTime time) noexcept
 DiskFileTime file_time_from_utc(const CivilTime& time)
 {
     using namespace std::chrono;
-    if (time.year < 1601 || time.year > 60056 || time.hour > 23 || time.minute > 59 ||
-        time.second > 59 || time.fraction_100ns >= ticks_per_second || time.month < 1 ||
-        time.month > 12 || time.day < 1 || time.day > 31) {
+    if (time.year < 1601 || time.year > 60056 || time.hour > 23 || time.minute > 59 || time.second > 59 ||
+        time.fraction_100ns >= ticks_per_second || time.month < 1 || time.month > 12 || time.day < 1 || time.day > 31) {
         throw std::invalid_argument("invalid disk civil time");
     }
     const auto era = (time.year - 1601) / 400;
-    const year_month_day date{year{1601 + (time.year - 1601) % 400}, month{time.month},
-                              day{time.day}};
+    const year_month_day date{year{1601 + (time.year - 1601) % 400}, month{time.month}, day{time.day}};
     if (!date.ok()) {
         throw std::invalid_argument("invalid disk calendar date");
     }
     const auto days = std::uint64_t((sys_days{date} - epoch).count()) + era * days_per_era;
     const auto remainder =
-        (std::uint64_t(time.hour) * 3600 + time.minute * 60 + time.second) * ticks_per_second +
-        time.fraction_100ns;
+        (std::uint64_t(time.hour) * 3600 + time.minute * 60 + time.second) * ticks_per_second + time.fraction_100ns;
     if (days > (std::numeric_limits<std::uint64_t>::max() - remainder) / ticks_per_day) {
         throw std::out_of_range("civil time exceeds disk tick range");
     }

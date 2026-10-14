@@ -145,9 +145,8 @@ void ServiceMusicPlaylist(void)
 
     if (!g_music_force_next && !gXStatus.fCombatMode &&
         Random(100) <= static_cast<unsigned int>(g_music_pause_chance_percent)) {
-        g_music_playlist_tick =
-            w8_get_ticks() + g_music_pause_min_seconds * 1000 +
-            Random(g_music_pause_max_seconds * 1000 - g_music_pause_min_seconds * 1000);
+        g_music_playlist_tick = w8_get_ticks() + g_music_pause_min_seconds * 1000 +
+                                Random(g_music_pause_max_seconds * 1000 - g_music_pause_min_seconds * 1000);
         return;
     }
 
@@ -250,8 +249,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         g_music_sample_handle = nullptr;
     }
 
-    g_music_playlist_track_count =
-        AnalyzeMusicPlaylist(g_music_playlist, &g_music_playlist_weight_total);
+    g_music_playlist_track_count = AnalyzeMusicPlaylist(g_music_playlist, &g_music_playlist_weight_total);
     if (g_music_playlist_track_count != 0) {
         g_music_playlist->setName(resource);
         g_music_playlist_active = true;

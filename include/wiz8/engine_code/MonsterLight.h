@@ -16,8 +16,7 @@ class srNode;
    srClassSupport<srLight> instantiation (see MonsterLight.cpp). */
 class MonsterLight : public srLight {
 public:
-    MonsterLight(srNode* parent, bool cycle_color, float range,
-                 const srVector3T<float>* first_color,
+    MonsterLight(srNode* parent, bool cycle_color, float range, const srVector3T<float>* first_color,
                  const srVector3T<float>* second_color); /* 0x0049D500 */
     MonsterLight(const MonsterLight& other);             /* 0x0049D660 */
     void SetVisible(bool visible);

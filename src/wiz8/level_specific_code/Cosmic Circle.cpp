@@ -78,8 +78,7 @@ void CosmicCircleSetup(void)
             group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
             if (uiMonsterID == 0) {
-                srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x41,
-                             "Invalid Monster ID for CC end");
+                srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x41, "Invalid Monster ID for CC end");
             } else {
                 pMonsterInfoAltheides = FindMonster(uiMonsterID);
             }
@@ -88,8 +87,7 @@ void CosmicCircleSetup(void)
             group = SpawnMonsters(0x1b6, 1, &positionDs, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
             if (uiMonsterID == 0) {
-                srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x53,
-                             "Invalid Monster ID for CC end");
+                srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x53, "Invalid Monster ID for CC end");
             } else {
                 pMonsterInfoDs = FindMonster(uiMonsterID);
             }

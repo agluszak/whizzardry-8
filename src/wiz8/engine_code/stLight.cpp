@@ -126,8 +126,7 @@ void stLight::traverse(srNode::TraverseInfo& info)
 // FUNCTION: WIZ8 0x0049C8D0
 void stLight::process(const srNode::ProcessInfo& info, srNode::e_processType type)
 {
-    if ((type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) &&
-        g_monster_light_scale != g_float_one) {
+    if ((type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) && g_monster_light_scale != g_float_one) {
         float saved_scale = intensity;
         intensity = saved_scale * g_monster_light_scale;
         srLight::process(info, type);
@@ -163,8 +162,7 @@ glm::vec3 stParametricLightDefinition::GetInterpolatedColor(float blend) const
 void stLight::Update()
 {
     if (m_definition != 0 && m_definition->kind == W8_LIGHT_DEFINITION_KEYFRAMED) {
-        stKeyframedLightDefinition* definition =
-            static_cast<stKeyframedLightDefinition*>(m_definition);
+        stKeyframedLightDefinition* definition = static_cast<stKeyframedLightDefinition*>(m_definition);
         float time = definition->time;
         int count = static_cast<int>(definition->key_frames.size());
         if (time <= definition->key_frames.back()) {
@@ -202,8 +200,7 @@ void stLight::Update()
             index = definition->keyframe_index;
             const auto& color_to = definition->key_colors[index + 1];
             const auto& color_from = definition->key_colors[index];
-            diffuse =
-                glm::min(glm::mix(color_from.glmValue(), color_to.glmValue(), blend), glm::vec3(1));
+            diffuse = glm::min(glm::mix(color_from.glmValue(), color_to.glmValue(), blend), glm::vec3(1));
             return;
         }
         intensity = g_float_zero;
@@ -213,8 +210,7 @@ void stLight::Update()
     w8_ulong ticks = w8_get_ticks();
     W8PathAI* path = path_ai;
     float seconds = ticks * g_float_one_thousandth;
-    stParametricLightDefinition* definition =
-        static_cast<stParametricLightDefinition*>(m_definition);
+    stParametricLightDefinition* definition = static_cast<stParametricLightDefinition*>(m_definition);
     if (definition->period < g_float_one_ten_thousandth) {
         definition->period = 1.0f;
     }
@@ -244,8 +240,7 @@ void stLight::Update()
                     blend = g_float_one;
                 }
             }
-            intensity =
-                (definition->intensity_to - definition->intensity) * blend + definition->intensity;
+            intensity = (definition->intensity_to - definition->intensity) * blend + definition->intensity;
             m_level = blend;
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) == 0) {
                 m_level_time = seconds;
@@ -260,8 +255,7 @@ void stLight::Update()
             float blend = (g_float_one / definition->period) * step + m_level;
             if (blend <= g_float_one) {
                 float level = blend;
-                intensity = (definition->intensity_to - definition->intensity) * level +
-                            definition->intensity;
+                intensity = (definition->intensity_to - definition->intensity) * level + definition->intensity;
                 m_level = level;
                 if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
                     diffuse = definition->GetInterpolatedColor(blend);
@@ -305,8 +299,7 @@ void stLight::Update()
             }
         }
     }
-    if ((path == 0) || (path->nodes.size() == 0) ||
-        ((seconds - m_path_time) * definition->path_speed < g_float_one)) {
+    if ((path == 0) || (path->nodes.size() == 0) || ((seconds - m_path_time) * definition->path_speed < g_float_one)) {
         return;
     }
     int index = static_cast<int>((seconds - m_path_time) * definition->path_speed);
@@ -337,15 +330,13 @@ void stLight::Reset()
 {
     if (m_definition != 0) {
         if (m_definition->kind == W8_LIGHT_DEFINITION_KEYFRAMED) {
-            stKeyframedLightDefinition* definition =
-                static_cast<stKeyframedLightDefinition*>(m_definition);
+            stKeyframedLightDefinition* definition = static_cast<stKeyframedLightDefinition*>(m_definition);
             definition->time = 0.0f;
             definition->keyframe_index = 0;
             m_path_index = 0;
             m_path_direction = 1;
         } else {
-            stParametricLightDefinition* definition =
-                static_cast<stParametricLightDefinition*>(m_definition);
+            stParametricLightDefinition* definition = static_cast<stParametricLightDefinition*>(m_definition);
             intensity = definition->intensity;
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
                 diffuse = definition->color.glmValue();

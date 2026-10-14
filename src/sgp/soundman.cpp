@@ -117,8 +117,7 @@ std::string resolve_path(std::string_view path)
     }
     std::string filename(path);
     strupr(filename.data());
-    if (const auto status = wiz8::file_status(filename);
-        status && status->info.type == SDL_PATHTYPE_FILE) {
+    if (const auto status = wiz8::file_status(filename); status && status->info.type == SDL_PATHTYPE_FILE) {
         return filename;
     }
     if (filename.ends_with(".WAV")) {
@@ -164,7 +163,7 @@ Playback create_playback(Group group)
         !MIX_SetTrackStoppedCallback(
             playback->track.get(),
             [](void* data, MIX_Track*) {
-                // The mixer thread must not dispatch game callbacks or destroy inputs.
+            // The mixer thread must not dispatch game callbacks or destroy inputs.
                 static_cast<AudioPlayback*>(data)->stopped.store(true, std::memory_order_release);
             },
             playback.get())) {
@@ -185,24 +184,20 @@ Playback start(Playback playback, Clip clip, PlayOptions options)
         const auto bend = std::uint64_t(rate) * options.pitch_bend_percent / 100;
         if (bend <= UINT32_MAX / 2) {
             rate = std::uint32_t(std::clamp<std::int64_t>(
-                std::int64_t(rate) + std::int64_t(Random(std::uint32_t(bend * 2))) -
-                    std::int64_t(bend),
-                1, UINT32_MAX));
+                std::int64_t(rate) + std::int64_t(Random(std::uint32_t(bend * 2))) - std::int64_t(bend), 1,
+                UINT32_MAX));
         }
     }
     playback->rate = rate;
     playback->position = options.position;
     const auto properties = SDL_CreateProperties();
-    bool ok = properties && rate > 0 &&
-              set_gain(*playback, options.volume.value_or(service_state.default_volume)) &&
-              MIX_SetTrackFrequencyRatio(
-                  &track, std::clamp(float(rate) / float(natural_rate), 0.01f, 100.0f)) &&
+    bool ok = properties && rate > 0 && set_gain(*playback, options.volume.value_or(service_state.default_volume)) &&
+              MIX_SetTrackFrequencyRatio(&track, std::clamp(float(rate) / float(natural_rate), 0.01f, 100.0f)) &&
               (!playback->position || apply_spatial(*playback)) &&
               SDL_SetNumberProperty(properties, MIX_PROP_PLAY_LOOPS_NUMBER,
                                     options.loops == 0 ? -1 : Sint64(options.loops) - 1) &&
               (options.fade_in_ms == 0 ||
-               SDL_SetNumberProperty(properties, MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER,
-                                     options.fade_in_ms)) &&
+               SDL_SetNumberProperty(properties, MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, options.fade_in_ms)) &&
               MIX_PlayTrack(&track, properties);
     SDL_DestroyProperties(properties);
     if (!ok) {
@@ -441,8 +436,7 @@ bool stop_group(Group group)
         return false;
     }
     const auto* tag = tag_of(group);
-    std::unique_ptr<MIX_Track*, decltype(&SDL_free)> tracks(
-        MIX_GetTaggedTracks(owner.get(), tag, nullptr), SDL_free);
+    std::unique_ptr<MIX_Track*, decltype(&SDL_free)> tracks(MIX_GetTaggedTracks(owner.get(), tag, nullptr), SDL_free);
     if (!tracks) {
         return false;
     }
@@ -506,7 +500,6 @@ std::optional<PlaybackTime> playback_time(const Playback& playback)
     auto* track = playback->track.get();
     return PlaybackTime{
         std::uint32_t(std::max<Sint64>(0, MIX_TrackFramesToMS(track, playback->duration))),
-        std::uint32_t(
-            std::max<Sint64>(0, MIX_TrackFramesToMS(track, MIX_GetTrackPlaybackPosition(track))))};
+        std::uint32_t(std::max<Sint64>(0, MIX_TrackFramesToMS(track, MIX_GetTrackPlaybackPosition(track))))};
 }
 } // namespace wiz8::sound

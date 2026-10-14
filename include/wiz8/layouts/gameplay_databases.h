@@ -71,12 +71,7 @@ enum W8Race {
 /* A character's sex. Zero is male and one is female, which is what the quote
    lookup, the item record's sex mask and the female-only profession all agree
    on. A character or template that has not been assigned one carries UNSET. */
-enum W8Gender {
-    W8_GENDER_MALE = 0,
-    W8_GENDER_FEMALE = 1,
-    W8_GENDER_COUNT = 2,
-    W8_GENDER_UNSET = -1
-};
+enum W8Gender { W8_GENDER_MALE = 0, W8_GENDER_FEMALE = 1, W8_GENDER_COUNT = 2, W8_GENDER_UNSET = -1 };
 
 enum { W8_MAX_MONSTER_ATTACKS = 3 };
 
@@ -275,32 +270,25 @@ struct W8NpcCharacterTemplate {
     std::string name;       /* Retail offset 0x000, record 0x0c4 */
     std::string name_part_2; /* Retail offset 0x014, record 0x0d8 */
     unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
-    W8Profession
-        profession; /* Retail offset 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
+    W8Profession profession; /* Retail offset 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
     W8Race race; /* Retail offset 0x068, record 0x12c */
     int table_value; /* Retail offset 0x06c, record 0x130 */
     unsigned int level; /* Retail offset 0x070, record 0x134: starting profession level */
-    int attributes
-        [7]; /* Retail offset 0x074, record 0x138: W8CharacterAttribute::value per attribute */
+    int attributes[7]; /* Retail offset 0x074, record 0x138: W8CharacterAttribute::value per attribute */
     int skills[0x29]; /* Retail offset 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
-    unsigned char spells
-        [0x72]; /* Retail offset 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
-    unsigned short
-        equipment_present[12]; /* Retail offset 0x1a6, record 0x26a: zero leaves the slot empty */
-    unsigned short
-        equipment_ids[12]; /* Retail offset 0x1be, record 0x282: Items.dbs index, 0xffff empty */
+    unsigned char spells[0x72]; /* Retail offset 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
+    unsigned short equipment_present[12]; /* Retail offset 0x1a6, record 0x26a: zero leaves the slot empty */
+    unsigned short equipment_ids[12]; /* Retail offset 0x1be, record 0x282: Items.dbs index, 0xffff empty */
     unsigned short backpack_present[8]; /* Retail offset 0x1d6, record 0x29a */
     unsigned short backpack_ids[8]; /* Retail offset 0x1e6, record 0x2aa */
-    signed char
-        gender; /* Retail offset 0x1f6, record 0x2ba: copied into the character's own sex field */
+    signed char gender; /* Retail offset 0x1f6, record 0x2ba: copied into the character's own sex field */
     short wanted_item_ids[3];
     unsigned char unknown_1fd[9];
 };
 
 /* One Data\Databases\NPC.DBS record. */
 struct W8NpcDatabaseRecord {
-    unsigned short
-        version; /* Retail offset 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
+    unsigned short version; /* Retail offset 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
     /* Retail offset 0x002: trade-pool stock count; CreateNpcRuntimeNode copies it into the
        runtime state's trade_pool. */
     short trade_pool;
@@ -359,8 +347,7 @@ struct W8NpcDatabaseRecord {
        The wide RPC-character name at 0x0c4 bounds the string extent. */
     std::string display_name;
     W8NpcCharacterTemplate character; /* Retail offset 0x0c4 */
-    std::vector<W8NpcItemStockRule*>*
-        item_stock_rules; /* Retail offset 0x2ca: W8NpcItemStockRule* elements */
+    std::vector<W8NpcItemStockRule*>* item_stock_rules; /* Retail offset 0x2ca: W8NpcItemStockRule* elements */
     /* Retail offset 0x2ce/0x2d2: the trade price factors. CalculateTradeStackPrice adds the
        bargained adjustment to buy_price_factor when the NPC buys from the
        party and subtracts it from sell_price_factor when the party buys. */
@@ -376,8 +363,7 @@ struct W8NpcDatabaseRecord {
        monster dies. */
     int gold;
     unsigned char combat_script_notice_enabled; /* Retail offset 0x2ef: hostile-NPC combat notice */
-    unsigned char
-        allow_dismissed_departure_dialogue; /* Retail offset 0x2f0: permits dismissed-NPC dialogue */
+    unsigned char allow_dismissed_departure_dialogue; /* Retail offset 0x2f0: permits dismissed-NPC dialogue */
     unsigned char unknown_2f1[0x18];
 };
 

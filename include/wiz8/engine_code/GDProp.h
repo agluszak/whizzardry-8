@@ -64,8 +64,8 @@ public:
         m_path_bounds.max_x = 0;
         m_path_bounds.min_x = 0;
     }
-    GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
-           unsigned char footstep_surface, unsigned char footstep_material); /* 0x004B6E00 */
+    GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number, unsigned char footstep_surface,
+           unsigned char footstep_material); /* 0x004B6E00 */
     ~GDProp();                                                               /* 0x004B6ED0 */
     void BindTrigger(Trigger* owner);
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
@@ -90,12 +90,10 @@ public:
     unsigned char RegisterPathSurface(unsigned int index, const glm::ivec2& point);
     /* Appends the index to the link list when the segment touches the path
        bounds (one-cell tolerance on the crossed sides). */
-    unsigned char RegisterPathVertex(unsigned int index, const glm::ivec2& point,
-                                     const glm::ivec2& second);
+    unsigned char RegisterPathVertex(unsigned int index, const glm::ivec2& point, const glm::ivec2& second);
 
 private:
-    void Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
-                    unsigned char footstep_surface,
+    void Initialize(srModelInstance* instance, bool attach, unsigned short prop_number, unsigned char footstep_surface,
                     unsigned char footstep_material); /* 0x004B7060 */
     void PrepareGeometry(srModelInstance* instance);
     void AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base);

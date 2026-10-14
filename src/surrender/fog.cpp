@@ -57,8 +57,7 @@ int srFog::isActive(srVertexPipe& pipe)
     if (density > 0.0f) {
         const auto sphere = pipe.getEyeSpaceBoundingSphere();
         if ((sphere.radius <= fog_start) &&
-            (glm::dot(sphere.center, sphere.center) <
-             (fog_start - sphere.radius) * (fog_start - sphere.radius))) {
+            (glm::dot(sphere.center, sphere.center) < (fog_start - sphere.radius) * (fog_start - sphere.radius))) {
             return 0;
         }
         return 1;
@@ -71,8 +70,7 @@ void srFog::verify(srRuntimeClass::e_verify mode)
 {
     srClass::verify(mode);
     if ((density < 0.0) || (1.0 < density)) {
-        srAssertFail("(density >= 0.0) && (density <= 1.0)",
-                     "D:\\srsdk1x\\sources\\corelib\\srFog.cpp", 0x3c, 0);
+        srAssertFail("(density >= 0.0) && (density <= 1.0)", "D:\\srsdk1x\\sources\\corelib\\srFog.cpp", 0x3c, 0);
     }
     if (fog_start < 0.0) {
         srAssertFail("fogStart >= 0.0", "D:\\srsdk1x\\sources\\corelib\\srFog.cpp", 0x3d, 0);
@@ -102,9 +100,8 @@ void srFog::process(srVertexPipe& pipe)
                 scale = 1.0 / (fog_end - fog_start);
             }
             const auto distances = pipe.getEyeSpaceDist();
-            srChannelMath::distanceRamp({values, static_cast<std::size_t>(count)}, distances,
-                                        fog_start, scale, this->density,
-                                        srChannelMath::RampDirection::increasing);
+            srChannelMath::distanceRamp({values, static_cast<std::size_t>(count)}, distances, fog_start, scale,
+                                        this->density, srChannelMath::RampDirection::increasing);
             pipe.applyFog({values, static_cast<std::size_t>(count)});
         } else {
             const auto fog = pipe.getFog();

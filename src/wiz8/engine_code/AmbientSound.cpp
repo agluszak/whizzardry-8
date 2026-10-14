@@ -62,11 +62,10 @@ struct W8RandomAmbient {
     wiz8::sound::Playback Fire(std::uint32_t volume, std::optional<glm::vec3> position)
     {
         auto playback = wiz8::sound::play(
-            clip,
-            {.volume = volume,
-             .rate = speed ? std::optional(RandomRange(speed->first, speed->second)) : std::nullopt,
-             .group = wiz8::sound::Group::ambient,
-             .position = position});
+            clip, {.volume = volume,
+                   .rate = speed ? std::optional(RandomRange(speed->first, speed->second)) : std::nullopt,
+                   .group = wiz8::sound::Group::ambient,
+                   .position = position});
         if (playback) {
             Reschedule();
             instance = playback;
@@ -83,9 +82,8 @@ namespace {
 std::vector<std::shared_ptr<W8RandomAmbient>> g_random_ambients;
 
 /* -1 marks unset values in ambient records; an unset interval disables the schedule. */
-std::shared_ptr<W8RandomAmbient> RegisterRandomAmbient(const char* path, int time_min, int time_max,
-                                                       int speed_min, int speed_max,
-                                                       std::uint32_t volume_min,
+std::shared_ptr<W8RandomAmbient> RegisterRandomAmbient(const char* path, int time_min, int time_max, int speed_min,
+                                                       int speed_max, std::uint32_t volume_min,
                                                        std::uint32_t volume_max, bool automatic)
 {
     if (time_min == -1) {
@@ -116,8 +114,7 @@ void ServiceRandomAmbients()
     const auto schedules = g_random_ambients;
     for (const auto& random : schedules) {
         if (random->automatic && random->Due()) {
-            random->Fire(W8RandomAmbient::RandomRange(random->volume_min, random->volume_max),
-                         std::nullopt);
+            random->Fire(W8RandomAmbient::RandomRange(random->volume_min, random->volume_max), std::nullopt);
         }
     }
 }
@@ -135,9 +132,8 @@ void StopAllAmbientSounds()
 
 // FUNCTION: WIZ8 0x00479040
 W8AmbientSound::W8AmbientSound()
-    : volume_min(0), volume_max(0), current_volume(0), speed_min(0), speed_max(0), time_min(0),
-      time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(), shared(0),
-      bounded(0), region_angle(0)
+    : volume_min(0), volume_max(0), current_volume(0), speed_min(0), speed_max(0), time_min(0), time_max(0), radius(0),
+      in_range(0), looping(0), sound_handle(), random(), shared(0), bounded(0), region_angle(0)
 {
     config.wave_name[0] = 0;
     position.SetZero();
@@ -166,16 +162,14 @@ bool W8AmbientSound::IsInsideRegion(const srVector3T<float>* listener)
         relative.z *= scale_z;
     }
     if (region_angle != g_float_zero &&
-        (region_axis.x != g_float_zero || region_axis.y != g_float_zero ||
-         region_axis.z != g_float_zero)) {
+        (region_axis.x != g_float_zero || region_axis.y != g_float_zero || region_axis.z != g_float_zero)) {
         glm::mat3 rotation;
         double angle = -region_angle;
 
         rotation = glm::mat3(1);
         if (angle != g_double_zero) {
-            rotation *=
-                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                              normalizedOrZero(glm::vec3(region_axis.glmValue()))));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                      normalizedOrZero(glm::vec3(region_axis.glmValue()))));
         }
         relative = rotation * relative.glmValue();
     }
@@ -213,21 +207,16 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
                         {
                             srVector3T<float> to_match = *listener - match->position;
                             unsigned char match_inside = match->IsInsideRegion(listener);
-                            if (to_match.Length() < match->radius &&
-                                (match->bounded == 0 || match_inside != 0) &&
+                            if (to_match.Length() < match->radius && (match->bounded == 0 || match_inside != 0) &&
                                 match->sound_handle == nullptr) {
                                 match->in_range = 1;
                                 match->sound_handle = sound_handle;
-                                match->target_volume =
-                                    (match->volume_max * g_settings.sound_effects_volume) / 0x7f;
-                                match->current_volume =
-                                    wiz8::sound::volume(sound_handle).value_or(0);
-                                match->fade_timer.SetDuration(g_float_one_and_a_half /
-                                                              match->target_volume);
+                                match->target_volume = (match->volume_max * g_settings.sound_effects_volume) / 0x7f;
+                                match->current_volume = wiz8::sound::volume(sound_handle).value_or(0);
+                                match->fade_timer.SetDuration(g_float_one_and_a_half / match->target_volume);
                                 match->fade_timer.Restart();
                                 match->fade_timer.m_flags.paused = false;
-                                match->fade_timer.m_start =
-                                    match->fade_timer.GetTime() - match->fade_timer.m_start;
+                                match->fade_timer.m_start = match->fade_timer.GetTime() - match->fade_timer.m_start;
                                 match->fade_timer.SetDuration(-1.0f);
                                 sound_handle = nullptr;
                                 handed_off = true;
@@ -240,8 +229,7 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
                     }
                     target_volume = 0;
                     {
-                        unsigned int full_volume =
-                            (volume_max * g_settings.sound_effects_volume) / 0x7f;
+                        unsigned int full_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
                         fade_timer.SetDuration(g_float_one_and_a_half / full_volume);
                         fade_timer.Restart();
                         fade_timer.m_flags.paused = false;
@@ -276,10 +264,10 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
                 if (radius * g_navigator_mode3_scale <= distance) {
                     volume = current_volume;
                 } else {
-                    volume = static_cast<unsigned int>(
-                        (g_float_one - (distance - radius * g_navigator_mode3_scale) /
-                                           (radius * g_ambient_sound_inner_radius_scale)) *
-                        current_volume);
+                    volume =
+                        static_cast<unsigned int>((g_float_one - (distance - radius * g_navigator_mode3_scale) /
+                                                                     (radius * g_ambient_sound_inner_radius_scale)) *
+                                                  current_volume);
                 }
                 wiz8::sound::set_volume(sound_handle, volume);
             }
@@ -312,10 +300,9 @@ void W8AmbientSound::Service(bool entered)
     }
     if (looping == 0) {
         if (!random) {
-            random =
-                RegisterRandomAmbient(config.wave_name, time_min, time_max, speed_min, speed_max,
-                                      (volume_min * g_settings.sound_effects_volume) / 0x7f,
-                                      (volume_max * g_settings.sound_effects_volume) / 0x7f, false);
+            random = RegisterRandomAmbient(config.wave_name, time_min, time_max, speed_min, speed_max,
+                                           (volume_min * g_settings.sound_effects_volume) / 0x7f,
+                                           (volume_max * g_settings.sound_effects_volume) / 0x7f, false);
         }
         if (random != nullptr) {
             unsigned char should_play;
@@ -325,8 +312,7 @@ void W8AmbientSound::Service(bool entered)
             } else {
                 should_play = Random(3);
             }
-            if (!gXStatus.fCombatMode && should_play != 0 &&
-                g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            if (!gXStatus.fCombatMode && should_play != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 float angle = -GetCameraYawRadians();
                 srVector3T<float> camera;
                 glm::mat3 rotation;
@@ -343,17 +329,16 @@ void W8AmbientSound::Service(bool entered)
                 transformed = rotation * offset.glmValue();
                 to_listener = camera - position;
                 distance = to_listener.Length();
-                volume = static_cast<unsigned int>(((Random(volume_max - volume_min) + volume_min) *
-                                                    g_settings.sound_effects_volume) /
-                                                   0x7f);
+                volume = static_cast<unsigned int>(
+                    ((Random(volume_max - volume_min) + volume_min) * g_settings.sound_effects_volume) / 0x7f);
                 current_volume = volume;
                 if (distance < radius * g_navigator_mode3_scale) {
                     heard_volume = current_volume;
                 } else {
-                    heard_volume = static_cast<unsigned int>(
-                        (g_float_one - (distance - radius * g_navigator_mode3_scale) /
-                                           (radius * g_ambient_sound_inner_radius_scale)) *
-                        current_volume);
+                    heard_volume =
+                        static_cast<unsigned int>((g_float_one - (distance - radius * g_navigator_mode3_scale) /
+                                                                     (radius * g_ambient_sound_inner_radius_scale)) *
+                                                  current_volume);
                 }
                 sound_handle = random->Fire(heard_volume, transformed.glmValue());
             }
@@ -375,9 +360,8 @@ void W8AmbientSound::Service(bool entered)
         rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
         offset = position - camera;
         transformed = rotation * offset.glmValue();
-        sound_handle = wiz8::sound::play(
-            config.wave_name,
-            {.volume = current_volume, .loops = 0, .position = transformed.glmValue()});
+        sound_handle = wiz8::sound::play(config.wave_name,
+                                         {.volume = current_volume, .loops = 0, .position = transformed.glmValue()});
         if (sound_handle == nullptr) {
             in_range = 0;
         }
@@ -489,11 +473,10 @@ int g_previous_ambient_footstep_variant;
 
 // GLOBAL: WIZ8 0x00609edc
 const char* g_footstep_names[] = {
-    "None",        "Gritty",     "Grass",     "Stone",       "ShallowWater",   "CreakyWood",
-    "SolidWood",   "HollowWood", "Metal",     "Gravel",      "RoughStone",     "Marble",
-    "Mud",         "Sand",       "Leaves",    "Snow",        "Carpet",         "Magic",
-    "ClimbLadder", "ClimbRock",  "ClimbRope", "SwimSurface", "SwimUnderwater", "Crawl",
-    "Fly",         "",
+    "None",   "Gritty", "Grass",       "Stone",     "ShallowWater", "CreakyWood",  "SolidWood",      "HollowWood",
+    "Metal",  "Gravel", "RoughStone",  "Marble",    "Mud",          "Sand",        "Leaves",         "Snow",
+    "Carpet", "Magic",  "ClimbLadder", "ClimbRock", "ClimbRope",    "SwimSurface", "SwimUnderwater", "Crawl",
+    "Fly",    "",
 };
 // GLOBAL: WIZ8 0x00609eb8
 const char* g_footstep_surfaces[] = {
@@ -519,13 +502,11 @@ wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8
         return {};
     }
     selected_surface = surface;
-    if (selected_surface < W8_FOOTSTEP_SURFACE_SMALL_CAVE ||
-        selected_surface > W8_FOOTSTEP_SURFACE_MAX) {
+    if (selected_surface < W8_FOOTSTEP_SURFACE_SMALL_CAVE || selected_surface > W8_FOOTSTEP_SURFACE_MAX) {
         selected_surface = g_default_footstep_surface;
     }
     selected_material = material;
-    if (selected_material < W8_FOOTSTEP_MATERIAL_GRITTY ||
-        selected_material > W8_FOOTSTEP_MATERIAL_MAX) {
+    if (selected_material < W8_FOOTSTEP_MATERIAL_GRITTY || selected_material > W8_FOOTSTEP_MATERIAL_MAX) {
         selected_material = g_default_footstep_material;
     }
     if (selected_material >= W8_FOOTSTEP_MATERIAL_CLIMB_LADDER) {
@@ -544,8 +525,7 @@ wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8
 }
 
 // FUNCTION: WIZ8 0x0047a540
-void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
-                       int variant)
+void BuildFootstepPath(char* path, signed char surface, signed char material, char kind, int variant)
 {
     if (kind == W8_FOOTSTEP_KIND_STEP) {
         sprintf(path, "Data\\Sound\\Footsteps\\%s\\Step_%s_%s_%.2d.WAV", g_footstep_names[material],
@@ -558,9 +538,8 @@ void BuildFootstepPath(char* path, signed char surface, signed char material, ch
         return;
     }
     if (kind == W8_FOOTSTEP_KIND_SCUFF) {
-        sprintf(path, "Data\\Sound\\Footsteps\\%s\\Step_%s_%s_%s_%.2d.WAV",
-                g_footstep_names[material], g_footstep_surfaces[surface],
-                g_footstep_names[material], g_footstep_scuff_name, variant);
+        sprintf(path, "Data\\Sound\\Footsteps\\%s\\Step_%s_%s_%s_%.2d.WAV", g_footstep_names[material],
+                g_footstep_surfaces[surface], g_footstep_names[material], g_footstep_scuff_name, variant);
     }
 }
 
@@ -599,8 +578,7 @@ static W8AmbientSound* CreateAmbientSound()
 void DestroyAmbientSound(W8AmbientSound* ambient)
 {
     if (ambient == 0) {
-        srAssertFail("pAmbient", "C:\\Projects\\Wizardry 8\\Engine Code\\AmbientSound.cpp", 0x2fd,
-                     0);
+        srAssertFail("pAmbient", "C:\\Projects\\Wizardry 8\\Engine Code\\AmbientSound.cpp", 0x2fd, 0);
     }
     if (ambient->sound_handle != nullptr) {
         wiz8::sound::stop(ambient->sound_handle);
@@ -619,22 +597,19 @@ void DestroyAmbientSound(W8AmbientSound* ambient)
    twenty parameters and their widths come directly from the stack reads. */
 // FUNCTION: WIZ8 0x0047a790
 unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
-                              const srVector3T<float>* position,
-                              const srVector3T<float>* region_min,
-                              const srVector3T<float>* region_max, int volume_min, int volume_max,
-                              int time_min, int time_max, int speed_min, int speed_max,
-                              float radius, bool looping, unsigned char bounded,
-                              const srVector3T<float>* region_center, float region_angle,
-                              const srVector3T<float>* region_axis,
-                              const srVector3T<float>* region_scale, unsigned char shared)
+                              const srVector3T<float>* position, const srVector3T<float>* region_min,
+                              const srVector3T<float>* region_max, int volume_min, int volume_max, int time_min,
+                              int time_max, int speed_min, int speed_max, float radius, bool looping,
+                              unsigned char bounded, const srVector3T<float>* region_center, float region_angle,
+                              const srVector3T<float>* region_axis, const srVector3T<float>* region_scale,
+                              unsigned char shared)
 {
     W8AmbientSound* sound = CreateAmbientSound();
 
     if (name != 0) {
         sound->pacSoundName = new char[strlen(name) + 1];
         if (sound->pacSoundName == 0) {
-            srAssertFail("pSound->pacSoundName",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\AmbientSound.cpp", 0x35e,
+            srAssertFail("pSound->pacSoundName", "C:\\Projects\\Wizardry 8\\Engine Code\\AmbientSound.cpp", 0x35e,
                          "AmbientSound.cpp: Error allocating sound name");
         }
         strcpy(sound->pacSoundName, name);
@@ -758,22 +733,18 @@ unsigned char ReadAmbientSoundListFile(char* filename)
         memset(line, 0, sizeof(line));
         ReadTextLine(handle.get(), line, sizeof(line), more);
         if (strlen(line) != 0) {
-            sscanf(line, "%s %d %d %d %d %d %d %d", name, &configured[2], &configured[3],
-                   &configured[4], &configured[5], &configured[0], &configured[1],
-                   &direct_selector);
+            sscanf(line, "%s %d %d %d %d %d %d %d", name, &configured[2], &configured[3], &configured[4],
+                   &configured[5], &configured[0], &configured[1], &direct_selector);
             sprintf(path, "%s\\%s", directory, name);
             if (direct_selector == -1) {
                 const auto volume = [](int value) {
-                    return value == -1 ? std::uint32_t(g_settings.sound_effects_volume)
-                                       : std::uint32_t(value);
+                    return value == -1 ? std::uint32_t(g_settings.sound_effects_volume) : std::uint32_t(value);
                 };
-                RegisterRandomAmbient(path, configured[0], configured[1], configured[2],
-                                      configured[3], volume(configured[4]), volume(configured[5]),
-                                      true);
+                RegisterRandomAmbient(path, configured[0], configured[1], configured[2], configured[3],
+                                      volume(configured[4]), volume(configured[5]), true);
             } else {
                 wiz8::sound::play(path,
-                                  {.volume = std::uint32_t(
-                                       (g_settings.sound_effects_volume * configured[5]) / 0x7f),
+                                  {.volume = std::uint32_t((g_settings.sound_effects_volume * configured[5]) / 0x7f),
                                    .loops = std::uint32_t(direct_selector),
                                    .group = wiz8::sound::Group::ambient});
             }
@@ -805,8 +776,7 @@ void SetSoundEffectsVolume(unsigned char volume)
             W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
             if (sound != 0) {
                 if (sound->sound_handle != nullptr) {
-                    unsigned int adjusted =
-                        (sound->volume_max * g_settings.sound_effects_volume) / 0x7f;
+                    unsigned int adjusted = (sound->volume_max * g_settings.sound_effects_volume) / 0x7f;
                     sound->target_volume = adjusted;
                     sound->current_volume = adjusted;
                     wiz8::sound::set_volume(sound->sound_handle, adjusted);

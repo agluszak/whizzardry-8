@@ -22,11 +22,9 @@ inline std::uint32_t average(std::uint32_t first, std::uint32_t second)
     return pack((channels(first) >> 1u) + (channels(second) >> 1u));
 }
 
-inline std::uint32_t average(std::uint32_t first, std::uint32_t second, std::uint32_t third,
-                             std::uint32_t fourth)
+inline std::uint32_t average(std::uint32_t first, std::uint32_t second, std::uint32_t third, std::uint32_t fourth)
 {
-    return pack((channels(first) + channels(second) + channels(third) + channels(fourth) + 3u) >>
-                2u);
+    return pack((channels(first) + channels(second) + channels(third) + channels(fourth) + 3u) >> 2u);
 }
 
 } // namespace srPixels

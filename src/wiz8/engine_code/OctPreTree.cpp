@@ -111,8 +111,7 @@ void OctPreTree::CollectLeafPolygons(const glm::ivec3& cell)
     m_gd_result_count = 0;
     unsigned int leaf_index = LeafIndexForCell(cell);
     if (leaf_index != 0 && m_leaves[leaf_index].polygon_offset != 0) {
-        const w8_ulong* stream =
-            m_polygon_index_stream.data() + m_leaves[leaf_index].polygon_offset;
+        const w8_ulong* stream = m_polygon_index_stream.data() + m_leaves[leaf_index].polygon_offset;
         for (int remaining = *stream; remaining != 0; --remaining) {
             ++stream;
             if (!SetBit(m_visited_polygon_bits, *stream)) {
@@ -174,14 +173,11 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
         const W8Plane* plane = &polygon->plane;
         const auto contact =
             planeContact(glm::vec4(plane->normal.glmValue(), plane->w),
-                         {trace->start, trace->end, trace->step, trace->length, limit},
-                         PlaneContactMode::Occlusion);
+                         {trace->start, trace->end, trace->step, trace->length, limit}, PlaneContactMode::Occlusion);
         if (contact) {
-            const RuntimeTriangle vertices{polygon->vertices[0]->position,
-                                           polygon->vertices[1]->position,
+            const RuntimeTriangle vertices{polygon->vertices[0]->position, polygon->vertices[1]->position,
                                            polygon->vertices[2]->position};
-            if (PointInsideTriangle(vertices, polygon->flags & W8OctRegionPolygon::AXIS_MASK,
-                                    contact->point)) {
+            if (PointInsideTriangle(vertices, polygon->flags & W8OctRegionPolygon::AXIS_MASK, contact->point)) {
                 blocked = true;
             }
         }
@@ -270,8 +266,7 @@ try {
         return 0;
     }
     file->write(&sentinel, 4);
-    if ((file->write(m_branches.data(), header.m_branch_count * sizeof(W8OctPreTreeBranch)),
-         true) == 0) {
+    if ((file->write(m_branches.data(), header.m_branch_count * sizeof(W8OctPreTreeBranch)), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Node info.\n");
         return 0;
     }
@@ -279,13 +274,11 @@ try {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Leaves info.\n");
         return 0;
     }
-    if ((file->write(m_polygon_index_stream.data(), header.m_leaf_polygon_stream_len * 4), true) ==
-        0) {
+    if ((file->write(m_polygon_index_stream.data(), header.m_leaf_polygon_stream_len * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Poly List info.\n");
         return 0;
     }
-    unsigned int grid_cells =
-        m_leaf_grid_dimensions.z * m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.x;
+    unsigned int grid_cells = m_leaf_grid_dimensions.z * m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.x;
     if (grid_cells < 250000 && (file->write(m_leaf_lookup.data(), grid_cells * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write uiLeafGrid info.\n");
         return 0;
@@ -300,29 +293,25 @@ try {
         return 0;
     }
     if (header.m_gd_surface_stream_len != 0 &&
-        (file->write(m_gd_surface_index_stream.data(), header.m_gd_surface_stream_len * 4), true) ==
-            0) {
+        (file->write(m_gd_surface_index_stream.data(), header.m_gd_surface_stream_len * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Game Data Poly List.\n");
         return 0;
     }
     /* Retail writes this trigger list as 4-byte elements while ReadOctFile
        reads it back as 2-byte elements (0x4688c3 vs 0x42c351): the asymmetry
        is authentic.  In practice the count is always zero. */
-    if (header.m_trigger_count != 0 &&
-        (file->write(m_trigger_indices.data(), header.m_trigger_count * 4), true) == 0) {
+    if (header.m_trigger_count != 0 && (file->write(m_trigger_indices.data(), header.m_trigger_count * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Trigger list.\n");
         return 0;
     }
     if (header.m_region_count > 1 &&
-        (file->write(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)),
-         true) == 0) {
+        (file->write(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Region array.\n");
         return 0;
     }
     file->write(&sentinel, 4);
     if (header.m_submesh_count != 0) {
-        if ((file->write(m_pSubmeshes.data(), (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)),
-             true) == 0) {
+        if ((file->write(m_pSubmeshes.data(), (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)), true) == 0) {
             ReportBuildStatus(7, "WriteOctFile: Couldn't write submesh array.\n");
             return 0;
         }
@@ -340,8 +329,7 @@ try {
     /* Every section terminator is the same 0xffffffff dword: retail keeps one
        -1 local for all of them (verified at 0x468406). */
     if ((file->write(&sentinel, 4), true) == 0) {
-        ReportBuildStatus(7,
-                          "WriteOctFile: Couldn't write Terminator after Mesh Prop Link Table.\n");
+        ReportBuildStatus(7, "WriteOctFile: Couldn't write Terminator after Mesh Prop Link Table.\n");
         return 0;
     }
     if (pre_pathing != 0 && !pre_pathing->WritePathNodes(file.get())) {
@@ -416,8 +404,7 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
        appends at most one record per source on each of its three kind
        passes while an emptied source keeps its slot, so the true slot
        bound is count + 3*(count-1) - covered only while count <= 6. */
-    records = static_cast<W8OctSubmeshBuild*>(
-        malloc((m_spatial.submesh_count + 1) * 3 * sizeof(W8OctSubmeshBuild)));
+    records = static_cast<W8OctSubmeshBuild*>(malloc((m_spatial.submesh_count + 1) * 3 * sizeof(W8OctSubmeshBuild)));
     if (records == 0) {
         ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate submeshes.\n");
     } else {
@@ -463,24 +450,23 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                     ++root_count;
                 }
                 model->next_link = record->m_next_link - 1;
-                model->m_vertex_locations = static_cast<srVector3T<float>*>(
-                    std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
+                model->m_vertex_locations =
+                    static_cast<srVector3T<float>*>(std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
                 model->m_vertex_map = record->m_uv_map;
                 model->m_poly_vertices = record->m_poly_vertices;
                 model->m_poly_uv_index = record->m_poly_uv_index;
-                model->m_poly_equations = static_cast<glm::vec4*>(
-                    std::malloc(record->m_polygon_count * sizeof(*model->m_poly_equations)));
-                model->m_vertex_normals = static_cast<srVector3T<float>*>(
-                    std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
-                model->m_vertex_lights = static_cast<srVector3T<float>*>(
-                    std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
-                model->m_vertex_materials =
-                    static_cast<int*>(malloc(record->vertex_count * sizeof(int)));
-                model->m_poly_textures = static_cast<int*>(
-                    malloc(record->m_polygon_count * sizeof(*model->m_poly_textures)));
+                model->m_poly_equations =
+                    static_cast<glm::vec4*>(std::malloc(record->m_polygon_count * sizeof(*model->m_poly_equations)));
+                model->m_vertex_normals =
+                    static_cast<srVector3T<float>*>(std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
+                model->m_vertex_lights =
+                    static_cast<srVector3T<float>*>(std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
+                model->m_vertex_materials = static_cast<int*>(malloc(record->vertex_count * sizeof(int)));
+                model->m_poly_textures =
+                    static_cast<int*>(malloc(record->m_polygon_count * sizeof(*model->m_poly_textures)));
                 if (m_sun_count != 0) {
-                    model->m_sun_lights = static_cast<float**>(
-                        malloc(static_cast<int>(m_sun_count) * sizeof(*model->m_sun_lights)));
+                    model->m_sun_lights =
+                        static_cast<float**>(malloc(static_cast<int>(m_sun_count) * sizeof(*model->m_sun_lights)));
                     if (model->m_sun_lights == 0) {
                         ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate "
                                              "ppsrSunLights.\n");
@@ -488,8 +474,8 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                         goto cleanup;
                     }
                     for (short sun = 0; sun < static_cast<short>(m_sun_count); ++sun) {
-                        model->m_sun_lights[sun] = static_cast<float*>(
-                            malloc(record->vertex_count * sizeof(*model->m_sun_lights[sun])));
+                        model->m_sun_lights[sun] =
+                            static_cast<float*>(malloc(record->vertex_count * sizeof(*model->m_sun_lights[sun])));
                         if (model->m_sun_lights[sun] == 0) {
                             ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate "
                                                  "ppsrSunLights array.\n");
@@ -498,9 +484,8 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                         }
                     }
                 }
-                if (model->m_vertex_locations == 0 || model->m_vertex_map == 0 ||
-                    model->m_poly_vertices == 0 || model->m_poly_equations == 0 ||
-                    model->m_vertex_normals == 0 || model->m_vertex_lights == 0 ||
+                if (model->m_vertex_locations == 0 || model->m_vertex_map == 0 || model->m_poly_vertices == 0 ||
+                    model->m_poly_equations == 0 || model->m_vertex_normals == 0 || model->m_vertex_lights == 0 ||
                     model->m_vertex_materials == 0 || model->m_poly_textures == 0) {
                     ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate mesh "
                                          "model arrays.\n");
@@ -518,8 +503,7 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                 }
                 model->m_material_index = geometry->m_vertices[record->m_vertex_ids[0]].m_material;
                 for (w8_ulong vertex = 0; vertex < record->vertex_count; ++vertex) {
-                    W8OctPreTreeVertex* source =
-                        &geometry->m_vertices[record->m_vertex_ids[vertex]];
+                    W8OctPreTreeVertex* source = &geometry->m_vertices[record->m_vertex_ids[vertex]];
                     model->m_vertex_locations[vertex] = source->position;
                     model->m_vertex_normals[vertex] = source->m_normal;
                     model->m_vertex_lights[vertex] = source->m_light;
@@ -636,15 +620,12 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
             }
             if (target->m_polygon_count != 0) {
                 target->m_polygon_ids = static_cast<int*>(
-                    malloc(target->m_polygon_count * sizeof(*target->m_polygon_ids) +
-                           sizeof(*target->m_polygon_ids)));
+                    malloc(target->m_polygon_count * sizeof(*target->m_polygon_ids) + sizeof(*target->m_polygon_ids)));
                 if (target->m_polygon_ids == 0) {
-                    ReportBuildStatus(
-                        7, "SplitMeshes: Could not allocate pMeshes[uiFinal].aulFaces.\n");
+                    ReportBuildStatus(7, "SplitMeshes: Could not allocate pMeshes[uiFinal].aulFaces.\n");
                     return 0;
                 }
-                memcpy(target->m_polygon_ids, staging,
-                       target->m_polygon_count * sizeof(*target->m_polygon_ids));
+                memcpy(target->m_polygon_ids, staging, target->m_polygon_count * sizeof(*target->m_polygon_ids));
                 target->m_polygon_ids[target->m_polygon_count] = 0;
                 target->m_kind = kind;
                 w8_ulong tail = index;
@@ -758,14 +739,12 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
             }
             record->vertex_count = vertex_count;
 
-            std::ranges::sort(
-                std::views::zip(std::span(keys, record->m_polygon_count),
-                                std::span(record->m_polygon_ids, record->m_polygon_count)),
-                {}, [](const auto& entry) { return std::get<0>(entry); });
-            std::ranges::sort(
-                std::views::zip(std::span(scratch, record->m_polygon_count),
-                                std::span(record->m_poly_vertices, record->m_polygon_count)),
-                {}, [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(std::views::zip(std::span(keys, record->m_polygon_count),
+                                              std::span(record->m_polygon_ids, record->m_polygon_count)),
+                              {}, [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(std::views::zip(std::span(scratch, record->m_polygon_count),
+                                              std::span(record->m_poly_vertices, record->m_polygon_count)),
+                              {}, [](const auto& entry) { return std::get<0>(entry); });
 
             for (w8_ulong i = 0; i < vertex_count; ++i) {
                 w8_ulong material = geometry->m_vertices[vertex_ids[i]].m_material;
@@ -773,24 +752,21 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
                 keys[i] = material;
                 order[i] = i;
             }
-            std::ranges::sort(std::views::zip(std::span(scratch, vertex_count),
-                                              std::span(vertex_ids, vertex_count)),
+            std::ranges::sort(std::views::zip(std::span(scratch, vertex_count), std::span(vertex_ids, vertex_count)),
                               {}, [](const auto& entry) { return std::get<0>(entry); });
             memcpy(scratch, order, vertex_count * sizeof(*scratch));
-            std::ranges::sort(
-                std::views::zip(std::span(keys, vertex_count), std::span(scratch, vertex_count)),
-                {}, [](const auto& entry) { return std::get<0>(entry); });
-            std::ranges::sort(
-                std::views::zip(std::span(scratch, vertex_count), std::span(order, vertex_count)),
-                {}, [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(std::views::zip(std::span(keys, vertex_count), std::span(scratch, vertex_count)), {},
+                              [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(std::views::zip(std::span(scratch, vertex_count), std::span(order, vertex_count)), {},
+                              [](const auto& entry) { return std::get<0>(entry); });
 
             for (w8_ulong face = 0; face < record->m_polygon_count; ++face) {
                 record->m_poly_vertices[face] =
                     srMeshMath::remapTriangle(record->m_poly_vertices[face], {order, vertex_count});
             }
 
-            record->m_vertex_ids = static_cast<int*>(malloc(
-                vertex_count * sizeof(*record->m_vertex_ids) + sizeof(*record->m_vertex_ids)));
+            record->m_vertex_ids =
+                static_cast<int*>(malloc(vertex_count * sizeof(*record->m_vertex_ids) + sizeof(*record->m_vertex_ids)));
             if (record->m_vertex_ids == 0) {
                 ReportBuildStatus(7, "SplitMeshes: Could not allocate aulVertices.\n");
                 return 0;
@@ -842,8 +818,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
         return 0;
     }
     memset(table, 0, record->m_polygon_count * (4 * sizeof(*table)));
-    glm::ivec3* uv_index =
-        static_cast<glm::ivec3*>(std::malloc(record->m_polygon_count * sizeof(glm::ivec3)));
+    glm::ivec3* uv_index = static_cast<glm::ivec3*>(std::malloc(record->m_polygon_count * sizeof(glm::ivec3)));
     if (uv_index == 0) {
         ReportBuildStatus(7, "SplitUVMaps: Could not allocate psrPolyUVIndex.\n");
         return 0;
@@ -853,8 +828,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
     }
     w8_ulong uv_count = record->vertex_count;
     for (w8_ulong poly = 0; poly < record->m_polygon_count; ++poly) {
-        const glm::vec2* uvs =
-            geometry->m_polygons[record->m_polygon_ids[poly]].face.texture_coordinates;
+        const glm::vec2* uvs = geometry->m_polygons[record->m_polygon_ids[poly]].face.texture_coordinates;
         for (w8_ulong corner = 0; corner < 3; ++corner) {
             int vertex = record->m_poly_vertices[poly][corner];
             int chain = vertex + 1;
@@ -945,16 +919,14 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
         const auto& minimum = bounds.minimum;
         const auto& maximum = bounds.maximum;
         if (record->m_polygon_count != 0) {
-            record->m_polygon_ids =
-                static_cast<int*>(malloc(record->m_polygon_count * sizeof(*record->m_polygon_ids) +
-                                         2 * sizeof(*record->m_polygon_ids)));
+            record->m_polygon_ids = static_cast<int*>(
+                malloc(record->m_polygon_count * sizeof(*record->m_polygon_ids) + 2 * sizeof(*record->m_polygon_ids)));
             if (record->m_polygon_ids == 0) {
                 ReportBuildStatus(7, "\nAllocateSubMesh: Could not allocate aulFaces.\n");
                 return 0;
             }
             memset(record->m_polygon_ids, 0,
-                   record->m_polygon_count * sizeof(*record->m_polygon_ids) +
-                       2 * sizeof(*record->m_polygon_ids));
+                   record->m_polygon_count * sizeof(*record->m_polygon_ids) + 2 * sizeof(*record->m_polygon_ids));
             unsigned short found = 0;
             if (m_spatial.m_polygon_count > 1) {
                 for (w8_ulong poly = 1; poly < m_spatial.m_polygon_count; ++poly) {
@@ -962,20 +934,17 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
                         record->m_polygon_ids[found] = poly;
                         ++found;
                         if (found == 5000) {
-                            ReportBuildStatus(
-                                6, "One of your regions has more than 5000 polys in it!\n");
+                            ReportBuildStatus(6, "One of your regions has more than 5000 polys in it!\n");
                         }
                         for (int corner = 0; corner < 3; ++corner) {
-                            const glm::vec3* position =
-                                &game_data->m_polygons[poly].vertices[corner]->position;
+                            const glm::vec3* position = &game_data->m_polygons[poly].vertices[corner]->position;
                             bounds.include(*position);
                         }
                     }
                 }
             }
             if (record->m_polygon_count != found) {
-                ReportBuildStatus(
-                    6, "Mismatch between expected number of mesh polys and actual number");
+                ReportBuildStatus(6, "Mismatch between expected number of mesh polys and actual number");
             }
             record->m_polygon_count = found;
         }
@@ -1008,15 +977,12 @@ void OctPreTree::VerifyPolygonRegions()
         if (polygon->region >= m_spatial.m_region_count) {
             unsigned int cell[4];
             cell[0] = m_region_mask;
-            cell[1] =
-                static_cast<unsigned int>((polygon->position.x - m_spatial.m_bounds.minimum.x) /
-                                          m_spatial.m_region_grid_cell);
-            cell[2] =
-                static_cast<unsigned int>((polygon->position.y - m_spatial.m_bounds.minimum.y) /
-                                          m_spatial.m_region_grid_cell);
-            cell[3] =
-                static_cast<unsigned int>((polygon->position.z - m_spatial.m_bounds.minimum.z) /
-                                          m_spatial.m_region_grid_cell);
+            cell[1] = static_cast<unsigned int>((polygon->position.x - m_spatial.m_bounds.minimum.x) /
+                                                m_spatial.m_region_grid_cell);
+            cell[2] = static_cast<unsigned int>((polygon->position.y - m_spatial.m_bounds.minimum.y) /
+                                                m_spatial.m_region_grid_cell);
+            cell[3] = static_cast<unsigned int>((polygon->position.z - m_spatial.m_bounds.minimum.z) /
+                                                m_spatial.m_region_grid_cell);
             int node = DescendByMask(cell);
             if (m_branches[node].region != polygon->region) {
                 char text[256];
@@ -1048,13 +1014,11 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
                 if (m_branches[node].region != key) {
                     ReportBuildStatus(7, "Region has wrong automesh.");
                 }
-                srBoundingBox bounds{glm::vec3(g_float_one_million, 1e+06f, 1e+06f),
-                                     glm::vec3(-1e+06f)};
+                srBoundingBox bounds{glm::vec3(g_float_one_million, 1e+06f, 1e+06f), glm::vec3(-1e+06f)};
                 for (w8_ulong link = mesh; link != 0; link = records[link].m_next_link) {
                     W8OctSubmeshBuild* record = records + link;
                     for (w8_ulong i = 0; i < record->vertex_count; ++i) {
-                        const glm::vec3* position =
-                            &geometry->m_vertices[record->m_vertex_ids[i]].position;
+                        const glm::vec3* position = &geometry->m_vertices[record->m_vertex_ids[i]].position;
                         bounds.include(*position);
                     }
                 }
@@ -1073,8 +1037,7 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
    keys each (z<<16 | x) cell so one pass emits at most one node per cell
    unless a duplicate key arrives with an empty value. */
 // FUNCTION: WIZ8 0x0046b060
-unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& level,
-                                         unsigned int min_component_percent)
+unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& level, unsigned int min_component_percent)
 {
     std::unordered_map<unsigned int, int> node_map;
     std::unordered_multimap<unsigned int, CondPathNode*> cond_map;
@@ -1089,14 +1052,9 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
     pre_pathing->SnapNamedPositions(level.named_positions, min_component_percent, this);
     ReportBuildStatus(6, "\nBuilding Path Lists:\n=======================\n");
     path_node_extent = m_region_cell + m_region_cell;
-    float level_height =
-        (m_spatial.m_bounds.maximum.y - m_spatial.m_bounds.minimum.y) * g_path_span_scale;
-    int x_cells = static_cast<int>((m_spatial.m_bounds.maximum.x - m_spatial.m_bounds.minimum.x) /
-                                   m_region_cell) +
-                  1;
-    int z_cells = static_cast<int>((m_spatial.m_bounds.maximum.z - m_spatial.m_bounds.minimum.z) /
-                                   m_region_cell) +
-                  1;
+    float level_height = (m_spatial.m_bounds.maximum.y - m_spatial.m_bounds.minimum.y) * g_path_span_scale;
+    int x_cells = static_cast<int>((m_spatial.m_bounds.maximum.x - m_spatial.m_bounds.minimum.x) / m_region_cell) + 1;
+    int z_cells = static_cast<int>((m_spatial.m_bounds.maximum.z - m_spatial.m_bounds.minimum.z) / m_region_cell) + 1;
 
     int prop_count = CreatePathProps(level, &preprops);
     W8PrePathNode* record = pre_pathing->GetPathNode();
@@ -1109,8 +1067,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
             int percent = static_cast<int>(x * 100.0f / x_cells_f);
             if (last_percent < percent) {
                 ++last_percent;
-                sprintf(message, "  %d%% Complete:  %d Path Nodes Created \r", last_percent,
-                        path_node_count);
+                sprintf(message, "  %d%% Complete:  %d Path Nodes Created \r", last_percent, path_node_count);
                 ReportStartupMessage(message);
             }
             unsigned int cell = static_cast<unsigned int>(x);
@@ -1123,8 +1080,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
                     m_lNumSupports = 0;
                     if (current_prop >= 0) {
                         float snapped = node.y;
-                        if (!SnapToGround(&node, 0) ||
-                            g_float_one_hundred_twenty_five < fabsf(node.y - snapped)) {
+                        if (!SnapToGround(&node, 0) || g_float_one_hundred_twenty_five < fabsf(node.y - snapped)) {
                             m_lSupports[m_lNumSupports] = current_prop;
                             ++m_lNumSupports;
                         }
@@ -1136,13 +1092,11 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
                         record = next;
                         record->cell = cell;
                         record->y = node.y;
-                        record->level_flags =
-                            static_cast<unsigned int>(static_cast<int>(
-                                (node.y - m_spatial.m_bounds.minimum.y) / level_height)) +
-                            1;
-                        if (InsertConditionalNodes(
-                                cond_map, cell, record->level_flags,
-                                {preprops, static_cast<std::size_t>(prop_count)})) {
+                        record->level_flags = static_cast<unsigned int>(static_cast<int>(
+                                                  (node.y - m_spatial.m_bounds.minimum.y) / level_height)) +
+                                              1;
+                        if (InsertConditionalNodes(cond_map, cell, record->level_flags,
+                                                   {preprops, static_cast<std::size_t>(prop_count)})) {
                             record->level_flags |= W8_PATH_CELL_CONDITIONAL;
                         }
                         auto slot = node_map.equal_range(cell).first;
@@ -1152,8 +1106,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
                         }
                         ++path_node_count;
                     }
-                    node.y -=
-                        m_lNumSupports != 0 ? NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE : g_world_scale;
+                    node.y -= m_lNumSupports != 0 ? NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE : g_world_scale;
                 }
                 cell += 0x10000;
             }
@@ -1165,8 +1118,8 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
         if (pre_pathing == 0) {
             ReportBuildStatus(7, "Could not create PrePathing object\n");
         }
-        pre_pathing->ConfigureForLevel(path_node_count, m_region_cell, m_path_clearance,
-                                       m_spatial.bounds(), m_path_stem.c_str());
+        pre_pathing->ConfigureForLevel(path_node_count, m_region_cell, m_path_clearance, m_spatial.bounds(),
+                                       m_path_stem.c_str());
         /* Verified retail behavior: this early return runs only the two
            local hash-table destructors.  preprops (and its pStopMeshes
            arrays), object_registry and g_octree_game_data are all
@@ -1180,8 +1133,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
     for (int i = 0; i < prop_count; ++i) {
         /* Verified retail oddity: the binary tests pStopMeshes twice around
            the count check. */
-        if (preprops[i].pStopMeshes != 0 && preprops[i].num_stop_meshes != 0 &&
-            preprops[i].pStopMeshes != 0) {
+        if (preprops[i].pStopMeshes != 0 && preprops[i].num_stop_meshes != 0 && preprops[i].pStopMeshes != 0) {
             delete[] preprops[i].pStopMeshes;
         }
     }
@@ -1241,16 +1193,14 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
             corner.y = bounds_min.y + g_world_scale;
             out = SnapToGround(&corner, 1);
             if (out == 0 ||
-                !(current_prop != -1 ||
-                  fabsf(node->y - corner.y) <= clearance * static_cast<float>(g_double_half))) {
+                !(current_prop != -1 || fabsf(node->y - corner.y) <= clearance * static_cast<float>(g_double_half))) {
                 out = 1;
             } else {
                 out = result;
                 if (current_prop >= 0) {
                     corner.y = bounds_min.y + g_world_scale;
                     probe = SnapToGround(&corner, 0);
-                    if (!probe ||
-                        clearance * static_cast<float>(g_double_half) < fabsf(node->y - corner.y)) {
+                    if (!probe || clearance * static_cast<float>(g_double_half) < fabsf(node->y - corner.y)) {
                         for (int b = 0; b < m_lNumBlocks && result != 1; ++b) {
                             if (current_prop == m_lBlocks[b]) {
                                 result = 1;
@@ -1291,10 +1241,9 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
    conditional-node map keyed by (stop-mesh frame << 16 | preprop index + 1).
    Blocker nodes are flagged 0x2000000. */
 // FUNCTION: WIZ8 0x0046b9d0
-unsigned char
-OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
-                                   unsigned int cell, unsigned int node,
-                                   std::span<const W8PreProp> preprops)
+unsigned char OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
+                                                 unsigned int cell, unsigned int node,
+                                                 std::span<const W8PreProp> preprops)
 {
     if (m_lNumSupports == 0 && m_lNumBlocks == 0) {
         return 0;
@@ -1310,15 +1259,12 @@ OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPat
                     continue;
                 }
                 const unsigned key =
-                    (static_cast<unsigned>(
-                         prop.pStopMeshes[prop_id - prop.first_prop_number].m_prop_number)
-                     << 16) |
+                    (static_cast<unsigned>(prop.pStopMeshes[prop_id - prop.first_prop_number].m_prop_number) << 16) |
                     static_cast<unsigned>(index + 1);
                 auto* entry = static_cast<CondPathNode*>(malloc(sizeof(CondPathNode)));
                 if (!entry) {
-                    srAssertFail(
-                        "pCondNode", OCTPRETREE_CPP, 0x7e0,
-                        "InsertConditionalNodes: Could not allocate CondPathNode stucture.");
+                    srAssertFail("pCondNode", OCTPRETREE_CPP, 0x7e0,
+                                 "InsertConditionalNodes: Could not allocate CondPathNode stucture.");
                 }
                 entry->value = node | flags;
                 entry->cell = cell;
@@ -1327,8 +1273,7 @@ OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPat
                 break;
             }
             if (!found) {
-                srAssertFail("FALSE", OCTPRETREE_CPP, 0x7e8,
-                             "Could not find prop and frame for conditional node.");
+                srAssertFail("FALSE", OCTPRETREE_CPP, 0x7e8, "Could not find prop and frame for conditional node.");
             }
         }
     };
@@ -1406,8 +1351,7 @@ int OctPreTree::CreatePathProps(const W8LevelFile& level, W8PreProp** preprops)
             const auto registerFrame = [&](unsigned mesh_index, unsigned short frame) {
                 auto& mesh = record->pStopMeshes[mesh_index];
                 mesh.ApplyAnimFrame(frame, prop->anim_obj);
-                AddCollidablePropBounds(static_cast<unsigned short>(prop_number + mesh_index),
-                                        mesh.computeBounds());
+                AddCollidablePropBounds(static_cast<unsigned short>(prop_number + mesh_index), mesh.computeBounds());
                 props->push_back(&mesh);
             };
             if (prop->frame_positions.empty()) {
@@ -1445,8 +1389,7 @@ int OctPreTree::CreatePathProps(const W8LevelFile& level, W8PreProp** preprops)
                             "(UINT16)(pLVL->pProps[i].bNumFrames))", /* c-style-cast-ok: verbatim
                                 retail assertion text, kept for .rdata match */
                             OCTPRETREE_CPP, 0x8b4,
-                            fmt::format("{} Prop Error:Segment frame number {:d} is out of range",
-                                        prop->name, frame));
+                            fmt::format("{} Prop Error:Segment frame number {:d} is out of range", prop->name, frame));
                     }
                     registerFrame(j, frame);
                 }
@@ -1463,8 +1406,7 @@ int OctPreTree::CreatePathProps(const W8LevelFile& level, W8PreProp** preprops)
    quaternions disagree beyond the snap epsilon (unless they are the mirrored
    same rotation), or scaled-path tails drift. */
 // FUNCTION: WIZ8 0x0046c6a0
-char OctPreTree::PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first,
-                                  unsigned short last)
+char OctPreTree::PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first, unsigned short last)
 {
     last = anim.ClampFrame(last);
     bool differ = false;
@@ -1556,16 +1498,14 @@ srBoundingBox W8OctSpatialState::GetClippedBounds() const
 /* Test a triangle against an axis-aligned box.  The inexpensive containment
    and separating-axis checks precede explicit triangle-edge intersections
    with all six box faces. */
-bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
-                          const srBoundingBox& box)
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices, const srBoundingBox& box)
 {
     return triangleIntersectsBox(box, indexedTriangle(vertices, surface.vertex_indices),
                                  surface.plane.normal.glmValue());
 }
 
 // FUNCTION: WIZ8 0x0046ce60
-bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
-                           const glm::vec3& normal)
+bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices, const glm::vec3& normal)
 {
     const auto& minimum = box.minimum;
     const auto& maximum = box.maximum;
@@ -1578,14 +1518,13 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
 
     const auto triangleMinimum = glm::min(glm::min(vertices[0], vertices[1]), vertices[2]);
     const auto triangleMaximum = glm::max(glm::max(vertices[0], vertices[1]), vertices[2]);
-    if (glm::any(glm::lessThan(triangleMaximum, minimum)) ||
-        glm::any(glm::greaterThan(triangleMinimum, maximum))) {
+    if (glm::any(glm::lessThan(triangleMaximum, minimum)) || glm::any(glm::greaterThan(triangleMinimum, maximum))) {
         return false;
     }
 
-    const bool nearAxis = glm::any(
-        glm::greaterThan(glm::abs(normal), glm::vec3(g_region_axis_alignment_threshold)) &&
-        glm::greaterThanEqual(vertices[0], minimum) && glm::lessThanEqual(vertices[0], maximum));
+    const bool nearAxis =
+        glm::any(glm::greaterThan(glm::abs(normal), glm::vec3(g_region_axis_alignment_threshold)) &&
+                 glm::greaterThanEqual(vertices[0], minimum) && glm::lessThanEqual(vertices[0], maximum));
     if (!nearAxis) {
         const auto centroid = (vertices[0] + vertices[1] + vertices[2]) * g_float_one_third;
         // The two support corners give the extrema formerly found by scanning eight corners.
@@ -1640,8 +1579,7 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
                         for (short edge_side = 0; edge_side < 2; ++edge_side) {
                             float boundary = edge_side == 0 ? minimum[rectangle_axes[coordinate]]
                                                             : maximum[rectangle_axes[coordinate]];
-                            float amount =
-                                (boundary - intersection[0][coordinate]) / delta[coordinate];
+                            float amount = (boundary - intersection[0][coordinate]) / delta[coordinate];
                             if (g_float_zero <= amount && amount <= g_float_one) {
                                 float crossing = intersection[0][other] + amount * delta[other];
                                 if (minimum[rectangle_axes[other]] <= crossing &&

@@ -28,8 +28,7 @@ const double g_motion_full_turn_radians = 6.2831852;
    initial renderer colour.  The light begins at the origin and records the
    shared engine time used later by both colour cycling and fade-out. */
 // FUNCTION: WIZ8 0x0049D500
-MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range,
-                           const srVector3T<float>* first_color,
+MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range, const srVector3T<float>* first_color,
                            const srVector3T<float>* second_color)
     : srLight(parent, srLight::PRESET_POINT), m_vertical_offset(0.0f), m_color_first(*first_color),
       m_color_second(*second_color), m_start_time(0.0f), m_cycle_color(cycle_color), m_fade_out(0)
@@ -55,9 +54,8 @@ MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range,
    node's parent. */
 // FUNCTION: WIZ8 0x0049D660
 MonsterLight::MonsterLight(const MonsterLight& other)
-    : srLight(other), m_vertical_offset(other.m_vertical_offset),
-      m_color_first(other.m_color_first), m_color_second(other.m_color_second),
-      m_cycle_color(other.m_cycle_color), m_fade_out(false)
+    : srLight(other), m_vertical_offset(other.m_vertical_offset), m_color_first(other.m_color_first),
+      m_color_second(other.m_color_second), m_cycle_color(other.m_cycle_color), m_fade_out(false)
 {
     setParent(other.getParent(), 1);
     intensity = 1.0f;
@@ -98,8 +96,7 @@ void MonsterLight::Update(const srVector3T<float>* position)
         float cycle = elapsed * g_monster_light_cycle_rate;
         double whole = floor(cycle);
         float first_weight =
-            static_cast<float>(sin((cycle - whole) * g_motion_full_turn_radians) + g_float_one) *
-            g_float_half;
+            static_cast<float>(sin((cycle - whole) * g_motion_full_turn_radians) + g_float_one) * g_float_half;
         diffuse = glm::mix(m_color_second.glmValue(), m_color_first.glmValue(), first_weight);
     }
 

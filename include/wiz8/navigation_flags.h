@@ -36,11 +36,7 @@ enum {
 };
 
 /* W8PathSurface::flags, including transient A* heap state. */
-enum {
-    W8_WAYPOINT_IN_HEAP = 0x0010u,
-    W8_WAYPOINT_DISABLED = 0x0020u,
-    W8_WAYPOINT_CONDITIONAL = 0x0040u
-};
+enum { W8_WAYPOINT_IN_HEAP = 0x0010u, W8_WAYPOINT_DISABLED = 0x0020u, W8_WAYPOINT_CONDITIONAL = 0x0040u };
 
 /* W8PathSearchNode::flags; these are separate from waypoint and edge flags. */
 enum {

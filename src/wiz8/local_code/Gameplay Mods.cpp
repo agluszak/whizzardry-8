@@ -102,8 +102,7 @@ void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBloc
             equipment_bonus->skill_bonus[record->modifier_0b1_index] += record->modifier_0b1_value;
         }
         if (record->modifier_0b3_index != -1) {
-            equipment_bonus->attribute_adjustments[record->modifier_0b3_index] +=
-                record->modifier_0b3_value;
+            equipment_bonus->attribute_adjustments[record->modifier_0b3_index] += record->modifier_0b3_value;
         }
         for (index = 0; index < 6; ++index) {
             resistance_totals[index] += record->resistance_bonus[index];
@@ -331,8 +330,7 @@ void RebuildMonsterDerivedStats(int location_id)
     W8GameplayModifierBlock* modifiers = &monster_info->modifiers;
 
     memset(modifiers, 0, sizeof(W8GameplayModifierBlock));
-    ApplyConditionModifiers(0, monster_info->uiCondition, monster_info->condition_argument,
-                            modifiers);
+    ApplyConditionModifiers(0, monster_info->uiCondition, monster_info->condition_argument, modifiers);
     ApplyEnchantmentModifiers(monster_info->enchantments, modifiers);
     ApplyPartyEffectSlots(monster_info->effect_slots, modifiers);
     if (monster_info->fInCombat) {
@@ -354,8 +352,8 @@ void RebuildMonsterDerivedStats(int location_id)
    scales its hit adjustment off the bound monster when the record still
    resolves on the saved level. */
 // FUNCTION: WIZ8 0x0050eac0
-void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns,
-                             int condition_argument, W8GameplayModifierBlock* target)
+void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns, int condition_argument,
+                             W8GameplayModifierBlock* target)
 {
     // Monster and character condition banks are embedded in packed records.
     unsigned int aligned_turns[W8_CONDITION_COUNT];
@@ -407,8 +405,8 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                 target->out_of_formation = 1;
             } else {
                 target->attribute_adjustments[W8_ATTRIBUTE_SENSES] +=
-                    static_cast<signed char>(ScaleValueByProfessionLevel(
-                        character, W8_TRAIT_EFFECTIVE_WHILE_BLIND, 50.0f)) -
+                    static_cast<signed char>(
+                        ScaleValueByProfessionLevel(character, W8_TRAIT_EFFECTIVE_WHILE_BLIND, 50.0f)) -
                     0x32;
             }
             break;
@@ -421,13 +419,10 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
             target->out_of_formation = 1;
             break;
         case 0x13:
-            if (GetConditionRecordFlag(CharacterPointerToPartySlot(character),
-                                       W8_DEPENDENCE_SWALLOWED)) {
+            if (GetConditionRecordFlag(CharacterPointerToPartySlot(character), W8_DEPENDENCE_SWALLOWED)) {
                 W8MonsterInfo* bound;
-                if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
-                        g_status.current_level &&
-                    (bound = FindMonster(
-                         character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
+                if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired == g_status.current_level &&
+                    (bound = FindMonster(character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
                     W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
                     target->health_regen_adjustment += -1 - (monster->effective_level >> 1);
                 } else {

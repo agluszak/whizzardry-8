@@ -117,12 +117,10 @@ unsigned int GetItemStackWeight(const W8ItemInstance* item)
 unsigned int GetItemStackValue(const W8ItemInstance* item)
 {
     if (g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return (item->stack_count * g_item_records[item->iItemNo].value +
-                (W8_ITEM_BUNDLE_SIZE - 1)) /
+        return (item->stack_count * g_item_records[item->iItemNo].value + (W8_ITEM_BUNDLE_SIZE - 1)) /
                W8_ITEM_BUNDLE_SIZE;
     }
-    if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
-        item->stack_count > 1) {
+    if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && item->stack_count > 1) {
         return g_item_records[item->iItemNo].value * item->stack_count;
     }
     return g_item_records[item->iItemNo].value;
@@ -140,11 +138,9 @@ W8EquipSlot GetItemDefaultEquipSlot(int item_id)
     case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
         return W8_EQUIP_SLOT_PRIMARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
-        return g_status.game_started ? W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON
-                                     : W8_EQUIP_SLOT_PRIMARY_WEAPON;
+        return g_status.game_started ? W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON : W8_EQUIP_SLOT_PRIMARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_AMMUNITION:
-        return g_status.game_started ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON
-                                     : W8_EQUIP_SLOT_SECONDARY_WEAPON;
+        return g_status.game_started ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON : W8_EQUIP_SLOT_SECONDARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
         return W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_MISC:
@@ -205,10 +201,10 @@ unsigned short g_item_use_messages[25] = {
 // GLOBAL: WIZ8 0x0068C108
 std::string g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
 // GLOBAL: WIZ8 0x00616e84
-W8Skill g_item_spell_presentation[11] = {
-    W8_SKILL_NONE,        W8_SKILL_ARTIFACTS,      W8_SKILL_ARTIFACTS, W8_SKILL_NONE,
-    W8_SKILL_NONE,        W8_SKILL_NONE,           W8_SKILL_MUSIC,     W8_SKILL_THROWING_SLING,
-    W8_SKILL_ENGINEERING, W8_SKILL_MODERN_WEAPONS, W8_SKILL_SWORD};
+W8Skill g_item_spell_presentation[11] = {W8_SKILL_NONE,           W8_SKILL_ARTIFACTS,      W8_SKILL_ARTIFACTS,
+                                         W8_SKILL_NONE,           W8_SKILL_NONE,           W8_SKILL_NONE,
+                                         W8_SKILL_MUSIC,          W8_SKILL_THROWING_SLING, W8_SKILL_ENGINEERING,
+                                         W8_SKILL_MODERN_WEAPONS, W8_SKILL_SWORD};
 /* The twelve slots' paper-doll icons: the two alternate-set hand slots have
    none, which is the value the bound-item predicates refuse a binding behind. */
 // GLOBAL: WIZ8 0x00648c5c
@@ -217,18 +213,16 @@ int g_equip_slot_icons[12] = {0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0};
 // GLOBAL: WIZ8 0x0061E810
 // offset alias of the tail of g_equip_class_name_ids; shared retail
 unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
-    0x45a, 0x45b, 0x45c, 0x45d, 0x45e, 0x45f, 0x460, 0x461, 0x462, 0x463, 0x464, 0x465, 0x466,
-    0x467, 0x468, 0x469, 0x46a, 0x46b, 0x46c, 0x46d, 0x46e, 0x46f, 0x470, 0x471, 0x472, 0x473,
-    0x474, 0x475, 0x476, 0x477, 0x478, 0x479, 0x47a, 0x47b, 0x47c, 0x47d, 0x47e, 0x47f, 0x480,
-    0x481, 0x482, 0x483, 0x484, 0x485, 0x486, 0x487, 0x488, 0x489, 0x48a, 0x48b, 0x48c, 0x48d,
-    0x48e, 0x48f, 0x490, 0x491, 0x492, 0x493, 0x494, 0x495, 0x496, 0x497, 0x498, 0x499, 0x49a,
-    0x49b, 0x49c, 0x49d, 0x49e, 0x49f, 0x4a0, 0x4a1, 0x4a2, 0x4a3, 0x4a4, 0x4a5, 0x4a6, 0x4a7,
-    0x4a8, 0x4a9, 0x4aa, 0x4ab, 0x4ac, 0x4ad, 0x4ae, 0x4af, 0x4b0, 0x4b1, 0x4b2, 0x4b3, 0x4b4,
-    0x4b5, 0x4b6, 0x4b7, 0x4b8, 0x4b9, 0x4ba, 0x4bb, 0x4bc, 0x4bd, 0x4be, 0x4bf, 0x4c0, 0x4c1,
-    0x4c2, 0x4c3, 0x4c4, 0x4c5, 0x4c6, 0x4c7, 0x4c8, 0x4c9, 0x4ca, 0x4cb, 0x4cc, 0x4cd, 0x4ce,
-    0x4cf, 0x4d0, 0x459, 0x4d1, 0x4d2, 0x4d3, 0x4d4, 0x4d5, 0x4ab, 0x46f, 0x459, 0x46c, 0x4c1,
-    0x4d6, 0x4d7, 0x4d8, 0x4d9, 0x4da, 0x4db, 0x4dc, 0x4dd, 0x4de, 0x4df, 0x4e0, 0x4e1, 0x4e2,
-    0x4e3, 0x4e4, 0x4e5, 0x4e6,
+    0x45a, 0x45b, 0x45c, 0x45d, 0x45e, 0x45f, 0x460, 0x461, 0x462, 0x463, 0x464, 0x465, 0x466, 0x467, 0x468,
+    0x469, 0x46a, 0x46b, 0x46c, 0x46d, 0x46e, 0x46f, 0x470, 0x471, 0x472, 0x473, 0x474, 0x475, 0x476, 0x477,
+    0x478, 0x479, 0x47a, 0x47b, 0x47c, 0x47d, 0x47e, 0x47f, 0x480, 0x481, 0x482, 0x483, 0x484, 0x485, 0x486,
+    0x487, 0x488, 0x489, 0x48a, 0x48b, 0x48c, 0x48d, 0x48e, 0x48f, 0x490, 0x491, 0x492, 0x493, 0x494, 0x495,
+    0x496, 0x497, 0x498, 0x499, 0x49a, 0x49b, 0x49c, 0x49d, 0x49e, 0x49f, 0x4a0, 0x4a1, 0x4a2, 0x4a3, 0x4a4,
+    0x4a5, 0x4a6, 0x4a7, 0x4a8, 0x4a9, 0x4aa, 0x4ab, 0x4ac, 0x4ad, 0x4ae, 0x4af, 0x4b0, 0x4b1, 0x4b2, 0x4b3,
+    0x4b4, 0x4b5, 0x4b6, 0x4b7, 0x4b8, 0x4b9, 0x4ba, 0x4bb, 0x4bc, 0x4bd, 0x4be, 0x4bf, 0x4c0, 0x4c1, 0x4c2,
+    0x4c3, 0x4c4, 0x4c5, 0x4c6, 0x4c7, 0x4c8, 0x4c9, 0x4ca, 0x4cb, 0x4cc, 0x4cd, 0x4ce, 0x4cf, 0x4d0, 0x459,
+    0x4d1, 0x4d2, 0x4d3, 0x4d4, 0x4d5, 0x4ab, 0x46f, 0x459, 0x46c, 0x4c1, 0x4d6, 0x4d7, 0x4d8, 0x4d9, 0x4da,
+    0x4db, 0x4dc, 0x4dd, 0x4de, 0x4df, 0x4e0, 0x4e1, 0x4e2, 0x4e3, 0x4e4, 0x4e5, 0x4e6,
 };
 /* Shared scratch returned by the item-name formatter. */
 // GLOBAL: WIZ8 0x0068C0B4
@@ -251,157 +245,155 @@ void W8ItemVideoObjectCache::Clear()
 
 std::size_t W8ItemVideoObjectCache::LoadedImageCount() const
 {
-    return std::count_if(images_.begin(), images_.end(),
-                         [](const auto& image) { return image != nullptr; });
+    return std::count_if(images_.begin(), images_.end(), [](const auto& image) { return image != nullptr; });
 }
 
 // GLOBAL: WIZ8 0x0062a88c
-static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {
-    "Dagger.sti",
-    "LongSword.sti",
-    "Bipennis.sti",
-    "BattleAxe.sti",
-    "Flail.sti",
-    "Mace.sti",
-    "Hammer.sti",
-    "ShortStaff.sti",
-    "Halberd.sti",
-    "Spear.sti",
-    "BoStaff.sti",
-    "LongBow.sti",
-    "Crossbow.sti",
-    "Sling.sti",
-    "GreatSword.sti",
-    "Rapier.sti",
-    "Katana.sti",
-    "LongStaff.sti",
-    "Wand.sti",
-    "MagicStave.sti",
-    "QuestionMark.sti",
-    "Shuriken.sti",
-    "Arrow.sti",
-    "SlingShot.sti",
-    "KiteShield.sti",
-    "Basnet.sti",
-    "PlateTorso.sti",
-    "PlateLegs.sti",
-    "GauntletSteel.sti",
-    "Sollerets.sti",
-    "Amulet.sti",
-    "Ring.sti",
-    "BluePotion.sti",
-    "Scroll.sti",
-    "PowderPouch.sti",
-    "Key.sti",
-    "Locket.sti",
-    "GreatBow.sti",
-    "RoundShield.sti",
-    "WizardCone.sti",
-    "LeatherHelm.sti",
-    "Cuirass.sti",
-    "LeatherHauberk.sti",
-    "Greaves.sti",
-    "LeatherPants.sti",
-    "Gloves.sti",
-    "Sandals.sti",
-    "Buskins.sti",
-    "Boots.sti",
-    "Book.sti",
-    "Ankh.sti",
-    "Ninjato.sti",
-    "WarHammer.sti",
-    "Flamberge.sti",
-    "Bullwhip.sti",
-    "Sai.sti",
-    "Nunchuka.sti",
-    "Glaive.sti",
-    "BlackSword.sti",
-    "FireSword.sti",
-    "RobeUpper.sti",
-    "RobeLower.sti",
-    "HalterTop.sti",
-    "Skirt.sti",
-    "SkullCap.sti",
-    "FeatheredCap.sti",
-    "Mitre.sti",
-    "QuestionMark.sti",
-    "Kabuto.sti",
-    "Do-MaruUpper.sti",
-    "Tosei-GusokuLower.sti",
-    "Burgonet.sti",
-    "FurLegs.sti",
-    "Cloak.sti",
-    "QuestionMark.sti",
-    "QuestionMark.sti",
-    "Garland.sti",
-    "CatONineTails.sti",
-    "SilverCross.sti",
-    "QuestionMark.sti",
-    "QuestionMark.sti",
-    "Bracelet.sti",
-    "Necklace.sti",
-    "Quarrel.sti",
-    "QuestionMark.sti",
-    "Coif.sti",
-    "Hauberk.sti",
-    "ChainLower.sti",
-    "MailMittens.sti",
-    "ChainHosen.sti",
-    "Lance.sti",
-    "Armet.sti",
-    "NinjaCowl.sti",
-    "NinjaGarbUpper.sti",
-    "NinjaGarbLower.sti",
-    "TabiBoots.sti",
-    "Heaume.sti",
-    "BoxHelm.sti",
-    "DiamondRing.sti",
-    "Bag.sti",
-    "RedPotion.sti",
-    "GreenPotion.sti",
-    "PurplePotion.sti",
-    "YellowPotion.sti",
-    "QuestionMark.sti",
-    "T'RangStaff.sti",
-    "GauntletBronze.sti",
-    "QuestionMark.sti",
-    "LightSword.sti",
-    "QuestionMark.sti",
-    "QuestionMark.sti",
-    "QuestionMark.sti",
-    "Dart.sti",
-    "PowderShot.sti",
-    "Musket.sti",
-    "QuestionMark.sti",
-    "Stone.sti",
-    "Stick.sti",
-    "ShortSword.sti",
-    "QuestionMark.sti",
-    "Bagpipes.sti",
-    "Lyre.sti",
-    "Lute.sti",
-    "Horn.sti",
-    "QuestionMark.sti",
-    "Bracelet2.sti",
-    "Shuriken2.sti",
-    "QuestionMark.sti",
-    "Wand2.sti",
-    "YellowPotion2.sti",
-    "MediumShield.sti",
-    "Omnigun_1.sti",
-    "QuestionMark.sti",
-    "QuestionMark.sti",
-    "QuestionMark.sti",
-    "QuestionMark.sti",
-    "Saxaphone.sti",
-    "Violin.sti",
-    "Drum.sti",
-    "Bullroar.sti",
-    "QuestionMark.sti",
-    "emptybottle.sti",
-    "Stix.sti",
-    "rocket.sti",
-    "rocketlauncher.sti"};
+static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {"Dagger.sti",
+                                                                                     "LongSword.sti",
+                                                                                     "Bipennis.sti",
+                                                                                     "BattleAxe.sti",
+                                                                                     "Flail.sti",
+                                                                                     "Mace.sti",
+                                                                                     "Hammer.sti",
+                                                                                     "ShortStaff.sti",
+                                                                                     "Halberd.sti",
+                                                                                     "Spear.sti",
+                                                                                     "BoStaff.sti",
+                                                                                     "LongBow.sti",
+                                                                                     "Crossbow.sti",
+                                                                                     "Sling.sti",
+                                                                                     "GreatSword.sti",
+                                                                                     "Rapier.sti",
+                                                                                     "Katana.sti",
+                                                                                     "LongStaff.sti",
+                                                                                     "Wand.sti",
+                                                                                     "MagicStave.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Shuriken.sti",
+                                                                                     "Arrow.sti",
+                                                                                     "SlingShot.sti",
+                                                                                     "KiteShield.sti",
+                                                                                     "Basnet.sti",
+                                                                                     "PlateTorso.sti",
+                                                                                     "PlateLegs.sti",
+                                                                                     "GauntletSteel.sti",
+                                                                                     "Sollerets.sti",
+                                                                                     "Amulet.sti",
+                                                                                     "Ring.sti",
+                                                                                     "BluePotion.sti",
+                                                                                     "Scroll.sti",
+                                                                                     "PowderPouch.sti",
+                                                                                     "Key.sti",
+                                                                                     "Locket.sti",
+                                                                                     "GreatBow.sti",
+                                                                                     "RoundShield.sti",
+                                                                                     "WizardCone.sti",
+                                                                                     "LeatherHelm.sti",
+                                                                                     "Cuirass.sti",
+                                                                                     "LeatherHauberk.sti",
+                                                                                     "Greaves.sti",
+                                                                                     "LeatherPants.sti",
+                                                                                     "Gloves.sti",
+                                                                                     "Sandals.sti",
+                                                                                     "Buskins.sti",
+                                                                                     "Boots.sti",
+                                                                                     "Book.sti",
+                                                                                     "Ankh.sti",
+                                                                                     "Ninjato.sti",
+                                                                                     "WarHammer.sti",
+                                                                                     "Flamberge.sti",
+                                                                                     "Bullwhip.sti",
+                                                                                     "Sai.sti",
+                                                                                     "Nunchuka.sti",
+                                                                                     "Glaive.sti",
+                                                                                     "BlackSword.sti",
+                                                                                     "FireSword.sti",
+                                                                                     "RobeUpper.sti",
+                                                                                     "RobeLower.sti",
+                                                                                     "HalterTop.sti",
+                                                                                     "Skirt.sti",
+                                                                                     "SkullCap.sti",
+                                                                                     "FeatheredCap.sti",
+                                                                                     "Mitre.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Kabuto.sti",
+                                                                                     "Do-MaruUpper.sti",
+                                                                                     "Tosei-GusokuLower.sti",
+                                                                                     "Burgonet.sti",
+                                                                                     "FurLegs.sti",
+                                                                                     "Cloak.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Garland.sti",
+                                                                                     "CatONineTails.sti",
+                                                                                     "SilverCross.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Bracelet.sti",
+                                                                                     "Necklace.sti",
+                                                                                     "Quarrel.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Coif.sti",
+                                                                                     "Hauberk.sti",
+                                                                                     "ChainLower.sti",
+                                                                                     "MailMittens.sti",
+                                                                                     "ChainHosen.sti",
+                                                                                     "Lance.sti",
+                                                                                     "Armet.sti",
+                                                                                     "NinjaCowl.sti",
+                                                                                     "NinjaGarbUpper.sti",
+                                                                                     "NinjaGarbLower.sti",
+                                                                                     "TabiBoots.sti",
+                                                                                     "Heaume.sti",
+                                                                                     "BoxHelm.sti",
+                                                                                     "DiamondRing.sti",
+                                                                                     "Bag.sti",
+                                                                                     "RedPotion.sti",
+                                                                                     "GreenPotion.sti",
+                                                                                     "PurplePotion.sti",
+                                                                                     "YellowPotion.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "T'RangStaff.sti",
+                                                                                     "GauntletBronze.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "LightSword.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Dart.sti",
+                                                                                     "PowderShot.sti",
+                                                                                     "Musket.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Stone.sti",
+                                                                                     "Stick.sti",
+                                                                                     "ShortSword.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Bagpipes.sti",
+                                                                                     "Lyre.sti",
+                                                                                     "Lute.sti",
+                                                                                     "Horn.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Bracelet2.sti",
+                                                                                     "Shuriken2.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Wand2.sti",
+                                                                                     "YellowPotion2.sti",
+                                                                                     "MediumShield.sti",
+                                                                                     "Omnigun_1.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "Saxaphone.sti",
+                                                                                     "Violin.sti",
+                                                                                     "Drum.sti",
+                                                                                     "Bullroar.sti",
+                                                                                     "QuestionMark.sti",
+                                                                                     "emptybottle.sti",
+                                                                                     "Stix.sti",
+                                                                                     "rocket.sti",
+                                                                                     "rocketlauncher.sti"};
 
 // FUNCTION: WIZ8 0x0055ce80
 const SpriteSheet& W8ItemVideoObjectCache::Sprites(int item_id)
@@ -447,8 +439,8 @@ std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quant
     } else {
         name_index = g_item_records[item->iItemNo].unidentified_name_index;
         if (g_generic_item_names[name_index].empty()) {
-            name = fmt::sprintf(g_localized_strings[0x1e7],
-                                g_localized_strings[g_generic_item_name_notice[name_index]]);
+            name =
+                fmt::sprintf(g_localized_strings[0x1e7], g_localized_strings[g_generic_item_name_notice[name_index]]);
             g_generic_item_names[name_index] = name;
         }
         name = g_generic_item_names[name_index];
@@ -488,8 +480,7 @@ unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item)
 bool ItemsShareEquipClass(const W8ItemInstance* first, const W8ItemInstance* second)
 {
     if (first != 0 && second != 0) {
-        return g_item_records[first->iItemNo].equip_class ==
-               g_item_records[second->iItemNo].equip_class;
+        return g_item_records[first->iItemNo].equip_class == g_item_records[second->iItemNo].equip_class;
     }
     return false;
 }
@@ -525,9 +516,8 @@ bool IsItemBoundToWearer(const W8ItemInstance* item)
    the main hand of that set is not already holding something two-handed.
    Everything else has exactly one home. */
 // FUNCTION: WIZ8 0x0051cf80
-unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
-                                    bool alternate_off_hand_free, bool primary_main_hand_free,
-                                    bool alternate_main_hand_free)
+unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free, bool alternate_off_hand_free,
+                                    bool primary_main_hand_free, bool alternate_main_hand_free)
 {
     unsigned short slots = 0;
 
@@ -537,9 +527,8 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
     case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
         if (g_item_records[item_id].weapon_skill == W8_WEAPON_SKILL_NONE) {
-            DebugMessage(
-                0, fmt::format("ERROR - Item {} is a weapon without a skill specified -> Charles",
-                               g_item_records[item_id].display_name));
+            DebugMessage(0, fmt::format("ERROR - Item {} is a weapon without a skill specified -> Charles",
+                                        g_item_records[item_id].display_name));
             return 0;
         }
         if ((g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
@@ -551,8 +540,8 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
             }
             return slots;
         }
-        slots = W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_PRIMARY_WEAPON) |
-                W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON);
+        slots =
+            W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_PRIMARY_WEAPON) | W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON);
         if ((g_item_records[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) == 0) {
             return slots;
         }
@@ -595,34 +584,29 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
    a main hand also counts when whatever it holds is not two-handed. Asking to
    ignore what is worn answers for an empty character instead. */
 // FUNCTION: WIZ8 0x0051cea0
-bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip_slot,
-                        bool ignore_worn_items)
+bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip_slot, bool ignore_worn_items)
 {
     bool primary_off_hand_free;
     bool alternate_off_hand_free;
     bool primary_main_hand_free;
     bool alternate_main_hand_free;
 
-    primary_off_hand_free =
-        character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1 || ignore_worn_items;
+    primary_off_hand_free = character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1 || ignore_worn_items;
     alternate_off_hand_free =
-        character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1 ||
-        ignore_worn_items;
-    primary_main_hand_free =
-        character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 ||
-        (g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo].flags &
-         W8_ITEM_FLAG_TWO_HANDED) == 0 ||
-        ignore_worn_items;
+        character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1 || ignore_worn_items;
+    primary_main_hand_free = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 ||
+                             (g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo].flags &
+                              W8_ITEM_FLAG_TWO_HANDED) == 0 ||
+                             ignore_worn_items;
     alternate_main_hand_free =
         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == -1 ||
-        (g_item_records[character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo]
-             .flags &
+        (g_item_records[character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo].flags &
          W8_ITEM_FLAG_TWO_HANDED) == 0 ||
         ignore_worn_items;
 
-    return (W8_EQUIP_SLOT_BIT(equip_slot) &
-            GetItemEquipSlotMask(item_id, primary_off_hand_free, alternate_off_hand_free,
-                                 primary_main_hand_free, alternate_main_hand_free)) != 0;
+    return (W8_EQUIP_SLOT_BIT(equip_slot) & GetItemEquipSlotMask(item_id, primary_off_hand_free,
+                                                                 alternate_off_hand_free, primary_main_hand_free,
+                                                                 alternate_main_hand_free)) != 0;
 }
 
 #define PC_ITEM_CPP "C:\\Projects\\Wizardry 8\\Local Code\\PC Item.cpp"
@@ -639,8 +623,7 @@ bool GetItemMergeKind(int item_id, short* related_kind)
 {
     if (related_kind && item_id != -1) {
         for (int index = 0; g_compatible_partner_pairs[index][0] != 0; ++index) {
-            if (g_compatible_partner_pairs[index][0] ==
-                g_item_records[item_id].unidentified_name_index) {
+            if (g_compatible_partner_pairs[index][0] == g_item_records[item_id].unidentified_name_index) {
                 *related_kind = g_compatible_partner_pairs[index][1];
                 return true;
             }
@@ -659,13 +642,11 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
 {
     if (static_cast<unsigned int>(ranged_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiRangedItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fd,
-                     fmt::format("CompatiblePartnerItems: ERROR - Illegal RANGED item index {:d}",
-                                 ranged_item_id));
+                     fmt::format("CompatiblePartnerItems: ERROR - Illegal RANGED item index {:d}", ranged_item_id));
     }
     if (static_cast<unsigned int>(other_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiOtherItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fe,
-                     fmt::format("CompatiblePartnerItems: ERROR - Illegal OTHER item index {:d}",
-                                 other_item_id));
+                     fmt::format("CompatiblePartnerItems: ERROR - Illegal OTHER item index {:d}", other_item_id));
     }
 
     short ranged_name = static_cast<short>(g_item_records[ranged_item_id].unidentified_name_index);
@@ -692,8 +673,7 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
     case 0x6e:
     case 0x72:
         if (g_item_records[other_item_id].equip_class > W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
-            g_item_records[ranged_item_id].range_category ==
-                g_item_records[other_item_id].range_category) {
+            g_item_records[ranged_item_id].range_category == g_item_records[other_item_id].range_category) {
             if (ranged_item_id != -1 && g_compatible_partner_pairs[0][0] != 0) {
                 int index = 0;
                 short name = g_compatible_partner_pairs[0][0];
@@ -729,10 +709,9 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
         case 0x25b:
         case 0x25c:
         case 0x25d:
-            if (other_name == 0x17 || other_name == 0x71 || other_name == 0x70 ||
-                other_name == 0x15 || other_name == 0x7e ||
-                (g_item_records[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
-                 other_name == 0)) {
+            if (other_name == 0x17 || other_name == 0x71 || other_name == 0x70 || other_name == 0x15 ||
+                other_name == 0x7e ||
+                (g_item_records[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON && other_name == 0)) {
                 return true;
             }
             break;
@@ -741,10 +720,9 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
         case 0x260:
         case 0x261:
         case 0x262:
-            if (other_name == 0x17 || other_name == 0x71 || other_name == 0x70 ||
-                other_name == 0x15 || other_name == 0x7e ||
-                (g_item_records[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
-                 other_name == 0) ||
+            if (other_name == 0x17 || other_name == 0x71 || other_name == 0x70 || other_name == 0x15 ||
+                other_name == 0x7e ||
+                (g_item_records[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON && other_name == 0) ||
                 other_name == 0x16 || other_name == 0x53) {
                 return true;
             }
@@ -782,8 +760,7 @@ static bool CanHoldItemsTogether(int first_item_id, int second_item_id)
         return true;
     }
     if (g_item_records[second_item_id].equip_class < W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return g_item_records[first_item_id].range_category ==
-               g_item_records[second_item_id].range_category;
+        return g_item_records[first_item_id].range_category == g_item_records[second_item_id].range_category;
     }
     return true;
 }
@@ -815,9 +792,8 @@ bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
     default:
         return true;
     }
-    return CanHoldItemsTogether(
-        g_status.item_in_hand.iItemNo,
-        g_status.buffers.Char[party_slot].EquippedItem[paired_slot].iItemNo);
+    return CanHoldItemsTogether(g_status.item_in_hand.iItemNo,
+                                g_status.buffers.Char[party_slot].EquippedItem[paired_slot].iItemNo);
 }
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
@@ -835,8 +811,8 @@ enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 
 /* Return the first unmet item attribute or skill requirement, optionally
    identifying the corresponding localized attribute or skill name. */
-static bool FindUnmetItemRequirement(const W8Character* character,
-                                     const W8ItemDatabaseRecord* record, unsigned short* message_id)
+static bool FindUnmetItemRequirement(const W8Character* character, const W8ItemDatabaseRecord* record,
+                                     unsigned short* message_id)
 {
     for (unsigned int index = 0; index < 2; ++index) {
         const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
@@ -902,11 +878,9 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
             srAssertFail("uiSpell != SPELL_NONE", PC_ITEM_CPP, 1844, 0);
         }
         minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-        const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
-                                   ? W8_CASTER_PROFESSION_INDEX_9
-                                   : W8_CASTER_PROFESSION_INDEX_8;
-        if (static_cast<unsigned int>(character->profession_levels[profession]) <
-            minimum_caster_level) {
+        const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ? W8_CASTER_PROFESSION_INDEX_9
+                                                                                  : W8_CASTER_PROFESSION_INDEX_8;
+        if (static_cast<unsigned int>(character->profession_levels[profession]) < minimum_caster_level) {
             return false;
         }
     }
@@ -952,8 +926,7 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
     }
     if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
         // c-style-cast-ok: verbatim retail assert string
-        srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x76c,
-                     0);
+        srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x76c, 0);
     }
     if (item->iItemNo == -1) {
         return false;
@@ -1034,8 +1007,7 @@ std::string GetItemDisplayName(const W8ItemInstance* item)
 
     name_index = g_item_records[item->iItemNo].unidentified_name_index;
     if (g_generic_item_names[name_index].empty()) {
-        built = fmt::sprintf(g_localized_strings[0x1e7],
-                             g_localized_strings[g_generic_item_name_notice[name_index]]);
+        built = fmt::sprintf(g_localized_strings[0x1e7], g_localized_strings[g_generic_item_name_notice[name_index]]);
         g_generic_item_names[name_index] = built;
     }
     return g_generic_item_names[name_index];
@@ -1090,9 +1062,9 @@ W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record)
    stays -1 when nothing was attempted; a casting aid's attempt costs eight per
    level of its spell plus twenty, even when it fails. */
 #pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
+#pragma clang diagnostic ignored                                                                                       \
     "-Wsometimes-uninitialized" // uninit-ok: retail returns the unset used byte on rejected/spent-item paths; callers observe that indeterminate result.
-#pragma clang diagnostic ignored                                                                   \
+#pragma clang diagnostic ignored                                                                                       \
     "-Wuninitialized" // uninit-ok: retail returns the unset used byte on rejected/spent-item paths; callers observe that indeterminate result.
 // FUNCTION: WIZ8 0x0051dde0
 unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_uses)
@@ -1108,25 +1080,21 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     unsigned char used;
 
     if (!CanCharacterUseItem(character, item->iItemNo)) {
-        PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x164], GetItemDisplayName(item)));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x164], GetItemDisplayName(item)));
         *out_uses = -1;
         return 0;
     }
     if (!CanCharacterActivateItem(character, item)) {
-        PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x165], GetItemDisplayName(item)));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x165], GetItemDisplayName(item)));
         *out_uses = -1;
         return 0;
     }
 
     if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
-        PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x1f1], GetItemDisplayName(item)));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1f1], GetItemDisplayName(item)));
         event_type = g_special_event13;
     } else if (record->quantity_kind == W8_ITEM_QUANTITY_SHOTS && item->uses_or_charges == 0) {
-        PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x1f2], GetItemDisplayName(item)));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1f2], GetItemDisplayName(item)));
         event_type = g_effect26;
     } else {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
@@ -1139,8 +1107,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         /* The one item that is not used on anybody: it hands the level's NPC
            over to the fact that says the party has met them. */
         if (item->iItemNo == 0x29f) {
-            W8NpcState* npc = GetNpcState(
-                g_status.buffers.XChar[CharacterPointerToPartySlot(character)].npc_index);
+            W8NpcState* npc = GetNpcState(g_status.buffers.XChar[CharacterPointerToPartySlot(character)].npc_index);
             if (npc == 0) {
                 srAssertFail("pNPC", PC_ITEM_CPP, 0x89d, 0);
             }
@@ -1173,8 +1140,8 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             fatigue_cost = g_spell_records[record->spell_id].spell_level * 8 + 0x14;
             power = 7;
             do {
-                if (GetItemUseDifficulty(character, skill, character->skills[skill].level,
-                                         record->spell_id, power) > 0xf) {
+                if (GetItemUseDifficulty(character, skill, character->skills[skill].level, record->spell_id, power) >
+                    0xf) {
                     --power;
                     continue;
                 }
@@ -1187,8 +1154,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             } while (power != 0);
 
             if (power == 0) {
-                PostCharacterNotice(
-                    party_slot, fmt::sprintf(g_localized_strings[0x1f3], GetItemDisplayName(item)));
+                PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1f3], GetItemDisplayName(item)));
                 PracticeCharacterSkill(character, skill, 1, false);
                 *out_uses = fatigue_cost;
                 return 0;
@@ -1199,8 +1165,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
            target; everything else is used on the character acting. */
         SetTargetSourceToCharacter(party_slot, &target);
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_POTION ||
-            (record->equip_class > W8_ITEM_EQUIP_CLASS_SCROLL &&
-             record->equip_class < W8_ITEM_EQUIP_CLASS_KEY)) {
+            (record->equip_class > W8_ITEM_EQUIP_CLASS_SCROLL && record->equip_class < W8_ITEM_EQUIP_CLASS_KEY)) {
             if (!gXStatus.fCombatMode) {
                 W8CombatSlot* aimed = &g_status.buffers.XChar[party_slot].target_out_of_combat;
                 if (aimed->iType == W8_TARGET_KIND_CHARACTER) {
@@ -1219,8 +1184,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         }
         /* A spell-carrying item the world-cursor handler refuses cannot be used
            at all, and the attempt is over before anything is announced. */
-        if (record->spell_id != W8_SPELL_NONE &&
-            g_item_records[item->iItemNo].spell_id != W8_SPELL_NONE &&
+        if (record->spell_id != W8_SPELL_NONE && g_item_records[item->iItemNo].spell_id != W8_SPELL_NONE &&
             g_item_records[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_GADGET &&
             (g_item_records[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD ||
              g_item_records[item->iItemNo].equip_class > W8_ITEM_EQUIP_CLASS_DRINK) &&
@@ -1230,15 +1194,13 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         }
 
         if (TargetSourceIsCharacter(&target, 0)) {
-            PostCharacterNotice(
-                target.iChar,
-                fmt::format("{} {}", g_localized_strings[g_item_use_messages[record->category * 2]],
-                            GetItemDisplayName(item)));
+            PostCharacterNotice(target.iChar,
+                                fmt::format("{} {}", g_localized_strings[g_item_use_messages[record->category * 2]],
+                                            GetItemDisplayName(item)));
         } else if (TargetSourceIsMonster(&target, 0)) {
-            ShowNotice(9,
-                       fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
-                                   g_localized_strings[g_item_use_messages[record->category * 2]],
-                                   GetItemDisplayName(item)));
+            ShowNotice(9, fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
+                                      g_localized_strings[g_item_use_messages[record->category * 2]],
+                                      GetItemDisplayName(item)));
         } else {
             srAssertFail("FALSE", PC_ITEM_CPP, 0x924, 0);
         }
@@ -1247,8 +1209,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             SetTextBoxMode(1, -1);
         }
         if (record->spell_id == W8_SPELL_NONE) {
-            std::string message = fmt::format(
-                "UseItem: ERROR - Usable item {:d} doesn't do anything!", item->iItemNo);
+            std::string message = fmt::format("UseItem: ERROR - Usable item {:d} doesn't do anything!", item->iItemNo);
             srAssertFail("FALSE", PC_ITEM_CPP, 0x934, message);
             used = 0;
             fatigue_cost = 0;
@@ -1279,9 +1240,8 @@ bool CanUnequipSlotItem(const W8Character* character, W8EquipSlot equip_slot)
 {
     const W8ItemInstance* item = &character->EquippedItem[equip_slot];
 
-    if (item->iItemNo != -1 && g_item_records[item->iItemNo].binds_on_equip != 0 &&
-        !item->bind_announced && g_equip_slot_icons[equip_slot] != -1 &&
-        character->uiCondition[W8_CONDITION_DEAD] == 0) {
+    if (item->iItemNo != -1 && g_item_records[item->iItemNo].binds_on_equip != 0 && !item->bind_announced &&
+        g_equip_slot_icons[equip_slot] != -1 && character->uiCondition[W8_CONDITION_DEAD] == 0) {
         return false;
     }
     return true;
@@ -1337,10 +1297,8 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
 
     for (result_item_id = 0; result_item_id < gXStatus.uiItemsInDatabase; ++result_item_id) {
         recipe = &g_item_records[result_item_id];
-        if ((recipe->merge_component_a == held->iItemNo &&
-             recipe->merge_component_b == destination->iItemNo) ||
-            (recipe->merge_component_b == held->iItemNo &&
-             recipe->merge_component_a == destination->iItemNo)) {
+        if ((recipe->merge_component_a == held->iItemNo && recipe->merge_component_b == destination->iItemNo) ||
+            (recipe->merge_component_b == held->iItemNo && recipe->merge_component_a == destination->iItemNo)) {
             found = true;
             if (recipe->merge_skill == -1) {
                 merged = true;
@@ -1356,17 +1314,13 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
             if (merged) {
                 if (g_item_records[held->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
                     g_item_records[destination->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
-                    quantity = held->stack_count < destination->stack_count
-                                   ? held->stack_count
-                                   : destination->stack_count;
-                    result_destination =
-                        destination->stack_count > held->stack_count ? held : destination;
+                    quantity =
+                        held->stack_count < destination->stack_count ? held->stack_count : destination->stack_count;
+                    result_destination = destination->stack_count > held->stack_count ? held : destination;
                 } else {
                     quantity = 1;
                     result_destination =
-                        g_item_records[held->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
-                            ? destination
-                            : held;
+                        g_item_records[held->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK ? destination : held;
                 }
 
                 if (g_item_records[held->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
@@ -1393,8 +1347,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
                 if (result_destination >= g_status.party_item_pool &&
                     result_destination <= &g_status.party_item_pool[499]) {
                     for (index = 0; index < g_status.party_item_count; ++index) {
-                        if (result_destination == &g_status.party_item_pool[index] &&
-                            g_status.party_item_count < 500) {
+                        if (result_destination == &g_status.party_item_pool[index] && g_status.party_item_count < 500) {
                             InsertItemIntoPartyPool(&created, index);
                         }
                     }
@@ -1417,8 +1370,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
         if (!found) {
             ShowCampNoticeLine(g_localized_strings[0x161], 0, true, false);
         } else {
-            ShowCampNoticeLine(fmt::sprintf(g_localized_strings[0x162], character->name), 0, true,
-                               false);
+            ShowCampNoticeLine(fmt::sprintf(g_localized_strings[0x162], character->name), 0, true, false);
         }
     }
     return merged;
@@ -1428,8 +1380,8 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
    and the party pool is tried first; the other is tried after, and then the
    first again, so a full destination never loses the item. */
 // FUNCTION: WIZ8 0x0051c280
-bool StoreItemWithCharacterOrParty(W8Character* character, W8ItemInstance* item, bool party_first,
-                                   bool announce, bool equip_if_possible)
+bool StoreItemWithCharacterOrParty(W8Character* character, W8ItemInstance* item, bool party_first, bool announce,
+                                   bool equip_if_possible)
 {
     if (!party_first) {
         if (AddItemToCharacter(character, item, equip_if_possible, announce, false)) {
@@ -1452,8 +1404,8 @@ bool StoreItemWithCharacterOrParty(W8Character* character, W8ItemInstance* item,
    slot is used. The source item is consumed only after a destination accepts
    it, so the caller can still fall back to the party pool on failure. */
 // FUNCTION: WIZ8 0x0051c300
-bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip_if_possible,
-                        bool announce, bool skip_stacking)
+bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip_if_possible, bool announce,
+                        bool skip_stacking)
 {
     W8ItemInstance* stored_item = 0;
     unsigned int stored_index = 0;
@@ -1580,8 +1532,7 @@ W8ItemInstance* FindCharacterItemAt(int party_slot, unsigned char origin, unsign
 }
 
 // FUNCTION: WIZ8 0x005222d0
-void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigned char* origin,
-                              unsigned short* slot)
+void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigned char* origin, unsigned short* slot)
 {
     unsigned int backpack_index;
     unsigned int equipped_index;
@@ -1590,8 +1541,7 @@ void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigne
     W8ItemInstance* cursor;
 
     if (item == 0) {
-        srAssertFail("pPCItem != NULL", "C:\\Projects\\Wizardry 8\\Local Code\\PC Item.cpp", 0x151b,
-                     0);
+        srAssertFail("pPCItem != NULL", "C:\\Projects\\Wizardry 8\\Local Code\\PC Item.cpp", 0x151b, 0);
     }
 
     character = &g_status.buffers.Char[character_index];
@@ -1665,12 +1615,11 @@ void StashDepartingCharacterItems(W8Character* character)
         item_id = item->iItemNo;
         if (item_id != -1 &&
             (g_item_records[item_id].binds_on_equip == 0 || item->bind_announced ||
-             g_equip_slot_icons[equip_slot] == -1 ||
-             character->uiCondition[W8_CONDITION_DEAD] != 0) &&
+             g_equip_slot_icons[equip_slot] == -1 || character->uiCondition[W8_CONDITION_DEAD] != 0) &&
             !AddItemToParty(item, false, false)) {
             DropUnstoredCharacterItem(item);
-            ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d3],
-                                                         g_item_records[item_id].display_name));
+            ShowNotice(W8_FONT_PALETTE_RED,
+                       fmt::sprintf(g_localized_strings[0x7d3], g_item_records[item_id].display_name));
         }
     }
 
@@ -1679,8 +1628,8 @@ void StashDepartingCharacterItems(W8Character* character)
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id != -1 && !AddItemToParty(item, false, false)) {
             DropUnstoredCharacterItem(item);
-            ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d3],
-                                                         g_item_records[item_id].display_name));
+            ShowNotice(W8_FONT_PALETTE_RED,
+                       fmt::sprintf(g_localized_strings[0x7d3], g_item_records[item_id].display_name));
         }
     }
 }
@@ -1876,8 +1825,7 @@ bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item)
     }
     for (slot = 0; slot < 12; ++slot) {
         if (&character->EquippedItem[slot] == item) {
-            return slot != W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON &&
-                   slot != W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
+            return slot != W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON && slot != W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
         }
     }
     return false;
@@ -1916,8 +1864,7 @@ void AddPartyGold(int amount, bool announce)
     }
 
     if (announce) {
-        ShowNotice(8, fmt::format("{} {:d} {}.", g_localized_strings[0x15f], amount,
-                                  g_localized_strings[0x160]));
+        ShowNotice(8, fmt::format("{} {:d} {}.", g_localized_strings[0x15f], amount, g_localized_strings[0x160]));
         if (!wiz8::sound::is_file_playing(sound_path)) {
             wiz8::sound::play(sound_path);
         }
@@ -1928,8 +1875,8 @@ void AddPartyGold(int amount, bool announce)
    pool slot first removes that slot from the pool; the new instance then gets
    its rolled (or maximum) quantity and the record's identification policy. */
 // FUNCTION: WIZ8 0x0051c020
-void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity,
-                         bool force_identified, bool mark_special)
+void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity, bool force_identified,
+                         bool mark_special)
 {
     if (static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
@@ -1945,9 +1892,8 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
         if (maximum >= 256) {
             srAssertFail("uiMAX_DICE(pMulti) < 256", PC_ITEM_CPP, 578, 0);
         }
-        unsigned char quantity =
-            maximum_quantity ? static_cast<unsigned char>(maximum)
-                             : static_cast<unsigned char>(RollDice(&record->initial_quantity));
+        unsigned char quantity = maximum_quantity ? static_cast<unsigned char>(maximum)
+                                                  : static_cast<unsigned char>(RollDice(&record->initial_quantity));
         if (record->quantity_kind == W8_ITEM_QUANTITY_STACK) {
             item->stack_count = quantity;
         } else if (record->quantity_kind >= W8_ITEM_QUANTITY_CHARGES &&
@@ -1971,8 +1917,7 @@ bool PlaceItemOnCursor(int item_id, bool maximum_quantity, bool force_identified
     if (g_status.item_in_cursor) {
         return false;
     }
-    ReplaceOrCreateItem(&g_status.item_in_hand, item_id, maximum_quantity, force_identified,
-                        mark_special);
+    ReplaceOrCreateItem(&g_status.item_in_hand, item_id, maximum_quantity, force_identified, mark_special);
     SetItemCursor(0);
     return true;
 }
@@ -1996,8 +1941,7 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
     }
     if (g_equip_slot_icons[equip_slot] != -1 && !item->bound) {
         item->bound = true;
-        ShowNotice(W8_FONT_PALETTE_WHITE,
-                   fmt::sprintf(g_localized_strings[0x1ea], FormatItemDisplayName(item, true)));
+        ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1ea], FormatItemDisplayName(item, true)));
     }
 }
 
@@ -2031,8 +1975,7 @@ bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int)
         return false;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied &&
-            g_status.buffers.Char[party_slot].hp_current != 0 &&
+        if (g_status.buffers.XChar[party_slot].fOccupied && g_status.buffers.Char[party_slot].hp_current != 0 &&
             g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_INSANE) {
             if (!result) {
                 result = TryIdentifyItemFor(&g_status.buffers.Char[party_slot], item);
@@ -2151,8 +2094,8 @@ bool ItemHasHiddenProperties(int item_id)
             return true;
         }
     }
-    if (record->binds_on_equip != 0 || record->health_regen_bonus != 0 ||
-        record->stamina_regen_bonus != 0 || record->spell_regen_bonus != 0) {
+    if (record->binds_on_equip != 0 || record->health_regen_bonus != 0 || record->stamina_regen_bonus != 0 ||
+        record->spell_regen_bonus != 0) {
         return true;
     }
     return false;
@@ -2193,12 +2136,10 @@ void MergeItemUses(W8Character* character, W8ItemInstance* into, W8ItemInstance*
     unsigned char held;
     unsigned int moved;
 
-    available = g_item_records[from->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
-                    ? from->stack_count
-                    : from->uses_or_charges;
-    held = g_item_records[into->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
-               ? into->stack_count
-               : into->uses_or_charges;
+    available = g_item_records[from->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK ? from->stack_count
+                                                                                      : from->uses_or_charges;
+    held = g_item_records[into->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK ? into->stack_count
+                                                                                 : into->uses_or_charges;
 
     moved = MaximumQuantity(into->iItemNo) - held;
     if (available <= moved) {
@@ -2216,8 +2157,7 @@ void MergeItemUses(W8Character* character, W8ItemInstance* into, W8ItemInstance*
    otherwise the caller may name an item that has to be found on the character.
    Neither being available queues the character's event instead of swapping. */
 // FUNCTION: WIZ8 0x0051eb90
-void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int item_id,
-                              W8EquipSlot equip_slot)
+void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int item_id, W8EquipSlot equip_slot)
 {
     W8ItemInstance* pair;
 
@@ -2229,13 +2169,11 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
     }
 
     if (character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1 &&
-        CompatiblePartnerItems(
-            item->iItemNo,
-            character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo)) {
+        CompatiblePartnerItems(item->iItemNo,
+                               character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo)) {
         pair = &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON];
     } else if (item_id == -1 || !FindItemOnCharacter(character, item_id, &pair, 1, 0)) {
-        QueueCharacterEvent(character, g_effect26, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_effect26, 0, g_character_event_no_flags, g_character_event_full_volume);
         return;
     }
 
@@ -2247,8 +2185,8 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
    the carried ones only when asked for; a starting slot makes the search
    resume after it rather than from the front. */
 // FUNCTION: WIZ8 0x00520f90
-bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** found,
-                         int include_backpack, const W8ItemInstance* resume_after)
+bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** found, int include_backpack,
+                         const W8ItemInstance* resume_after)
 {
     unsigned int slot = 0;
 
@@ -2301,8 +2239,8 @@ bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** f
    pool. The resume item skips everything up to and including itself, which
    is how a caller walks a stack of matches. */
 // FUNCTION: WIZ8 0x00521060
-bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_character,
-                     int include_backpack, const W8ItemInstance* resume_after)
+bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_character, int include_backpack,
+                     const W8ItemInstance* resume_after)
 {
     if (found_character != 0) {
         *found_character = 0;
@@ -2317,8 +2255,7 @@ bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_ch
 
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied &&
-            FindItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, found,
-                                include_backpack, resume_after)) {
+            FindItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, found, include_backpack, resume_after)) {
             if (found_character != 0) {
                 *found_character = &g_status.buffers.Char[party_slot];
             }
@@ -2329,8 +2266,7 @@ bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_ch
     if (include_backpack == 2) {
         unsigned int index = 0;
         if (resume_after != 0) {
-            while (index < g_status.party_item_count &&
-                   &g_status.party_item_pool[index] != resume_after) {
+            while (index < g_status.party_item_count && &g_status.party_item_pool[index] != resume_after) {
                 ++index;
             }
             ++index;
@@ -2355,17 +2291,14 @@ bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_ch
 /* How many of one item a character holds, counting a stack as its count and
    anything else as one, and optionally reporting the first slot it is in. */
 // FUNCTION: WIZ8 0x005211a0
-int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** first,
-                         int include_backpack)
+int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** first, int include_backpack)
 {
     int total = 0;
     int slot;
 
     for (slot = 0; slot < 12; ++slot) {
         if (character->EquippedItem[slot].iItemNo == item_id) {
-            total += character->EquippedItem[slot].stack_count == 0
-                         ? 1
-                         : character->EquippedItem[slot].stack_count;
+            total += character->EquippedItem[slot].stack_count == 0 ? 1 : character->EquippedItem[slot].stack_count;
             if (first != 0 && *first == 0) {
                 *first = &character->EquippedItem[slot];
             }
@@ -2375,9 +2308,7 @@ int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** f
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == item_id) {
                 /* Bug: this counts the equipped slot with the same index. */
-                total += character->EquippedItem[slot].stack_count == 0
-                             ? 1
-                             : character->EquippedItem[slot].stack_count;
+                total += character->EquippedItem[slot].stack_count == 0 ? 1 : character->EquippedItem[slot].stack_count;
                 if (first != 0 && *first == 0) {
                     *first = &character->backpack[slot];
                 }
@@ -2390,8 +2321,7 @@ int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** f
 /* The whole-party counterpart of the count: the item in hand, every occupied
    slot, and the party item pool when the caller asks for it. */
 // FUNCTION: WIZ8 0x00521240
-unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character** first_holder,
-                              int include_backpack)
+unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character** first_holder, int include_backpack)
 {
     unsigned int total = 0;
 
@@ -2410,8 +2340,7 @@ unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character**
 
     for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
-            int count = CountItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, found,
-                                             include_backpack);
+            int count = CountItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, found, include_backpack);
             if (count != 0) {
                 total += count;
                 if (first_holder != 0 && *first_holder == 0) {
@@ -2444,8 +2373,7 @@ bool EveryCharacterHasItem(int item_id, int include_backpack)
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
-            if (!FindItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, 0,
-                                     include_backpack, 0)) {
+            if (!FindItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, 0, include_backpack, 0)) {
                 return false;
             }
         }
@@ -2459,8 +2387,7 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
 {
     for (int slot = 0; slot < 12; ++slot) {
         W8ItemInstance* item = &character->EquippedItem[slot];
-        if (item->iItemNo != -1 &&
-            g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
+        if (item->iItemNo != -1 && g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
             if (out != 0) {
                 *out = item;
             }
@@ -2470,8 +2397,7 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
     if (include_backpack != 0) {
         for (int slot = 0; slot < 8; ++slot) {
             W8ItemInstance* item = &character->backpack[slot];
-            if (item->iItemNo != -1 &&
-                g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
+            if (item->iItemNo != -1 && g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
                 if (out != 0) {
                     *out = item;
                 }
@@ -2545,8 +2471,7 @@ void BindEveryPartyItem(void)
     unsigned int party_slot;
 
     if (gXStatus.fCombatMode && !g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
         return;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -2626,8 +2551,7 @@ void SortPartyItemPool(void)
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 3795, 0);
     }
     if (g_status.party_item_count > 1) {
-        qsort(g_status.party_item_pool, g_status.party_item_count, sizeof(W8ItemInstance),
-              CompareItemsForPool);
+        qsort(g_status.party_item_pool, g_status.party_item_count, sizeof(W8ItemInstance), CompareItemsForPool);
     }
 }
 
@@ -2648,8 +2572,8 @@ void NormalizeItemStack(W8ItemInstance* item)
             }
             item->uses_or_charges = 0;
         }
-    } else if (record->quantity_kind >= W8_ITEM_QUANTITY_CHARGES &&
-               record->quantity_kind <= W8_ITEM_QUANTITY_SHOTS && item->stack_count != 0) {
+    } else if (record->quantity_kind >= W8_ITEM_QUANTITY_CHARGES && record->quantity_kind <= W8_ITEM_QUANTITY_SHOTS &&
+               item->stack_count != 0) {
         if (item->uses_or_charges == 0) {
             item->uses_or_charges = item->stack_count;
         }
@@ -2702,12 +2626,10 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
         return false;
     }
     if (destination->stack_count > record->maximum_quantity) {
-        srAssertFail(
-            "FALSE", PC_ITEM_CPP, 3371,
-            fmt::format(
-                "StackItemsIfPossible: ERROR - slot holds {:d} when max is {:d}, item {:d}({})",
-                destination->stack_count, record->maximum_quantity, destination->iItemNo,
-                FormatItemDisplayName(destination, true)));
+        srAssertFail("FALSE", PC_ITEM_CPP, 3371,
+                     fmt::format("StackItemsIfPossible: ERROR - slot holds {:d} when max is {:d}, item {:d}({})",
+                                 destination->stack_count, record->maximum_quantity, destination->iItemNo,
+                                 FormatItemDisplayName(destination, true)));
         destination->stack_count = record->maximum_quantity;
     }
     if (destination->iItemNo != source->iItemNo || destination->identified != source->identified) {
@@ -2735,8 +2657,7 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
    Moving into the held-item slot also remembers the character/slot origin so
    the cursor can return it later. */
 // FUNCTION: WIZ8 0x0051fe30
-void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Character* character,
-                      bool refresh)
+void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Character* character, bool refresh)
 {
     unsigned int held_character = static_cast<unsigned int>(-1);
     unsigned char held_origin = W8_ITEM_ORIGIN_NONE;
@@ -2776,15 +2697,13 @@ void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Cha
    a temporary empty record. The party-row guard prevents observers from
    reacting to the intermediate empty states. */
 // FUNCTION: WIZ8 0x0051FD20
-void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character,
-                       bool refresh)
+void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character, bool refresh)
 {
     W8ItemInstance temporary;
     unsigned int party_slot;
 
     if (item->iItemNo == -1 && destination->iItemNo == -1) {
-        srAssertFail("(pPCItem1->iItemNo != -1) || (pPCItem2->iItemNo != -1)", PC_ITEM_CPP, 0xdbc,
-                     0);
+        srAssertFail("(pPCItem1->iItemNo != -1) || (pPCItem2->iItemNo != -1)", PC_ITEM_CPP, 0xdbc, 0);
     }
     party_slot = CharacterPointerToPartySlot(character);
     gXStatus.monster_manager_entries[party_slot].item_swap_in_progress = true;
@@ -2822,8 +2741,7 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
     } else {
         if (slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
             std::string message =
-                fmt::format("SetHandType: ERROR: uiSlot {:d} is not a hand/weapon slot!",
-                            fmt::underlying(slot));
+                fmt::format("SetHandType: ERROR: uiSlot {:d} is not a hand/weapon slot!", fmt::underlying(slot));
             srAssertFail("FALSE", PC_ITEM_CPP, 3690, message);
             return;
         }
@@ -2844,8 +2762,8 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
             wield_kind = 1;
             if (slot != W8_EQUIP_SLOT_SECONDARY_WEAPON ||
                 character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 ||
-                g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
-                        .unidentified_name_index != 0x83) {
+                g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo].unidentified_name_index !=
+                    0x83) {
                 break;
             }
             [[fallthrough]];
@@ -2856,9 +2774,8 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
             wield_kind = 2;
             break;
         default: {
-            std::string message =
-                fmt::format("SetHandType: ERROR: invalid item {:d} type {:d} in hand {:d}!",
-                            item_id, g_item_records[item_id].equip_class, hand);
+            std::string message = fmt::format("SetHandType: ERROR: invalid item {:d} type {:d} in hand {:d}!", item_id,
+                                              g_item_records[item_id].equip_class, hand);
             srAssertFail("FALSE", PC_ITEM_CPP, 3731, message);
             return;
         }
@@ -2942,8 +2859,7 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
                     row->action = W8_ACTION_ATTACK;
                 }
             }
-        } else if (action_kind == W8_ACTION_ATTACK && row->action_is_berserk &&
-                   CanCharacterBerserk(party_slot)) {
+        } else if (action_kind == W8_ACTION_ATTACK && row->action_is_berserk && CanCharacterBerserk(party_slot)) {
             row->action_kind = W8_ACTION_BERSERK;
             if (row->action == W8_ACTION_ATTACK) {
                 row->action = W8_ACTION_BERSERK;
@@ -2953,8 +2869,7 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
         if (gXStatus.fCombatMode) {
             W8ActionKind action = row->action;
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
-                if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true,
-                                          false)) {
+                if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
                     AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
                 } else if (!TargetIsInPlay(party_slot, 2, W8_TARGETING_CONTEXT_IN_COMBAT)) {
                     RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
@@ -3072,8 +2987,7 @@ void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
 /* Deliver the one-time character reaction associated with exceptional items.
    Character creation (screen 5) deliberately suppresses every reaction. */
 // FUNCTION: WIZ8 0x005227d0
-void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
-                                    W8Character* character)
+void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character, W8Character* character)
 {
     int message;
 
@@ -3102,8 +3016,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         message = g_item_message3;
         break;
     case 0x244:
-        message =
-            GetFactionDispositionScore(W8_FACTION_MOOK) != 0 ? g_item_message4 : g_item_message5;
+        message = GetFactionDispositionScore(W8_FACTION_MOOK) != 0 ? g_item_message4 : g_item_message5;
         break;
     case 0x264:
         message = g_item_message9;
@@ -3118,22 +3031,20 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
             return;
         }
         signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], g_item_message8, 0,
-                            g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], g_item_message8, 0, g_character_event_no_flags,
+                            g_character_event_full_volume);
         return;
     }
     default:
         if (choose_character || !CanCharacterUseItem(character, item->iItemNo) ||
-            g_item_records[item->iItemNo].value / character->uiExpLevel <= 500 ||
-            !item->identified) {
+            g_item_records[item->iItemNo].value / character->uiExpLevel <= 500 || !item->identified) {
             return;
         }
         message = g_item_message6;
         break;
     }
 
-    QueueCharacterEvent(character, message, 0, g_character_event_no_flags,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(character, message, 0, g_character_event_no_flags, g_character_event_full_volume);
     item->effect_used |= 1;
 }
 
@@ -3162,19 +3073,16 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
     W8Character* character = &g_status.buffers.Char[party_slot];
     bool usable;
 
-    if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
-        record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        return !gXStatus.fCombatMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
-               !gXStatus.fTrapInteract;
+    if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY || record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER ||
+        CanCastFromItem(character, item)) {
+        return !gXStatus.fCombatMode && !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract;
     }
-    if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
-        record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
+    if (character->uiCondition[W8_CONDITION_SILENCED] != 0 && record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
         return false;
     }
 
     SetUseItemSelectOverrideItem(const_cast<W8ItemInstance*>(item));
-    usable =
-        SpellHasAnyValidTarget(party_slot, record->spell_id, ItemClassNormalizesTarget(record));
+    usable = SpellHasAnyValidTarget(party_slot, record->spell_id, ItemClassNormalizesTarget(record));
     SetUseItemSelectOverrideItem(0);
     if (!usable) {
         return false;
@@ -3185,31 +3093,27 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 /* Validate an item's embedded spell for use now; nonzero reports use blocked
    with the reason notice queued through the callback. */
 // FUNCTION: WIZ8 0x00522B80
-bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
-                          W8DialogDestroyCallback callback)
+bool ValidateItemSpellUse(int character_index, W8ItemInstance* item, W8DialogDestroyCallback callback)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[character_index];
     bool has_target;
 
-    if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
-        record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        if (gXStatus.fCombatMode || gXStatus.fCampMode || gXStatus.fLockInteract ||
-            gXStatus.fTrapInteract) {
+    if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY || record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER ||
+        CanCastFromItem(character, item)) {
+        if (gXStatus.fCombatMode || gXStatus.fCampMode || gXStatus.fLockInteract || gXStatus.fTrapInteract) {
             ShowNoticeLine(g_localized_strings[0x7a6], callback, true, false);
             return true;
         }
         return false;
     }
-    if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
-        record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
+    if (character->uiCondition[W8_CONDITION_SILENCED] != 0 && record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
         ShowNoticeLine(g_localized_strings[0x7a7], callback, true, false);
         return true;
     }
     if (gXStatus.fItemSelectMode) {
         SetUseItemSelectOverrideItem(item);
-        has_target = SpellHasAnyValidTarget(character_index, record->spell_id,
-                                            ItemClassNormalizesTarget(record));
+        has_target = SpellHasAnyValidTarget(character_index, record->spell_id, ItemClassNormalizesTarget(record));
         SetUseItemSelectOverrideItem(0);
         if (!has_target) {
             ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
@@ -3229,9 +3133,8 @@ static bool IsActivatableServiceItem(W8Character* character, W8ItemInstance* ite
 {
     if (item->iItemNo != -1 && CanCharacterActivateItem(character, item)) {
         const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
-        if (record->equip_class != W8_ITEM_EQUIP_CLASS_KEY &&
-            record->equip_class != W8_ITEM_EQUIP_CLASS_OTHER && item->identified &&
-            (record->spell_id == W8_SPELL_CHARM || record->spell_id == W8_SPELL_MINDREAD)) {
+        if (record->equip_class != W8_ITEM_EQUIP_CLASS_KEY && record->equip_class != W8_ITEM_EQUIP_CLASS_OTHER &&
+            item->identified && (record->spell_id == W8_SPELL_CHARM || record->spell_id == W8_SPELL_MINDREAD)) {
             return true;
         }
     }
@@ -3361,19 +3264,17 @@ void UnequipUnusableItems(W8Character* character)
 
         unmet = FindUnmetItemRequirement(character, record, &message_id);
         if (unmet) {
-            PostCharacterNotice(
-                party_slot,
-                fmt::sprintf(g_localized_strings[0x1ef],
-                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
-                             FormatItemDisplayName(item, true),
-                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
-                             g_localized_strings[message_id]));
+            PostCharacterNotice(party_slot,
+                                fmt::sprintf(g_localized_strings[0x1ef],
+                                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                                             FormatItemDisplayName(item, true),
+                                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                                             g_localized_strings[message_id]));
         } else {
-            PostCharacterNotice(
-                party_slot,
-                fmt::sprintf(g_localized_strings[0x1f0],
-                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
-                             FormatItemDisplayName(item, true)));
+            PostCharacterNotice(party_slot,
+                                fmt::sprintf(g_localized_strings[0x1f0],
+                                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                                             FormatItemDisplayName(item, true)));
         }
 
         destination.iItemNo = -1;
@@ -3397,8 +3298,7 @@ void UnequipUnusableItems(W8Character* character)
 W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
 {
     W8EquipSlot slot = GetItemDefaultEquipSlot(item_id);
-    if (g_status.game_started ||
-        (slot != W8_EQUIP_SLOT_PRIMARY_WEAPON && slot != W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
+    if (g_status.game_started || (slot != W8_EQUIP_SLOT_PRIMARY_WEAPON && slot != W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
         return slot;
     }
 
@@ -3412,18 +3312,14 @@ W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
         if (character->skills[W8_SKILL_DUAL_WEAPONS].points != 0) {
             if (CanEquipItemInSlot(character, item_id, 7, false)) {
                 if (primary_right != -1 && primary_left == -1 &&
-                    (g_item_records[primary_right].equip_class ==
-                         W8_ITEM_EQUIP_CLASS_SHORT_WEAPON ||
-                     g_item_records[primary_right].equip_class ==
-                         W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON) &&
+                    (g_item_records[primary_right].equip_class == W8_ITEM_EQUIP_CLASS_SHORT_WEAPON ||
+                     g_item_records[primary_right].equip_class == W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON) &&
                     (g_item_records[primary_right].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
                     slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
                 }
                 if (alternate_right != -1 && alternate_left == -1 &&
-                    (g_item_records[alternate_right].equip_class ==
-                         W8_ITEM_EQUIP_CLASS_SHORT_WEAPON ||
-                     g_item_records[alternate_right].equip_class ==
-                         W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON) &&
+                    (g_item_records[alternate_right].equip_class == W8_ITEM_EQUIP_CLASS_SHORT_WEAPON ||
+                     g_item_records[alternate_right].equip_class == W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON) &&
                     (g_item_records[alternate_right].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
                     return W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
                 }
@@ -3431,15 +3327,13 @@ W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
                 if (primary_right != -1 && primary_left == -1 &&
                     CanEquipItemInSlot(character, primary_right, 7, false)) {
                     CopyItemInstance(&character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON],
-                                     &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON], 0,
-                                     true);
+                                     &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON], 0, true);
                     return W8_EQUIP_SLOT_PRIMARY_WEAPON;
                 }
                 if (alternate_right != -1 && alternate_left == -1 &&
                     CanEquipItemInSlot(character, alternate_right, 9, false)) {
-                    CopyItemInstance(
-                        &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON],
-                        &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON], 0, true);
+                    CopyItemInstance(&character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON],
+                                     &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON], 0, true);
                     return W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON;
                 }
             }
@@ -3454,12 +3348,10 @@ W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
         }
         break;
     case W8_ITEM_EQUIP_CLASS_AMMUNITION:
-        if (primary_right != -1 &&
-            g_item_records[primary_right].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON) {
+        if (primary_right != -1 && g_item_records[primary_right].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON) {
             return W8_EQUIP_SLOT_SECONDARY_WEAPON;
         }
-        if (alternate_right != -1 &&
-            g_item_records[alternate_right].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON) {
+        if (alternate_right != -1 && g_item_records[alternate_right].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON) {
             return W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
         }
         return W8_EQUIP_SLOT_NONE;
@@ -3475,9 +3367,8 @@ W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
    twenty is the most forgiving of the four and takes ten percent off, while
    skill nine takes twenty. */
 // FUNCTION: WIZ8 0x0051dcd0
-unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
-                                  unsigned int skill_level, unsigned int spell_id,
-                                  unsigned int power)
+unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill, unsigned int skill_level,
+                                  unsigned int spell_id, unsigned int power)
 {
     unsigned int failure = GetSpellFailureChance(skill_level, spell_id, power);
     unsigned int shortfall;
@@ -3495,9 +3386,8 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
             failure += (shortfall - skill_level) / 3;
         }
         minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-        caster_level = skill == W8_SKILL_MUSIC
-                           ? character->profession_levels[W8_CASTER_PROFESSION_INDEX_9]
-                           : character->profession_levels[W8_CASTER_PROFESSION_INDEX_8];
+        caster_level = skill == W8_SKILL_MUSIC ? character->profession_levels[W8_CASTER_PROFESSION_INDEX_9]
+                                               : character->profession_levels[W8_CASTER_PROFESSION_INDEX_8];
         adjusted_power = (minimum_caster_level - caster_level) - 1 + static_cast<int>(power);
         if (adjusted_power > 0) {
             return failure + g_spell_records[spell_id].spell_level * adjusted_power;
@@ -3613,15 +3503,13 @@ void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item)
         }
     }
 
-    if (FindCharacterItemByDatabaseKind(character, g_compatible_partner_pairs[row][1], &partner,
-                                        1)) {
+    if (FindCharacterItemByDatabaseKind(character, g_compatible_partner_pairs[row][1], &partner, 1)) {
         MergeItemUses(character, item, partner);
         PostCharacterNotice(CharacterPointerToPartySlot(character), g_localized_strings[0x1d4]);
         return;
     }
 
-    QueueCharacterEvent(character, g_effect26, 0, g_character_event_no_flags,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(character, g_effect26, 0, g_character_event_no_flags, g_character_event_full_volume);
     CalcAttacks(character);
 }
 
@@ -3666,8 +3554,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
        classes are the ones the spell engine is told about rather than cast. */
     rejected_spell =
         (record->spell_id == W8_SPELL_NONE || record->equip_class == W8_ITEM_EQUIP_CLASS_GADGET ||
-         (record->equip_class > W8_ITEM_EQUIP_CLASS_SCROLL &&
-          record->equip_class < W8_ITEM_EQUIP_CLASS_KEY))
+         (record->equip_class > W8_ITEM_EQUIP_CLASS_SCROLL && record->equip_class < W8_ITEM_EQUIP_CLASS_KEY))
             ? 1
             : 0;
     if (!ValidateSpellTarget(party_slot, spell_id, power, true, rejected_spell)) {
@@ -3681,8 +3568,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         if (skill == W8_SKILL_NONE) {
             difficulty = 0;
         } else {
-            difficulty = GetItemUseDifficulty(character, skill, character->skills[skill].level,
-                                              spell_id, power);
+            difficulty = GetItemUseDifficulty(character, skill, character->skills[skill].level, spell_id, power);
             ScaleByCombatPace(party_slot, &difficulty);
             if (!item->identified) {
                 difficulty += 0x1e;
@@ -3707,8 +3593,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         difficulty_kind = 1;
         caster_figure = character->uiExpLevel;
     }
-    target.spell_difficulty =
-        static_cast<unsigned char>(GetSpellDifficulty(caster_figure, spell_id, power));
+    target.spell_difficulty = static_cast<unsigned char>(GetSpellDifficulty(caster_figure, spell_id, power));
 
     if (record->sound_name.size() != 0) {
 
@@ -3717,9 +3602,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     {
         int power_out = static_cast<int>(power);
-        effect = CastSpellFromSource(
-            spell_id, &target, &g_status.buffers.XChar[party_slot].target_out_of_combat, power, 0,
-            difficulty, false, &power_out, difficulty_kind, 0, 0);
+        effect = CastSpellFromSource(spell_id, &target, &g_status.buffers.XChar[party_slot].target_out_of_combat, power,
+                                     0, difficulty, false, &power_out, difficulty_kind, 0, 0);
         power = static_cast<unsigned int>(power_out);
     }
 
@@ -3735,15 +3619,12 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         }
         item->spell_hint = true;
     } else if (effect == 3) {
-        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a9],
-                                                     FormatItemDisplayName(item, false)));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a9], FormatItemDisplayName(item, false)));
     }
 
     if (skill != W8_SKILL_NONE) {
-        if (SpellAffectedTarget(character, spell_id,
-                                &g_status.buffers.XChar[party_slot].target_out_of_combat, power)) {
-            PracticeCharacterSkill(character, skill,
-                                   g_spell_records[spell_id].spell_level + (power >> 1), false);
+        if (SpellAffectedTarget(character, spell_id, &g_status.buffers.XChar[party_slot].target_out_of_combat, power)) {
+            PracticeCharacterSkill(character, skill, g_spell_records[spell_id].spell_level + (power >> 1), false);
         }
     }
     return effect;
@@ -3763,8 +3644,7 @@ void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_s
     int item_id;
     unsigned char moved;
 
-    if (equip_slot != W8_EQUIP_SLOT_PRIMARY_WEAPON &&
-        equip_slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
+    if (equip_slot != W8_EQUIP_SLOT_PRIMARY_WEAPON && equip_slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
         return;
     }
     source_slot = GetPairedEquipSlot(equip_slot);
@@ -3845,15 +3725,14 @@ void EmptyPartyPoolEntry(int index)
    for it. The character that held the match comes back through the third
    output. */
 // FUNCTION: WIZ8 0x00521480
-bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** found,
-                                   W8Character** found_character, int include_backpack)
+bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** found, W8Character** found_character,
+                                   int include_backpack)
 {
     if (found_character != 0) {
         *found_character = 0;
     }
 
-    if (g_status.item_in_cursor &&
-        g_item_records[g_status.item_in_hand.iItemNo].unidentified_name_index == item_kind) {
+    if (g_status.item_in_cursor && g_item_records[g_status.item_in_hand.iItemNo].unidentified_name_index == item_kind) {
         if (found != 0) {
             *found = &g_status.item_in_hand;
         }
@@ -3876,8 +3755,7 @@ bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** fo
     if (include_backpack == 2) {
         for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
             W8ItemInstance* entry = &g_status.party_item_pool[index];
-            if (entry->iItemNo != -1 &&
-                g_item_records[entry->iItemNo].unidentified_name_index == item_kind) {
+            if (entry->iItemNo != -1 && g_item_records[entry->iItemNo].unidentified_name_index == item_kind) {
                 if (found != 0) {
                     *found = entry;
                 }
@@ -3913,14 +3791,12 @@ void UpgradeProfessionClassItem(W8Character* character)
             return;
         }
         ReplaceOrCreateItem(&created, 599, false, true, true);
-        if (!AddItemToCharacter(character, &created, false, true, false) &&
-            !AddItemToParty(&created, true, false)) {
+        if (!AddItemToCharacter(character, &created, false, true, false) && !AddItemToParty(&created, true, false)) {
             return;
         }
-        PostCharacterNotice(
-            CharacterPointerToPartySlot(character),
-            fmt::sprintf(g_localized_strings[0x167],
-                         g_localized_strings[g_gender_name_message_rows[character->gender][3]]));
+        PostCharacterNotice(CharacterPointerToPartySlot(character),
+                            fmt::sprintf(g_localized_strings[0x167],
+                                         g_localized_strings[g_gender_name_message_rows[character->gender][3]]));
         return;
     case 3:
     case 4:
@@ -3985,10 +3861,9 @@ void UpgradeProfessionClassItem(W8Character* character)
          FindItemByDatabaseKindOnParty(0x83, &found, 0, 2)) &&
         found != 0 && found->iItemNo < item_id) {
         found->iItemNo = item_id;
-        PostCharacterNotice(
-            CharacterPointerToPartySlot(character),
-            fmt::sprintf(g_localized_strings[message_id],
-                         g_localized_strings[g_gender_name_message_rows[character->gender][2]]));
+        PostCharacterNotice(CharacterPointerToPartySlot(character),
+                            fmt::sprintf(g_localized_strings[message_id],
+                                         g_localized_strings[g_gender_name_message_rows[character->gender][2]]));
     }
 }
 
@@ -4080,31 +3955,25 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
 
     primary_right_item = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
     alternate_right_item = character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo;
-    if (alternate_right_item == -1 &&
-        character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1) {
+    if (alternate_right_item == -1 && character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1) {
         blocked_primary = CanHoldItemsTogether(
-            primary_right_item,
-            character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo);
+            primary_right_item, character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo);
     }
-    if (character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1 &&
-        alternate_right_item != -1) {
-        blocked_alternate = CanHoldItemsTogether(
-            character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo, alternate_right_item);
+    if (character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1 && alternate_right_item != -1) {
+        blocked_alternate =
+            CanHoldItemsTogether(character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo, alternate_right_item);
     }
 
-    if ((character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo != -1 ||
-         alternate_right_item != -1) &&
+    if ((character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo != -1 || alternate_right_item != -1) &&
         !blocked_primary) {
         SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
-                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON],
-                          character, refresh);
+                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON], character, refresh);
     }
     if ((character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo != -1 ||
          character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1) &&
         !blocked_alternate) {
         SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON],
-                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON],
-                          character, refresh);
+                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON], character, refresh);
     }
 
     if (refresh) {
@@ -4127,15 +3996,14 @@ void BindCharacterItems(int party_slot, bool announce)
 {
     if (gXStatus.fCombatMode) {
         if (!g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
             return;
         }
         if (g_combat_state->iActionChar == party_slot && g_combat_state->eCombatActionStatus == 2 &&
             (g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_ATTACK ||
              g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_BERSERK)) {
-            ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1f7],
-                                                           g_status.buffers.Char[party_slot].name));
+            ShowNotice(W8_FONT_PALETTE_WHITE,
+                       fmt::sprintf(g_localized_strings[0x1f7], g_status.buffers.Char[party_slot].name));
             return;
         }
     }

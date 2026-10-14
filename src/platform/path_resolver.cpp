@@ -168,8 +168,7 @@ Path parse(const char* input)
             path.drive = -1;
             return path;
         }
-        const std::string bases[] = {roots.assets, roots.user, roots.discs[0], roots.discs[1],
-                                     roots.discs[2]};
+        const std::string bases[] = {roots.assets, roots.user, roots.discs[0], roots.discs[1], roots.discs[2]};
         for (int i = 0; i < 5; ++i) {
             if (!within(text, bases[i])) {
                 continue;
@@ -264,8 +263,7 @@ std::string locate(const std::string& root, const std::string& relative)
             continue;
         }
         std::vector<std::string> matches;
-        for (fs::directory_iterator it(cursor, error), end; !error && it != end;
-             it.increment(error)) {
+        for (fs::directory_iterator it(cursor, error), end; !error && it != end; it.increment(error)) {
             const std::string name = utf8(it->path().filename());
             if (folded(name) == folded(utf8(component))) {
                 matches.push_back(name);
@@ -358,8 +356,8 @@ std::string existing_legacy_user_root(const std::string& preferred)
     std::error_code error;
     // Prefer the current root when both contain data; never strand newer saves.
     const bool preferred_has_data = fs::is_directory(app, error) && !fs::is_empty(app, error);
-    if (!preferred_has_data && app.parent_path().filename() == "Whizzardry" &&
-        fs::is_directory(candidate, error) && !fs::is_empty(candidate, error)) {
+    if (!preferred_has_data && app.parent_path().filename() == "Whizzardry" && fs::is_directory(candidate, error) &&
+        !fs::is_empty(candidate, error)) {
         return absolute(utf8(candidate));
     }
     return "";
@@ -372,15 +370,12 @@ ResolvedPath resolve_path(std::string_view input, PathDomain domain)
     std::lock_guard<std::recursive_mutex> guard(lock);
     initialize();
     const std::string text(input);
-    if (domain == PathDomain::game && !(text.size() >= 2 && text[1] == ':') &&
-        native_path(text).is_absolute()) {
+    if (domain == PathDomain::game && !(text.size() >= 2 && text[1] == ':') && native_path(text).is_absolute()) {
         throw std::invalid_argument("native absolute paths require the host import API");
     }
-    const Path path =
-        domain == PathDomain::host ? Path{0, {}, absolute(text)} : parse(text.c_str());
+    const Path path = domain == PathDomain::host ? Path{0, {}, absolute(text)} : parse(text.c_str());
     if (path.drive < 0) {
-        throw std::system_error(errno ? errno : EINVAL, std::generic_category(),
-                                "resolve file path");
+        throw std::system_error(errno ? errno : EINVAL, std::generic_category(), "resolve file path");
     }
 
     ResolvedPath result;
@@ -411,8 +406,7 @@ ResolvedPath resolve_path(std::string_view input, PathDomain domain)
         }
     }
     if (result.readable.empty()) {
-        throw std::system_error(errno ? errno : ENOENT, std::generic_category(),
-                                "resolve file path");
+        throw std::system_error(errno ? errno : ENOENT, std::generic_category(), "resolve file path");
     }
     result.writable_source = !result.writable.empty() && result.readable == result.writable;
     return result;

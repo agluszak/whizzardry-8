@@ -24,8 +24,7 @@ struct SpriteDraw {
 
 void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame, int x, int y,
                 SpriteDraw options = {});
-bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame, int x, int y,
-                     const SDL_Rect& clip);
-void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sprites,
-                std::size_t frame, SDL_Point offset);
+bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame, int x, int y, const SDL_Rect& clip);
+void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sprites, std::size_t frame,
+                SDL_Point offset);
 SDLSurfaceOwner RenderSpriteToImage(const SpriteSheet& sprites, std::size_t frame);

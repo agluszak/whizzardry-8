@@ -54,8 +54,7 @@ struct Input {
         }
         return self.position = base + offset;
     }
-    static size_t SDLCALL read(void* cookie, void* data, size_t bytes,
-                               SDL_IOStatus* status) noexcept
+    static size_t SDLCALL read(void* cookie, void* data, size_t bytes, SDL_IOStatus* status) noexcept
     {
         auto& self = *static_cast<Input*>(cookie);
         if (self.failed) {
@@ -72,8 +71,7 @@ struct Input {
         }
         self.position += first;
         if (count > first) {
-            if (SDL_SeekIO(self.source, self.data_start + self.position - self.prefix.size(),
-                           SDL_IO_SEEK_SET) < 0 ||
+            if (SDL_SeekIO(self.source, self.data_start + self.position - self.prefix.size(), SDL_IO_SEEK_SET) < 0 ||
                 SDL_ReadIO(self.source, output + first, count - first) != count - first) {
                 self.failed = true;
                 *status = SDL_IO_STATUS_ERROR;
@@ -97,8 +95,7 @@ struct Input {
     }
 };
 
-inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels, unsigned bytes,
-                           bool rle)
+inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels, unsigned bytes, bool rle)
 {
     if (SDL_SeekIO(io, start, SDL_IO_SEEK_SET) < 0) {
         return false;
@@ -112,8 +109,7 @@ inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels, unsi
             return false;
         }
         const unsigned count = (packet & 127) + 1;
-        if (count > pixels ||
-            SDL_SeekIO(io, (packet & 128 ? 1 : count) * bytes, SDL_IO_SEEK_CUR) < 0) {
+        if (count > pixels || SDL_SeekIO(io, (packet & 128 ? 1 : count) * bytes, SDL_IO_SEEK_CUR) < 0) {
             return false;
         }
         pixels -= count;
@@ -160,8 +156,7 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
         }
         std::vector<Uint8> palette_data(has_palette ? count * palette_bytes : 0);
         if (SDL_SeekIO(source, 18 + prefix[0], SDL_IO_SEEK_SET) < 0 ||
-            (has_palette &&
-             SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size())) {
+            (has_palette && SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size())) {
             return nullptr;
         }
         std::shared_ptr<srPalette> core_palette;
@@ -201,23 +196,21 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
         tga::Input normalized{source, std::move(prefix), metadata, normalized_size};
         auto io = normalized.open();
         const unsigned bytes = palette_only ? 1 : depth / 8;
-        if (!io ||
-            !tga::validatePixels(io.get(), pixel_start, Uint64(width) * height, bytes, type >= 9) ||
+        if (!io || !tga::validatePixels(io.get(), pixel_start, Uint64(width) * height, bytes, type >= 9) ||
             SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0) {
             return nullptr;
         }
         Surface decoded(IMG_LoadTGA_IO(io.get()), SDL_DestroySurface);
-        if (!decoded || normalized.failed || decoded->w != int(width) ||
-            decoded->h != int(height)) {
+        if (!decoded || normalized.failed || decoded->w != int(width) || decoded->h != int(height)) {
             return nullptr;
         }
-        const auto format = indexed       ? srPixelConvert::SURFACE_P8
-                            : gray        ? srPixelConvert::SURFACE_L8
-                            : depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555
-                                                               : srPixelConvert::SURFACE_RGB555)
-                            : depth == 24 ? srPixelConvert::SURFACE_BGR24
-                            : (descriptor & 15) ? srPixelConvert::SURFACE_BGRA32
-                                                : srPixelConvert::SURFACE_BGRX32;
+        const auto format =
+            indexed       ? srPixelConvert::SURFACE_P8
+            : gray        ? srPixelConvert::SURFACE_L8
+            : depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555)
+            : depth == 24 ? srPixelConvert::SURFACE_BGR24
+            : (descriptor & 15) ? srPixelConvert::SURFACE_BGRA32
+                                : srPixelConvert::SURFACE_BGRX32;
         auto surface = std::make_unique<srColorSurface>(format, width, height);
         if (!surface || !copyRows(*decoded, *surface, bytes, descriptor & 0x10)) {
             return nullptr;
@@ -239,8 +232,8 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
                     colors[origin + i].alpha = palette_bits == 32 ? palette_data[i * 4 + 3] : 255;
                 }
                 for (unsigned y = 0; y < height; ++y) {
-                    const auto* row = static_cast<const Uint8*>(surface->getDataPtr()) +
-                                      size_t(y) * surface->getPitch();
+                    const auto* row =
+                        static_cast<const Uint8*>(surface->getDataPtr()) + size_t(y) * surface->getPitch();
                     for (unsigned x = 0; x < width; ++x) {
                         if (row[x] < origin || row[x] >= origin + count) {
                             return nullptr;

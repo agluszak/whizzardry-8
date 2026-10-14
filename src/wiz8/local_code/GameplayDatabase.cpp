@@ -127,8 +127,7 @@ try {
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
 try {
     if (!(uiMonsterIndex < gXStatus.uiMonstersInDatabase)) {
-        srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140,
-                     0);
+        srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140, 0);
     }
     auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
     handle->seek(std::int64_t(uiMonsterIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4,
@@ -181,8 +180,7 @@ try {
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
     if (count > std::size(gXStatus.monster_record_cache) ||
-        count >
-            (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
+        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
         return false;
     }
     if (records) {
@@ -200,8 +198,7 @@ try {
 
 /* The range sibling of LoadMonsterDatabaseRecord reads an inclusive span. */
 // FUNCTION: WIZ8 0x0054a9a0
-bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
-                              W8MonsterRecord* records)
+bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex, W8MonsterRecord* records)
 try {
     if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
         srAssertFail("uiEndIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x17a, 0);

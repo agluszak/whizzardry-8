@@ -24,8 +24,7 @@ struct W8ChunkHead {
 constexpr unsigned int W8ChunkId(const char (&tag)[5])
 {
     return static_cast<unsigned char>(tag[0]) | static_cast<unsigned char>(tag[1]) << 8 |
-           static_cast<unsigned char>(tag[2]) << 16 |
-           static_cast<unsigned>(static_cast<unsigned char>(tag[3])) << 24;
+           static_cast<unsigned char>(tag[2]) << 16 | static_cast<unsigned>(static_cast<unsigned char>(tag[3])) << 24;
 }
 
 // Runtime navigation is owned value storage; only the ten-byte disk header

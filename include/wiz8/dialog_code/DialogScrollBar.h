@@ -19,8 +19,7 @@ public:
     W8DialogScrollBar(const W8DialogScrollBar&) = delete;
     W8DialogScrollBar& operator=(const W8DialogScrollBar&) = delete;
     bool CreateControls(const Resources* resources);
-    void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height,
-                   int view_height);
+    void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height, int view_height);
     void UpdateThumb();
     void Draw(SDL_Surface& target, bool force);
     void ScrollUp();

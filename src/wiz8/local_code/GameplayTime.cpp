@@ -172,9 +172,8 @@ void UpdateGameClock(int elapsed)
             UpdatePartyStamina(static_cast<int>(stamina_ticks));
         }
 
-        if (!gXStatus.fSurprisePossible && !AnyCharacterEngaged() && AnyCharacterActive() &&
-            !g_status.party_fatigued && !HasLevelDataVector() && HasLevelWalkableContact() &&
-            IsScreenIdle()) {
+        if (!gXStatus.fSurprisePossible && !AnyCharacterEngaged() && AnyCharacterActive() && !g_status.party_fatigued &&
+            !HasLevelDataVector() && HasLevelWalkableContact() && IsScreenIdle()) {
             BeginPartyCamping();
         }
     }
@@ -332,8 +331,7 @@ void EndSurprise(void)
     if (!gXStatus.surprise_unengaged) {
         if (gXStatus.surprise_deadline_turns == 0) {
             text = g_localized_strings[0x793];
-        } else if (gXStatus.surprise_deadline_turns <
-                   static_cast<unsigned int>(g_status.world_clock)) {
+        } else if (gXStatus.surprise_deadline_turns < static_cast<unsigned int>(g_status.world_clock)) {
             text = g_localized_strings[0x791];
         } else {
             text = g_localized_strings[0x792];
@@ -350,8 +348,8 @@ void EndSurprise(void)
         g_status.skip_next_condition_reaction = 1;
         int party_slot = g_status.pending_condition_party_slot;
         RemoveCharacterCondition(party_slot, W8_CONDITION_MISSING, false);
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_effect32, 0,
-                            g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_effect32, 0, g_character_event_no_flags,
+                            g_character_event_full_volume);
         SetFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1, false);
     }
 }
@@ -378,18 +376,15 @@ void ResolveSurpriseWake(void)
     if (g_combat_state != 0 && g_combat_state->party_surprised) {
         for (unsigned int slot = 0; slot < 8; ++slot) {
             W8Character* character = &g_status.buffers.Char[slot];
-            if (!g_status.buffers.XChar[slot].fOccupied ||
-                character->highest_condition >= W8_CONDITION_DEAD) {
+            if (!g_status.buffers.XChar[slot].fOccupied || character->highest_condition >= W8_CONDITION_DEAD) {
                 continue;
             }
-            int roll =
-                static_cast<int>(Random(100)) - 0x14 -
-                static_cast<int>(character->attributes[W8_ATTRIBUTE_SENSES].effective * 0x46 / 100);
+            int roll = static_cast<int>(Random(100)) - 0x14 -
+                       static_cast<int>(character->attributes[W8_ATTRIBUTE_SENSES].effective * 0x46 / 100);
             if (roll < 1) {
-                PostCharacterNotice(
-                    slot, fmt::sprintf(
-                              g_localized_strings[0x243],
-                              g_localized_strings[g_condition_notices[W8_CONDITION_ASLEEP].name]));
+                PostCharacterNotice(slot,
+                                    fmt::sprintf(g_localized_strings[0x243],
+                                                 g_localized_strings[g_condition_notices[W8_CONDITION_ASLEEP].name]));
             } else {
                 SetCharacterCondition(slot, W8_CONDITION_ASLEEP, roll / 0x1e + 1, 0, 0, 0);
             }
@@ -438,8 +433,7 @@ void RebuildCharacterRegenRates(W8Character* character)
             character->spell_regen_rates[realm * 2] = 0.0f;
             continue;
         }
-        rate =
-            (static_cast<unsigned int>(character->sp_max[realm]) * 0.65f + 20.0f) * 0.0041666669f;
+        rate = (static_cast<unsigned int>(character->sp_max[realm]) * 0.65f + 20.0f) * 0.0041666669f;
         character->spell_regen_rates[realm * 2] = rate;
         if (character->bonus.boost_spell_regen != 0) {
             character->spell_regen_rates[realm * 2] = rate * 1.5f;
@@ -455,8 +449,7 @@ void RebuildMonsterRegenRates(W8MonsterInfo* monster_info)
 {
     float rate;
 
-    rate = (static_cast<unsigned int>(monster_info->uiHPMax) * g_navigator_mode3_scale +
-            g_monster_record_float_scale) *
+    rate = (static_cast<unsigned int>(monster_info->uiHPMax) * g_navigator_mode3_scale + g_monster_record_float_scale) *
                0.0041666669f +
            monster_info->modifiers.health_regen_adjustment;
     monster_info->hp_regen_rate = rate;
@@ -464,10 +457,10 @@ void RebuildMonsterRegenRates(W8MonsterInfo* monster_info)
         monster_info->hp_regen_rate = rate * g_float_one_and_a_half;
     }
 
-    rate = ((static_cast<unsigned int>(monster_info->stamina_max)) * g_float_nine_tenths +
-            g_monster_record_float_scale) *
-               0.0041666669f +
-           monster_info->modifiers.stamina_regen_adjustment;
+    rate =
+        ((static_cast<unsigned int>(monster_info->stamina_max)) * g_float_nine_tenths + g_monster_record_float_scale) *
+            0.0041666669f +
+        monster_info->modifiers.stamina_regen_adjustment;
     monster_info->stamina_regen_rate = rate;
     if (monster_info->modifiers.boost_stamina_regen != 0) {
         monster_info->stamina_regen_rate = rate * g_float_one_and_a_half;
@@ -487,8 +480,8 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
         slot->duration -= minutes;
         return false;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x1b4],
-                                                   g_spell_records[slot->effect_id].display_name));
+    ShowNotice(W8_FONT_PALETTE_BEIGE,
+               fmt::sprintf(g_localized_strings[0x1b4], g_spell_records[slot->effect_id].display_name));
     if (GetViewDistance() != g_encounter_culling_rate) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
@@ -516,10 +509,9 @@ void AdvanceTimedEffects(unsigned int minutes)
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied &&
-            (character->highest_condition < W8_CONDITION_DEAD ||
-             (character->uiCondition[W8_CONDITION_DEAD] == 0 &&
-              GetConditionRecordFlag(slot, W8_DEPENDENCE_SWALLOWED)))) {
+        if (g_status.buffers.XChar[slot].fOccupied && (character->highest_condition < W8_CONDITION_DEAD ||
+                                                       (character->uiCondition[W8_CONDITION_DEAD] == 0 &&
+                                                        GetConditionRecordFlag(slot, W8_DEPENDENCE_SWALLOWED)))) {
             GameTurnsPassedChar(slot, minutes);
         }
     }
@@ -605,8 +597,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         if (g_status.wait_state != 3 || gXStatus.fCombatMode) {
             damage += damage >> 1;
         }
-        ApplyDamageToCharacter(party_slot, damage, true, true, false,
-                               static_cast<W8SpellEffectResult*>(0), false);
+        ApplyDamageToCharacter(party_slot, damage, true, true, false, static_cast<W8SpellEffectResult*>(0), false);
     }
 
     if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -635,27 +626,23 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     condition = W8_CONDITION_PARALYZED;
                     break;
                 default:
-                    srAssertFail("FALSE", GAMEPLAYTIME_CPP, 0x333,
-                                 "GameTurnsPassedChar: ERROR - Invalid condition");
+                    srAssertFail("FALSE", GAMEPLAYTIME_CPP, 0x333, "GameTurnsPassedChar: ERROR - Invalid condition");
                     condition = minutes;
                     break;
                 }
-                SetCharacterCondition(party_slot, static_cast<W8Condition>(condition),
-                                      W8_CONDITION_INDEFINITE, 0, 0, 1);
+                SetCharacterCondition(party_slot, static_cast<W8Condition>(condition), W8_CONDITION_INDEFINITE, 0, 0,
+                                      1);
                 break;
             }
             case 1: {
                 unsigned int attribute = Random(7);
                 if (1 < character->attributes[attribute].base) {
-                    character->attributes[attribute].base =
-                        character->attributes[attribute].base - 1;
+                    character->attributes[attribute].base = character->attributes[attribute].base - 1;
                     ++character->attributes[attribute].change_counter;
                     ApplyAttributeChange(character, static_cast<W8Attribute>(attribute));
                     PostCharacterNotice(
-                        party_slot,
-                        fmt::sprintf(
-                            g_localized_strings[0x270],
-                            g_localized_strings[g_character_description_first_ids[attribute]]));
+                        party_slot, fmt::sprintf(g_localized_strings[0x270],
+                                                 g_localized_strings[g_character_description_first_ids[attribute]]));
                 }
                 break;
             }
@@ -670,8 +657,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     if (loss == 1) {
                         PostCharacterNotice(party_slot, g_localized_strings[0x26e]);
                     } else {
-                        PostCharacterNotice(party_slot,
-                                            fmt::sprintf(g_localized_strings[0x26f], loss));
+                        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x26f], loss));
                     }
                     unsigned int current = character->hp_current;
                     if (1 < current) {
@@ -707,8 +693,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 
     if (character->uiCondition[W8_CONDITION_INFATUATED] != 0) {
-        if (GetLevelBand(g_status.current_level) == 9 ||
-            GetLevelBand(g_status.current_level) == 0xa) {
+        if (GetLevelBand(g_status.current_level) == 9 || GetLevelBand(g_status.current_level) == 0xa) {
             if (character->uiCondition[W8_CONDITION_HEXED] == W8_CONDITION_INDEFINITE) {
                 RemoveCharacterCondition(party_slot, W8_CONDITION_HEXED, true);
             }
@@ -720,12 +705,11 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 }
             }
             if (hits != 0) {
-                ApplyDamageToCharacter(party_slot, hits, false, true, false,
-                                       static_cast<W8SpellEffectResult*>(0), false);
+                ApplyDamageToCharacter(party_slot, hits, false, true, false, static_cast<W8SpellEffectResult*>(0),
+                                       false);
             }
             if (character->uiCondition[W8_CONDITION_HEXED] == 0) {
-                SetCharacterCondition(party_slot, W8_CONDITION_HEXED, W8_CONDITION_INDEFINITE, 0, 0,
-                                      1);
+                SetCharacterCondition(party_slot, W8_CONDITION_HEXED, W8_CONDITION_INDEFINITE, 0, 0, 1);
             }
         }
     }
@@ -735,11 +719,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (FindItemOnParty(0x243, &found, &holder, 2, static_cast<W8ItemInstance*>(0)) &&
         found != &g_status.item_in_hand) {
         if (holder == static_cast<W8Character*>(0) ||
-            !FindItemOnCharacter(holder, 0x239, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+            !FindItemOnCharacter(holder, 0x239, static_cast<W8ItemInstance**>(0), 0, static_cast<W8ItemInstance*>(0))) {
             if (character->uiCondition[W8_CONDITION_INSANE] < W8_CONDITION_INDEFINITE) {
-                SetCharacterCondition(party_slot, W8_CONDITION_INSANE, W8_CONDITION_INDEFINITE, 0,
-                                      0, 1);
+                SetCharacterCondition(party_slot, W8_CONDITION_INSANE, W8_CONDITION_INDEFINITE, 0, 0, 1);
             }
         } else if (character->uiCondition[W8_CONDITION_INSANE] == W8_CONDITION_INDEFINITE) {
             RemoveCharacterCondition(party_slot, W8_CONDITION_INSANE, true);
@@ -749,13 +731,11 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     signed char health_mod = character->bonus.health_regen_adjustment;
     if (health_mod > 0) {
         if (character->hp_current < static_cast<unsigned int>(character->uiHPMax)) {
-            HealCharacter(party_slot, static_cast<int>(health_mod) * static_cast<int>(minutes),
-                          false);
+            HealCharacter(party_slot, static_cast<int>(health_mod) * static_cast<int>(minutes), false);
         }
     } else if (health_mod < 0) {
-        ApplyDamageToCharacter(party_slot,
-                               -static_cast<int>(health_mod) * static_cast<int>(minutes), false,
-                               true, false, static_cast<W8SpellEffectResult*>(0), false);
+        ApplyDamageToCharacter(party_slot, -static_cast<int>(health_mod) * static_cast<int>(minutes), false, true,
+                               false, static_cast<W8SpellEffectResult*>(0), false);
     }
 
     signed char stamina_mod = character->bonus.stamina_regen_adjustment;
@@ -773,12 +753,11 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         if (spell_mod > 0) {
             if (character->iSPLeft[realm] < character->sp_max[realm]) {
                 RestoreCharacterRealmSpellPoints(party_slot, static_cast<W8SpellRealm>(realm),
-                                                 static_cast<int>(spell_mod) *
-                                                     static_cast<int>(minutes));
+                                                 static_cast<int>(spell_mod) * static_cast<int>(minutes));
             }
         } else if (spell_mod < 0) {
-            DrainCharacterRealmSpellPoints(party_slot, static_cast<W8SpellRealm>(realm),
-                                           -static_cast<int>(spell_mod), true);
+            DrainCharacterRealmSpellPoints(party_slot, static_cast<W8SpellRealm>(realm), -static_cast<int>(spell_mod),
+                                           true);
         }
     }
 
@@ -801,13 +780,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 
     if (CharacterHasTrait(character, W8_TRAIT_HEALTH_REGENERATION)) {
         if (health_scale == g_float_zero) {
-            health_scale =
-                ScaleValueByProfessionLevel(character, W8_TRAIT_HEALTH_REGENERATION, 16.67f) *
-                g_float_half;
+            health_scale = ScaleValueByProfessionLevel(character, W8_TRAIT_HEALTH_REGENERATION, 16.67f) * g_float_half;
         } else {
-            health_scale =
-                ScaleValueByProfessionLevel(character, W8_TRAIT_HEALTH_REGENERATION, 16.67f) *
-                health_scale;
+            health_scale = ScaleValueByProfessionLevel(character, W8_TRAIT_HEALTH_REGENERATION, 16.67f) * health_scale;
         }
     }
     if (CharacterHasTrait(character, W8_TRAIT_STAMINA_REGENERATION) && gXStatus.fCombatMode) {
@@ -816,30 +791,23 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (CharacterHasTrait(character, static_cast<W8Trait>(0x1a)) && spell_scale > g_float_zero) {
         spell_scale *= g_fast_magic_recovery_scale;
     }
-    if (CharacterHasTrait(character, W8_TRAIT_LIZARDMAN_SLOW_MAGIC_RECOVERY) &&
-        spell_scale > g_float_zero) {
+    if (CharacterHasTrait(character, W8_TRAIT_LIZARDMAN_SLOW_MAGIC_RECOVERY) && spell_scale > g_float_zero) {
         spell_scale *= g_float_three_quarters;
     }
 
-    if (health_scale > g_float_zero &&
-        character->hp_current < static_cast<unsigned int>(character->uiHPMax)) {
+    if (health_scale > g_float_zero && character->hp_current < static_cast<unsigned int>(character->uiHPMax)) {
         character->health_regen_accumulator =
-            minutes * character->health_regen_rate * health_scale +
-            character->health_regen_accumulator;
+            minutes * character->health_regen_rate * health_scale + character->health_regen_accumulator;
         HealCharacter(party_slot, static_cast<int>(character->health_regen_accumulator), false);
         character->health_regen_accumulator =
-            character->health_regen_accumulator -
-            static_cast<unsigned int>(character->health_regen_accumulator);
+            character->health_regen_accumulator - static_cast<unsigned int>(character->health_regen_accumulator);
     }
     if (stamina_scale > g_float_zero && character->stamina < character->uiStaminaMax) {
         character->stamina_regen_accumulator =
-            minutes * character->stamina_regen_rate * stamina_scale +
-            character->stamina_regen_accumulator;
-        RestoreCharacterStamina(party_slot, static_cast<int>(character->stamina_regen_accumulator),
-                                false);
+            minutes * character->stamina_regen_rate * stamina_scale + character->stamina_regen_accumulator;
+        RestoreCharacterStamina(party_slot, static_cast<int>(character->stamina_regen_accumulator), false);
         character->stamina_regen_accumulator =
-            character->stamina_regen_accumulator -
-            static_cast<unsigned int>(character->stamina_regen_accumulator);
+            character->stamina_regen_accumulator - static_cast<unsigned int>(character->stamina_regen_accumulator);
     }
     if (spell_scale > g_float_zero) {
         for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -847,9 +815,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 character->spell_regen_rates[realm * 2 + 1] =
                     minutes * character->spell_regen_rates[realm * 2] * spell_scale +
                     character->spell_regen_rates[realm * 2 + 1];
-                RestoreCharacterRealmSpellPoints(
-                    party_slot, static_cast<W8SpellRealm>(realm),
-                    static_cast<int>(character->spell_regen_rates[realm * 2 + 1]));
+                RestoreCharacterRealmSpellPoints(party_slot, static_cast<W8SpellRealm>(realm),
+                                                 static_cast<int>(character->spell_regen_rates[realm * 2 + 1]));
                 character->spell_regen_rates[realm * 2 + 1] =
                     character->spell_regen_rates[realm * 2 + 1] -
                     static_cast<unsigned int>(character->spell_regen_rates[realm * 2 + 1]);
@@ -870,8 +837,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 
     for (unsigned int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-        if (character->uiCondition[condition] != 0 &&
-            character->uiCondition[condition] < W8_CONDITION_INDEFINITE) {
+        if (character->uiCondition[condition] != 0 && character->uiCondition[condition] < W8_CONDITION_INDEFINITE) {
             TickCharacterCondition(party_slot, static_cast<W8Condition>(condition), minutes);
         }
     }
@@ -918,8 +884,7 @@ static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, srVector3T<float>* 
    the per-turn regeneration and fatigue bookkeeping, condition, enchantment
    and effect countdowns, and finally the combat effect slots. */
 // FUNCTION: WIZ8 0x00503990
-void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
-                     unsigned char full_health_regeneration)
+void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes, unsigned char full_health_regeneration)
 {
     W8MonsterRecord* record;
     W8Monster* monster;
@@ -952,8 +917,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
             probe.y += g_float_one_thousand;
             camera = cameraLocation();
-            if (projectsToCamera(probe.glmValue()) == 0 &&
-                !g_octree->HasLineOfSight(&camera, &probe, true)) {
+            if (projectsToCamera(probe.glmValue()) == 0 && !g_octree->HasLineOfSight(&camera, &probe, true)) {
                 srVector3T<float> notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
@@ -1009,11 +973,9 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             if (projectsToCamera(probe.glmValue()) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
-                                W8MonsterGroup* group =
-                                    FindMonsterGroup(monster_info->monster_group_id);
+                                W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
-                                MoveMonsterGroupAndAllies(group, &notify_position,
-                                                          monster->GetYaw());
+                                MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
                                 cleared = true;
                             }
                         }
@@ -1031,10 +993,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 probe.y += g_float_one_thousand;
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
-                if (projectsToCamera(location.glmValue()) == 0 &&
-                    !g_octree->HasLineOfSight(&camera, &probe, true)) {
-                    if (monster->formation.x == g_float_zero &&
-                        monster->formation.y == g_float_zero &&
+                if (projectsToCamera(location.glmValue()) == 0 && !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                    if (monster->formation.x == g_float_zero && monster->formation.y == g_float_zero &&
                         monster->formation.z == g_float_zero) {
                         monster->formation = monster->GetPosition();
                     }
@@ -1042,15 +1002,13 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     probe.y += g_float_one_thousand;
                     if (projectsToCamera(location.glmValue()) == 0 &&
                         !g_octree->HasLineOfSight(&camera, &probe, true)) {
-                        if (monster->formation.x == g_float_zero &&
-                            monster->formation.y == g_float_zero &&
+                        if (monster->formation.x == g_float_zero && monster->formation.y == g_float_zero &&
                             monster->formation.z == g_float_zero) {
                             monster->formation = monster->GetPosition();
                         }
                         {
                             srVector3T<float> notify_position = monster->formation;
-                            W8MonsterGroup* group =
-                                FindMonsterGroup(monster_info->monster_group_id);
+                            W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
                             MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
                         }
@@ -1083,8 +1041,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             int duration = monster_info->p3D->look_duration;
 
             monster_info->look_time = 0;
-            monster_info->pause_time = static_cast<unsigned char>(
-                Random(static_cast<unsigned int>(duration)) + duration / 2);
+            monster_info->pause_time =
+                static_cast<unsigned char>(Random(static_cast<unsigned int>(duration)) + duration / 2);
             if (monster_info->pause_time == 0) {
                 monster_info->pause_time = 1;
             }
@@ -1096,8 +1054,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             int frequency = monster_info->p3D->look_frequency;
 
             monster_info->pause_time = 0;
-            monster_info->look_time = static_cast<unsigned char>(
-                Random(static_cast<unsigned int>(frequency)) + frequency / 2);
+            monster_info->look_time =
+                static_cast<unsigned char>(Random(static_cast<unsigned int>(frequency)) + frequency / 2);
             if (monster_info->look_time == 0) {
                 monster_info->look_time = 1;
             }
@@ -1115,8 +1073,7 @@ after_early: {
             amount += amount >> 1;
         }
         ResetTargetSource(&source);
-        ApplyDamageToMonster(monster_info, amount, &source, true, gXStatus.fCombatMode, 0, 0,
-                             false);
+        ApplyDamageToMonster(monster_info, amount, &source, true, gXStatus.fCombatMode, 0, 0, false);
     }
 }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -1124,8 +1081,7 @@ after_early: {
     }
     {
         W8MonsterRecord* data = GetMonsterDataForInfo(monster_info);
-        int amount = (static_cast<int>(data->hp_regeneration) +
-                      monster_info->modifiers.health_regen_adjustment) *
+        int amount = (static_cast<int>(data->hp_regeneration) + monster_info->modifiers.health_regen_adjustment) *
                      static_cast<int>(minutes);
 
         if (amount < 1) {
@@ -1140,9 +1096,9 @@ after_early: {
         }
     }
     {
-        int amount = (monster_info->modifiers.stamina_regen_adjustment +
-                      static_cast<int>(record->stamina_regeneration)) *
-                     static_cast<int>(minutes);
+        int amount =
+            (monster_info->modifiers.stamina_regen_adjustment + static_cast<int>(record->stamina_regeneration)) *
+            static_cast<int>(minutes);
 
         if (amount < 1) {
             if (amount < 0) {
@@ -1170,8 +1126,7 @@ after_early: {
         if (heal_scale > g_float_zero) {
             if (monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax)) {
                 monster_info->hp_regen_accumulator =
-                    minutes * monster_info->hp_regen_rate * heal_scale +
-                    monster_info->hp_regen_accumulator;
+                    minutes * monster_info->hp_regen_rate * heal_scale + monster_info->hp_regen_accumulator;
                 int healed = static_cast<int>(monster_info->hp_regen_accumulator);
 
                 HealMonster(monster_info, healed, false);
@@ -1179,8 +1134,7 @@ after_early: {
             }
             if (monster_info->stamina < monster_info->stamina_max) {
                 monster_info->stamina_regen_accumulator =
-                    minutes * monster_info->stamina_regen_rate * heal_scale +
-                    monster_info->stamina_regen_accumulator;
+                    minutes * monster_info->stamina_regen_rate * heal_scale + monster_info->stamina_regen_accumulator;
                 int restored = static_cast<int>(monster_info->stamina_regen_accumulator);
 
                 RestoreMonsterStamina(monster_info, restored, false);
@@ -1191,8 +1145,7 @@ after_early: {
     for (int condition = 0; condition < 0x14; ++condition) {
         if (monster_info->uiCondition[condition] != 0 &&
             monster_info->uiCondition[condition] < W8_CONDITION_INDEFINITE) {
-            TickMonsterCondition(monster_info->location_id, static_cast<W8Condition>(condition),
-                                 minutes);
+            TickMonsterCondition(monster_info->location_id, static_cast<W8Condition>(condition), minutes);
         }
     }
     for (int enchant = 0; enchant < 8; ++enchant) {
@@ -1200,11 +1153,9 @@ after_early: {
 
         if (remaining != 0.0f && static_cast<unsigned int>(remaining) < W8_CONDITION_INDEFINITE) {
             if (minutes < static_cast<unsigned int>(remaining)) {
-                monster_info->enchantments[enchant].turns =
-                    static_cast<int>(remaining) - static_cast<int>(minutes);
+                monster_info->enchantments[enchant].turns = static_cast<int>(remaining) - static_cast<int>(minutes);
             } else {
-                ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                            static_cast<W8EnchantmentSlot>(enchant));
+                ClearMonsterEnchantmentSlot(monster_info->location_id, static_cast<W8EnchantmentSlot>(enchant));
             }
         }
     }
@@ -1287,16 +1238,13 @@ void UpdateCampFatigue(int ticks)
                 if (stamina < static_cast<int>(amount)) {
                     if (stamina > 0) {
                         amount -= stamina;
-                        FatigueCharacter(slot, stamina, false,
-                                         static_cast<W8SpellEffectResult*>(0));
+                        FatigueCharacter(slot, stamina, false, static_cast<W8SpellEffectResult*>(0));
                     }
-                    bool announce =
-                        !gXStatus.fCombatMode || g_settings.verbose_combat_messages == 0 ? 0 : 1;
-                    ApplyDamageToCharacter(slot, amount, false, announce, false,
-                                           static_cast<W8SpellEffectResult*>(0), false);
+                    bool announce = !gXStatus.fCombatMode || g_settings.verbose_combat_messages == 0 ? 0 : 1;
+                    ApplyDamageToCharacter(slot, amount, false, announce, false, static_cast<W8SpellEffectResult*>(0),
+                                           false);
                 } else {
-                    FatigueCharacter(slot, static_cast<int>(amount), false,
-                                     static_cast<W8SpellEffectResult*>(0));
+                    FatigueCharacter(slot, static_cast<int>(amount), false, static_cast<W8SpellEffectResult*>(0));
                 }
             }
             if (!g_status.party_fatigued) {
@@ -1336,9 +1284,8 @@ void UpdatePartyStamina(int ticks)
              !GetConditionRecordFlag(slot, W8_DEPENDENCE_SWALLOWED))) {
             continue;
         }
-        if (g_status.party_fatigued &&
-            !FindItemOnCharacter(character, 0x1e5, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+        if (g_status.party_fatigued && !FindItemOnCharacter(character, 0x1e5, static_cast<W8ItemInstance**>(0), 0,
+                                                            static_cast<W8ItemInstance*>(0))) {
             continue;
         }
         RegenCharacterStamina(slot, static_cast<unsigned int>(ticks));

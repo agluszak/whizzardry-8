@@ -68,8 +68,7 @@ void MtGigas2Setup(void)
             MtGigas2UmpaniAlarm(alarm);
         }
     }
-    if (GetFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
-        GetLocationVarIDByName("CODESgtRubbleTeleport") != -1 &&
+    if (GetFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 && GetLocationVarIDByName("CODESgtRubbleTeleport") != -1 &&
         GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
         W8NpcState* npc;
         W8MonsterInfo* info;
@@ -329,11 +328,9 @@ static void MtGigas2UmpaniAlarm(int command)
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }
-        g_mt_gigas_alarm_gate =
-            new W8IntervalGate(static_cast<float>(static_cast<unsigned int>(command)), false, true);
-        g_mt_gigas_alarm_sound =
-            CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
-                                   position, 1.0f, 75.0f, true);
+        g_mt_gigas_alarm_gate = new W8IntervalGate(static_cast<float>(static_cast<unsigned int>(command)), false, true);
+        g_mt_gigas_alarm_sound = CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
+                                                        position, 1.0f, 75.0f, true);
         if (g_mt_gigas_alarm_sound != 0 && g_mt_gigas_alarm_gate != 0) {
             g_master_functions.push_back(MtGigas2UmpaniAlarm);
         }

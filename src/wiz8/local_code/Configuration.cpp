@@ -51,10 +51,8 @@ void LoadGameConfiguration(void)
             g_settings.text_display_delay_ms <= 5000u) {
             reset = false;
         } else {
-            srAssertFail(
-                "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Configuration.cpp", 0xd9,
-                fmt::format("LoadConfig: ERROR - Config file appears to be corrupted.  Delete {}",
-                            path));
+            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Configuration.cpp", 0xd9,
+                         fmt::format("LoadConfig: ERROR - Config file appears to be corrupted.  Delete {}", path));
         }
     }
     if (reset) {

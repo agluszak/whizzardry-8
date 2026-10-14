@@ -76,13 +76,11 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
         }
         row = edited->positions[slot].bQuadrant;
         row_changed = row != live->positions[slot].bQuadrant;
-        if (row_changed ||
-            edited->positions[slot].bQuadrantSlot != live->positions[slot].bQuadrantSlot) {
-            SetFormationPosition(&working, slot, row, edited->positions[slot].bQuadrantSlot,
-                                 row_changed, false, row_changed);
+        if (row_changed || edited->positions[slot].bQuadrantSlot != live->positions[slot].bQuadrantSlot) {
+            SetFormationPosition(&working, slot, row, edited->positions[slot].bQuadrantSlot, row_changed, false,
+                                 row_changed);
         } else {
-            SetFormationPosition(&working, slot, row, edited->positions[slot].bQuadrantSlot, false,
-                                 false, false);
+            SetFormationPosition(&working, slot, row, edited->positions[slot].bQuadrantSlot, false, false, false);
         }
         if (!row_changed) {
             working.positions[slot].facing = live->positions[slot].facing;
@@ -123,8 +121,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
             SetFormationPosition(&working, slot, row, column, false, false, false);
             working.positions[slot].facing = live_position->facing;
             if (edited_position->bQuadrant != row) {
-                PostCharacterNotice(
-                    slot, fmt::sprintf(g_localized_strings[0x249], &g_formation_row_names[row][0]));
+                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x249], &g_formation_row_names[row][0]));
             }
         } else {
             signed char new_rows[3] = {4, 2, 3};
@@ -136,8 +133,8 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 for (column = 0; column < 3; ++column) {
                     if (working.bOccupantChar[new_row][column] == -1) {
                         SetFormationPosition(&working, slot, new_row, column, false, false, true);
-                        PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24a],
-                                                               &g_formation_row_names[new_row][0]));
+                        PostCharacterNotice(
+                            slot, fmt::sprintf(g_localized_strings[0x24a], &g_formation_row_names[new_row][0]));
                         placed = true;
                         break;
                     }
@@ -175,8 +172,7 @@ int GetQuadrantForPosition(srVector3T<float> position)
     if (bearing < 0) {
         bearing += W8_DEGREES_PER_TURN;
     }
-    return ((bearing + W8_DEGREES_PER_QUADRANT / 2) % W8_DEGREES_PER_TURN) /
-           W8_DEGREES_PER_QUADRANT;
+    return ((bearing + W8_DEGREES_PER_QUADRANT / 2) % W8_DEGREES_PER_TURN) / W8_DEGREES_PER_QUADRANT;
 }
 
 /* The party formation. It is one thirty-three dword block that combat saves
@@ -227,10 +223,8 @@ void RestoreCombatFormation(void)
         srAssertFail("gXStatus.fCombatMode", FORMATION_CPP, 266, 0);
     }
 
-    if (memcmp(&g_combat_state->saved_formation, &g_status.formation,
-               sizeof(W8PartyFormationState)) != 0) {
-        memcpy(&g_status.formation, &g_combat_state->saved_formation,
-               sizeof(W8PartyFormationState));
+    if (memcmp(&g_combat_state->saved_formation, &g_status.formation, sizeof(W8PartyFormationState)) != 0) {
+        memcpy(&g_status.formation, &g_combat_state->saved_formation, sizeof(W8PartyFormationState));
         RefreshFormationBoard();
         RefreshRadarMap();
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x24b], 0);
@@ -324,8 +318,7 @@ void FaceCameraToSelection(int party_slot)
         return;
     }
     heading = g_status.party_facing +
-              static_cast<unsigned char>(g_status.formation.positions[party_slot].facing) *
-                  W8_DEGREES_PER_QUADRANT;
+              static_cast<unsigned char>(g_status.formation.positions[party_slot].facing) * W8_DEGREES_PER_QUADRANT;
     TurnPartyToImmediate(heading, g_settings.camera_rotation_style);
 }
 
@@ -533,8 +526,8 @@ void CompactFormationRow(W8PartyFormationState* formation, unsigned char row)
 }
 
 // FUNCTION: WIZ8 0x00554bd0
-void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row,
-                          signed char new_column, bool announce, bool detach, bool update_facing)
+void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row, signed char new_column,
+                          bool announce, bool detach, bool update_facing)
 {
     W8PartyFormationPosition* position = &formation->positions[slot];
     signed char old_row = position->bQuadrant;
@@ -543,12 +536,10 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
     if (old_row != -1) {
         signed char* occupant = &formation->bOccupantChar[old_row][old_column];
         if (*occupant == -1) {
-            srAssertFail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1", FORMATION_CPP,
-                         0x18e, 0);
+            srAssertFail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1", FORMATION_CPP, 0x18e, 0);
         }
         if (formation->ubQuadrantOccupants[old_row] == 0) {
-            srAssertFail("pFormation->ubQuadrantOccupants[bOldQuadrant] > 0", FORMATION_CPP, 0x18f,
-                         0);
+            srAssertFail("pFormation->ubQuadrantOccupants[bOldQuadrant] > 0", FORMATION_CPP, 0x18f, 0);
         }
         *occupant = -1;
         --formation->ubQuadrantOccupants[old_row];
@@ -558,12 +549,11 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
     if (new_row != -1) {
         signed char* occupant = &formation->bOccupantChar[new_row][new_column];
         if (*occupant != -1) {
-            srAssertFail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1", FORMATION_CPP,
-                         0x19d, 0);
+            srAssertFail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1", FORMATION_CPP, 0x19d, 0);
         }
         if (formation->ubQuadrantOccupants[new_row] >= 3) {
-            srAssertFail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT",
-                         FORMATION_CPP, 0x19e, 0);
+            srAssertFail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT", FORMATION_CPP, 0x19e,
+                         0);
         }
         *occupant = static_cast<signed char>(slot);
         ++formation->ubQuadrantOccupants[new_row];
@@ -589,20 +579,18 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
         CompactFormationRow(formation, old_row);
     }
     if (g_status.game_started && !gXStatus.fNpcDialogueMode) {
-        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
-            g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR && formation == &g_status.formation) {
+        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR &&
+            formation == &g_status.formation) {
             RefreshFormationBoard();
             RefreshRadarMap();
         }
         if (announce) {
             if (new_row != -1) {
-                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24c],
-                                                       &g_formation_row_names[new_row][0]));
+                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24c], &g_formation_row_names[new_row][0]));
                 return;
             }
             if (old_row != -1) {
-                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24d],
-                                                       &g_formation_row_names[old_row][0]));
+                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24d], &g_formation_row_names[old_row][0]));
             }
         }
     }
@@ -637,8 +625,8 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
     if (row != -1) {
         seat = MakeRoomInFormationRow(formation, row);
         if (seat != -1) {
-            SetFormationPosition(formation, slot, position->bOldQuadrant, seat,
-                                 formation == &g_status.formation, true, true);
+            SetFormationPosition(formation, slot, position->bOldQuadrant, seat, formation == &g_status.formation, true,
+                                 true);
             position->bOldQuadrant = -1;
             return;
         }
@@ -670,8 +658,7 @@ void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
         SetFormationPosition(formation, slot, row, seat, false, true, true);
         return;
     }
-    PostCharacterNotice(slot,
-                        fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
+    PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
 }
 
 /* Swap two party slots' formation positions: the second takes the first's
@@ -710,8 +697,7 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
             SetFormationPosition(formation, slot_a, row, seat, false, true, true);
             return;
         }
-        PostCharacterNotice(
-            slot_a, fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
+        PostCharacterNotice(slot_a, fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
     }
 }
 

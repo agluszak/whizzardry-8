@@ -66,8 +66,7 @@ ImageFormat image_format(const std::string& path)
 bool safe_dimensions(std::size_t width, std::size_t height)
 {
     return width && height && width <= std::numeric_limits<std::uint16_t>::max() &&
-           height <= std::numeric_limits<std::uint16_t>::max() &&
-           width * height <= max_image_bytes / 4;
+           height <= std::numeric_limits<std::uint16_t>::max() && width * height <= max_image_bytes / 4;
 }
 
 unsigned little_word(const std::uint8_t* bytes)
@@ -77,16 +76,15 @@ unsigned little_word(const std::uint8_t* bytes)
 
 void set_palette(SDL_Surface& surface, const Palette8& colors)
 {
-    std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(
-        SDL_CreatePalette(int(colors.size())), SDL_DestroyPalette);
+    std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(SDL_CreatePalette(int(colors.size())),
+                                                                        SDL_DestroyPalette);
     if (!palette || !SDL_SetPaletteColors(palette.get(), colors.data(), 0, int(colors.size())) ||
         !SDL_SetSurfacePalette(&surface, palette.get())) {
         throw std::runtime_error(SDL_GetError());
     }
 }
 
-BitmapImage bitmap_from_pixels(int width, int height, SDL_PixelFormat format,
-                               std::span<const std::uint8_t> pixels)
+BitmapImage bitmap_from_pixels(int width, int height, SDL_PixelFormat format, std::span<const std::uint8_t> pixels)
 {
     BitmapImage surface(SDL_CreateSurface(width, height, format), SDL_DestroySurface);
     if (!surface) {
@@ -117,8 +115,7 @@ bool valid_image_header(const std::vector<std::uint8_t>& bytes, ImageFormat form
         if (bytes.size() < 18) {
             return false;
         }
-        if ((bytes[2] == 1 || bytes[2] == 9) &&
-            little_word(bytes.data() + 3) + little_word(bytes.data() + 5) > 256) {
+        if ((bytes[2] == 1 || bytes[2] == 9) && little_word(bytes.data() + 3) + little_word(bytes.data() + 5) > 256) {
             return false;
         }
         return (bytes[16] == 8 || bytes[16] == 16 || bytes[16] == 24) &&
@@ -153,8 +150,7 @@ bool valid_image_header(const std::vector<std::uint8_t>& bytes, ImageFormat form
             if (length < 2 || length > bytes.size() - position) {
                 return false;
             }
-            if (marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 &&
-                marker != 0xcc) {
+            if (marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 && marker != 0xcc) {
                 if (length < 8) {
                     return false;
                 }
@@ -181,14 +177,12 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
     }
 
     // Give SDL an independent cursor, including for bounded SLF entries.
-    std::unique_ptr<SDL_IOStream, decltype(&SDL_CloseIO)> stream(
-        SDL_IOFromConstMem(bytes.data(), bytes.size()), SDL_CloseIO);
+    std::unique_ptr<SDL_IOStream, decltype(&SDL_CloseIO)> stream(SDL_IOFromConstMem(bytes.data(), bytes.size()),
+                                                                 SDL_CloseIO);
     if (!stream) {
         throw std::runtime_error(SDL_GetError());
     }
-    const char* type = format == ImageFormat::pcx   ? "PCX"
-                       : format == ImageFormat::tga ? "TGA"
-                                                    : "JPG";
+    const char* type = format == ImageFormat::pcx ? "PCX" : format == ImageFormat::tga ? "TGA" : "JPG";
     BitmapImage surface(IMG_LoadTyped_IO(stream.get(), false, type), SDL_DestroySurface);
     if (!surface) {
         throw std::runtime_error(SDL_GetError());
@@ -205,21 +199,17 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
         // Colour-mapped TGA palettes start at their declared first entry.
         Palette8 colors{};
         colors.fill({0, 0, 0, SDL_ALPHA_OPAQUE});
-        const unsigned first_color = format == ImageFormat::tga && (bytes[2] == 1 || bytes[2] == 9)
-                                         ? little_word(bytes.data() + 3)
-                                         : 0;
-        std::transform(palette->colors,
-                       palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
-                       colors.begin() + first_color, [](const SDL_Color& color) {
-                           return SDL_Color{color.r, color.g, color.b, SDL_ALPHA_OPAQUE};
-                       });
+        const unsigned first_color =
+            format == ImageFormat::tga && (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
+        std::transform(palette->colors, palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
+                       colors.begin() + first_color,
+                       [](const SDL_Color& color) { return SDL_Color{color.r, color.g, color.b, SDL_ALPHA_OPAQUE}; });
         set_palette(*surface, colors);
     }
     return surface;
 }
 
-std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
-                                           std::span<const std::uint8_t> data)
+std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames, std::span<const std::uint8_t> data)
 {
     if (!frames.empty() && data.empty()) {
         throw std::runtime_error("Invalid STI sprite data");
@@ -233,8 +223,7 @@ std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
         out.offset = {frame.sOffsetX, frame.sOffsetY};
         out.width = frame.usWidth;
         out.height = frame.usHeight;
-        if (frame.uiDataOffset > data.size() ||
-            frame.uiDataLength > data.size() - frame.uiDataOffset) {
+        if (frame.uiDataOffset > data.size() || frame.uiDataLength > data.size() - frame.uiDataOffset) {
             throw std::runtime_error("Invalid STI sprite data");
         }
         const size_t pixel_count = size_t(frame.usWidth) * frame.usHeight;
@@ -290,20 +279,18 @@ DecodedImage load_sti(wiz8::File& file)
         throw std::runtime_error("Invalid STI header");
     }
     const bool rgb = header.fFlags & STCI_RGB;
-    if ((!rgb && !(header.fFlags & STCI_INDEXED)) ||
-        (rgb && header.ubDepth != 16 && header.ubDepth != 24) || (!rgb && header.ubDepth != 8)) {
+    if ((!rgb && !(header.fFlags & STCI_INDEXED)) || (rgb && header.ubDepth != 16 && header.ubDepth != 24) ||
+        (!rgb && header.ubDepth != 8)) {
         throw std::runtime_error("Unsupported STI pixel format");
     }
     const bool etrle = !rgb && (header.fFlags & STCI_ETRLE_COMPRESSED);
     const bool compressed = header.fFlags & STCI_ZLIB_COMPRESSED;
-    if ((rgb && (header.fFlags & (STCI_INDEXED | STCI_ETRLE_COMPRESSED))) ||
-        (etrle && compressed)) {
+    if ((rgb && (header.fFlags & (STCI_INDEXED | STCI_ETRLE_COMPRESSED))) || (etrle && compressed)) {
         throw std::runtime_error("Conflicting STI encodings");
     }
-    const std::size_t bitmap_bytes =
-        std::size_t(header.usWidth) * header.usHeight * (header.ubDepth / 8);
-    if (!etrle && (!safe_dimensions(header.usWidth, header.usHeight) ||
-                   (compressed && header.uiOriginalSize != bitmap_bytes))) {
+    const std::size_t bitmap_bytes = std::size_t(header.usWidth) * header.usHeight * (header.ubDepth / 8);
+    if (!etrle &&
+        (!safe_dimensions(header.usWidth, header.usHeight) || (compressed && header.uiOriginalSize != bitmap_bytes))) {
         throw std::runtime_error("Invalid STI bitmap dimensions or decoded size");
     }
     const std::uint64_t palette_bytes =
@@ -322,12 +309,10 @@ DecodedImage load_sti(wiz8::File& file)
         file.read_exact(stored_palette.data(), sizeof(stored_palette));
         std::transform(stored_palette.begin(), stored_palette.end(), palette.begin(),
                        [](const STCIPaletteElement& color) {
-                           return SDL_Color{color.ubRed, color.ubGreen, color.ubBlue,
-                                            SDL_ALPHA_OPAQUE};
+                           return SDL_Color{color.ubRed, color.ubGreen, color.ubBlue, SDL_ALPHA_OPAQUE};
                        });
     }
-    if (file_size < 0 || app_offset > std::uint64_t(file_size) ||
-        header.uiStoredSize > max_image_bytes) {
+    if (file_size < 0 || app_offset > std::uint64_t(file_size) || header.uiStoredSize > max_image_bytes) {
         throw std::runtime_error("STI pixel data exceeds file bounds");
     }
     // Even though the native renderer doesn't use application data, a declared
@@ -357,15 +342,14 @@ DecodedImage load_sti(wiz8::File& file)
         pixels = std::move(unpacked);
     }
     if (!rgb) {
-        auto bitmap =
-            bitmap_from_pixels(header.usWidth, header.usHeight, SDL_PIXELFORMAT_INDEX8, pixels);
+        auto bitmap = bitmap_from_pixels(header.usWidth, header.usHeight, SDL_PIXELFORMAT_INDEX8, pixels);
         set_palette(*bitmap, palette);
         return bitmap;
     }
-    const auto format = header.ubDepth == 24 ? SDL_PIXELFORMAT_RGB24
-                                             : SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask,
-                                                                          header.RGB.uiGreenMask,
-                                                                          header.RGB.uiBlueMask, 0);
+    const auto format =
+        header.ubDepth == 24
+            ? SDL_PIXELFORMAT_RGB24
+            : SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
     if (format == SDL_PIXELFORMAT_UNKNOWN) {
         throw std::runtime_error("Unsupported STI pixel format");
     }
@@ -393,8 +377,8 @@ std::optional<DecodedImage> LoadImage(std::string_view filename)
         }
         return load_ordinary_image(*file, format);
     } catch (const std::exception& error) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Loading image %.*s: %s",
-                     static_cast<int>(filename.size()), filename.data(), error.what());
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Loading image %.*s: %s", static_cast<int>(filename.size()),
+                     filename.data(), error.what());
         return std::nullopt;
     }
 }
@@ -431,18 +415,16 @@ Palette16 Create16BPPPalette(const Palette8& palette)
 	4) For gamma correction, pass in weighted values for each color.
 
 **********************************************************************************************/
-Palette16 Create16BPPPaletteShaded(const Palette8& palette, std::uint32_t rscale,
-                                   std::uint32_t gscale, std::uint32_t bscale, bool mono)
+Palette16 Create16BPPPaletteShaded(const Palette8& palette, std::uint32_t rscale, std::uint32_t gscale,
+                                   std::uint32_t bscale, bool mono)
 {
     Palette16 packed{};
     std::transform(palette.begin(), palette.end(), packed.begin(), [=](const SDL_Color& color) {
-        const std::uint32_t luminance =
-            color.r * 299 / 1000 + color.g * 587 / 1000 + color.b * 114 / 1000;
+        const std::uint32_t luminance = color.r * 299 / 1000 + color.g * 587 / 1000 + color.b * 114 / 1000;
         const auto red = std::min(rscale * (mono ? luminance : color.r) / 256, 255u);
         const auto green = std::min(gscale * (mono ? luminance : color.g) / 256, 255u);
         const auto blue = std::min(bscale * (mono ? luminance : color.b) / 256, 255u);
-        return Get16BPPColor(SDL_Color{static_cast<std::uint8_t>(red),
-                                       static_cast<std::uint8_t>(green),
+        return Get16BPPColor(SDL_Color{static_cast<std::uint8_t>(red), static_cast<std::uint8_t>(green),
                                        static_cast<std::uint8_t>(blue), SDL_ALPHA_OPAQUE});
     });
     return packed;
@@ -455,8 +437,8 @@ std::uint16_t Get16BPPColor(SDL_Color color)
     if (!details) {
         throw std::runtime_error("Unsupported 16-bit pixel format");
     }
-    const std::uint16_t pixel = SDL_MapRGB(details, nullptr, color.r, color.g, color.b) &
-                                (details->Rmask | details->Gmask | details->Bmask);
+    const std::uint16_t pixel =
+        SDL_MapRGB(details, nullptr, color.r, color.g, color.b) & (details->Rmask | details->Gmask | details->Bmask);
     if (!pixel) {
         return (color.r || color.g || color.b) ? (kBlackSubstitute | details->Amask) : 0;
     }

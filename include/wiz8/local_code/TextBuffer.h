@@ -22,8 +22,8 @@ class W8TextBuffer {
 public:
     friend class W8DialogTextArea;
     W8TextBuffer();
-    W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
-                 unsigned int layout_mode, int render_mode);
+    W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font, unsigned int layout_mode,
+                 int render_mode);
     std::string_view GetText() const
     {
         return m_text;
@@ -46,8 +46,7 @@ public:
         RenderToTarget(0, force, target);
     }
 
-    void RenderString(const W8ControlsRect* bounds, std::string_view text, Font& font, bool force,
-                      SDL_Surface& target)
+    void RenderString(const W8ControlsRect* bounds, std::string_view text, Font& font, bool force, SDL_Surface& target)
     {
         SetLayoutBounds(bounds, true, true);
         RenderString(text, font, force, target);

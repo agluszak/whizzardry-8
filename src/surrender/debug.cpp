@@ -67,8 +67,7 @@ srAssertHandler __cdecl srAssertGetFunc()
 /* With no handler installed the process exits with code 0xdeadbabe. The buffer is terminated even
    when message is 0. */
 // FUNCTION: SURRENDER 0x10001020
-void __cdecl srAssertFail(const char* expression, const char* source_path, w8_long line,
-                          const char* message, ...)
+void __cdecl srAssertFail(const char* expression, const char* source_path, w8_long line, const char* message, ...)
 {
     char buffer[0x800];
     if (srAssertFunc != 0) {
@@ -141,8 +140,7 @@ const char* __cdecl srBoolToString(int value)
 
 /* The stock handler SurRender ships for hosts that want a dialog. */
 // FUNCTION: SURRENDER 0x100466A0
-void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_path, w8_long line,
-                                     const char* message)
+void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_path, w8_long line, const char* message)
 {
     char buffer[0x800];
     if (message != 0 && *message != '\0') {
@@ -162,8 +160,7 @@ void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_
         {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
         {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"},
     };
-    const SDL_MessageBoxData box = {
-        SDL_MESSAGEBOX_WARNING, 0, "FATAL: SR Assertion Failed", buffer, 2, buttons, 0};
+    const SDL_MessageBoxData box = {SDL_MESSAGEBOX_WARNING, 0, "FATAL: SR Assertion Failed", buffer, 2, buttons, 0};
     int choice = 0;
     if (SDL_ShowMessageBox(&box, &choice) && choice == 1) {
         __builtin_debugtrap();

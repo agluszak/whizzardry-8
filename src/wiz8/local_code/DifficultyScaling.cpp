@@ -25,8 +25,7 @@ static void ScaleValueForDifficulty(int* value, bool fights_for_monsters)
 // FUNCTION: WIZ8 0x0055cc00
 void ScaleValueForCharacterDifficulty(int party_slot, int* value)
 {
-    ScaleValueForDifficulty(
-        value, g_status.buffers.Char[party_slot].uiCondition[W8_CONDITION_TURNCOAT] > 0);
+    ScaleValueForDifficulty(value, g_status.buffers.Char[party_slot].uiCondition[W8_CONDITION_TURNCOAT] > 0);
 }
 
 // FUNCTION: WIZ8 0x0055ccb0

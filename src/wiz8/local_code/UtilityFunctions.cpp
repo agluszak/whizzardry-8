@@ -179,8 +179,7 @@ char* TitleCaseString(char* string)
 float NormalizeAngle(float angle)
 {
     if (!_finite(angle)) {
-        srAssertFail("_finite(flAngle)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x13b, 0);
+        srAssertFail("_finite(flAngle)", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x13b, 0);
     }
 
     angle += 6.2831852;
@@ -205,8 +204,8 @@ float ShortestAngleDistance(float first, float second)
 // FUNCTION: WIZ8 0x00517e20
 DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second)
 {
-    return {std::min(first.left, second.left), std::min(first.top, second.top),
-            std::max(first.right, second.right), std::max(first.bottom, second.bottom)};
+    return {std::min(first.left, second.left), std::min(first.top, second.top), std::max(first.right, second.right),
+            std::max(first.bottom, second.bottom)};
 }
 
 // FUNCTION: WIZ8 0x00517e70
@@ -215,8 +214,7 @@ bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
     if (rect == nullptr || point == nullptr) {
         return false;
     }
-    const SDL_Rect bounds{rect->left, rect->top, rect->right - rect->left,
-                          rect->bottom - rect->top};
+    const SDL_Rect bounds{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top};
     return SDL_PointInRect(point, &bounds);
 }
 
@@ -235,8 +233,8 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
     const W8Character* party_character;
 
     if (!character->fInParty) {
-        srAssertFail("pPC->fInParty", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp",
-                     0x1c8, "PCPtrToPCSlot: ERROR - called for non-party character");
+        srAssertFail("pPC->fInParty", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1c8,
+                     "PCPtrToPCSlot: ERROR - called for non-party character");
     }
 
     party_character = g_status.buffers.Char;
@@ -247,8 +245,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
     }
 
     srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1d1,
-                 fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
-                             static_cast<const void*>(character)));
+                 fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(character)));
     return 0;
 }
 
@@ -280,9 +277,8 @@ void AdjustIntegerByPercent(unsigned int* value, unsigned int percent)
 }
 
 // FUNCTION: WIZ8 0x00517FB0
-unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
-                                 unsigned int excluded_slot, unsigned int* selected,
-                                 unsigned int count, bool skip_first_two)
+unsigned int GetRandomPartySlots(int require_primary, int require_secondary, unsigned int excluded_slot,
+                                 unsigned int* selected, unsigned int count, bool skip_first_two)
 {
     int claimed[8];
     unsigned int eligible[8];
@@ -299,8 +295,8 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
         for (relaxed = false; !relaxed;) {
             for (slot = skip_first_two ? 2u : 0u; slot < 8; ++slot) {
                 W8Character* character = &g_status.buffers.Char[slot];
-                if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot &&
-                    claimed[slot] == 0 && (character->hp_current != 0 || require_primary == 2) &&
+                if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot && claimed[slot] == 0 &&
+                    (character->hp_current != 0 || require_primary == 2) &&
                     (character->highest_condition < W8_CONDITION_DEAD || require_secondary == 2)) {
                     eligible[found] = slot;
                     ++found;
@@ -343,8 +339,7 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
 }
 
 // FUNCTION: WIZ8 0x00518150
-int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
-                       signed char excluded_gender)
+int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot, signed char excluded_gender)
 {
     int skip;
     unsigned int slot;
@@ -363,8 +358,7 @@ retry:
             if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
                 require_primary == 2) {
                 if (excluded_gender == -1 || excluded_gender != character->gender) {
-                    if (character->highest_condition < W8_CONDITION_ASLEEP ||
-                        require_secondary == 2) {
+                    if (character->highest_condition < W8_CONDITION_ASLEEP || require_secondary == 2) {
                         matched = true;
                         if (skip == 0) {
                             return slot;
@@ -457,9 +451,8 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
         }
         ++slot;
     }
-    srAssertFail(
-        "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
-        fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
+    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
+                 fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
     return 0;
 }
 

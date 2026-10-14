@@ -30,11 +30,7 @@ enum { W8_CONDITION_COUNT = 20, W8_CONDITION_CLEARABLE_COUNT = 18, W8_CONDITION_
 /* BindMonsterToCharacterDependence's DEPEND_COND_COUNT domain. Summon Elemental
    binds slot zero; the swallow attack binds slot one and applies MISSING. These
    index the separate binding records, not the condition-duration array. */
-enum W8CharacterDependence {
-    W8_DEPENDENCE_SUMMON = 0,
-    W8_DEPENDENCE_SWALLOWED = 1,
-    W8_DEPENDENCE_COUNT = 2
-};
+enum W8CharacterDependence { W8_DEPENDENCE_SUMMON = 0, W8_DEPENDENCE_SWALLOWED = 1, W8_DEPENDENCE_COUNT = 2 };
 
 /* Enchantment N maps to monster icon N+16. Slot zero is the empty/top-scan sentinel. */
 enum W8EnchantmentSlot {

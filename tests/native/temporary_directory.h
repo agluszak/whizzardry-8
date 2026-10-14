@@ -24,9 +24,7 @@ inline std::string make_temporary_directory(const char* prefix)
 
 class ScopedTemporaryDirectory {
 public:
-    explicit ScopedTemporaryDirectory(const char* prefix) : path(make_temporary_directory(prefix))
-    {
-    }
+    explicit ScopedTemporaryDirectory(const char* prefix) : path(make_temporary_directory(prefix)) {}
 
     ~ScopedTemporaryDirectory()
     {

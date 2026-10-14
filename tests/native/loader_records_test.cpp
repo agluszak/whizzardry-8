@@ -152,8 +152,7 @@ static void level_records()
     append(bytes, 1); // Uncompressed, no transform.
     append(bytes, 3);
     append(bytes, 1);
-    const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
-                                            srVector3(0, 1, 0)};
+    const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0), srVector3(0, 1, 0)};
     append(bytes, vertices);
     W8SerializedMeshFace face{};
     face.vertices[0] = 0;
@@ -181,8 +180,7 @@ static void level_records()
             REQUIRE((!ReadMeshFile(*file, mesh)));
             REQUIRE((fault.fired));
         }
-        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() &&
-                 mesh.lod_shorts.empty()));
+        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() && mesh.lod_shorts.empty()));
     }
 
     for (std::size_t end = 0; end < bytes.size(); ++end) {
@@ -190,8 +188,7 @@ static void level_records()
         file = wiz8::open_file("mesh.bin");
         mesh = {};
         REQUIRE((!ReadMeshFile(*file, mesh)));
-        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() &&
-                 mesh.lod_shorts.empty()));
+        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() && mesh.lod_shorts.empty()));
     }
     for (int count : {-1, INT32_MAX}) {
         auto bad = bytes;
@@ -225,8 +222,7 @@ static void level_records()
     file = wiz8::open_file("mesh.bin");
     mesh = {};
     REQUIRE((ReadMeshFile(*file, mesh)));
-    REQUIRE((mesh.LodCount() == 1 && mesh.lod_shorts[0][3] == 1 &&
-             mesh.compressed_faces[0].vertex_indices[2] == 2));
+    REQUIRE((mesh.LodCount() == 1 && mesh.lod_shorts[0][3] == 1 && mesh.compressed_faces[0].vertex_indices[2] == 2));
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("mesh.bin", bytes.substr(0, end));
         file = wiz8::open_file("mesh.bin");
@@ -293,8 +289,7 @@ static void wgd_banks()
         std::string bytes;
         append(bytes, 3);
         append(bytes, 1);
-        append(bytes, std::array<srVector3, 3>{srVector3(2, 2, 2), srVector3(3, 2, 2),
-                                               srVector3(2, 2, 3)});
+        append(bytes, std::array<srVector3, 3>{srVector3(2, 2, 2), srVector3(3, 2, 2), srVector3(2, 2, 3)});
         append(bytes, std::array<int, 3>{0, 1, 2});
         append(bytes, srVector3(0, 1, 0));
         append(bytes, 2);
@@ -326,8 +321,7 @@ static void wgd_banks()
     REQUIRE((load("primary.wgd", 0)));
     REQUIRE((data.minimum.x == 2 * g_world_scale && data.maximum.x == 3 * g_world_scale &&
              data.maximum.y == 3 * g_world_scale));
-    REQUIRE(
-        (data.m_pVertices[1].x == 3 * g_world_scale && data.m_pVertices[2].z == 3 * g_world_scale));
+    REQUIRE((data.m_pVertices[1].x == 3 * g_world_scale && data.m_pVertices[2].z == 3 * g_world_scale));
     REQUIRE((load("secondary.wgd", 1)));
     REQUIRE((data.VerticesCount() == 6 && data.SurfacesCount() == 2));
     REQUIRE((data.FindPointerByName("Door") == 1 && data.StatesCount() == 2));
@@ -340,8 +334,7 @@ static void wgd_banks()
     REQUIRE((data.SurfacesCount() == 3 && data.m_pStates[1].poly_count == 2));
     store("unordered.wgd", bank(true, 2));
     REQUIRE((load("unordered.wgd", 1)));
-    REQUIRE((data.m_pStates[0].group == 0 && data.m_pStates[1].group == 7 &&
-             data.m_pStates[2].group == 2));
+    REQUIRE((data.m_pStates[0].group == 0 && data.m_pStates[1].group == 7 && data.m_pStates[2].group == 2));
     data.SetInterfaceState(1, 7);
     REQUIRE((!(data.m_pSurfaces[1].flags & W8_GD_SURFACE_CONDITIONAL_DISABLED)));
     REQUIRE((data.m_pSurfaces[3].flags & W8_GD_SURFACE_CONDITIONAL_DISABLED));
@@ -424,8 +417,7 @@ static void geometry()
     word(0x38, 1);
     std::string bytes;
     append(bytes, header);
-    const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
-                                            srVector3(0, 1, 0)};
+    const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0), srVector3(0, 1, 0)};
     append(bytes, vertices);
     wiz8::retail::GDSurface surface{};
     surface.vertex_indices[0] = 0;
@@ -451,8 +443,7 @@ static void geometry()
             REQUIRE((InitializeGameData(&data)));
         }
         auto delta = end - start;
-        const auto hits =
-            data.geometry_index->queryAlongSegment(start.glmValue(), delta.glmValue(), 0, 3);
+        const auto hits = data.geometry_index->queryAlongSegment(start.glmValue(), delta.glmValue(), 0, 3);
         REQUIRE(hits.size() == 1);
         REQUIRE((hits[0] == data.m_pSurfaces.data()));
         W8OctreeTrace trace(start.glmValue(), end.glmValue());
@@ -476,11 +467,9 @@ static void geometry()
     const auto active_bits = data.active_trigger_bits;
     auto runtime_unchanged = [&] {
         REQUIRE((data.geometry_index.get() == old_index));
-        REQUIRE(
-            (data.pending_trigger_bits == pending_bits && data.active_trigger_bits == active_bits));
+        REQUIRE((data.pending_trigger_bits == pending_bits && data.active_trigger_bits == active_bits));
         REQUIRE((TestBit(data.pending_trigger_bits, 0) && TestBit(data.active_trigger_bits, 0)));
-        REQUIRE((data.m_ppTriggers.empty() && data.m_pTrigVertices.empty() &&
-                 data.m_pTrigSurfaces.empty()));
+        REQUIRE((data.m_ppTriggers.empty() && data.m_pTrigVertices.empty() && data.m_pTrigSurfaces.empty()));
     };
     auto* old_vertices = data.m_pVertices.data();
     auto* old_surfaces = data.m_pSurfaces.data();
@@ -497,8 +486,7 @@ static void geometry()
             }
             REQUIRE((fault.fired));
         }
-        REQUIRE((rejected && data.m_pVertices.data() == old_vertices &&
-                 data.m_pSurfaces.data() == old_surfaces));
+        REQUIRE((rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces));
         REQUIRE((geometry_snapshot(data) == snapshot));
         runtime_unchanged();
         query();
@@ -512,16 +500,14 @@ static void geometry()
         } catch (const std::exception&) {
             rejected = true;
         }
-        REQUIRE((rejected && data.m_pVertices.data() == old_vertices &&
-                 data.m_pSurfaces.data() == old_surfaces));
+        REQUIRE((rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces));
         REQUIRE((data.VerticesCount() == 3 && data.SurfacesCount() == 1 && old_vertices[1].x == 1));
         runtime_unchanged();
         query();
     }
     auto bad = bytes;
     int invalid = 3;
-    std::memcpy(bad.data() + header.size() + sizeof(vertices) +
-                    offsetof(wiz8::retail::GDSurface, vertex_indices),
+    std::memcpy(bad.data() + header.size() + sizeof(vertices) + offsetof(wiz8::retail::GDSurface, vertex_indices),
                 &invalid, 4);
     store("geometry.bin", bad);
     file = wiz8::open_file("geometry.bin");
@@ -531,8 +517,7 @@ static void geometry()
     } catch (const std::exception&) {
         rejected = true;
     }
-    REQUIRE((rejected && data.m_pVertices.data() == old_vertices &&
-             data.m_pSurfaces.data() == old_surfaces));
+    REQUIRE((rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces));
 }
 
 static void malformed_octrees()
@@ -589,12 +574,10 @@ static void path_tables()
         store("nodes.bin", bytes.substr(0, end));
         file = wiz8::open_file("nodes.bin");
         REQUIRE((!path.ReadPathNodes(file.get())));
-        REQUIRE((path.m_pPathValues == values && path.m_pCondPaths == paths &&
-                 path.navigation_filter == 9));
+        REQUIRE((path.m_pPathValues == values && path.m_pCondPaths == paths && path.navigation_filter == 9));
     }
     auto bad = bytes;
-    std::memset(bad.data() + sizeof(W8FilePathNode) + sizeof(W8ConditionalPathHeader), 'x',
-                sizeof(conditional.name));
+    std::memset(bad.data() + sizeof(W8FilePathNode) + sizeof(W8ConditionalPathHeader), 'x', sizeof(conditional.name));
     store("nodes.bin", bad);
     file = wiz8::open_file("nodes.bin");
     REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pCondPaths == paths));
@@ -611,9 +594,8 @@ struct LoaderFixture {
         fixture_root = directory.path / "assets";
         std::filesystem::create_directory(fixture_root);
         std::filesystem::create_directory(directory.path / "user");
-        asset_roots.configure({wiz8::path_to_utf8(fixture_root),
-                               wiz8::path_to_utf8(directory.path / "user"),
-                               {"", "", ""}});
+        asset_roots.configure(
+            {wiz8::path_to_utf8(fixture_root), wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
     }
 
     ~LoaderFixture()
@@ -794,8 +776,7 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections",
-                 "[loader][records]")
+TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections", "[loader][records]")
 {
     // The disk payload is one version byte, a 128-byte name and seven floats.
     // Build it field by field so the fixture does not depend on runtime layout.
@@ -875,8 +856,7 @@ TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections",
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables",
-                 "[loader][records]")
+TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables", "[loader][records]")
 {
     std::string bytes;
     append(bytes, std::int32_t{2});
@@ -978,8 +958,7 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanup",
-                 "[loader][records]")
+TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanup", "[loader][records]")
 {
     auto text = []<std::size_t N>(std::string& bytes, const char* name) {
         std::array<char, N> value{};
@@ -1137,8 +1116,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts",
-                 "[loader][records]")
+TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts", "[loader][records]")
 {
     W8World world{};
     for (const int count : {-1, 100000, 0}) {

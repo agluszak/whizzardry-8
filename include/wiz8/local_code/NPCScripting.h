@@ -68,14 +68,12 @@ extern W8NpcScriptingState g_npc_scripting;
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
 void TryFinishNpcVoicePlayback(bool force);
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
-                                short* sub_entry_index);
+int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index);
 void RunNpcScriptLine(int script_line, bool force_npc_voice);
 /* Resolve the player's answer to the pending reply and clear it. */
 void AnswerNpcReply(std::string_view text);
 /* Speak one subquote of the current quote (NPC Scripting.cpp). */
-void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index, bool notice_only,
-                      bool force_npc_voice);
+void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index, bool notice_only, bool force_npc_voice);
 /* Add a keyword a quote entry of `kind` teaches to the dialogue keyword lists. */
 void ApplyScriptedDialogueKeyword(int kind, const char* text);
 /* Build a W8NpcQueuedEntry line for `entry` carrying

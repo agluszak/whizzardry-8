@@ -58,10 +58,9 @@ static int g_profession_primary_attributes[15][3] = {
 /* The starting spells LearnSpell grants each profession on import. */
 // GLOBAL: WIZ8 0x0062A5F8
 static int g_profession_starting_spells[15][6] = {
-    {0, 0, 0, 0, 0, 0},   {6, 2, 0, 0, 0, 0},     {6, 13, 0, 0, 0, 0},  {6, 1, 0, 0, 0, 0},
-    {5, 12, 0, 0, 0, 0},  {1, 7, 0, 0, 0, 0},     {6, 10, 0, 0, 0, 0},  {0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0},   {0, 0, 0, 0, 0, 0},     {6, 2, 13, 11, 0, 0}, {6, 1, 7, 12, 0, 0},
-    {6, 12, 5, 11, 0, 0}, {10, 12, 11, 14, 0, 0}, {5, 12, 14, 4, 0, 0},
+    {0, 0, 0, 0, 0, 0},   {6, 2, 0, 0, 0, 0},  {6, 13, 0, 0, 0, 0},  {6, 1, 0, 0, 0, 0},     {5, 12, 0, 0, 0, 0},
+    {1, 7, 0, 0, 0, 0},   {6, 10, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0},   {0, 0, 0, 0, 0, 0},     {0, 0, 0, 0, 0, 0},
+    {6, 2, 13, 11, 0, 0}, {6, 1, 7, 12, 0, 0}, {6, 12, 5, 11, 0, 0}, {10, 12, 11, 14, 0, 0}, {5, 12, 14, 4, 0, 0},
 };
 
 /* The item database index whose legacy item number matches the imported
@@ -296,8 +295,7 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     GrantStartingSpells(character, imported);
     for (skill_id = 0; skill_id < W8_SKILL_COUNT; ++skill_id) {
         character->skills[skill_id].active = false;
-        character->skills[skill_id].points =
-            ConvertSkill(static_cast<W8Skill>(skill_id), character, imported);
+        character->skills[skill_id].points = ConvertSkill(static_cast<W8Skill>(skill_id), character, imported);
     }
     RefreshCharacterSkillAvailability(character);
     ImportEquipment(character, imported);
@@ -352,8 +350,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
             case 6:
                 break;
             default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
+                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462, "ConvertAttribute: ERROR - Invalid attribute");
             }
             imported_values[mapped] = imported->attributes[i];
             switch (i) {
@@ -378,8 +375,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
             case 6:
                 break;
             default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
+                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462, "ConvertAttribute: ERROR - Invalid attribute");
             }
             total += imported_values[mapped];
         }
@@ -394,10 +390,9 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     points = 0;
     for (i = 0; i < 7; ++i) {
         if (character->attributes[i].base <
-            static_cast<unsigned int>(
-                g_profession_attribute_minimums[character->iProfession].values[i])) {
-            int deficit = g_profession_attribute_minimums[character->iProfession].values[i] -
-                          character->attributes[i].base;
+            static_cast<unsigned int>(g_profession_attribute_minimums[character->iProfession].values[i])) {
+            int deficit =
+                g_profession_attribute_minimums[character->iProfession].values[i] - character->attributes[i].base;
             character->attributes[i].base += deficit;
             points += deficit;
         }
@@ -434,8 +429,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
         do {
             pick = Random(7);
             if (g_profession_attribute_minimums[character->iProfession].values[pick] != 0 &&
-                static_cast<unsigned int>(
-                    g_race_attribute_minimums[character->iRace].values[pick]) <
+                static_cast<unsigned int>(g_race_attribute_minimums[character->iRace].values[pick]) <
                     character->attributes[pick].base) {
                 ++removed;
                 character->attributes[pick].base -= 1;
@@ -589,8 +583,8 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             ReplaceOrCreateItem(&item, item_id, true, true, true);
             equip_slot = GetItemDefaultEquipSlot(item_id);
             if (equip_slot == W8_EQUIP_SLOT_NONE) {
-                if (!FindCharacterItemByDatabaseKind(
-                        character, g_item_records[item_id].unidentified_name_index, 0, 2)) {
+                if (!FindCharacterItemByDatabaseKind(character, g_item_records[item_id].unidentified_name_index, 0,
+                                                     2)) {
                     AddItemToCharacter(character, &item, true, false, false);
                 }
             } else {
@@ -613,8 +607,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 give = 7;
             }
         } else if (character->iProfession == W8_PROFESSION_PRIEST) {
-            if (character->skills[W8_SKILL_MACE_FLAIL].level <=
-                character->skills[W8_SKILL_STAFF_WAND].level) {
+            if (character->skills[W8_SKILL_MACE_FLAIL].level <= character->skills[W8_SKILL_STAFF_WAND].level) {
                 give = 0x52;
             } else {
                 give = 0x16;
@@ -783,10 +776,7 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
             }
             break;
         case W8_SKILL_ARTIFACTS:
-            base_value =
-                (static_cast<unsigned int>(imported->skills[0x1b] + imported->skills[0x18] * 4) *
-                 0x14) /
-                100;
+            base_value = (static_cast<unsigned int>(imported->skills[0x1b] + imported->skills[0x18] * 4) * 0x14) / 100;
             break;
         case W8_SKILL_ENGINEERING:
         case W8_SKILL_POWER_CAST:
@@ -804,8 +794,7 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
                 base_value = 0;
                 break;
             }
-            if (imported->profession == 5 || imported->profession == '\r' ||
-                imported->profession == 4) {
+            if (imported->profession == 5 || imported->profession == '\r' || imported->profession == 4) {
                 base_value = imported->skills[0x1d];
             } else {
                 base_value = imported->skills[0xe];
@@ -818,8 +807,7 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
             }
             break;
         default:
-            srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x56c,
-                         "ConvertSkill: ERROR - Invalid NEW skill");
+            srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x56c, "ConvertSkill: ERROR - Invalid NEW skill");
             break;
         }
         break;
@@ -829,15 +817,11 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
     }
     if (!routed) {
         base_value = imported->skills[mapped];
-        if (0x17 < static_cast<unsigned int>(skill_id) &&
-            static_cast<unsigned int>(skill_id) < W8_SKILL_FIRE_MAGIC) {
+        if (0x17 < static_cast<unsigned int>(skill_id) && static_cast<unsigned int>(skill_id) < W8_SKILL_FIRE_MAGIC) {
             if (character->iProfession == W8_PROFESSION_BISHOP &&
-                (skill_id == W8_SKILL_SPELLBOOK_ALCHEMY ||
-                 skill_id == W8_SKILL_SPELLBOOK_PSIONICS) &&
+                (skill_id == W8_SKILL_SPELLBOOK_ALCHEMY || skill_id == W8_SKILL_SPELLBOOK_PSIONICS) &&
                 base_value == 0) {
-                base_value =
-                    (static_cast<unsigned int>(imported->skills[0x20] + imported->skills[0x1e])) /
-                    2;
+                base_value = (static_cast<unsigned int>(imported->skills[0x20] + imported->skills[0x1e])) / 2;
             }
             unlocks = 0;
             for (i = 0x1c; i < 0x22; ++i) {

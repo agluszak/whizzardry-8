@@ -26,17 +26,13 @@ class W8TextBuffer;
 
 enum W8ItemSplitMode { W8_ITEM_SPLIT_INVENTORY = 0, W8_ITEM_SPLIT_SELL = 1, W8_ITEM_SPLIT_BUY = 2 };
 
-enum W8SplitDialogResult {
-    W8_SPLIT_RESULT_PENDING = 0,
-    W8_SPLIT_RESULT_CONFIRMED = 1,
-    W8_SPLIT_RESULT_CANCELLED = 2
-};
+enum W8SplitDialogResult { W8_SPLIT_RESULT_PENDING = 0, W8_SPLIT_RESULT_CONFIRMED = 1, W8_SPLIT_RESULT_CANCELLED = 2 };
 
 /* The small numeric entry field embedded by the split dialogs. */
 class W8DialogNumericInput {
 public:
-    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font,
-                         W8DialogBase* dialog, W8ButtonWidget* button);
+    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font, W8DialogBase* dialog,
+                         W8ButtonWidget* button);
     void SetValue(int value);
     void SetActive(bool active);
     void SetActive(bool active, const SDL_Point* point);

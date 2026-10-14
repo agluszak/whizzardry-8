@@ -64,8 +64,7 @@ public:
     W8MissileRep(const W8MissileRep& other);
     virtual ~W8MissileRep() override;
     virtual W8AnimRepBase* Clone() override;
-    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
-                                              signed char lod) override;
+    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame, signed char lod) override;
     virtual unsigned int ApplyEmitterSetting(signed char emitter) override;
     virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
     unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile, int cycle_index, int);
@@ -155,9 +154,8 @@ public:
 
 /* Secondary vftable 0x005ecdf4 keeps the W8Navigator subobject at +0x18. */
 
-W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* source,
-                       srVector3T<float>* target, float flight_speed, unsigned int trace_mask,
-                       unsigned int block_released, float duration);
+W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* source, srVector3T<float>* target,
+                       float flight_speed, unsigned int trace_mask, unsigned int block_released, float duration);
 /* The world position `character_index`'s current hand fires a missile from:
    the camera's launch point swung to the wielding side. */
 void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position);
@@ -196,10 +194,8 @@ extern W8MissileTableRecord* g_missile_table;
 W8Missile* NextMissile(bool restart);
 
 W8Missile* AllocateMissile(int missile_table_index);
-unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
-                               W8Missile** ppMissile, int);
+unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, W8Missile** ppMissile, int);
 
-W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* source, float heading,
-                         float pitch, float flight_speed, unsigned int trace_mask,
-                         unsigned char block_released, float duration);
+W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* source, float heading, float pitch,
+                         float flight_speed, unsigned int trace_mask, unsigned char block_released, float duration);
 void UpdateWorldMissiles(W8World* world);

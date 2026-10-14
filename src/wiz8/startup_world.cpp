@@ -31,9 +31,8 @@ unsigned char InitializeStartupNavigation(void)
     if (g_runtime_world_scale < g_world_scale) {
         g_runtime_world_scale = 500.0f;
     }
-    navigator->configureStartupDepth(g_default_world_height < g_startup_near_limit
-                                         ? g_startup_near_limit
-                                         : g_default_world_height,
+    navigator->configureStartupDepth(g_default_world_height < g_startup_near_limit ? g_startup_near_limit
+                                                                                   : g_default_world_height,
                                      g_default_world_height);
     return 1;
 }

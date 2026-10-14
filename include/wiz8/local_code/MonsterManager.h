@@ -136,8 +136,7 @@ struct W8MonsterManagerEntry {
 };
 
 W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
-                                 srVector3T<float>* position);
+W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record, srVector3T<float>* position);
 
 /* One queued monster action, 0x30 bytes: the kind/detail pair, the attack
    index the plain attack alone carries, an inline combat slot whose type and
@@ -418,9 +417,8 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
-unsigned int
-MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
-                            std::source_location caller = std::source_location::current());
+unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
+                                         std::source_location caller = std::source_location::current());
 W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
                            std::source_location caller = std::source_location::current());
 W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
@@ -455,8 +453,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 unsigned char ShutdownMonsterManager(void);
 
-std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                           unsigned char name_form);
+std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record, unsigned char name_form);
 bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
 void DeactivateMonster(W8MonsterInfo* monster_info);

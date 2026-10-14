@@ -17,14 +17,13 @@ namespace {
 
 SDL_Rect sprite_rect(const SpriteFrame& frame, int x, int y, bool mirror)
 {
-    return {mirror ? x - frame.offset.x : x + frame.offset.x, y + frame.offset.y, frame.width,
-            frame.height};
+    return {mirror ? x - frame.offset.x : x + frame.offset.x, y + frame.offset.y, frame.width, frame.height};
 }
 
 } // namespace
 
-void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame_index, int x,
-                int y, SpriteDraw options)
+void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame_index, int x, int y,
+                SpriteDraw options)
 {
     if (frame_index >= sprites.frames.size()) {
         return;
@@ -49,10 +48,9 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
     for (int destination_y = visible.y; destination_y < visible.y + visible.h; ++destination_y) {
         const int source_y = destination_y - requested.y;
         const std::uint16_t* input = frame.indices.data() + std::size_t(source_y) * frame.width;
-        auto* output = reinterpret_cast<std::uint16_t*>(static_cast<std::uint8_t*>(target.pixels) +
-                                                        destination_y * target.pitch);
-        for (int destination_x = visible.x; destination_x < visible.x + visible.w;
-             ++destination_x) {
+        auto* output =
+            reinterpret_cast<std::uint16_t*>(static_cast<std::uint8_t*>(target.pixels) + destination_y * target.pitch);
+        for (int destination_x = visible.x; destination_x < visible.x + visible.w; ++destination_x) {
             const int relative_x = destination_x - requested.x;
             const int source_x = options.mirror ? frame.width - 1 - relative_x : relative_x;
             const std::uint16_t index = input[source_x];
@@ -76,8 +74,7 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
     }
 }
 
-bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame_index, int x, int y,
-                     const SDL_Rect& clip)
+bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame_index, int x, int y, const SDL_Rect& clip)
 {
     if (frame_index >= sprites.frames.size()) {
         return false;
@@ -88,12 +85,11 @@ bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame_index, int x,
     }
     const SDL_Rect requested = sprite_rect(frame, x, y, false);
     SDL_Rect visible{};
-    return !SDL_GetRectIntersection(&requested, &clip, &visible) ||
-           !SDL_RectsEqual(&requested, &visible);
+    return !SDL_GetRectIntersection(&requested, &clip, &visible) || !SDL_RectsEqual(&requested, &visible);
 }
 
-void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sprites,
-                std::size_t frame_index, SDL_Point offset)
+void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sprites, std::size_t frame_index,
+                SDL_Point offset)
 {
     if (frame_index >= sprites.frames.size() || SDL_RectEmpty(&area)) {
         return;
@@ -131,9 +127,8 @@ SDLSurfaceOwner RenderSpriteToImage(const SpriteSheet& sprites, std::size_t fram
     const auto* format = SDL_GetPixelFormatDetails(image->format);
     const auto rgb_mask = format->Rmask | format->Gmask | format->Bmask;
     std::uint16_t key = 0;
-    while (std::any_of(sprites.colors.begin(), sprites.colors.end(), [key, rgb_mask](auto color) {
-        return (color & rgb_mask) == (key & rgb_mask);
-    })) {
+    while (std::any_of(sprites.colors.begin(), sprites.colors.end(),
+                       [key, rgb_mask](auto color) { return (color & rgb_mask) == (key & rgb_mask); })) {
         ++key;
     }
     if (!SDL_FillSurfaceRect(image.get(), nullptr, key)) {

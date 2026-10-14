@@ -12,13 +12,7 @@
 class SR_DLL_IMPORT srMaterial : public srClassSupport<srMaterial, srMaterialIFace, 0x2210> {
 public:
     /* Bit indices, not masks. */
-    enum e_oper {
-        OPER_DEPTH_CUE = 0,
-        OPER_ALPHA = 1,
-        OPER_SPECULAR = 2,
-        OPER_DIFFUSE = 3,
-        OPER_DIFFUSE_SPECULAR = 4
-    };
+    enum e_oper { OPER_DEPTH_CUE = 0, OPER_ALPHA = 1, OPER_SPECULAR = 2, OPER_DIFFUSE = 3, OPER_DIFFUSE_SPECULAR = 4 };
 
     // FUNCTION: SURRENDER 0x10034700 SYMBOL
     // RECOMP: ??0srMaterial@@QAE@XZ

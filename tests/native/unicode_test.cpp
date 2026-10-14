@@ -62,8 +62,7 @@ static void conversion_contracts()
     REQUIRE(std::string(truncated) == "éé");
     REQUIRE((truncated[4] == '\0' && truncated[5] == '\0'));
     wiz8::text::write_utf8_field({}, truncated);
-    REQUIRE(
-        std::all_of(std::begin(truncated), std::end(truncated), [](char c) { return c == '\0'; }));
+    REQUIRE(std::all_of(std::begin(truncated), std::end(truncated), [](char c) { return c == '\0'; }));
 }
 
 static void missile_record_contracts()
@@ -100,8 +99,7 @@ static void record_contracts()
     W8Character decoded{};
     wiz8::retail::decode<W8Character>(bytes, decoded);
     REQUIRE(std::string(decoded.name) == original.name);
-    REQUIRE(
-        (std::string(decoded.name_part_2) == original.name_part_2 && decoded.iRace == W8_RACE_ELF));
+    REQUIRE((std::string(decoded.name_part_2) == original.name_part_2 && decoded.iRace == W8_RACE_ELF));
     REQUIRE(wiz8::retail::encode(decoded) == bytes);
     wiz8::retail::decode<W8Character>(std::span(bytes).first(0x185c), decoded);
     REQUIRE(std::string(decoded.name) == "é中😀");
@@ -146,8 +144,7 @@ static void record_contracts()
     REQUIRE(wiz8::retail::encode(copy) == npc_bytes);
     copy.character.name_part_2 = "改名";
     auto npc_edited = wiz8::retail::encode(copy);
-    REQUIRE(
-        std::equal(npc_bytes.begin() + 0xe4, npc_bytes.begin() + 0x128, npc_edited.begin() + 0xe4));
+    REQUIRE(std::equal(npc_bytes.begin() + 0xe4, npc_bytes.begin() + 0x128, npc_edited.begin() + 0xe4));
 }
 
 TEST_CASE("UTF-8 and host Unicode conversion", "[unicode]")

@@ -29,8 +29,7 @@ public:
     /* Elapsed milliseconds, truncated to 32 bits like the retail reader. */
     w8_ulong milliseconds() const
     {
-        return static_cast<w8_ulong>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(elapsed()).count());
+        return static_cast<w8_ulong>(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed()).count());
     }
 
     /* Elapsed time in units of `units_per_second`, truncated to 32 bits. */

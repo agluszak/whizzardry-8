@@ -9,11 +9,7 @@
 #include "surrender/srMath.h"
 
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
-enum {
-    W8_WORLD_ITEM_HIDDEN = 0x01u,
-    W8_WORLD_ITEM_FALLING = 0x02u,
-    W8_WORLD_ITEM_RADAR_BLIP_LIT = 0x04u
-};
+enum { W8_WORLD_ITEM_HIDDEN = 0x01u, W8_WORLD_ITEM_FALLING = 0x02u, W8_WORLD_ITEM_RADAR_BLIP_LIT = 0x04u };
 
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
@@ -39,12 +35,11 @@ struct W8WorldItem {
     unsigned char unknown_3d[0x70];
 };
 
-W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position,
-                             int entity_flags, bool add_to_world);
+W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position, int entity_flags,
+                             bool add_to_world);
 W8WorldItem* GetNextWorldItem(bool restart);
 unsigned char SettleWorldItem(W8WorldItem* item);
-W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entity_flags,
-                       bool add_to_world);
+W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entity_flags, bool add_to_world);
 
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);

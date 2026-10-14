@@ -52,8 +52,7 @@ static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
 {
-    unsigned int count =
-        (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
+    unsigned int count = (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
     for (unsigned int index = 0; index < count; ++index) {
         W8NpcItemStockRule* rule = (*npc->record->item_stock_rules)[index];
         if (rule->item_id == item_id) {
@@ -160,9 +159,8 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
     count = npc->items.size();
     for (index = 0; index < count; ++index) {
         entry = &npc->items[index];
-        if (((entry->quantity != 0) &&
-             (NormalizeItemQuantityKind(&entry->item),
-              g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK)) &&
+        if (((entry->quantity != 0) && (NormalizeItemQuantityKind(&entry->item),
+                                        g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK)) &&
             entry->quantity > entry->item.stack_count) {
             entry->item.stack_count = entry->quantity;
             entry->quantity = 1;
@@ -192,8 +190,7 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
         }
     }
 
-    if (static_cast<unsigned int>(g_status.world_clock - npc->maintenance_clock) < 0x15180 &&
-        !force) {
+    if (static_cast<unsigned int>(g_status.world_clock - npc->maintenance_clock) < 0x15180 && !force) {
         return 0;
     }
     DecayNpcInventory(npc);
@@ -265,10 +262,9 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0055b9c0
 void SortNpcItems(W8NpcState* npc)
 {
-    std::ranges::stable_sort(npc->items,
-                             [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
-                                 return CompareItemsForPool(&first.item, &second.item) < 0;
-                             });
+    std::ranges::stable_sort(npc->items, [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
+        return CompareItemsForPool(&first.item, &second.item) < 0;
+    });
 }
 
 /* Release an NPC's owned item list, but only for the database records that ask
@@ -458,8 +454,7 @@ unsigned int GetNpcItemCount(W8NpcState* npc)
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
 
 // FUNCTION: WIZ8 0x0055B730
-unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
-                            bool suppress_payment)
+unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity, bool suppress_payment)
 {
     W8ItemInstance stack;
     int amount;
@@ -487,8 +482,7 @@ unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char
 bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
 {
     const auto cls = g_item_records[item->iItemNo].equip_class;
-    return cls <= W8_ITEM_EQUIP_CLASS_OTHER &&
-           (npc->record->trade_item_class_mask & (std::uint32_t{1} << cls)) != 0;
+    return cls <= W8_ITEM_EQUIP_CLASS_OTHER && (npc->record->trade_item_class_mask & (std::uint32_t{1} << cls)) != 0;
 }
 
 // FUNCTION: WIZ8 0x0055b250
@@ -501,8 +495,8 @@ bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x0055b5a0
-int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
-                                unsigned char stack_count, bool identified)
+int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind, unsigned char stack_count,
+                                bool identified)
 {
     W8ItemInstance item;
     ReplaceOrCreateItem(&item, item_id, false, identified, false);
@@ -556,8 +550,7 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_k
    accumulated stack then leaves the party purse and the stock entry shrinks.
    The trailing pass drops entries whose remaining count hit zero. */
 // FUNCTION: WIZ8 0x0055B7E0
-bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity, bool no_payment,
-                             int* remaining_out)
+bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity, bool no_payment, int* remaining_out)
 {
     unsigned char available;
     unsigned char moved;
@@ -668,18 +661,15 @@ void DecayNpcInventory(W8NpcState* npc)
     if (item_count > 0) {
         do {
             entry = &npc->items[item_index];
-            if (((entry->quantity != 0) &&
-                 (item_id = entry->item.iItemNo,
-                  (g_item_records[item_id].flags &
-                   (W8_ITEM_FLAG_NO_DISCARD | W8_ITEM_FLAG_MERCHANT_CANNOT_SELL)) == 0))) {
+            if (((entry->quantity != 0) && (item_id = entry->item.iItemNo,
+                                            (g_item_records[item_id].flags &
+                                             (W8_ITEM_FLAG_NO_DISCARD | W8_ITEM_FLAG_MERCHANT_CANNOT_SELL)) == 0))) {
                 if (entry->available_at > 0) {
                     goto next_item;
                 }
-                rule_count =
-                    (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
+                rule_count = (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
                 for (rule_index = 0; rule_index < rule_count; ++rule_index) {
-                    rule = static_cast<W8NpcItemStockRule*>(
-                        (*npc->record->item_stock_rules)[rule_index]);
+                    rule = static_cast<W8NpcItemStockRule*>((*npc->record->item_stock_rules)[rule_index]);
                     if (rule->item_id == item_id) {
                         if (rule->persistent == 1) {
                             goto next_item;
@@ -715,8 +705,7 @@ void MatureNpcDelayedItems(W8NpcState* npc)
 {
     for (auto& stock : npc->items) {
         W8NpcItemEntry* entry = &stock;
-        if (entry->available_at == 0 ||
-            entry->available_at >= static_cast<unsigned int>(g_status.world_clock)) {
+        if (entry->available_at == 0 || entry->available_at >= static_cast<unsigned int>(g_status.world_clock)) {
             continue;
         }
         entry->available_at = 0;

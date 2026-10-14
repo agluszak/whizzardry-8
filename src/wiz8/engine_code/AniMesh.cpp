@@ -80,9 +80,8 @@ W8AniMesh::W8AniMesh() = default;
 W8AniMesh::W8AniMesh(const W8AniMesh& other)
     : flags(other.flags), frame_count(other.frame_count), bounds_minimum(other.bounds_minimum),
       bounds_maximum(other.bounds_maximum), radius(other.radius), loaded_bytes(other.loaded_bytes),
-      list_index(other.list_index), bitmap_directory(other.bitmap_directory),
-      filename(other.filename), file_offset(other.file_offset), world(other.world),
-      last_used(other.last_used)
+      list_index(other.list_index), bitmap_directory(other.bitmap_directory), filename(other.filename),
+      file_offset(other.file_offset), world(other.world), last_used(other.last_used)
 {
     meshes.reserve(other.meshes.size());
     for (const auto& source : other.meshes) {
@@ -173,8 +172,7 @@ try {
         handle->seek(mesh->file_offset, wiz8::SeekOrigin::begin);
     }
 
-    if (!(handle->read(&frame_count, sizeof(frame_count)).bytes ==
-          static_cast<std::size_t>(sizeof(frame_count)))) {
+    if (!(handle->read(&frame_count, sizeof(frame_count)).bytes == static_cast<std::size_t>(sizeof(frame_count)))) {
         srAssertFail("fSuccess", ANI_MESH_CPP, 0x1ad, 0);
         if (opened) {
             opened->close();
@@ -192,10 +190,9 @@ try {
         instance_name = mesh->filename + "::0::" + std::to_string(mesh->list_index);
     }
 
-    if (!(handle->read(&frame_index, sizeof(frame_index)).bytes ==
-          static_cast<std::size_t>(sizeof(frame_index))) ||
-        !(loaded_instance = ReadSingleLevelMesh(
-              &info, instance_name.empty() ? nullptr : instance_name.c_str(), true))) {
+    if (!(handle->read(&frame_index, sizeof(frame_index)).bytes == static_cast<std::size_t>(sizeof(frame_index))) ||
+        !(loaded_instance =
+              ReadSingleLevelMesh(&info, instance_name.empty() ? nullptr : instance_name.c_str(), true))) {
         srAssertFail("fSuccess", ANI_MESH_CPP, 0x1c5, 0);
 
         if (opened) {
@@ -222,14 +219,14 @@ try {
         while (loaded_count < frame_count) {
             loaded_instance = 0;
             if (!instance_name.empty()) {
-                instance_name = mesh->filename + "::" + std::to_string(loaded_count) +
-                                "::" + std::to_string(mesh->list_index);
+                instance_name =
+                    mesh->filename + "::" + std::to_string(loaded_count) + "::" + std::to_string(mesh->list_index);
             }
             if (!load_all ||
                 !(handle->read(&frame_index, sizeof(frame_index)).bytes ==
                   static_cast<std::size_t>(sizeof(frame_index))) ||
-                !(loaded_instance = ReadSingleLevelMesh(
-                      &info, instance_name.empty() ? nullptr : instance_name.c_str(), load_all))) {
+                !(loaded_instance =
+                      ReadSingleLevelMesh(&info, instance_name.empty() ? nullptr : instance_name.c_str(), load_all))) {
                 srAssertFail("fSuccess", ANI_MESH_CPP, 0x1f1, 0);
 
                 if (opened) {
@@ -339,8 +336,7 @@ try {
         }();
         handle = opened.get();
         if (handle == 0) {
-            srAssertFail("fi.hFile", ANI_MESH_CPP, 0x23f,
-                         fmt::format("Couldn't open {}", mesh->filename));
+            srAssertFail("fi.hFile", ANI_MESH_CPP, 0x23f, fmt::format("Couldn't open {}", mesh->filename));
             return 0;
         }
     }
@@ -411,8 +407,7 @@ stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
     char message[0x80];
 
     if (mesh == 0 || frame >= mesh->frame_count) {
-        sprintf(message, "AniMeshGetMeshForFrame error, frame %d, num %d", frame,
-                mesh->frame_count);
+        sprintf(message, "AniMeshGetMeshForFrame error, frame %d, num %d", frame, mesh->frame_count);
         srAssertFail("0", ANI_MESH_CPP, 0x2e6, message);
         return 0;
     }
@@ -490,8 +485,8 @@ void EnforceAniMeshMemoryLimit(W8AniMesh* current)
             if (!candidate || candidate == current || candidate->flags.cache_protected) {
                 continue;
             }
-            if (!oldest || static_cast<unsigned int>(candidate->last_used) <
-                               static_cast<unsigned int>(oldest->last_used)) {
+            if (!oldest ||
+                static_cast<unsigned int>(candidate->last_used) < static_cast<unsigned int>(oldest->last_used)) {
                 oldest = candidate;
             }
         }

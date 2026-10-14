@@ -71,12 +71,10 @@ static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
     auto output = wiz8::open_host_file(wiz8::path_from_utf8(path), wiz8::OpenMode::replace);
     REQUIRE(output);
     char header[80];
-    const int count =
-        snprintf(header, sizeof(header), "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
+    const int count = snprintf(header, sizeof(header), "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
     output->write(header, count);
     for (auto pixel : pixels) {
-        unsigned char rgb[] = {static_cast<unsigned char>(pixel >> 16),
-                               static_cast<unsigned char>(pixel >> 8),
+        unsigned char rgb[] = {static_cast<unsigned char>(pixel >> 16), static_cast<unsigned char>(pixel >> 8),
                                static_cast<unsigned char>(pixel)};
         output->write(rgb, sizeof(rgb));
     }
@@ -115,8 +113,8 @@ TEST_CASE("world graphics")
     fprintf(stderr, "world: enter real new-game loader\n");
     for (int frame = 0; frame < 5; ++frame) {
         GameLoop();
-        fprintf(stderr, "world: frame %d screen %d pending %d\n", frame,
-                int(g_current_screen_state.id), int(g_pending_screen_state.id));
+        fprintf(stderr, "world: frame %d screen %d pending %d\n", frame, int(g_current_screen_state.id),
+                int(g_pending_screen_state.id));
     }
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
     auto world = GetWorld();
@@ -179,9 +177,7 @@ TEST_CASE("world graphics")
         const auto first = caption();
             // Deliberately stain the panel to model obsolete text from another action.
         for (int y = 450; y < 480; ++y) {
-            memset(static_cast<unsigned char*>(framebuffer.pixels) + y * framebuffer.pitch +
-                       343 * 2,
-                   0xff, 185 * 2);
+            memset(static_cast<unsigned char*>(framebuffer.pixels) + y * framebuffer.pitch + 343 * 2, 0xff, 185 * 2);
         }
         DrawSubMenuCharacterAction();
         REQUIRE(caption() == first);
@@ -190,8 +186,7 @@ TEST_CASE("world graphics")
         VideoPositionToolTip(300, 200);
         RenderFrame();
         const auto tooltip = ReadFrame();
-        auto* tooltip_node =
-            static_cast<srModelInstance*>(g_cursor_scene->findChild("Video2DRectToPolygon"));
+        auto* tooltip_node = static_cast<srModelInstance*>(g_cursor_scene->findChild("Video2DRectToPolygon"));
         REQUIRE(tooltip_node);
         auto* mesh = static_cast<srMeshModel*>(tooltip_node->getModel());
         auto* texture = static_cast<srTextureMap*>(mesh->getTexture(0, 0));
@@ -204,16 +199,15 @@ TEST_CASE("world graphics")
         }
         REQUIRE((surface->getPixelRaw(g_help_box_width + 2, 2) & 0x8000) == 0);
         const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
-        const std::string ui_output =
-            std::string(output ? output : "/tmp/wiz8-native-world.ppm") + ".ui.ppm";
+        const std::string ui_output = std::string(output ? output : "/tmp/wiz8-native-world.ppm") + ".ui.ppm";
         SaveFrame(ui_output.c_str(), tooltip);
         VideoRemoveToolTip();
     }
 
     W8WorldCameraState state{};
     state = cameraState(*world);
-    fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
-            state.position.y, state.position.z, state.yaw[0], state.pitch[0]);
+    fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x, state.position.y, state.position.z,
+            state.yaw[0], state.pitch[0]);
     unsigned enabled = 0;
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) {
@@ -250,8 +244,8 @@ TEST_CASE("world graphics")
     fprintf(stderr,
             "world: %u enabled meshes, %u submitted polygons; draws %u/%u, "
             "triangles %u/%u; viewport pixels %u changed, %u restored\n",
-            enabled, polygons, with_world.draw_calls, without_world.draw_calls,
-            with_world.input_triangles, without_world.input_triangles, changed, recovered);
+            enabled, polygons, with_world.draw_calls, without_world.draw_calls, with_world.input_triangles,
+            without_world.input_triangles, changed, recovered);
     REQUIRE((polygons > 0 && with_world.draw_calls > without_world.draw_calls));
     REQUIRE(with_world.input_triangles > without_world.input_triangles);
     REQUIRE((changed > 1000 && recovered > 1000));
@@ -285,8 +279,7 @@ TEST_CASE("world graphics")
         W8TargetSource attacker{};
         attacker.iType = W8_TARGET_SOURCE_CHARACTER;
         attacker.iChar = 0;
-        while (attacker.iChar < W8_PARTY_SLOT_COUNT &&
-               !g_status.buffers.XChar[attacker.iChar].fOccupied) {
+        while (attacker.iChar < W8_PARTY_SLOT_COUNT && !g_status.buffers.XChar[attacker.iChar].fOccupied) {
             ++attacker.iChar;
         }
         REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
@@ -305,8 +298,7 @@ TEST_CASE("world graphics")
     }
     if (mode && strcmp(mode, "angles") == 0) {
         for (int angle = 0; angle < 4; ++angle) {
-            g_gd_camera->SetOrientationImmediate(angle < 2 ? -0.7f : 0.5f,
-                                                 state.yaw[0] + angle * 1.5707963f);
+            g_gd_camera->SetOrientationImmediate(angle < 2 ? -0.7f : 0.5f, state.yaw[0] + angle * 1.5707963f);
             GameLoop();
             RenderFrame();
             auto pixels = ReadFrame();

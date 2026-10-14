@@ -46,10 +46,8 @@ std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel
 
 unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
 /* Mark an instance lit and bake dynamic-scene lights once (render_flags bit 1). */
-unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance,
-                                                 srNode* dynamic_scene); /* 0x0046F4A0 */
-unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights,
-                                         bool walk_chain);
+unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNode* dynamic_scene); /* 0x0046F4A0 */
+unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain);
 void SetSceneMeshShaderBit3(srNode* node, int argument);
 void SetSceneMeshShaderLowBits(srNode* node, int argument);
 /* 0x0046F760: assign every live world's mesh vertex-light table index and
@@ -63,8 +61,7 @@ bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> plan
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes);
 /* Point-in-triangle test via dominant-axis projection: `axis` selects the two
    planar components used. */
-bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
-                         const glm::vec3& point);
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis, const glm::vec3& point);
 /* Build the six frustum planes from the eight sorted corner points. */
 std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points);
 /* Order a volume's eight corner points into the canonical (y,z,x)-sorted

@@ -117,10 +117,8 @@ struct W8OctSpatialState {
     const glm::vec3* m_triangle_vertices;
 };
 
-bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
-                           const glm::vec3& normal);
-bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
-                          const srBoundingBox& box);
+bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices, const glm::vec3& normal);
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices, const srBoundingBox& box);
 
 struct W8OctRegionPolygon;
 

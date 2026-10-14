@@ -22,11 +22,7 @@ public:
         ENABLE_RANGE_NEAR = 3,
         ENABLE_RANGE_FAR = 4
     };
-    enum e_attenuationModel {
-        ATTENUATION_NONE = 0,
-        ATTENUATION_OPENGL = 1,
-        ATTENUATION_3DSTUDIO_MAX = 2
-    };
+    enum e_attenuationModel { ATTENUATION_NONE = 0, ATTENUATION_OPENGL = 1, ATTENUATION_3DSTUDIO_MAX = 2 };
 
     srLight(srNode* parent = 0, e_preset preset = PRESET_POINT);
     ~srLight() override = default;

@@ -123,8 +123,7 @@ enum W8FootstepKind {
 /* 0x00479030: drop every random schedule and stop the ambient group */
 void StopAllAmbientSounds();
 
-void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
-                       int variant);
+void BuildFootstepPath(char* path, signed char surface, signed char material, char kind, int variant);
 wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds(W8World* world);
@@ -135,14 +134,12 @@ void StopAmbientSoundByName(W8World* /* unused */, const char* name);
 void ToggleAmbientSoundByName(W8World* /* unused */, const char* name);
 void DestroyAmbientSound(W8AmbientSound* ambient);
 unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
-                              const srVector3T<float>* position,
-                              const srVector3T<float>* region_min,
-                              const srVector3T<float>* region_max, int volume_min, int volume_max,
-                              int time_min, int time_max, int speed_min, int speed_max,
-                              float radius, bool looping, unsigned char bounded,
-                              const srVector3T<float>* region_center, float region_angle,
-                              const srVector3T<float>* region_axis,
-                              const srVector3T<float>* region_scale, unsigned char shared);
+                              const srVector3T<float>* position, const srVector3T<float>* region_min,
+                              const srVector3T<float>* region_max, int volume_min, int volume_max, int time_min,
+                              int time_max, int speed_min, int speed_max, float radius, bool looping,
+                              unsigned char bounded, const srVector3T<float>* region_center, float region_angle,
+                              const srVector3T<float>* region_axis, const srVector3T<float>* region_scale,
+                              unsigned char shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
 void LoadAmbientSoundList(wiz8::File& handle);

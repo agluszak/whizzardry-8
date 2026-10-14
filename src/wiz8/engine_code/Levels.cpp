@@ -253,8 +253,7 @@ int FindLevelIdByLocationCode(const char* location_code)
         return -1;
     }
     if (level_id < W8_LEVEL_COUNT) {
-        if (strlen(g_level_folders[level_id].folder_name) == 0 ||
-            strlen(g_level_folders[level_id].level_name) == 0) {
+        if (strlen(g_level_folders[level_id].folder_name) == 0 || strlen(g_level_folders[level_id].level_name) == 0) {
             return -1;
         }
     }
@@ -319,8 +318,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     if (sky_world == 0) {
         return 0;
     }
-    if (!LoadWorld(sky_world, info->sky_file_name, info->sky_folder, info->sky_bitmap_folder,
-                   false)) {
+    if (!LoadWorld(sky_world, info->sky_file_name, info->sky_folder, info->sky_bitmap_folder, false)) {
         return 0;
     }
 
@@ -348,7 +346,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
             srMeshModel* mesh = static_cast<srMeshModel*>(instance->getModel());
 
             mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE); /* CONTROL_SKIP_AUTO_SPHERE */
-            mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX); /* CONTROL_SKIP_AUTO_BOX */
+            mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);    /* CONTROL_SKIP_AUTO_BOX */
         }
     }
 
@@ -361,8 +359,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
             srModelInstance* instance = prop->ToggleRepAnimation(0);
 
             if (instance != 0) {
-                for (stMeshModel* mesh :
-                     stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+                for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     mesh->setMaterial(material, 0, srMeshModel::SIDE_FRONT);
                 }
             }
@@ -379,10 +376,9 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
 
 // GLOBAL: WIZ8 0x00605820
 unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
-    0x6f7, 0x6f8, 0x6f9, 0x6fa, 0x6fb, 0x6fd, 0x6fc, 0x6fe, 0x6ff, 0x700, 0x701, 0x719,
-    0x702, 0x703, 0x704, 0x705, 0x706, 0x707, 0x708, 0x709, 0x70a, 0x70b, 0x70c, 0x719,
-    0x70d, 0x70e, 0x70f, 0x710, 0x719, 0x711, 0x719, 0x712, 0x713, 0x714, 0x719, 0x715,
-    0x716, 0x717, 0x706, 0x718, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719,
+    0x6f7, 0x6f8, 0x6f9, 0x6fa, 0x6fb, 0x6fd, 0x6fc, 0x6fe, 0x6ff, 0x700, 0x701, 0x719, 0x702, 0x703, 0x704, 0x705,
+    0x706, 0x707, 0x708, 0x709, 0x70a, 0x70b, 0x70c, 0x719, 0x70d, 0x70e, 0x70f, 0x710, 0x719, 0x711, 0x719, 0x712,
+    0x713, 0x714, 0x719, 0x715, 0x716, 0x717, 0x706, 0x718, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719,
 };
 
 // GLOBAL: WIZ8 0x00659756
@@ -422,8 +418,7 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
     char pvl_path[1020];
 
     if (static_cast<unsigned int>(level) >= 57) {
-        srAssertFail("ulLevel < TEST_LEVEL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 237, 0);
+        srAssertFail("ulLevel < TEST_LEVEL_COUNT", "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 237, 0);
     }
 
     if (level < W8_LEVEL_COUNT) {
@@ -432,8 +427,7 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
         if (g_level_folders[level].sky_index == -1) {
             info->sky_file_name[0] = '\0';
         } else {
-            sprintf(info->sky_file_name, "%s.%s", g_sky_names[g_level_folders[level].sky_index],
-                    "LVL");
+            sprintf(info->sky_file_name, "%s.%s", g_sky_names[g_level_folders[level].sky_index], "LVL");
         }
     } else {
         sprintf(info->level_folder, "%s\\Test", "Levels");
@@ -501,8 +495,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     char music_path[260];
 
     if (level >= 57) {
-        srAssertFail("iLevel < TEST_LEVEL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 385, 0);
+        srAssertFail("iLevel < TEST_LEVEL_COUNT", "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 385, 0);
     }
     if (!LevelBuildInfoByID(level, &level_info)) {
         return 0;
@@ -568,8 +561,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
             trigger->GetPosition(&trigger_position);
             position = trigger_position;
-            position.y =
-                probeGround(trigger_position.glmValue()).position.y + g_default_world_height;
+            position.y = probeGround(trigger_position.glmValue()).position.y + g_default_world_height;
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
@@ -582,9 +574,9 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
                 axis = trigger->direction;
                 rotation = glm::mat3(1);
                 if (trigger->angle != 0.0f) {
-                    rotation *= glm::mat3_cast(
-                        glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
-                                       normalizedOrZero(glm::vec3(axis.glmValue()))));
+                    rotation *=
+                        glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
+                                                      normalizedOrZero(glm::vec3(axis.glmValue()))));
                 }
                 ApplyCameraRotation(&rotation);
             }
@@ -605,8 +597,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         first_visit = true;
     }
 
-    sprintf(path, "%s\\%s.%s", level_info.level_folder, level_info.level_file_name,
-            g_ambient_sound_filename);
+    sprintf(path, "%s\\%s.%s", level_info.level_folder, level_info.level_file_name, g_ambient_sound_filename);
     ReadAmbientSoundListFile(path);
     if (!g_environment_load_flag) {
         ResetCurrentEnvironment();
@@ -626,8 +617,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             RecordLevelEntryDialogueState();
             gXStatus.combat_countdown = 0;
         }
-        if (g_status.greeting_pending &&
-            (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
+        if (g_status.greeting_pending && (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
             DespawnAllActiveMonsterGroups();
         } else {
             UpdateRandomEncounterBudget(first_visit);

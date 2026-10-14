@@ -23,8 +23,7 @@ public:
     W8EmitterHost(const W8EmitterHost& other);
     /* All three are chars: neither override widens them, and both
        0x004A8360 and 0x004A7470 push the containing dword unextended. */
-    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
-                                              signed char lod) = 0;
+    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame, signed char lod) = 0;
     virtual unsigned int ApplyEmitterSetting(signed char emitter) = 0;
     /* Not a stop: both overrides tail-return AnimObjEntry's result,
        and GrCycle's 0x004A7470 hands that result straight to

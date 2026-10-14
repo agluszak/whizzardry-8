@@ -69,15 +69,13 @@ public:
         } else if (button == SDL_BUTTON_LMASK) {
             pressed = false;
         }
-        const bool repeated =
-            policy.controller_activation ? repeated_ != 0 : (repeated_ & button) != 0;
+        const bool repeated = policy.controller_activation ? repeated_ != 0 : (repeated_ & button) != 0;
         if (policy.controller_activation) {
             repeated_ = 0;
         } else {
             repeated_ &= ~button;
         }
-        return {.activate = !repeated && policy.activation == ButtonActivation::Release,
-                .repeated_release = repeated};
+        return {.activate = !repeated && policy.activation == ButtonActivation::Release, .repeated_release = repeated};
     }
 
     ButtonResponse repeat(SDL_MouseButtonFlags button, const ButtonPolicy& policy)
@@ -100,8 +98,7 @@ public:
     {
         const bool repeated = repeated_ != 0;
         armed_ = repeated_ = 0;
-        if (policy.controller_activation ? !selected
-                                         : policy.primary_toggle == ButtonToggle::None) {
+        if (policy.controller_activation ? !selected : policy.primary_toggle == ButtonToggle::None) {
             pressed = false;
         }
         return repeated;

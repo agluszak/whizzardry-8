@@ -111,8 +111,7 @@ public:
 
             bool operator==(const TextureSetKey& other) const
             {
-                return texture0 == other.texture0 && texture1 == other.texture1 &&
-                       shader.value == other.shader.value;
+                return texture0 == other.texture0 && texture1 == other.texture1 && shader.value == other.shader.value;
             }
             bool operator!=(const TextureSetKey& other) const
             {
@@ -122,8 +121,7 @@ public:
         struct TextureSetHash {
             size_t operator()(const TextureSetKey& key) const noexcept
             {
-                return std::hash<srTextureIFace*>{}(key.texture0) ^
-                       (std::hash<srTextureIFace*>{}(key.texture1) << 1) ^
+                return std::hash<srTextureIFace*>{}(key.texture0) ^ (std::hash<srTextureIFace*>{}(key.texture1) << 1) ^
                        (std::hash<w8_ulong>{}(key.shader.value) << 2);
             }
         };
@@ -310,13 +308,7 @@ public:
     enum e_hintMode {};
     /* 0 loads the frame buffer into the accum buffer, 1 accumulates, 4 returns the accum buffer to
        the frame buffer; 2/3 multiply/add through the accum path. */
-    enum e_accum {
-        ACCUM_LOAD = 0,
-        ACCUM_ACCUMULATE = 1,
-        ACCUM_MULTIPLY = 2,
-        ACCUM_ADD = 3,
-        ACCUM_RETURN = 4
-    };
+    enum e_accum { ACCUM_LOAD = 0, ACCUM_ACCUMULATE = 1, ACCUM_MULTIPLY = 2, ACCUM_ADD = 3, ACCUM_RETURN = 4 };
     enum e_depthBuffer {};
     // Native accumulator channels retain the existing four signed 16-bit lanes.
     using AccumPixel = glm::i16vec4;
@@ -515,11 +507,9 @@ public:
     e_visibility testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum);
     void setPickKey(w8_ulong_ptr key);
     w8_ulong_ptr getPickKey() const;
-    void ortho(double left, double right, double bottom, double top, double near_plane,
-               double far_plane);
+    void ortho(double left, double right, double bottom, double top, double near_plane, double far_plane);
     void ortho(const Frustum& frustum);
-    void frustum(double left, double right, double bottom, double top, double near_plane,
-                 double far_plane);
+    void frustum(double left, double right, double bottom, double top, double near_plane, double far_plane);
     void frustum(const Frustum& frustum);
     void loadMatrix(const glm::dmat4& matrix);
     void loadMatrix(const glm::mat4& matrix);
@@ -537,11 +527,11 @@ public:
     void setTextureDefaultMagFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMinFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMipmap(srTextureIFace::e_mipmap mipmap);
-    void setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y,
-                            w8_long width, w8_long height);
+    void setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y, w8_long width,
+                            w8_long height);
     void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count);
-    void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
-                      srRendererDefs::e_indexType type, const void* indices);
+    void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count, srRendererDefs::e_indexType type,
+                      const void* indices);
     std::optional<Pick> popPick();
     void pushPick(const Pick& pick);
     void toggle(e_enable option);
@@ -669,17 +659,14 @@ public:
         return vertex_arrays.mask;
     }
 
-    void setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                           const void* values);
-    void setSpecularPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                            const void* values);
-    void setFogPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                       const void* values);
+    void setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride, const void* values);
+    void setSpecularPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride, const void* values);
+    void setFogPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride, const void* values);
 
     // FUNCTION: SURRENDER 0x1001BFD0 SYMBOL
     // RECOMP: ?setTexCoordPointer@srGERD@@QAEXJW4e_type@srRendererDefs@@KPBXK@Z
-    void setTexCoordPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                            const void* values, w8_ulong layer)
+    void setTexCoordPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride, const void* values,
+                            w8_ulong layer)
     {
         w8_ulong index = layer + 4;
         vertex_arrays.components[index] = components;
@@ -691,8 +678,8 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BE90 SYMBOL
     // RECOMP: ?setVertexPointer@srGERD@@QAEXJW4e_type@srRendererDefs@@KPBXJ@Z
-    void setVertexPointer(w8_long primitive, srRendererDefs::e_type type, w8_ulong stride,
-                          const void* values, w8_long count)
+    void setVertexPointer(w8_long primitive, srRendererDefs::e_type type, w8_ulong stride, const void* values,
+                          w8_long count)
     {
         vertex_arrays.count = count < 0 ? 0 : count;
         vertex_arrays.components[0] = primitive;
@@ -732,8 +719,8 @@ private:
 
     void fenceVertexArrays();
     void dumpTextureCache(std::ostream& stream);
-    void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
-                    srRendererDefs::e_type type, w8_ulong stride, const void* values);
+    void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components, srRendererDefs::e_type type,
+                    w8_ulong stride, const void* values);
 
     friend class Renderer;
     /* For each queued Pick, w-normalize the batch's positions into pick_vertices and run the
@@ -778,8 +765,7 @@ private:
     void invalidatePalette();
     void releaseTextureSurfaceData(Texture& texture);
     void setTextureParameters(w8_ulong stage, const srTextureIFace::Parameters& parameters);
-    void evaluateTextureDimensions(srDD::Texture& device,
-                                   const srTextureIFace::Dimensions& dimensions);
+    void evaluateTextureDimensions(srDD::Texture& device, const srTextureIFace::Dimensions& dimensions);
     void evaluateTexturePixelFormat(Texture& texture, const srTextureIFace::Dimensions& dimensions);
     void releaseTextureMemory(w8_long bytes);
     w8_ulong getTextureBytesNeeded(Texture& texture) const;
@@ -979,12 +965,10 @@ private:
         DIRTY_POLYGON_MODE = 0x4000UL,
         DIRTY_POLYGON_OFFSET = 0x8000UL,
         DIRTY_CLIP_PLANES = 0x10000UL,
-        DIRTY_FRAME_STATE =
-            DIRTY_FRAME_ENABLE | DIRTY_GAMMA | DIRTY_SWAP_INTERVAL | DIRTY_ANTIALIAS,
-        DIRTY_VIEW_STATE =
-            DIRTY_SCISSOR | DIRTY_MODELVIEW | DIRTY_PROJECTION | DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE,
-        DIRTY_DRAW_STATE = DIRTY_FOG_COLOR | DIRTY_TEXTURE0 | DIRTY_TEXTURE1 | DIRTY_SHADER |
-                           DIRTY_CULLING | DIRTY_POLYGON_MODE | DIRTY_POLYGON_OFFSET
+        DIRTY_FRAME_STATE = DIRTY_FRAME_ENABLE | DIRTY_GAMMA | DIRTY_SWAP_INTERVAL | DIRTY_ANTIALIAS,
+        DIRTY_VIEW_STATE = DIRTY_SCISSOR | DIRTY_MODELVIEW | DIRTY_PROJECTION | DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE,
+        DIRTY_DRAW_STATE = DIRTY_FOG_COLOR | DIRTY_TEXTURE0 | DIRTY_TEXTURE1 | DIRTY_SHADER | DIRTY_CULLING |
+                           DIRTY_POLYGON_MODE | DIRTY_POLYGON_OFFSET
     };
     w8_ulong dirty;
     enum {

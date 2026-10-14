@@ -60,10 +60,9 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
             options.no_octree = true;
         } else if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0 ||
                    SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
-            const auto value = separator != std::string_view::npos
-                                   ? arguments[index].substr(separator + 1)
-                               : ++index < arguments.size() ? arguments[index]
-                                                            : std::string_view{};
+            const auto value = separator != std::string_view::npos ? arguments[index].substr(separator + 1)
+                               : ++index < arguments.size()        ? arguments[index]
+                                                                   : std::string_view{};
             if (value.empty()) {
                 throw std::invalid_argument(option + " requires a filename");
             }

@@ -21,11 +21,9 @@ struct W8ReadLevelInfo {
     const char* mesh_filename; /* 0x0c */
 };
 
-unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
-                        const char* bitmap_folder);
+unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
 unsigned char ReadWorldItems(W8ReadLevelInfo* info, W8World* world);
-unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
-                                 std::vector<stParticle*>* particles);
+unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene, std::vector<stParticle*>* particles);
 
 // Append a complete named-position section; failure leaves the destination unchanged.
 bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);

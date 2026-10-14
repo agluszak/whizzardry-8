@@ -160,10 +160,8 @@ struct SpellRuntimeRecord {
 static_assert(std::is_trivially_copyable_v<SpellRuntimeRecord>);
 static_assert(sizeof(SpellRuntimeRecord) == 0x1bf, "SpellRuntimeRecord_size");
 static_assert(offsetof(SpellRuntimeRecord, duration) == 0x044, "SpellRuntimeRecord_duration");
-static_assert(offsetof(SpellRuntimeRecord, duration_per_level) == 0x04d,
-              "SpellRuntimeRecord_duration_per_level");
-static_assert(offsetof(SpellRuntimeRecord, show_effect_dice) == 0x147,
-              "SpellRuntimeRecord_show_effect_dice");
+static_assert(offsetof(SpellRuntimeRecord, duration_per_level) == 0x04d, "SpellRuntimeRecord_duration_per_level");
+static_assert(offsetof(SpellRuntimeRecord, show_effect_dice) == 0x147, "SpellRuntimeRecord_show_effect_dice");
 struct FactDatabaseRecord {
     W8FactId identifier;      /* 0x000 */
     char symbolic_name[0x32]; /* 0x004 .. 0x035 */
@@ -182,19 +180,17 @@ struct NpcCharacterTemplate {
     std::array<std::byte, 20> name;       /* 0x000, record 0x0c4 */
     std::array<std::byte, 12> name_part_2; /* 0x014, record 0x0d8 */
     unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
-    W8Profession
-        profession; /* 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
-    W8Race race; /* 0x068, record 0x12c */
-    int table_value; /* 0x06c, record 0x130 */
+    W8Profession profession;     /* 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
+    W8Race race;        /* 0x068, record 0x12c */
+    int table_value;    /* 0x06c, record 0x130 */
     unsigned int level; /* 0x070, record 0x134: starting profession level */
-    int attributes[7]; /* 0x074, record 0x138: W8CharacterAttribute::value per attribute */
-    int skills[0x29]; /* 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
-    unsigned char
-        spells[0x72]; /* 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
+    int attributes[7];  /* 0x074, record 0x138: W8CharacterAttribute::value per attribute */
+    int skills[0x29];   /* 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
+    unsigned char spells[0x72]; /* 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
     unsigned short equipment_present[12]; /* 0x1a6, record 0x26a: zero leaves the slot empty */
-    unsigned short equipment_ids[12]; /* 0x1be, record 0x282: Items.dbs index, 0xffff empty */
-    unsigned short backpack_present[8]; /* 0x1d6, record 0x29a */
-    unsigned short backpack_ids[8]; /* 0x1e6, record 0x2aa */
+    unsigned short equipment_ids[12];     /* 0x1be, record 0x282: Items.dbs index, 0xffff empty */
+    unsigned short backpack_present[8];   /* 0x1d6, record 0x29a */
+    unsigned short backpack_ids[8];       /* 0x1e6, record 0x2aa */
     signed char gender; /* 0x1f6, record 0x2ba: copied into the character's own sex field */
     short wanted_item_ids[3];
     unsigned char unknown_1fd[9];
@@ -202,8 +198,7 @@ struct NpcCharacterTemplate {
 static_assert(std::is_trivially_copyable_v<NpcCharacterTemplate>);
 static_assert(sizeof(NpcCharacterTemplate) == 0x206, "NpcCharacterTemplate_size_must_be_0x206");
 struct NpcDatabaseRecord {
-    unsigned short
-        version; /* 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
+    unsigned short version; /* 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
     /* 0x002: trade-pool stock count; CreateNpcRuntimeNode copies it into the
        runtime state's trade_pool. */
     short trade_pool;
@@ -277,7 +272,7 @@ struct NpcDatabaseRecord {
     /* 0x2eb: the purse the NPC carries; the party gets it when the NPC's
        monster dies. */
     int gold;
-    unsigned char combat_script_notice_enabled; /* 0x2ef: hostile-NPC combat notice */
+    unsigned char combat_script_notice_enabled;       /* 0x2ef: hostile-NPC combat notice */
     unsigned char allow_dismissed_departure_dialogue; /* 0x2f0: permits dismissed-NPC dialogue */
     unsigned char unknown_2f1[0x18];
 };
@@ -293,9 +288,9 @@ struct LevelDatabaseRecord {
        read by UpdateRandomEncounterBudget and the sixth by the culling pass. */
     int maximum_random_encounters; /* 0x3c */
     int minimum_random_encounters; /* 0x40 */
-    int maximum_encounter_budget; /* 0x44 */
-    int minimum_encounter_budget; /* 0x48 */
-    int encounter_budget_period; /* 0x4c: elapsed-time divisor */
+    int maximum_encounter_budget;  /* 0x44 */
+    int minimum_encounter_budget;  /* 0x48 */
+    int encounter_budget_period;   /* 0x4c: elapsed-time divisor */
     int encounter_culling_seconds; /* 0x50 */
     /* 0x54: float divisor the surprise transition uses when scaling game time
        and monster-generator duration. */
@@ -335,8 +330,8 @@ struct MonsterRecord {
     /* 0x0d0: W8MonsterRecordFlag mask; retain the serialized byte width. */
     unsigned char flags;
     unsigned char attribute_values[5]; /* 0x0d1 */
-    W8Dice hit_points; /* 0x0d6: rolled into uiHPMax/hp_current */
-    W8Dice stamina_dice; /* 0x0da: initializes maximum and current stamina */
+    W8Dice hit_points;                 /* 0x0d6: rolled into uiHPMax/hp_current */
+    W8Dice stamina_dice;               /* 0x0da: initializes maximum and current stamina */
     unsigned char unknown_0de[2];
     /* 0x0e0/0x0e1: the percentage chances the AI casts a spell or flees each
        round; a monster with a usable attack ignores them and always tries. */
@@ -380,7 +375,7 @@ struct MonsterRecord {
     unsigned char unknown_17d[4];
     unsigned int experience; /* 0x181: base experience value */
     unsigned char unknown_185[2];
-    short record_id; /* 0x187: equals the zero-based database index */
+    short record_id;       /* 0x187: equals the zero-based database index */
     char cycle_name[0x30]; /* 0x189: GrCycle lookup key */
     /* 0x1b9: prefer ranged actions instead of closing/backing off. */
     unsigned char prefer_ranged_actions;
@@ -418,12 +413,12 @@ struct MonsterRecord {
     /* 0x251: monster level shown by MonsterInfo and related UI. */
     unsigned char display_level;
     unsigned char unknown_252;
-    int model_index; /* 0x253 */
+    int model_index;           /* 0x253 */
     int alternate_model_index; /* 0x257: alternate selected value */
-    int hostility_radius; /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
-    int faction_id; /* 0x25f: W8Faction value, domain 0..20 */
-    int material; /* 0x263: Monster Editor Material selector */
-    unsigned char deleted; /* 0x267: LoadMonsterGroup skips the record */
+    int hostility_radius;      /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
+    int faction_id;            /* 0x25f: W8Faction value, domain 0..20 */
+    int material;              /* 0x263: Monster Editor Material selector */
+    unsigned char deleted;     /* 0x267: LoadMonsterGroup skips the record */
     unsigned char significant_kill;
     unsigned char unknown_269;
     /* 0x26a: unborn monsters enter the birth/encounter lists before acting. */
@@ -439,13 +434,10 @@ static_assert(std::is_trivially_copyable_v<MonsterRecord>);
 static_assert(sizeof(MonsterRecord) == 0x297, "MonsterRecord_size_must_be_0x297");
 static_assert(offsetof(MonsterRecord, flags) == 0xd0, "MonsterRecord_flags_offset");
 static_assert(offsetof(MonsterRecord, stamina_dice) == 0xda, "MonsterRecord_stamina_dice_offset");
-static_assert(offsetof(MonsterRecord, remains_model_name) == 0x1c3,
-              "MonsterRecord_remains_model_name_offset");
+static_assert(offsetof(MonsterRecord, remains_model_name) == 0x1c3, "MonsterRecord_remains_model_name_offset");
 static_assert(offsetof(MonsterRecord, treasure) == 0x1f3, "MonsterRecord_treasure_offset");
-static_assert(offsetof(MonsterRecord, treasure.gold_dice) == 0x243,
-              "MonsterRecord_gold_dice_offset");
-static_assert(offsetof(MonsterRecord, attack_body_part_chances) == 0x157,
-              "MonsterRecord_attack_body_part_chances");
+static_assert(offsetof(MonsterRecord, treasure.gold_dice) == 0x243, "MonsterRecord_gold_dice_offset");
+static_assert(offsetof(MonsterRecord, attack_body_part_chances) == 0x157, "MonsterRecord_attack_body_part_chances");
 static_assert(offsetof(MonsterRecord, effective_level) == 0x24f, "MonsterRecord_effective_level");
 static_assert(offsetof(MonsterRecord, display_level) == 0x251, "MonsterRecord_display_level");
 struct Character {
@@ -459,7 +451,7 @@ struct Character {
     unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
     /* 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
-    W8Profession iProfession; /* 0x0069 */
+    W8Profession iProfession;         /* 0x0069 */
     W8Profession original_profession; /* 0x006d */
     /* 0x0071: indexes the race resistance table. */
     W8Race iRace;
@@ -476,7 +468,7 @@ struct Character {
        by the character rebuild; all three accesses are four-byte stores. */
     int unknown_007d;
     int personality; /* indexes the state-5 descriptor text */
-    int voice; /* selected by the character voice control */
+    int voice;       /* selected by the character voice control */
     /* 0x0089: the experience level; averaged across occupied slots. */
     unsigned int uiExpLevel;
     int profession_levels[W8_PROFESSION_COUNT]; /* 0x008d */
@@ -527,11 +519,11 @@ struct Character {
     /* 0x0b0d..0x0b20: the two pools with a ceiling each, plus the adjustment
        damage is booked against before hit points are recalculated. A character
        whose hp_current is zero is treated as out of the fight everywhere. */
-    int uiHPMax; /* 0x0b0d */
-    unsigned int hp_current; /* 0x0b11 */
-    int hp_adjustment; /* 0x0b15 */
-    int uiStaminaMax; /* 0x0b19 */
-    int stamina; /* 0x0b1d */
+    int uiHPMax;                  /* 0x0b0d */
+    unsigned int hp_current;      /* 0x0b11 */
+    int hp_adjustment;            /* 0x0b15 */
+    int uiStaminaMax;             /* 0x0b19 */
+    int stamina;                  /* 0x0b1d */
     unsigned int fatigue_penalty; /* 0x0b21: taken off the stamina ceiling */
     /* 0x0b25 and 0x0b45: the spell-point pools, one per spell realm. */
     int sp_max[W8_SPELL_REALM_COUNT]; /* 0x0b25 */
@@ -555,10 +547,10 @@ struct Character {
     float stamina_regen_accumulator;
     float spell_regen_rates[12];
     unsigned char unknown_0ba9[0x10];
-    unsigned int inventory_weight; /* 0x0bb9 */
-    unsigned int party_weight_share; /* 0x0bbd */
+    unsigned int inventory_weight;     /* 0x0bb9 */
+    unsigned int party_weight_share;   /* 0x0bbd */
     unsigned int total_carried_weight; /* 0x0bc1 */
-    unsigned int carrying_capacity; /* 0x0bc5; displayed divided by 10 */
+    unsigned int carrying_capacity;    /* 0x0bc5; displayed divided by 10 */
     /* 0x0bc9: the load category, zero through four, which scales what an
        action costs in fatigue. FatigueCharacter's error text calls it that. */
     W8LoadCategory load_category;
@@ -624,7 +616,7 @@ struct Character {
     W8WorldCameraState saved_location; /* 0x17d7 */
     /* 0x1813: which level that anchor belongs to. The recall compares it
        against g_status.current_level and takes a different path when they differ. */
-    int saved_level; /* 0x1813 */
+    int saved_level;                          /* 0x1813 */
     W8CharacterConditionRecord conditions[4]; /* 0x1817 .. 0x185a */
     /* 0x185b: the deep-fatigue effect is already on this character, which is
        what stops FatigueCharacter re-applying it every turn. */
@@ -812,59 +804,40 @@ struct GlobalStatus {
     bool dev_flagged;
 };
 static_assert(std::is_trivially_copyable_v<GlobalStatus>);
-static_assert(offsetof(GlobalStatus, status_header_suffix) +
-                      sizeof(GlobalStatus::status_header_suffix) -
+static_assert(offsetof(GlobalStatus, status_header_suffix) + sizeof(GlobalStatus::status_header_suffix) -
                       offsetof(GlobalStatus, status_header_prefix) ==
                   0x100,
               "GlobalStatus_status_header_size");
 static_assert(offsetof(GlobalStatus, party_gold) == 0x19, "GlobalStatus_party_gold_offset");
-static_assert(offsetof(GlobalStatus, selected_character) == 0x1d,
-              "GlobalStatus_selected_character_offset");
-static_assert(offsetof(GlobalStatus, party_item_pool) == 0x21,
-              "GlobalStatus_party_item_pool_offset");
-static_assert(offsetof(GlobalStatus, party_item_count) == 0x1791,
-              "GlobalStatus_party_item_count_offset");
-static_assert(offsetof(GlobalStatus, text_line_cursor) == 0x1795,
-              "GlobalStatus_text_line_cursor_offset");
+static_assert(offsetof(GlobalStatus, selected_character) == 0x1d, "GlobalStatus_selected_character_offset");
+static_assert(offsetof(GlobalStatus, party_item_pool) == 0x21, "GlobalStatus_party_item_pool_offset");
+static_assert(offsetof(GlobalStatus, party_item_count) == 0x1791, "GlobalStatus_party_item_count_offset");
+static_assert(offsetof(GlobalStatus, text_line_cursor) == 0x1795, "GlobalStatus_text_line_cursor_offset");
 static_assert(offsetof(GlobalStatus, flags) == 0x2367, "GlobalStatus_flags_offset");
 static_assert(offsetof(GlobalStatus, party_facing) == 0x18d0, "GlobalStatus_party_facing_offset");
 static_assert(offsetof(GlobalStatus, current_level) == 0x1900, "GlobalStatus_current_level_offset");
-static_assert(offsetof(GlobalStatus, status_header_prefix) == 0x1904,
-              "GlobalStatus_status_header_prefix_offset");
-static_assert(offsetof(GlobalStatus, uiTurnsElapsed) == 0x19d8,
-              "GlobalStatus_uiTurnsElapsed_offset");
-static_assert(offsetof(GlobalStatus, status_header_suffix) == 0x19dc,
-              "GlobalStatus_status_header_suffix_offset");
-static_assert(offsetof(GlobalStatus, level_progress) == 0x1a04,
-              "GlobalStatus_level_progress_offset");
+static_assert(offsetof(GlobalStatus, status_header_prefix) == 0x1904, "GlobalStatus_status_header_prefix_offset");
+static_assert(offsetof(GlobalStatus, uiTurnsElapsed) == 0x19d8, "GlobalStatus_uiTurnsElapsed_offset");
+static_assert(offsetof(GlobalStatus, status_header_suffix) == 0x19dc, "GlobalStatus_status_header_suffix_offset");
+static_assert(offsetof(GlobalStatus, level_progress) == 0x1a04, "GlobalStatus_level_progress_offset");
 static_assert(offsetof(GlobalStatus, iron_man) == 0x2429, "GlobalStatus_iron_man_offset");
-static_assert(offsetof(GlobalStatus, world_cursor_gate) == 0x2435,
-              "GlobalStatus_value_2435_offset");
-static_assert(offsetof(GlobalStatus, pending_move_location) == 0x22a7,
-              "GlobalStatus_pending_move_location_offset");
+static_assert(offsetof(GlobalStatus, world_cursor_gate) == 0x2435, "GlobalStatus_value_2435_offset");
+static_assert(offsetof(GlobalStatus, pending_move_location) == 0x22a7, "GlobalStatus_pending_move_location_offset");
 static_assert(offsetof(GlobalStatus, formation) == 0x23a1, "GlobalStatus_formation_offset");
-static_assert(offsetof(GlobalStatus, world_suspended) == 0x2390,
-              "GlobalStatus_world_suspended_offset");
+static_assert(offsetof(GlobalStatus, world_suspended) == 0x2390, "GlobalStatus_world_suspended_offset");
 static_assert(offsetof(GlobalStatus, skip_loose_character_check) == 0x2444,
               "GlobalStatus_skip_loose_character_check_offset");
-static_assert(offsetof(GlobalStatus, use_item_latch) == 0x2445,
-              "GlobalStatus_use_item_latch_offset");
-static_assert(offsetof(GlobalStatus, selected_party_member) == 0x2434,
-              "GlobalStatus_selected_party_member_offset");
+static_assert(offsetof(GlobalStatus, use_item_latch) == 0x2445, "GlobalStatus_use_item_latch_offset");
+static_assert(offsetof(GlobalStatus, selected_party_member) == 0x2434, "GlobalStatus_selected_party_member_offset");
 static_assert(offsetof(GlobalStatus, rpc_races) == 0x243a, "GlobalStatus_rpc_races_offset");
-static_assert(offsetof(GlobalStatus, monster_name_buffer) == 0x2453,
-              "GlobalStatus_monster_name_buffer_offset");
-static_assert(offsetof(GlobalStatus, sedexus_party_slot) == 0x247f,
-              "GlobalStatus_sedexus_party_slot_offset");
+static_assert(offsetof(GlobalStatus, monster_name_buffer) == 0x2453, "GlobalStatus_monster_name_buffer_offset");
+static_assert(offsetof(GlobalStatus, sedexus_party_slot) == 0x247f, "GlobalStatus_sedexus_party_slot_offset");
 static_assert(offsetof(GlobalStatus, greeting_pending) == 0x2497, "GlobalStatus_flag_2497_offset");
 static_assert(offsetof(GlobalStatus, next_group_id) == 0x234a, "GlobalStatus_next_group_id_offset");
-static_assert(offsetof(GlobalStatus, log_fact_checks) == 0x3120,
-              "GlobalStatus_log_fact_checks_offset");
-static_assert(offsetof(GlobalStatus, text_box_lines_shown) == 0x49a7,
-              "GlobalStatus_text_box_lines_shown_offset");
+static_assert(offsetof(GlobalStatus, log_fact_checks) == 0x3120, "GlobalStatus_log_fact_checks_offset");
+static_assert(offsetof(GlobalStatus, text_box_lines_shown) == 0x49a7, "GlobalStatus_text_box_lines_shown_offset");
 static_assert(offsetof(GlobalStatus, intro_shown) == 0x49bc, "GlobalStatus_intro_shown_offset");
-static_assert(offsetof(GlobalStatus, text_box_lines_used) == 0x4997,
-              "GlobalStatus_migrated_values_offset");
+static_assert(offsetof(GlobalStatus, text_box_lines_used) == 0x4997, "GlobalStatus_migrated_values_offset");
 static_assert(offsetof(GlobalStatus, rpc_active) == 0x2489, "GlobalStatus_flag_2489_offset");
 static_assert(offsetof(GlobalStatus, status_ints) == 0x3121, "GlobalStatus_status_ints_offset");
 static_assert(offsetof(GlobalStatus, fact_88_latch) == 0x40c1, "GlobalStatus_fact_88_latch_offset");
@@ -873,12 +846,9 @@ static_assert(offsetof(GlobalStatus, vi_event_stage) == 0x498b, "GlobalStatus_va
 static_assert(offsetof(GlobalStatus, endgame2_queued) == 0x498f, "GlobalStatus_value_498f_offset");
 static_assert(offsetof(GlobalStatus, endgame3_queued) == 0x4993, "GlobalStatus_value_4993_offset");
 static_assert(offsetof(GlobalStatus, party_slot) == 0x249c, "GlobalStatus_party_slot_offset");
-static_assert(offsetof(GlobalStatus, regular_member_count) == 0x000d,
-              "GlobalStatus_regular_member_count_offset");
-static_assert(offsetof(GlobalStatus, auxiliary_member_count) == 0x0011,
-              "GlobalStatus_auxiliary_member_count_offset");
-static_assert(offsetof(GlobalStatus, total_member_count) == 0x0015,
-              "GlobalStatus_total_member_count_offset");
+static_assert(offsetof(GlobalStatus, regular_member_count) == 0x000d, "GlobalStatus_regular_member_count_offset");
+static_assert(offsetof(GlobalStatus, auxiliary_member_count) == 0x0011, "GlobalStatus_auxiliary_member_count_offset");
+static_assert(offsetof(GlobalStatus, total_member_count) == 0x0015, "GlobalStatus_total_member_count_offset");
 static_assert(offsetof(GlobalStatus, party_gold) == 0x0019, "GlobalStatus_party_gold_offset");
 static_assert(sizeof(GlobalStatus) == 0x49c2, "GlobalStatus_must_be_0x49c2");
 #pragma pack(pop)

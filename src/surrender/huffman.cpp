@@ -29,8 +29,7 @@ void srHuffman::BitIStream::fetchCache(Sint64 position)
     }
     std::fill(std::begin(cache), std::end(cache), 0);
     cache_valid = SDL_ReadIO(stream, cache, sizeof(cache));
-    if (SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY &&
-        SDL_GetIOStatus(stream) != SDL_IO_STATUS_EOF) {
+    if (SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY && SDL_GetIOStatus(stream) != SDL_IO_STATUS_EOF) {
         throw std::runtime_error(SDL_GetError());
     }
 }
@@ -338,8 +337,7 @@ void srHuffman::Compressor::buildSymbolTree()
             Node** slot = node->children;
             for (int remaining = 2; remaining != 0; --remaining) {
                 int which = 0;
-                if (heads[1] != 0 &&
-                    (heads[0] == 0 || heads[1]->frequency <= heads[0]->frequency)) {
+                if (heads[1] != 0 && (heads[0] == 0 || heads[1]->frequency <= heads[0]->frequency)) {
                     which = 1;
                 }
                 Node* picked = heads[which];
@@ -493,7 +491,6 @@ static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count)
         return;
     }
     // Stable frequency order preserves the radix sort's tie order and therefore the bitstream.
-    std::stable_sort(pairs, pairs + count, [](const auto& first, const auto& second) {
-        return first.frequency < second.frequency;
-    });
+    std::stable_sort(pairs, pairs + count,
+                     [](const auto& first, const auto& second) { return first.frequency < second.frequency; });
 }

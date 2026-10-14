@@ -31,8 +31,7 @@ bool W8OctRegionPolygon::containsPoint(const srBoundingBox& bounds) const
 /* Grow `*run` to (count + capacity) dwords when count lands on a capacity
    boundary, preserving existing entries. */
 // FUNCTION: WIZ8 0x004cfb70
-unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short count,
-                                                     unsigned short capacity)
+unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short count, unsigned short capacity)
 {
     if (capacity == 0) {
         return 0;
@@ -59,8 +58,7 @@ unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short c
 
 // Records reserve index zero. Keep channel frees interleaved in record order.
 template<class Record, std::size_t Channels>
-static void ReleaseSharedRuns(std::span<Record> records,
-                              const std::array<int* Record::*, Channels>& fields)
+static void ReleaseSharedRuns(std::span<Record> records, const std::array<int* Record::*, Channels>& fields)
 {
     if (records.empty()) {
         return;
@@ -93,9 +91,8 @@ void W8OctPreTreeGeometry::Release()
 {
     if (m_vertices != 0) {
         if (vertex_count > 1) {
-            ReleaseSharedRuns(
-                std::span{m_vertices + 1, vertex_count - 1},
-                std::array{&W8OctPreTreeVertex::face_indices, &W8OctPreTreeVertex::owned});
+            ReleaseSharedRuns(std::span{m_vertices + 1, vertex_count - 1},
+                              std::array{&W8OctPreTreeVertex::face_indices, &W8OctPreTreeVertex::owned});
         }
         free(m_vertices);
         m_vertices = nullptr;

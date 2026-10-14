@@ -14,6 +14,6 @@ struct DesignRect {
 // Scale origin and extent separately, preserving the renderer's integer rounding.
 inline SDL_Rect ToSurfaceRect(const DesignRect& rect, int width, int height)
 {
-    return {width * rect.left / 640, height * rect.top / 480,
-            width * (rect.right - rect.left) / 640, height * (rect.bottom - rect.top) / 480};
+    return {width * rect.left / 640, height * rect.top / 480, width * (rect.right - rect.left) / 640,
+            height * (rect.bottom - rect.top) / 480};
 }

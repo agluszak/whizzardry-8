@@ -76,8 +76,7 @@ void mount_slf(std::string_view game_path, bool patch)
         throw std::runtime_error("invalid SLF entry count");
     }
     const auto table_size = std::uint64_t(header.iEntries) * sizeof(SlfEntry);
-    if (size < static_cast<std::int64_t>(sizeof(header)) ||
-        table_size > std::uint64_t(size) - sizeof(header)) {
+    if (size < static_cast<std::int64_t>(sizeof(header)) || table_size > std::uint64_t(size) - sizeof(header)) {
         throw std::runtime_error("SLF directory exceeds archive");
     }
     const auto table_start = std::uint64_t(size) - table_size;
@@ -98,8 +97,7 @@ void mount_slf(std::string_view game_path, bool patch)
                 throw std::runtime_error("invalid SLF entry extent");
             }
             archive.entries.push_back(
-                {key(name),
-                 {file->physical_path(), entry.uiOffset, entry.uiLength, entry.sFileTime}});
+                {key(name), {file->physical_path(), entry.uiOffset, entry.uiLength, entry.sFileTime}});
         }
     }
     if (archive.entries.size() != static_cast<std::size_t>(header.iUsed)) {
@@ -124,12 +122,9 @@ void refresh_asset_archives()
 {
     clear_asset_archives();
     // GLOBAL: WIZ8 0x006000c8
-    constexpr const char* gGameLibaries[] = {"Data\\Data.slf",
-                                             "Data\\Sound\\Sound.slf",
-                                             "Data\\Sound\\Monsters\\MonsterSound.slf",
-                                             "Data\\Music\\Music.slf",
-                                             "Data\\Monsters\\Monsters.slf",
-                                             "Levels\\Levels.slf"};
+    constexpr const char* gGameLibaries[] = {
+        "Data\\Data.slf",         "Data\\Sound\\Sound.slf",       "Data\\Sound\\Monsters\\MonsterSound.slf",
+        "Data\\Music\\Music.slf", "Data\\Monsters\\Monsters.slf", "Levels\\Levels.slf"};
     for (const auto* archive : gGameLibaries) {
         for (const auto* drive : {"C:\\", "D:\\", "E:\\", "F:\\"}) {
             const std::string path = std::string(drive) + archive;
@@ -178,14 +173,12 @@ std::optional<AssetEntry> archive_entry(std::string_view game_path)
             continue;
         }
         const auto relative = lookup.substr(archive.prefix.size());
-        const auto entry =
-            std::lower_bound(archive.entries.begin(), archive.entries.end(), relative,
-                             [](const Entry& a, std::string_view b) { return a.name < b; });
+        const auto entry = std::lower_bound(archive.entries.begin(), archive.entries.end(), relative,
+                                            [](const Entry& a, std::string_view b) { return a.name < b; });
         if (entry == archive.entries.end() || entry->name != relative) {
             continue;
         }
-        if (!best || archive.patch ||
-            (!best->patch && archive.prefix.size() > best->prefix.size())) {
+        if (!best || archive.patch || (!best->patch && archive.prefix.size() > best->prefix.size())) {
             best = &archive;
             found = &*entry;
         }

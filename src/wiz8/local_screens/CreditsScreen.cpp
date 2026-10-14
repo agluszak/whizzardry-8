@@ -98,8 +98,7 @@ try {
             handle->seek(0, wiz8::SeekOrigin::begin);
         }
         while (!(handle->tell() >= handle->size())) {
-            if (((line_result = ReadRetailTextLine(handle.get())) &&
-                 (line = std::move(*line_result), true)) &&
+            if (((line_result = ReadRetailTextLine(handle.get())) && (line = std::move(*line_result), true)) &&
                 line[0] != '*') {
                 W8CreditLine entry{};
                 bool blank = false;
@@ -122,8 +121,7 @@ try {
                     }
                 }
                 if (!blank) {
-                    entry.pixel_width = (bold ? g_options_title_font : g_options_detail_font)
-                                            .textWidth(entry.primary);
+                    entry.pixel_width = (bold ? g_options_title_font : g_options_detail_font).textWidth(entry.primary);
                 }
                 entry.line_height = 0x14 + (bold ? 5 : 0);
                 pending.push_back(std::move(entry));
@@ -191,17 +189,14 @@ void CreditsScreenFrame(void)
 
     CatalogArtwork::Load(0xe9, 0).draw(GetFrameBufferSurface(), 0, 0, 0, {}, BitmapKey::Opaque);
     int y = g_credit_y;
-    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines.size()) && y <= 0x1df;
-         ++index) {
+    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines.size()) && y <= 0x1df; ++index) {
         const W8CreditLine* entry = &g_credit_lines[index];
         if ((entry->flags & 4) == 0) {
             Font& font = (entry->flags & 1) ? g_options_title_font : g_options_detail_font;
             if ((entry->flags & 2) == 0) {
-                DrawText(GetFrameBufferSurface(), font, {(0x280 - entry->pixel_width) / 2, y},
-                         entry->primary);
+                DrawText(GetFrameBufferSurface(), font, {(0x280 - entry->pixel_width) / 2, y}, entry->primary);
             } else {
-                DrawText(GetFrameBufferSurface(), font, {0x136 - entry->pixel_width, y},
-                         entry->primary);
+                DrawText(GetFrameBufferSurface(), font, {0x136 - entry->pixel_width, y}, entry->primary);
                 if (!entry->secondary.empty()) {
                     DrawText(GetFrameBufferSurface(), font, {0x14a, y}, entry->secondary);
                 }
