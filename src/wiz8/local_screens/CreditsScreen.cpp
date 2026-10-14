@@ -65,7 +65,7 @@ try
     std::unique_ptr<wiz8::File> handle;
     std::string line;
 
-    SetViewport(0, 0, 0x280, 0x1e0);
+    SetViewport({0, 0, 0x281, 0x1e1});
     ResetUiInput();
     DisableCursorScene();
     std::vector<W8CreditLine> pending;

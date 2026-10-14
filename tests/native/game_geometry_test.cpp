@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include "wiz8/camera_motion.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/placement_math.h"
@@ -1188,9 +1189,17 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
 TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geometry][viewport]")
 {
     struct RestoreViewport {
-        W8ViewportRect saved = g_viewport;
+        DesignRect saved = g_viewport;
         ~RestoreViewport() { g_viewport = saved; }
     } restore;
+    // Odd surface dimensions retain independent origin/extent rounding.
+    const auto scaled = ToSurfaceRect({23, 18, 617, 450}, 801, 601);
+    REQUIRE(scaled.x == 28);
+    REQUIRE(scaled.y == 22);
+    REQUIRE(scaled.w == 743);
+    REQUIRE(scaled.h == 540);
+    SetViewport({23, 18, 618, 451});
+    REQUIRE(g_viewport == DesignRect{23, 18, 618, 451});
     g_viewport = {80, 60, 560, 420};
     const auto bounds = GetScaledViewportBounds();
     REQUIRE(glm::length(bounds.minimum - glm::vec2(0.125f)) < 1e-6f);

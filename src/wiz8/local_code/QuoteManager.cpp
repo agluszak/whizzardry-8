@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/ui_layer.h"
@@ -1920,8 +1921,8 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
                                 bool animate)
 {
     W8MonsterManagerEntry* state = &gXStatus.monster_manager_entries[party_slot];
-    W8ScreenRect rect;
-    W8ScreenRect other;
+    DesignRect rect;
+    DesignRect other;
     short width;
     short height;
     short image_x;

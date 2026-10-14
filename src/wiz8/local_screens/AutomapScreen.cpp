@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include <SDL3/SDL_pixels.h>
 #include "glm/ext/vector_double3.hpp"
 #include <SDL3/SDL_surface.h>
@@ -229,7 +230,7 @@ float g_automap_top_y;
 // GLOBAL: WIZ8 0x0068f210
 srVector3T<float> g_automap_bounds_min;
 // GLOBAL: WIZ8 0x0068f230
-W8ScreenRect g_automap_viewport;
+DesignRect g_automap_viewport;
 // GLOBAL: WIZ8 0x0068f240
 srVector3T<float> g_automap_grid_origin;
 // GLOBAL: WIZ8 0x0068f250
@@ -279,7 +280,7 @@ void UpdateAutomapPageButtons(void);
 void ResetAutomapLighting(void);
 void LightAutomapCell(const srVector3T<float>* position);
 unsigned int LightPendingAutomapCells(unsigned int max_count);
-int RestoreAutomapRect(W8ScreenRect* rect);
+int RestoreAutomapRect(DesignRect* rect);
 void SetAutomapLayer(int layer);
 stModelInstance2D* CreateAutomapItemMarker(int item_id);
 stModelInstance2D* CreateAutomapMonsterMarker(int type);
@@ -697,7 +698,7 @@ unsigned char AutomapScreenEnter(void)
     RenderFrame();
     RenderFrame();
     EnableCursorScene();
-    SetAutomapScaledViewport(12, 32, 467, 467);
+    SetScaledViewport({12, 32, 467, 467});
     UpdateAutomapBounds();
     if (script.Load("Data\\Automap\\MapFilters.txt")) {
         std::vector<std::string_view> excluded_textures;
@@ -958,7 +959,6 @@ unsigned char AutomapScreenLeave(int)
     RestoreAutomapWorldSettings();
     g_automap_state.reset();
     MarkRendererReady();
-    SetOverlayViewport(0);
     ResumeMainGameWorld();
     SetMouseMoveEventsEnabled(0);
     g_automap_surface.reset();
@@ -1345,7 +1345,7 @@ void UpdateAutomapPageButtons(void)
 
 /* Blit the saved automap surface back over a screen rect to erase whatever
    was drawn there. */
-int RestoreAutomapRect(W8ScreenRect* rect)
+int RestoreAutomapRect(DesignRect* rect)
 {
     if (g_automap_surface != 0) {
         srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, GetFrameBufferSurface());
@@ -1390,7 +1390,7 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
                     static_cast<double>(g_automap_text_marker->GetScaledWidth()) * 0.5f);
             }
             g_automap_text_marker->GetScaledHeight();
-            W8ScreenRect rect;
+            DesignRect rect;
             rect.top =
                 (0x20 - screen_y) - ((unsigned)g_wiz_text_font_secondary.height() >> 1);
             rect.left = marker_width / 2 + (0xe - screen_x);

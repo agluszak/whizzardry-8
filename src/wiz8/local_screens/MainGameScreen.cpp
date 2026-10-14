@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
 #include "wiz8/ui_layer.h"
@@ -4282,7 +4283,7 @@ bool IsModalOpen(void)
    exclusive right and bottom edges. Mode 7, which leaving a level stores, sits
    outside the table so the next change always applies. */
 // GLOBAL: WIZ8 0x00647d30
-W8ScreenRect g_viewport_modes[7] = {
+DesignRect g_viewport_modes[7] = {
     {23, 18, 617, 450},  {23, 18, 617, 358},  {128, 18, 512, 358}, {128, 18, 512, 279},
     {128, 18, 512, 450}, {128, 18, 512, 416}, {23, 18, 617, 416},
 };
@@ -4394,7 +4395,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
    inclusive rectangle and hand the renderer the exclusive one. */
 void SetViewportMode(int mode)
 {
-    W8ScreenRect* rect;
+    DesignRect* rect;
 
     if (mode == g_level_block->camera_mode) {
         return;
@@ -4406,7 +4407,7 @@ void SetViewportMode(int mode)
     viewport.top = rect->top;
     viewport.right = rect->right;
     viewport.bottom = rect->bottom;
-    SetViewport(viewport.left, viewport.top, viewport.right, viewport.bottom);
+    SetViewport({viewport.left, viewport.top, viewport.right + 1, viewport.bottom + 1});
     g_level_block->camera_mode = mode;
 }
 

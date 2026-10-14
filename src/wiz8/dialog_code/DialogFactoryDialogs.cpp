@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -437,7 +438,7 @@ static W8ControlsRect g_split_amount_text_bounds[3] = {
 };
 
 // GLOBAL: WIZ8 0x0064fc68
-static W8ScreenRect g_split_amount_field_bounds = {0xbe, 0x35, 0xf4, 0x41};
+static DesignRect g_split_amount_field_bounds = {0xbe, 0x35, 0xf4, 0x41};
 
 // GLOBAL: WIZ8 0x0064fc78
 static int g_split_amount_string_ids[3] = {265, 266, 267};

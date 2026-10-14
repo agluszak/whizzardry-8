@@ -493,12 +493,12 @@ try
     return false;
 }
 
-/* Reads a record count; false when the read fails or the count is implausibly large. */
-template<class Info>
-static bool ReadRecordCount(Info& info, int& count)
+/* Validate a signed count before publishing records from the section. */
+static bool ReadRecordCount(wiz8::File& file, int& count)
 {
-    const bool read = info.hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count));
-    return read && count < 100000;
+    const bool read =
+        file.read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count));
+    return read && count >= 0 && count < 100000;
 }
 
 // FUNCTION: WIZ8 0x004BC5E0
@@ -520,7 +520,7 @@ try
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
     }
-    if (!ReadRecordCount(*pInfo, count)) {
+    if (!ReadRecordCount(*pInfo->hFile, count)) {
         return 0;
     }
     if (count == 0) {
@@ -590,7 +590,7 @@ try
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
     }
-    if (!ReadRecordCount(*pInfo, count)) {
+    if (!ReadRecordCount(*pInfo->hFile, count)) {
         return 0;
     }
     if (count == 0) {
@@ -674,7 +674,7 @@ try
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
     }
-    if (!ReadRecordCount(*pInfo, count)) {
+    if (!ReadRecordCount(*pInfo->hFile, count)) {
         return 0;
     }
     if (count == 0) {
@@ -1077,9 +1077,7 @@ try
     success = success && ReadWorldItems(&info, world);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after items.");
 
-    if (!success || info.hFile == 0 ||
-        !(info.hFile->read(&section_count, sizeof(section_count)).bytes == static_cast<std::size_t>(sizeof(section_count))) ||
-        section_count >= 100000) {
+    if (!success || info.hFile == 0 || !ReadRecordCount(*info.hFile, section_count)) {
         success = 0;
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after missiles.");

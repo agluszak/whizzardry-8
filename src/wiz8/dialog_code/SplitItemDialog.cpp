@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
@@ -60,7 +61,7 @@ static int g_split_text_string_ids[14] = {
 };
 
 // GLOBAL: WIZ8 0x0064FFA0
-static W8ScreenRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
+static DesignRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 
 // FUNCTION: WIZ8 0x005DCED0
 W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count)

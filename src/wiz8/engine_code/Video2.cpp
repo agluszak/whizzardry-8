@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include "glm/ext/vector_double3.hpp"
 #include <SDL3/SDL_blendmode.h>
 #include <SDL3/SDL_pixels.h>
@@ -214,7 +215,7 @@ int g_surface_opaque_shader_bits;
 // GLOBAL: WIZ8 0x654ad8
 int g_surface_alpha_blend_shader_bits;
 // GLOBAL: WIZ8 0x6595e8
-W8ViewportRect g_viewport;
+DesignRect g_viewport;
 // GLOBAL: WIZ8 0x00659AB4
 W8World* g_world;
 // GLOBAL: WIZ8 0x00659AB8
@@ -235,7 +236,6 @@ int g_overlay_render_mode;
 // GLOBAL: WIZ8 0x006596f0
 int g_paired_render_mode;
 // GLOBAL: WIZ8 0x659668
-const int* g_overlay_viewport;
 // GLOBAL: WIZ8 0x65966c
 srClass* g_render_object0;
 // GLOBAL: WIZ8 0x659678
@@ -365,7 +365,7 @@ bool InitializeVideoManager(void)
         }
     }
 done:
-    SetViewport(0, 0, 0x280, 0x1e0);
+    SetViewport({0, 0, 0x281, 0x1e1});
     if (!InitializeStartupNavigation()) {
         return 0;
     }
@@ -723,21 +723,8 @@ srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
 static RuntimeWorldRenderData ObserveWorldRenderState();
 #endif
 
-/* Design-space bounds (640x480, right and bottom exclusive) scaled onto a
-   surface of the given size. */
-struct SurfaceViewport {
-    w8_long x, y, width, height;
-};
-
-static SurfaceViewport scaleDesignViewport(int left, int top, int right, int bottom,
-                                           w8_long surface_width, w8_long surface_height)
-{
-    return {surface_width * left / 640, surface_height * top / 480,
-            surface_width * (right - left) / 640, surface_height * (bottom - top) / 480};
-}
-
 // FUNCTION: WIZ8 0x00427850
-void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog)
+void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, bool preserve_fog)
 {
     w8_ulong width = g_gerd->getWidth();
     w8_ulong height = g_gerd->getHeight();
@@ -746,17 +733,16 @@ void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool pre
         return;
     }
     if (viewport != 0) {
-        const auto rect = scaleDesignViewport(viewport[0], viewport[1], viewport[2], viewport[3],
-                                              width, height);
-        g_gerd->setViewPort(rect.x, rect.y, rect.width, rect.height);
-        g_gerd->setScissor(rect.x, rect.y, rect.width, rect.height);
+        const auto rect = ToSurfaceRect(*viewport, width, height);
+        g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
+        g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
 #ifdef WIZ8_RUNTIME_TESTS
         if (g_world != 0 && scene == g_world->static_scene) {
             RuntimeWorldRenderData data = ObserveWorldRenderState();
             data.applied_viewport[0] = rect.x;
             data.applied_viewport[1] = rect.y;
-            data.applied_viewport[2] = rect.width;
-            data.applied_viewport[3] = rect.height;
+            data.applied_viewport[2] = rect.w;
+            data.applied_viewport[3] = rect.h;
             RuntimeObserveWorld(RUNTIME_WORLD_VIEWPORT_APPLIED, data);
         }
 #endif
@@ -874,9 +860,8 @@ void RenderFrame(void)
     clear_viewport: {
         w8_ulong height = g_gerd->getHeight();
         w8_ulong width = g_gerd->getWidth();
-        const auto rect = scaleDesignViewport(g_viewport.left, g_viewport.top, g_viewport.right,
-                                              g_viewport.bottom, width, height);
-        g_gerd->setScissor(rect.x, rect.y, rect.width, rect.height);
+        const auto rect = ToSurfaceRect(g_viewport, width, height);
+        g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
         g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
         g_gerd->setScissor(0, 0, width, height);
     }
@@ -889,8 +874,7 @@ void RenderFrame(void)
     g_gerd->setTextureReduction(g_resident_texture_policy);
 
     if (g_render_mesh_sky && g_secondary_world != 0 && g_monster_shadow_updates_enabled) {
-        RenderScene(g_secondary_world->static_scene, g_secondary_world->camera, &g_viewport.left,
-                    false);
+        RenderScene(g_secondary_world->static_scene, g_secondary_world->camera, &g_viewport, false);
     }
     if (g_world != 0 && g_world_render_enabled) {
 #ifdef WIZ8_RUNTIME_TESTS
@@ -902,7 +886,7 @@ void RenderFrame(void)
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
             g_viewport.right < g_cursor_hotspot_x + g_cursor_width ||
             g_viewport.bottom < g_cursor_hotspot_y + g_cursor_height) {
-            RenderScene(g_world->static_scene, g_world->camera, &g_viewport.left, true);
+            RenderScene(g_world->static_scene, g_world->camera, &g_viewport, true);
         } else {
             int half_width = (g_viewport.right - g_viewport.left) / 2;
             int half_height = (g_viewport.bottom - g_viewport.top) / 2;
@@ -917,7 +901,7 @@ void RenderFrame(void)
             pick.triangle_index = 0;
             g_gerd->setPickKey(0);
             g_gerd->pushPick(pick);
-            RenderScene(g_world->static_scene, g_world->camera, &g_viewport.left, true);
+            RenderScene(g_world->static_scene, g_world->camera, &g_viewport, true);
             pick = *g_gerd->popPick();
             SetPickedModelInstance(pick.selected_model);
             ResolvePickedProp(g_world);
@@ -932,15 +916,14 @@ void RenderFrame(void)
     if (getenv("WIZ8_RUNTIME_HIDE_OVERLAY") == 0)
 #endif
         if (g_overlay_scenes_enabled) {
-            const int* overlay_viewport = g_overlay_viewport;
             if (!g_fullscreen_scene_last) {
-                RenderScene(g_scene_fullscreen, g_overlay_camera, overlay_viewport, false);
+                RenderScene(g_scene_fullscreen, g_overlay_camera, nullptr, false);
             }
             RenderScene(g_scene_overlay0, g_overlay_camera, 0, false);
             RenderScene(g_scene_user, g_overlay_camera, 0, false);
-            RenderScene(g_scene_square, g_square_camera, overlay_viewport, false);
+            RenderScene(g_scene_square, g_square_camera, nullptr, false);
             if (g_fullscreen_scene_last) {
-                RenderScene(g_scene_fullscreen, g_overlay_camera, overlay_viewport, false);
+                RenderScene(g_scene_fullscreen, g_overlay_camera, nullptr, false);
             }
             if (g_cursor_scene_enabled) {
                 RenderScene(g_cursor_scene, g_overlay_camera, 0, false);
@@ -992,7 +975,7 @@ void RenderFrame(void)
    otherwise the stored game viewport globals apply. SaveGame uses it for the
    SHOT screenshot; the automap uses it for its backdrop. */
 // FUNCTION: WIZ8 0x00426f80
-unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
+unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect,
                                    bool render_secondary)
 {
     srGERD* gerd = g_secondary_gerd;
@@ -1003,11 +986,9 @@ unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
     gerd->beginFrame();
     gerd->setTextureReduction(g_resident_texture_policy);
     gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
-    const W8ViewportRect bounds =
-        rect != 0 ? W8ViewportRect{rect->left, rect->top, rect->right, rect->bottom} : g_viewport;
-    const auto viewport = scaleDesignViewport(bounds.left, bounds.top, bounds.right, bounds.bottom,
-                                              gerd->getWidth(), gerd->getHeight());
-    gerd->setViewPort(viewport.x, viewport.y, viewport.width, viewport.height);
+    const DesignRect bounds = rect != nullptr ? *rect : g_viewport;
+    const auto viewport = ToSurfaceRect(bounds, gerd->getWidth(), gerd->getHeight());
+    gerd->setViewPort(viewport.x, viewport.y, viewport.w, viewport.h);
     if (IsFogEnabled()) {
         GetLightDirection(&clear_color);
     } else {
@@ -1552,7 +1533,7 @@ void InvalidateRegion(int left, int top, int right, int bottom)
     else SDL_GetRectUnion(&g_ui_upload, &clipped, &g_ui_upload);
 }
 
-void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count)
+void InvalidateScreenRects(DesignRect* rects, unsigned int count)
 {
     for (const auto& rect : std::span(rects, count))
         InvalidateRegion(rect.left, rect.top, rect.right, rect.bottom);
@@ -1572,34 +1553,20 @@ static void FlushUiUpload()
                                     upload.y, upload.x + upload.w, upload.y + upload.h);
 }
 
-/* Viewport. */
-/* Scale a 640x480 design-space rect onto the GERD viewport and remember it;
-   no-ops when the stored bounds already match. */
-static void setScaledViewport(int left, int top, int right, int bottom)
+void SetScaledViewport(const DesignRect& bounds)
 {
-    if (left == g_viewport.left && top == g_viewport.top && right == g_viewport.right &&
-        bottom == g_viewport.bottom) {
+    if (bounds == g_viewport) {
         return;
     }
-    const auto rect = scaleDesignViewport(left, top, right, bottom, g_gerd->getWidth(),
-                                          g_gerd->getHeight());
-    g_gerd->setViewPort(rect.x, rect.y, rect.width, rect.height);
-    g_viewport.left = left;
-    g_viewport.top = top;
-    g_viewport.right = right;
-    g_viewport.bottom = bottom;
-}
-
-// FUNCTION: WIZ8 0x00425C90
-void SetAutomapScaledViewport(int left, int top, int right, int bottom)
-{
-    setScaledViewport(left, top, right, bottom);
+    const auto rect = ToSurfaceRect(bounds, g_gerd->getWidth(), g_gerd->getHeight());
+    g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
+    g_viewport = bounds;
 }
 
 /* Sets the viewport and rebuilds the camera view plane to match it. */
 
 // FUNCTION: WIZ8 0x00426250
-void SetViewport(int left, int top, int right, int bottom)
+void SetViewport(const DesignRect& bounds)
 {
     float fractional_left;
     float fractional_top;
@@ -1610,12 +1577,9 @@ void SetViewport(int left, int top, int right, int bottom)
     if (g_gerd != 0 && g_flush_pending) {
         g_gerd->flush();
     }
-    fractional_left = left * g_viewport_x_scale;
-    g_viewport.right = right + 1;
-    g_viewport.left = left;
-    g_viewport.bottom = bottom + 1;
-    fractional_top = top * g_viewport_y_scale;
-    g_viewport.top = top;
+    g_viewport = bounds;
+    fractional_left = bounds.left * g_viewport_x_scale;
+    fractional_top = bounds.top * g_viewport_y_scale;
     fractional_right = g_viewport.right * g_viewport_x_scale;
     fractional_bottom = g_viewport.bottom * g_viewport_y_scale;
 
@@ -2038,12 +2002,6 @@ void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture)
 unsigned char GetRendererModeByte(void)
 {
     return static_cast<unsigned char>(g_renderer_mode);
-}
-
-// FUNCTION: WIZ8 0x00429200
-void SetOverlayViewport(const int* value)
-{
-    g_overlay_viewport = value;
 }
 
 // FUNCTION: WIZ8 0x004297D0
@@ -2923,12 +2881,6 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
 void DrawColorSurface(srColorSurface* surface, int x, int y)
 {
     g_primary_color_surface->blit(x, y, *surface, 0, 0, surface->getWidth(), surface->getHeight());
-}
-
-// FUNCTION: WIZ8 0x00425DA0
-void SetWorldScaledViewport(int left, int top, int right, int bottom)
-{
-    setScaledViewport(left, top, right, bottom);
 }
 
 // FUNCTION: WIZ8 0x00426490

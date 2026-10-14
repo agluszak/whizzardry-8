@@ -20,6 +20,7 @@ struct W8ReadLevelInfo {
 };
 
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
+unsigned char ReadWorldItems(W8ReadLevelInfo* info, W8World* world);
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
                                  std::vector<stParticle*>* particles);
 
