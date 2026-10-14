@@ -19,7 +19,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "layouts/main_game_screen.h"
 #include "surrender/srMath.h"
 
@@ -96,43 +95,33 @@ unsigned char CreateSubMenuButtons(void)
 {
     int index;
 
-    g_main_game_buttons.submenu[0].Configure(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c,
-                                             SubMenuButtonPendingScreen, BUTTON_NO_CALLBACK, false,
-                                             UI_PRIORITY_HIGHEST, 0x42, BUTTON_NO_CALLBACK,
-                                             BUTTON_NO_CALLBACK);
-    g_main_game_buttons.submenu[1].Configure(
-        g_submenu_icons_path, 0x3, 0x0, 0x1, 0x2, 0x4, SubMenuButtonSurprise, BUTTON_NO_CALLBACK,
-        false, UI_PRIORITY_HIGHEST, 0x43, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    g_main_game_buttons.submenu[0].Configure(
+        g_submenu_icons_path, {0x2b, 0x28, 0x29, 0x2a, 0x2c},
+        {.on_click = SubMenuButtonPendingScreen, .tooltip = 0x42});
+    g_main_game_buttons.submenu[1].Configure(g_submenu_icons_path, {0x3, 0x0, 0x1, 0x2, 0x4},
+                                             {.on_click = SubMenuButtonSurprise, .tooltip = 0x43});
     g_main_game_buttons.submenu[2].Configure(
-        g_submenu_icons_path, 0x8, 0x5, 0x6, 0x7, 0x9, SubMenuButtonToggleFlag, BUTTON_NO_CALLBACK,
-        true, UI_PRIORITY_HIGHEST, 0x44, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_main_game_buttons.submenu[3].Configure(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18,
-                                             SubMenuButtonUseItem, BUTTON_NO_CALLBACK, true,
-                                             UI_PRIORITY_HIGHEST, 0x45, BUTTON_NO_CALLBACK,
-                                             BUTTON_NO_CALLBACK);
-    g_main_game_buttons.submenu[4].Configure(g_submenu_icons_path, 0x1c, 0x19, 0x1a, 0x1b, 0x1d,
-                                             SubMenuButtonSpellView, BUTTON_NO_CALLBACK, true,
-                                             UI_PRIORITY_HIGHEST, 0x46, BUTTON_NO_CALLBACK,
-                                             BUTTON_NO_CALLBACK);
-    g_main_game_buttons.submenu[5].Configure(g_submenu_icons_path, 0x12, 0xf, 0x10, 0x11, 0x13,
-                                             SubMenuButtonOpenMenu1, BUTTON_NO_CALLBACK, false,
-                                             UI_PRIORITY_HIGHEST, 0x4a, BUTTON_NO_CALLBACK,
-                                             BUTTON_NO_CALLBACK);
-    g_main_game_buttons.submenu[6].Configure(
-        g_submenu_icons_path, 0xd, 0xa, 0xb, 0xc, 0xe, SubMenuButtonOpenMenu0, BUTTON_NO_CALLBACK,
-        false, UI_PRIORITY_HIGHEST, 0x49, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_main_game_buttons.submenu[7].Configure(g_submenu_combat_icons_path, 0x3, 0x0, 0x1, 0x2, 0x2,
-                                             SubMenuButtonToggleCombat, BUTTON_NO_CALLBACK, false,
-                                             UI_PRIORITY_HIGHEST, 0x47, BUTTON_NO_CALLBACK,
-                                             BUTTON_NO_CALLBACK);
-    g_main_game_buttons.submenu[8].Configure(g_submenu_combat_icons_path, 0x7, 0x4, 0x5, 0x6, 0x6,
-                                             SubMenuButtonToggleCombat, BUTTON_NO_CALLBACK, false,
-                                             UI_PRIORITY_HIGHEST, 0x48, BUTTON_NO_CALLBACK,
-                                             BUTTON_NO_CALLBACK);
+        g_submenu_icons_path, {0x8, 0x5, 0x6, 0x7, 0x9},
+        {.on_click = SubMenuButtonToggleFlag, .toggles = true, .tooltip = 0x44});
+    g_main_game_buttons.submenu[3].Configure(
+        g_submenu_icons_path, {0x17, 0x14, 0x15, 0x16, 0x18},
+        {.on_click = SubMenuButtonUseItem, .toggles = true, .tooltip = 0x45});
+    g_main_game_buttons.submenu[4].Configure(
+        g_submenu_icons_path, {0x1c, 0x19, 0x1a, 0x1b, 0x1d},
+        {.on_click = SubMenuButtonSpellView, .toggles = true, .tooltip = 0x46});
+    g_main_game_buttons.submenu[5].Configure(g_submenu_icons_path, {0x12, 0xf, 0x10, 0x11, 0x13},
+                                             {.on_click = SubMenuButtonOpenMenu1, .tooltip = 0x4a});
+    g_main_game_buttons.submenu[6].Configure(g_submenu_icons_path, {0xd, 0xa, 0xb, 0xc, 0xe},
+                                             {.on_click = SubMenuButtonOpenMenu0, .tooltip = 0x49});
+    g_main_game_buttons.submenu[7].Configure(
+        g_submenu_combat_icons_path, {0x3, 0x0, 0x1, 0x2, 0x2},
+        {.on_click = SubMenuButtonToggleCombat, .tooltip = 0x47});
+    g_main_game_buttons.submenu[8].Configure(
+        g_submenu_combat_icons_path, {0x7, 0x4, 0x5, 0x6, 0x6},
+        {.on_click = SubMenuButtonToggleCombat, .tooltip = 0x48});
     for (index = 0; index < 9; ++index) {
         g_main_game_buttons.submenu[index].SetPosition(g_submenu_button_positions[index].x,
                                                        g_submenu_button_positions[index].y);
-        g_main_game_buttons.submenu[index].m_owner = 0;
     }
     return 1;
 }

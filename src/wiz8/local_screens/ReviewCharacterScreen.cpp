@@ -814,10 +814,13 @@ W8CampCharacterInfo::W8CampCharacterInfo()
 {
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
-        result->Configure(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3,
-            frame, frame + 2, frame + 1, frame + 4,
-            [this, combat](auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
-            {}, false, 0, help, {}, {});
+        result->Configure(
+            CatalogArtwork::Load(0x121, 0).spriteSheet(),
+            {frame + 3, frame, frame + 2, frame + 1, frame + 4},
+            {.on_click = [this, combat](
+                             auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = help});
         result->policy.controller_activation = true;
         result->SetPosition(0x13e, 0x8b);
         return result;

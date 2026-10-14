@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
 #include <memory>
@@ -65,9 +66,14 @@ unsigned char CreatePartyMovementPanel(void)
     for (int index = 0; index < 2; ++index) {
         auto& button = movement->buttons[index];
         button = std::make_unique<W8ButtonWidget>(movement->input);
-        button->Configure(art.spriteSheet(), 7, 4, 5, 6, 6,
-            [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); },
-            {}, false, 0, 37 + index, {}, {});
+        button->Configure(art.spriteSheet(), {7, 4, 5, 6, 6},
+                          {.on_click =
+                               [index](auto*) {
+                                   AfterUiDispatch(index ? CancelPartyMovement
+                                                         : BeginFreeTurnPhase);
+                               },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = 37 + index});
         button->policy.controller_activation = true;
         button->SetPosition(0x1bb, 0x13f);
         button->Resize(20, 20);

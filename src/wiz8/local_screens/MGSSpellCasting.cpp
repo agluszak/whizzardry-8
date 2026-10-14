@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include <utility>
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/local_code/ButtonWidget.h"
@@ -110,8 +111,10 @@ static void CreateSpellCastingViewControls(void)
                                 SDL_Rect bounds, int help, std::function<void()> action) {
         auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
         button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
-            frames[0], frames[1], frames[2], frames[3], frames[4],
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+                          {frames[0], frames[1], frames[2], frames[3], frames[4]},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         button->policy.controller_activation = true;
         button->policy.primary_toggle = ButtonToggle::Release;
         button->SetPosition(bounds.x, bounds.y);

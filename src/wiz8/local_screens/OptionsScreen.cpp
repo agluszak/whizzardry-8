@@ -519,19 +519,24 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
 {
     auto art = CatalogArtwork::Load(0xf9, 0);
     const int normal = save_mode ? 0 : 2;
-    button.Configure(art.spriteSheet(), 4, normal, -1, normal + 1, -1,
-        [&owner, this, index, save_mode](auto*) {
-            AfterUiDispatch([&owner, this, index, save_mode] {
-                const auto point = button.GetMousePosition();
-                if (!m_editing && owner.m_selected == index && save_mode &&
-                    point.x - button.Bounds().x >= 0x5c && point.y - button.Bounds().y >= 0x33)
-                    owner.OnEditSaveName();
-                owner.SelectRow(index);
-            });
-        }, {}, false, 0, -1, {}, [&owner, this, index](auto*) {
-            if (!m_editing && owner.m_selected == index)
-                AfterUiDispatch([&owner] { owner.OnPrimary(owner.m_action_button); });
-        });
+    button.Configure(
+        art.spriteSheet(), {4, normal, -1, normal + 1, -1},
+        {.on_click =
+             [&owner, this, index, save_mode](auto*) {
+                 AfterUiDispatch([&owner, this, index, save_mode] {
+                     const auto point = button.GetMousePosition();
+                     if (!m_editing && owner.m_selected == index && save_mode &&
+                         point.x - button.Bounds().x >= 0x5c && point.y - button.Bounds().y >= 0x33)
+                         owner.OnEditSaveName();
+                     owner.SelectRow(index);
+                 });
+             },
+         .on_double_click =
+             [&owner, this, index](auto*) {
+                 if (!m_editing && owner.m_selected == index)
+                     AfterUiDispatch([&owner] { owner.OnPrimary(owner.m_action_button); });
+             },
+         .priority = UI_PRIORITY_LOWEST});
     button.policy.primary_toggle = ButtonToggle::StayLatched;
     button.policy.controller_activation = true;
     button.SetPosition(0x104 + 10, 0x12 + index * 0x49);
@@ -1111,10 +1116,14 @@ void W8OptionsScreen::CreateControls()
         const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
         auto& button = m_menu_buttons[item];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
-        button->Configure(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]),
-            frame(frames[2]), frame(frames[1]), frame(frames[3]),
-            [this, item](W8ButtonWidget*) { AfterUiDispatch([this, item] { ActivateMenu(item); }); },
-            {}, false, 0, W8_DIALOG_BUTTON_NO_TOOLTIP, {}, {});
+        button->Configure(artwork.spriteSheet(),
+                          {frame(frames[4]), frame(frames[0]), frame(frames[2]), frame(frames[1]),
+                           frame(frames[3])},
+                          {.on_click =
+                               [this, item](W8ButtonWidget*) {
+                                   AfterUiDispatch([this, item] { ActivateMenu(item); });
+                               },
+                           .priority = UI_PRIORITY_LOWEST});
         const auto size = artwork.size(frames[0]);
         button->SetPosition(row.bounds.left, row.bounds.top);
         button->Resize(size.x, size.y);
@@ -1144,13 +1153,15 @@ void W8OptionsScreen::CreateControls()
         const int frame = arrows.imageOffset() + direction * 4;
         auto& button = m_navigation[direction];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
-        button->Configure(arrows.spriteSheet(), frame + 3, frame, frame + 1, frame + 2, -1,
-            [this, direction](W8ButtonWidget*) {
-                AfterUiDispatch([this, direction] {
-                    m_panel[m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
-                    UpdateNavigation();
-                });
-            }, {}, false, 0, W8_DIALOG_BUTTON_NO_TOOLTIP, {}, {});
+        button->Configure(arrows.spriteSheet(), {frame + 3, frame, frame + 1, frame + 2, -1},
+                          {.on_click =
+                               [this, direction](W8ButtonWidget*) {
+                                   AfterUiDispatch([this, direction] {
+                                       m_panel[m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
+                                       UpdateNavigation();
+                                   });
+                               },
+                           .priority = UI_PRIORITY_LOWEST});
         const auto size = arrows.size(direction * 4);
         button->Resize(size.x, size.y);
         button->policy.controller_activation = true;
@@ -1498,8 +1509,8 @@ W8ButtonWidget* W8OptionsPanel::AddButton(int x, int y, int artwork, int normal,
 {
     const auto art = CatalogArtwork::Load(artwork, 0);
     auto& button = m_buttons.emplace_back(std::make_unique<W8ButtonWidget>(m_input));
-    button->Configure(art.spriteSheet(), disabled, normal, hover, pressed, pressed_hover,
-                      std::move(callback), {}, false, 0, -1, {}, {});
+    button->Configure(art.spriteSheet(), {disabled, normal, hover, pressed, pressed_hover},
+                      {.on_click = std::move(callback), .priority = UI_PRIORITY_LOWEST});
     button->policy.controller_activation = true;
     button->SetPosition(m_bounds.x + x, m_bounds.y + y);
     const auto size = art.size(normal);

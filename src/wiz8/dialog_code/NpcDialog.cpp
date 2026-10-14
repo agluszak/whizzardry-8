@@ -103,12 +103,14 @@ int W8NpcDialog::CreateControls()
         for (index = 0; index < m_message->sub_entry_count; ++index) {
             line = m_message->sub_entries[index].text;
             m_buttons[index] = std::make_unique<W8ButtonWidget>(m_input);
-            m_buttons[index]->ConfigureTextButton(
-                line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_bounds.x + x),
-                static_cast<short>(m_bounds.y + 0x23), m_text_width, 0x14, [this, index](W8ButtonWidget*) {
-                    m_selected_option = index;
-                    m_keep_open = false;
-                }, index);
+            m_buttons[index]->ConfigureTextButton(line, g_wiz_text_mono_font, 4, 5,
+                                                  {static_cast<short>(m_bounds.x + x),
+                                                   static_cast<short>(m_bounds.y + 0x23),
+                                                   m_text_width, 0x14},
+                                                  {.on_click = [this, index](W8ButtonWidget*) {
+                                                      m_selected_option = index;
+                                                      m_keep_open = false;
+                                                  }});
             x += m_text_width + 10;
         }
         bounds.left = m_bounds.x + 10;
@@ -122,20 +124,23 @@ int W8NpcDialog::CreateControls()
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         short x = static_cast<short>((m_bounds.w - static_cast<short>((m_text_width + 5) * 2)) / 2);
         m_buttons[0] = std::make_unique<W8ButtonWidget>(m_input);
-        m_buttons[0]->ConfigureTextButton(
-            g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5, static_cast<short>(m_bounds.x + x),
-            static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14, [this](W8ButtonWidget*) {
-                m_selected_option = 0;
-                m_keep_open = false;
-            }, 0);
+        m_buttons[0]->ConfigureTextButton(g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5,
+                                          {static_cast<short>(m_bounds.x + x),
+                                           static_cast<short>(m_bounds.y + 0x1e), m_text_width,
+                                           0x14},
+                                          {.on_click = [this](W8ButtonWidget*) {
+                                              m_selected_option = 0;
+                                              m_keep_open = false;
+                                          }});
         m_buttons[1] = std::make_unique<W8ButtonWidget>(m_input);
         m_buttons[1]->ConfigureTextButton(g_localized_strings[0x7e0], g_wiz_text_mono_font, 4, 5,
-                                          static_cast<short>(m_bounds.x + x + m_text_width + 10),
-                                          static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14,
-                                          [this](W8ButtonWidget*) {
+                                          {static_cast<short>(m_bounds.x + x + m_text_width + 10),
+                                           static_cast<short>(m_bounds.y + 0x1e), m_text_width,
+                                           0x14},
+                                          {.on_click = [this](W8ButtonWidget*) {
                                               m_selected_option = 1;
                                               m_keep_open = false;
-                                          }, 1);
+                                          }});
         line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_scripting.price_check->price);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 10;

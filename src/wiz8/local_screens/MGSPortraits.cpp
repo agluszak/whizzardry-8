@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include <memory>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
@@ -1131,12 +1132,18 @@ void CreateLevelButtons()
     portrait_buttons = std::make_unique<PortraitButtons>();
     for (int slot = 0; slot < 8; ++slot) {
         auto& button = portrait_buttons->buttons[slot] = std::make_unique<W8ButtonWidget>(portrait_buttons->input);
-        button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), 3, 0, 1, 2, 4,
-            [slot](auto*) { AfterUiDispatch([slot] {
-                g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
-                g_pending_screen_state.mode = 2;
-                SetPendingScreenState(W8_SCREEN_CHARACTER);
-            }); }, {}, false, 0, 1984, {}, {});
+        button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), {3, 0, 1, 2, 4},
+                          {.on_click =
+                               [slot](auto*) {
+                                   AfterUiDispatch([slot] {
+                                       g_pending_screen_state.parameter_3 =
+                                           &g_status.buffers.Char[slot];
+                                       g_pending_screen_state.mode = 2;
+                                       SetPendingScreenState(W8_SCREEN_CHARACTER);
+                                   });
+                               },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = 1984});
         button->policy.controller_activation = true;
         button->SetPosition(((slot & 1) ? 0x23b : 0) + 0x19, (slot / 2) * 0x55 + 0x46);
         button->Resize(0x12, 0x12);

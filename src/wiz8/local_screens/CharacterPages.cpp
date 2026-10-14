@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include <string>
 #include <SDL3/SDL_rect.h>
 #include "wiz8/local_code/ButtonWidget.h"
@@ -79,10 +80,12 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
             UpdateButtons();
             MarkDirty();
         };
-        result->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 4,
-            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); }, {}, false, 0, -1,
-            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); }, {});
+        result->Configure(
+            CatalogArtwork::Load(0x10a, 0).spriteSheet(),
+            {frame + 3, frame, frame + 1, frame + 2, frame + 4},
+            {.on_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); },
+             .on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); },
+             .priority = UI_PRIORITY_LOWEST});
         result->policy.controller_activation = true;
         result->policy.repeat = true;
         result->SetPosition(x, m_y + 1);

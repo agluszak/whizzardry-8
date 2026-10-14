@@ -47,7 +47,6 @@ protected:
     virtual bool PopulateText();
 
 private:
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
     void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width, int height,

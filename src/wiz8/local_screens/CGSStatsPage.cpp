@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include <SDL3/SDL_rect.h>
 #include "wiz8/ui_layer.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -105,10 +106,13 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
 {
     const auto arrow = [this](int x, int frame, int help, int direction) {
         auto button = std::make_unique<W8ButtonWidget>(m_owner.input);
-        button->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 4,
-            [this, direction](auto*) { AfterUiDispatch([this, direction] { Step(direction); }); },
-            {}, false, 0, help, {}, {});
+        button->Configure(
+            CatalogArtwork::Load(0x10a, 0).spriteSheet(),
+            {frame + 3, frame, frame + 1, frame + 2, frame + 4},
+            {.on_click = [this, direction](
+                             auto*) { AfterUiDispatch([this, direction] { Step(direction); }); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = help});
         button->policy.controller_activation = true;
         button->SetPosition(x, m_y + 4);
         return button;

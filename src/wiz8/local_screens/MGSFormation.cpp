@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include <array>
 #include <memory>
 
@@ -250,9 +251,11 @@ static void CreateFormationPanel()
         const int frame = artwork.imageOffset() + (action == 1 ? 4 : 0);
         auto& button = formation->actions[action];
         button = std::make_unique<W8ButtonWidget>(formation->input);
-        button->Configure(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2,
-            [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
-            {}, false, 0, 1981 + action, {}, {});
+        button->Configure(
+            artwork.spriteSheet(), {frame + 3, frame, frame + 1, -1, frame + 2},
+            {.on_click = [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = 1981 + action});
         button->SetPosition(bounds[action].x, bounds[action].y);
         button->Resize(bounds[action].w, bounds[action].h);
         button->policy.controller_activation = true;

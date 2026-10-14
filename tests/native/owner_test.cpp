@@ -76,26 +76,6 @@
 
 
 namespace {
-std::vector<int>* scrollbar_position_sink = nullptr;
-void RecordScrollPosition(W8DialogScrollBar*, int position)
-{
-    if (scrollbar_position_sink) scrollbar_position_sink->push_back(position);
-}
-
-class ScrollPositionCapture {
-public:
-    explicit ScrollPositionCapture(std::vector<int>& positions)
-        : previous_(scrollbar_position_sink)
-    {
-        scrollbar_position_sink = &positions;
-    }
-
-    ~ScrollPositionCapture() { scrollbar_position_sink = previous_; }
-
-private:
-    std::vector<int>* previous_;
-};
-
 std::vector<int> screen_leaves;
 int screen_entries, screen_frames;
 unsigned char enter() { ++screen_entries; return 1; }
@@ -627,8 +607,7 @@ void generic_button_images()
     {
         UiLayer layer;
         W8ButtonWidget button(layer);
-        REQUIRE(button.ConfigureIcon("button.sti", 0, 1, UI_PRIORITY_NORMAL,
-                                      W8_DIALOG_BUTTON_NO_TOOLTIP));
+        REQUIRE(button.ConfigureIcon("button.sti", 0, 1, {.priority = UI_PRIORITY_NORMAL}));
         button.SetPosition(2, 3);
         SDL_FillSurfaceRect(&target, nullptr, 0);
         button.Draw(target);
@@ -671,11 +650,9 @@ void generic_button_images()
     UiLayer buttons;
     {
         auto dialog = std::make_unique<W8ButtonWidget>(buttons);
-        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, UI_PRIORITY_NORMAL,
-                                      W8_DIALOG_BUTTON_NO_TOOLTIP));
+        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, {.priority = UI_PRIORITY_NORMAL}));
         dialog->SetPosition(12, 13);
-        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, UI_PRIORITY_NORMAL,
-                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
+        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, {.priority = UI_PRIORITY_NORMAL}));
         REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
         REQUIRE(UiTargetAt({12, 13}) != nullptr);
         REQUIRE(LiveUiTargetCount() == widget_count + 1);
@@ -684,9 +661,10 @@ void generic_button_images()
     // A dialog's click callback can close it. The dispatcher must not read
     // the released dialog while completing the click (including its sound).
     auto closing_dialog = std::make_unique<W8ButtonWidget>(buttons);
-    REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
-        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); }, nullptr, false,
-        UI_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
+    REQUIRE(closing_dialog->Configure(
+        "button.sti", {0, 1, 2, 3, 4},
+        {.on_click = [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); },
+         .priority = UI_PRIORITY_NORMAL}));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
     {
@@ -1463,11 +1441,11 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     UiLayer layer;
     {
         W8ButtonWidget button(layer);
-        REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
-            [&](W8ButtonWidget* control) {
-                REQUIRE(control->GetUserData() == 42);
-                ++activations;
-            }, 42));
+        REQUIRE(button.ConfigureTextButton("button", font, 0, 0, {10, 10, 40, 20},
+                                           {.on_click = [&](W8ButtonWidget* control) {
+                                               REQUIRE(control == &button);
+                                               ++activations;
+                                           }}));
         button.SetTooltipIndex(0);
         button.SetTooltipEnabled(true);
         REQUIRE(UiTargetAt({15, 15}) != nullptr);
@@ -1528,8 +1506,9 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     }
 
     auto closing = std::make_unique<W8ButtonWidget>(layer);
-    closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
-        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); }, 0);
+    closing->ConfigureTextButton(
+        "close", font, 0, 0, {10, 10, 40, 20},
+        {.on_click = [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); }});
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
@@ -1556,12 +1535,11 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
     PushButtonSoundScheme(0, true);
     std::vector<int> positions;
-    ScrollPositionCapture position_capture(positions);
     {
         UiLayer input;
         W8DialogScrollBar bar(input);
         const W8DialogScrollBar::Resources resources{
-            "arrows.sti", "track.sti", 0, RecordScrollPosition};
+            "arrows.sti", "track.sti", 0, [&](int position) { positions.push_back(position); }};
         REQUIRE(bar.CreateControls(&resources));
         bar.SetLayout(100, 20, 20, 5, 10, 30);
         GetInputState().mouse.y = 400;
@@ -1689,8 +1667,8 @@ TEST_CASE("assert-button-self-destroy", "[.death]")
     UiLayer layer;
     Font font{};
     auto button = std::make_unique<W8ButtonWidget>(layer);
-    button->ConfigureTextButton(
-        "close", font, 0, 0, 10, 10, 40, 20, [&](W8ButtonWidget*) { button.reset(); }, 0);
+    button->ConfigureTextButton("close", font, 0, 0, {10, 10, 40, 20},
+                                {.on_click = [&](W8ButtonWidget*) { button.reset(); }});
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     FAIL("Destroying a button from its own callback did not abort");

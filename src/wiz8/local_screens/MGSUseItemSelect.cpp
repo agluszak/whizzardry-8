@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
 #include <SDL3/SDL_rect.h>
@@ -131,9 +132,11 @@ static void CreateUseItemSelectControls(void)
     const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
                                 int disabled, SDL_Rect bounds, int help, void (*action)()) {
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
-        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(), disabled, normal, hover,
-            pressed, pressed_hover, [action](auto*) { AfterUiDispatch(action); }, {}, false,
-            0, help, {}, {});
+        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
+                          {disabled, normal, hover, pressed, pressed_hover},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         button->policy.controller_activation = true;
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);

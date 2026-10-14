@@ -145,9 +145,11 @@ void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
-        result->Configure(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 2,
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+        result->Configure(CatalogArtwork::Load(0x106, 0).spriteSheet(),
+                          {frame + 3, frame, frame + 1, frame + 2, frame + 2},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         result->policy.controller_activation = true;
         result->SetPosition(x, 0x1c2);
         return result;

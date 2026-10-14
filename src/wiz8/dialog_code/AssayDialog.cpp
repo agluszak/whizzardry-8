@@ -41,13 +41,6 @@
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
 
-// GLOBAL: WIZ8 0x0064f908
-static W8DialogScrollBar::Resources g_assay_scroll_resources = {
-    "Data\\Main Interface\\main_scroll.sti",
-    "Data\\Dialogs\\popup_iteminfo.sti",
-    4,
-    W8AssayDialog::ScrollCallback,
-};
 // GLOBAL: WIZ8 0x0064f918
 static int g_assay_scroll_x_offset = 0x160;
 // GLOBAL: WIZ8 0x0064f91c
@@ -129,11 +122,18 @@ int W8AssayDialog::CreateControls()
         m_error = 7;
         return 7;
     }
-    if (m_scroll_bar.CreateControls(&g_assay_scroll_resources)) {
+    // GLOBAL: WIZ8 0x0064f908
+    const W8DialogScrollBar::Resources scroll_resources{
+        "Data\\Main Interface\\main_scroll.sti", "Data\\Dialogs\\popup_iteminfo.sti", 4,
+        [this](int first_visible_entry) {
+            m_text_area.SetFirstVisibleLine(first_visible_entry);
+            m_buttons[4].m_dirty = true;
+            m_text_area.m_dirty = true;
+        }};
+    if (m_scroll_bar.CreateControls(&scroll_resources)) {
         m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
                                m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
                                g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
-        m_scroll_bar.m_owner = this;
         if (!PopulateRequirements()) {
             m_error = 7;
             return 7;
@@ -621,34 +621,6 @@ void W8AssayDialog::ShowSecondaryTab()
     ShowTab(false);
 }
 
-// FUNCTION: WIZ8 0x005d9760
-void W8AssayDialog::PrimaryTabCallback(W8ButtonWidget* button)
-{
-    if (button != 0) {
-        static_cast<W8AssayDialog*>(button->m_owner)->ShowPrimaryTab();
-    }
-}
-
-// FUNCTION: WIZ8 0x005d9780
-void W8AssayDialog::SecondaryTabCallback(W8ButtonWidget* button)
-{
-    if (button != 0) {
-        static_cast<W8AssayDialog*>(button->m_owner)->ShowSecondaryTab();
-    }
-}
-
-// FUNCTION: WIZ8 0x005d97a0
-void W8AssayDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8AssayDialog* dialog;
-    if (scroll_bar != 0) {
-        dialog = static_cast<W8AssayDialog*>(scroll_bar->m_owner);
-        dialog->m_text_area.SetFirstVisibleLine(first_visible_entry);
-        dialog->m_buttons[4].m_dirty = true;
-        dialog->m_text_area.m_dirty = true;
-    }
-}
-
 // FUNCTION: WIZ8 0x005d8850
 bool W8AssayDialog::PopulateRequirements()
 {
@@ -658,77 +630,58 @@ bool W8AssayDialog::PopulateRequirements()
     int frame;
     int tooltip_index;
 
-
-    m_buttons[0].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, UI_PRIORITY_LOWEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[1].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, UI_PRIORITY_LOWEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[2].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2,
-                            PrimaryTabCallback, BUTTON_NO_CALLBACK, true, UI_PRIORITY_HIGHEST,
-                            0x115, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[3].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7,
-                            SecondaryTabCallback, BUTTON_NO_CALLBACK, true, UI_PRIORITY_HIGHEST,
-                            0x116, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[4].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, UI_PRIORITY_LOWEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[5].Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2,
-                            W8TriggerItemPickerDialog::CloseOwningDialog, BUTTON_NO_CALLBACK, false,
-                            UI_PRIORITY_HIGHEST, 0x12, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[6].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, UI_PRIORITY_HIGHEST,
-                                0x2ad);
-    m_buttons[7].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, UI_PRIORITY_HIGHEST,
-                                0x2a7);
-    m_buttons[8].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, UI_PRIORITY_HIGHEST,
-                                0x2b0);
-    m_buttons[9].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, UI_PRIORITY_HIGHEST,
-                                0x2ac);
-    m_buttons[10].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, UI_PRIORITY_HIGHEST,
-                                 0x2a6);
-    m_buttons[11].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
-                                 UI_PRIORITY_HIGHEST, 0x2a4);
+    m_buttons[0].Configure("Data\\Dialogs\\popup_iteminfo.sti", {BUTTON_NO_IMAGE, 1, 1, 1, 1},
+                           {.priority = UI_PRIORITY_LOWEST});
+    m_buttons[1].Configure("Data\\Dialogs\\popup_iteminfo.sti", {BUTTON_NO_IMAGE, 2, 2, 2, 2},
+                           {.priority = UI_PRIORITY_LOWEST});
+    m_buttons[2].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", {3, 0, 1, 4, 2},
+                           {.on_click = [this](W8ButtonWidget*) { ShowPrimaryTab(); },
+                            .toggles = true,
+                            .tooltip = 0x115});
+    m_buttons[3].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", {8, 5, 6, 9, 7},
+                           {.on_click = [this](W8ButtonWidget*) { ShowSecondaryTab(); },
+                            .toggles = true,
+                            .tooltip = 0x116});
+    m_buttons[4].Configure("Data\\Dialogs\\popup_iteminfo.sti", {BUTTON_NO_IMAGE, 3, 3, 3, 3},
+                           {.priority = UI_PRIORITY_LOWEST});
+    m_buttons[5].Configure(
+        "Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 0, 1, 2, 2},
+        {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x12});
+    m_buttons[6].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, {.tooltip = 0x2ad});
+    m_buttons[7].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, {.tooltip = 0x2a7});
+    m_buttons[8].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, {.tooltip = 0x2b0});
+    m_buttons[9].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, {.tooltip = 0x2ac});
+    m_buttons[10].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, {.tooltip = 0x2a6});
+    m_buttons[11].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xb, 10, {.tooltip = 0x2a4});
     m_buttons[12].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
-                                 UI_PRIORITY_HIGHEST, 0x2aa);
+                                {.tooltip = 0x2aa});
     m_buttons[13].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
-                                 UI_PRIORITY_HIGHEST, 0x2b1);
+                                {.tooltip = 0x2b1});
     m_buttons[14].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
-                                 UI_PRIORITY_HIGHEST, 0x2a8);
+                                {.tooltip = 0x2a8});
     m_buttons[15].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
-                                 UI_PRIORITY_HIGHEST, 0x2ae);
+                                {.tooltip = 0x2ae});
     m_buttons[16].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
-                                 UI_PRIORITY_HIGHEST, 0x2a9);
+                                {.tooltip = 0x2a9});
     m_buttons[17].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
-                                 UI_PRIORITY_HIGHEST, 0x2af);
+                                {.tooltip = 0x2af});
     m_buttons[18].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
-                                 UI_PRIORITY_HIGHEST, 0x2a5);
+                                {.tooltip = 0x2a5});
     m_buttons[19].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
-                                 UI_PRIORITY_HIGHEST, 0x2b2);
+                                {.tooltip = 0x2b2});
     m_buttons[20].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
-                                 UI_PRIORITY_HIGHEST, 0x2ab);
-    m_buttons[21].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, UI_PRIORITY_HIGHEST,
-                                 0x28a);
-    m_buttons[22].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, UI_PRIORITY_HIGHEST,
-                                 0x28c);
-    m_buttons[23].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, UI_PRIORITY_HIGHEST,
-                                 0x285);
-    m_buttons[24].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 7, 6, UI_PRIORITY_HIGHEST,
-                                 0x28e);
-    m_buttons[25].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 9, 8, UI_PRIORITY_HIGHEST,
-                                 0x284);
-    m_buttons[26].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xb, 10, UI_PRIORITY_HIGHEST,
-                                 0x28b);
-    m_buttons[27].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xd, 0xc, UI_PRIORITY_HIGHEST,
-                                 0x286);
-    m_buttons[28].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xf, 0xe, UI_PRIORITY_HIGHEST,
-                                 0x288);
-    m_buttons[29].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x11, 0x10, UI_PRIORITY_HIGHEST,
-                                 0x287);
-    m_buttons[30].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x13, 0x12, UI_PRIORITY_HIGHEST,
-                                 0x28d);
-    m_buttons[31].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x15, 0x14, UI_PRIORITY_HIGHEST,
-                                 0x289);
+                                {.tooltip = 0x2ab});
+    m_buttons[21].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, {.tooltip = 0x28a});
+    m_buttons[22].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, {.tooltip = 0x28c});
+    m_buttons[23].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, {.tooltip = 0x285});
+    m_buttons[24].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 7, 6, {.tooltip = 0x28e});
+    m_buttons[25].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 9, 8, {.tooltip = 0x284});
+    m_buttons[26].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xb, 10, {.tooltip = 0x28b});
+    m_buttons[27].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xd, 0xc, {.tooltip = 0x286});
+    m_buttons[28].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xf, 0xe, {.tooltip = 0x288});
+    m_buttons[29].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x11, 0x10, {.tooltip = 0x287});
+    m_buttons[30].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x13, 0x12, {.tooltip = 0x28d});
+    m_buttons[31].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x15, 0x14, {.tooltip = 0x289});
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
         if (us_index >= NUM_RPC_RACES) {
@@ -782,14 +735,13 @@ bool W8AssayDialog::PopulateRequirements()
             break;
         }
         m_buttons[button_index].ConfigureIcon("Data\\Dialogs\\icons_race.sti", frame + 1, frame,
-                                               UI_PRIORITY_HIGHEST, tooltip_index);
+                                              {.tooltip = tooltip_index});
         m_buttons[button_index].SetVisible(false);
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
         m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
                                       m_y + g_assay_button_offsets[index].y);
-        m_buttons[index].m_owner = this;
     }
     return true;
 }

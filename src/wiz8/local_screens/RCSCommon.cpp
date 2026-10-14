@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/button_interaction.h"
 #include <SDL3/SDL_mouse.h>
@@ -387,8 +388,10 @@ void CreateCampHeaderButtons()
     header_buttons = std::make_unique<CampHeaderButtons>();
     const auto button = [](int art, SDL_Rect bounds, int pressed_hover, int help, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(header_buttons->input);
-        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(), 3, 0, 1, 2, pressed_hover,
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(), {3, 0, 1, 2, pressed_hover},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         result->policy.controller_activation = true;
         result->SetPosition(bounds.x, bounds.y);
         result->Resize(bounds.w, bounds.h);
@@ -845,9 +848,12 @@ int CreateCampButtonPanel(void)
     const auto button = [](int artwork, int frame, int x, int help, bool page,
                            std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(camp_buttons->input);
-        result->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, page ? frame + 4 : frame + 2, page ? frame + 2 : frame + 4,
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+        result->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
+                          {frame + 3, frame, frame + 1, page ? frame + 4 : frame + 2,
+                           page ? frame + 2 : frame + 4},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         result->policy.controller_activation = true;
         result->policy.primary_toggle = ButtonToggle::Release;
         result->SetPosition(x, 0x1c2);

@@ -676,12 +676,17 @@ void W8PartySelectionController::Setup()
                 return UiResult::Handled;
             });
         auto& button = advance[row] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), 3, 0, 1, 2, 4,
-            [row](auto*) { AfterUiDispatch([row] {
-                g_pending_screen_state.parameter_3 = &g_status.buffers.Char[row + 2];
-                g_pending_screen_state.mode = 2;
-                SetPendingScreenState(W8_SCREEN_CHARACTER);
-            }); }, {}, false, 1, -1, {}, {});
+        button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), {3, 0, 1, 2, 4},
+                          {.on_click =
+                               [row](auto*) {
+                                   AfterUiDispatch([row] {
+                                       g_pending_screen_state.parameter_3 =
+                                           &g_status.buffers.Char[row + 2];
+                                       g_pending_screen_state.mode = 2;
+                                       SetPendingScreenState(W8_SCREEN_CHARACTER);
+                                   });
+                               },
+                           .priority = 1});
         button->policy.controller_activation = true;
         button->SetPosition((row & 1) ? 0x21d : 0x52, (row / 2) * 0x82 + 0x6c);
     }
@@ -707,10 +712,11 @@ void W8PartySelectionController::Setup()
         const int y = index < 4 ? 0x137 + index * 26 : 0x1b5;
         const auto art = CatalogArtwork::Load(index < 4 ? 0xfe : 0x106, 0);
         const auto size = art.size(normal);
-        button->ConfigureTextButton("", index == 1 ? g_wiz_text_font_secondary : g_wiz_text_bold_font,
-            0, -1, x, y, size.x, size.y, [this](auto* control) {
+        button->ConfigureTextButton(
+            "", index == 1 ? g_wiz_text_font_secondary : g_wiz_text_bold_font, 0, -1,
+            {x, y, size.x, size.y}, {.on_click = [this](auto* control) {
                 AfterUiDispatch([this, control] { OnPrimary(control); });
-            }, index);
+            }});
         button->SetImage(ButtonGraphics::Load(art.spriteSheet(), normal + 3, normal, normal + 1, normal + 2,
                                              index == 4 ? 28 : normal + 2));
         button->policy.controller_activation = true;
@@ -725,11 +731,14 @@ void W8PartySelectionController::Setup()
     m_reset_button->policy.primary_toggle = ButtonToggle::Release;
     for (int index = 0; index < 3; ++index) {
         auto& button = difficulty_buttons[index] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0xf1, 0).spriteSheet(), -1, 4, 5, 6, 7,
-            [this, index](auto*) {
-                difficulty = index;
-                for (int i = 0; i < 3; ++i) difficulty_buttons[i]->SetPressed(i == index);
-            }, {}, false, 0, -1, {}, {});
+        button->Configure(CatalogArtwork::Load(0xf1, 0).spriteSheet(), {-1, 4, 5, 6, 7},
+                          {.on_click =
+                               [this, index](auto*) {
+                                   difficulty = index;
+                                   for (int i = 0; i < 3; ++i)
+                                       difficulty_buttons[i]->SetPressed(i == index);
+                               },
+                           .priority = UI_PRIORITY_LOWEST});
         button->policy.controller_activation = true;
         button->policy.primary_toggle = ButtonToggle::StayLatched;
         button->SetPosition(0x1d7, 0x3b + index * 22);
@@ -738,8 +747,8 @@ void W8PartySelectionController::Setup()
     npc_toggle = std::make_unique<W8ButtonWidget>(input);
     ironman_toggle = std::make_unique<W8ButtonWidget>(input);
     for (auto* button : {npc_toggle.get(), ironman_toggle.get()}) {
-        button->Configure(CatalogArtwork::Load(0xf1, 0).spriteSheet(), -1, 2, 3, 0, 1,
-                          {}, {}, true, 0, -1, {}, {});
+        button->Configure(CatalogArtwork::Load(0xf1, 0).spriteSheet(), {-1, 2, 3, 0, 1},
+                          {.toggles = true, .priority = UI_PRIORITY_LOWEST});
         button->policy.controller_activation = true;
         button->policy.primary_toggle = ButtonToggle::Release;
         button->SetPosition(0x1d3, button == npc_toggle.get() ? 0x93 : 0xfe);

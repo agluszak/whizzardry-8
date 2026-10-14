@@ -32,15 +32,14 @@ public:
 
     unsigned int WrapMessage(std::string_view message);
 
-    friend void MessageDialogConfirmCallback(W8ButtonWidget* button);
-    friend void MessageDialogCancelCallback(W8ButtonWidget* button);
-
     /* Both are read and written on this object from outside the class by the
        Please Wait screen's frame handler, which is what puts them here. */
     bool accepted; /* cleared; a derived close passes it on */
     bool is_open;  /* set, and gates the close path */
 
 protected:
+    // FUNCTION: WIZ8 0x005d32c0 (confirm), 0x005d3370 (cancel)
+    void Close(bool accept);
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
     W8ButtonWidget m_message_button{InputLayer()};
     W8ButtonWidget m_confirm_button{InputLayer()};
@@ -51,5 +50,3 @@ protected:
     bool allow_cancel; /* changes Escape handling */
 };
 
-void MessageDialogConfirmCallback(W8ButtonWidget* button);
-void MessageDialogCancelCallback(W8ButtonWidget* button);

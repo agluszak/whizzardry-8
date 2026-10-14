@@ -805,9 +805,13 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     for (int i = 0; i < 4; ++i) {
         auto& button = buttons[i] = std::make_unique<W8ButtonWidget>(input);
         button->Configure(CatalogArtwork::Load(i == 3 ? 0x8e : 0x1b0, 0).spriteSheet(),
-            normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2,
-            [this](auto* control) { AfterUiDispatch([this, control] { OnPrimary(control); }); },
-            {}, false, 0, help[i], {}, {});
+                          {normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2},
+                          {.on_click =
+                               [this](auto* control) {
+                                   AfterUiDispatch([this, control] { OnPrimary(control); });
+                               },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help[i]});
         button->policy.controller_activation = true;
         button->SetPosition(positions[i].x, positions[i].y);
     }
@@ -1599,9 +1603,12 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     const int help[]{-1, 0x7ce, 0x7cf, 0x7cc, 0x7d0};
     for (int i = 0; i < 5; ++i) {
         auto& button = m_action_controls[i] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
-            normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2,
-            [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); }, {}, false, 0, help[i], {}, {});
+        button->Configure(
+            CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
+            {normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2},
+            {.on_click = [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = help[i]});
         button->policy.controller_activation = true;
         button->SetPosition(positions[i].x, positions[i].y);
     }
