@@ -1,14 +1,13 @@
 #pragma once
 
-#include <string_view>
-#include <string>
-#include <optional>
-
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/file_time.h"
 #include "compat/compiler.h"
+#include "wiz8/file_time.h"
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();

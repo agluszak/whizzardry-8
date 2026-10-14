@@ -1,24 +1,25 @@
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include <array>
 #include <string>
+
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #pragma once
 
-#include <string_view>
-#include <memory>
 #include <cstddef>
-#include "wiz8/ui_input.h"
-#include <vector>
 #include <cstdint>
+#include <memory>
+#include <string_view>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/local_code/RangeControl.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/learned_spells.h"
+#include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
-#include "input.h"
-#include "compat/compiler.h"
+#include "wiz8/ui_input.h"
 
 struct W8Character;
 struct W8CombatSlot;

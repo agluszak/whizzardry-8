@@ -1,15 +1,16 @@
 #include <SDL3/SDL_pixels.h>
-#include "wiz8/ui_input.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/cursor.h"
-#include "input.h"
-#include "wiz8/engine_code/Video2.h"
-#include "himage.h"
-#include "wiz8/application.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+
+#include "himage.h"
+#include "input.h"
+#include "wiz8/application.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/ui_input.h"
 
 /* Lifecycle record 12 is the exit screen selected by Main Menu's Exit row and
    its Escape/E/X shortcuts. Live query: 0x00591780 sits in the gap between

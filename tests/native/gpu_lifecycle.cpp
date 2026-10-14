@@ -1,13 +1,14 @@
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/catch_message.hpp>
+#include <cstdio>
+#include <memory>
+
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_video.h>
-#include <cstdio>
-#include <memory>
+#include <catch2/catch_message.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 namespace {
 struct VideoSession {

@@ -1,33 +1,33 @@
-#include <catch2/catch_test_macros.hpp>
-#include <SDL3_image/SDL_image.h>
-#include <SDL3/SDL_begin_code.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <iterator>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <ios>
-#include <vector>
-#include <cstdlib>
-#include <iterator>
-#include <memory>
-#include <utility>
+#include <SDL3_image/SDL_image.h>
+#include <catch2/catch_test_macros.hpp>
 
-#include "surrender_test_fixture.h"
 #include "compat/compiler.h"
 #include "surrender/srIO.h"
+#include "surrender_test_fixture.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
-#include "surrender/srImageIO.h"
 #include "image_helpers.h"
 #include "surrender/srARGB.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 

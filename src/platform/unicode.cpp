@@ -1,16 +1,18 @@
 #include "wiz8/unicode.h"
-#include "utf8/checked.h"
 
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <iterator>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+
 #include <utf8proc.h>
-#include <algorithm>
-#include <cstring>
-#include <stdexcept>
-#include <cstdint>
-#include <iterator>
+
+#include "utf8/checked.h"
 
 namespace wiz8::text {
 char32_t next(std::string_view text, std::size_t& offset)

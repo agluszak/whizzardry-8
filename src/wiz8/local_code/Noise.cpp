@@ -2,6 +2,10 @@
 
 #include <vector>
 
+#include "Navigator.h"
+#include "local_code/Factions.h"
+#include "random.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -11,10 +15,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
-#include "random.h"
-#include "Navigator.h"
-#include "local_code/Factions.h"
-#include "surrender/srMath.h"
 
 /* Retail Local Code\Noise.cpp. */
 

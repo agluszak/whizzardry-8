@@ -1,13 +1,14 @@
 #include "Font.h"
 #pragma once
 
-#include <SDL3/SDL_rect.h>
 #include <string_view>
 
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/engine_code/Video2.h"
+#include <SDL3/SDL_rect.h>
+
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/ui_input.h"
 
 /* Numeric split dialogs release the active field before forwarding button-up,

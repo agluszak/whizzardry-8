@@ -1,25 +1,27 @@
+#include <algorithm>
 #include <cstddef>
-#include <memory>
-#include <string>
-#include "wiz8/compat/native.h"
 #include <cstdint>
-#include <variant>
-#include <SDL3/SDL_mouse.h>
-#include "input.h"
-#include <SDL3/SDL_rect.h>
+#include <exception>
 #include <functional>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <variant>
 #include <vector>
-#include "wiz8/ui_layer.h"
-#include "wiz8/ui_input.h"
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+
+#include "input.h"
+#include "timer.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "timer.h"
-#include <algorithm>
-#include <exception>
-#include <stdexcept>
-#include <utility>
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"

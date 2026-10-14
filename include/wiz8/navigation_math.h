@@ -1,10 +1,11 @@
 #pragma once
 
+#include <array>
+#include <optional>
+
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
-#include <array>
-#include <optional>
 
 // A set neighbor bit is open; mask zero denotes an entirely open neighborhood.
 inline std::optional<glm::vec3> slideDirection(unsigned mask, const glm::vec3& delta)

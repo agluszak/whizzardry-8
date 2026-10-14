@@ -2,14 +2,14 @@
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
-#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
 
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/application.h"
+#include <SDL3/SDL_rect.h>
 
+#include "wiz8/application.h"
 #include "wiz8/dice.h"
+#include "wiz8/local_code/ControlsRect.h"
 
 template<class T> class srVector3T;
 

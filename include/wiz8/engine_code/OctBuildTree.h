@@ -1,15 +1,14 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
-#include <optional>
-
 #include <deque>
+#include <optional>
 #include <vector>
+
+#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-
 #include "wiz8/engine_code/OctPreTree.h"
-#include "compat/compiler.h"
 
 struct W8GDSurface;
 template<class T> class srVector3T;

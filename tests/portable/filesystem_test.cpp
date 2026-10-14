@@ -1,26 +1,27 @@
-#include <catch2/catch_test_macros.hpp>
-#include <ios>
-#include <wiz8/asset_paths.h>
-#include <SDL3/SDL_init.h>
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
-#include <cstdio>
-#include <fstream>
-#include <limits>
-#include <random>
-#include <stdexcept>
-#include <type_traits>
 #include <cstdint>
+#include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <random>
+#include <stdexcept>
 #include <string>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <catch2/catch_test_macros.hpp>
+#include <wiz8/asset_paths.h>
 
 #include "wiz8/filesystem.h"
 

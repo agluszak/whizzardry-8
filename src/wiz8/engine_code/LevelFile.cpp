@@ -1,4 +1,5 @@
-#include <fmt/format.h>
+#include "wiz8/engine_code/LevelFile.h"
+
 #include <climits>
 #include <cmath>
 #include <cstddef>
@@ -16,15 +17,16 @@
 #include <variant>
 #include <vector>
 
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/LevelFile.h"
-#include "wiz8/evidence/LevelFile_layout.inc"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/filesystem.h"
+#include <fmt/format.h>
+
 #include "materials.h"
+#include "wiz8/engine_code/OctMeshModel.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/evidence/LevelFile_layout.inc"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/local_screens/AutomapScreen.h"
 
 #define LEVELFILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\LevelFile.cpp"
 

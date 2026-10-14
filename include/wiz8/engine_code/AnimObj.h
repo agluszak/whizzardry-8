@@ -5,9 +5,9 @@
 #include <optional>
 #include <vector>
 
-#include "surrender/srMath.h"
-#include "surrender/srBoundingBox.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
 
 struct W8AniMesh;
 struct W8PathAI;

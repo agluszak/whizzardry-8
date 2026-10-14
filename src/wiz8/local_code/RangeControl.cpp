@@ -1,13 +1,16 @@
-#include <SDL3/SDL_rect.h>
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/cursor.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_surface.h>
+
 #include <algorithm>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
+#include "wiz8/button_interaction.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/ui_layer.h"
 
 W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
 {

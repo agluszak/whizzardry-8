@@ -2,8 +2,8 @@
 #pragma once
 
 #include "wiz8/layouts/targeting.h"
-#include "wiz8/monster_actions.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/monster_actions.h"
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;

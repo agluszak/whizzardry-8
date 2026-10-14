@@ -1,18 +1,18 @@
 #include "wiz8/level_specific_code/MtGigas1.h"
 
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/location_variables.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/xstatus.h"
-#include "surrender/srCamera.h"
-#include "soundman.h"
 #include "AnimRep.hpp"
 #include "layouts/world.h"
+#include "soundman.h"
+#include "surrender/srCamera.h"
 #include "surrender/srMath.h"
+#include "wiz8/engine_code/GDProp.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/location_variables.h"
+#include "wiz8/xstatus.h"
 
 struct W8ItemInstance;
 struct W8NpcState;

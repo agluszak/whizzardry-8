@@ -1,12 +1,25 @@
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/MonsterInfoDialog.h"
+
 #include <cstdint>
-#include <fmt/format.h>
-#include <string>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/MonsterInfoDialog.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "Font.h"
+#include "character_skills.h"
+#include "conditions.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "gameplay_modifiers.h"
+#include "layouts/character.h"
+#include "local_code/Factions.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -18,6 +31,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -27,21 +41,9 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "Font.h"
-#include "character_skills.h"
-#include "conditions.h"
-#include "dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "dialog_code/DialogScrollBar.h"
-#include "dialog_code/DialogTextArea.h"
-#include "gameplay_modifiers.h"
-#include "layouts/character.h"
-#include "local_code/Factions.h"
-#include "monster_actions.h"
-#include "surrender/srMath.h"
 
 // STRING: WIZ8 0x0064F6B0
 

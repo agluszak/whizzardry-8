@@ -3,10 +3,10 @@
 #include <iosfwd>
 #include <memory>
 
-#include "surrender/srColorSurface.h"
-#include "surrender/srTexture.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTypeRegistry.h"
 
 namespace wiz8 {

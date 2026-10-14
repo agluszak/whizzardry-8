@@ -1,8 +1,8 @@
 #pragma once
 
+#include "compat/compiler.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "compat/compiler.h"
 
 enum W8CameraRotationMode {
     W8_CAMERA_ROTATION_SELECTED_CHARACTER = 0,

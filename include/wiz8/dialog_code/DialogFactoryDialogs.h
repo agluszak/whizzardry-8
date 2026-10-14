@@ -1,23 +1,25 @@
 #include <deque>
+
 #include "Font.h"
 #pragma once
 
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_pixels.h>
-#include <vector>
 #include <array>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+
+#include "Types.h"
+#include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "input.h"
 #include "wiz8/text_input.h"
-#include "Types.h"
-#include "compat/compiler.h"
 
 struct W8WorldItem;
 struct W8ItemInstance;

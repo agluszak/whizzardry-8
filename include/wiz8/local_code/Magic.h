@@ -3,12 +3,12 @@
 
 #include <vector>
 
-#include "wiz8/character_skills.h"
-#include "wiz8/layouts/targeting.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/character.h"
-#include "surrender/srMath.h"
 #include "spell_ids.h"
+#include "surrender/srMath.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/targeting.h"
 
 struct W8ItemInstance;
 struct W8MonsterInfo;

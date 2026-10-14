@@ -1,43 +1,45 @@
-#include <fmt/format.h>
-#include <vector>
+#include "wiz8/local_code/Traps.h"
+
 #include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/Traps.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Levels.h"
-#include "input.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/utility.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/filesystem.h"
-#include "random.h"
+#include <fmt/format.h>
+
 #include "compat/native.h"
+#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
+#include "random.h"
 #include "surrender/srMath.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/string_database.h"
+#include "wiz8/utility.h"
 
 #define TRAPS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp"
 

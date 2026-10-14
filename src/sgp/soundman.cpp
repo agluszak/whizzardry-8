@@ -2,12 +2,6 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "soundman.h"
 
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_properties.h>
-#include <SDL3/SDL_stdinc.h>
-#include <SDL3_mixer/SDL_mixer.h>
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -19,6 +13,12 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3_mixer/SDL_mixer.h>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
 

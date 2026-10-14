@@ -1,34 +1,36 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <SDL3/SDL_log.h>
-#include <SDL3_image/SDL_image.h>
-#include <zlib.h>
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_stdinc.h>
-#include <SDL3/SDL_surface.h>
-#include <zconf.h>
+#include "himage.h"
+
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <limits>
 #include <memory>
 #include <optional>
-#include <string_view>
-#include <string>
-#include <vector>
-#include <utility>
-#include <array>
-#include <cstdint>
-#include <cstring>
-#include <stdexcept>
-#include <cstdlib>
-#include <exception>
 #include <span>
-#include <cstddef>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-#include "wiz8/filesystem.h"
-#include "himage.h"
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3_image/SDL_image.h>
+#include <zconf.h>
+#include <zlib.h>
+
 #include "imgfmt.h"
+#include "wiz8/filesystem.h"
 
 // Nonblack colors that pack to 0 are nudged to 1 so they stay opaque.
 constexpr std::uint32_t kBlackSubstitute = 0x0001;

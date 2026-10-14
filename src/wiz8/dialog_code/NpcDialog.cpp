@@ -1,30 +1,32 @@
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <memory>
+#include "wiz8/dialog_code/NpcDialog.h"
+
 #include <functional>
-#include <utility>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
+#include "Font.h"
+#include "input.h"
+#include "local_code/ControlsRect.h"
+#include "npc_script_file.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "input.h"
-#include "Font.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "local_code/ControlsRect.h"
-#include "npc_script_file.h"
 
 /* Dialog Code\NpcDialog.cpp. The NPC dialogue popup; see the header for the
    request-buffer layout. The option-list strings and the two price-check

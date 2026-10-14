@@ -1,8 +1,9 @@
 #pragma once
 
-#include <vector>
-#include "srIO.h"
 #include <unordered_map>
+#include <vector>
+
+#include "srIO.h"
 
 class srHuffman {
 public:

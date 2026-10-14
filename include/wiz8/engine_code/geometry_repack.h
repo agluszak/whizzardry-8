@@ -5,10 +5,11 @@
 #include <memory>
 #include <ranges>
 #include <span>
-#include <vector>
 #include <type_traits>
-#include "wiz8/engine_code/OctPreTree.h"
+#include <vector>
+
 #include "wiz8/engine_code/OctBuildPreTree.h"
+#include "wiz8/engine_code/OctPreTree.h"
 
 namespace geometryRepack {
 using CornerIndices = std::array<w8_ulong, 3>;

@@ -1,26 +1,26 @@
 
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/ui_input.h"
 
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/GameplayTime.h"
+#include "layouts/main_game_screen.h"
+#include "surrender/srMath.h"
 #include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_code/Search.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
-#include "layouts/main_game_screen.h"
-#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x0064C238
 char g_submenu_icons_path[] = "Data\\Main Interface\\icons_standard.sti";

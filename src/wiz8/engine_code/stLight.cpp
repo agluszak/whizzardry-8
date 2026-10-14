@@ -1,3 +1,5 @@
+#include "wiz8/engine_code/stLight.hpp"
+
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -5,24 +7,23 @@
 #include <vector>
 
 #include "compat/compiler.h"
+#include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/OctPreTree.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/World.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srMeshModel.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/filesystem.h"
-#include "compat/native.h"
+#include "wiz8/float_constants.h"
 
 /* The previous 00497af0-004adb20 range spanned eight units that carry their
    own assertion-backed intervals -

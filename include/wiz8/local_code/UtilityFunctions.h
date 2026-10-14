@@ -1,9 +1,10 @@
 #include <cstdint>
+
 #include "Font.h"
 #pragma once
 
-#include <string_view>
 #include <string>
+#include <string_view>
 
 struct W8MonsterManagerEntry;
 struct W8Character;

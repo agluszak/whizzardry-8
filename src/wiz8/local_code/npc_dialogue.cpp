@@ -1,10 +1,11 @@
-#include <fmt/format.h>
 #include <list>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include <fmt/format.h>
 
 #include "random.h"
 #include "wiz8/engine_code/Monster.h"

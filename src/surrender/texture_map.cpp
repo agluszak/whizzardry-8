@@ -1,12 +1,12 @@
-#include "surrender/stream_scope.h"
-#include <ostream>
 #include <memory>
+#include <ostream>
 #include <utility>
 
-#include "surrender/srTextureMap.h"
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srTexture.h"
+#include "surrender/srTextureMap.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x10060270
 srTextureMap::srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface)

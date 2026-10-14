@@ -1,7 +1,8 @@
 #pragma once
 
-#include "surrender/srMath.h"
 #include <cmath>
+
+#include "surrender/srMath.h"
 
 struct DirectionAngles {
     float yaw;

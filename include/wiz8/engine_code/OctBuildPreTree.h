@@ -1,23 +1,21 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 
-#include "wiz8/engine_code/mesh_links.h"
-
+#include <cstddef>
 #include <optional>
 #include <span>
-#include <vector>
-#include <cstddef>
-
 #include <unordered_map>
 #include <variant>
+#include <vector>
+
+#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/mesh_links.h"
 #include "wiz8/geometry.h"
-#include "compat/compiler.h"
-#include "surrender/srMath.h"
 
 struct W8LevelFileParticleSystem;
 struct W8LevelFileProp;

@@ -1,29 +1,36 @@
-#include <catch2/catch_test_macros.hpp>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cfenv>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_surface.h>
-#include <cfenv>
-#include <algorithm>
-#include <array>
-#include <limits>
-#include <cstdio>
-#include <cstring>
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <iterator>
-#include <memory>
-#include <string>
-#include <utility>
+#include <catch2/catch_test_macros.hpp>
 
 #include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srARGB.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srFog.h"
 #include "surrender/srHuffman.h"
 #include "surrender/srLight.h"
@@ -31,21 +38,15 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srModeler.h"
-#include "surrender/srQuadWord.h"
-#include "surrender/srScene.h"
-#include "surrender/srTextureFile.h"
-#include "surrender/srTextureMap.h"
-#include "wiz8/sr_api.h"
-#include "compat/compiler.h"
-#include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_float4.hpp"
-#include "surrender/srARGB.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
+#include "surrender/srQuadWord.h"
+#include "surrender/srScene.h"
+#include "surrender/srTextureFile.h"
 #include "surrender/srTextureIFace.h"
+#include "surrender/srTextureMap.h"
+#include "wiz8/sr_api.h"
 
 class srModel;
 

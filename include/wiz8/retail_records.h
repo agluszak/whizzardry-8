@@ -1,14 +1,15 @@
 #pragma once
 
-#include "wiz8/layouts/character.h"
-#include <cstdint>
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
+
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/item_tables.h"
 
 namespace wiz8::retail {
 // Format-defined storage only. Text fields are bytes so odd UTF-16 offsets

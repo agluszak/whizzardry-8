@@ -1,18 +1,20 @@
+#include "wiz8/surface2d.h"
+
 #include <memory>
+
 #include <glm/ext/vector_float3.hpp>
 
-#include "wiz8/surface2d.h"
 #include "compat/compiler.h"
-#include "surrender/srGERD.h"
-#include "surrender/srNode.h"
-#include "surrender/srTexture.h"
-#include "surrender/srTypeRegistry.h"
-#include "wiz8/float_constants.h"
 #include "surrender/srFlags.h"
+#include "surrender/srGERD.h"
 #include "surrender/srMath.h"
+#include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/float_constants.h"
 
 stTexture2D::stTexture2D()
     : srClassSupport<stTexture2D, srTexture, 0x1000f>(), left(0), top(0), right(128), bottom(128),

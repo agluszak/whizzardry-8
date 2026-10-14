@@ -1,12 +1,11 @@
 #pragma once
 
-#include "wiz8/audio_resources.h"
-
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "surrender/srMath.h"
+#include "wiz8/audio_resources.h"
 
 /* Engine Code\SoundEvent.cpp. The unit's assertion-backed interval starts at
    the factory below. */

@@ -1,11 +1,10 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/layouts/world.h"
-
 #include <functional>
 #include <string_view>
+
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/world.h"
 
 class srNode;
 class stParticle;

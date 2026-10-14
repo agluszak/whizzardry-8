@@ -1,13 +1,13 @@
 #include "wiz8/level_specific_code/SeaCaves.h"
 
-#include "wiz8/engine_code/World.h"
+#include "monster_cycles.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "surrender/srMath.h"
-#include "monster_cycles.h"
 
 struct W8NpcState;
 

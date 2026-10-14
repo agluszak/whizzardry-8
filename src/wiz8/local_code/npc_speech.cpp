@@ -1,15 +1,16 @@
+#include "wiz8/npc_speech.h"
+
 #include <cstdint>
 #include <functional>
 #include <string_view>
 #include <utility>
 
+#include "compat/native.h"
 #include "soundman.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/mouth_gap.h"
-#include "wiz8/npc_speech.h"
 #include "wiz8/unicode.h"
-#include "compat/native.h"
 
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)
 {

@@ -1,30 +1,31 @@
-#include <catch2/catch_test_macros.hpp>
-#include <ios>
-#include <wiz8/filesystem.h>
-#include <wiz8/asset_paths.h>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstdio>
-#include <cstring>
-#include <fstream>
-#include <limits>
-#include <memory>
-#include <vector>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <iterator>
+#include <limits>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "surrender/srImageIO.h"
-#include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/slf.h"
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
+#include <catch2/catch_test_macros.hpp>
+#include <wiz8/asset_paths.h>
+#include <wiz8/filesystem.h>
+
 #include "../temporary_directory.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srImageIO.h"
+#include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/slf.h"
+#include "wiz8/sr_api.h"
 
 using Bytes = std::vector<unsigned char>;
 namespace fs = std::filesystem;

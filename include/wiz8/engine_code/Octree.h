@@ -2,26 +2,24 @@
 #include <string>
 #pragma once
 
-#include "wiz8/engine_code/mesh_links.h"
 #include <memory>
-
-#include "wiz8/ground_probe.h"
-#include "wiz8/octree_walk.h"
-#include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_int3.hpp"
-#include "surrender/srBoundingBox.h"
-
-#include <vector>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
-#include "surrender/srMath.h"
-#include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/geometry.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/OctPreTree.h"
+#include "wiz8/engine_code/mesh_links.h"
+#include "wiz8/geometry.h"
+#include "wiz8/ground_probe.h"
+#include "wiz8/octree_walk.h"
 
 struct OctreeCellCoordinates {
     glm::ivec3 cell;

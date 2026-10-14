@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+
 #include "input.h"
 #include "wiz8/ui_layer.h"
 

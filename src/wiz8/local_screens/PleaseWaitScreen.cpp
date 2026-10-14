@@ -1,38 +1,40 @@
-#include <memory>
-#include <fmt/format.h>
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_log.h>
+#include "wiz8/local_screens/PleaseWaitScreen.h"
+
 #include <exception>
-#include <string>
+#include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/PleaseWaitScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_log.h>
+#include <fmt/format.h>
+
 #include "Font.h"
-#include "wiz8/filesystem.h"
-#include "soundman.h"
-#include "wiz8/local_code/NPCManager.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
+#include "soundman.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/music_playlist.h"
+#include "wiz8/sr_api.h"
 
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the
    tail from the screen-state record it was entered with; the frame handler reads

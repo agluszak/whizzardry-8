@@ -1,13 +1,14 @@
 #pragma once
 
-#include "wiz8/retail_records.h"
-#include "wiz8/unicode.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/chunk.h"
 #include <cstring>
-#include <stdexcept>
 #include <limits>
 #include <memory>
+#include <stdexcept>
+
+#include "wiz8/chunk.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/retail_records.h"
+#include "wiz8/unicode.h"
 
 namespace wiz8::retail {
 enum class Encoding { utf8, utf16 };

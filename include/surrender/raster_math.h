@@ -1,10 +1,12 @@
 #pragma once
 
-#include "glm/common.hpp"
-#include "glm/ext/vector_int2.hpp"
-#include <SDL3/SDL_rect.h>
 #include <algorithm>
 #include <optional>
+
+#include <SDL3/SDL_rect.h>
+
+#include "glm/common.hpp"
+#include "glm/ext/vector_int2.hpp"
 
 // Axis-aligned lines include their first pixel and exclude their last endpoint.
 inline std::optional<SDL_Rect> axisLineRectangle(int fixed, int begin, int end, bool vertical,

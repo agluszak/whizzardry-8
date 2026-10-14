@@ -4,12 +4,11 @@
 void InitializeItemVideoObjects(void);
 void ReleaseGenericItemNames(void);
 
-#include "wiz8/npc_trade_price.h"
 #include "wiz8/character_skills.h"
-
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/npc_trade_price.h"
 
 struct W8ItemDatabaseRecord;
 struct W8NpcState;

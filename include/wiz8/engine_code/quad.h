@@ -3,8 +3,8 @@
 #include <memory>
 #include <vector>
 
-#include "surrender/srMath.h"
 #include "glm/ext/vector_float2.hpp"
+#include "surrender/srMath.h"
 
 class srModelInstance;
 

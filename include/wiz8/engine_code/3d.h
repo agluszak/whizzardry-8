@@ -2,12 +2,12 @@
 
 struct srBoundingBox;
 
-#include <memory>
 #include <array>
+#include <memory>
 #include <span>
-#include "glm/ext/vector_float3.hpp"
 
 #include "compat/native.h"
+#include "glm/ext/vector_float3.hpp"
 
 class W8Monster;
 class W8Prop;

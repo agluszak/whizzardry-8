@@ -1,14 +1,17 @@
 #include "wiz8/local_code/TextBuffer.h"
+
+#include <cstring>
+#include <string>
+#include <string_view>
+
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
 #include "image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
-#include <cstring>
-#include <string>
-#include <string_view>
 
 // GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;

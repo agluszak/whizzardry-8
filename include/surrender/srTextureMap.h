@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+
 #include "srTexture.h"
 
 // VTABLE: SURRENDER 0x100775BC

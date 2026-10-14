@@ -1,9 +1,10 @@
 #pragma once
 
-#include <SDL3/SDL.h>
 #include <memory>
 #include <stdexcept>
 #include <string>
+
+#include <SDL3/SDL.h>
 
 // Ownership and checked transfers only. Scalar byte order belongs to SDL.
 namespace srIO {

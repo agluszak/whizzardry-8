@@ -1,7 +1,7 @@
 #pragma once
 
-#include <memory>
 #include <cstdint>
+#include <memory>
 
 /* Reads g_environment_lighting_mode: 2 while the day/night cycle
    runs, 1 while a lighting transition is in progress, 0 once a transition has
@@ -12,8 +12,8 @@ unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 
 #include <vector>
 
-#include "surrender/srVertexProcessor.h"
 #include "compat/compiler.h"
+#include "surrender/srVertexProcessor.h"
 
 class stTextureAnim;
 class W8Prop;

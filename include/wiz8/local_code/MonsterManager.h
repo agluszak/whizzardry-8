@@ -1,17 +1,15 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
-#include <source_location>
-
-#include "wiz8/audio_resources.h"
-
-#include <string>
 #include <cstdint>
-#include <optional>
 #include <memory>
+#include <optional>
+#include <source_location>
+#include <string>
 
 #include "conditions.h"
 #include "layouts/targeting.h"
+#include "wiz8/audio_resources.h"
 
 class W8Monster;
 struct W8MonsterGroup;
@@ -21,15 +19,15 @@ struct W8MonsterRecord;
 #include <unordered_map>
 #include <vector>
 
-#include "wiz8/monster_actions.h"
-#include "wiz8/sight_state.h"
 #include "surrender/srMath.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/gameplay_modifiers.h"
-#include "wiz8/mouth_gap.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
+#include "wiz8/gameplay_modifiers.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/monster_actions.h"
+#include "wiz8/mouth_gap.h"
+#include "wiz8/sight_state.h"
 
 struct W8CharacterEvent;
 

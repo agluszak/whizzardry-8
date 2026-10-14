@@ -1,6 +1,5 @@
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/ButtonAppearance.h"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -10,10 +9,13 @@
 #include <string_view>
 #include <utility>
 
-#include "wiz8/dialog_code/ButtonAppearance.h"
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
-#include "image.h"
 #include "himage.h"
+#include "image.h"
 #include "image_assets.h"
 #include "sprite.h"
 

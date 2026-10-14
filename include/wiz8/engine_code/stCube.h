@@ -1,7 +1,7 @@
 #pragma once
 
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
+#include "surrender/srMath.h"
 
 struct W8World;
 class srNode;

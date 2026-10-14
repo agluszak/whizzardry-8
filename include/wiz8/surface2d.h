@@ -3,10 +3,10 @@
 #include <memory>
 #include <vector>
 
-#include "surrender/srNode.h"
-#include "surrender/srTexture.h"
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srNode.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTypeRegistry.h"
 
 class srGERD;

@@ -1,22 +1,21 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
 #include <memory>
 #include <optional>
-#include "glm/ext/vector_float3.hpp"
 #include <vector>
 
-#include "wiz8/engine_code/particle_modes.h"
-#include "surrender/srMaterialIFace.h"
-#include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "surrender/srMaterialIFace.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/particle_modes.h"
 
 class W8MonsterShakeCallback;
 class srGERD;

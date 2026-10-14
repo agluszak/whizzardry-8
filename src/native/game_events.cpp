@@ -1,8 +1,9 @@
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_video.h>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_video.h>
 
 #include "input.h"
 #include "wiz8/application.h"

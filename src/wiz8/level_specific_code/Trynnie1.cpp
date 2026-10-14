@@ -1,10 +1,14 @@
+#include "wiz8/level_specific_code/Trynnie1.h"
+
 #include <vector>
 
+#include "conditions.h"
+#include "layouts/gameplay_databases.h"
 #include "random.h"
-#include "wiz8/level_specific_code/Trynnie1.h"
+#include "soundman.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/location_variables.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
@@ -13,14 +17,11 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
-#include "soundman.h"
-#include "conditions.h"
-#include "layouts/gameplay_databases.h"
-#include "surrender/srMath.h"
 
 class Trigger;
 

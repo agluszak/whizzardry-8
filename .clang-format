@@ -23,7 +23,6 @@ AccessModifierOffset: -4
 PointerAlignment: Left
 DerivePointerAlignment: false
 NamespaceIndentation: None
-SortIncludes: Never
 # Avoid reshuffling unrelated lines when a declaration or comment changes.
 AlignConsecutiveAssignments: None
 AlignConsecutiveDeclarations: None
@@ -36,3 +35,12 @@ AllowShortLoopsOnASingleLine: false
 SpaceAfterTemplateKeyword: false
 BreakTemplateDeclarations: Leave
 FixNamespaceComments: false
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<[a-z0-9_]+>$'
+    Priority: 1
+  - Regex: '^<'
+    Priority: 2
+  - Regex: '^"'
+    Priority: 3

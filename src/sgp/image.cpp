@@ -1,16 +1,17 @@
 #include "image.h"
 
-#include <SDL3/SDL_blendmode.h>
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <span>
 #include <stdexcept>
 #include <vector>
+
+#include <SDL3/SDL_blendmode.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "himage.h"
 #include "shading.h"

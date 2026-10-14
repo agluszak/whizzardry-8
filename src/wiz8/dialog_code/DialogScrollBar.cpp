@@ -1,15 +1,17 @@
-#include <SDL3/SDL_surface.h>
-#include "wiz8/engine_code/Video2.h"
-#include <SDL3/SDL_rect.h>
+#include "wiz8/dialog_code/DialogScrollBar.h"
+
 #include <algorithm>
 
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/button_interaction.h"
-#include "wiz8/dialog_code/DialogScrollBar.h"
-#include "wiz8/ui_input.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Video2.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_input.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper

@@ -1,19 +1,19 @@
 #include <algorithm>
-#include <ostream>
 #include <cstddef>
+#include <ostream>
 #include <span>
 #include <utility>
 
-#include "glm/geometric.hpp"
-#include "surrender/srFog.h"
-#include "surrender/channel_math.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srDebug.h"
-#include "surrender/srVertexPipe.h"
 #include "compat/compiler.h"
+#include "glm/geometric.hpp"
+#include "surrender/channel_math.h"
+#include "surrender/srDebug.h"
+#include "surrender/srFog.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x1004C0E0
 void srFog::setDensity(float density)

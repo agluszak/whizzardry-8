@@ -1,14 +1,14 @@
 #pragma once
 
-#include <fenv.h>
 #include <cmath>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_access.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include <span>
 #include <type_traits>
+
+#include <fenv.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 /* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
 inline w8_long srFloatToInt(double value)

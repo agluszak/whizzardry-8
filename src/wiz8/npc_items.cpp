@@ -1,26 +1,27 @@
+#include "wiz8/npc_items.h"
+
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <utility>
 #include <vector>
-#include <algorithm>
-#include <cmath>
 
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/npc_items.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "random.h"
-#include "soundman.h"
 #include "character_skills.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
+#include "random.h"
+#include "soundman.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
 #include "xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */

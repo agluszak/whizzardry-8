@@ -1,25 +1,26 @@
-#include <optional>
-#include <iterator>
-#include <memory>
-#include <utility>
-#include <vector>
+#include "wiz8/engine_code/AnimObj.h"
+
 #include <cstddef>
 #include <exception>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
 
 #include "glm/ext/matrix_float3x3.hpp"
-#include "wiz8/filesystem.h"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/compat/debug_heap.h"
-#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-#include "glm/ext/vector_float3.hpp"
-#include "surrender/srBoundingBox.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 

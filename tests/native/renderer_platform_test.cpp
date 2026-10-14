@@ -1,16 +1,17 @@
-#include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstdio>
 #include <string_view>
 #include <thread>
-#include "glm/ext/vector_float3.hpp"
 
+#include <catch2/catch_test_macros.hpp>
+
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingSphere.h"
 #include "surrender/srClock.h"
 #include "surrender/srCore.h"
-#include "surrender/srDD_SDLGPU.h"
 #include "surrender/srDD.h"
+#include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
-#include "surrender/srBoundingSphere.h"
 
 TEST_CASE("renderer platform")
 {

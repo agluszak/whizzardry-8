@@ -1,41 +1,41 @@
-#include "wiz8/ui_input.h"
+#include "wiz8/local_screens/MGSFormation.h"
+
 #include <array>
-#include <memory>
-
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_surface.h>
-
-#include "sprite.h"
-#include "wiz8/surface_storage.h"
-#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
-#include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/button_interaction.h"
-#include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/cursor.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/xstatus.h"
-#include "timer.h"
-#include "wiz8/local_screens/MGSTextBox.h"
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "local_code/ControlsRect.h"
+#include "sprite.h"
 #include "surrender/srMath.h"
+#include "timer.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSRadarMap.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/surface_storage.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 /* On-board (left, top) of each of the fifteen cell markers,
    relative to the board anchor. */

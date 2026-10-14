@@ -1,11 +1,10 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
-#include "glm/ext/vector_float3.hpp"
-
 #include <memory>
 #include <vector>
+
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srMeshModel.h"

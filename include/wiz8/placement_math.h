@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <optional>
+
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/float_constants.h"

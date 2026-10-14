@@ -1,30 +1,36 @@
-#include "glm/geometric.hpp"
-#include "glm/vector_relational.hpp"
-#include <fmt/format.h>
+#include "wiz8/engine_code/OctPreTree.h"
+
 #include <algorithm>
-#include <ranges>
-#include <span>
-#include <cstdlib>
-#include <vector>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <ranges>
+#include <span>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
+#include <fmt/format.h>
+
+#include "ReadMesh.h"
 #include "compat/compiler.h"
+#include "geometry.h"
+#include "glm/common.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "glm/common.hpp"
-#include "wiz8/octree_walk.h"
-#include "surrender/srMath.h"
-#include "surrender/srBoundingBox.h"
+#include "glm/geometric.hpp"
+#include "glm/vector_relational.hpp"
+#include "index_algorithms.h"
+#include "navigation_flags.h"
+#include "packed_bits.h"
 #include "surrender/mesh_math.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/OctPreTree.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GameData.h"
@@ -35,14 +41,10 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/materials.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/filesystem.h"
-#include "ReadMesh.h"
-#include "geometry.h"
-#include "glm/ext/vector_float4.hpp"
-#include "index_algorithms.h"
-#include "navigation_flags.h"
-#include "packed_bits.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/octree_walk.h"
+#include "wiz8/sr_api.h"
 
 #define OCTPRETREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPreTree.cpp"
 

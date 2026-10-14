@@ -4,11 +4,11 @@
 #include <cstring>
 #include <exception>
 
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"
-#include "wiz8/filesystem.h"
 #include "surrender/srTextureIFace.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/sr_api.h"
 
 /* Engine Code\Quality.cpp allocates one 0x34-byte process-wide record.  Its
    leading fields are still unnamed, but the allocation, clear and reviewed

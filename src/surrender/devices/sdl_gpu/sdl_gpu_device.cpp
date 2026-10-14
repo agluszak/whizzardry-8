@@ -1,4 +1,11 @@
-#include <glm/gtc/type_ptr.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <map>
+#include <span>
+#include <utility>
+#include <vector>
+
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_log.h>
@@ -7,32 +14,26 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
-#include <map>
-#include <span>
-#include <vector>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <utility>
+#include <glm/gtc/type_ptr.hpp>
 
-#include "glm/matrix.hpp"
+#include "compat/compiler.h"
+#include "glm/common.hpp"
+#include "glm/ext/vector_float1.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/ext/vector_int4.hpp"
-#include "glm/ext/vector_float1.hpp"
 #include "glm/ext/vector_int2.hpp"
-#include "glm/common.hpp"
+#include "glm/ext/vector_int4.hpp"
+#include "glm/fwd.hpp"
+#include "glm/matrix.hpp"
 #include "glm/vector_relational.hpp"
-#include "surrender/srDD_SDLGPU.h"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"
-#include "compat/compiler.h"
 #include "surrender/srDD.h"
+#include "surrender/srDD_SDLGPU.h"
 #include "surrender/srFlags.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
-#include "glm/fwd.hpp"
 
 /* SurRender drives a device the way it drove OpenGL 1.x: state setters,
    client-side vertex arrays and immediate draws, interleaved with clears and

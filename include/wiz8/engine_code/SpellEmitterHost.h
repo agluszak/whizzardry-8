@@ -1,10 +1,11 @@
 #ifndef WIZ8_ENGINE_CODE_SPELL_EMITTER_HOST_H
 #define WIZ8_ENGINE_CODE_SPELL_EMITTER_HOST_H
 
+#include <algorithm>
+#include <vector>
+
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/emitter_resources.h"
-#include <vector>
-#include <algorithm>
 
 struct W8ReadLevelInfo;
 class stLight;

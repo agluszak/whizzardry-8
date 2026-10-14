@@ -1,8 +1,5 @@
 #pragma once
 
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -11,6 +8,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
 
 #include "wiz8/file_time.h"
 

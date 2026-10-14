@@ -1,15 +1,17 @@
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/DialogTextArea.h"
+
 #include <memory>
 #include <optional>
 #include <string_view>
 #include <utility>
 
-#include "wiz8/unicode.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/dialog_code/DialogTextArea.h"
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
 #include "dialog_code/DialogTextEntry.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/unicode.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005D14D0/0x005D1640 sit in the gap between DialogInterface.cpp

@@ -1,18 +1,19 @@
-#include <string_view>
-#include <array>
+#include "wiz8/chunk.h"
+
 #include <algorithm>
-#include <limits>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <vector>
 
-#include "wiz8/sr_api.h"
-#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/sr_api.h"
 
 #define CHUNK_CPP "C:\\Projects\\Wizardry 8\\Local Code\\chunk.cpp"
 

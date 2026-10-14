@@ -1,31 +1,33 @@
-#include "wiz8/local_code/ControlsRect.h"
-#include <SDL3/SDL_pixels.h>
-#include "Types.h"
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_surface.h>
-#include <string>
+#include "wiz8/text_input.h"
+
 #include <algorithm>
-#include <memory>
 #include <cstddef>
 #include <iterator>
+#include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 
-#include "utf8/checked.h"
-#include "wiz8/unicode.h"
-#include "wiz8/cursor.h"
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
-#include "input.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/fonts.h"
-#include "wiz8/text_input.h"
-#include "wiz8/local_screens/Screens.h"
+#include "Types.h"
+#include "compat/native.h"
 #include "himage.h"
 #include "image.h"
-#include "compat/native.h"
+#include "input.h"
+#include "utf8/checked.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/unicode.h"
 
 /*
  * Wizardry's product fork of Sir-Tech's released Utils/Text_Input.c.

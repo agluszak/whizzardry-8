@@ -1,8 +1,8 @@
 #pragma once
 
-#include "wiz8/layouts/game_status.h"
-#include "surrender/srClock.h"
 #include "compat/compiler.h"
+#include "surrender/srClock.h"
+#include "wiz8/layouts/game_status.h"
 
 namespace wiz8 {
 class File;

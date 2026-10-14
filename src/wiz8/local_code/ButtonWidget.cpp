@@ -1,25 +1,26 @@
-#include <functional>
-#include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
+
+#include <algorithm>
+#include <functional>
+#include <memory>
+#include <string_view>
+#include <utility>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "Font.h"
+#include "Types.h"
 #include "image_assets.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/ui_input.h"
-#include "Types.h"
-
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
-#include <algorithm>
-#include <memory>
-#include <string_view>
-#include <utility>
+#include "wiz8/ui_layer.h"
 
 // FUNCTION: WIZ8 0x005db4e0
 void W8ButtonWidget::Draw(SDL_Surface& target)

@@ -1,8 +1,5 @@
-#include "wiz8/layouts/world.h"
-#include <cstddef>
-#include "wiz8/engine_code/emitter_resources.h"
 #include <array>
-#include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
@@ -10,40 +7,44 @@
 #include <utility>
 #include <vector>
 
+#include <catch2/catch_test_macros.hpp>
+
 #include "GrCycle.h"
 #include "SpellVisual.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "local_code/NPCScripting.h"
+#include "scoped_asset_roots.h"
+#include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
+#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
-#include "surrender/srClock.h"
+#include "temporary_directory.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/emitter_cycles.h"
+#include "wiz8/engine_code/emitter_resources.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/character_event_queue.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/world.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/emitter_cycles.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
-#include "local_code/NPCScripting.h"
-#include "surrender/srPixelConvert.h"
+#include "wiz8/xstatus.h"
 
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern std::unique_ptr<srColorSurface> g_automap_surface;

@@ -1,14 +1,14 @@
 #ifndef WIZ8_ENGINE_CODE_GDPROP_H
 #define WIZ8_ENGINE_CODE_GDPROP_H
 
-#include <vector>
 #include <span>
+#include <vector>
+
+#include "compat/compiler.h"
 #include "glm/ext/vector_int2.hpp"
 #include "surrender/srBoundingBox.h"
-
-#include "wiz8/engine_code/OctPath.h"
-#include "compat/compiler.h"
 #include "surrender/srMath.h"
+#include "wiz8/engine_code/OctPath.h"
 
 class srModelInstance;
 class Trigger;

@@ -1,15 +1,14 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
-#include "glm/ext/vector_float3.hpp"
-
-#include "srMath.h"
-#include <vector>
-#include <span>
 #include <optional>
+#include <span>
+#include <vector>
+
 #include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "srMath.h"
 
 class srTriangleCuller {
 public:

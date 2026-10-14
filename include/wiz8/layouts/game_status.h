@@ -3,16 +3,15 @@
 
 #include <string>
 
-#include "wiz8/difficulty.h"
+#include <stddef.h>
 
+#include "wiz8/difficulty.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/world.h"
-
-#include <stddef.h>
 
 struct W8PartySlotRow;
 

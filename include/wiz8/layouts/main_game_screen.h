@@ -1,10 +1,10 @@
-#include "Font.h"
 #include <string>
 #include <vector>
+
+#include "Font.h"
 #pragma once
 
 #include "wiz8/camera_motion.h"
-
 #include "wiz8/geometry.h"
 #include "wiz8/layouts/targeting.h"
 

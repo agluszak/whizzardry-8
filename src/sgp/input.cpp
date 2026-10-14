@@ -1,13 +1,8 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09,
    2026-10-11. Distributed under the accompanying SFI Source Code license agreement. */
 
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_keyboard.h>
-#include <SDL3/SDL_keycode.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_scancode.h>
-#include <SDL3/SDL_video.h>
+#include "input.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -15,7 +10,14 @@
 #include <deque>
 #include <string_view>
 
-#include "input.h"
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_video.h>
+
 #include "wiz8/compat/native.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/unicode.h"

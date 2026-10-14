@@ -4,18 +4,18 @@
 #include <cstddef>
 #include <ostream>
 
-#include "surrender/srMaterial.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srCore.h"
-#include "surrender/srDebug.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
+#include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 #include "surrender/srFlags.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
+#include "surrender/stream_scope.h"
 
 /* Comma-separated operation names srMaterial::dump walks while printing the operations bits; never
    assigned. */

@@ -5,21 +5,24 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
-#include <wiz8/filesystem.h>
-#include <SDL3/SDL_surface.h>
 
-#include "native/movie_audio.h"
-#include "surrender/srGERD.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/surface2d.h"
+#include <SDL3/SDL_surface.h>
+#include <wiz8/filesystem.h>
+
 #include "compat/native.h"
+#include "native/movie_audio.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srFlags.h"
+#include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/surface2d.h"
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
 #include <libavcodec/packet.h>
+#include <libavformat/avformat.h>
 #include <libavformat/avio.h>
 #include <libavutil/avutil.h>
 #include <libavutil/channel_layout.h>
@@ -29,20 +32,17 @@ extern "C" {
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 #include <libavutil/samplefmt.h>
-
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 }
 #include <algorithm>
-#include <deque>
-#include <limits>
-#include <stdexcept>
-#include <string>
 #include <cerrno>
 #include <cstdio>
+#include <deque>
+#include <limits>
 #include <new>
+#include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace {

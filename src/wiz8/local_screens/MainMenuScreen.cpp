@@ -1,40 +1,42 @@
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
-#include <string_view>
-#include <string>
+#include "wiz8/local_screens/MainMenuScreen.h"
+
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <string>
+#include <string_view>
 
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/cursor.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/fonts.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/utility.h"
-#include "wiz8/version.h"
-#include "input.h"
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
 #include "himage.h"
 #include "image.h"
+#include "input.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/music_playlist.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/utility.h"
+#include "wiz8/version.h"
+#include "wiz8/xstatus.h"
 
 /* The screen's own state. */
 // GLOBAL: WIZ8 0x0069c4ba

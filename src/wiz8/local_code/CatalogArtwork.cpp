@@ -1,4 +1,3 @@
-#include <SDL3/SDL_surface.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -8,15 +7,17 @@
 #include <string_view>
 #include <utility>
 #include <variant>
-#include "himage.h"
+
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/catalog_artwork.h"
-#include "image_assets.h"
+#include "himage.h"
 #include "image.h"
+#include "image_assets.h"
 #include "sprite.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/engine_code/Video2.h"
 
 // A catalog object names a run of entries; its image offset selects the first sprite frame.
 struct CatalogSlot {

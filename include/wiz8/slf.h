@@ -1,7 +1,8 @@
 #pragma once
 
-#include "wiz8/file_time.h"
 #include <cstdint>
+
+#include "wiz8/file_time.h"
 
 namespace wiz8 {
 // Retail SLF records, including the format's padding bytes.

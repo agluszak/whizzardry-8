@@ -1,40 +1,41 @@
-#include <catch2/catch_test_macros.hpp>
-#include <wiz8/filesystem.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
+#include <catch2/catch_test_macros.hpp>
+#include <wiz8/filesystem.h>
 /* Real SLF/STI -> immutable sprites and SDL surfaces -> stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 
-#include <wiz8/asset_paths.h>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <vector>
-#include <cstdint>
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <system_error>
+#include <vector>
 
+#include <wiz8/asset_paths.h>
+
+#include "../../src/native/movie.h"
 #include "compat/video.h"
+#include "image_assets.h"
 #include "input.h"
+#include "sprite.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTriMeshPipeline.h"
+#include "temporary_directory.h"
 #include "wiz8/bink_video.h"
-#include "../../src/native/movie.h"
+#include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
-#include "wiz8/cursor.h"
-#include "image_assets.h"
-#include "sprite.h"
-#include "temporary_directory.h"
-#include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srFlags.h"
 
 class srScene;
 

@@ -1,26 +1,26 @@
-#include <span>
-#include <vector>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <span>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/LevelFile.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/sr_api.h"
 #include "geometry.h"
 #include "index_algorithms.h"
 #include "navigation_flags.h"
 #include "packed_bits.h"
 #include "surrender/srMath.h"
+#include "wiz8/engine_code/GDProp.h"
+#include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/sr_api.h"
 
 #define OCTPREPATH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPrePath.cpp"
 

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "surrender/srColorSurface.h"
-
-#include <SDL3/SDL.h>
 #include <algorithm>
 #include <memory>
+
+#include <SDL3/SDL.h>
+
+#include "surrender/srColorSurface.h"
 
 namespace srImage {
 using Surface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;

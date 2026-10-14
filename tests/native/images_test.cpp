@@ -1,37 +1,38 @@
-#include <SDL3/SDL_rect.h>
-#include <cstdint>
-#include <catch2/catch_test_macros.hpp>
-#include <ios>
-#include <wiz8/filesystem.h>
-#include <SDL3_image/SDL_image.h>
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_surface.h>
-#include <zlib.h>
-#include <zconf.h>
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <memory>
 #include <optional>
 #include <string>
-#include <vector>
-#include <cstddef>
-#include <exception>
 #include <utility>
 #include <variant>
+#include <vector>
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3_image/SDL_image.h>
+#include <catch2/catch_test_macros.hpp>
+#include <wiz8/filesystem.h>
+#include <zconf.h>
+#include <zlib.h>
 
 #include "himage.h"
 #include "image.h"
 #include "image_assets.h"
 #include "imgfmt.h"
+#include "scoped_asset_roots.h"
 #include "sprite.h"
+#include "temporary_directory.h"
 #include "wiz8/slf.h"
 #include "wiz8/surface_storage.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
 
 static std::vector<std::uint16_t> sprite_pixels(const SpriteFrame& frame)
 {

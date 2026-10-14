@@ -1,20 +1,18 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
-#include "glm/ext/vector_float3.hpp"
-
 #include <array>
 #include <iosfwd>
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "srFlags.h"
 #include "srMaterial.h"
 #include "srMath.h"
 #include "srModel.h"
-#include <memory>
 #include "srShader.h"
 #include "srTexture.h"
 #include "srTypeRegistry.h"

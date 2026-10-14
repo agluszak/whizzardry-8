@@ -1,10 +1,10 @@
 #pragma once
 
-#include "srARGB.h"
-#include "srTypeRegistry.h"
-
 #include <memory>
 #include <vector>
+
+#include "srARGB.h"
+#include "srTypeRegistry.h"
 
 class srColorSurfaceIFace;
 

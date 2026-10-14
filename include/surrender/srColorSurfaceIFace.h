@@ -1,8 +1,8 @@
 #pragma once
 
-#include <SDL3/SDL_rect.h>
-
 #include <memory>
+
+#include <SDL3/SDL_rect.h>
 
 #include "srARGB.h"
 #include "srFilter.h"

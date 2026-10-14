@@ -21,6 +21,7 @@ enum {
 };
 
 #include <array>
+
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"

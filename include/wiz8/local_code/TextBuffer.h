@@ -1,10 +1,11 @@
 #pragma once
 
-#include <SDL3/SDL_surface.h>
 #include <string>
 #include <string_view>
-#include "Font.h"
 
+#include <SDL3/SDL_surface.h>
+
+#include "Font.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 extern char g_W8TextSeparator[];

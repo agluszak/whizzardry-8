@@ -1,26 +1,26 @@
-#include "surrender/model_view_scope.h"
-#include <ostream>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
-#include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
-#include "surrender/srModelInstance.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srCore.h"
-#include "surrender/srDebug.h"
-#include "surrender/srGERD.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "surrender/model_view_scope.h"
+#include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 #include "surrender/srFlags.h"
+#include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x1004F920
 srModelInstance::srModelInstance(srNode* parent, Ownership ownership)

@@ -1,14 +1,12 @@
 #pragma once
 
-#include "wiz8/local_code/Factions.h"
-
-#include "wiz8/layouts/gameplay_databases.h"
-
-#include "wiz8/monster_spell_icons.h"
-#include "wiz8/conditions.h"
 #include "surrender/srMath.h"
+#include "wiz8/conditions.h"
 #include "wiz8/dice.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/monster_spell_icons.h"
 
 struct W8CombatSlot;
 struct W8MonsterInfo;

@@ -1,35 +1,36 @@
-#include "glm/ext/vector_int3.hpp"
-#include <stdexcept>
 #include <array>
-#include <vector>
-#include <span>
-#include "surrender/triangle_selection.h"
-#include "compat/compiler.h"
-#include "glm/ext/vector_double3.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_transform.hpp>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <numbers>
 #include <random>
+#include <span>
+#include <stdexcept>
 #include <type_traits>
-#include <cstdlib>
+#include <vector>
 
+#include <catch2/catch_test_macros.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/mat3x3.hpp> // IWYU pragma: keep - public generic-matrix entry point.
+
+#include "compat/compiler.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
-#include <glm/mat3x3.hpp> // IWYU pragma: keep - public generic-matrix entry point.
-#include "surrender/srClipPlane.h"
 #include "surrender/srCamera.h"
+#include "surrender/srClipPlane.h"
 #include "surrender/srCore.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
 #include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srVertexPipe.h"
-#include "surrender/srNode.h"
-#include "glm/fwd.hpp"
+#include "surrender/triangle_selection.h"
 
 template<class T>
 constexpr bool noncopyable = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>;

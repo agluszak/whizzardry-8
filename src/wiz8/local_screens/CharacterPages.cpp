@@ -1,24 +1,25 @@
-#include "wiz8/ui_input.h"
-#include <string>
-#include <SDL3/SDL_rect.h>
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/ui_layer.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <string_view>
 #include <cstring>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_code/ControlsRect.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "input.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 struct W8CharacterCreationState;
 

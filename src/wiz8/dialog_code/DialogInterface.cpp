@@ -1,10 +1,11 @@
-#include "Font.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+
 #include <string_view>
 
-#include "wiz8/dialog_code/CharacterSummaryDialog.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "Font.h"
 #include "dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/CharacterSummaryDialog.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
 
 // GLOBAL: WIZ8 0x0064fde8
 Font* g_dialog_interface_font = nullptr;

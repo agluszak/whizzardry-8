@@ -1,18 +1,15 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
-#include <source_location>
-
-#include <string>
 #include <cstddef>
+#include <source_location>
+#include <span>
+#include <string>
+#include <vector>
 
 #include "surrender/srMath.h"
-
-#include <vector>
-#include <span>
-
-#include "wiz8/monster_actions.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/monster_actions.h"
 
 struct W8MonsterRecord;
 struct W8MonsterGroup;

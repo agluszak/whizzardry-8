@@ -1,15 +1,15 @@
-#include "surrender/triangle_projection.h"
 #include <array>
 #include <cstddef>
 #include <limits>
-#include <stdexcept>
-#include <span>
 #include <optional>
+#include <span>
+#include <stdexcept>
 #include <vector>
 
-#include "surrender/srTriangulator.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "surrender/srTriangulator.h"
+#include "surrender/triangle_projection.h"
 
 // FUNCTION: SURRENDER 0x1003bea0
 srTriangulator::srTriangulator(std::span<const glm::vec2> points) : remaining(0), points(points)

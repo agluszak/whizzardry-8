@@ -1,22 +1,23 @@
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
 #include <algorithm>
-#include <string_view>
-#include <vector>
 #include <cctype>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
-#include "wiz8/unicode.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
 #include "input.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/unicode.h"
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
    unit (lines 131 and 213); the two button callbacks are proven by their

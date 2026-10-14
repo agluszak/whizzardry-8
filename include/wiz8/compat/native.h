@@ -19,8 +19,8 @@
 #endif
 #include <sys/stat.h>
 #ifdef _WIN32
-#include <io.h>
 #include <direct.h>
+#include <io.h>
 #endif
 #ifdef __cplusplus
 #include <cmath>

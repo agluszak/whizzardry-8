@@ -1,10 +1,10 @@
 #pragma once
 
-#include "glm/ext/vector_float3.hpp"
-
-#include "srMath.h"
-#include <span>
 #include <array>
+#include <span>
+
+#include "glm/ext/vector_float3.hpp"
+#include "srMath.h"
 
 struct srBoundingBox {
     glm::vec3 minimum{0};

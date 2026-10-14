@@ -1,24 +1,25 @@
 #include "compat/video.h"
 
-#include <SDL3/SDL_rect.h>
-#include <wiz8/asset_paths.h>
-#include <wiz8/filesystem.h>
-#include <SDL3/SDL_cpuinfo.h>
-#include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <climits>
-#include <filesystem>
-#include <sstream>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <system_error>
 
+#include <SDL3/SDL_cpuinfo.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
+#include <wiz8/asset_paths.h>
+#include <wiz8/filesystem.h>
+
+#include "compat/native.h"
 #include "input.h"
 #include "surrender/srDD_SDLGPU.h"
-#include "compat/native.h"
 
 SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
 {

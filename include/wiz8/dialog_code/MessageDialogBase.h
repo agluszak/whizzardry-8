@@ -1,13 +1,13 @@
 #pragma once
 
-#include <vector>
 #include <string>
 #include <string_view>
+#include <vector>
 
-#include "wiz8/dialog_code/DialogBase.h"
-#include "input.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 // VTABLE: WIZ8 0x005ef8b0
 class W8MessageDialogBase : public W8DialogBase {

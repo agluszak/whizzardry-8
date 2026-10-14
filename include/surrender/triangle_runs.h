@@ -1,12 +1,13 @@
 #pragma once
 
-#include "compat/compiler.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <span>
 #include <numeric>
+#include <span>
 #include <vector>
+
+#include "compat/compiler.h"
 
 struct srTriangleRun {
     std::size_t first;

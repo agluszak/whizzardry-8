@@ -1,10 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <ranges>
+
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
-#include <ranges>
-#include <algorithm>
 #include "surrender/srMath.h"
 
 namespace srPlaneMath {

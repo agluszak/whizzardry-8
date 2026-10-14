@@ -1,37 +1,38 @@
-#include "surrender/srBoundingBox.h"
-#include "surrender/segment_math.h"
-#include <memory>
-#include <vector>
+#include "wiz8/engine_code/Navigator.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <exception>
+#include <memory>
+#include <vector>
 
-#include "glm/geometric.hpp"
-#include "wiz8/containers.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/float_constants.h"
-#include "surrender/srNode.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/utility.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/PolyPick.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/geometric.hpp"
+#include "surrender/segment_math.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srNode.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 // STRING: WIZ8 0x006081fc
 // GLOBAL: WIZ8 0x005ec2f8

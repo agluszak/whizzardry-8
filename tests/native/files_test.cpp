@@ -1,40 +1,41 @@
-#include <catch2/catch_test_macros.hpp>
+#include <algorithm>
 #include <csignal>
-#include <ios>
-#include <wiz8/asset_paths.h>
-#include <wiz8/filesystem.h>
-#include <wiz8/file_time.h>
-#include <SDL3/SDL_stdinc.h>
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_iostream.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
-#include <memory>
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <cstdint>
-#include <exception>
+#include <ios>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
+
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
+#include <catch2/catch_test_macros.hpp>
+#include <wiz8/asset_paths.h>
+#include <wiz8/file_time.h>
+#include <wiz8/filesystem.h>
 
 /* Asset, SLF and save contracts through native production streams. */
-#include "wiz8/slf.h"
-#include "surrender/srSystem.h"
-#include "surrender/srIO.h"
-#include "wiz8/chunk.h"
-#include "temporary_directory.h"
 #include "scoped_asset_roots.h"
+#include "surrender/srIO.h"
+#include "surrender/srSystem.h"
+#include "temporary_directory.h"
+#include "wiz8/chunk.h"
+#include "wiz8/slf.h"
 
 #if defined(__unix__) || defined(__APPLE__)
-#include <sys/resource.h>
 #include <signal.h> // NOLINT(modernize-deprecated-headers) - POSIX SIGXFSZ.
+#include <sys/resource.h>
 #endif
 
 namespace fs = std::filesystem;

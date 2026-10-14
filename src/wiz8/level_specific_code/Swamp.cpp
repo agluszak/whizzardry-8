@@ -1,13 +1,21 @@
+#include "wiz8/level_specific_code/Swamp.h"
+
 #include <vector>
 
-#include "wiz8/spell_ids.h"
-#include "wiz8/level_specific_code/Swamp.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "Item.h"
+#include "Navigator.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/item_instance.h"
+#include "layouts/world.h"
+#include "monster_actions.h"
+#include "surrender/srCamera.h"
+#include "surrender/srMath.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/item_spawning.h"
@@ -19,14 +27,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "surrender/srCamera.h"
-#include "Item.h"
-#include "Navigator.h"
-#include "glm/ext/vector_float3.hpp"
-#include "layouts/item_instance.h"
-#include "layouts/world.h"
-#include "monster_actions.h"
-#include "surrender/srMath.h"
+#include "wiz8/spell_ids.h"
 
 struct W8NpcState;
 

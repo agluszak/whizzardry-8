@@ -1,8 +1,9 @@
 #pragma once
 
+#include <memory>
+
 #include "srBoundingBox.h"
 #include "srBoundingSphere.h"
-#include <memory>
 #include "srTypeRegistry.h"
 
 class srGERD;

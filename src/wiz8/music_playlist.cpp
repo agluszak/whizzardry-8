@@ -1,21 +1,23 @@
-#include <fmt/format.h>
+#include "wiz8/music_playlist.h"
+
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
-#include "wiz8/xstatus.h"
-#include "wiz8/engine_code/stScript.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/ui_input.h"
-#include "random.h"
-#include "soundman.h"
+#include <fmt/format.h>
+
+#include "audio_resources.h"
 #include "compat/native.h"
 #include "local_screens/Screens.h"
-#include "audio_resources.h"
+#include "random.h"
+#include "soundman.h"
+#include "wiz8/engine_code/stScript.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

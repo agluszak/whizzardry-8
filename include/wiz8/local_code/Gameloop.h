@@ -1,8 +1,8 @@
 #ifndef WIZ8_LOCAL_CODE_GAMELOOP_H
 #define WIZ8_LOCAL_CODE_GAMELOOP_H
 
-#include <vector>
 #include <cstddef>
+#include <vector>
 
 #include "wiz8/layouts/screen_state.h"
 

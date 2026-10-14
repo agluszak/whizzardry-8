@@ -1,18 +1,19 @@
-#include <catch2/catch_test_macros.hpp>
-#include <SDL3/SDL_init.h>
-#include <SDL3/SDL_stdinc.h>
 #include <array>
 #include <filesystem>
-#include <stdexcept>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
-#include "wiz8/application.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/asset_paths.h"
-#include "temporary_directory.h"
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <catch2/catch_test_macros.hpp>
+
 #include "scoped_asset_roots.h"
+#include "temporary_directory.h"
+#include "wiz8/application.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/ui_input.h"
 
 static void CheckStopped()

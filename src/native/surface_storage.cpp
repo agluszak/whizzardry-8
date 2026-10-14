@@ -1,16 +1,16 @@
 #include "wiz8/surface_storage.h"
 
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_blendmode.h>
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <vector>
+
+#include <SDL3/SDL_blendmode.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 namespace {
 void require_sdl(bool result)

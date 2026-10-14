@@ -1,15 +1,16 @@
+#include <climits>
 #include <cstddef>
-#include <wiz8/native_audio.h>
-#include <wiz8/filesystem.h>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <stdexcept>
+
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3_mixer/SDL_mixer.h>
-#include <climits>
-#include <stdexcept>
-#include <cstdint>
-#include <exception>
-#include <memory>
+#include <wiz8/filesystem.h>
+#include <wiz8/native_audio.h>
 
 #include "native/audio_test.h"
 #include "native/movie_audio.h"

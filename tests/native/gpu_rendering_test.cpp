@@ -1,12 +1,14 @@
+#include <array>
+#include <memory>
+
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <catch2/catch_test_macros.hpp>
-#include <array>
-#include <memory>
+
 #include "glm/ext/matrix_float4x4.hpp"
-#include "surrender/srFlags.h"
 #include "surrender/srDD.h"
 #include "surrender/srDD_SDLGPU.h"
+#include "surrender/srFlags.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 

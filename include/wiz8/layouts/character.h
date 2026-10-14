@@ -3,15 +3,15 @@
 
 #include <string>
 
+#include "surrender/srMath.h"
 #include "wiz8/attack_modes.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
-#include "wiz8/load_category.h"
-#include "surrender/srMath.h"
 #include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/load_category.h"
 
 /* One enchantment slot. Both a character and a monster carry eight of them,
    and both clear a slot by zeroing all three dwords at once. */

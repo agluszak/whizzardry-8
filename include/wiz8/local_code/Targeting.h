@@ -2,8 +2,8 @@
 
 #include <vector>
 
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/targeting.h"
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;

@@ -1,11 +1,10 @@
 #pragma once
 
-#include "Font.h"
-
 #include <string_view>
 
-#include "wiz8/local_code/TextBuffer.h"
+#include "Font.h"
 #include "compat/compiler.h"
+#include "wiz8/local_code/TextBuffer.h"
 
 struct W8ControlsRect;
 

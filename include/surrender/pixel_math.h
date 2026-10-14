@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "glm/ext/vector_uint4.hpp"
 
 namespace srPixels {

@@ -4,13 +4,13 @@
 
 struct srBoundingBox;
 
-#include <vector>
 #include <memory>
+#include <vector>
 
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "surrender/srMath.h"
 
 class srNode;
 struct W8PathAI;

@@ -1,23 +1,23 @@
-#include "surrender/plane_math.h"
-#include <stdexcept>
 #include <algorithm>
-#include <cmath>
-#include <ranges>
-#include <vector>
-#include "surrender/triangle_selection.h"
 #include <cassert>
+#include <cmath>
 #include <cstddef>
+#include <ranges>
 #include <span>
+#include <stdexcept>
+#include <vector>
 
-#include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
-#include "surrender/srTriangleCuller.h"
-#include "surrender/srClip.h"
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "surrender/plane_math.h"
+#include "surrender/srClip.h"
+#include "surrender/srMath.h"
+#include "surrender/srTriangleCuller.h"
+#include "surrender/triangle_selection.h"
 
 // FUNCTION: SURRENDER 0x10029740
 glm::vec4 srTriangleCuller::transformClipPlane(const glm::vec4& plane,

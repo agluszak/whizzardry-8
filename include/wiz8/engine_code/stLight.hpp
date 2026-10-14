@@ -2,14 +2,14 @@
 
 #include <vector>
 
-#include "surrender/srLight.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/layouts/world.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srLight.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/layouts/world.h"
+#include "wiz8/sr_api.h"
 
 class W8Prop;
 struct W8PathAI;

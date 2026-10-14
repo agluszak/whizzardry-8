@@ -1,33 +1,35 @@
-#include <fmt/format.h>
-#include <fmt/printf.h>
+#include "wiz8/local_code/GroupAttacks.h"
+
 #include <string>
 #include <vector>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/GroupAttacks.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterAI.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-#include "random.h"
-#include "wiz8/engine_code/PolyPick.h"
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
 #include "conditions.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
+#include "random.h"
 #include "sight_state.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/MonsterAI.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
 
 template<class T> class srVector3T;
 

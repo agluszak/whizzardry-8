@@ -1,29 +1,30 @@
 #include "Font.h"
 #pragma once
 
-#include <vector>
 #include <memory>
 #include <optional>
-#include <string_view>
 #include <string>
+#include <string_view>
+#include <vector>
 
 void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
 void HideNpcQuoteBubbleRegion();
 
+#include <array>
+#include <functional>
+
 #include "input.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
-#include "wiz8/message_box.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/message_box.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
-#include <array>
-#include <functional>
 #include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/PortraitQuote.h"
 
 namespace wiz8 {
 class File;

@@ -1,39 +1,41 @@
-#include <utility>
-#include <optional>
-#include <cstdint>
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <vector>
+#include "wiz8/engine_code/AmbientSound.h"
+
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
 
-#include "wiz8/audio_resources.h"
-#include "surrender/srMath.h"
-#include "wiz8/containers.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/virtual_file.h"
-#include "wiz8/filesystem.h"
-#include "random.h"
-#include "soundman.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/PolyPick.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "compat/native.h"
 #include "game_timer.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
+#include "random.h"
+#include "soundman.h"
+#include "surrender/srMath.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/engine_code/Quality.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/virtual_file.h"
+#include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x005ec5a8
 const float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;

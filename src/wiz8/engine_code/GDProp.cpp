@@ -1,41 +1,42 @@
-#include "glm/ext/vector_int3.hpp"
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
 #include <algorithm>
-#include "wiz8/surface_geometry.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <span>
 
-#include "surrender/srMath.h"
-#include "surrender/srBoundingBox.h"
-#include "wiz8/containers.h"
-#include "wiz8/local_code/ItemManager.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "navigation_flags.h"
 #include "sr_api.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/containers.h"
+#include "wiz8/local_code/ItemManager.h"
+#include "wiz8/surface_geometry.h"
 /* Engine Code\GDProp.cpp */
 
+#include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/world.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "surrender/srModelInstance.h"
 
 // GLOBAL: WIZ8 0x005ebccc
 const float g_float_three_quarters = 0.75f;

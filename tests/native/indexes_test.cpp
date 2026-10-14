@@ -1,14 +1,15 @@
-#include "glm/ext/vector_int3.hpp"
-#include <catch2/catch_test_macros.hpp>
 #include <unordered_map>
 #include <vector>
 
-#include "wiz8/index_algorithms.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Octree.h"
+#include <catch2/catch_test_macros.hpp>
+
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/srGERD.h"
 #include "surrender/srHuffman.h"
 #include "surrender/srShader.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/index_algorithms.h"
 
 static bool candidateOrdering()
 {

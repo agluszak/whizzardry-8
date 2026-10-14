@@ -1,17 +1,18 @@
-#include <string>
 #include <memory>
+#include <string>
 #ifndef WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 #define WIZ8_LOCAL_CODE_SPELL_EFFECT_H
+
+#include <algorithm>
+#include <vector>
+
+#include <stddef.h>
+#include <string.h>
 
 #include "wiz8/attack_modes.h"
 #include "wiz8/dice.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/targeting.h"
-#include <vector>
-#include <algorithm>
-
-#include <stddef.h>
-#include <string.h>
 
 class W8SpellVisual;
 class W8Missile;

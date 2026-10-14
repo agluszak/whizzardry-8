@@ -1,7 +1,8 @@
-#include <fmt/format.h>
+#include "wiz8/version.h"
+
 #include <string>
 
-#include "wiz8/version.h"
+#include <fmt/format.h>
 
 /* Version-banner formatting. Live query: 0x004E3620 is a gap between
    Local Code\Gameloop.cpp (upper 0x004E34B0) and Local Code\MonsterManager.cpp

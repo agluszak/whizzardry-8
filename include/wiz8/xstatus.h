@@ -1,17 +1,17 @@
 #ifndef WIZ8_XSTATUS_H
 #define WIZ8_XSTATUS_H
 
-#include <utility>
 #include <memory>
-
+#include <utility>
 #include <vector>
 struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct W8WorldItem;
 
+#include <algorithm>
+
 #include <stddef.h>
 
-#include <algorithm>
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/party_formation.h"

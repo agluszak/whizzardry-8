@@ -1,9 +1,10 @@
 #pragma once
 
 #include <array>
-#include <memory>
 #include <cstddef>
+#include <memory>
 #include <vector>
+
 #include "wiz8/engine_code/AnimObj.h"
 
 class stLight;

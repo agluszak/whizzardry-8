@@ -2,10 +2,10 @@
 #pragma once
 
 #include <cstddef>
-#include <vector>
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "input.h"
 #include "wiz8/ui_input.h"

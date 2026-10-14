@@ -1,9 +1,9 @@
 #ifndef WIZ8_ENGINE_CODE_PATH_AI_H
 #define WIZ8_ENGINE_CODE_PATH_AI_H
 
+#include <cstdint>
 #include <memory>
 #include <vector>
-#include <cstdint>
 
 #include "glm/fwd.hpp"
 #include "surrender/srMath.h"

@@ -1,11 +1,12 @@
 #pragma once
 
+#include <span>
+
 #include "srFlags.h"
 #include "srMath.h"
 #include "srPixelConvert.h"
 #include "srRendererDefs.h"
 #include "srShader.h"
-#include <span>
 
 class srARGB;
 class srDD;

@@ -1,21 +1,22 @@
-#include <fmt/format.h>
-#include <string>
-#include <utility>
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "wiz8/local_screens/MGSKeyboard.h"
+#include <fmt/format.h>
+
 #include "input.h"
-#include "wiz8/local_screens/CreditsScreen.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/filesystem.h"
 #include "mgs_commands.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/local_screens/CreditsScreen.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/sr_api.h"
 
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800
    asserts this unit (line 478); it is the only body placed here. */

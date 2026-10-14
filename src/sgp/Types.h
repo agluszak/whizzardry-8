@@ -4,8 +4,9 @@
 #define __TYPES_
 
 #ifdef __cplusplus
-#include <SDL3/SDL_log.h>
 #include <cstdlib>
+
+#include <SDL3/SDL_log.h>
 
 #define Assert(condition) AssertMsg(condition, "Assertion failed: " #condition)
 #define AssertMsg(condition, message)                                                              \

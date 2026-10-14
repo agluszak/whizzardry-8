@@ -1,9 +1,10 @@
 #pragma once
 
 #include <span>
-#include "glm/matrix.hpp"
+
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/matrix.hpp"
 
 namespace srTriangleProjection {
 template<class T, glm::qualifier Q>

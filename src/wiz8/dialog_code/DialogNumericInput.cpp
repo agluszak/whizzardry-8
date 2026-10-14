@@ -1,21 +1,22 @@
-#include <cstddef>
-#include <memory>
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_rect.h>
 #include <algorithm>
 #include <charconv>
+#include <cstddef>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <system_error>
 
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
+#include "dialog_code/DialogBase.h"
 #include "image.h"
 #include "input.h"
-#include "wiz8/text_input.h"
-#include "dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/text_input.h"
 
 W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
                                            Font& font, W8DialogBase* dialog, W8ButtonWidget* button)

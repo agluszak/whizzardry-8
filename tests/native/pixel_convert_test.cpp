@@ -1,23 +1,24 @@
-#include "glm/ext/vector_int2.hpp"
-#include <limits>
-#include "surrender/pixel_math.h"
-#include <catch2/catch_test_macros.hpp>
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_pixels.h>
+#include <array>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <vector>
-#include <array>
-#include "surrender/srPalette.h"
-#include "surrender/srARGB.h"
-#include "surrender_test_fixture.h"
-#include <cstdint>
 
-#include "surrender/srPixelConvert.h"
-#include "surrender/srColorSurface.h"
-#include "wiz8/sr_api.h"
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include <catch2/catch_test_macros.hpp>
+
 #include "compat/compiler.h"
+#include "glm/ext/vector_int2.hpp"
+#include "surrender/pixel_math.h"
+#include "surrender/srARGB.h"
+#include "surrender/srColorSurface.h"
 #include "surrender/srFilter.h"
+#include "surrender/srPalette.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender_test_fixture.h"
+#include "wiz8/sr_api.h"
 
 void initPixelTables();
 void writeRGB24(const srPixelConvert::ConversionInfo&);

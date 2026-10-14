@@ -1,18 +1,20 @@
-#include <SDL3/SDL_surface.h>
-#include "himage.h"
-#include "image.h"
-#include <SDL3/SDL_rect.h>
-#include <fmt/format.h>
+#include "wiz8/dialog_code/DialogTextEntry.h"
+
 #include <array>
 #include <string>
 #include <string_view>
 
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/dialog_code/DialogTextEntry.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "Font.h"
+#include "himage.h"
+#include "image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "Font.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 
 /* Retail initializer 0x005D1010 copies the Controls layout constant. */

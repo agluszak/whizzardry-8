@@ -1,31 +1,30 @@
-#include "surrender/channel_math.h"
-#include "surrender/lighting_math.h"
-
 #include <algorithm>
-#include <ostream>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <ostream>
 #include <span>
 
-#include "glm/common.hpp"
-#include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
-#include "surrender/srLight.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srCore.h"
-#include "surrender/srDebug.h"
-#include "surrender/srGERD.h"
-#include "surrender/srVertexPipe.h"
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
+#include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "surrender/channel_math.h"
+#include "surrender/lighting_math.h"
+#include "surrender/srCore.h"
+#include "surrender/srDebug.h"
+#include "surrender/srGERD.h"
 #include "surrender/srIlluminator.h"
+#include "surrender/srLight.h"
+#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
+#include "surrender/stream_scope.h"
 
 /* Derived-state bits: bit0 = pushed as an active vertex processor this frame, bit1 = spotlight cone
    active, bit2 = directional, bit3 = OpenGL attenuation active, bit4 = constant-only OpenGL

@@ -2,10 +2,10 @@
 
 #include <string_view>
 
-#include "wiz8/monster_spell_icons.h"
+#include "glm/ext/matrix_float3x3.hpp"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "glm/ext/matrix_float3x3.hpp"
+#include "wiz8/monster_spell_icons.h"
 
 class W8Monster;
 struct W8GrCycleLoadContext;

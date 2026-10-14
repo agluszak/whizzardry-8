@@ -1,38 +1,39 @@
-#include "surrender/srTriangulator.h"
-#include "surrender/triangle_projection.h"
-#include "glm/ext/vector_double2.hpp"
-#include "glm/ext/vector_float2.hpp"
-#include "wiz8/navigation_math.h"
-#include "surrender/picking_math.h"
-#include "compat/compiler.h"
-#include "surrender/triangle_runs.h"
-#include <vector>
-#include <utility>
-#include "surrender/bounding_radius.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srDebug.h"
-#include "glm/ext/vector_double3.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include <sstream>
-#include <stdexcept>
-#include <ios>
-#include "surrender/channel_math.h"
-#include "surrender/lighting_math.h"
-#include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_transform.hpp>
 #include <array>
 #include <bit>
 #include <cmath>
-#include <cstdio>
-#include <limits>
 #include <cstddef>
+#include <cstdio>
+#include <ios>
 #include <iterator>
+#include <limits>
 #include <span>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
+#include <vector>
 
-#include "glm/geometric.hpp"
-#include "surrender/srClip.h"
-#include "surrender/srMath.h"
+#include <catch2/catch_test_macros.hpp>
+#include <glm/ext/matrix_transform.hpp>
+
+#include "compat/compiler.h"
+#include "glm/ext/vector_double2.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
+#include "glm/geometric.hpp"
+#include "surrender/bounding_radius.h"
+#include "surrender/channel_math.h"
+#include "surrender/lighting_math.h"
+#include "surrender/picking_math.h"
+#include "surrender/srClip.h"
+#include "surrender/srDebug.h"
+#include "surrender/srMath.h"
+#include "surrender/srTriangulator.h"
+#include "surrender/stream_scope.h"
+#include "surrender/triangle_projection.h"
+#include "surrender/triangle_runs.h"
+#include "wiz8/navigation_math.h"
 
 static void CheckFloats(float actual, float expected)
 {

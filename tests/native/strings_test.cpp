@@ -1,8 +1,9 @@
-#include <catch2/catch_test_macros.hpp>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstdio>
 #include <string>
+
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
+#include <catch2/catch_test_macros.hpp>
 
 #include "surrender/srIO.h"
 

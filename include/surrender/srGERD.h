@@ -1,36 +1,33 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
-#include "srBoundingSphere.h"
-
 #include <condition_variable>
 #include <list>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <span>
-#include "glm/ext/vector_int4_sized.hpp"
-#include "glm/ext/vector_float3.hpp"
 
-#include <unordered_map>
-#include "srTexture.h"
-#include "srTypeRegistry.h"
-#include "srVertexPipe.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_int4_sized.hpp"
+#include "srARGB.h"
+#include "srBoundingSphere.h"
+#include "srColorSurfaceIFace.h"
+#include "srDD.h"
+#include "srFlags.h"
 #include "srMath.h"
 #include "srModel.h"
-#include "srShader.h"
-#include "srFlags.h"
-
 #include "srRendererDefs.h"
-#include "srDD.h"
+#include "srShader.h"
+#include "srTexture.h"
 #include "srTriMeshPipeline.h"
-#include "srColorSurfaceIFace.h"
-#include "srARGB.h"
+#include "srTypeRegistry.h"
+#include "srVertexPipe.h"
 class srColorSurface;
 class srModelInstance;
 class srPalette;

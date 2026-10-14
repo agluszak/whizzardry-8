@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
 #include "native.h"
 
 #define SR_DLL_IMPORT

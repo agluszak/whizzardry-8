@@ -1,17 +1,17 @@
 #ifndef WIZ8_GEOMETRY_H
 #define WIZ8_GEOMETRY_H
 
+#include <array>
+#include <optional>
+#include <span>
+
 #include "glm/common.hpp"
-#include "glm/geometric.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srMath.h"
+#include "glm/geometric.hpp"
 #include "surrender/plane_math.h"
+#include "surrender/srMath.h"
 #include "wiz8/float_constants.h"
-
-#include <array>
-#include <span>
-#include <optional>
 
 /* Physical-surface masks recovered from retail collision/build consumers.
    WALKABLE/PATHFINDING also agree with Cosmic Forge's face editor. */

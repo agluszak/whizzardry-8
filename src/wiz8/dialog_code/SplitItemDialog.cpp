@@ -1,35 +1,36 @@
-#include "wiz8/design_rect.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <SDL3/SDL_rect.h>
-#include <string>
-#include <memory>
 #include <algorithm>
 #include <cctype>
+#include <memory>
+#include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/DialogInterface.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "dialog_code/DialogBase.h"
+#include "input.h"
+#include "npc_trade_price.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/design_rect.h"
+#include "wiz8/dialog_code/AssayDialog.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "wiz8/catalog_artwork.h"
-#include "input.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "dialog_code/DialogBase.h"
-#include "npc_trade_price.h"
 
 /* The split-stack dialog ("popup_splititem.sti"). Inventory splits use eight
    buttons and ten labels; the two trade modes add a passive frame and a price

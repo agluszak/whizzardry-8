@@ -1,9 +1,12 @@
-#include "wiz8/audio_resources.h"
 #include <string>
+
+#include "wiz8/audio_resources.h"
 #ifndef WIZ8_LAYOUTS_COMBAT_STATE_H
 #define WIZ8_LAYOUTS_COMBAT_STATE_H
 
+#include <algorithm>
 #include <memory>
+#include <vector>
 
 #include "wiz8/character_skills.h"
 #include "wiz8/equipment_slots.h"
@@ -12,8 +15,6 @@
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include <vector>
-#include <algorithm>
 
 struct W8Character;
 

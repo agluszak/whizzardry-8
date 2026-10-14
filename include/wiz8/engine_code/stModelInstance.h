@@ -4,15 +4,15 @@
 #include <optional>
 #include <vector>
 
-#include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
-#include "wiz8/engine_code/AnimRep.hpp"
 #include "compat/compiler.h"
-#include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/AnimRep.hpp"
 
 class srGERD;
 class srMaterial;

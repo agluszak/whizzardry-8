@@ -4,6 +4,7 @@
 #define __RANDOM_
 
 #include <cstdint>
+
 #include <stdlib.h>
 #include <time.h>
 

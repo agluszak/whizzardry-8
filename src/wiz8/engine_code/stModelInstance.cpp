@@ -1,5 +1,5 @@
-#include "glm/ext/vector_int3.hpp"
-#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -9,29 +9,30 @@
 #include <string>
 #include <vector>
 
-#include "glm/ext/vector_float4.hpp"
-#include "surrender/srModel.h"
-#include "surrender/srTypeRegistry.h"
-#include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/stTextureAnim.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "surrender/srGERD.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srNode.h"
-#include "surrender/srTriMeshPipeline.h"
-#include "surrender/mesh_submission.h"
-#include "surrender/model_view_scope.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Video2.h"
-#include "surrender/srMath.h"
 #include "AnimRep.hpp"
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "surrender/mesh_submission.h"
+#include "surrender/model_view_scope.h"
+#include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
+#include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
+#include "surrender/srTriMeshPipeline.h"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stTextureAnim.h"
+#include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/float_constants.h"
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 

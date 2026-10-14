@@ -3,8 +3,8 @@
 /* Engine Code\GrObject.cpp owns these declarations. GrObject.cpp, Navigator.cpp
    and GrCycle.cpp have separate direct headers. */
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 class W8AnimRepBase;
 

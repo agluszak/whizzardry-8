@@ -1,7 +1,6 @@
 #pragma once
 
-#include "glm/ext/vector_float3.hpp"
-
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
@@ -9,15 +8,15 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <cstddef>
 
-#include "surrender/srBoundingBox.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srTypeRegistry.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srTypeRegistry.h"
 
 class srTextureIFace;
 

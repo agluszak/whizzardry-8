@@ -1,40 +1,40 @@
-#include "glm/ext/vector_int3.hpp"
-#include <catch2/catch_test_macros.hpp>
-#include <array>
 #include <algorithm>
-#include <cstdlib>
-#include <string>
-#include "file_faults.h"
-#include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <ios>
 #include <iterator>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
-#include "surrender/srCore.h"
-#include "surrender/srScene.h"
-#include "surrender/srNode.h"
-#include "surrender/srModelInstance.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "temporary_directory.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "LevelFile.h"
 #include "ReadMesh.h"
+#include "file_faults.h"
 #include "filesystem.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include <fstream>
-
+#include "glm/ext/vector_int3.hpp"
 #include "layouts/world.h"
 #include "materials.h"
 #include "quad.h"
+#include "surrender/srCore.h"
 #include "surrender/srMath.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srScene.h"
+#include "temporary_directory.h"
+#include "wiz8/engine_code/OctMeshModel.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
 
 namespace {
 template<class T> void Write(wiz8::File& file, const T& value)

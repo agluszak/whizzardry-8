@@ -1,23 +1,23 @@
-#include "glm/ext/vector_int3.hpp"
-#include "surrender/bounding_radius.h"
 #include <algorithm>
-#include <cmath>
-#include <vector>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <span>
-#include <utility>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
-#include "glm/geometric.hpp"
-#include "surrender/srBoundingBox.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/geometric.hpp"
+#include "surrender/bounding_radius.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srFlags.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srModel.h"
@@ -29,21 +29,21 @@
 
 /* D:\srsdk1x\sources\corelib\srMeshModel.cpp */
 
-#include <ostream>
 #include <limits>
+#include <ostream>
 
-#include "surrender/srMeshModel.h"
 #include "surrender/mesh_math.h"
 #include "surrender/mesh_submission.h"
-#include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srVertexPipe.h"
-#include "surrender/srMath.h"
+#include "surrender/stream_scope.h"
 
 /* Flag-name tables dump walks while printing the render_control and dirty_flags bits. Nothing sets
    them, so dump prints numeric bit indices. */

@@ -4,15 +4,15 @@
 
 extern float g_automap_grid_cell_size;
 
-#include <vector>
-#include <memory>
 #include <array>
+#include <memory>
+#include <vector>
 
+#include "glm/ext/vector_float2.hpp"
 #include "input.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/layouts/main_game_screen.h"
-#include "glm/ext/vector_float2.hpp"
 
 namespace wiz8 {
 class File;

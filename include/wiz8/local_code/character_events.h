@@ -3,10 +3,10 @@
 struct SDL_Surface;
 
 #include <string_view>
-#include "wiz8/conditions.h"
 
 #include "input.h"
 #include "sprite.h"
+#include "wiz8/conditions.h"
 
 bool IsVoiceMuted(void);
 /* Audio panels pass 0 or 2 for the enabled setting. */

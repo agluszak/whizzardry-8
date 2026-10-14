@@ -1,17 +1,18 @@
+#include "wiz8/engine_code/stTextureAnim.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <utility>
 
-#include "wiz8/engine_code/stTextureAnim.h"
 #include "compat/compiler.h"
+#include "compat/native.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
+#include "texture_animation.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "compat/native.h"
-#include "texture_animation.h"
 
 // VTABLE: WIZ8 0x005EC9C0
 // class stTextureAnim

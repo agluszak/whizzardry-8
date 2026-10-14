@@ -1,16 +1,15 @@
 #pragma once
 
+#include <memory>
 #include <string_view>
 
-#include <memory>
-
-#include "surrender/srMaterial.h"
-#include "surrender/srShader.h"
-#include "wiz8/texture_animation.h"
 #include "compat/compiler.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
+#include "surrender/srShader.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexProcessor.h"
+#include "wiz8/texture_animation.h"
 
 class srMaterialIFace;
 class srMeshModel;

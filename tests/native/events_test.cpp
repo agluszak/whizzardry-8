@@ -1,4 +1,8 @@
-#include <catch2/catch_test_macros.hpp>
+#include <cstdint>
+#include <cstdio>
+#include <thread>
+#include <vector>
+
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keyboard.h>
@@ -9,17 +13,14 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
-#include <thread>
-#include <vector>
-#include <cstdio>
-#include <cstdint>
+#include <catch2/catch_test_macros.hpp>
 
-#include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
-#include "input.h"
-#include "timer.h"
 #include "Video2.h"
 #include "compat/native.h"
+#include "input.h"
+#include "timer.h"
+#include "wiz8/application.h"
+#include "wiz8/engine_code/GameData.h"
 
 SDL_Window* ghWindow = nullptr;
 static int screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <span>
+
 #include "glm/common.hpp"
 
 namespace srChannelMath {

@@ -1,14 +1,20 @@
-#include "wiz8/ui_input.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
-#include <memory>
-#include <SDL3/SDL_rect.h>
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
+#include <SDL3/SDL_rect.h>
+
+#include "compat/native.h"
+#include "conditions.h"
 #include "image.h"
+#include "layouts/character.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
 #include "timer.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
@@ -17,10 +23,9 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -28,13 +33,9 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
-#include "compat/native.h"
-#include "conditions.h"
-#include "layouts/character.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/targeting.h"
 
 #define PARTY_MOVEMENT_CPP __FILE__
 

@@ -4,16 +4,16 @@
    runtime types own pointers, so each has a fixed-width disk image and a
    codec. Pointer slots are presence words (see pointer_slot). */
 
-#include "wiz8/retail_text_records.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/MonsterManager.h"
-
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <type_traits>
+
+#include "wiz8/item_spawning.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/retail_text_records.h"
 
 namespace wiz8::retail {
 

@@ -1,16 +1,17 @@
 #include "wiz8/packed_bits.h"
 
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_properties.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #include <exception>
 #include <utility>
 #include <vector>
 
-#include "wiz8/filesystem.h"
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+
 #include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
+#include "wiz8/filesystem.h"
 
 namespace {
 constexpr Uint32 kMagic = 0xdeadd00d;

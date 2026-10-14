@@ -1,9 +1,8 @@
 #pragma once
 
-#include "wiz8/local_code/Factions.h"
-
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/targeting.h"
+#include "wiz8/local_code/Factions.h"
 
 template<class T> class srVector3T;
 

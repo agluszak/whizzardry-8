@@ -1,10 +1,10 @@
 #pragma once
 
-#include <SDL3/SDL_rect.h>
 #include <memory>
 #include <string>
-
 #include <vector>
+
+#include <SDL3/SDL_rect.h>
 
 #include "input.h"
 #include "surrender/srMath.h"

@@ -3,11 +3,11 @@
 /* The .wgd game-data surface record. Live surfaces carry a hit-plane
    pointer; on disk that slot is a presence word. */
 
-#include "wiz8/geometry.h"
-#include "wiz8/retail_text_records.h"
-
 #include <cstdint>
 #include <type_traits>
+
+#include "wiz8/geometry.h"
+#include "wiz8/retail_text_records.h"
 
 namespace wiz8::retail {
 

@@ -1,25 +1,27 @@
+#include "wiz8/engine_code/UpdateMesh.h"
+
 #include <algorithm>
 #include <array>
-#include "glm/ext/vector_int2.hpp"
-#include "glm/ext/vector_float2.hpp"
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <memory>
 #include <utility>
 #include <vector>
-#include <memory>
 
-#include "wiz8/engine_code/UpdateMesh.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/quad.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/sr_api.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srCamera.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int2.hpp"
 #include "layouts/world.h"
+#include "surrender/srCamera.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/quad.h"
+#include "wiz8/sr_api.h"
 
 /* Convert the mesh view half-angle from degrees to radians. */
 // GLOBAL: WIZ8 0x005ED168

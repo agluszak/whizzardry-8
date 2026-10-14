@@ -1,13 +1,14 @@
 #pragma once
 
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
 
 enum class UiPointerAction { Enter, Leave, Move, Down, Up, Repeat, Wheel };
 enum class UiPointerButton { None, Left, Right };

@@ -1,9 +1,10 @@
 #pragma once
 
-#include <SDL3/SDL_time.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstdint>
 #include <optional>
+
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_time.h>
 
 namespace wiz8 {
 // Value codec only: consumers explicitly copy low/high to packed save/SLF

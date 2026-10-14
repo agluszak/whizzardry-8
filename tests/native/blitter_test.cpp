@@ -1,9 +1,3 @@
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_rect.h>
-#include <catch2/catch_test_macros.hpp>
-
-#include <SDL3/SDL_surface.h>
-
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -17,16 +11,21 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <catch2/catch_test_macros.hpp>
+
 #include "himage.h"
 #include "image.h"
 #include "shading.h"
 #include "sprite.h"
-#include "wiz8/surface_storage.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_code/ControlsRect.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender_test_fixture.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/surface_storage.h"
 
 // Recovered helper used by UI overlays; retain its destination-first copy contract.
 unsigned char CopySurfaceWithBorder(srColorSurface*, const W8ControlsRect*, SDL_Surface&, float*,

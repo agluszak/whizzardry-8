@@ -1,13 +1,14 @@
 #pragma once
 
-#include <glm/gtx/euler_angles.hpp>
-#include <glm/glm.hpp>
 #include <cmath>
 
-#include "wiz8/engine_code/World.h"
+#include <glm/glm.hpp>
+#include <glm/gtx/euler_angles.hpp>
+
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/engine_code/World.h"
 
 template<class T> class srVector3T;
 

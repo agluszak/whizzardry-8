@@ -2,8 +2,8 @@
 
 #include <memory>
 
-#include "wiz8/audio_resources.h"
 #include "surrender/srMath.h"
+#include "wiz8/audio_resources.h"
 #include "wiz8/engine_code/game_timer.h"
 
 struct W8World;

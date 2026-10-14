@@ -1,10 +1,11 @@
-#include <wiz8/asset_paths.h>
 #include <cstdio>
 #include <exception>
-#include <vector>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
+
+#include <wiz8/asset_paths.h>
 
 #include "wiz8/application.h"
 

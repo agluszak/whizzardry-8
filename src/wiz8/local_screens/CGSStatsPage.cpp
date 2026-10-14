@@ -1,26 +1,27 @@
-#include "wiz8/ui_input.h"
-#include <SDL3/SDL_rect.h>
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/ButtonSound.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <memory>
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/layouts/character.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "input.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/catalog_artwork.h"
-#include "input.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 #define CGS_STATS_PAGE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\CGSStatsPage.cpp"
 

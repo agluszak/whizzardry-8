@@ -3,12 +3,12 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include "surrender/srBoundingBox.h"
 
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/GrObject.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/GrObject.h"
 
 struct W8World;
 struct W8ReadLevelInfo;

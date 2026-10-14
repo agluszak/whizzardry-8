@@ -1,10 +1,9 @@
 #include <string_view>
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/fact_state.h"
 #include "surrender/srMath.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/layouts/npc_state.h"
 
 enum W8NpcPickpocketResult {

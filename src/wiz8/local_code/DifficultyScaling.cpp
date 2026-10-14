@@ -1,10 +1,10 @@
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Factions.h"
+#include "conditions.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
-#include "conditions.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/MonsterManager.h"
 
 static void ScaleValueForDifficulty(int* value, bool fights_for_monsters)
 {

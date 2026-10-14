@@ -1,7 +1,5 @@
 #include "wiz8/filesystem.h"
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_stdinc.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -10,6 +8,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
 #ifdef WIZ8_FILE_FAULTS
 #include "file_operations.h"
 
@@ -17,8 +19,6 @@
 #else
 #define WIZ8_FILE_OPERATION(op) ((void)0)
 #endif
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_begin_code.h>
 #include <algorithm>
 #include <array>
 #include <limits>
@@ -26,6 +26,8 @@
 #include <stdexcept>
 #include <system_error>
 #include <utility>
+
+#include <SDL3/SDL_error.h>
 
 #include "path_resolver.h"
 #include "slf.h"

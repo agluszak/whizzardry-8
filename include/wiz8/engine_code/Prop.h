@@ -1,14 +1,14 @@
 #pragma once
 
 #include <optional>
-#include "surrender/srBoundingBox.h"
 #include <vector>
 
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/GrObject.h"
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/fwd.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/GrObject.h"
 
 class GDProp;
 struct W8AnimObj;

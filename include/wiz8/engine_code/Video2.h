@@ -2,12 +2,13 @@
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
-#include <SDL3/SDL_rect.h>
 #include <cstdint>
+#include <memory>
+#include <string_view>
+
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
-#include <string_view>
-#include <memory>
 
 #include "compat/compiler.h"
 #include "compat/native.h"

@@ -1,10 +1,9 @@
+#include <cstdint>
+
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
-#include <catch2/catch_test_macros.hpp>
-
 #include <SDL3/SDL_surface.h>
-
-#include <cstdint>
+#include <catch2/catch_test_macros.hpp>
 
 #include "image.h"
 #include "wiz8/surface_storage.h"

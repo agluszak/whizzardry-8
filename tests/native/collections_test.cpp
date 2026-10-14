@@ -1,32 +1,33 @@
-#include <catch2/catch_test_macros.hpp>
 #include <array>
 #include <filesystem>
 #include <fstream>
 #include <ios>
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
-#include <vector>
 #include <memory>
 #include <span>
 #include <unordered_map>
+#include <vector>
 
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/npc_items.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/MGSKeyboard.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "fact_state.h"
 #include "input.h"
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
+#include "scoped_asset_roots.h"
 #include "sight_state.h"
+#include "temporary_directory.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/npc_items.h"
+#include "wiz8/xstatus.h"
 
 static std::vector<int> masterCalls;
 

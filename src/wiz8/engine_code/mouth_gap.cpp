@@ -1,13 +1,14 @@
+#include "wiz8/mouth_gap.h"
+
 #include <algorithm>
 #include <exception>
 #include <memory>
 #include <string>
 #include <string_view>
 
-#include "wiz8/mouth_gap.h"
-#include "wiz8/filesystem.h"
-#include "soundman.h"
 #include "audio_resources.h"
+#include "soundman.h"
+#include "wiz8/filesystem.h"
 
 /* Voice samples ship a companion file at <voice dir>\GAP\<voice name>.gap
    holding little-endian int32 (start, end) millisecond pairs. */

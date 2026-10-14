@@ -1,7 +1,5 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -11,6 +9,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include "wiz8/filesystem.h"
 
 struct W8ChunkHead {
     unsigned int chunk_id; /* 0x00 */

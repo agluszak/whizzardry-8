@@ -1,8 +1,9 @@
 #pragma once
 
+#include <bit>
+
 #include "srIO.h"
 #include "srQuadWord.h"
-#include <bit>
 
 // Only formats SDL does not represent directly. Integers use SDL_Read/Write*.
 namespace srSerialization {

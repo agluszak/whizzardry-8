@@ -1,8 +1,9 @@
 #pragma once
-#include "wiz8/attack_modes.h"
-#include "wiz8/dice.h"
 #include <cstddef>
 #include <type_traits>
+
+#include "wiz8/attack_modes.h"
+#include "wiz8/dice.h"
 
 namespace wiz8::retail {
 // Unchanged numeric portions of Items.dbs. These contain no runtime ownership

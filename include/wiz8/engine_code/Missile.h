@@ -1,20 +1,20 @@
 #pragma once
 
-#include "wiz8/engine_code/emitter_resources.h"
-
 #include <string>
 #include <vector>
+
+#include "wiz8/engine_code/emitter_resources.h"
 
 unsigned char LoadMissileDatabase(void);
 void ReleaseMissileDatabase(void);
 
+#include "Emitter.h"
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 #include "wiz8/attack_modes.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "Emitter.h"
-#include "compat/compiler.h"
-#include "layouts/targeting.h"
 
 struct W8ReadLevelInfo;
 struct W8World;

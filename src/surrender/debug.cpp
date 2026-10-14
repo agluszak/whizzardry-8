@@ -1,16 +1,17 @@
-#include <SDL3/SDL_messagebox.h>
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_stdinc.h>
-#include <ostream>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ostream>
 
-#include "surrender/srDebug.h"
-#include "surrender/srCore.h"
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_messagebox.h>
+#include <SDL3/SDL_stdinc.h>
+
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 
 void srDumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
 {

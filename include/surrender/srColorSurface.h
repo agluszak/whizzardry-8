@@ -1,17 +1,17 @@
 #pragma once
 
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_rect.h>
 #include <memory>
 #include <ostream>
 #include <span>
 
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "compat/compiler.h"
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
-
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srPixelConvert.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/surface_storage.h"
 
 // VTABLE: SURRENDER 0x100773A0

@@ -1,21 +1,12 @@
-#include "wiz8/ui_layer.h"
-#include <memory>
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <SDL3/SDL_rect.h>
-#include <string>
 #include <array>
+#include <memory>
+#include <string>
 #include <vector>
 
-#include "wiz8/character_skills.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/fonts.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "Font.h"
 #include "Video2.h"
 #include "game_timer.h"
@@ -24,6 +15,16 @@
 #include "local_code/ControlsRect.h"
 #include "local_code/HealthStaminaMana.h"
 #include "local_code/TextBuffer.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/RangeControl.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/ui_layer.h"
 
 // GLOBAL: WIZ8 0x00648c90
 W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},

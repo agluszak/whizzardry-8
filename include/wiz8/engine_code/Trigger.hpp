@@ -1,12 +1,13 @@
 #pragma once
 
 #include <source_location>
-#include "surrender/srMath.h"
-#include "surrender/srTypeRegistry.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/game_timer.h"
+
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "surrender/srMath.h"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/sr_api.h"
 
 class stLight;
 struct W8Item;

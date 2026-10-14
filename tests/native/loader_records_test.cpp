@@ -1,47 +1,48 @@
-#include <catch2/catch_test_macros.hpp>
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <ios>
 #include <limits>
-#include <string>
-#include <cstddef>
-#include <cstdint>
-#include <exception>
 #include <memory>
+#include <string>
 #include <type_traits>
-#include <vector>
 #include <utility>
-
-#include "wiz8/retail_text_records.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include <variant>
-#include "wiz8/retail_geometry_records.h"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/layouts/world.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/packed_bits.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
-#include "file_faults.h"
+#include <vector>
+
+#include <catch2/catch_test_macros.hpp>
+
 #include "GDFileIO.h"
+#include "file_faults.h"
 #include "float_constants.h"
 #include "geometry.h"
+#include "scoped_asset_roots.h"
 #include "surrender/srMath.h"
+#include "temporary_directory.h"
+#include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/OctPreTree.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/world.h"
+#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/packed_bits.h"
+#include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/xstatus.h"
 
 static std::filesystem::path fixture_root;
 

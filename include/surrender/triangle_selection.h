@@ -1,9 +1,9 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
 #include <span>
+
 #include "compat/compiler.h"
+#include "glm/ext/vector_int3.hpp"
 
 namespace srRender {
 // Supports both table order and an existing active list; compaction may be in place.

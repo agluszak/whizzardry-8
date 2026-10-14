@@ -1,17 +1,22 @@
+#include "wiz8/local_screens/mipe.h"
+
+#include <algorithm>
+#include <cstring>
+#include <initializer_list>
 #include <memory>
+#include <string>
+#include <string_view>
+#include <variant>
+#include <vector>
+
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
-#include <string>
-#include <initializer_list>
-#include <vector>
-#include <algorithm>
-#include <variant>
-#include <cstring>
-#include <string_view>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/mipe.h"
+#include "dice.h"
 #include "input.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/world.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -27,17 +32,18 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -46,10 +52,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-#include "dice.h"
-#include "layouts/gameplay_databases.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/world.h"
 
 // The editor reuses its category view for four concrete borrowed row types.
 using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8ItemDatabaseRecord*,

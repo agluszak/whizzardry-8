@@ -1,7 +1,8 @@
 #pragma once
-#include "file_operations.h"
 #include <cstddef>
 #include <stdexcept>
+
+#include "file_operations.h"
 
 struct FileFaults {
     inline static std::size_t operations = 0, fail_at = 0;

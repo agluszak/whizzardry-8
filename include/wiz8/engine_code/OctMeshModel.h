@@ -1,12 +1,10 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
 #include <memory>
 #include <vector>
 
+#include "glm/ext/vector_int3.hpp"
 #include "wiz8/engine_code/materials.h"
-
 #include "wiz8/filesystem.h"
 
 class srMaterialIFace;

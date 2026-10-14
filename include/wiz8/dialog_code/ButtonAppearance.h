@@ -6,8 +6,9 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <SDL3/SDL_surface.h>
+
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "Font.h"
 

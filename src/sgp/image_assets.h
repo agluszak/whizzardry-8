@@ -1,12 +1,12 @@
 #pragma once
 
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_surface.h>
-
 #include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 
 #include "himage.h"
 

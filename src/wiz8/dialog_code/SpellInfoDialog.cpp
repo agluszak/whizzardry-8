@@ -1,26 +1,28 @@
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/SpellInfoDialog.h"
+
 #include <cstdint>
-#include <fmt/format.h>
 #include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/string_database.h"
-#include "wiz8/catalog_artwork.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "Font.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"
 #include "game_timer.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/string_database.h"
 
 // GLOBAL: WIZ8 0x0064fccc
 const char* g_spell_info_background_path = "Data\\Dialogs\\popup_spellinfo.sti";

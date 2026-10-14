@@ -6,11 +6,11 @@
 #include <vector>
 struct W8NpcItemEntry;
 
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
 #include <algorithm>
 
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
 struct W8NpcScriptFile;
 
 /* One entry in an NPC's stock list. */

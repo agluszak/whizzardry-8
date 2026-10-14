@@ -1,17 +1,25 @@
-#include <vector>
-#include <string>
-
-#include "wiz8/spell_ids.h"
 #include "wiz8/level_specific_code/MartensBluff1.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+
+#include <string>
+#include <vector>
+
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "random.h"
+#include "soundman.h"
+#include "surrender/srCamera.h"
+#include "surrender/srMath.h"
+#include "wiz8/dice.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
@@ -20,17 +28,10 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/spell_ids.h"
 #include "wiz8/string_database.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/dice.h"
 #include "wiz8/utility.h"
-#include "surrender/srMath.h"
-#include "surrender/srCamera.h"
-#include "soundman.h"
-#include "random.h"
-#include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
+#include "wiz8/xstatus.h"
 
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
 

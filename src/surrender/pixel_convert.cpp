@@ -1,27 +1,28 @@
-#include "glm/common.hpp"
-#include "glm/ext/vector_float4.hpp"
-#include "glm/vector_relational.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <span>
-#include <cstddef>
-#include "surrender/pixel_math.h"
-#include <SDL3/SDL_pixels.h>
-#include "glm/ext/vector_uint4.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include <algorithm>
-#include <iterator>
 #include <string>
-#include <cstring>
 
+#include <SDL3/SDL_pixels.h>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/common.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_uint4.hpp"
 #include "glm/geometric.hpp"
-#include "surrender/srPixelConvert.h"
-#include "wiz8/surface_storage.h"
+#include "glm/vector_relational.hpp"
+#include "surrender/pixel_math.h"
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-#include "compat/compiler.h"
-#include "compat/native.h"
+#include "surrender/srPixelConvert.h"
+#include "wiz8/surface_storage.h"
 
 /* Conversion routines stored in the format table. The generic pair is
    selected by PixelFormat::color_model; the per-entry overrides cover

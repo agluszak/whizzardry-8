@@ -1,11 +1,12 @@
 #pragma once
 
-#include "srNode.h"
-#include <utility>
 #include <optional>
 #include <span>
-#include "glm/ext/vector_float3.hpp"
+#include <utility>
+
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "srNode.h"
 
 class srGERD;
 

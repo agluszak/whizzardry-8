@@ -2,13 +2,14 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 
-#include "surrender/srMath.h"
-#include "surrender/srBoundingBox.h"
-#include "glm/ext/vector_float3.hpp"
 #include <span>
-#include "wiz8/geometry.h"
+
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/geometry.h"
 
 struct W8OctBuildNode;
 struct W8GDSurface;

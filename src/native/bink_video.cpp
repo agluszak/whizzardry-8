@@ -1,13 +1,14 @@
 #include "wiz8/bink_video.h"
 
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_surface.h>
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <memory>
 #include <stdexcept>
-#include <exception>
 #include <vector>
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 
 #include "movie.h"
 #include "wiz8/engine_code/Video2.h"

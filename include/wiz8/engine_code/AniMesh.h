@@ -1,12 +1,12 @@
 #pragma once
 
-#include <optional>
-#include "surrender/srBoundingBox.h"
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 
 class stModelInstance;
 struct W8ReadLevelInfo;

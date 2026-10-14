@@ -1,10 +1,11 @@
 #pragma once
 
 #include <deque>
-#include <optional>
 #include <memory>
-#include "surrender/srBoundingBox.h"
+#include <optional>
 #include <string_view>
+
+#include "surrender/srBoundingBox.h"
 
 /* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
    original relative order: W8GrObject is
@@ -12,12 +13,12 @@
 
 #include <vector>
 
-#include "surrender/srMath.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/Navigator.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/game_timer.h"
 
 class srModelInstance;
 struct W8World;

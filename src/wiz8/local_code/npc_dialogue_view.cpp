@@ -1,42 +1,45 @@
-#include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <string_view>
-#include <vector>
+#include "wiz8/local_code/npc_dialogue_view.h"
+
 #include <memory>
 #include <optional>
 #include <string>
-#include "wiz8/unicode.h"
-#include "wiz8/fonts.h"
-#include "cursor.h"
-#include "random.h"
-#include "soundman.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/message_box.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/npc_script_file.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/xstatus.h"
+#include <string_view>
+#include <vector>
+
+#include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
+#include "audio_resources.h"
 #include "compat/native.h"
+#include "cursor.h"
 #include "layouts/screen_state.h"
 #include "local_code/MonsterManager.h"
+#include "random.h"
+#include "soundman.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/message_box.h"
 #include "wiz8/mouth_gap.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
-#include "audio_resources.h"
-#include "wiz8/local_code/npc_dialogue_view.h"
+#include "wiz8/unicode.h"
+#include "wiz8/xstatus.h"
 
 static void FinishNpcVoicePlayback(bool resume_script);
 

@@ -5,13 +5,14 @@
 #include <vector>
 struct W8NpcItemStockRule;
 
-#include "wiz8/attack_modes.h"
-#include "wiz8/spell_ids.h"
-#include "wiz8/fact_state.h"
+#include <algorithm>
+
 #include <stddef.h>
 
-#include <algorithm>
+#include "wiz8/attack_modes.h"
 #include "wiz8/dice.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/spell_ids.h"
 
 /*
  * Runtime views of gameplay database records. Text is decoded UTF-8.

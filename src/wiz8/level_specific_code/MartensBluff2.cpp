@@ -1,13 +1,23 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <vector>
 #include <cmath>
 #include <string>
+#include <vector>
 
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include "Navigator.h"
+#include "compat/compiler.h"
+#include "conditions.h"
+#include "dice.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/world.h"
+#include "local_code/SpellEffect.h"
+#include "random.h"
+#include "surrender/srMath.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -16,6 +26,8 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
@@ -35,17 +47,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/string_database.h"
-#include "surrender/srMath.h"
-#include "random.h"
-#include "Navigator.h"
-#include "compat/compiler.h"
-#include "conditions.h"
-#include "dice.h"
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "layouts/gameplay_databases.h"
-#include "layouts/world.h"
-#include "local_code/SpellEffect.h"
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
 

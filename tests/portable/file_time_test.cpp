@@ -1,15 +1,16 @@
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/generators/catch_generators.hpp>
-#include <SDL3/SDL_init.h>
-#include <SDL3/SDL_stdinc.h>
-#include <limits>
-#include <random>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <optional>
+#include <random>
 
-#include "wiz8/file_time.h"
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+
 #include "catch2/catch_message.hpp"
+#include "wiz8/file_time.h"
 
 using namespace wiz8;
 template<typename Function> void rejects(Function function)

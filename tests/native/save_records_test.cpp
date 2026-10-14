@@ -1,14 +1,6 @@
-#include "wiz8/geometry.h"
-#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
-#include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_filesystem.h>
+#include <catch2/catch_test_macros.hpp>
 
-#include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/retail_text_records.h"
-#include "wiz8/retail_save_records.h"
 #include "catch2/catch_message.hpp"
 #include "conditions.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -21,21 +13,27 @@
 #include "retail_records.h"
 #include "surrender/srMath.h"
 #include "unicode.h"
+#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
+#include "wiz8/geometry.h"
+#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/retail_save_records.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/string_database.h"
 /* Exercise recovered NPCT loading with retail addresses and native handles as
    on-disk presence markers. No installed game data or display is required. */
 
-#include <ios>
-#include <wiz8/filesystem.h>
-#include <wiz8/file_time.h>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <chrono>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <exception>
+#include <filesystem>
+#include <fstream>
+#include <ios>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -45,34 +43,37 @@
 #include <utility>
 #include <vector>
 
+#include <wiz8/file_time.h>
+#include <wiz8/filesystem.h>
+
+#include "file_faults.h"
+#include "scoped_asset_roots.h"
+#include "temporary_directory.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/IntervalGate.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/stScript.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/npc_script_file.h"
-#include "wiz8/engine_code/stScript.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/engine_code/Missile.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/npc_script_file.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
-#include "file_faults.h"
 
 extern std::vector<W8NpcState*> g_npc_states;
 extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);

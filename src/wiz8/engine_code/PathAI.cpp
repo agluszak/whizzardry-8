@@ -1,28 +1,30 @@
-#include "glm/ext/vector_double3.hpp"
-#include <cstdint>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/ext/quaternion_common.hpp>
-#include <glm/ext/quaternion_geometric.hpp>
-#include <glm/ext/quaternion_trigonometric.hpp>
+#include "wiz8/engine_code/PathAI.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <memory>
 
-#include "glm/fwd.hpp"
-#include "wiz8/filesystem.h"
-#include "surrender/srMath.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/sr_api.h"
-#include "surrender/srNode.h"
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "GrCycle.h"
 #include "compat/native.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/fwd.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/sr_api.h"
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 

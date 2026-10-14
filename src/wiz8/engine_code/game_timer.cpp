@@ -1,10 +1,11 @@
+#include "wiz8/engine_code/game_timer.h"
+
 #include <cstddef>
 #include <exception>
 
 #include "surrender/srClock.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 
 /* The game-timer unit: a small timer object over one shared, reference-counted

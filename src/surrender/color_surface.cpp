@@ -1,39 +1,40 @@
-#include "surrender/raster_math.h"
-#include "surrender/stream_scope.h"
-#include "surrender/pixel_math.h"
-#include "glm/ext/vector_uint4.hpp"
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <array>
-#include <type_traits>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <memory>
 #include <new>
+#include <ostream>
 #include <span>
 #include <stdexcept>
-#include <utility>
-#include <ostream>
-#include <cmath>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
-#include "surrender/srMath.h"
-#include "wiz8/surface_storage.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srCore.h"
-#include "surrender/srFilter.h"
-#include "surrender/srPalette.h"
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_uint4.hpp"
+#include "surrender/pixel_math.h"
+#include "surrender/raster_math.h"
+#include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srCore.h"
+#include "surrender/srFilter.h"
+#include "surrender/srMath.h"
+#include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
+#include "wiz8/surface_storage.h"
 
 // FUNCTION: SURRENDER 0x100571F0
 srColorSurfaceIFace::srColorSurfaceIFace()

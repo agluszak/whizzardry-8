@@ -3,11 +3,11 @@
 #include <memory>
 #include <vector>
 
-#include "surrender/srTexture.h"
-#include "wiz8/texture_animation.h"
 #include "compat/compiler.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/texture_animation.h"
 
 enum W8TextureTriggerMode {
     W8_TEXTURE_TRIGGER_CONTINUOUS = 0,

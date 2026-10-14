@@ -1,12 +1,13 @@
-#include <catch2/catch_test_macros.hpp>
 #include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
 
-#include "surrender/srTypeRegistry.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "compat/compiler.h"
 #include "surrender/srCore.h"
+#include "surrender/srTypeRegistry.h"
 
 // The focused fixture can link just type_registry.cpp while the rest of SurRender is changing.
 // Without this define, it uses the normal library initialization and shutdown.

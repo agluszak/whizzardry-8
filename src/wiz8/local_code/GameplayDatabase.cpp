@@ -1,25 +1,26 @@
-#include <vector>
+#include "wiz8/local_code/GameplayDatabase.h"
+
 #include <algorithm>
 #include <array>
-#include <iterator>
-#include <memory>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <iterator>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "wiz8/retail_text_records.h"
-#include "wiz8/containers.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/filesystem.h"
 #include "layouts/item_tables.h"
 #include "retail_records.h"
+#include "wiz8/containers.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/xstatus.h"
 
 /* 0x0054B300 resets one of eight slots. */
 /* The gStatus object owned by GameplayDatabase.cpp. */

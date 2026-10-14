@@ -1,11 +1,12 @@
 #include "image_assets.h"
 
-#include <SDL3/SDL_surface.h>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
+
+#include <SDL3/SDL_surface.h>
 
 #include "himage.h"
 #include "image.h"

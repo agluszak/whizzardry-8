@@ -1,20 +1,21 @@
-#include <catch2/catch_test_macros.hpp>
+#include <algorithm>
 #include <array>
 #include <clocale>
-#include <string>
-#include <cwchar>
-#include <algorithm>
 #include <cstddef>
+#include <cwchar>
 #include <iterator>
 #include <span>
+#include <string>
 
-#include "wiz8/unicode.h"
-#include "wiz8/retail_text_records.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "Missile.h"
 #include "attack_modes.h"
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"
 #include "retail_records.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/unicode.h"
 
 static_assert(wiz8::retail::kMonsterRecordBytes == 0x297);
 static_assert(wiz8::retail::kCharacterBytes == 0x1862);

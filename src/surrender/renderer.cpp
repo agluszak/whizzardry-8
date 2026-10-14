@@ -1,30 +1,30 @@
-#include "glm/ext/vector_int3.hpp"
-#include "surrender/triangle_runs.h"
-#include "surrender/mesh_math.h"
 #include <algorithm>
 #include <array>
-#include <vector>
+#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <memory>
 #include <span>
 #include <unordered_map>
+#include <vector>
 
-#include "surrender/srMath.h"
-#include <bit>
-#include "surrender/srGERD.h"
-#include "surrender/srClip.h"
-#include "surrender/triangle_selection.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint3.hpp"
+#include "surrender/mesh_math.h"
+#include "surrender/srClip.h"
 #include "surrender/srDD.h"
 #include "surrender/srFlags.h"
+#include "surrender/srGERD.h"
+#include "surrender/srMath.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexProcessor.h"
+#include "surrender/triangle_runs.h"
+#include "surrender/triangle_selection.h"
 
 /* Mark `bit` in output wherever the indexed table value changes between adjacent entries; when
    `initialized` is zero the output chunk is cleared first. */

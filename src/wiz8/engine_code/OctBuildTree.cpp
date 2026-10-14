@@ -1,25 +1,26 @@
+#include "wiz8/engine_code/OctBuildTree.h"
+
 #include <algorithm>
 #include <optional>
 #include <span>
 #include <unordered_set>
-#include <vector>
 #include <utility>
+#include <vector>
+
+#include "OctPreTree.h"
+#include "compat/compiler.h"
+#include "geometry.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_bool3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
 #include "surrender/swept_bounds.h"
-
-#include "compat/compiler.h"
-#include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/float_constants.h"
-#include "OctPreTree.h"
-#include "geometry.h"
-#include "surrender/srMath.h"
 
 #define OCT_BUILD_TREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctBuildTree.cpp"
 

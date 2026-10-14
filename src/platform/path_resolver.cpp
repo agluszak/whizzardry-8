@@ -1,18 +1,19 @@
-#include <string_view>
-#include <vector>
-#include <wiz8/asset_paths.h>
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_stdinc.h>
-#include <stdexcept>
-#include <system_error>
+#include "path_resolver.h"
+
 #include <algorithm>
-#include <filesystem>
-#include <mutex>
 #include <cerrno>
 #include <cstddef>
+#include <filesystem>
+#include <mutex>
+#include <stdexcept>
 #include <string>
+#include <string_view>
+#include <system_error>
+#include <vector>
 
-#include "path_resolver.h"
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
+#include <wiz8/asset_paths.h>
 
 namespace fs = std::filesystem;
 namespace w8_native {

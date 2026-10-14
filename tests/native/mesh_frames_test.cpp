@@ -1,27 +1,28 @@
-#include "glm/ext/vector_float3.hpp"
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/catch_approx.hpp>
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <optional>
-#include <span>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "surrender_test_fixture.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/materials.h"
-#include "surrender/srModelInstance.h"
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
+
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
+#include "surrender_test_fixture.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stMeshModel.h"
 
 class srModel;
 

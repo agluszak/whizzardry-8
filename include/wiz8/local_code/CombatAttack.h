@@ -4,8 +4,8 @@
 struct W8CombatSlot;
 
 #include "wiz8/attack_modes.h"
-#include "wiz8/monster_cycles.h"
 #include "wiz8/dice.h"
+#include "wiz8/monster_cycles.h"
 
 struct W8CombatSlot;
 struct W8CombatCharacterRow;

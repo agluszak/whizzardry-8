@@ -1,7 +1,8 @@
 #pragma once
 
-#include <SDL3_mixer/SDL_mixer.h>
 #include <memory>
+
+#include <SDL3_mixer/SDL_mixer.h>
 
 namespace w8_native {
 struct AudioDeleter {

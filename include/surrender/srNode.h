@@ -1,19 +1,19 @@
 #pragma once
 
 #include <atomic>
-#include "glm/ext/vector_double3.hpp"
-#include <type_traits>
-#include <mutex>
 #include <memory>
+#include <mutex>
+#include <new>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
-#include "srFlags.h"
+
+#include "glm/ext/vector_double3.hpp"
 #include "model_view_scope.h"
+#include "srFlags.h"
 #include "srMath.h"
 #include "srTypeRegistry.h"
-
-#include <new>
 
 // VTABLE: SURRENDER 0x10077204
 // class srClassSupport<srNode, srClass, 4096>

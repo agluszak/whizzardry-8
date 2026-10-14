@@ -1,7 +1,7 @@
 #pragma once
 
-#include "wiz8/engine_code/game_timer.h"
 #include "compat/compiler.h"
+#include "wiz8/engine_code/game_timer.h"
 
 namespace wiz8 {
 class File;

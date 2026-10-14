@@ -2,21 +2,20 @@
 #include <optional>
 #pragma once
 
-#include "surrender/srBoundingBox.h"
-
+#include <memory>
 #include <queue>
 #include <span>
-#include "glm/ext/vector_int2.hpp"
-#include <memory>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-#include "surrender/srMath.h"
-#include "wiz8/geometry.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_uint2.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/geometry.h"
 
 class stModelInstance;
 class GDProp;

@@ -1,12 +1,12 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
+#include "compat/compiler.h"
 #include "input.h"
 #include "wiz8/mgs_commands.h"
-#include "compat/compiler.h"
 
 namespace wiz8 {
 class File;

@@ -1,7 +1,7 @@
 #include <string_view>
 #pragma once
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/layouts/screen_state.h"
 
 void RefreshPartySlotDisplay(unsigned int party_slot);
 void InitializeMainGameLevelBlock(void);

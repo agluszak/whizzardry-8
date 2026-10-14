@@ -1,16 +1,14 @@
 #pragma once
 
-#include "glm/ext/vector_float3.hpp"
-
-#include "srBoundingSphere.h"
-
+#include <memory>
 #include <span>
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
+#include "srBoundingSphere.h"
 #include "srCore.h"
 #include "srFlags.h"
 #include "srMath.h"
-#include <memory>
 #include "srVertexProcessor.h"
 
 class srMaterialIFace;

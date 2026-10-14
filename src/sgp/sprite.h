@@ -1,9 +1,10 @@
 #pragma once
 
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <cstdint>
+
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "himage.h"
 #include "wiz8/surface_storage.h"

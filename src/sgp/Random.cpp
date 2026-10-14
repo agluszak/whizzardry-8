@@ -1,10 +1,10 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
+#include "random.h"
+
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
-
-#include "random.h"
 
 namespace {
 // Retail used MSVC rand(), whose RAND_MAX is 0x7fff. Host rand() ranges are

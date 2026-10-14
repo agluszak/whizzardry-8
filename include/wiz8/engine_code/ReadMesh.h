@@ -1,9 +1,10 @@
 #pragma once
 
-#include <glm/glm.hpp>
-#include <vector>
-#include <memory>
 #include <cstddef>
+#include <memory>
+#include <vector>
+
+#include <glm/glm.hpp>
 
 #include "glm/fwd.hpp"
 

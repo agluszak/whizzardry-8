@@ -1,14 +1,15 @@
 #pragma once
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <span>
+
 #include "glm/common.hpp"
-#include "glm/geometric.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
 
 namespace srLightingMath {
 enum class ZeroLengthDirection { preserve, divide };

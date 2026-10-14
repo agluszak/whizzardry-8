@@ -1,9 +1,9 @@
 #pragma once
 
+#include <string>
+
 #include "srColorSurface.h"
 #include "srTexture.h"
-
-#include <string>
 
 // VTABLE: SURRENDER 0x1007752C
 // class srClassSupport<srTextureFile, srTexture, 8466>

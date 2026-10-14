@@ -1,27 +1,28 @@
-#include <optional>
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include "wiz8/local_screens/CreditsScreen.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <utility>
+#include <vector>
 
+#include "Font.h"
 #include "compat/compiler.h"
-#include "wiz8/unicode.h"
+#include "compat/native.h"
+#include "input.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_screens/CreditsScreen.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/fonts.h"
-#include "wiz8/filesystem.h"
-#include "Font.h"
-#include "input.h"
-#include "compat/native.h"
+#include "wiz8/unicode.h"
 
 // GLOBAL: WIZ8 0x0069C4A8
 static std::vector<W8CreditLine> g_credit_lines;

@@ -1,28 +1,30 @@
-#include <SDL3/SDL_surface.h>
-#include "Font.h"
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <string_view>
+#include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
+#include "Font.h"
+#include "character_skills.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "layouts/gameplay_databases.h"
+#include "local_code/ControlsRect.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
-#include "character_skills.h"
-#include "dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "dialog_code/DialogScrollBar.h"
-#include "dialog_code/DialogTextArea.h"
-#include "layouts/gameplay_databases.h"
-#include "local_code/ControlsRect.h"
 
 // GLOBAL: WIZ8 0x00614cf0
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
 #include "glm/common.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "glm/vector_relational.hpp"
 
 // Inclusive x/y/z traversal; query callers choose whether to clip the range.

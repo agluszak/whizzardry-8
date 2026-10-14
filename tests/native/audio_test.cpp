@@ -1,38 +1,40 @@
-#include <catch2/catch_test_macros.hpp>
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <filesystem>
+#include <fstream>
 #include <ios>
-#include <wiz8/native_audio.h>
-#include <wiz8/filesystem.h>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3_mixer/SDL_mixer.h>
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <vector>
-#include <cstdint>
-#include <exception>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <utility>
+#include <catch2/catch_test_macros.hpp>
+#include <wiz8/filesystem.h>
+#include <wiz8/native_audio.h>
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
+#include <glm/ext/vector_float3.hpp>
+
+#include "catch2/catch_message.hpp"
 #include "native/audio_test.h"
-#include "wiz8/slf.h"
-#include "wiz8/local_code/CombatSound.h"
-#include "wiz8/character_event_queue.h"
 #include "native/movie_audio.h"
+#include "scoped_asset_roots.h"
 #include "soundman.h"
 #include "temporary_directory.h"
-#include "scoped_asset_roots.h"
-#include "catch2/catch_message.hpp"
 #include "wiz8/audio_resources.h"
-#include <glm/ext/vector_float3.hpp>
+#include "wiz8/character_event_queue.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/slf.h"
 
 static unsigned callbacks = 0;
 static void word(std::vector<unsigned char>& data, unsigned value, int bytes)

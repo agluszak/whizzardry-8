@@ -1,36 +1,37 @@
-#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
-#include <string_view>
+#include "wiz8/local_screens/Screens.h"
+
 #include <cstring>
 #include <memory>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/RCSCommon.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/cursor.h"
-#include "wiz8/item_video_object_vector.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/fonts.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "Font.h"
 #include "compat/native.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
+#include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/PartySelectionScreen.h"
+#include "wiz8/local_screens/RCSCommon.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */
 bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)

@@ -1,16 +1,16 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
 #include <cstddef>
 #include <initializer_list>
 #include <span>
 #include <stdexcept>
 #include <vector>
+
+#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "surrender/plane_math.h"
-#include "compat/compiler.h"
 
 namespace srMeshMath {
 // UV tables may keep indices outside the geometry permutation. Other callers

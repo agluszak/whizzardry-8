@@ -1,29 +1,30 @@
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_pixels.h>
-#include <catch2/catch_test_macros.hpp>
-#include <ios>
-#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <memory>
 #include <stdexcept>
 #include <vector>
-#include <cstdint>
-#include <cstdlib>
-#include <exception>
-#include <memory>
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <catch2/catch_test_macros.hpp>
 
 #include "../../src/native/movie.h"
+#include "native/audio_test.h"
+#include "scoped_asset_roots.h"
+#include "soundman.h"
+#include "temporary_directory.h"
+#include "wiz8/bink_video.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/slf.h"
 #include "wiz8/surface_storage.h"
-#include "native/audio_test.h"
-#include "soundman.h"
-#include "wiz8/bink_video.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
 
 std::vector<unsigned char> read(const char* path)
 {

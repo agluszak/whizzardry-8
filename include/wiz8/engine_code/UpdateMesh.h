@@ -2,6 +2,7 @@
 
 #include <array>
 #include <vector>
+
 #include "glm/ext/vector_int2.hpp"
 
 struct W8World;

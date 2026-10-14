@@ -1,15 +1,16 @@
 #include "Font.h"
 #pragma once
 
-#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
 
+#include <SDL3/SDL_rect.h>
+
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/modal_content.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/modal_content.h"
 
 enum { W8_DIALOG_DIRTY_REDRAW = 1u };
 

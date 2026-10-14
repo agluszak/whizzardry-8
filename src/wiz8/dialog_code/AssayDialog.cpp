@@ -1,37 +1,13 @@
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <string_view>
-#include <string>
+#include "wiz8/dialog_code/AssayDialog.h"
+
 #include <cstring>
+#include <string>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/item_video_object_vector.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/local_code/ButtonWidget.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"
@@ -40,6 +16,32 @@
 #include "local_code/TextBuffer.h"
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/dialog_code/SpellInfoDialog.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/RCSItemsPage.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/string_database.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x0064f918
 static int g_assay_scroll_x_offset = 0x160;

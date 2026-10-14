@@ -1,9 +1,10 @@
 #pragma once
-#include "wiz8/filesystem.h"
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
 #include <vector>
+
+#include "wiz8/filesystem.h"
 
 namespace wiz8 {
 // Bounded typed reads on the existing stream; no ownership or path handling.

@@ -1,30 +1,30 @@
-#include "glm/ext/matrix_float4x4.hpp"
-#include <stdexcept>
-#include "surrender/lighting_math.h"
-#include <cassert>
-#include "surrender/srBoundingSphere.h"
-#include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
-#include "glm/common.hpp"
-#include "glm/geometric.hpp"
-#include "glm/vector_relational.hpp"
-#include "surrender/srVertexPipe.h"
-#include "surrender/channel_math.h"
-#include "surrender/srCore.h"
-#include "surrender/srMaterialIFace.h"
-#include "surrender/srShader.h"
 #include "compat/compiler.h"
+#include "glm/common.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
+#include "glm/vector_relational.hpp"
+#include "surrender/channel_math.h"
+#include "surrender/lighting_math.h"
 #include "surrender/srARGB.h"
+#include "surrender/srBoundingSphere.h"
+#include "surrender/srCore.h"
 #include "surrender/srFlags.h"
+#include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
+#include "surrender/srMaterialIFace.h"
+#include "surrender/srShader.h"
 #include "surrender/srStatisticsManager.h"
+#include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 
 // Opacity and fog coverage occupy colour alpha after their own channel setup.

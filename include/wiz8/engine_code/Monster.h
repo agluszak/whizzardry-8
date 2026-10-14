@@ -1,33 +1,32 @@
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
-#include <optional>
-#include "surrender/srBoundingBox.h"
-#include "wiz8/audio_resources.h"
-
-#include <string_view>
 #include <cstdint>
+#include <optional>
+#include <string_view>
 
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/fwd.hpp"
+#include "surrender/srBoundingBox.h"
+#include "wiz8/audio_resources.h"
 
 class srNode;
 struct W8AIRecord;
 struct W8PathAI;
 struct W8World;
 
-#include <vector>
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "wiz8/monster_spell_icons.h"
-#include "wiz8/monster_actions.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/Emitter.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/monster_spell_icons.h"
 
 struct W8AnimObj;
 struct W8ReadLevelInfo;

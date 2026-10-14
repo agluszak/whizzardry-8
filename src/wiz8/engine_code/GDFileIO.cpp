@@ -1,42 +1,44 @@
-#include "surrender/srBoundingBox.h"
-#include "wiz8/surface_geometry.h"
-#include <filesystem>
-#include <fmt/format.h>
-#include <cstdlib>
+#include "wiz8/engine_code/GDFileIO.h"
+
 #include <algorithm>
-#include <memory>
-#include <limits>
-#include <stdexcept>
-#include <vector>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <iterator>
+#include <limits>
+#include <memory>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
+#include <fmt/format.h>
+
+#include "geometry.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/binary_reader.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
+#include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/LevelFile.h"
-#include "wiz8/index_algorithms.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/GDFileIO.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/binary_reader.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/engine_code/3d.h"
-#include "geometry.h"
-#include "surrender/srMath.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/surface_geometry.h"
 
 class Trigger;
 

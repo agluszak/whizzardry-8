@@ -1,12 +1,11 @@
 #pragma once
 
-#include "model_view_scope.h"
-
-#include "srModel.h"
-#include "glm/ext/vector_float3.hpp"
-#include "srNode.h"
-
 #include <math.h>
+
+#include "glm/ext/vector_float3.hpp"
+#include "model_view_scope.h"
+#include "srModel.h"
+#include "srNode.h"
 
 // VTABLE: SURRENDER 0x10077194
 // class srClassSupport<srModelInstance, srNode, 4352>

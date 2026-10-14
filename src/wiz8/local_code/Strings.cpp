@@ -1,18 +1,19 @@
-#include <regex>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <stdexcept>
+#include "wiz8/local_code/Strings.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <regex>
 #include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/string_database.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/string_database.h"
 #include "wiz8/unicode.h"
 
 // GLOBAL: WIZ8 0x0068c098

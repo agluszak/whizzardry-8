@@ -1,15 +1,15 @@
 #pragma once
 
-#include "wiz8/audio_resources.h"
-
-#include "surrender/srNode.h"
-#include "wiz8/geometry.h"
-#include <vector>
 #include <algorithm>
-#include "soundman.h"
+#include <vector>
 
 #include <stdlib.h>
 #include <string.h>
+
+#include "soundman.h"
+#include "surrender/srNode.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/geometry.h"
 
 class stSound3D;
 extern std::vector<stSound3D*> g_sound3d_instances;

@@ -1,11 +1,12 @@
-#include <utility>
-#include <cstdint>
-#include <SDL3/SDL_rect.h>
-#include <cstddef>
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
+
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
 #include "wiz8/unicode.h"
