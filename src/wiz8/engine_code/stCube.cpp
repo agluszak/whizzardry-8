@@ -131,7 +131,8 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
     modeller.setShader(shader, 0);
 
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    auto surface =
+        std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
     if (surface == 0) {
         srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
     }
@@ -208,8 +209,8 @@ void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position)
     }
     if (entry->node != 0) {
         entry->node->setLocation(glm::dvec3(static_cast<double>(location.x),
-                                                    static_cast<double>(location.y),
-                                                    static_cast<double>(location.z)));
+                                            static_cast<double>(location.y),
+                                            static_cast<double>(location.z)));
     }
 }
 
@@ -319,7 +320,9 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
         const auto projection = world->camera->project(glm::dvec3(corners[index].glmValue()));
-        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) return;
+        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) {
+            return;
+        }
         const auto projected = projection.position;
         screen[index][0] =
             static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);
@@ -462,7 +465,8 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
             }
         }
 
-        if (success && (handle.read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
+        if (success &&
+            (handle.read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
             success = true;
         } else {
             success = false;
@@ -473,7 +477,8 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
                 srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
             }
             memset(cube->pUserdata, 0, cube->userdata_size);
-            if (success && (handle.read(cube->pUserdata, cube->userdata_size).bytes == static_cast<std::size_t>(cube->userdata_size))) {
+            if (success && (handle.read(cube->pUserdata, cube->userdata_size).bytes ==
+                            static_cast<std::size_t>(cube->userdata_size))) {
                 success = true;
             } else {
                 success = false;
@@ -558,21 +563,24 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
             wiz8::text::write_utf8_field(fmt::format("Cube{:d}", index), cube->name);
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle.read(&cube->parameters[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&cube->parameters[component], 4).bytes ==
+                            static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle.read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success &&
+                (handle.read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle.read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success &&
+                (handle.read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -580,8 +588,8 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
         }
 
         glm::vec3 scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
-                                (maximum.y - minimum.y) * static_cast<float>(g_world_cursor_scale),
-                                (maximum.z - minimum.z) * static_cast<float>(g_world_cursor_scale));
+                        (maximum.y - minimum.y) * static_cast<float>(g_world_cursor_scale),
+                        (maximum.z - minimum.z) * static_cast<float>(g_world_cursor_scale));
         if (cube != 0) {
             stModelInstance* instance = static_cast<stModelInstance*>(cube->node);
             if (instance != 0) {
@@ -593,7 +601,8 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
         }
 
         for (component = 0; component < 3; ++component) {
-            if (success && (handle.read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success &&
+                (handle.read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -604,8 +613,8 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
         }
         if (cube->node != 0) {
             glm::dvec3 node_location(static_cast<double>(location.x),
-                                             static_cast<double>(location.y),
-                                             static_cast<double>(location.z));
+                                     static_cast<double>(location.y),
+                                     static_cast<double>(location.z));
             cube->node->setLocation(node_location);
         }
         if (success && (handle.read(&cube->value_08, 4).bytes == static_cast<std::size_t>(4))) {
@@ -658,10 +667,16 @@ unsigned char SaveWorldCursorNodes(wiz8::File& handle)
 }
 
 // FUNCTION: WIZ8 0x0048ED00
-int GetWorldCursorNodeCount(void) { return static_cast<int>(g_world_cursor_nodes.size()); }
+int GetWorldCursorNodeCount(void)
+{
+    return static_cast<int>(g_world_cursor_nodes.size());
+}
 
 // FUNCTION: WIZ8 0x0048ED10
-W8WorldCursorNode* GetWorldCursorNode(int index) { return g_world_cursor_nodes[index]; }
+W8WorldCursorNode* GetWorldCursorNode(int index)
+{
+    return g_world_cursor_nodes[index];
+}
 
 /* Attach or detach the node's scene node under the world's dynamic scene. */
 // FUNCTION: WIZ8 0x0048ED30

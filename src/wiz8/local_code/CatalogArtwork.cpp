@@ -759,8 +759,9 @@ static constexpr std::array<CatalogSlot, 492> g_catalog_slots = {{
 
 static const CatalogEntry& CatalogEntryFor(int object, int frame)
 {
-    if (frame < 0)
+    if (frame < 0) {
         throw std::out_of_range("Negative catalog frame offset");
+    }
     const auto index = std::int64_t{g_catalog_slots.at(object).first_entry} + frame;
     return g_catalog_entries.at(index);
 }
@@ -776,19 +777,21 @@ void ReleaseCatalogArtwork()
     g_image_assets.clear();
 }
 
-void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image,
-                             int left, int top, SpriteDraw options)
+void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image, int left,
+                             int top, SpriteDraw options)
 {
     DrawSprite(target, sprites, static_cast<std::size_t>(image), left, top, options);
     const auto [width, height] = GetSpriteSize(sprites, image);
-    if (width != 0 && height != 0)
+    if (width != 0 && height != 0) {
         InvalidateRegion(left, top, left + width, top + height);
+    }
 }
 
 std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image)
 {
-    if (image < 0 || static_cast<std::size_t>(image) >= sprites.frames.size())
+    if (image < 0 || static_cast<std::size_t>(image) >= sprites.frames.size()) {
         return {};
+    }
     const auto& sprite = sprites.frames[image];
     return {sprite.width, sprite.height};
 }
@@ -809,40 +812,48 @@ CatalogArtwork CatalogArtwork::Load(int object, int frame)
     const int image_offset = g_catalog_slots.at(object).image_offset;
     if (record.storage == CatalogStorage::Sprites) {
         auto sprites = g_image_assets.sprites(record.path);
-        if (!sprites)
+        if (!sprites) {
             ReportCatalogLoadFailure(record);
+        }
         return CatalogArtwork(std::move(sprites), image_offset);
     }
     auto bitmap = g_image_assets.bitmap(record.path);
-    if (!bitmap)
+    if (!bitmap) {
         ReportCatalogLoadFailure(record);
+    }
     return CatalogArtwork(std::move(bitmap), image_offset);
 }
 
-int CatalogArtwork::imageOffset() const { return image_offset_; }
+int CatalogArtwork::imageOffset() const
+{
+    return image_offset_;
+}
 
 void CatalogArtwork::draw(SDL_Surface& target, int image, int x, int y, SpriteDraw options,
                           BitmapKey key) const
 {
     if (const auto sprites = spriteSheet()) {
         const int sprite = image_offset_ + image;
-        if (sprite >= 0)
+        if (sprite >= 0) {
             DrawSprite(target, *sprites, static_cast<std::size_t>(sprite), x, y, options);
+        }
         return;
     }
-    if (const auto surface = bitmap())
+    if (const auto surface = bitmap()) {
         BlitImage(target, x, y, *surface, nullptr,
                   {.color_key = key == BitmapKey::Transparent && !options.mirror
                                     ? std::optional<std::uint32_t>{kBitmapTransparentPixel}
                                     : std::nullopt,
                    .mirror = options.mirror});
+    }
 }
 
 void CatalogArtwork::invalidate(int image, int x, int y) const
 {
     const SDL_Point extent = size(image);
-    if (extent.x != 0 && extent.y != 0)
+    if (extent.x != 0 && extent.y != 0) {
         InvalidateRegion(x, y, x + extent.x, y + extent.y);
+    }
 }
 
 SDL_Point CatalogArtwork::size(int image) const
@@ -851,8 +862,9 @@ SDL_Point CatalogArtwork::size(int image) const
         const auto [width, height] = GetSpriteSize(*sprites, image_offset_ + image);
         return {width, height};
     }
-    if (const auto surface = bitmap())
+    if (const auto surface = bitmap()) {
         return {surface->w, surface->h};
+    }
     return {};
 }
 
@@ -868,23 +880,25 @@ SDL_Point CatalogArtwork::position(int image) const
 void CatalogArtwork::drawRect(SDL_Surface& target, const SDL_Rect& source, int x, int y) const
 {
     const auto surface = bitmap();
-    if (!surface)
+    if (!surface) {
         throw std::logic_error("Catalog frame does not contain a surface");
+    }
     BlitImage(target, x, y, *surface, &source);
 }
 
 std::shared_ptr<const SpriteSheet> CatalogArtwork::spriteSheet() const
 {
-    if (const auto* sprites =
-            std::get_if<std::shared_ptr<const SpriteSheet>>(&image_))
+    if (const auto* sprites = std::get_if<std::shared_ptr<const SpriteSheet>>(&image_)) {
         return *sprites;
+    }
     return {};
 }
 
 std::shared_ptr<SDL_Surface> CatalogArtwork::bitmap() const
 {
-    if (const auto* surface = std::get_if<std::shared_ptr<SDL_Surface>>(&image_))
+    if (const auto* surface = std::get_if<std::shared_ptr<SDL_Surface>>(&image_)) {
         return *surface;
+    }
     return {};
 }
 

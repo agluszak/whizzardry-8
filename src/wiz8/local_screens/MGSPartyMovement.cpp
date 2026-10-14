@@ -49,7 +49,7 @@ struct PartyMovementPanel {
     int visible_button = 1;
 };
 std::unique_ptr<PartyMovementPanel> movement;
-}
+} // namespace
 
 // GLOBAL: WIZ8 0x005EECD0
 const float g_movement_fatigue_tick_scale = 0.0004f;
@@ -60,8 +60,9 @@ unsigned char CreatePartyMovementPanel(void)
 {
     movement = std::make_unique<PartyMovementPanel>();
     const W8ControlsRect bounds{0xc3, 0x13f, 0x1b9, 0x153};
-    movement->caption = std::make_unique<W8TextBuffer>(&bounds, std::string_view{},
-        g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    movement->caption =
+        std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     const auto art = CatalogArtwork::Load(0x94, 0);
     for (int index = 0; index < 2; ++index) {
         auto& button = movement->buttons[index];
@@ -100,12 +101,16 @@ void UpdatePartyMovementPanel(void)
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
     movement->visible_button = visible;
-    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
+    for (int index = 0; index < 2; ++index) {
+        movement->buttons[index]->SetVisible(index == visible);
+    }
 }
 
 void DisablePartyMovementRegions(void)
 {
-    if (movement) movement->input.setEnabled(false);
+    if (movement) {
+        movement->input.setEnabled(false);
+    }
 }
 
 void DrawPartyMovementPanel(void)
@@ -130,8 +135,12 @@ void DrawPartyMovementPanel(void)
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
     movement->visible_button = visible;
-    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
-    if (visible == 1) movement->buttons[1]->SetEnabled(g_combat_state->round_active);
+    for (int index = 0; index < 2; ++index) {
+        movement->buttons[index]->SetVisible(index == visible);
+    }
+    if (visible == 1) {
+        movement->buttons[1]->SetEnabled(g_combat_state->round_active);
+    }
     panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
     if (panel_live) {
         CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
@@ -159,7 +168,8 @@ void DrawPartyMovementPanel(void)
     if (panel_live) {
         clip = {right, 0, 0x1b9 - right, 0x1e0};
         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3, 0x144);
+        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3,
+                                                        0x144);
     }
     DrawPartyMovementGauge(right, image, panel_live, caption);
     if (panel_live) {
@@ -218,11 +228,13 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         }
         return;
     }
-    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(), movement->animation_frame + frame_base + frame, right - 0xf, 0x142);
+    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(),
+                                                    movement->animation_frame + frame_base + frame,
+                                                    right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
         movement->caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
-                                               false, GetFrameBufferSurface());
+                                        false, GetFrameBufferSurface());
     }
 }
 

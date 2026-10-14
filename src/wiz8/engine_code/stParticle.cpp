@@ -384,8 +384,8 @@ void stParticle::Update()
         const auto node_location = glm::vec3(getLocation());
 
         double elapsed = static_cast<double>(elapsed_ticks);
-        const auto acceleration_step = glm::vec3(
-            glm::dvec3(acceleration) * (elapsed * g_double_one_thousandth));
+        const auto acceleration_step =
+            glm::vec3(glm::dvec3(acceleration) * (elapsed * g_double_one_thousandth));
 
         unsigned int index;
         for (index = 0; index < particle_count; ++index) {
@@ -424,8 +424,8 @@ void stParticle::Update()
                 velocities[index] += acceleration_step;
             }
 
-            const auto movement = glm::vec3(
-                glm::dvec3(velocities[index]) * (elapsed * g_double_one_thousandth));
+            const auto movement =
+                glm::vec3(glm::dvec3(velocities[index]) * (elapsed * g_double_one_thousandth));
             auto candidate = particle_positions[index] + movement;
 
             if (bounds_mode == W8_PARTICLE_BOUNDS_SPHERE) {
@@ -446,7 +446,8 @@ void stParticle::Update()
                 // The octree trace still accepts packed endpoint records.
                 const srVector3 from(particle_positions[index]);
                 srVector3 to(candidate);
-                if (g_world->octree == nullptr || !g_world->octree->HasLineOfSight(&from, &to, true)) {
+                if (g_world->octree == nullptr ||
+                    !g_world->octree->HasLineOfSight(&from, &to, true)) {
                     DeactivateParticle(index);
                     continue;
                 }
@@ -506,8 +507,10 @@ glm::vec3 stParticle::emissionPosition()
 {
     // Braced initialization preserves the x, y, z random draw order.
     const glm::vec3 random{float(rand() & 0x7fff), float(rand() & 0x7fff), float(rand() & 0x7fff)};
-    const auto offset = ((emission_maximum - emission_minimum) * random *
-                         g_particle_random_unit_scale + emission_minimum) * size_scale;
+    const auto offset =
+        ((emission_maximum - emission_minimum) * random * g_particle_random_unit_scale +
+         emission_minimum) *
+        size_scale;
     return getRotation<glm::mat3>() * offset + glm::vec3(getLocation());
 }
 
@@ -553,32 +556,37 @@ void stParticle::process(const ProcessInfo& info, e_processType)
 // FUNCTION: WIZ8 0x00498DD0
 void stParticle::PrepareRenderer(const glm::mat4& view)
 {
-    static const std::array<glm::vec3, 4> corners{{
-        {-0.5f, 0.5f, 0}, {0.5f, 0.5f, 0}, {0.5f, -0.5f, 0}, {-0.5f, -0.5f, 0}}};
+    static const std::array<glm::vec3, 4> corners{
+        {{-0.5f, 0.5f, 0}, {0.5f, 0.5f, 0}, {0.5f, -0.5f, 0}, {-0.5f, -0.5f, 0}}};
     auto basis = glm::mat3(view);
     const float normalization = float(g_double_one / glm::length(glm::vec3(glm::row(view, 0))));
     basis *= normalization;
     const float scale = float(particle_size) * size_scale;
     std::array<glm::vec3, 4> offsets;
-    for (unsigned corner = 0; corner < corners.size(); ++corner)
+    for (unsigned corner = 0; corner < corners.size(); ++corner) {
         offsets[corner] = (basis * corners[corner]) * scale;
+    }
 
     float phase = 0;
-    if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
-        phase = float(g_shared_timer_base->milliseconds() % flutter_period) /
-                int(flutter_period) * g_camera_angle_period;
+    if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0) {
+        phase = float(g_shared_timer_base->milliseconds() % flutter_period) / int(flutter_period) *
+                g_camera_angle_period;
+    }
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
     for (unsigned index = 0; index < particle_count; ++index) {
         auto position = particle_positions[index];
         if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && velocities[index].y < 0) {
             float amount = flutter;
-            if (flutter_mode == W8_PARTICLE_FLUTTER_VELOCITY_SCALED)
+            if (flutter_mode == W8_PARTICLE_FLUTTER_VELOCITY_SCALED) {
                 amount *= std::max(g_particle_flutter_velocity_floor, velocities[index].y) *
                           g_particle_flutter_displacement_scale;
-            position += glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
+            }
+            position +=
+                glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
         }
-        for (unsigned corner = 0; corner < corners.size(); ++corner)
+        for (unsigned corner = 0; corner < corners.size(); ++corner) {
             vertex_positions[index * 4 + corner] = position + offsets[corner];
+        }
     }
 }
 
@@ -642,9 +650,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
         rotation = getRotation<glm::mat3>();
         glm::mat4 world(rotation);
         world[3] = glm::vec4(position, 1);
-        const auto bounds =
-            srBoundingBox{lifetime_minimum, lifetime_maximum}.transformed(
-                world);
+        const auto bounds = srBoundingBox{lifetime_minimum, lifetime_maximum}.transformed(world);
         const auto visibility = renderer->testBoundingBox(bounds.minimum, bounds.maximum);
         if (visibility == srGERD::VISIBILITY_OUTSIDE) {
             return;
@@ -678,8 +684,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(renderer);
 
-    pipeline->active_triangles =
-        std::span(active_triangles).first(active_particle_count * 2);
+    pipeline->active_triangles = std::span(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
     pipeline->triangle_count = triangles.size();
     pipeline->positions = vertex_positions.data();

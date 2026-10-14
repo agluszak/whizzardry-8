@@ -46,7 +46,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
     bool ok;
 
     LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
-                                              : "Data\\Strings\\StringData.DAT");
+                                                       : "Data\\Strings\\StringData.DAT");
     const auto& framebuffer = GetFrameBufferSurface();
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();

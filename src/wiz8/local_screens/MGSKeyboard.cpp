@@ -101,8 +101,7 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
     for (index = 0; index < count; ++index) {
         MGSKeyBinding* binding = m_bindings[index].get();
         if (binding->active != 0 && event->type == InputEventType::KeyDown &&
-            binding->modifiers == event->modifiers &&
-            binding->key == event->key) {
+            binding->modifiers == event->modifiers && binding->key == event->key) {
             return binding->command;
         }
     }
@@ -168,8 +167,7 @@ void MGSKeyboard::Clear()
 
 // FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
-try
-{
+try {
     int count;
 
     if (clear) {
@@ -191,8 +189,9 @@ try
         m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
@@ -216,7 +215,6 @@ void ResetMGSKeyboardBindings()
     g_mgs_keyboard->LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
 }
 
-
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
    box consume key presses first; the MIPE editor and the record-mode console
    gate on their flags; everything else resolves to a bound MGS command.
@@ -228,7 +226,8 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
     if (IsTypingEvent(*input) && text_fields && text_fields->HandleInput(*input)) {
         return 1;
     }
-    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) && gXStatus.fNpcDialogueMode) {
+    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
+        gXStatus.fNpcDialogueMode) {
         HandleNpcDialogueKeyEvent(input);
         return 1;
     }
@@ -281,7 +280,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                     return;
                 }
             }
-            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true, true);
+            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true,
+                                   true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
         break;
@@ -640,8 +640,9 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
         g_settings.auto_advance_character ^= 1;
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
+        ShowNotice(
+            W8_FONT_PALETTE_BEIGE,
+            g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);
@@ -685,7 +686,7 @@ struct KeyboardMenu {
     bool dirty = true;
 };
 std::unique_ptr<KeyboardMenu> keyboard_menu;
-}
+} // namespace
 
 static void KeyboardMenuSelectAttack(void);
 static void KeyboardMenuSelectBerserk(void);
@@ -737,11 +738,9 @@ void CloseKeyboardMenu(void)
     }
     if (keyboard_menu && g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
         ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52,
-                         keyboard_menu->origin.y + 0x4a);
+                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
         InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52,
-                         keyboard_menu->origin.y + 0x4a);
+                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
     }
     keyboard_menu.reset();
     RequestRedraw(1 << g_selected_party_slot);
@@ -749,15 +748,21 @@ void CloseKeyboardMenu(void)
 
 static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
 {
-    if (row.menu == -1) return g_localized_strings[0x11];
+    if (row.menu == -1) {
+        return g_localized_strings[0x11];
+    }
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
-        if (!row.enabled) return g_localized_strings[0x5a];
+        if (!row.enabled) {
+            return g_localized_strings[0x5a];
+        }
         const auto& spell = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id];
         return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(g_selected_party_slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
-        if (!row.enabled) return g_localized_strings[0x5d];
+        if (!row.enabled) {
+            return g_localized_strings[0x5d];
+        }
         const auto& party = g_status.buffers.XChar[g_selected_party_slot];
         auto* item = FindCharacterItemAt(g_selected_party_slot, party.item_origin, party.item_slot);
         return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
@@ -777,13 +782,16 @@ unsigned char BuildKeyboardMenu(void)
          KeyboardMenuSelectTurnUndead, KeyboardMenuSelectPray},
         {KeyboardMenuSelectDefend, KeyboardMenuSelectProtect},
         {KeyboardMenuSelectEquip, KeyboardMenuOpenUseItemView, KeyboardMenuUseRecordedItem},
-        {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}
-    };
+        {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}};
     int index = 0;
-    for (int menu = 0; menu < 4; ++menu) for (int item = 0; item < 5; ++item) {
-        if (g_submenu_entry_message_ids[menu * 5 + item] == -1) continue;
-        keyboard_menu->rows[index].menu = menu;
-        keyboard_menu->rows[index++].item = item;
+    for (int menu = 0; menu < 4; ++menu) {
+        for (int item = 0; item < 5; ++item) {
+            if (g_submenu_entry_message_ids[menu * 5 + item] == -1) {
+                continue;
+            }
+            keyboard_menu->rows[index].menu = menu;
+            keyboard_menu->rows[index++].item = item;
+        }
     }
     for (int i = 0; i < 13; ++i) {
         auto& row = keyboard_menu->rows[i];
@@ -793,22 +801,31 @@ unsigned char BuildKeyboardMenu(void)
             [&row](const UiPointerEvent& event) {
                 keyboard_menu->dirty = true;
                 const ButtonPolicy policy{.controller_activation = true};
-                if (event.action == UiPointerAction::Leave) row.press.leave(policy);
+                if (event.action == UiPointerAction::Leave) {
+                    row.press.leave(policy);
+                }
                 if (event.action == UiPointerAction::Enter &&
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
-                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
+                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1))) {
                     SetUiHelpForced(true);
+                }
                 if (!row.enabled) {
                     PushButtonSoundScheme(0, true);
                     return UiResult::Handled;
                 }
-                const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-                if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
+                const auto mask =
+                    event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+                if (event.action == UiPointerAction::Down) {
+                    row.press.press(mask, policy);
+                }
                 if (event.action == UiPointerAction::Up && event.inside &&
                     (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
                     auto action = event.button == UiPointerButton::Right || row.menu == -1
-                        ? CloseKeyboardMenu : actions[row.menu][row.item];
-                    if (action) AfterUiDispatch(action);
+                                      ? CloseKeyboardMenu
+                                      : actions[row.menu][row.item];
+                    if (action) {
+                        AfterUiDispatch(action);
+                    }
                 }
                 return UiResult::Handled;
             });
@@ -816,10 +833,11 @@ unsigned char BuildKeyboardMenu(void)
     }
     keyboard_menu->rows[12].appearance.quick_image = ButtonGraphics::Load(
         CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
-    keyboard_menu->input.add(SDL_Rect{left + 0x17, top, 0x53, 0x4b},
-        [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+    keyboard_menu->input.add(
+        SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
                 AfterUiDispatch(CloseKeyboardMenu);
+            }
             return UiResult::Handled;
         });
     RefreshKeyboardMenuRows();
@@ -841,41 +859,64 @@ void RefreshKeyboardMenuRows(void)
 {
     const auto art = CatalogArtwork::Load(0x89, 0);
     for (auto& row : keyboard_menu->rows) {
-        if (row.menu == -1) continue;
+        if (row.menu == -1) {
+            continue;
+        }
         const int base = g_submenu_entry_message_ids[row.menu * 5 + row.item];
         int normal = base;
         int hover = base + 2;
         row.enabled = true;
         switch (GetSubMenuEntryState(row.menu, row.item, g_selected_party_slot)) {
-        case W8_SUBMENU_ENTRY_USABLE: break;
-        case W8_SUBMENU_ENTRY_USABLE_SELECTED: normal += 1; break;
-        case W8_SUBMENU_ENTRY_UNUSABLE: normal += 3; hover += 3; break;
-        case W8_SUBMENU_ENTRY_UNUSABLE_SELECTED: normal += 4; hover += 3; break;
-        case W8_SUBMENU_ENTRY_UNAVAILABLE: row.enabled = false; break;
+        case W8_SUBMENU_ENTRY_USABLE:
+            break;
+        case W8_SUBMENU_ENTRY_USABLE_SELECTED:
+            normal += 1;
+            break;
+        case W8_SUBMENU_ENTRY_UNUSABLE:
+            normal += 3;
+            hover += 3;
+            break;
+        case W8_SUBMENU_ENTRY_UNUSABLE_SELECTED:
+            normal += 4;
+            hover += 3;
+            break;
+        case W8_SUBMENU_ENTRY_UNAVAILABLE:
+            row.enabled = false;
+            break;
         }
         int offset = 0;
-        if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
-            offset = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
-        else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
-            offset = GetAttackMenuWeaponOffset(g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) * 7;
-        row.appearance.quick_image = ButtonGraphics::Load(art.spriteSheet(), base + 6,
-            normal + offset, hover + offset, normal + offset, hover + offset);
+        if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
+            offset =
+                g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
+        } else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0) {
+            offset = GetAttackMenuWeaponOffset(
+                         g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) *
+                     7;
+        }
+        row.appearance.quick_image =
+            ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
+                                 normal + offset, hover + offset);
     }
     keyboard_menu->dirty = true;
 }
 
 void RedrawKeyboardMenuPanel(bool invalidate)
 {
-    if (!invalidate && !keyboard_menu->dirty) return;
+    if (!invalidate && !keyboard_menu->dirty) {
+        return;
+    }
     const auto [x, y] = keyboard_menu->origin;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
     for (int index = 0; index < 13; ++index) {
         const auto& row = keyboard_menu->rows[index];
-        DrawButtonAppearance(target, row.appearance,
+        DrawButtonAppearance(
+            target, row.appearance,
             {x + g_keyboard_row_positions[index].x, y + g_keyboard_row_positions[index].y, 18, 18},
-            {.enabled = row.enabled, .pressed = row.press.pressed,
-             .hovered = row.target->hovered(), .menu_artwork = true});
+            {.enabled = row.enabled,
+             .pressed = row.press.pressed,
+             .hovered = row.target->hovered(),
+             .menu_artwork = true});
     }
     keyboard_menu->dirty = false;
 }

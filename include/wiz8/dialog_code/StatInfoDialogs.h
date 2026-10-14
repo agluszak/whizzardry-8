@@ -21,7 +21,6 @@ public:
     virtual bool PopulateText();
 
 protected:
-
     W8DialogScrollBar scrollbar{InputLayer()};
     W8ButtonWidget button{InputLayer()};
     W8DialogTextArea textarea;

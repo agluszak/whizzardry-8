@@ -55,7 +55,10 @@ public:
     // Hover-only targets (tooltips, previews) see presses but never capture the
     // pointer. Other targets capture on press whatever their handler returns:
     // gameplay controls that Pass a press still expect the matching release.
-    void setPassive() { passive_ = true; }
+    void setPassive()
+    {
+        passive_ = true;
+    }
     // Release capture when gameplay starts a drag whose destination should
     // receive the release. This changes the existing dispatcher's capture.
     void releaseCapture();
@@ -135,7 +138,7 @@ using RetiredObject = std::unique_ptr<void, void (*)(void*)>;
 void RetireAfterUiDispatch(RetiredObject object);
 // Destroys `object` when the outermost transaction ends, or now outside one.
 // Removed hit targets and replaced modals go through here.
-template <class T> void DestroyAfterUiDispatch(std::unique_ptr<T> object)
+template<class T> void DestroyAfterUiDispatch(std::unique_ptr<T> object)
 {
     if (object) {
         RetireAfterUiDispatch({object.release(), [](void* p) { delete static_cast<T*>(p); }});

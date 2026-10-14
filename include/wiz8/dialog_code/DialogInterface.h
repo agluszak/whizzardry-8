@@ -13,7 +13,7 @@
 /* Numeric split dialogs release the active field before forwarding button-up,
    and forward repeat events unchanged. The field reference remains live across
    callbacks; keyboard handling stays with the concrete dialog. */
-template <class Dialog, class Field>
+template<class Dialog, class Field>
 void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                      bool (Dialog::*handle_event)(const InputEvent*))
 {

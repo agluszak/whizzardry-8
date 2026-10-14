@@ -12,13 +12,22 @@ public:
     W8RangeControl(int left, int top, int right, int bottom);
     void SetRange(int first, int second);
     void SetValue(int value);
-    void Decrement() { AdjustValue(1); }
-    void Increment() { AdjustValue(-1); }
+    void Decrement()
+    {
+        AdjustValue(1);
+    }
+    void Increment()
+    {
+        AdjustValue(-1);
+    }
     void AdjustValue(int steps);
     void SetEnabled(bool enabled);
     void SetActive(bool active);
     void SetBounds(SDL_Rect bounds);
-    void InvalidateAll() { m_dirty = true; }
+    void InvalidateAll()
+    {
+        m_dirty = true;
+    }
     void Redraw(SDL_Surface& target, bool full_redraw);
     int m_minimum = 0;
     int m_maximum = 1;

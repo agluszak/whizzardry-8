@@ -11,9 +11,8 @@
 #include "wiz8/file_time.h"
 #include "catch2/catch_message.hpp"
 
-
 using namespace wiz8;
-template <typename Function> void rejects(Function function)
+template<typename Function> void rejects(Function function)
 {
     REQUIRE_THROWS_AS(function(), std::exception);
 }
@@ -62,13 +61,10 @@ TEST_CASE("file_time_test")
 
 TEST_CASE("FILETIME representative 100ns ticks round-trip", "[time][serialization]")
 {
-    const std::uint64_t ticks = GENERATE(
-        std::uint64_t{0},
-        std::uint64_t{1},
-        std::uint64_t{116444736000000000ULL},
-        std::uint64_t{125962560000000001ULL},
-        std::uint64_t{2650467743999999999ULL},
-        std::numeric_limits<std::uint64_t>::max());
+    const std::uint64_t ticks =
+        GENERATE(std::uint64_t{0}, std::uint64_t{1}, std::uint64_t{116444736000000000ULL},
+                 std::uint64_t{125962560000000001ULL}, std::uint64_t{2650467743999999999ULL},
+                 std::numeric_limits<std::uint64_t>::max());
     CAPTURE(ticks);
     const auto original = DiskFileTime::from_ticks(ticks);
     CHECK(file_time_from_utc(file_time_to_utc(original)).ticks() == ticks);
@@ -77,10 +73,9 @@ TEST_CASE("FILETIME representative 100ns ticks round-trip", "[time][serializatio
 TEST_CASE("FILETIME seeded random round-trip", "[time][serialization]")
 {
     std::mt19937_64 random(8);
-    for (unsigned i = 0; i < 50000; ++i)
-    {
+    for (unsigned i = 0; i < 50000; ++i) {
         const auto ticks = random();
-        REQUIRE(file_time_from_utc(file_time_to_utc(DiskFileTime::from_ticks(ticks))).ticks() == ticks);
+        REQUIRE(file_time_from_utc(file_time_to_utc(DiskFileTime::from_ticks(ticks))).ticks() ==
+                ticks);
     }
-
 }

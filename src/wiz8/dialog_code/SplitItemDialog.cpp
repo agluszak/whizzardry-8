@@ -66,7 +66,9 @@ static DesignRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 // FUNCTION: WIZ8 0x005DCED0
 W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count)
 {
-    for (int index = 0; index < 10; ++index) m_buttons.emplace_back(InputLayer());
+    for (int index = 0; index < 10; ++index) {
+        m_buttons.emplace_back(InputLayer());
+    }
     int index;
 
     SetExtent(0x142, 0xbd);
@@ -115,7 +117,9 @@ void W8SplitItemDialog::DestroyButtons()
     } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 10;
     }
-    for (int index = 0; index < count; ++index) m_buttons[index].Reset();
+    for (int index = 0; index < count; ++index) {
+        m_buttons[index].Reset();
+    }
 }
 
 /* Shared cleanup in failure paths and DestroyControls. The helper name
@@ -209,7 +213,7 @@ bool W8SplitItemDialog::CreateButtons()
     m_buttons[1].policy.repeat = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index].SetPosition(g_split_button_offsets[index].x + m_x,
-                                      g_split_button_offsets[index].y + m_y);
+                                     g_split_button_offsets[index].y + m_y);
     }
     return true;
 }
@@ -233,9 +237,9 @@ bool W8SplitItemDialog::CreateTextBuffers()
         bounds.top = g_split_text_bounds[index].top + m_y;
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
-        m_texts[index] = new W8TextBuffer(&bounds, g_localized_strings[g_split_text_string_ids[index]],
-                                          g_wiz_text_font_secondary,
-                                          g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_texts[index] = new W8TextBuffer(
+            &bounds, g_localized_strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_texts[index] == 0) {
             DestroyTextBuffers();
             return false;
@@ -275,8 +279,8 @@ bool W8SplitItemDialog::CreateNumericInput()
     bounds.top = g_split_count_field_bounds.top + m_y;
     bounds.right = g_split_count_field_bounds.right + m_x;
     bounds.bottom = g_split_count_field_bounds.bottom + m_y;
-    m_count_input = std::make_unique<W8DialogNumericInput>(0, &bounds, split_count, g_wiz_text_font_secondary,
-                                             this, &m_buttons[3]);
+    m_count_input = std::make_unique<W8DialogNumericInput>(
+        0, &bounds, split_count, g_wiz_text_font_secondary, this, &m_buttons[3]);
     m_count_input->m_maximum = m_stack_total;
     return true;
 }
@@ -316,9 +320,8 @@ void W8SplitItemDialog::Draw(SDL_Surface& target)
         W8DialogBase::Draw(target);
     }
     if (m_first_draw) {
-        DrawSpriteAndInvalidate(target,
-                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18,
-                                m_y + 0xe);
+        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
+                                m_x + 0x18, m_y + 0xe);
         m_first_draw = false;
     }
     if (m_buttons[3].m_dirty) {
@@ -480,7 +483,9 @@ void W8SplitItemDialog::OnNumericInputChanged(int value)
 // FUNCTION: WIZ8 0x005DE120
 bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (m_count_input && m_count_input->HandleInput(input)) return true;
+    if (m_count_input && m_count_input->HandleInput(input)) {
+        return true;
+    }
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         int key = toupper(input->key);
         if (key == '\r') {

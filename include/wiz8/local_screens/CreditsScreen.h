@@ -5,7 +5,9 @@
 
 #include "compat/compiler.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 struct W8CreditLine {
     unsigned int flags;

@@ -14,7 +14,7 @@ struct W8SpellEffectDefinition;
 struct W8SpellEffectResult;
 struct W8TargetSource;
 class W8Missile;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* The five character hit locations, in the order gubLocalACPercent and the
    per-location armour classes use them. */

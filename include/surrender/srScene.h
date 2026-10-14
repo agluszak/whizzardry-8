@@ -60,4 +60,3 @@ protected:
     glm::vec3 ambient_light;         /* 0x174 */
     glm::vec3 fog_color;             /* 0x180 */
 };
-

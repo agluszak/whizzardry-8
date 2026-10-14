@@ -70,33 +70,18 @@ srLight::srLight(srNode* parent, e_preset preset)
    links and registry ownership, leaving dangling siblings during unload. */
 srLight::srLight(const srLight& other)
     : srClassSupport<srLight, srIlluminator, 0x1220>(other),
-      attenuation_model(other.attenuation_model),
-      near_start(other.near_start),
-      near_end(other.near_end),
-      far_start(other.far_start),
-      far_end(other.far_end),
-      scaled_near_start(other.scaled_near_start),
-      scaled_far_end(other.scaled_far_end),
-      near_attenuation(other.near_attenuation),
-      far_attenuation(other.far_attenuation),
-      opengl_attenuation(other.opengl_attenuation),
-      enable_flags(other.enable_flags),
-      ambient(other.ambient),
-      diffuse(other.diffuse),
-      specular(other.specular),
-      spot_direction(other.spot_direction),
-      spot_angle(other.spot_angle),
-      spot_exponent(other.spot_exponent),
-      intensity(other.intensity),
-      safe_range(other.safe_range),
-      scaled_ambient(other.scaled_ambient),
-      scaled_diffuse(other.scaled_diffuse),
-      scaled_specular(other.scaled_specular),
-      spot_direction_eye(other.spot_direction_eye),
-      spot_cutoff(other.spot_cutoff),
-      attenuation_range(other.attenuation_range),
-      derived_flags(other.derived_flags),
-      channel_mask(other.channel_mask)
+      attenuation_model(other.attenuation_model), near_start(other.near_start),
+      near_end(other.near_end), far_start(other.far_start), far_end(other.far_end),
+      scaled_near_start(other.scaled_near_start), scaled_far_end(other.scaled_far_end),
+      near_attenuation(other.near_attenuation), far_attenuation(other.far_attenuation),
+      opengl_attenuation(other.opengl_attenuation), enable_flags(other.enable_flags),
+      ambient(other.ambient), diffuse(other.diffuse), specular(other.specular),
+      spot_direction(other.spot_direction), spot_angle(other.spot_angle),
+      spot_exponent(other.spot_exponent), intensity(other.intensity), safe_range(other.safe_range),
+      scaled_ambient(other.scaled_ambient), scaled_diffuse(other.scaled_diffuse),
+      scaled_specular(other.scaled_specular), spot_direction_eye(other.spot_direction_eye),
+      spot_cutoff(other.spot_cutoff), attenuation_range(other.attenuation_range),
+      derived_flags(other.derived_flags), channel_mask(other.channel_mask)
 {
 }
 
@@ -198,10 +183,9 @@ void srLight::process(const ProcessInfo& info, e_processType type)
             const glm::vec3& color;
             glm::vec4& scaled;
             srVertexProcessor::e_channel channel;
-        } channels[] = {
-            {ambient, scaled_ambient, srVertexProcessor::CHANNEL_LIGHT_AMBIENT},
-            {diffuse, scaled_diffuse, srVertexProcessor::CHANNEL_LIGHT_DIFFUSE},
-            {specular, scaled_specular, srVertexProcessor::CHANNEL_SPECULAR}};
+        } channels[] = {{ambient, scaled_ambient, srVertexProcessor::CHANNEL_LIGHT_AMBIENT},
+                        {diffuse, scaled_diffuse, srVertexProcessor::CHANNEL_LIGHT_DIFFUSE},
+                        {specular, scaled_specular, srVertexProcessor::CHANNEL_SPECULAR}};
         for (const auto& channel : channels) {
             if (channel.color != glm::vec3(0)) {
                 channel_mask |= 1UL << channel.channel;
@@ -250,7 +234,8 @@ void srLight::process(const ProcessInfo& info, e_processType type)
                     }
                     if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
                         if ((enable_flags & (1UL << srLight::ENABLE_BOUNDING_SPHERE)) != 0) {
-                            if (renderer->testBoundingSphere(glm::vec3(0), safe_range + far_end) == 0) {
+                            if (renderer->testBoundingSphere(glm::vec3(0), safe_range + far_end) ==
+                                0) {
                                 derived_flags &= ~srLight::DERIVED_ACTIVE;
                             }
                         }
@@ -324,7 +309,8 @@ void srLight::process(srVertexPipe& pipe)
 
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) == 0) {
         for (SRDWORD i = 0; i < count; ++i) {
-            const auto sample = srLightingMath::directionAndDistance(light_position -
+            const auto sample = srLightingMath::directionAndDistance(
+                light_position -
                 glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]));
             directions[i] = sample.direction;
             distances[i] = sample.distance;
@@ -332,16 +318,21 @@ void srLight::process(srVertexPipe& pipe)
         if (attenuation_model == ATTENUATION_3DSTUDIO_MAX) {
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_NEAR)) != 0) {
                 srChannelMath::distanceRamp(attenuation_values, distance_values, scaled_near_start,
-                                            near_attenuation, 1, srChannelMath::RampDirection::increasing);
+                                            near_attenuation, 1,
+                                            srChannelMath::RampDirection::increasing);
                 attenuation = attenuation_values;
             }
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
                 const bool has_near = !attenuation.empty();
                 const auto far_values = has_near ? spot_values : attenuation_values;
                 srChannelMath::distanceRamp(far_values, distance_values, scaled_far_end,
-                                            far_attenuation, 1, srChannelMath::RampDirection::decreasing);
-                if (has_near) srChannelMath::multiply(attenuation, far_values);
-                else attenuation = far_values;
+                                            far_attenuation, 1,
+                                            srChannelMath::RampDirection::decreasing);
+                if (has_near) {
+                    srChannelMath::multiply(attenuation, far_values);
+                } else {
+                    attenuation = far_values;
+                }
             }
             if (!attenuation.empty() && srChannelMath::allZero(attenuation)) {
                 return;
@@ -352,14 +343,16 @@ void srLight::process(srVertexPipe& pipe)
                     float constant = 1.0f / opengl_attenuation.x;
                     std::fill_n(attenuation_bank, count, constant);
                 } else {
-                    for (std::size_t i = 0; i < count; ++i)
+                    for (std::size_t i = 0; i < count; ++i) {
                         attenuation_bank[i] =
                             1.0f / ((opengl_attenuation.z * distances[i] + opengl_attenuation.y) *
                                         distances[i] +
                                     opengl_attenuation.x);
+                    }
                 }
-                for (std::size_t i = 0; i < count; ++i)
+                for (std::size_t i = 0; i < count; ++i) {
                     attenuation_bank[i] = glm::clamp(attenuation_bank[i], 0.0f, 1.0f);
+                }
                 attenuation = attenuation_values;
             }
         }
@@ -419,14 +412,15 @@ void srLight::process(srVertexPipe& pipe)
         std::fill_n(directions, count, light_position);
     }
     const auto eye_directions = pipe.getEyeSpaceDir();
-    for (std::size_t i = 0; i < count; ++i)
-        directions[i] = srLightingMath::directionAndDistance(directions[i] - eye_directions[i]).direction;
+    for (std::size_t i = 0; i < count; ++i) {
+        directions[i] =
+            srLightingMath::directionAndDistance(directions[i] - eye_directions[i]).direction;
+    }
     const auto normals = pipe.getEyeSpaceNormal();
     srLightingMath::normalDots(distance_values, normals, direction_values,
                                srLightingMath::DotRange::nonnegative);
     if (pipe.material_info.shininess > 1.0f) {
-        srLightingMath::power({distances, count}, {distances, count},
-                               pipe.material_info.shininess);
+        srLightingMath::power({distances, count}, {distances, count}, pipe.material_info.shininess);
     }
     srChannelMath::multiply(distance_values, dot_values);
     const glm::vec4 color = scaled_specular * pipe.material_info.specular;

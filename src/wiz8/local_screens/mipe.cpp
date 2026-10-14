@@ -55,21 +55,24 @@
 using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8ItemDatabaseRecord*,
                                          W8EncounterTableRuntime*, W8ItemTableRecord*>;
 
-template <class T>
+template<class T>
 static T* MipeCategoryValue(const std::vector<W8MipeCategoryEntry>* rows, int index)
 {
-    if (!rows || index < 0 || index >= static_cast<int>(rows->size()))
+    if (!rows || index < 0 || index >= static_cast<int>(rows->size())) {
         return nullptr;
+    }
     const auto* value = std::get_if<T*>(&(*rows)[index]);
     return value ? *value : nullptr;
 }
 
 static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>* rows, int index)
 {
-    if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index))
+    if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index)) {
         return monster->name;
-    if (auto* item = MipeCategoryValue<W8ItemDatabaseRecord>(rows, index))
+    }
+    if (auto* item = MipeCategoryValue<W8ItemDatabaseRecord>(rows, index)) {
         return item->display_name;
+    }
     return {};
 }
 
@@ -138,13 +141,9 @@ static void ShowMipeMenu(std::string_view title, std::initializer_list<std::stri
 
 static void ShowMipeMainMenu()
 {
-    ShowMipeMenu("What would you like to do?", {
-        "1) Create a monster.",
-        "2) Create an item.",
-        "3) Edit object(s).",
-        "4) Monster Generators.",
-        "5) Select object(s).",
-        "6) Handle triggers."});
+    ShowMipeMenu("What would you like to do?",
+                 {"1) Create a monster.", "2) Create an item.", "3) Edit object(s).",
+                  "4) Monster Generators.", "5) Select object(s).", "6) Handle triggers."});
 }
 
 void ToggleMipePanel(void)
@@ -163,7 +162,8 @@ void ToggleMipePanel(void)
         if (g_mipe_cube != 0) {
             SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 0.0f, 0.5f);
         }
-        for (unsigned int monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
+        for (unsigned int monster_list_index = 0; monster_list_index < gXStatus.monsters.size();
+             ++monster_list_index) {
             W8MonsterInfo* monster = GetMonsterListEntry(monster_list_index);
             if (monster != 0 && monster->fInCombat) {
                 SetMonsterHighlight(0, monster->location_id, false);
@@ -384,34 +384,21 @@ void ShowMipeChooseMenu(void)
 /* Mode-5 menu: which kind of object to edit. */
 void ShowMipeEditMenu(void)
 {
-    ShowMipeMenu("What do you want to edit?.", {
-        "1) Monster",
-        "2) Prop",
-        "3) Item",
-        "4) Move object(s)"});
+    ShowMipeMenu("What do you want to edit?.",
+                 {"1) Monster", "2) Prop", "3) Item", "4) Move object(s)"});
 }
 
 static void ShowMipeMonsterEditMenu()
 {
-    ShowMipeMenu("Edit Monster", {
-        "1) Slow <<",
-        "2) Fast >>",
-        "3) Set Speed",
-        "4) Assign Path",
-        "5) Next Cycle",
-        "6) Direction"});
+    ShowMipeMenu("Edit Monster", {"1) Slow <<", "2) Fast >>", "3) Set Speed", "4) Assign Path",
+                                  "5) Next Cycle", "6) Direction"});
 }
 
 /* Mode-0xd menu: prop field-editing choices (locks & traps, treasure table). */
 void ShowMipePropMenu(void)
 {
-    ShowMipeMenu("Choose how you want to edit prop.", {
-        "1) Locks & Traps",
-        "2) Treasure Table",
-        "3) .",
-        "4) .",
-        "5) .",
-        "6) ."});
+    ShowMipeMenu("Choose how you want to edit prop.",
+                 {"1) Locks & Traps", "2) Treasure Table", "3) .", "4) .", "5) .", "6) ."});
 }
 
 /* Mode-0xc menu: trigger actions plus the selected trigger's kind and the
@@ -421,11 +408,8 @@ static void ShowMipeTriggerMenu(void)
     const char* status;
     int kind;
 
-    ShowMipeMenu("Select what you want to do.", {
-        "1) Create trigger.",
-        "2) Delete trigger.",
-        "3) ",
-        "4) Select trigger."});
+    ShowMipeMenu("Select what you want to do.",
+                 {"1) Create trigger.", "2) Delete trigger.", "3) ", "4) Select trigger."});
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, !g_mipe_trigger_display
                                              ? "5) Toggle trigger display [now off]."
                                              : "5) Toggle trigger display [now on].");
@@ -600,7 +584,7 @@ void ShowMonsterGeneratorEditor(void)
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "8) to toggle chance default");
 }
 
-template <class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCategoryEntry>* list)
+template<class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
     if (list != 0) {
         for (int row = 0; row < 6; ++row) {
@@ -746,7 +730,9 @@ static unsigned int FindMipeVisibleItem(int visible)
 {
     int found = 0;
     unsigned int item_index;
-    for (item_index = 0; static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase); ++item_index) {
+    for (item_index = 0;
+         static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase);
+         ++item_index) {
         if (g_item_records[item_index].equip_class == g_mipe_category &&
             g_item_records[item_index].editor_excluded == 0) {
             if (found == visible) {
@@ -1369,7 +1355,8 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_table_row = 0;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                             ++index) {
                             table = &g_item_tables[index];
                             if (table->category_id == 0) {
                                 list->push_back(table);
@@ -1381,7 +1368,8 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_category = category;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                             ++index) {
                             table = &g_item_tables[index];
                             if (table->category_id == static_cast<unsigned int>(category)) {
                                 list->push_back(table);
@@ -1392,7 +1380,8 @@ void HandleMipePropEditKey(unsigned short key)
                          index < static_cast<int>(
                                      (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                          ++index) {
-                        table = MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list.get(), index);
+                        table =
+                            MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list.get(), index);
                         if (table == &g_item_tables[table_index]) {
                             break;
                         }
@@ -1413,13 +1402,9 @@ void HandleMipePropEditKey(unsigned short key)
    helper name is descriptive; no original standalone spelling survives. */
 static void ShowMipeCubeMenu()
 {
-    ShowMipeMenu("Choose an action:", {
-        "1) Create cube.",
-        "2) Delete cube.",
-        "3) Edit cube parameters.",
-        "4) Move cube.",
-        "5) Scale cube.",
-        "6) Select cube."});
+    ShowMipeMenu("Choose an action:",
+                 {"1) Create cube.", "2) Delete cube.", "3) Edit cube parameters.", "4) Move cube.",
+                  "5) Scale cube.", "6) Select cube."});
 }
 
 /* The volume cube top menu: create, delete, edit parameters, move, scale and
@@ -1790,7 +1775,8 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             for (found = 0; found < static_cast<int>(
                                         (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                  ++found) {
-                table = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(), found);
+                table =
+                    MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(), found);
                 entry = GetEncounterTable(current_index);
                 if (table == entry) {
                     break;
@@ -2187,7 +2173,8 @@ void HandleMipeItemTableKey(unsigned short key)
             g_mipe_category = category - 1;
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                     ++index) {
                     table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(category - 1)) {
                         list->push_back(table);
@@ -2211,7 +2198,8 @@ void HandleMipeItemTableKey(unsigned short key)
             }
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                     ++index) {
                     table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
                         list->push_back(table);
@@ -2255,7 +2243,6 @@ unsigned char HandleMipeKey(const InputEvent* event)
                 g_mipe_mode = 0;
                 if (g_mipe_category_list != 0) {
                     g_mipe_category_list.reset();
-                    
                 }
             } else {
                 if (g_mipe_mode == 5) {
@@ -2312,7 +2299,6 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                     g_mipe_state->generator = 0;
                                     if (g_mipe_category_list != 0) {
                                         g_mipe_category_list.reset();
-                                        
                                     }
                                 } else {
                                     ShowWorldCursor();
@@ -2374,7 +2360,6 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                             g_mipe_menu_active = true;
                                             if (g_mipe_category_list != 0) {
                                                 g_mipe_category_list.reset();
-                                                
                                             }
                                             return 1;
                                         }
@@ -2803,8 +2788,7 @@ void UpdateMipeSelection(void)
         if (location_id == -1) {
             group_id = W8_MIPE_NO_GROUP;
         } else {
-            group_id = FindMonster(location_id)
-                           ->monster_group_id;
+            group_id = FindMonster(location_id)->monster_group_id;
         }
         if (group_id == g_mipe_state->selected_group_id) {
             return;
@@ -2817,10 +2801,7 @@ void UpdateMipeSelection(void)
             }
         }
         g_mipe_state->monster_ids.clear();
-        for (index = 0;
-             index <
-             static_cast<int>(gXStatus.monsters.size());
-             ++index) {
+        for (index = 0; index < static_cast<int>(gXStatus.monsters.size()); ++index) {
             info = GetMonsterListEntry(index);
             if (info->fActive && info->monster_group_id == group_id) {
                 SetMonsterHighlight(0, info->location_id, true);

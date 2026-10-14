@@ -29,9 +29,8 @@ W8AnimObj::~W8AnimObj() = default;
 
 // FUNCTION: WIZ8 0x004a05c0
 bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                                  std::vector<stLight*>* light_list, int)
-try
-{
+                         std::vector<stLight*>* light_list, int)
+try {
     unsigned char version = 0;
     bool success;
     unsigned char discarded[50];
@@ -50,41 +49,50 @@ try
         return true;
     };
     success = (handle->read(&version, 1).bytes == static_cast<std::size_t>(1));
-    success = success && (handle->read(&animation->group_count, 1).bytes == static_cast<std::size_t>(1));
+    success =
+        success && (handle->read(&animation->group_count, 1).bytes == static_cast<std::size_t>(1));
     success = success && read_flag(animation->animation_playing);
-    success = success && (handle->read(&animation->frame_method, 1).bytes == static_cast<std::size_t>(1));
-    success = success && (handle->read(&animation->behaviour, 1).bytes == static_cast<std::size_t>(1));
+    success =
+        success && (handle->read(&animation->frame_method, 1).bytes == static_cast<std::size_t>(1));
+    success =
+        success && (handle->read(&animation->behaviour, 1).bytes == static_cast<std::size_t>(1));
     success = success && (handle->read(&animation->cycle, 1).bytes == static_cast<std::size_t>(1));
     success = success && read_flag(animation->path_lists);
 
     if (version < 3) {
         animation->playback_scale = 15.0f;
     } else {
-        success = success && (handle->read(&animation->playback_scale, 4).bytes == static_cast<std::size_t>(4));
+        success = success && (handle->read(&animation->playback_scale, 4).bytes ==
+                              static_cast<std::size_t>(4));
     }
     if (version < 5) {
         animation->start_frame = 0;
     } else {
-        success = success && (handle->read(&animation->start_frame, 1).bytes == static_cast<std::size_t>(1));
+        success = success &&
+                  (handle->read(&animation->start_frame, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version < 11) {
         animation->end_frame = 0;
     } else {
-        success = success && (handle->read(&animation->end_frame, 1).bytes == static_cast<std::size_t>(1));
+        success = success &&
+                  (handle->read(&animation->end_frame, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version < 6) {
         animation->random_play = false;
         animation->play_chance = 1.0f;
     } else {
         success = success && read_flag(animation->random_play);
-        success = success && (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
+        success = success &&
+                  (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
     }
-    success = success && (handle->read(discarded, sizeof(discarded)).bytes == static_cast<std::size_t>(sizeof(discarded)));
+    success = success && (handle->read(discarded, sizeof(discarded)).bytes ==
+                          static_cast<std::size_t>(sizeof(discarded)));
     if (!success || animation->group_count > std::size(animation->entries)) {
         return false;
     }
     for (index = 0; index < static_cast<signed char>(animation->group_count); ++index) {
-        success = success && (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
+        success = success &&
+                  (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
     }
 
     if (version > 6) {
@@ -265,7 +273,7 @@ try
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x20f, 0);
                 }
                 animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
-                                                   std::move(mesh));
+                                                  std::move(mesh));
                 success = LoadPathAI(&path, handle);
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x217, 0);
@@ -297,8 +305,9 @@ try
         }
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Clone owned meshes and paths; bounds copy as ordinary values. */
 // FUNCTION: WIZ8 0x004a0320
@@ -311,7 +320,9 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
       frame_bounds(other.frame_bounds)
 {
     for (int group = 0; group < 3; ++group) {
-        if (other.entries[group]) entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
+        if (other.entries[group]) {
+            entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
+        }
         meshes[group].reserve(other.meshes[group].size());
         for (const auto& mesh : other.meshes[group]) {
             meshes[group].push_back(mesh ? std::make_unique<W8AniMesh>(*mesh) : nullptr);
@@ -319,7 +330,9 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
         paths[group].reserve(other.paths[group].size());
         for (const auto& source : other.paths[group]) {
             auto copy = source ? std::make_unique<W8PathAI>(*source) : nullptr;
-            if (copy) copy->timed = false;
+            if (copy) {
+                copy->timed = false;
+            }
             paths[group].push_back(std::move(copy));
         }
     }
@@ -333,39 +346,48 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
    untransformed mesh boxes; the discarded transformed box is not part of the result. */
 // FUNCTION: WIZ8 0x004a1710
 std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
-                                            unsigned int frame)
+                                              unsigned int frame)
 {
     if (!animation || list_index < 0 ||
-        std::cmp_greater_equal(list_index, std::size(animation->entries)))
+        std::cmp_greater_equal(list_index, std::size(animation->entries))) {
         return std::nullopt;
+    }
     frame &= 0xff;
     if (frame < animation->frame_bounds.size() && animation->frame_bounds[frame].known) {
         const auto& bounds = animation->frame_bounds[frame];
         return srBoundingBox{bounds.minimum.glmValue(), bounds.maximum.glmValue()};
     }
-    if (!animation->path_lists)
+    if (!animation->path_lists) {
         return GetAniMeshBounds(animation->entries[list_index].get());
-    if (frame >= animation->frame_count)
+    }
+    if (frame >= animation->frame_count) {
         return std::nullopt;
-    if (animation->frame_bounds.size() < animation->frame_count)
+    }
+    if (animation->frame_bounds.size() < animation->frame_count) {
         animation->frame_bounds.resize(animation->frame_count);
+    }
     auto* first_mesh = AnimObjEntry(animation, list_index, 0);
-    if (!first_mesh)
+    if (!first_mesh) {
         return std::nullopt;
+    }
     auto bounds = GetAniMeshBounds(first_mesh);
-    if (!bounds)
+    if (!bounds) {
         return std::nullopt;
+    }
     const auto count = animation->meshes[list_index].size();
     for (std::size_t index = 0; index < count; ++index) {
         if (index != 0) {
             const auto mesh_bounds = GetAniMeshBounds(AnimObjEntry(animation, list_index, index));
-            if (!mesh_bounds)
+            if (!mesh_bounds) {
                 return std::nullopt;
+            }
             bounds->include(*mesh_bounds);
         }
-        auto* instance = AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
-        if (!instance)
+        auto* instance =
+            AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
+        if (!instance) {
             return std::nullopt;
+        }
         if (auto* path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index))) {
             const float saved = PathAIGetValue(path);
             PathAISetValue(path, static_cast<float>(index));
@@ -395,7 +417,6 @@ void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* transla
 }
 
 // FUNCTION: WIZ8 0x004a01e0
-
 
 /* While the object is inactive the selected owned entry supplies the value;
    once active, AnimObj keeps the live value in its own byte at 0x16. */

@@ -2,7 +2,7 @@
 
 #include "compat/compiler.h"
 
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 void SetRendererReady(void);
 

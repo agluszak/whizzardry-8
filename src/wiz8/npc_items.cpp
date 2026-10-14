@@ -265,9 +265,10 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0055b9c0
 void SortNpcItems(W8NpcState* npc)
 {
-    std::ranges::stable_sort(npc->items, [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
-        return CompareItemsForPool(&first.item, &second.item) < 0;
-    });
+    std::ranges::stable_sort(npc->items,
+                             [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
+                                 return CompareItemsForPool(&first.item, &second.item) < 0;
+                             });
 }
 
 /* Release an NPC's owned item list, but only for the database records that ask
@@ -275,7 +276,9 @@ void SortNpcItems(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0055a5d0
 void ClearNpcItems(W8NpcState* npc)
 {
-    if (npc->record->owns_stock != 0) npc->items.clear();
+    if (npc->record->owns_stock != 0) {
+        npc->items.clear();
+    }
 }
 
 /* Add stock described by an item instance. Only the instance's item id is used;
@@ -446,7 +449,10 @@ W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
 }
 
 // FUNCTION: WIZ8 0x0055b710
-unsigned int GetNpcItemCount(W8NpcState* npc) { return npc->items.size(); }
+unsigned int GetNpcItemCount(W8NpcState* npc)
+{
+    return npc->items.size();
+}
 
 // GLOBAL: WIZ8 0x0062A80C
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";

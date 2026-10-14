@@ -83,7 +83,7 @@ static void BeginPartyCamping()
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
-            SetWorldResumeInput(true);
+    SetWorldResumeInput(true);
     gXStatus.surprise_deadline_turns = 0;
     CreateSurpriseFade();
     gXStatus.surprise_phase = 0;
@@ -326,7 +326,7 @@ void EndSurprise(void)
 {
     gXStatus.fSurprisePossible = false;
     ResolveSurpriseWake();
-            SetWorldResumeInput(false);
+    SetWorldResumeInput(false);
 
     std::string text;
     if (!gXStatus.surprise_unengaged) {
@@ -1009,9 +1009,11 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             if (projectsToCamera(probe.glmValue()) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
-                                W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
+                                W8MonsterGroup* group =
+                                    FindMonsterGroup(monster_info->monster_group_id);
 
-                                MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
+                                MoveMonsterGroupAndAllies(group, &notify_position,
+                                                          monster->GetYaw());
                                 cleared = true;
                             }
                         }
@@ -1047,7 +1049,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         }
                         {
                             srVector3T<float> notify_position = monster->formation;
-                            W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
+                            W8MonsterGroup* group =
+                                FindMonsterGroup(monster_info->monster_group_id);
 
                             MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
                         }

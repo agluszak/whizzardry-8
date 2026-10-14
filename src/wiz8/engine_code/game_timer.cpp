@@ -44,8 +44,8 @@ void PauseSharedGameTimers(void)
         return;
     }
 
-    g_shared_timer_pause_time = g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) -
-                                g_shared_timer_pause_base;
+    g_shared_timer_pause_time =
+        g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_base;
 
     if (g_game_time_accumulator != 0 && !g_game_time_accumulator->m_flags.paused) {
         g_game_time_accumulator->m_flags.paused = true;
@@ -60,8 +60,8 @@ void ResumeSharedGameTimers(void)
     g_shared_timer_paused = false;
     g_shared_timer_flag0 = false;
     if (g_shared_timer != 0) {
-        g_shared_timer_pause_base = g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) -
-                                    g_shared_timer_pause_time;
+        g_shared_timer_pause_base =
+            g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_time;
         g_shared_timer_pause_time = 0;
     }
 
@@ -229,12 +229,13 @@ void W8GameTimer::SetProgress(float progress)
 
 // FUNCTION: WIZ8 0x0043a330
 bool W8GameTimer::Load(wiz8::File& handle)
-try
-{
+try {
     float progress;
     // Retail performs both reads and combines their results with bitwise OR.
-    bool loaded = (handle.read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
-    loaded |= (handle.read(&m_duration_scale, sizeof(m_duration_scale)).bytes == static_cast<std::size_t>(sizeof(m_duration_scale)));
+    bool loaded = (handle.read(&progress, sizeof(progress)).bytes ==
+                   static_cast<std::size_t>(sizeof(progress)));
+    loaded |= (handle.read(&m_duration_scale, sizeof(m_duration_scale)).bytes ==
+               static_cast<std::size_t>(sizeof(m_duration_scale)));
     if (loaded != 0) {
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;
@@ -245,8 +246,9 @@ try
         m_end = m_start + m_duration;
     }
     return loaded;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0043a440
 float W8GameTimer::GetElapsedSeconds()

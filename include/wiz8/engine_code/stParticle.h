@@ -20,7 +20,9 @@
 
 class W8MonsterShakeCallback;
 class srGERD;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
 public:

@@ -24,7 +24,10 @@ public:
     W8TextBuffer();
     W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                  unsigned int layout_mode, int render_mode);
-    std::string_view GetText() const { return m_text; }
+    std::string_view GetText() const
+    {
+        return m_text;
+    }
     unsigned int GetLineHeight();
     int GetHorizontalPosition(int width);
     int GetVerticalPosition();

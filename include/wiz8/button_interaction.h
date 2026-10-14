@@ -37,18 +37,26 @@ public:
             selected = pressed;
             return {.activate = true};
         }
-        if (!policy.controller_activation && (armed_ & button)) return {};
+        if (!policy.controller_activation && (armed_ & button)) {
+            return {};
+        }
         armed_ |= button;
-        if (!policy.controller_activation || button == SDL_BUTTON_LMASK) pressed = true;
+        if (!policy.controller_activation || button == SDL_BUTTON_LMASK) {
+            pressed = true;
+        }
         return {.activate = policy.activation == ButtonActivation::Press, .press_sound = true};
     }
 
     ButtonResponse release(SDL_MouseButtonFlags button, const ButtonPolicy& policy)
     {
         const auto toggle = toggleFor(button, policy);
-        if (toggle == ButtonToggle::Press) return {};
+        if (toggle == ButtonToggle::Press) {
+            return {};
+        }
         if (policy.controller_activation) {
-            if (button == SDL_BUTTON_LMASK && !pressed) return {};
+            if (button == SDL_BUTTON_LMASK && !pressed) {
+                return {};
+            }
         } else if (!(armed_ & button)) {
             return {};
         }
@@ -61,18 +69,26 @@ public:
         } else if (button == SDL_BUTTON_LMASK) {
             pressed = false;
         }
-        const bool repeated = policy.controller_activation ? repeated_ != 0 : (repeated_ & button) != 0;
-        if (policy.controller_activation) repeated_ = 0;
-        else repeated_ &= ~button;
+        const bool repeated =
+            policy.controller_activation ? repeated_ != 0 : (repeated_ & button) != 0;
+        if (policy.controller_activation) {
+            repeated_ = 0;
+        } else {
+            repeated_ &= ~button;
+        }
         return {.activate = !repeated && policy.activation == ButtonActivation::Release,
                 .repeated_release = repeated};
     }
 
     ButtonResponse repeat(SDL_MouseButtonFlags button, const ButtonPolicy& policy)
     {
-        if (!policy.repeat || toggleFor(button, policy) == ButtonToggle::Press) return {};
+        if (!policy.repeat || toggleFor(button, policy) == ButtonToggle::Press) {
+            return {};
+        }
         if (policy.controller_activation) {
-            if (button == SDL_BUTTON_LMASK && !pressed) return {};
+            if (button == SDL_BUTTON_LMASK && !pressed) {
+                return {};
+            }
         } else if (!(armed_ & button)) {
             return {};
         }
@@ -84,15 +100,19 @@ public:
     {
         const bool repeated = repeated_ != 0;
         armed_ = repeated_ = 0;
-        if (policy.controller_activation ? !selected : policy.primary_toggle == ButtonToggle::None)
+        if (policy.controller_activation ? !selected
+                                         : policy.primary_toggle == ButtonToggle::None) {
             pressed = false;
+        }
         return repeated;
     }
 
     void cancel(bool keep_pressed)
     {
         armed_ = repeated_ = 0;
-        if (!keep_pressed) pressed = false;
+        if (!keep_pressed) {
+            pressed = false;
+        }
     }
 
 private:

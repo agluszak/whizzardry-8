@@ -180,12 +180,20 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     world->update_mesh_source = 0;
     memset(world->m_unknown_07c, 0, 0x10);
 
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(level_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> handle = [&]() {
+        try {
+            return wiz8::open_file(level_path, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle == 0) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
     unsigned char success = ReadLevel(world, handle.get(), use_octree, material_folder);
-    if (handle) handle->close();
+    if (handle) {
+        handle->close();
+    }
     handle.reset();
     if (success == 0) {
         srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd,
@@ -365,25 +373,30 @@ static void DestroyWorldEntities(W8World* world)
 {
     wiz8::remove_all_and_delete_in_order(world->monster_generators);
     wiz8::remove_all_and_delete_in_order(world->plsMonsters);
-    if (g_world_cleanup_flag)
+    if (g_world_cleanup_flag) {
         RenderFrame();
+    }
     wiz8::remove_all_and_delete_in_order(world->plsItems);
-    if (g_world_cleanup_flag)
+    if (g_world_cleanup_flag) {
         RenderFrame();
+    }
     wiz8::remove_all_and_delete_in_order(world->plsProps);
-    if (g_world_cleanup_flag)
+    if (g_world_cleanup_flag) {
         RenderFrame();
+    }
 
     DestroyAllWorldTriggers(world);
-    if (g_world_cleanup_flag)
+    if (g_world_cleanup_flag) {
         RenderFrame();
+    }
 
     world->plsCameras.clear();
 
     StopAllAmbientSounds();
     wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
-    if (g_world_cleanup_flag)
+    if (g_world_cleanup_flag) {
         RenderFrame();
+    }
 
     wiz8::remove_all_and_delete_in_order(world->particles);
     world->named_positions.clear();
@@ -415,13 +428,16 @@ void DestroyWorld(W8World* world)
         world->octree = 0;
     }
     world->quads.reset();
-    if (g_world_cleanup_flag)
+    if (g_world_cleanup_flag) {
         RenderFrame();
+    }
     DestroyWorldEntities(world);
-    if (g_world_cleanup_flag)
+    if (g_world_cleanup_flag) {
         RenderFrame();
-    if (IsWorldCursorVisible())
+    }
+    if (IsWorldCursorVisible()) {
         HideWorldCursor();
+    }
 
     wiz8::erase_first(g_worlds, world);
     ReleaseRendererObject(world->static_scene);
@@ -459,16 +475,16 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         }
         if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            const auto orientation = world->game_data->cameraRotation(
-                flags, world->camera->getRotation<glm::mat3>());
+            const auto orientation =
+                world->game_data->cameraRotation(flags, world->camera->getRotation<glm::mat3>());
             world->camera->setRotation(orientation.rotation);
             s_saved_camera_rotation = orientation.rotation;
             yaw = GetCameraYawInDegrees();
             pitch = GetCameraPitchInDegrees();
             g_startup_world->SetAngles(yaw);
             g_startup_world->SetPitch(pitch);
-            const auto motion = world->game_data->cameraMotion(
-                flags, camera_position, orientation.movement_basis);
+            const auto motion =
+                world->game_data->cameraMotion(flags, camera_position, orientation.movement_basis);
             if (motion.moved) {
                 camera_position += motion.displacement;
                 navigator_position.Set(camera_position.x,

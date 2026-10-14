@@ -86,13 +86,12 @@ public:
 
     srFlags<e_flag> flags; /* 0x138 */
 private:
-    Rect view_plane;              /* 0x140 */
-    double view_plane_distance;   /* 0x160 */
-    double near_clip;             /* 0x168 */
-    double far_clip;              /* 0x170 */
-    float environment_near;       /* 0x178 */
-    float environment_far;        /* 0x17c */
+    Rect view_plane; /* 0x140 */
+    double view_plane_distance; /* 0x160 */
+    double near_clip; /* 0x168 */
+    double far_clip; /* 0x170 */
+    float environment_near; /* 0x178 */
+    float environment_far; /* 0x17c */
     float environment_near_scale; /* 0x180 */
-    float environment_far_scale;  /* 0x184 */
+    float environment_far_scale; /* 0x184 */
 };
-

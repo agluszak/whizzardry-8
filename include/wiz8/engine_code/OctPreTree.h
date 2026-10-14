@@ -47,7 +47,10 @@ struct W8OctRegionVolume {
 struct W8OctSpatialState {
     explicit W8OctSpatialState(const W8OctSpatialState* source = 0);
 
-    srBoundingBox bounds() const { return m_bounds; }
+    srBoundingBox bounds() const
+    {
+        return m_bounds;
+    }
     void setChildBounds(const W8OctSpatialState& parent, unsigned octant, float extent)
     {
         const glm::vec3 offset(octant >> 2, (octant >> 1) & 1, octant & 1);

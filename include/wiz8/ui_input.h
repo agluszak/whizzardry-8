@@ -19,7 +19,10 @@ struct UiRoutingState {
     HitTarget *current = nullptr, *hover = nullptr, *captured = nullptr;
     SDL_Point pointer{};
     TextFieldGroup* focus = nullptr;
-    void ClearPointer() { current = hover = captured = nullptr; }
+    void ClearPointer()
+    {
+        current = hover = captured = nullptr;
+    }
 };
 extern UiRoutingState g_ui;
 extern int g_ui_help_delay;
@@ -63,4 +66,3 @@ struct UiInputPolicy {
    Deferred structural changes commit after the current policy callback and
    stop draining, leaving the remaining events for the next screen/frame. */
 bool PumpUiInput(const UiInputPolicy& policy);
-

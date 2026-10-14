@@ -11,7 +11,7 @@
 
 #include "wiz8/dice.h"
 
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);
 int RollDice(const W8Dice* dice);
@@ -44,6 +44,5 @@ int GetRandomCharacter(int require_primary, int require_secondary, int excluded_
 unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
                                  unsigned int excluded_slot, unsigned int* selected,
                                  unsigned int count, bool skip_first_two);
-
 
 #endif

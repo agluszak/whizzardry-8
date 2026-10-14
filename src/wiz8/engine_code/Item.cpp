@@ -174,12 +174,16 @@ W8ItemRep::~W8ItemRep() = default;
 // FUNCTION: WIZ8 0x0049F170
 bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh)
 {
-    if (!info || !info->hFile || !item) return false;
+    if (!info || !info->hFile || !item) {
+        return false;
+    }
     const char* bitmap_folder = info->bitmap_folder;
     info->bitmap_folder = "Data\\Items3D\\Bitmaps";
     auto mesh = ReadSingleLevelMesh(info, anonymous_mesh ? nullptr : info->mesh_filename, true);
     info->bitmap_folder = bitmap_folder;
-    if (!mesh) return false;
+    if (!mesh) {
+        return false;
+    }
     mesh->setName("ItemRep::ReadFromFile");
     mesh->render_flags |= stModelInstance::RENDER_SHADOW;
     SetModelInstanceChainExclusionMask(mesh.get(), 4);
@@ -211,15 +215,20 @@ W8Item::W8Item()
 // FUNCTION: WIZ8 0x0049F4A0
 bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** output,
                       bool anonymous_mesh)
-try
-{
+try {
     W8Item* item = 0;
     if (name == 0 || output == 0) {
         srAssertFail("pacName && ppItem", ITEM_CPP, 0x11a, 0);
     }
     char filename[52];
     sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
-    std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(filename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> file = [&]() {
+        try {
+            return wiz8::open_file(filename, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (file == 0) {
         ShutdownWithErrorBox(fmt::format("Couldn't load {}", filename));
         return false;
@@ -239,7 +248,9 @@ try
         *output = item;
         success = true;
     }
-    if (file) file->close();
+    if (file) {
+        file->close();
+    }
     file.reset();
     delete[] mesh_name;
     return success;

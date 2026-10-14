@@ -16,7 +16,8 @@
 class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100> {
 public:
     SR_DLL_IMPORT virtual ~srModelInstance() override;
-    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
+    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr,
+                                  Ownership ownership = Ownership::parent);
 
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
 
@@ -58,6 +59,7 @@ protected:
         ~RenderScope();
         RenderScope(const RenderScope&) = delete;
         RenderScope& operator=(const RenderScope&) = delete;
+
     private:
         friend class srModelInstance;
         RenderScope(const srModelInstance& instance, srGERD& renderer, bool apply_exclusion);

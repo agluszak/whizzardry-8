@@ -72,8 +72,7 @@ class srTextureIFace;
 #define READ_LEVEL_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\ReadLevel.cpp"
 
 // FUNCTION: WIZ8 0x004B9C00
-stLevel::stLevel(srNode* parent)
-    : srClassSupport<stLevel, srNode, 0x10007>(static_cast<srNode*>(0))
+stLevel::stLevel(srNode* parent) : srClassSupport<stLevel, srNode, 0x10007>(static_cast<srNode*>(0))
 {
     if (parent != 0) {
         setParent(parent, 1);
@@ -116,7 +115,9 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             continue;
         }
 
-        if (!model->isVisible(renderer)) continue;
+        if (!model->isVisible(renderer)) {
+            continue;
+        }
 
         srNode* linked_child = child;
         while (model != 0) {
@@ -148,8 +149,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             }
 
             {
-                const srMeshSubmission::PickScope picking(renderer,
-                    (model->flags & W8_MESH_SORTED_RENDERING) != 0);
+                const srMeshSubmission::PickScope picking(
+                    renderer, (model->flags & W8_MESH_SORTED_RENDERING) != 0);
                 model->renderTriMesh(renderer, mesh);
             }
 
@@ -231,12 +232,12 @@ void AssociateWorldLights(W8World* world)
 
 // FUNCTION: WIZ8 0x004BBAD0
 static unsigned char ReadWorldLights(W8World* world, wiz8::File* hFile)
-try
-{
+try {
     short light_count;
     int index;
     unsigned char success;
-    success = (hFile->read(&light_count, sizeof(light_count)).bytes == static_cast<std::size_t>(sizeof(light_count)));
+    success = (hFile->read(&light_count, sizeof(light_count)).bytes ==
+               static_cast<std::size_t>(sizeof(light_count)));
     if (!success) {
         srAssertFail("fSuccess", READ_LEVEL_CPP, 486, "Couldn't read number of lights");
     }
@@ -346,8 +347,7 @@ try
 
 // FUNCTION: WIZ8 0x004BC9D0
 unsigned char ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
-try
-{
+try {
     /* Retail read these uninitialised when a FileRead chain short-circuited;
        natively the scalars start at zero. */
     srVector3T<float> environment_range;
@@ -365,24 +365,38 @@ try
     unsigned char fog_enabled = 0;
     bool success;
 
-    success = (pInfo->hFile->read(&fog_enabled, sizeof(fog_enabled)).bytes == static_cast<std::size_t>(sizeof(fog_enabled))) &&
-              (pInfo->hFile->read(&environment_range.x, sizeof(environment_range.x)).bytes == static_cast<std::size_t>(sizeof(environment_range.x))) &&
-              (pInfo->hFile->read(&environment_range.y, sizeof(environment_range.y)).bytes == static_cast<std::size_t>(sizeof(environment_range.y))) &&
-              (pInfo->hFile->read(&environment_range.z, sizeof(environment_range.z)).bytes == static_cast<std::size_t>(sizeof(environment_range.z))) &&
-              (pInfo->hFile->read(&intensity, sizeof(intensity)).bytes == static_cast<std::size_t>(sizeof(intensity))) &&
-              (pInfo->hFile->read(&view_distance, sizeof(view_distance)).bytes == static_cast<std::size_t>(sizeof(view_distance))) &&
-              (pInfo->hFile->read(&camera_mode, sizeof(camera_mode)).bytes == static_cast<std::size_t>(sizeof(camera_mode)));
+    success = (pInfo->hFile->read(&fog_enabled, sizeof(fog_enabled)).bytes ==
+               static_cast<std::size_t>(sizeof(fog_enabled))) &&
+              (pInfo->hFile->read(&environment_range.x, sizeof(environment_range.x)).bytes ==
+               static_cast<std::size_t>(sizeof(environment_range.x))) &&
+              (pInfo->hFile->read(&environment_range.y, sizeof(environment_range.y)).bytes ==
+               static_cast<std::size_t>(sizeof(environment_range.y))) &&
+              (pInfo->hFile->read(&environment_range.z, sizeof(environment_range.z)).bytes ==
+               static_cast<std::size_t>(sizeof(environment_range.z))) &&
+              (pInfo->hFile->read(&intensity, sizeof(intensity)).bytes ==
+               static_cast<std::size_t>(sizeof(intensity))) &&
+              (pInfo->hFile->read(&view_distance, sizeof(view_distance)).bytes ==
+               static_cast<std::size_t>(sizeof(view_distance))) &&
+              (pInfo->hFile->read(&camera_mode, sizeof(camera_mode)).bytes ==
+               static_cast<std::size_t>(sizeof(camera_mode)));
 
     if (camera_mode == 1) {
-        success = success && (pInfo->hFile->read(&position, sizeof(position)).bytes == static_cast<std::size_t>(sizeof(position)));
+        success = success && (pInfo->hFile->read(&position, sizeof(position)).bytes ==
+                              static_cast<std::size_t>(sizeof(position)));
         position *= g_world_scale;
         SetWorldScenePosition(pWorld, &position);
     } else if (camera_mode == 2) {
-        success = success && (pInfo->hFile->read(&position, sizeof(position)).bytes == static_cast<std::size_t>(sizeof(position))) &&
-                  (pInfo->hFile->read(&angle, sizeof(angle)).bytes == static_cast<std::size_t>(sizeof(angle))) &&
-                  (pInfo->hFile->read(&axis.x, sizeof(axis.x)).bytes == static_cast<std::size_t>(sizeof(axis.x))) &&
-                  (pInfo->hFile->read(&axis.y, sizeof(axis.y)).bytes == static_cast<std::size_t>(sizeof(axis.y))) &&
-                  (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes == static_cast<std::size_t>(sizeof(axis.z)));
+        success = success &&
+                  (pInfo->hFile->read(&position, sizeof(position)).bytes ==
+                   static_cast<std::size_t>(sizeof(position))) &&
+                  (pInfo->hFile->read(&angle, sizeof(angle)).bytes ==
+                   static_cast<std::size_t>(sizeof(angle))) &&
+                  (pInfo->hFile->read(&axis.x, sizeof(axis.x)).bytes ==
+                   static_cast<std::size_t>(sizeof(axis.x))) &&
+                  (pInfo->hFile->read(&axis.y, sizeof(axis.y)).bytes ==
+                   static_cast<std::size_t>(sizeof(axis.y))) &&
+                  (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
+                   static_cast<std::size_t>(sizeof(axis.z)));
         position *= g_world_scale;
         SetWorldScenePosition(GetWorld(), &position);
 
@@ -395,15 +409,18 @@ try
         ApplyCameraRotation(&rotation);
     }
 
-    success = success && (pInfo->hFile->read(&has_light_colours, sizeof(has_light_colours)).bytes == static_cast<std::size_t>(sizeof(has_light_colours)));
+    success = success && (pInfo->hFile->read(&has_light_colours, sizeof(has_light_colours)).bytes ==
+                          static_cast<std::size_t>(sizeof(has_light_colours)));
     if (has_light_colours != 0) {
         ReadLightColourTable(pInfo->hFile);
     } else {
         BuildLightColourRamp();
     }
 
-    success = success &&
-              (pInfo->hFile->read(&has_environment_colours, sizeof(has_environment_colours)).bytes == static_cast<std::size_t>(sizeof(has_environment_colours)));
+    success =
+        success &&
+        (pInfo->hFile->read(&has_environment_colours, sizeof(has_environment_colours)).bytes ==
+         static_cast<std::size_t>(sizeof(has_environment_colours)));
     if (has_environment_colours != 0) {
         ReadEnvironmentColourTable(pInfo->hFile);
     } else {
@@ -434,8 +451,7 @@ try
 
 // FUNCTION: WIZ8 0x004BCE20
 static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld)
-try
-{
+try {
     std::vector<srClipPlane*> clip_planes;
     glm::vec4 plane;
     glm::vec4 serialized_position;
@@ -457,7 +473,8 @@ try
         srAssertFail("pWorld", READ_LEVEL_CPP, 0x59d, 0);
     }
 
-    success = (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
+    success = (pInfo->hFile->read(&count, sizeof(count)).bytes ==
+               static_cast<std::size_t>(sizeof(count)));
     if (!success) {
         srAssertFail("fSuccess", READ_LEVEL_CPP, 0x5a2, "Error reading num clipping planes");
         return 0;
@@ -481,8 +498,9 @@ try
         clip_plane->setName(name);
         clip_plane->setClipPlane(plane);
 
-        position = glm::dvec3(serialized_position.x * g_world_scale, serialized_position.y * g_world_scale,
-                              serialized_position.z * g_world_scale);
+        position =
+            glm::dvec3(serialized_position.x * g_world_scale, serialized_position.y * g_world_scale,
+                       serialized_position.z * g_world_scale);
         clip_plane->setLocation(position);
         clip_plane->setFlag(srNode::FLAG_GLOBAL);
         clip_plane->setClipType(srClipPlane::CLIP_POSITIONAL_0);
@@ -504,8 +522,7 @@ static bool ReadRecordCount(wiz8::File& file, int& count)
 // FUNCTION: WIZ8 0x004BC5E0
 static unsigned char ReadWorldProps(W8ReadLevelInfo* pInfo, W8World* pWorld,
                                     bool mark_model_instances)
-try
-{
+try {
     /* CollectModelInstances appends. The canonical body deliberately keeps
        this one vector across the complete prop loop. */
     std::vector<stModelInstance*> model_instances;
@@ -542,8 +559,9 @@ try
             pWorld->plsProps.push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
                 const auto prop_bounds = prop->GetBounds();
-                if (!prop_bounds)
+                if (!prop_bounds) {
                     return false;
+                }
                 pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, *prop_bounds);
@@ -573,8 +591,7 @@ try
 
 // FUNCTION: WIZ8 0x004BC380
 unsigned char ReadWorldItems(W8ReadLevelInfo* pInfo, W8World* pWorld)
-try
-{
+try {
     unsigned char has_trigger;
     int positional_value;
     int index;
@@ -600,7 +617,8 @@ try
     for (index = 0; index < count; ++index) {
         item = 0;
         trigger = 0;
-        success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes == static_cast<std::size_t>(sizeof(record.item_name)));
+        success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes ==
+                   static_cast<std::size_t>(sizeof(record.item_name)));
         if (success) {
             pInfo->hFile->read(&record.position, sizeof(record.position));
             record.position *= g_world_scale;
@@ -648,8 +666,7 @@ try
 
 // FUNCTION: WIZ8 0x004BC140
 unsigned char ReadMonsterPaths(W8ReadLevelInfo* pInfo, W8World* pWorld)
-try
-{
+try {
     int count;
     int index;
     unsigned char success = 1;
@@ -685,7 +702,8 @@ try
     for (index = 0; index < count; ++index) {
         update_representation = true;
         active = true;
-        success = success && (pInfo->hFile->read(monster_name, sizeof(monster_name)).bytes == static_cast<std::size_t>(sizeof(monster_name)));
+        success = success && (pInfo->hFile->read(monster_name, sizeof(monster_name)).bytes ==
+                              static_cast<std::size_t>(sizeof(monster_name)));
         separator = strchr(monster_name, ':');
         if (separator != 0) {
             has_options = true;
@@ -745,8 +763,7 @@ try
 
 // FUNCTION: WIZ8 0x004BC850
 unsigned char ReadWorldCameras(W8ReadLevelInfo* info, W8World* world)
-try
-{
+try {
     if (!info || !info->hFile || !world) {
         return false;
     }
@@ -788,8 +805,7 @@ try
         entry->path->speed = scale;
         pending.push_back(std::move(entry));
     }
-    world->plsCameras.insert(world->plsCameras.end(),
-                             std::make_move_iterator(pending.begin()),
+    world->plsCameras.insert(world->plsCameras.end(), std::make_move_iterator(pending.begin()),
                              std::make_move_iterator(pending.end()));
     return true;
 } catch (const std::exception&) {
@@ -799,8 +815,7 @@ try
 // FUNCTION: WIZ8 0x004BD0D0
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
                                  std::vector<stParticle*>* pParticles)
-try
-{
+try {
     W8LevelParticleRecord record;
     int count;
     int index;
@@ -894,7 +909,7 @@ try
             particle->emission_mode = W8_PARTICLE_EMISSION_CATCH_UP;
             particle->emission_minimum = {-record.spread.x * 250.0f, -record.spread.y * 250.0f, 0};
             particle->emission_maximum = {record.spread.x * 250.0f, record.spread.y * 250.0f,
-                                         record.spread.z * g_world_scale};
+                                          record.spread.z * g_world_scale};
         }
 
         if (record.direction_mode == W8_PARTICLE_DIRECTION_STATIONARY) {
@@ -969,14 +984,15 @@ try
 
 // FUNCTION: WIZ8 0x004BDC90
 bool ReadNamedPositions(wiz8::File* hFile, std::vector<W8NamedPosition>& named_positions)
-try
-{
+try {
     int count;
     int index;
     unsigned char version;
 
     hFile->read_exact(&count, sizeof(count));
-    if (count < 0) return false;
+    if (count < 0) {
+        return false;
+    }
     std::vector<W8NamedPosition> pending;
     for (index = 0; index < count; ++index) {
         W8NamedPosition position;
@@ -1015,9 +1031,9 @@ try
     }
 
 // FUNCTION: WIZ8 0x004BAFF0
-unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder)
-try
-{
+unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
+                        const char* bitmap_folder)
+try {
     W8ReadLevelInfo info;
     std::unique_ptr<stModelInstance> level_mesh;
     srVector3T<float> environment_offset;
@@ -1065,7 +1081,8 @@ try
         for (unsigned int mesh_index = 0; mesh_index < world->octree->m_meshCount; ++mesh_index) {
             if (meshes[mesh_index]) {
                 SetModelInstanceChainExclusionMask(meshes[mesh_index].get(), 1);
-                world->psrMeshes[mesh_index] = world->level->adoptChild(std::move(meshes[mesh_index]), 1);
+                world->psrMeshes[mesh_index] =
+                    world->level->adoptChild(std::move(meshes[mesh_index]), 1);
             }
         }
     }
@@ -1143,9 +1160,13 @@ try
     RefreshEnvironment();
     FinalizeStaticScene(world->static_scene);
 
-    if (!success || !(handle->read(&environment_offset.x, sizeof(environment_offset.x)).bytes == static_cast<std::size_t>(sizeof(environment_offset.x))) ||
-        !(handle->read(&environment_offset.y, sizeof(environment_offset.y)).bytes == static_cast<std::size_t>(sizeof(environment_offset.y))) ||
-        !(handle->read(&environment_offset.z, sizeof(environment_offset.z)).bytes == static_cast<std::size_t>(sizeof(environment_offset.z)))) {
+    if (!success ||
+        !(handle->read(&environment_offset.x, sizeof(environment_offset.x)).bytes ==
+          static_cast<std::size_t>(sizeof(environment_offset.x))) ||
+        !(handle->read(&environment_offset.y, sizeof(environment_offset.y)).bytes ==
+          static_cast<std::size_t>(sizeof(environment_offset.y))) ||
+        !(handle->read(&environment_offset.z, sizeof(environment_offset.z)).bytes ==
+          static_cast<std::size_t>(sizeof(environment_offset.z)))) {
         success = 0;
     } else {
         success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles);
@@ -1177,7 +1198,8 @@ try
                         SetModelInstanceChainExclusionMask(instance, 4);
                     }
 
-                    auto* material = sr_cast<stMaterial>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+                    auto* material =
+                        sr_cast<stMaterial>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
                     if (material != 0) {
                         auto copy = std::make_shared<stMaterial>(*material);
                         copy->setName("Unsunlit Prop Material");

@@ -92,21 +92,32 @@ protected:
     enum class EffectTraversal { active, childrenOnly, skipSubtree };
     void traverseEffect(TraverseInfo& info);
 
-    template<class Activity>
-    void traverseEffect(TraverseInfo& info, Activity activity)
+    template<class Activity> void traverseEffect(TraverseInfo& info, Activity activity)
     {
-        if (next_sibling_) next_sibling_->traverse(info);
-        if (testFlag(FLAG_TERMINATE)) return;
+        if (next_sibling_) {
+            next_sibling_->traverse(info);
+        }
+        if (testFlag(FLAG_TERMINATE)) {
+            return;
+        }
         // Evaluate activity after siblings, and preserve disabled-node descent.
         const auto mode = testFlag(FLAG_DISABLE) ? EffectTraversal::childrenOnly : activity();
-        if (mode == EffectTraversal::skipSubtree) return;
-        if (mode == EffectTraversal::active) {
-            if (testFlag(FLAG_GLOBAL)) info.nodes.push_back(this);
-            else info.entries.push_back({this, PROCESS_PUSH});
+        if (mode == EffectTraversal::skipSubtree) {
+            return;
         }
-        if (first_child_) first_child_->traverse(info);
-        if (mode == EffectTraversal::active && !testFlag(FLAG_GLOBAL))
+        if (mode == EffectTraversal::active) {
+            if (testFlag(FLAG_GLOBAL)) {
+                info.nodes.push_back(this);
+            } else {
+                info.entries.push_back({this, PROCESS_PUSH});
+            }
+        }
+        if (first_child_) {
+            first_child_->traverse(info);
+        }
+        if (mode == EffectTraversal::active && !testFlag(FLAG_GLOBAL)) {
             info.entries.push_back({this, PROCESS_POP});
+        }
     }
 
 protected:
@@ -139,25 +150,26 @@ public:
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
-    [[nodiscard]] SR_DLL_IMPORT srModelViewScope scopedWorldSpaceMatrix(class srGERD& renderer) const;
+    [[nodiscard]] SR_DLL_IMPORT srModelViewScope
+    scopedWorldSpaceMatrix(class srGERD& renderer) const;
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
     SR_DLL_IMPORT glm::dvec3 getLocation() const;
     SR_DLL_IMPORT double getLocationX() const;
     SR_DLL_IMPORT double getLocationY() const;
     SR_DLL_IMPORT double getLocationZ() const;
-    template<class Matrix = glm::dmat3>
-    Matrix getRotation() const { return Matrix(rotation); }
+    template<class Matrix = glm::dmat3> Matrix getRotation() const
+    {
+        return Matrix(rotation);
+    }
     SR_DLL_IMPORT glm::dvec3 getScale() const;
 
-    template<class Scalar>
-    struct Coordinates {
+    template<class Scalar> struct Coordinates {
         glm::mat<3, 3, Scalar> rotation;
         glm::vec<3, Scalar> location;
         glm::vec<3, Scalar> scale;
     };
 
-    template<class Scalar = double>
-    Coordinates<Scalar> getWorldSpaceCoordinates() const
+    template<class Scalar = double> Coordinates<Scalar> getWorldSpaceCoordinates() const
     {
         return {getWorldSpaceRotation<glm::mat<3, 3, Scalar>>(),
                 glm::vec<3, Scalar>(getWorldSpaceLocation()),
@@ -165,23 +177,23 @@ public:
     }
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceDOF() const;
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceLocation() const;
-    template<class Matrix = glm::dmat4>
-    Matrix getWorldSpaceMatrix() const
+    template<class Matrix = glm::dmat4> Matrix getWorldSpaceMatrix() const
     {
         checkTransformation();
-        if constexpr (std::is_same_v<typename Matrix::value_type, float>)
+        if constexpr (std::is_same_v<typename Matrix::value_type, float>) {
             return Matrix(world_transform1);
-        else
+        } else {
             return Matrix(world_transform0);
+        }
     }
 
-    template<class Matrix = glm::dmat3>
-    Matrix getWorldSpaceRotation() const
+    template<class Matrix = glm::dmat3> Matrix getWorldSpaceRotation() const
     {
         const auto world = getWorldSpaceMatrix<glm::mat<4, 3, typename Matrix::value_type>>();
         Matrix result(world);
-        for (int column = 0; column < 3; ++column)
+        for (int column = 0; column < 3; ++column) {
             result[column] = normalizedOrZero(result[column]);
+        }
         return result;
     }
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceScale() const;
@@ -214,8 +226,8 @@ public:
     SR_DLL_IMPORT void setLocationZ(double z);
     SR_DLL_IMPORT void setRotation(const glm::mat3& rotation);
     SR_DLL_IMPORT void setRotation(const glm::dmat3& rotation);
-    SR_DLL_IMPORT void setRotation(const glm::dvec3& first,
-                                   const glm::dvec3& second, double amount);
+    SR_DLL_IMPORT void setRotation(const glm::dvec3& first, const glm::dvec3& second,
+                                   double amount);
     SR_DLL_IMPORT void setRotation(const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void setRotation(double amount, const glm::dvec3& direction);
     SR_DLL_IMPORT void setRotation(double x, double y, double z);
@@ -241,7 +253,9 @@ public:
     template<class T> T* adoptChild(std::unique_ptr<T> child, int preserve_world_transform = 0)
     {
         std::lock_guard access(sceneGraphCSect);
-        if (!child || !child->setParent(this, preserve_world_transform)) return nullptr;
+        if (!child || !child->setParent(this, preserve_world_transform)) {
+            return nullptr;
+        }
         static_cast<srNode*>(child.get())->parent_owns_ = true;
         return child.release();
     }
@@ -267,17 +281,17 @@ private:
 
     glm::dmat3 rotation; /* 0x018 */
     glm::dvec3 location; /* 0x060 */
-    glm::dvec3 scale;    /* 0x078 */
+    glm::dvec3 scale; /* 0x078 */
     /* Cached world transforms and the notification word mutate inside the
        const updateTransformation/getter family. */
     mutable glm::dmat4x3 world_transform0; /* 0x090: cached affine world transform */
-    mutable glm::mat4x3 world_transform1;  /* 0x0f0 */
-    mutable srFlags<e_notify> notifications;       /* 0x120 */
-    srFlags<e_flag> flags;                         /* 0x124 */
+    mutable glm::mat4x3 world_transform1; /* 0x0f0 */
+    mutable srFlags<e_notify> notifications; /* 0x120 */
+    srFlags<e_flag> flags; /* 0x124 */
 
 public:
-    srNode* next_sibling_;     /* 0x128 */
+    srNode* next_sibling_; /* 0x128 */
     srNode* previous_sibling_; /* 0x12c */
-    srNode* parent_;           /* 0x130 */
-    srNode* first_child_;      /* 0x134 */
+    srNode* parent_; /* 0x130 */
+    srNode* first_child_; /* 0x134 */
 };

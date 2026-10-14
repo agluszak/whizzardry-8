@@ -23,12 +23,13 @@
 struct W8CharacterCreationState;
 
 namespace {
-template<class T> T ReadStatValue(const void* address) {
+template<class T> T ReadStatValue(const void* address)
+{
     T value;
     std::memcpy(&value, address, sizeof(value));
     return value;
 }
-}
+} // namespace
 
 // GLOBAL: WIZ8 0x006483d0
 W8PortraitDescriptor g_portrait_descriptors[80] = {
@@ -76,7 +77,9 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     const auto button = [this](int x, int frame, int direction) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
         const auto adjust = [this, direction](int amount) {
-            if (on_adjust) on_adjust(direction * amount);
+            if (on_adjust) {
+                on_adjust(direction * amount);
+            }
             UpdateButtons();
             MarkDirty();
         };
@@ -95,11 +98,12 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     m_decrement = button(split + 0x1b, 0x19, -1);
     m_decrement->SetEnabled(false);
     m_increment = button(split + 0x3d, 0x1e, 1);
-    m_help = &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13},
-        [this](const UiPointerEvent& event) {
+    m_help =
+        &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13}, [this](const UiPointerEvent& event) {
             if (event.action == UiPointerAction::Up && event.inside &&
-                event.button == UiPointerButton::Right && event.captured_buttons && on_info)
+                event.button == UiPointerButton::Right && event.captured_buttons && on_info) {
                 AfterUiDispatch(on_info);
+            }
             return UiResult::Handled;
         });
     m_help->setEnabled(false);
@@ -119,10 +123,11 @@ void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, u
     m_second = second;
     m_third = third;
     m_label.SetText(label, g_wiz_text_font_secondary);
-    if (help_id == -1)
+    if (help_id == -1) {
         m_help->setTooltip({});
-    else
+    } else {
         m_help->setTooltip([help_id] { return std::string(g_localized_strings[help_id]); });
+    }
     SetEnabled(true);
     UpdateButtons();
     MarkDirty();
@@ -161,8 +166,10 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         if (m_draw_background) {
             CatalogArtwork::Load(0x108, 0).drawAndInvalidate(target, 2, m_x, m_y);
         }
-        m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
-        m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
+        m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)),
+                             g_wiz_text_font_secondary);
+        m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)),
+                              g_wiz_text_font_secondary);
         m_first_text.FillBounds(target, 0x8000);
         m_second_text.FillBounds(target, 0x8000);
         m_label.RenderToTarget(0, true, target);
@@ -212,7 +219,6 @@ void W8CharacterPageEntry::UpdateButtons()
 // VTABLE: WIZ8 0x005ef1e4 W8CharacterPage
 // class W8CharacterPage
 
-
 // FUNCTION: WIZ8 0x005afd90
 W8CharacterPage::W8CharacterPage(CatalogArtwork background)
     : background(std::move(background)), m_screen(nullptr)
@@ -240,10 +246,14 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 // FUNCTION: WIZ8 0x005aff20
 void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!m_active) return;
+    if (!m_active) {
+        return;
+    }
     if (m_dirty || full_redraw) {
         background.drawAndInvalidate(target, 0, bounds.x, bounds.y);
-        for (const auto& entry : m_entries) entry->MarkDirty();
+        for (const auto& entry : m_entries) {
+            entry->MarkDirty();
+        }
     }
     m_dirty = false;
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
@@ -269,7 +279,10 @@ void W8CharacterPage::Prepare()
 }
 
 // FUNCTION: WIZ8 0x005affc0
-void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.emplace_back(entry); }
+void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
+{
+    m_entries.emplace_back(entry);
+}
 
 void W8CharacterPage::HandleInput(const InputEvent*) {}
 void W8CharacterPage::Refresh() {}

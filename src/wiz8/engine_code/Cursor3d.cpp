@@ -198,8 +198,9 @@ void InitializeWorldCursor(void)
             }
             ClearCombatSelection();
             const auto bounds = gp3DCursor->monster->GetAnimationBounds();
-            if (!bounds)
+            if (!bounds) {
                 return;
+            }
             const auto& [minimum, maximum] = *bounds;
             gp3DCursor->probe_center = bounds->center();
             gp3DCursor->probe_offsets[0] = maximum;
@@ -380,8 +381,8 @@ void ApplyWorldCursorInput(void)
             if (gp3DCursor->position.y < saved_y) {
                 gp3DCursor->position.y = saved_y;
             }
-            gp3DCursor->position = g_octree->settleToGround(
-                gp3DCursor->position.glmValue(), true, 500).position;
+            gp3DCursor->position =
+                g_octree->settleToGround(gp3DCursor->position.glmValue(), true, 500).position;
         }
     } else {
         camera = cameraLocation();
@@ -792,14 +793,24 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
             offset = cursor->probe_offsets[corner + 4].glmValue();
         } else {
             switch (corner) {
-            case 0: offset = cursor->extent_min.glmValue(); break;
-            case 1: offset = cursor->extent_max.glmValue(); break;
-            case 2: offset = {cursor->extent_min.x, 0, cursor->extent_max.z}; break;
-            default: offset = {cursor->extent_max.x, 0, cursor->extent_min.z}; break;
+            case 0:
+                offset = cursor->extent_min.glmValue();
+                break;
+            case 1:
+                offset = cursor->extent_max.glmValue();
+                break;
+            case 2:
+                offset = {cursor->extent_min.x, 0, cursor->extent_max.z};
+                break;
+            default:
+                offset = {cursor->extent_max.x, 0, cursor->extent_min.z};
+                break;
             }
         }
         const auto ground = g_octree->settleToGround(position->glmValue() + offset, true, 500);
-        if (best <= ground.position.y) best = ground.position.y;
+        if (best <= ground.position.y) {
+            best = ground.position.y;
+        }
     }
     if (cursor->footprint_mode &&
         static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {

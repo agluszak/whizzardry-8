@@ -71,8 +71,7 @@ void LoadGameConfiguration(void)
 
 // FUNCTION: WIZ8 0x0054b6d0
 bool SaveGameConfiguration(void)
-try
-{
+try {
     W8Chunk file;
     std::string path;
 
@@ -85,5 +84,6 @@ try
     file.WriteChunk(W8_CHUNK_KEY_BINDINGS, [&] { g_mgs_keyboard->Save(file.Stream()); });
     file.Close();
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }

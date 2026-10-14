@@ -7,8 +7,7 @@
    a hook in a header would give inline functions different definitions in
    instrumented and ordinary translation units. */
 #ifdef WIZ8_RUNTIME_TESTS
-struct W8RuntimeTestHooks
-{
+struct W8RuntimeTestHooks {
     /* Movie opens fail, so every caller takes its existing no-movie path. */
     bool skip_movies = false;
     unsigned movie_frames_presented = 0;

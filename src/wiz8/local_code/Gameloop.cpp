@@ -94,8 +94,9 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
 
-    if (gXStatus.character_event_queue)
+    if (gXStatus.character_event_queue) {
         gXStatus.character_event_queue->DestroyAllEvents();
+    }
     ReleaseHitSoundDatabase();
     ReleaseGenericItemNames();
     ReleaseNpcStates();
@@ -121,8 +122,9 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     ReleaseMessageStorage();
     FreeStringTable();
     g_status.buffers = {};
-    if (save_configuration)
+    if (save_configuration) {
         SaveGameConfiguration();
+    }
 }
 
 /* Screens own their input layers. A suspended screen keeps its layers, so
@@ -209,8 +211,9 @@ void GameloopExit(unsigned char release_screens)
     W8ScreenId state;
 
     // Complete voice events before leaving gameplay unloads its UI.
-    if (gXStatus.character_event_queue)
+    if (gXStatus.character_event_queue) {
         gXStatus.character_event_queue->DestroyAllEvents();
+    }
 
     g_smfnt_font.resetPalette();
     g_calligraphy_font.resetPalette();

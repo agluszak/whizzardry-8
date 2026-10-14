@@ -11,7 +11,9 @@
 #include "wiz8/ui_input.h"
 
 struct W8MonsterInfo;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 enum W8NoticeWordState {
     W8_NOTICE_WORD_NORMAL = 0,
@@ -49,7 +51,6 @@ struct W8MessageStorageRecord {
     std::vector<W8NoticeWord> entries;
     unsigned char unknown_1c[8];
 };
-
 
 extern W8MessageStorageRecord g_message_storage[4][0x15e];
 

@@ -93,8 +93,9 @@ void RedrawPortraitQuoteBubbles(void)
             !slot->portrait_event_active) {
             continue;
         }
-        if (slot->quote.bubble)
+        if (slot->quote.bubble) {
             slot->quote.bubble->draw(GetFrameBufferSurface(), slot->quote.x, slot->quote.y);
+        }
     }
 }
 
@@ -446,14 +447,20 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
         path = fmt::format("Data\\Quotes\\PCs\\{:c}_{}{:d}0.MSG", gender_code,
                            g_quote_personality_names[character->personality],
                            (character->voice != 0) + 1);
-        if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        if (![&]() {
+                const auto status = wiz8::file_status(path);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
             g_character_text.clear();
             return false;
         }
         g_character_text = GetStringFromStringDatabase(path, event_type, 0, metadata);
         /* Retail does not test the reader result or length before storing
            zero at buffer[strlen(buffer) - 1]. */
-        if (!g_character_text.empty()) g_character_text.resize(wiz8::text::previous(g_character_text, g_character_text.size()));
+        if (!g_character_text.empty()) {
+            g_character_text.resize(
+                wiz8::text::previous(g_character_text, g_character_text.size()));
+        }
     } else {
         W8NpcState* npc = GetNpcState(npc_index);
         if ((g_character_text = GetNpcQuoteText(npc, event_type)).empty()) {
@@ -487,7 +494,11 @@ W8CharacterEventQueue::W8CharacterEventQueue()
 
 // FUNCTION: WIZ8 0x0052d5b0
 static void ReleasePartyQuoteInput();
-W8CharacterEventQueue::~W8CharacterEventQueue() { DestroyAllEvents(); ReleasePartyQuoteInput(); }
+W8CharacterEventQueue::~W8CharacterEventQueue()
+{
+    DestroyAllEvents();
+    ReleasePartyQuoteInput();
+}
 
 /* Completes every active event, then drops the undispatched ones. */
 // FUNCTION: WIZ8 0x0052db80
@@ -730,11 +741,13 @@ unsigned char W8CharacterEvent::PlayEventSound()
         }
         return 1;
     }
-    const auto playback_time = wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
+    const auto playback_time =
+        wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
     record->voice_time_remaining_ms = playback_time.total_ms;
     record->mouth_gap = LoadMouthGapTrack(sound_path);
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), static_cast<int>(record->mouth_gap.ranges.size()));
+    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle),
+                   static_cast<int>(record->mouth_gap.ranges.size()));
     RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
                    playback_time.current_ms);
 #endif
@@ -859,11 +872,16 @@ struct PartyQuoteInput {
         for (int slot = 0; slot < 8; ++slot) {
             targets[slot] = &input.add(SDL_Rect{0, 0, 1, 1}, [slot](const UiPointerEvent& event) {
                 if (event.action == UiPointerAction::Up && event.inside &&
-                    event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+                    event.button == UiPointerButton::Left &&
+                    (event.captured_buttons & SDL_BUTTON_LMASK)) {
                     AfterUiDispatch([slot] {
-                        auto* active = gXStatus.monster_manager_entries[slot].active_character_event;
-                        if (slot > 1 && active) gXStatus.character_event_queue->CompleteActiveEvent(active);
-                        else TryFinishNpcVoicePlayback(true);
+                        auto* active =
+                            gXStatus.monster_manager_entries[slot].active_character_event;
+                        if (slot > 1 && active) {
+                            gXStatus.character_event_queue->CompleteActiveEvent(active);
+                        } else {
+                            TryFinishNpcVoicePlayback(true);
+                        }
                     });
                 }
                 return UiResult::Handled;
@@ -874,32 +892,43 @@ struct PartyQuoteInput {
 };
 // Quotes persist while switching between camp and the live game.
 std::unique_ptr<PartyQuoteInput> party_quote_input;
-}
+} // namespace
 
-static void ReleasePartyQuoteInput() { party_quote_input.reset(); }
+static void ReleasePartyQuoteInput()
+{
+    party_quote_input.reset();
+}
 
 void CreatePartyPortraitEventRegions()
 {
-    if (!party_quote_input) party_quote_input = std::make_unique<PartyQuoteInput>();
+    if (!party_quote_input) {
+        party_quote_input = std::make_unique<PartyQuoteInput>();
+    }
 }
 
 void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
                                  unsigned short right, unsigned short bottom)
 {
     CreatePartyPortraitEventRegions();
-    if (slot < 8) party_quote_input->targets[slot]->setShape(SDL_Rect{x, y, right - x + 1, bottom - y + 1});
+    if (slot < 8) {
+        party_quote_input->targets[slot]->setShape(SDL_Rect{x, y, right - x + 1, bottom - y + 1});
+    }
 }
 
 void EnablePartyPortraitEvent(unsigned int slot)
 {
     CreatePartyPortraitEventRegions();
     party_quote_input->input.setEnabled(true);
-    if (slot < 8) party_quote_input->targets[slot]->setEnabled(true);
+    if (slot < 8) {
+        party_quote_input->targets[slot]->setEnabled(true);
+    }
 }
 
 void DisablePartyPortraitEvent(unsigned int slot)
 {
-    if (party_quote_input && slot < 8) party_quote_input->targets[slot]->setEnabled(false);
+    if (party_quote_input && slot < 8) {
+        party_quote_input->targets[slot]->setEnabled(false);
+    }
 }
 
 /* Turn a party-slot portrait/voice event on or off, optionally
@@ -947,8 +976,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
-                       GetTextBoxScrollRange());
+            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3, GetTextBoxScrollRange());
         } else {
             if (g_first_remapped_event <= mapped_event) {
                 mapped_event = g_normal_event_count - g_first_remapped_event + mapped_event;
@@ -1033,7 +1061,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         } else {
             quote->bubble = QuoteBubble::layout(quote_text, 200, std::nullopt);
             quote->width = static_cast<unsigned short>(quote->bubble ? quote->bubble->width() : 0);
-            quote->height = static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
+            quote->height =
+                static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
             if (g_current_screen_state.id == W8_SCREEN_CAMP) {
                 if (static_cast<int>(party_slot) == giReviewCharSlot) {
                     quote->x = 10;
@@ -1235,7 +1264,10 @@ unsigned char W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entr
 }
 
 // FUNCTION: WIZ8 0x0052E460
-bool W8CharacterEventQueue::HasActiveEvents() { return !active_events.empty(); }
+bool W8CharacterEventQueue::HasActiveEvents()
+{
+    return !active_events.empty();
+}
 
 // FUNCTION: WIZ8 0x0052E470
 bool W8CharacterEventQueue::IsMainQueueEmpty() const
@@ -1781,7 +1813,8 @@ int UpdateCharacterEventState(void)
 #ifdef WIZ8_RUNTIME_TESTS
                 if (sound_active != previous_mouth) {
                     RuntimeObserve(RUNTIME_MOUTH_CHANGED, party_slot,
-                                   wiz8::sound::elapsed_ms(record->voice_sound_handle), sound_active);
+                                   wiz8::sound::elapsed_ms(record->voice_sound_handle),
+                                   sound_active);
                 }
 #endif
             }
@@ -1858,7 +1891,8 @@ int UpdateCharacterEventState(void)
                     }
                 } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                     int pose = record->portrait_pose;
-                    SetCurrentPortraitPose(*record,
+                    SetCurrentPortraitPose(
+                        *record,
                         g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1]);
                     // Reopening and event-pose transitions continue toward the
                     // target; only an idle blink enters the closing phase.
@@ -1892,15 +1926,16 @@ int UpdateCharacterEventState(void)
    for the animated form the frame blitter runs first, and the death,
    in-combat or exhausted state adds the darkened overlay. */
 // FUNCTION: WIZ8 0x0052eb00
-void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, unsigned char value,
-                         int party_slot)
+void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
+                         unsigned char value, int party_slot)
 {
     CatalogArtwork::Load(0x12, portrait).draw(target, 0, left, top, options);
     if (party_slot == -1) {
         return;
     }
     if (value != 0 && g_portrait_frame_flags[portrait] != 0) {
-        bool drawn = BlitPartyPortraitAnimation(target, portrait, left, top, options, party_slot, true);
+        bool drawn =
+            BlitPartyPortraitAnimation(target, portrait, left, top, options, party_slot, true);
         value = !drawn;
     }
     if ((((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
@@ -1916,8 +1951,8 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
    frame and its blend predecessor; the A track draws the frame the animation
    is moving to, and a dead character stops after the B track. */
 // FUNCTION: WIZ8 0x0052ebe0
-bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, int party_slot,
-                                bool animate)
+bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
+                                SpriteDraw options, int party_slot, bool animate)
 {
     W8MonsterManagerEntry* state = &gXStatus.monster_manager_entries[party_slot];
     DesignRect rect;

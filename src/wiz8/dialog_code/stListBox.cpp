@@ -20,7 +20,9 @@ void W8ListBoxDialog::OnTextAreaClick()
 {
     const SDL_Point cursor = UiPointerPosition();
     const int height = g_dialog_interface_font->height();
-    if (height == 0) return;
+    if (height == 0) {
+        return;
+    }
     const int line = (cursor.y - m_area_button.Bounds().y) / height + m_first_visible_line;
     if (line == m_selected_line) {
         m_keep_open = false;
@@ -63,8 +65,14 @@ void W8ListBoxDialog::OnSliderTrackClick()
     const int top = m_third_text_button.Bounds().y + m_up_button.Bounds().h;
     const int bottom =
         m_third_text_button.Bounds().y + m_third_text_button.Bounds().h - m_down_button.Bounds().h;
-    if (cursor.y < top) cursor.y = top;
-    if (cursor.y > bottom) cursor.y = bottom;
-    if (bottom <= top) return;
+    if (cursor.y < top) {
+        cursor.y = top;
+    }
+    if (cursor.y > bottom) {
+        cursor.y = bottom;
+    }
+    if (bottom <= top) {
+        return;
+    }
     SetCurrentLine((cursor.y - top) * static_cast<int>(m_lines.size()) / (bottom - top));
 }

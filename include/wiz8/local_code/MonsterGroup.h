@@ -24,13 +24,17 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
 
 /* A live monster group. Saves store it as wiz8::retail::MonsterGroup. */
 struct W8MonsterGroup {
-    std::span<const int> MemberIds() const { return monsters; }
+    std::span<const int> MemberIds() const
+    {
+        return monsters;
+    }
 
     int MemberLocationId(std::size_t index) const
     {
         const auto ids = MemberIds();
-        if (index >= ids.size())
+        if (index >= ids.size()) {
             return -1;
+        }
         return ids[index];
     }
 
@@ -111,8 +115,9 @@ struct W8MonsterGroup {
     unsigned char unknown_d4[0x57];
 };
 
-unsigned int GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
-                                      std::source_location caller = std::source_location::current());
+unsigned int
+GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
+                         std::source_location caller = std::source_location::current());
 W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());

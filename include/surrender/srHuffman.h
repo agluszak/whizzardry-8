@@ -147,4 +147,3 @@ public:
         unsigned char depth[0x100];
     };
 };
-

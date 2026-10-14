@@ -3,8 +3,6 @@
 struct W8Character;
 struct W8MonsterInfo;
 
-
-
 void UpdateGameClock(int elapsed);
 /* The 120-second aging tick - wait-state machine, per-character
    aging, combat/monster effect expiry and NPC-side aging. */

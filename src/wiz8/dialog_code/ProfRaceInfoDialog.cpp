@@ -117,12 +117,11 @@ void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
         W8DialogBase::Draw(target);
-        m_uiArtwork->drawAndInvalidate(target, m_uiSummaryImage,
-                                       m_x + 0xd, m_y + 0xd);
-        DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
-                     g_options_detail_font);
-        DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
-                     g_wiz_text_font_secondary);
+        m_uiArtwork->drawAndInvalidate(target, m_uiSummaryImage, m_x + 0xd, m_y + 0xd);
+        DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18,
+                     g_localized_strings[m_uiNameId], g_options_detail_font);
+        DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc,
+                     g_localized_strings[m_uiHeadingId], g_wiz_text_font_secondary);
         int top = 0x37;
         for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
             DrawTextLine(target, g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
@@ -145,8 +144,9 @@ void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
 }
 
 // FUNCTION: WIZ8 0x005DEEE0
-void W8ProfRaceInfoDialogBase::DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width,
-                                            int height, std::string_view text, Font& font)
+void W8ProfRaceInfoDialogBase::DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left,
+                                            int top, int width, int height, std::string_view text,
+                                            Font& font)
 {
     W8TextBuffer buffer;
     buffer.SetLayoutMode(g_W8TextBufferAlignMiddle | layout_mode);
@@ -218,13 +218,14 @@ bool W8ProfessionInfoDialog::PopulateText()
         if (ability == W8_TRAIT_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf,
+                             0);
     }
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x14e], "", 10, 0xf, 0);
     m_text_area.AddEntry(
-        {}, g_localized_strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]], 10, 0xf,
-        0);
+        {}, g_localized_strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]],
+        10, 0xf, 0);
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x14f], "", 10, 0xf, 0);
     for (index = 0; index < 4; ++index) {
@@ -232,7 +233,8 @@ bool W8ProfessionInfoDialog::PopulateText()
         if (skill == W8_SKILL_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_skill_name_ids[skill]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, g_localized_strings[g_character_skill_name_ids[skill]], 10, 0xf,
+                             0);
     }
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x150], "", 10, 0xf, 0);
@@ -306,7 +308,8 @@ bool W8RaceInfoDialog::PopulateText()
             }
             return true;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf,
+                             0);
         listed = true;
     }
     return true;

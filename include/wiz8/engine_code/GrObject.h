@@ -36,7 +36,6 @@ public:
     std::vector<std::unique_ptr<W8SoundEvent>> sound_events;
     // Prop and Item own their representation; the base never copies it.
     W8AnimRepBase* m_pRep;
-
 };
 
 /* The shared object-id counter both lifecycle callers advance. */

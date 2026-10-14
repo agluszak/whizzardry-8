@@ -32,7 +32,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 
-
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
 
    Attribution evidence: the assertions in MartensBluff1TeleportState

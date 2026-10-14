@@ -75,7 +75,7 @@ UiResult HandleTextScroll(const UiPointerEvent& event, bool up);
 UiResult HandleTextThumb(const UiPointerEvent& event);
 UiResult HandleTextBody(const UiPointerEvent& event);
 UiResult HandleTextChannel(const UiPointerEvent& event, int channel);
-}
+} // namespace
 
 /* The TEXT chunk's 0x24-byte form is separate from the live message record:
    its first word is a UTF-16 unit count. The obsolete list-pointer word
@@ -142,8 +142,9 @@ void W8MessageStorageRecord::RebuildEntries()
     for (auto start = value.find_first_not_of(' '); start != value.npos;
          start = value.find_first_not_of(' ', start)) {
         auto end = value.find(' ', start);
-        if (end == value.npos)
+        if (end == value.npos) {
             end = value.size();
+        }
         const auto x = g_level_block->text_box_font->prefixWidth(value, start);
         const auto width =
             g_level_block->text_box_font->textWidth(value.substr(start, end - start));
@@ -255,8 +256,8 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
         W8MessageStorageRecord* last = &g_message_storage[3][g_status.text_box_lines_shown[3] - 1];
-        unsigned int delay =
-            g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
+        unsigned int delay = g_settings.text_display_delay_ms *
+                             (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
             delay = 60000;
         }
@@ -264,50 +265,83 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     }
 }
 
-
 void InitTextBoxRegions()
 {
     message_input = std::make_unique<MessageBoxInput>();
     auto& ui = *message_input;
-    ui.targets[0] = &ui.body.add(SDL_Rect{457, 363, 16, 16},
-        [](const UiPointerEvent& event) { return HandleTextScroll(event, true); });
-    ui.targets[1] = &ui.body.add(SDL_Rect{457, 429, 16, 16},
-        [](const UiPointerEvent& event) { return HandleTextScroll(event, false); });
+    ui.targets[0] = &ui.body.add(SDL_Rect{457, 363, 16, 16}, [](const UiPointerEvent& event) {
+        return HandleTextScroll(event, true);
+    });
+    ui.targets[1] = &ui.body.add(SDL_Rect{457, 429, 16, 16}, [](const UiPointerEvent& event) {
+        return HandleTextScroll(event, false);
+    });
     ui.targets[2] = &ui.body.add(SDL_Rect{461, 379, 8, 50}, HandleTextThumb);
     ui.targets[3] = &ui.body.add(SDL_Rect{166, 362, 291, 84}, HandleTextBody);
     for (int tab = 0; tab < 3; ++tab) {
-        ui.targets[4 + tab] = &ui.tabs.add(SDL_Rect{140, 362 + tab * 21, 24, 16},
-            [tab](const UiPointerEvent& event) { return HandleTextChannel(event, tab == 2 ? 3 : tab); });
+        ui.targets[4 + tab] =
+            &ui.tabs.add(SDL_Rect{140, 362 + tab * 21, 24, 16}, [tab](const UiPointerEvent& event) {
+                return HandleTextChannel(event, tab == 2 ? 3 : tab);
+            });
         ui.targets[4 + tab]->setTooltip([tab] { return g_localized_strings[33 + tab]; });
     }
-    ui.targets[7] = &ui.tabs.add(SDL_Rect{128, 358, 384, 93}, [](const UiPointerEvent&) {
-        PushButtonSoundScheme(0, true);
-        return UiResult::Handled;
-    }, -1);
+    ui.targets[7] = &ui.tabs.add(
+        SDL_Rect{128, 358, 384, 93},
+        [](const UiPointerEvent&) {
+            PushButtonSoundScheme(0, true);
+            return UiResult::Handled;
+        },
+        -1);
     ui.body.setEnabled(false);
     ui.tabs.setEnabled(false);
 }
 
-void ShutdownTextBoxRegions() { message_input.reset(); }
-void EnableDialogueTextBoxRegions() { if (message_input) message_input->body.setEnabled(true); }
-void DisableDialogueTextBoxRegions() { if (message_input) message_input->body.setEnabled(false); }
+void ShutdownTextBoxRegions()
+{
+    message_input.reset();
+}
+void EnableDialogueTextBoxRegions()
+{
+    if (message_input) {
+        message_input->body.setEnabled(true);
+    }
+}
+void DisableDialogueTextBoxRegions()
+{
+    if (message_input) {
+        message_input->body.setEnabled(false);
+    }
+}
 void SetTextBoxEnabled(bool enabled)
 {
-    if (!message_input) return;
+    if (!message_input) {
+        return;
+    }
     message_input->body.setEnabled(enabled);
     message_input->tabs.setEnabled(enabled);
 }
 
 static void SetTextBoxRegionInput(TextBoxRegion first, std::size_t count, bool enabled)
 {
-    if (!message_input) return;
-    for (std::size_t offset = 0; offset < count; ++offset)
+    if (!message_input) {
+        return;
+    }
+    for (std::size_t offset = 0; offset < count; ++offset) {
         message_input->targets[static_cast<std::size_t>(first) + offset]->setEnabled(enabled);
+    }
 }
 
-void SetTextBoxScrollInput(bool enabled) { SetTextBoxRegionInput(TextBoxRegion::ScrollUp, 4, enabled); }
-void SetTextBoxChannelTabInput(bool enabled) { SetTextBoxRegionInput(TextBoxRegion::ChannelTab1, 3, enabled); }
-void SetTextBoxMuteInput(bool enabled) { SetTextBoxRegionInput(TextBoxRegion::Mute, 1, enabled); }
+void SetTextBoxScrollInput(bool enabled)
+{
+    SetTextBoxRegionInput(TextBoxRegion::ScrollUp, 4, enabled);
+}
+void SetTextBoxChannelTabInput(bool enabled)
+{
+    SetTextBoxRegionInput(TextBoxRegion::ChannelTab1, 3, enabled);
+}
+void SetTextBoxMuteInput(bool enabled)
+{
+    SetTextBoxRegionInput(TextBoxRegion::Mute, 1, enabled);
+}
 
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
 {
@@ -315,7 +349,9 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
     g_level_block->text_box_top = top;
     g_level_block->text_box_right = right;
     g_level_block->text_box_bottom = bottom;
-    if (!message_input) return;
+    if (!message_input) {
+        return;
+    }
     auto& targets = message_input->targets;
     targets[3]->setShape(SDL_Rect{left, top, right - left + 1, bottom - top + 1});
     targets[0]->setShape(SDL_Rect{right + 5, 363, 16, 16});
@@ -345,8 +381,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) <
-            wrap_width) {
+        if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) < wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
             std::string_view remaining(text);
@@ -358,17 +393,27 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                     if (g_level_block->text_box_font->textWidth(remaining.substr(0, next)) >=
                             static_cast<int>(wrap_width) &&
                         end) {
-                        if (last_space) end = last_space;
+                        if (last_space) {
+                            end = last_space;
+                        }
                         break;
                     }
                     end = next;
-                    if (end < remaining.size() && (remaining[end] == ' ' || remaining[end] == '\t')) last_space = end;
+                    if (end < remaining.size() &&
+                        (remaining[end] == ' ' || remaining[end] == '\t')) {
+                        last_space = end;
+                    }
                 }
                 const auto line = remaining.substr(0, end);
-                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box, line_index++);
+                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box,
+                                 line_index++);
                 remaining.remove_prefix(end);
-                if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
-                if (!remaining.empty()) g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
+                if (!remaining.empty() && remaining.front() == '\n') {
+                    remaining.remove_prefix(1);
+                }
+                if (!remaining.empty()) {
+                    g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
+                }
             }
         }
         if (g_status.quote_audit && g_notice_line_count > 7) {
@@ -376,8 +421,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
         }
         g_text_box_mode = 0;
     } else if (force_dialog) {
-        W8MessageDialogBase* dialog =
-            CreateMessageDialog();
+        W8MessageDialogBase* dialog = CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         g_modal_owner->DrawModal(GetFrameBufferSurface());
@@ -420,23 +464,33 @@ unsigned char SaveMessageStorage(wiz8::File& file)
                     : 0;
             disk_record.font_palette = live_record->font_palette;
             disk_record.highlight_color = live_record->highlight_color;
-            disk_record.highlight_start = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
-                std::string_view(live_record->text).substr(0, live_record->highlight_start)).size()));
-            disk_record.highlight_stop = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
-                std::string_view(live_record->text).substr(0, live_record->highlight_stop)).size()));
+            disk_record.highlight_start = static_cast<unsigned char>(std::min<std::size_t>(
+                255,
+                wiz8::text::to_utf16(
+                    std::string_view(live_record->text).substr(0, live_record->highlight_start))
+                    .size()));
+            disk_record.highlight_stop = static_cast<unsigned char>(std::min<std::size_t>(
+                255, wiz8::text::to_utf16(
+                         std::string_view(live_record->text).substr(0, live_record->highlight_stop))
+                         .size()));
             disk_record.clock = static_cast<std::uint32_t>(live_record->clock);
             disk_record.saved_remaining_ms = live_record->saved_remaining_ms;
             disk_record.link = live_record->link;
-            disk_record.length = live_record->length < 0 ? -1 : static_cast<int>(
-                wiz8::text::to_utf16(std::string_view(live_record->text).substr(
-                    0, live_record->length)).size());
+            disk_record.length =
+                live_record->length < 0
+                    ? -1
+                    : static_cast<int>(
+                          wiz8::text::to_utf16(
+                              std::string_view(live_record->text).substr(0, live_record->length))
+                              .size());
             // Runtime word ranges are rebuilt after loading; disk pointer bits are unused.
             disk_record.serialized_entries_18_bits = 0;
             memcpy(disk_record.trailing_bytes, live_record->unknown_1c,
                    sizeof(disk_record.trailing_bytes));
             file.write(&disk_record, sizeof(disk_record));
             if (disk_record.character_count) {
-                std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
+                std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) *
+                                             2);
                 wiz8::text::to_utf16le(live_record->text, bytes);
                 file.write(bytes.data(), bytes.size());
             }
@@ -452,8 +506,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
    link-height constant never wrote a fourth region, so its count is forced to
    zero without consuming a count slot. */
 unsigned char LoadMessageStorage(wiz8::File& file)
-try
-{
+try {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
     int format;
@@ -468,7 +521,9 @@ try
         } else {
             file.read_exact(&g_status.text_box_lines_used[region], 4);
         }
-        if (g_status.text_box_lines_used[region] > 0x15e) return 0;
+        if (g_status.text_box_lines_used[region] > 0x15e) {
+            return 0;
+        }
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
             file.read_exact(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
@@ -482,7 +537,9 @@ try
             live_record->length = disk_record.length;
             memcpy(live_record->unknown_1c, disk_record.trailing_bytes,
                    sizeof(live_record->unknown_1c));
-            if (disk_record.character_count > 100000) return 0;
+            if (disk_record.character_count > 100000) {
+                return 0;
+            }
             std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
             file.read_exact(bytes.data(), bytes.size());
             auto decoded = wiz8::text::from_utf16le(bytes);
@@ -496,13 +553,16 @@ try
             };
             live_record->highlight_start = byte_offset(disk_record.highlight_start);
             live_record->highlight_stop = byte_offset(disk_record.highlight_stop);
-            if (disk_record.length >= 0) live_record->length = byte_offset(disk_record.length);
+            if (disk_record.length >= 0) {
+                live_record->length = byte_offset(disk_record.length);
+            }
             live_record->text = std::move(decoded);
         }
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The selected wrapped-line start for one text box. NPC trade uses box 2. */
 int GetSelectedTextLine(int index)
@@ -528,7 +588,6 @@ void RedrawTextBox(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
 }
-
 
 /* The font the main-game text box measures and draws with. */
 Font& GetTextBoxFont(void)
@@ -600,8 +659,7 @@ void ScrollDialogueTextBoxToLine(void)
    line was wrapped, the box's split position says where the second row
    begins: a span ending before it recolours the previous row alone, one
    crossing it is cut in two, and one past it moves down by the split. */
-void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
-                           short text_box)
+void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop, short text_box)
 {
     W8MessageStorageRecord* line;
     W8MessageStorageRecord* previous;
@@ -740,8 +798,8 @@ int GetTextBoxVisibleLineCount(void)
 
 void PostCharacterNotice(int party_slot, std::string_view text, int context)
 {
-    const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
-                                          ? std::string_view{} : g_W8TextSeparator;
+    const std::string_view separator =
+        (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
     ShowNotice(W8_FONT_PALETTE_WHITE,
                fmt::format("{}{}{}", g_status.buffers.Char[party_slot].name, separator, text),
                context);
@@ -754,7 +812,6 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
     }
     HighlightTextBoxRange(g_status.buffers.XChar[party_slot].party_order_index, 0, stop, context);
 }
-
 
 /* Retail expands this calculation at its callers and has no separate emission. */
 static unsigned int GetTextBoxLineCount(short text_box)
@@ -789,8 +846,8 @@ void AdvanceNoticeLine(short text_box)
     }
     W8MessageStorageRecord* record =
         &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
-    unsigned int delay =
-        g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
+    unsigned int delay = g_settings.text_display_delay_ms *
+                         (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
         delay = 60000;
     }
@@ -852,8 +909,7 @@ void ScrollTextBoxTo(int line)
         g_level_block->text_content_region =
             g_level_block->text_lines[text_box] != 0 ? kUpArrowEnabled : kUpArrowDisabled;
         g_level_block->dialogue_content_region =
-            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                    count + input_lines
+            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() < count + input_lines
                 ? kDownArrowEnabled
                 : kDownArrowDisabled;
         RedrawTextBox();
@@ -938,8 +994,8 @@ static void DrawDialogueTextCursor(int x, int y)
         x_offset = g_level_block->text_box_font->textWidth(input->first_line_prefix);
     }
     unsigned int start = input->line_offsets[line - 1];
-    x_offset +=
-        g_level_block->text_box_font->prefixWidth(std::string_view(input->text).substr(start), input->cursor - start);
+    x_offset += g_level_block->text_box_font->prefixWidth(
+        std::string_view(input->text).substr(start), input->cursor - start);
 
     int y_line = y + (line - hidden - 1) * 0xb;
     if (y_line < g_level_block->text_box_bottom) {
@@ -949,7 +1005,7 @@ static void DrawDialogueTextCursor(int x, int y)
             y_end = bottom;
         }
         int x_cursor = x + x_offset + 1;
-        const SDL_Rect cursor{ x_cursor, y_line, 1, static_cast<int>(y_end - y_line + 1) };
+        const SDL_Rect cursor{x_cursor, y_line, 1, static_cast<int>(y_end - y_line + 1)};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, 0xff00);
     }
 }
@@ -964,20 +1020,24 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
     int maximum_width = 0;
     for (std::size_t line = first_line; line < input->line_offsets.size(); ++line) {
         auto start = input->line_offsets[line];
-        auto end = line + 1 < input->line_offsets.size() ? input->line_offsets[line + 1] : input->text.size();
+        auto end = line + 1 < input->line_offsets.size() ? input->line_offsets[line + 1]
+                                                         : input->text.size();
         auto text = std::string_view(input->text).substr(start, end - start);
         int draw_x = x;
         if (line == 0 && !input->first_line_prefix.empty()) {
-            DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, input->first_line_prefix);
+            DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y},
+                     input->first_line_prefix);
             draw_x += g_level_block->text_box_font->textWidth(input->first_line_prefix);
         }
         DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, text);
-        maximum_width = std::max(maximum_width, draw_x - x + g_level_block->text_box_font->textWidth(text));
+        maximum_width =
+            std::max(maximum_width, draw_x - x + g_level_block->text_box_font->textWidth(text));
         y += 11;
-        if (y >= g_level_block->text_box_bottom) break;
+        if (y >= g_level_block->text_box_bottom) {
+            break;
+        }
     }
     InvalidateRegion(x, first_y, x + maximum_width, y);
-
 }
 
 /* Repaint the dormant typed-dialogue editor over the text box: the wrapped
@@ -1052,13 +1112,18 @@ static void RewrapDialogueTextFromLine(unsigned int)
     auto last_break = std::size_t{0};
     for (std::size_t position = 0; position < input.text.size();) {
         auto end = wiz8::text::next_grapheme(input.text, position);
-        auto width = g_level_block->text_box_font->textWidth(std::string_view(input.text).substr(line_start, end - line_start));
-        if (line_start == 0) width += g_level_block->text_box_font->textWidth(input.first_line_prefix);
+        auto width = g_level_block->text_box_font->textWidth(
+            std::string_view(input.text).substr(line_start, end - line_start));
+        if (line_start == 0) {
+            width += g_level_block->text_box_font->textWidth(input.first_line_prefix);
+        }
         if (width > static_cast<int>(input.wrap_width) && position > line_start) {
             line_start = last_break > line_start ? last_break : position;
             input.line_offsets.push_back(line_start);
         }
-        if (input.text[position] == ' ') last_break = end;
+        if (input.text[position] == ' ') {
+            last_break = end;
+        }
         position = end;
     }
     input.line_count = input.line_offsets.size();
@@ -1066,7 +1131,9 @@ static void RewrapDialogueTextFromLine(unsigned int)
 
 static void InsertDialogueTextCharacter(char32_t character)
 {
-    if (!g_level_block->dialogue_text_input_open || !g_level_block->dialogue_text_input) return;
+    if (!g_level_block->dialogue_text_input_open || !g_level_block->dialogue_text_input) {
+        return;
+    }
     auto& input = *g_level_block->dialogue_text_input;
     std::string bytes;
     utf8::append(character, std::back_inserter(bytes));
@@ -1099,19 +1166,23 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
         g_level_block->text_scroll_drag_idle = 1;
         return UiResult::Handled;
     }
-    if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Down)
+    if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Down) {
         return UiResult::Handled;
+    }
     const short box = g_status.text_line_cursor;
     const int visible = GetTextBoxVisibleLineCount();
     const int count = static_cast<int>(GetTextBoxLineCount(box));
-    if (count <= visible) return UiResult::Handled;
+    if (count <= visible) {
+        return UiResult::Handled;
+    }
     const auto position = std::clamp(event.local.y + 1, 0, 46);
     const int previous = static_cast<int>(g_level_block->text_lines[box]);
     const int current = (count - visible) * position / 47;
     g_level_block->text_lines[box] = current;
     if (current != previous) {
         g_level_block->text_content_region = current ? kUpArrowEnabled : kUpArrowDisabled;
-        g_level_block->dialogue_content_region = current + visible < count ? kDownArrowEnabled : kDownArrowDisabled;
+        g_level_block->dialogue_content_region =
+            current + visible < count ? kDownArrowEnabled : kDownArrowDisabled;
         RedrawTextBox();
     }
     g_level_block->text_scroll_drag_idle = 0;
@@ -1121,21 +1192,33 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
 UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
 {
     const short box = g_status.text_line_cursor;
-    const bool enabled = up ? g_level_block->text_lines[box] != 0 :
-        g_level_block->text_lines[box] + GetTextBoxVisibleLineCount() < GetTextBoxLineCount(box);
-    if (!enabled) PushButtonSoundScheme(0, true);
-    if (enabled && (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+    const bool enabled = up ? g_level_block->text_lines[box] != 0
+                            : g_level_block->text_lines[box] + GetTextBoxVisibleLineCount() <
+                                  GetTextBoxLineCount(box);
+    if (!enabled) {
+        PushButtonSoundScheme(0, true);
+    }
+    if (enabled &&
+        (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
         const bool hover = event.action == UiPointerAction::Enter;
-        if (up) g_level_block->text_content_region = hover ? kUpArrowPressed : kUpArrowEnabled;
-        else g_level_block->dialogue_content_region = hover ? kDownArrowPressed : kDownArrowEnabled;
+        if (up) {
+            g_level_block->text_content_region = hover ? kUpArrowPressed : kUpArrowEnabled;
+        } else {
+            g_level_block->dialogue_content_region = hover ? kDownArrowPressed : kDownArrowEnabled;
+        }
         RedrawTextBox();
     }
-    if ((event.action == UiPointerAction::Up || event.action == UiPointerAction::Repeat) && event.inside) {
-        const auto mask = event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
+    if ((event.action == UiPointerAction::Up || event.action == UiPointerAction::Repeat) &&
+        event.inside) {
+        const auto mask =
+            event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
         if (event.captured_buttons & mask) {
             const int lines = event.button == UiPointerButton::Left ? 1 : 7;
-            if (up) ScrollTextBoxUp(lines);
-            else ScrollTextBoxDown(lines);
+            if (up) {
+                ScrollTextBoxUp(lines);
+            } else {
+                ScrollTextBoxDown(lines);
+            }
         }
     }
     return UiResult::Handled;
@@ -1145,15 +1228,27 @@ UiResult HandleTextBody(const UiPointerEvent& event)
 {
     PushButtonSoundScheme(0, true);
     if (event.action == UiPointerAction::Wheel) {
-        if (event.wheel < 0) ScrollTextBoxDown(-event.wheel);
-        else ScrollTextBoxUp(event.wheel);
-        if (gXStatus.fNpcDialogueMode) NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
-        else if (gXStatus.fItemSelectMode) UseItemSelectTextBoxWheelAt(event.position.x, event.position.y, true);
+        if (event.wheel < 0) {
+            ScrollTextBoxDown(-event.wheel);
+        } else {
+            ScrollTextBoxUp(event.wheel);
+        }
+        if (gXStatus.fNpcDialogueMode) {
+            NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
+        } else if (gXStatus.fItemSelectMode) {
+            UseItemSelectTextBoxWheelAt(event.position.x, event.position.y, true);
+        }
         return UiResult::Handled;
     }
-    if (gXStatus.fNpcDialogueMode) return HandleNpcTextBox(event);
-    if (gXStatus.fSpellCastMode) return HandleSpellTextBox(event);
-    if (gXStatus.fItemSelectMode) return HandleUseItemTextBox(event);
+    if (gXStatus.fNpcDialogueMode) {
+        return HandleNpcTextBox(event);
+    }
+    if (gXStatus.fSpellCastMode) {
+        return HandleSpellTextBox(event);
+    }
+    if (gXStatus.fItemSelectMode) {
+        return HandleUseItemTextBox(event);
+    }
     return UiResult::Handled;
 }
 
@@ -1161,18 +1256,22 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
 {
     PushButtonSoundScheme(0, true);
     if (event.action != UiPointerAction::Up || !event.inside ||
-        event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK))
+        event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK)) {
         return UiResult::Handled;
+    }
     g_status.text_line_cursor = static_cast<short>(channel);
     const auto scroll = g_level_block->text_lines[channel];
     g_level_block->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
-    g_level_block->dialogue_content_region = scroll + GetTextBoxVisibleLineCount() < GetTextBoxLineCount(channel)
-        ? kDownArrowEnabled : kDownArrowDisabled;
-    if (channel == 3) ScrollTextBoxTo(std::max(0, int(g_status.text_box_lines_shown[channel]) - 7));
+    g_level_block->dialogue_content_region =
+        scroll + GetTextBoxVisibleLineCount() < GetTextBoxLineCount(channel) ? kDownArrowEnabled
+                                                                             : kDownArrowDisabled;
+    if (channel == 3) {
+        ScrollTextBoxTo(std::max(0, int(g_status.text_box_lines_shown[channel]) - 7));
+    }
     RedrawTextBox();
     return UiResult::Handled;
 }
-}
+} // namespace
 
 unsigned char HandleDialogueTextInput(const InputEvent* input_event)
 {
@@ -1182,10 +1281,13 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
     }
     W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
     if (input_event->type == InputEventType::Text) {
-        if (input_event->text >= 32) InsertDialogueTextCharacter(input_event->text);
+        if (input_event->text >= 32) {
+            InsertDialogueTextCharacter(input_event->text);
+        }
         return 1;
     }
-    if (input_event->type != InputEventType::KeyDown && input_event->type != InputEventType::KeyRepeat) {
+    if (input_event->type != InputEventType::KeyDown &&
+        input_event->type != InputEventType::KeyRepeat) {
         return 1;
     }
     unsigned int key = input_event->key;
@@ -1240,8 +1342,8 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
         break;
     }
 
-    char character = TranslateKeyToCharacter(
-        static_cast<unsigned short>(key), static_cast<unsigned char>(input_event->modifiers));
+    char character = TranslateKeyToCharacter(static_cast<unsigned short>(key),
+                                             static_cast<unsigned char>(input_event->modifiers));
     if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z') ||
         (character >= 'a' && character <= 'z') || (character >= '!' && character <= '/') ||
         (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||
@@ -1277,11 +1379,18 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y);
 static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hovered_line,
                             bool selected_line, bool skip_invalidate)
 {
-    if (skip_invalidate) { DrawNoticeWordOverlays(line, x, y); return; }
+    if (skip_invalidate) {
+        DrawNoticeWordOverlays(line, x, y);
+        return;
+    }
     auto text = std::string_view(line->text);
-    auto foreground = selected_line ? W8_FONT_PALETTE_BLUE : hovered_line ? W8_FONT_PALETTE_YELLOW : line->font_palette;
+    auto foreground = selected_line  ? W8_FONT_PALETTE_BLUE
+                      : hovered_line ? W8_FONT_PALETTE_YELLOW
+                                     : line->font_palette;
     auto set_palette = [&](unsigned int index) {
-        g_level_block->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX ? g_font_state_palettes[index] : g_level_block->palette);
+        g_level_block->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX
+                                                     ? g_font_state_palettes[index]
+                                                     : g_level_block->palette);
     };
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
@@ -1296,12 +1405,16 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
         draw(visible.substr(0, start), foreground);
         draw(visible.substr(start, stop - start), line->highlight_color);
         draw(visible.substr(stop), foreground);
-    } else draw(visible, foreground);
+    } else {
+        draw(visible, foreground);
+    }
     if (line->length >= 0) {
         const auto suffix = text.substr(end);
         set_palette(foreground);
-        DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {g_level_block->text_box_right -
-                              g_level_block->text_box_font->textWidth(suffix), y}, suffix);
+        DrawTextAndInvalidate(
+            GetFrameBufferSurface(), *g_level_block->text_box_font,
+            {g_level_block->text_box_right - g_level_block->text_box_font->textWidth(suffix), y},
+            suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
 }
@@ -1380,8 +1493,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
                     } else {
                         x = g_level_block->text_box_left +
                             ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                             g_level_block->text_box_font->textWidth(line->text) /
-                                 2);
+                             g_level_block->text_box_font->textWidth(line->text) / 2);
                     }
                     DrawTextBoxLine(
                         line, x, g_level_block->text_box_top + y_offset,
@@ -1394,7 +1506,6 @@ void RedrawTextBoxBody(bool skip_invalidate)
         }
 
         g_level_block->text_box_font->setPalette(g_level_block->palette);
-
     }
 }
 
@@ -1419,21 +1530,23 @@ void RedrawTextBoxScrollChrome(void)
         scroll = g_level_block->text_lines[text_box];
         if (scroll == 0) {
             g_level_block->text_content_region = kUpArrowDisabled;
-        } else if (g_level_block->text_content_region ==
-                   kUpArrowDisabled) {
+        } else if (g_level_block->text_content_region == kUpArrowDisabled) {
             g_level_block->text_content_region = kUpArrowEnabled;
         }
 
         switch (g_level_block->text_content_region) {
         case kUpArrowEnabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0, g_level_block->text_box_right + 5, 0x16b);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0,
+                                               g_level_block->text_box_right + 5, 0x16b);
             break;
         case kUpArrowPressed:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1, g_level_block->text_box_right + 5, 0x16b);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1,
+                                               g_level_block->text_box_right + 5, 0x16b);
             break;
         case -1:
         case kUpArrowDisabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3, g_level_block->text_box_right + 5, 0x16b);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3,
+                                               g_level_block->text_box_right + 5, 0x16b);
             g_level_block->text_content_region = -1;
             break;
         }
@@ -1450,21 +1563,25 @@ void RedrawTextBoxScrollChrome(void)
 
         switch (g_level_block->dialogue_content_region) {
         case kDownArrowEnabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 8, g_level_block->text_box_right + 5, 0x1ad);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 8,
+                                               g_level_block->text_box_right + 5, 0x1ad);
             break;
         case kDownArrowPressed:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9, g_level_block->text_box_right + 5, 0x1ad);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9,
+                                               g_level_block->text_box_right + 5, 0x1ad);
             break;
         case -1:
         case kDownArrowDisabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb, g_level_block->text_box_right + 5, 0x1ad);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb,
+                                               g_level_block->text_box_right + 5, 0x1ad);
             g_level_block->dialogue_content_region = -1;
             break;
         }
 
         if (line_count > static_cast<unsigned int>(visible)) {
             thumb_y = static_cast<int>(scroll * 0x28 / (line_count - visible)) + 0x17b;
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 4, g_level_block->text_box_right + 5, thumb_y);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 4,
+                                               g_level_block->text_box_right + 5, thumb_y);
         }
     }
 
@@ -1630,7 +1747,8 @@ static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWo
 {
     std::string word_text;
     word_text = line->text.substr(word->start, word->end - word->start + 1);
-    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {word->x_start + x, y}, word_text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font,
+                          {word->x_start + x, y}, word_text);
     word->redraw = false;
 }
 
@@ -1640,8 +1758,8 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
         auto* word = &entry;
         if (word->keyword != W8_NOTICE_WORD_NORMAL) {
             Palette16 palette = word->keyword == W8_NOTICE_WORD_SELECTED
-                                          ? g_font_state_palettes[W8_FONT_PALETTE_BLUE]
-                                          : g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+                                    ? g_font_state_palettes[W8_FONT_PALETTE_BLUE]
+                                    : g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
             g_level_block->text_box_font->setPalette(palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
@@ -1689,10 +1807,10 @@ static int GetNoticeLineLeft(int text_box, int line)
     if (g_status.text_line_cursor == 3 || !g_level_block->text_box_visible) {
         x_base = g_level_block->text_box_left;
     } else {
-        x_base = g_level_block->text_box_left +
-                 ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                  g_level_block->text_box_font->textWidth(g_message_storage[text_box][line].text) /
-                      2);
+        x_base =
+            g_level_block->text_box_left +
+            ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
+             g_level_block->text_box_font->textWidth(g_message_storage[text_box][line].text) / 2);
     }
     return x_base;
 }
@@ -1751,8 +1869,8 @@ std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
 {
-    const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
-                                          ? std::string_view{} : g_W8TextSeparator;
+    const std::string_view separator =
+        (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
     ShowNotice(W8_FONT_PALETTE_RUST,
                fmt::format("{}{}{}", GetMonsterName(monster_info, 0, 0), separator, text));
 }

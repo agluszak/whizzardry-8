@@ -209,9 +209,6 @@ struct W8GlobalStatus {
     bool dev_flagged;
 };
 
-
-
 extern W8GlobalStatus g_status;
-
 
 #endif

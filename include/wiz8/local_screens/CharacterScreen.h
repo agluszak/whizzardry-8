@@ -117,12 +117,16 @@ class W8CharacterStatsPage;
 class W8CharacterStatsRow {
 public:
     W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int y, int count,
-        const W8CharacterStatsRecord* table, const W8CharacterStatsRecord* default_record,
-        int help_first, int help_second, int help_value);
+                        const W8CharacterStatsRecord* table,
+                        const W8CharacterStatsRecord* default_record, int help_first,
+                        int help_second, int help_value);
     ~W8CharacterStatsRow();
     void Collapse();
     void CollapseIfNotHovered();
-    void Invalidate() { m_dirty = true; }
+    void Invalidate()
+    {
+        m_dirty = true;
+    }
     void BuildSubpanel();
     void SetValue(int index);
     void SetEnabled(bool enabled);

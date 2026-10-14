@@ -33,8 +33,8 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0),
-      m_taken(0), m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
+    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0), m_taken(0),
+      m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
       m_portrait_clock_started(0)
 {
     SetExtent(0x171, 0x60);
@@ -130,7 +130,8 @@ void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 // FUNCTION: WIZ8 0x005e0830
 void W8CharacterSummaryDialog::DrawPortraitAnimationFrame(SDL_Surface& target)
 {
-    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0, false);
+    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0,
+                               false);
 }
 
 // FUNCTION: WIZ8 0x005e0860
@@ -196,11 +197,15 @@ bool W8CharacterSummaryDialog::ProcessInput()
         .unhandled =
             [this, &keep_open](const InputEvent& input) {
                 keep_open = HandleInputEvent(&input);
-                if (!keep_open) EndModalInput();
+                if (!keep_open) {
+                    EndModalInput();
+                }
                 return InputRoute::Stop;
             },
     });
-    if (!keep_open) EndModalInput();
+    if (!keep_open) {
+        EndModalInput();
+    }
     return keep_open;
 }
 

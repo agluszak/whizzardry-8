@@ -13,7 +13,6 @@
 // class srFog
 class srFog : public srClassSupport<srFog, srIlluminator, 0x1210> {
 public:
-
     SR_DLL_IMPORT srFog(srNode* parent = 0);
 
     // FUNCTION: SURRENDER 0x1004C1A0
@@ -34,7 +33,6 @@ public:
     srFog& operator=(const srFog&) = default;
 
 public:
-
     using srClassSupport<srFog, srIlluminator, 0x1210>::process;
     virtual SR_DLL_IMPORT int isActive(srVertexPipe& pipe) override;
     virtual SR_DLL_IMPORT void process(srVertexPipe& pipe) override;
@@ -43,4 +41,3 @@ public:
     double fog_end;   /* 0x158 */
     float density;    /* 0x160 */
 };
-

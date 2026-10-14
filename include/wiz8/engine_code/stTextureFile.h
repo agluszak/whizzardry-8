@@ -9,7 +9,9 @@
 #include "compat/native.h"
 #include "surrender/srTypeRegistry.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*);
 

@@ -72,7 +72,8 @@ unsigned char InitializeMenuFonts(void)
         std::tuple{&g_small_font_secondary, "Data\\Fonts\\SmallFont.sti", FONT_GLOW_RED},
         std::tuple{&g_wiz_text_font, "Data\\Fonts\\Wiz_Text_Font.sti", FONT_GLOW_GREEN},
         std::tuple{&g_calligraphy_font, "Data\\Fonts\\CalligraphyFont.sti", FONT_GLOW_GREEN},
-        std::tuple{&g_calligraphy_shadow_font, "Data\\Fonts\\CalligraphyFontFullShadow.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_calligraphy_shadow_font, "Data\\Fonts\\CalligraphyFontFullShadow.sti",
+                   FONT_GLOW_GREEN},
         std::tuple{&g_smfnt_font, "Data\\Fonts\\SmFnt.sti", FONT_GLOW_GREEN},
         std::tuple{&ghTinyMonoFont, "Data\\Fonts\\TinyMonoFont.sti", FONT_GLOW_GREEN},
         std::tuple{&g_button_font, "Data\\Fonts\\ButtonFont.sti", FONT_GLOW_GREEN},
@@ -87,10 +88,8 @@ unsigned char InitializeMenuFonts(void)
         std::tuple{&g_profession_font, "Data\\Fonts\\Profession.sti", FONT_GLOW_YELLOW},
         std::tuple{&g_font10arial, "Data\\Fonts\\Font10Arial.sti", std::uint32_t{0}},
         std::tuple{&g_wiz_dialog_font, "Data\\Fonts\\dialog_font.sti", FONT_GLOW_GREEN},
-        std::tuple{&g_monster_damage_font, "Data\\Fonts\\monsterdamage_font.sti",
-                   std::uint32_t{0}},
-        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", FONT_GLOW_GREEN}
-    };
+        std::tuple{&g_monster_damage_font, "Data\\Fonts\\monsterdamage_font.sti", std::uint32_t{0}},
+        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", FONT_GLOW_GREEN}};
     std::array<Font, fonts.size()> loaded;
     for (size_t index = 0; index < fonts.size(); ++index) {
         const auto& [role, filename, shade] = fonts[index];
@@ -106,8 +105,9 @@ unsigned char InitializeMenuFonts(void)
     for (size_t index = 0; index < palettes.size(); ++index) {
         palettes[index] = CatalogArtwork::Load(0x1e5, index).spriteSheet()->colors;
     }
-    for (size_t index = 0; index < fonts.size(); ++index)
+    for (size_t index = 0; index < fonts.size(); ++index) {
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
+    }
     g_font_state_palettes.swap(palettes);
     ConfigureDialogFont(g_wiz_dialog_font, 1, 0xff, 0);
     return 1;

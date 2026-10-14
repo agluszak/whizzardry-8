@@ -47,7 +47,6 @@
 #include "layouts/world.h"
 #include "local_code/SpellEffect.h"
 
-
 /* Level Specific Code\MartensBluff2.cpp (level 6).
 
    Attribution evidence: the spawn lookups at 0x004DCC5F and 0x004DDE4F pass
@@ -170,8 +169,8 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
             rotation *=
                 glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
                                               normalizedOrZero(glm::vec3(direction.glmValue()))));
-            }
-            offset = position + srVector3T<float>{rotation * offset.glmValue()};
+        }
+        offset = position + srVector3T<float>{rotation * offset.glmValue()};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -476,8 +475,9 @@ void MartensBluff2MonsterCrusher(int command)
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
             const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
             const auto other_bounds = g_squisher4_prop->GetFrameBounds();
-            if (!crusher_bounds || !other_bounds)
+            if (!crusher_bounds || !other_bounds) {
                 return;
+            }
             crusher_lower = crusher_bounds->minimum;
             crusher_upper = crusher_bounds->maximum;
             lower = other_bounds->minimum;
@@ -549,7 +549,8 @@ void MartensBluff2MonsterCrusher(int command)
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
     right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
-    location_ids = g_octree->locationsInBox({crusher_lower.glmValue(), crusher_upper.glmValue()}, 0);
+    location_ids =
+        g_octree->locationsInBox({crusher_lower.glmValue(), crusher_upper.glmValue()}, 0);
     count = location_ids.size();
     if (count == 0) {
         return;

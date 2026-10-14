@@ -8,7 +8,7 @@
 class Trigger;
 class W8WorldCursorNode;
 struct W8WorldItem;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* Local Code\search.cpp. The searchable registry owns small records whose
    members name the world item or trigger participating in a search. */

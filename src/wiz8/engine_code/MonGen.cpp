@@ -113,8 +113,7 @@ int g_encounter_tables_level = -1;
 
 // FUNCTION: WIZ8 0x0048a7a0
 unsigned int InitializeEncounterTables(void)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\EncounterTables.dbs");
     UnloadEncounterTables();
     std::vector<std::string> names;
@@ -122,14 +121,18 @@ try
     int name_count;
     int table_count;
     handle->read_exact(&name_count, sizeof(name_count));
-    if (name_count < 0) return 0;
+    if (name_count < 0) {
+        return 0;
+    }
     for (int index = 0; index < name_count; ++index) {
         char name[256];
         handle->read_exact(name, sizeof(name));
         names.emplace_back(name, std::find(std::begin(name), std::end(name), '\0'));
     }
     handle->read_exact(&table_count, sizeof(table_count));
-    if (table_count < 0) return 0;
+    if (table_count < 0) {
+        return 0;
+    }
     for (int index = 0; index < table_count; ++index) {
         W8EncounterTableDiskHeader header;
         handle->read_exact(&header, sizeof(header));
@@ -139,22 +142,33 @@ try
         table.category = header.unknown_101;
         table.entries.resize(header.entry_count);
         // The file stores columns; combine them into records at the boundary.
-        for (auto& entry : table.entries) handle->read_exact(&entry.species, sizeof(entry.species));
-        for (auto& entry : table.entries) handle->read_exact(&entry.rarity_class, 1);
-        for (auto& entry : table.entries) handle->read_exact(&entry.time_condition, 1);
-        for (auto& entry : table.entries) handle->read_exact(&entry.challenge_level, 1);
+        for (auto& entry : table.entries) {
+            handle->read_exact(&entry.species, sizeof(entry.species));
+        }
+        for (auto& entry : table.entries) {
+            handle->read_exact(&entry.rarity_class, 1);
+        }
+        for (auto& entry : table.entries) {
+            handle->read_exact(&entry.time_condition, 1);
+        }
+        for (auto& entry : table.entries) {
+            handle->read_exact(&entry.challenge_level, 1);
+        }
         for (auto& entry : table.entries) {
             handle->read_exact(&entry.script, sizeof(entry.script));
             entry.script.value[sizeof(entry.script.value) - 1] = '\0';
         }
-        if (header.version != 1) handle->read_exact(&table.version_two_flags, 1);
+        if (header.version != 1) {
+            handle->read_exact(&table.version_two_flags, 1);
+        }
     }
     g_encounter_names = std::move(names);
     g_encounter_tables = std::move(tables);
     g_encounter_tables_level = g_status.current_level;
     return 1;
+} catch (const std::exception&) {
+    return 0;
 }
-catch (const std::exception&) { return 0; }
 
 // STRING: WIZ8 0x0060A6E0
 #define MON_GEN_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp"
@@ -236,7 +250,9 @@ const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableR
         }
     }
 
-    if (candidates.empty()) return nullptr;
+    if (candidates.empty()) {
+        return nullptr;
+    }
     return candidates[candidates.size() == 1 ? 0 : Random(static_cast<int>(candidates.size()))];
 }
 
@@ -307,7 +323,9 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     }
 
     table = GetEncounterTable(encounter_table_index);
-    if (!table) return 0;
+    if (!table) {
+        return 0;
+    }
     const auto* selected = SelectEncounterCandidate(*table);
     if (!selected) {
         return 0;
@@ -591,7 +609,10 @@ void CullExpiredEncounters(void)
 
 /* How many monster generators the loaded world carries. */
 // FUNCTION: WIZ8 0x0048bd80
-int GetMonsterGeneratorCount(void) { return static_cast<int>(g_world->monster_generators.size()); }
+int GetMonsterGeneratorCount(void)
+{
+    return static_cast<int>(g_world->monster_generators.size());
+}
 
 /* One of them by index. Out of range answers null, which is why the bounds test
    appears twice: once here, rejecting the index outright, and once inside the
@@ -620,7 +641,10 @@ W8EncounterTableRuntime* GetEncounterTable(int index)
 
 /* Register a monster generator with the world. */
 // FUNCTION: WIZ8 0x0048be30
-void AddMonsterGenerator(MonGen* generator) { g_world->monster_generators.push_back(generator); }
+void AddMonsterGenerator(MonGen* generator)
+{
+    g_world->monster_generators.push_back(generator);
+}
 
 /* Destroy every generator and empty the list. */
 // FUNCTION: WIZ8 0x0048bf70
@@ -635,8 +659,7 @@ void DestroyMonsterGenerators(void)
    and the culling span is finally reset from that level's database row. */
 // FUNCTION: WIZ8 0x0048c110
 unsigned char MonGen::LoadAll(wiz8::File& save_handle)
-try
-{
+try {
     W8LevelDatabaseRecord* level;
     unsigned char success;
     int version;
@@ -846,8 +869,7 @@ void MonGen::Save(wiz8::File& handle)
    always cleared on the way out so a loaded generator starts disarmed. */
 // FUNCTION: WIZ8 0x0048b5e0
 unsigned char MonGen::Load(wiz8::File& handle)
-try
-{
+try {
     unsigned char version;
     unsigned char ok;
     bool loaded;
@@ -857,11 +879,14 @@ try
         ok = ok && (handle.read(name, 0x20).bytes == static_cast<std::size_t>(0x20));
         ok = ok && (handle.read(&generation_enabled, 1).bytes == static_cast<std::size_t>(1));
     }
-    loaded =
-        ok && (handle.read(&flags, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&custom_spawn_chance, 1).bytes == static_cast<std::size_t>(1)) &&
-        (handle.read(&custom_interval_seconds, 2).bytes == static_cast<std::size_t>(2)) && (handle.read(&unknown_08, 2).bytes == static_cast<std::size_t>(2)) &&
-        (handle.read(&spawn_position.x, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&spawn_position.y, 4).bytes == static_cast<std::size_t>(4)) &&
-        (handle.read(&spawn_position.z, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
+    loaded = ok && (handle.read(&flags, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&custom_spawn_chance, 1).bytes == static_cast<std::size_t>(1)) &&
+             (handle.read(&custom_interval_seconds, 2).bytes == static_cast<std::size_t>(2)) &&
+             (handle.read(&unknown_08, 2).bytes == static_cast<std::size_t>(2)) &&
+             (handle.read(&spawn_position.x, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&spawn_position.y, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&spawn_position.z, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
     Reset();
     if (static_cast<signed char>(version) > 1) {
         m_pTimer->Load(handle);

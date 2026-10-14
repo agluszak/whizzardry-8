@@ -134,7 +134,10 @@ int CompareSignedDescending(const void* first, const void* second)
 std::string FormatUnsignedIntegerWithCommas(unsigned int value)
 {
     auto text = std::to_string(value);
-    for (std::size_t i = text.size(); i > 3; ) { i -= 3; text.insert(i, ","); }
+    for (std::size_t i = text.size(); i > 3;) {
+        i -= 3;
+        text.insert(i, ",");
+    }
     return text;
 }
 
@@ -209,17 +212,20 @@ DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second)
 // FUNCTION: WIZ8 0x00517e70
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
 {
-    if (rect == nullptr || point == nullptr)
+    if (rect == nullptr || point == nullptr) {
         return false;
+    }
     const SDL_Rect bounds{rect->left, rect->top, rect->right - rect->left,
-                        rect->bottom - rect->top};
+                          rect->bottom - rect->top};
     return SDL_PointInRect(point, &bounds);
 }
 
 // FUNCTION: WIZ8 0x00517ea0
 void StripMonsterNameSuffix(std::string& name)
 {
-    if (const auto suffix = name.find('#'); suffix != std::string::npos) name.resize(suffix);
+    if (const auto suffix = name.find('#'); suffix != std::string::npos) {
+        name.resize(suffix);
+    }
 }
 
 // FUNCTION: WIZ8 0x00517ec0
@@ -435,7 +441,8 @@ retry:
 // FUNCTION: WIZ8 0x005182e0
 void DebugMessage(int channel, std::string_view message)
 {
-    (void)channel; (void)message; // The recovered diagnostic sink is inactive.
+    (void)channel;
+    (void)message; // The recovered diagnostic sink is inactive.
 }
 
 // FUNCTION: WIZ8 0x00518310
@@ -443,7 +450,8 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
 {
     int slot = 0;
 
-    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8]; ++current) {
+    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries;
+         current < &gXStatus.monster_manager_entries[8]; ++current) {
         if (rpc == current) {
             return slot;
         }
@@ -460,4 +468,3 @@ void FreeStringTable(void)
 {
     ReleaseLocalizedStrings();
 }
-

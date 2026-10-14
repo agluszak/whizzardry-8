@@ -87,7 +87,6 @@ static bool SaveNpcItemLists(wiz8::File& file);
 static bool LoadNpcItemLists(wiz8::File& file);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
 
-
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
 
 /* The NPC kind that will not trade at all. */
@@ -247,7 +246,9 @@ bool NpcKnowsFact(W8NpcState* npc, W8FactId fact)
 // FUNCTION: WIZ8 0x0050b800
 W8NpcState* GetNpcState(int index)
 {
-    if (index < 0 || static_cast<std::size_t>(index) >= g_npc_states.size()) return nullptr;
+    if (index < 0 || static_cast<std::size_t>(index) >= g_npc_states.size()) {
+        return nullptr;
+    }
     auto* npc = g_npc_states[index];
     return npc && !npc->binding_unavailable ? npc : nullptr;
 }
@@ -589,8 +590,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
             CopyMonsterConditionsToCharacter(&g_status.buffers.Char[party_slot], monster);
-            RemoveMonster(monster,
-                true);
+            RemoveMonster(monster, true);
         }
     }
     npc->group_index = static_cast<signed char>(party_slot);
@@ -1129,7 +1129,6 @@ int SelectNewGameStartLevel(void)
     return 8;
 }
 
-
 /* Complete teardown for the state's owned resources, regardless of whether
    its database record normally supplies stock. */
 static void DestroyNpcState(W8NpcState* npc)
@@ -1168,8 +1167,7 @@ void ReleaseNpcStates(void)
    The per-state stock lists trail through the section's file handle. */
 // FUNCTION: WIZ8 0x00509F00
 bool SaveNpcStates(wiz8::File& file)
-try
-{
+try {
     unsigned char version = 3;
     W8NpcState* npc;
     unsigned int count;
@@ -1181,11 +1179,14 @@ try
     for (index = 0; index < count; ++index) {
         npc = g_npc_states[index];
         wiz8::retail::write(file, *npc);
-        if (npc->character) wiz8::retail::write_sized(file, *npc->character);
+        if (npc->character) {
+            wiz8::retail::write_sized(file, *npc->character);
+        }
     }
     return SaveNpcItemLists(file);
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The NPCT section reader: release the live states, then rebuild them from the
    saved blocks. Character blocks carry their size from version 3 on and older
@@ -1196,16 +1197,16 @@ catch (const std::exception&) { return false; }
    count, then each 0x14-byte stock entry in list order. */
 // FUNCTION: WIZ8 0x0050AA10
 static bool SaveNpcItemLists(wiz8::File& file)
-try
-{
+try {
     for (const auto* npc : g_npc_states) {
         const auto item_count = static_cast<unsigned int>(npc->items.size());
         file.write(&item_count, sizeof(item_count));
         file.write(npc->items.data(), npc->items.size() * sizeof(W8NpcItemEntry));
     }
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Build one runtime NPC state, reusing an unavailable slot or appending a new
    one. Save records and monster bindings refer to these stable slot indices. */
@@ -1269,7 +1270,8 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
         } else {
             if (monster_info->bound_npc_index > 0) {
                 auto* candidate = GetNpcState(monster_info->bound_npc_index);
-                if (candidate && candidate->location_id == location_id && candidate->name_style == npc_id) {
+                if (candidate && candidate->location_id == location_id &&
+                    candidate->name_style == npc_id) {
                     npc = candidate;
                 }
             }
@@ -1402,7 +1404,9 @@ static void InitializeNpcItemTable(W8NpcState* npc)
 void ReleaseNpcBinding(int value)
 {
     auto* npc = GetNpcState(value);
-    if (!npc) return;
+    if (!npc) {
+        return;
+    }
     npc->has_monster = false;
     ReleaseNpcScriptFile(npc->script_file);
     npc->script_file = 0;
@@ -1437,10 +1441,18 @@ void LoadNpcStates(wiz8::File& file)
     struct StateRollback {
         std::vector<W8NpcState*> previous;
         bool committed = false;
-        StateRollback() { previous.swap(g_npc_states); }
-        ~StateRollback() {
-            if (!committed) previous.swap(g_npc_states);
-            for (auto* state : previous) DestroyNpcState(state);
+        StateRollback()
+        {
+            previous.swap(g_npc_states);
+        }
+        ~StateRollback()
+        {
+            if (!committed) {
+                previous.swap(g_npc_states);
+            }
+            for (auto* state : previous) {
+                DestroyNpcState(state);
+            }
         }
     } rollback;
     file.read_exact(&version, 1);
@@ -1464,7 +1476,9 @@ void LoadNpcStates(wiz8::File& file)
         if (has_character) {
             // Version 3 sizes the character block; older saves store 0x185c bytes.
             size = 0x185c;
-            if (version >= 3) file.read_exact(&size, sizeof(size));
+            if (version >= 3) {
+                file.read_exact(&size, sizeof(size));
+            }
             if (size > wiz8::retail::kCharacterBytes) {
                 throw std::runtime_error("invalid NPC character size");
             }
@@ -1507,8 +1521,7 @@ void LoadNpcStates(wiz8::File& file)
 /* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
 static bool LoadNpcItemLists(wiz8::File& file)
-try
-{
+try {
     std::vector<std::vector<W8NpcItemEntry>> pending(g_npc_states.size());
     for (auto& items : pending) {
         unsigned int item_count;
@@ -1524,8 +1537,9 @@ try
         g_npc_states[npc_index]->items = std::move(pending[npc_index]);
     }
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Hand back the NPC binding selected by a monster-list index, or null when
    the monster's record is missing, is not NPC-routed, binds no NPC, or the
@@ -1869,7 +1883,8 @@ const float g_targeting_quarter_pi = 0.7853981256484985f;
 /* Probe the navigator from the party eye at three height bands, reporting
    whether any band reaches. */
 // FUNCTION: WIZ8 0x0050B2F0
-static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVector3T<float>* position_out)
+static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/,
+                                       srVector3T<float>* position_out)
 {
     srVector3T<float> party_position;
     float yaw;
@@ -1878,8 +1893,8 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVecto
     party_position.y -= g_default_world_height;
     yaw = GetCameraYawRadians() + g_targeting_quarter_pi;
     for (const int mode : {10, 20, 30}) {
-        const auto placement = g_octree->navigatorPositions(party_position.glmValue(), yaw,
-            1000.0f, 1, true, false, true, mode, false);
+        const auto placement = g_octree->navigatorPositions(party_position.glmValue(), yaw, 1000.0f,
+                                                            1, true, false, true, mode, false);
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();
@@ -2023,7 +2038,8 @@ void UpdateNpcEvents(void)
 
             if (row->fOccupied && character->hp_current != 0) {
                 W8NpcState* npc_state = GetNpcState(row->npc_index);
-                if (row->npc_bound && npc_state && (g_status.world_clock - npc_state->event_clock) > 0x168) {
+                if (row->npc_bound && npc_state &&
+                    (g_status.world_clock - npc_state->event_clock) > 0x168) {
                     if (Random(2) == 0) {
                         npc_state->event_clock = g_status.world_clock + Random(6) * 0x3c;
                     } else {
@@ -2133,8 +2149,7 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
         if (npc->is_present) {
             W8MonsterInfo* monster = FindMonster(npc->location_id);
             if (monster != 0) {
-                RemoveMonster(monster,
-                    true);
+                RemoveMonster(monster, true);
             }
         }
         ReleaseNpcBinding(npc->partner_index);
@@ -2387,7 +2402,8 @@ void RebindNpcLevelTriggers(void)
         }
     }
 
-    for (npc_index = 0; npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states.size()));
+    for (npc_index = 0;
+         npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states.size()));
          ++npc_index) {
         W8NpcState* npc = g_npc_states[npc_index];
         std::string trigger_name;

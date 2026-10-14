@@ -73,7 +73,11 @@ struct OctRegionObjectLinks {
     std::vector<short> always_visible;
 
     OctreeMeshLinks packedLinks(std::size_t region_count) const;
-    void clear() { regions.clear(); always_visible.clear(); }
+    void clear()
+    {
+        regions.clear();
+        always_visible.clear();
+    }
 };
 
 /* Retail assertion text gives the class and member names directly:
@@ -81,8 +85,8 @@ struct OctRegionObjectLinks {
    "m_psrvRegCenters" in Engine Code\OctBuildPreTree.cpp. */
 struct OctBuildPreTree : W8OctBuildTree {
     std::vector<W8OctRegionVolume> m_region_volumes;
-    OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds,
-                    unsigned short item_limit, w8_ulong path_capacity, short extent_mode);
+    OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit,
+                    w8_ulong path_capacity, short extent_mode);
     OctPreTree* BuildOctPreTree();
     unsigned short BuildRegions();
     bool assignPointToVolumes(const glm::vec3& point, short object, OctRegionObjectLinks& links);
@@ -93,7 +97,8 @@ struct OctBuildPreTree : W8OctBuildTree {
     void AssignInitialRegions(const W8OctSpatialState* spatial);
     using RegionGeometry = std::variant<glm::vec3, srBoundingBox>;
     bool updateRegionForGeometry(const RegionGeometry& geometry, short value);
-    bool updateRegionMap(const W8OctSpatialState& state, const RegionGeometry& geometry, short value);
+    bool updateRegionMap(const W8OctSpatialState& state, const RegionGeometry& geometry,
+                         short value);
     W8OctBuildNode* FindNode(unsigned int path);
     unsigned char MergeAdjacentRegion(W8OctBuildNode* node, unsigned int path);
     unsigned char MergeRegion(W8OctBuildNode* node, const int* cell);

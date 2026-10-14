@@ -33,10 +33,10 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
         return;
     }
     srVector3T<float> noise_position = *position;
-    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
+         ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
-        W8MonsterInfo* info =
-            FindMonster(group->leader_location_id);
+        W8MonsterInfo* info = FindMonster(group->leader_location_id);
         if (info->p3D->deaf) {
             continue;
         }

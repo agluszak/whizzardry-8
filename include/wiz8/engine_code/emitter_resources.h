@@ -45,7 +45,7 @@ struct EmitterCycleResources {
 
 // All animations must disappear before ANY light collection: animation scene
 // registrations currently depend on lights in other cycles as well.
-template <std::size_t Count> class EmitterResources {
+template<std::size_t Count> class EmitterResources {
 public:
     EmitterResources() = default;
     EmitterResources(const EmitterResources& other)

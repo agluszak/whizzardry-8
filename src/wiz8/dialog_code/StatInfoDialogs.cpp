@@ -100,8 +100,8 @@ void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
     g_wiz_text_font_secondary.resetPalette();
     std::string title = g_localized_strings[m_title_id];
     std::int16_t width = g_wiz_text_font_secondary.textWidth(title);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, title);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
+             title);
 }
 
 void W8StatInfoDialogBase::OnRightButtonUp()
@@ -171,11 +171,12 @@ bool W8SkillInfoDialog::PopulateText()
     W8StatInfoDialogBase::PopulateText();
     textarea.AddEntry(g_localized_strings[0x156], "", 10, 0xf, 0);
     W8SkillAttributes* skill = &g_skill_attributes[m_skill];
-    textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10,
-                      0xf, 0);
+    textarea.AddEntry(
+        {}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10, 0xf, 0);
     if (skill->attribute_1 != skill->attribute_2) {
-        textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]],
-                          10, 0xf, 0);
+        textarea.AddEntry(
+            {}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]], 10, 0xf,
+            0);
     }
     if (m_first) {
         textarea.AddEntry({}, "", 10, 0xf, 0);

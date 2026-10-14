@@ -48,7 +48,6 @@
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern std::unique_ptr<srColorSurface> g_automap_surface;
 
-
 static void shutdown_survivors()
 {
     REQUIRE((srInit()));
@@ -74,7 +73,8 @@ static void shutdown_survivors()
     try {
         auto scene = std::make_unique<InterruptedScene>(model);
         REQUIRE((false));
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 
     // These are the actual global owners used by mouse and automap rendering.
     REQUIRE((srExit()));
@@ -105,14 +105,15 @@ static void npc_script_teardown()
         for (auto& entry : quote.entries) {
             entry.sub_entry_count = 2;
             entry.sub_entries.resize(2);
-            for (auto& sub : entry.sub_entries) sub.text.assign(80, 's');
+            for (auto& sub : entry.sub_entries) {
+                sub.text.assign(80, 's');
+            }
         }
     }
     ReleaseNpcScriptFile(owner.release());
     owner = std::make_unique<W8NpcScriptFile>();
     owner->name.assign(80, 'n');
     // Zero-quote scripts still own their name and header.
-
 }
 
 static void queued_state_teardown()
@@ -124,8 +125,7 @@ static void queued_state_teardown()
     ClearNpcDialogueTranscript();
     REQUIRE((g_npc_interaction_state->dialogue_transcript.size() == 0));
     QueueNpcPortraitMessage(std::string(80, 't'));
-    QueueNpcPortraitMessage(std::string(80, 't'),
-                          W8ExperienceNoticePayload{});
+    QueueNpcPortraitMessage(std::string(80, 't'), W8ExperienceNoticePayload{});
     QueueNpcPortraitMessage(std::string(80, 't'), W8SkillNoticePayload{});
     QueueNpcPortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
     ClearNpcMessageQueue();
@@ -133,7 +133,8 @@ static void queued_state_teardown()
     REQUIRE((IsMessageBoxLineQueueEmpty()));
 }
 
-TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization", "[resources][lifecycle]")
+TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization",
+          "[resources][lifecycle]")
 {
     shutdown_survivors();
     shutdown_survivors();
@@ -155,27 +156,31 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
     party[0].fInParty = party[1].fInParty = true;
     struct RestoreParty {
         W8Character* saved;
-        ~RestoreParty() { g_status.buffers.Char = saved; }
+        ~RestoreParty()
+        {
+            g_status.buffers.Char = saved;
+        }
     } restore{std::exchange(g_status.buffers.Char, party.data())};
     // Declared last, so its remaining active event completes while the party is reachable.
     W8CharacterEventQueue queue;
     const auto queues = {&queue.pending_events, &queue.npc_deferred_events, &queue.active_events};
     for (auto* events : queues) {
-        for (auto* character : {&party[0], &party[1]})
+        for (auto* character : {&party[0], &party[1]}) {
             events->push_back(std::make_unique<W8CharacterEvent>(character, 0, 0, 0, 0));
+        }
     }
     gXStatus.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
 
     queue.RemoveCharacterEvents(&party[0]);
 
-    for (const auto* events : queues)
+    for (const auto* events : queues) {
         REQUIRE((events->size() == 1 && events->front()->character == &party[1]));
+    }
     // Completion releases the portrait's borrowed pointer to the active event.
     REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
 }
 
-struct SpellVisualFixture
-{
+struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
     W8World* previous_world = GetWorld();
@@ -195,7 +200,8 @@ struct SpellVisualFixture
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(),
-                         (directory.path / "user").string(), {"", "", ""}});
+                         (directory.path / "user").string(),
+                         {"", "", ""}});
         SetCurrentWorld(&world);
     }
 
@@ -255,8 +261,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resource
 }
 
 // A cloned resource must own its animations and light vectors after its source is released.
-template<class Host>
-static void CheckEmitterCloneLifetime()
+template<class Host> static void CheckEmitterCloneLifetime()
 {
     auto source = std::make_unique<Host>();
     source->value_0ac = 11;

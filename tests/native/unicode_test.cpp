@@ -16,7 +16,6 @@
 #include "layouts/gameplay_databases.h"
 #include "retail_records.h"
 
-
 static_assert(wiz8::retail::kMonsterRecordBytes == 0x297);
 static_assert(wiz8::retail::kCharacterBytes == 0x1862);
 static_assert(wiz8::retail::kNpcCharacterTemplateBytes == 0x206);
@@ -101,13 +100,16 @@ static void record_contracts()
     W8Character decoded{};
     wiz8::retail::decode<W8Character>(bytes, decoded);
     REQUIRE(std::string(decoded.name) == original.name);
-    REQUIRE((std::string(decoded.name_part_2) == original.name_part_2 && decoded.iRace == W8_RACE_ELF));
+    REQUIRE(
+        (std::string(decoded.name_part_2) == original.name_part_2 && decoded.iRace == W8_RACE_ELF));
     REQUIRE(wiz8::retail::encode(decoded) == bytes);
     wiz8::retail::decode<W8Character>(std::span(bytes).first(0x185c), decoded);
     REQUIRE(std::string(decoded.name) == "é中😀");
     // Nonzero opaque bytes after the six-unit secondary name survive both
     // a no-op round trip and edits to identified text, including old saves.
-    for (std::size_t i = 0; i < 0x44; ++i) bytes[0x25 + i] = std::byte(1 + i * 37);
+    for (std::size_t i = 0; i < 0x44; ++i) {
+        bytes[0x25 + i] = std::byte(1 + i * 37);
+    }
     wiz8::retail::decode<W8Character>(bytes, decoded);
     REQUIRE(wiz8::retail::encode(decoded) == bytes);
     auto independent = decoded;
@@ -134,8 +136,9 @@ static void record_contracts()
     npc.source_name = "商人";
     npc.character.name = "é中😀";
     auto npc_bytes = wiz8::retail::encode(npc);
-    for (std::size_t i = 0; i < 0x44; ++i)
+    for (std::size_t i = 0; i < 0x44; ++i) {
         npc_bytes[0xc4 + 0x20 + i] = std::byte(0xff - i);
+    }
     W8NpcDatabaseRecord copy{};
     wiz8::retail::decode<W8NpcDatabaseRecord>(npc_bytes, copy);
     REQUIRE(std::string(copy.source_name) == "商人");
@@ -143,7 +146,8 @@ static void record_contracts()
     REQUIRE(wiz8::retail::encode(copy) == npc_bytes);
     copy.character.name_part_2 = "改名";
     auto npc_edited = wiz8::retail::encode(copy);
-    REQUIRE(std::equal(npc_bytes.begin() + 0xe4, npc_bytes.begin() + 0x128, npc_edited.begin() + 0xe4));
+    REQUIRE(
+        std::equal(npc_bytes.begin() + 0xe4, npc_bytes.begin() + 0x128, npc_edited.begin() + 0xe4));
 }
 
 TEST_CASE("UTF-8 and host Unicode conversion", "[unicode]")

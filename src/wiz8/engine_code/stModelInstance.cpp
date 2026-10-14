@@ -138,8 +138,9 @@ int stModelInstance::AddExistingDamageStage(const char* name)
 }
 
 // FUNCTION: WIZ8 0x004807b0
-unsigned char stModelInstance::ReplaceDamageStageTexture(
-    int stage, const char* old_name, const std::shared_ptr<srTextureIFace>& replacement)
+unsigned char
+stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
+                                           const std::shared_ptr<srTextureIFace>& replacement)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     bool replaced = false;
@@ -149,7 +150,8 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(
     }
 
     for (; mesh != 0; mesh = mesh->Next()) {
-        std::shared_ptr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
+        std::shared_ptr<srTextureIFace>* textures =
+            mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
         }
@@ -265,8 +267,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
                      g_camera_angle_period)));
         float base_weight = g_float_one - glow_weight;
         /* Each weighted colour is rounded to float before the sum. */
-        glm::vec4 emissive =
-            *glow_color_base * base_weight + *glow_color_peak * glow_weight;
+        glm::vec4 emissive = *glow_color_base * base_weight + *glow_color_peak * glow_weight;
         emissive.w = g_float_one;
         glow_material->setEmissive(emissive);
         mesh.materials[0][0] = glow_material;
@@ -325,7 +326,8 @@ void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& s
 
 // FUNCTION: WIZ8 0x0047EC80
 stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
-    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(nullptr), ownership)
+    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(nullptr),
+                                                                ownership)
 {
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;
@@ -410,7 +412,9 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     stMeshModel* first_model = model;
 
     const auto bounds = model->getBounds();
-    if (!model->isVisible(renderer)) return;
+    if (!model->isVisible(renderer)) {
+        return;
+    }
 
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
@@ -421,9 +425,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
 
     glm::vec4 light;
     if (!model->vertex_lighting_ready) {
-        light = glm::vec4((ambient_color * light_scale + g_environment_offset) *
-                              g_monster_light_scale,
-                          1);
+        light = glm::vec4(
+            (ambient_color * light_scale + g_environment_offset) * g_monster_light_scale, 1);
     } else {
         light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
@@ -447,18 +450,26 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         srNode* child = this;
         for (auto* linked = first_model; linked; linked = linked->Next()) {
             draw(linked, linked == first_model);
-            if (child && child->testFlag(FLAG_TERMINATE)) break;
-            if (child) child = child->getChild();
+            if (child && child->testFlag(FLAG_TERMINATE)) {
+                break;
+            }
+            if (child) {
+                child = child->getChild();
+            }
         }
     };
     const auto selectPolygons = [&](stMeshModel& linked, srMeshModel::TriMesh& selected,
                                     bool replace_damage_texture) {
-        if (selected.active_polygons) return;
+        if (selected.active_polygons) {
+            return;
+        }
         const int table = damage_stage >= 0 ? damage_stage_tables.at(damage_stage) : -1;
-        if (replace_damage_texture && damage_stage >= 0)
+        if (replace_damage_texture && damage_stage >= 0) {
             selected.poly_textures[0][0] = linked.GetTextureTable(table);
-        if (const auto active = linked.GetActivePolygons(table, true))
+        }
+        if (const auto active = linked.GetActivePolygons(table, true)) {
             selected.active_polygons = active;
+        }
     };
     const auto submit = [&](stMeshModel& linked, const srMeshModel::TriMesh& submitted,
                             std::span<const glm::vec3> normals) {
@@ -546,12 +557,15 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
 
                     double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
                     float expand = static_cast<float>(
-                        (bounds.sphere.radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
+                        (bounds.sphere.radius * getScale().y * g_double_one_thousandth +
+                         g_double_one) *
+                        factor);
                     if (expand == 0) {
                         std::copy_n(mesh.positions, mesh.vertex_count, g_vertex_scratch.begin());
                     } else {
-                        for (std::size_t i = 0; i < g_vertex_scratch.size(); ++i)
+                        for (std::size_t i = 0; i < g_vertex_scratch.size(); ++i) {
                             g_vertex_scratch[i] = expand * mesh.normals[i] + mesh.positions[i];
+                        }
                     }
                     mesh.positions = g_vertex_scratch.data();
                     mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);
@@ -570,9 +584,9 @@ const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
    a dedicated material so the extruded shadow pass submits through the
    ordinary TriMesh pipeline. */
 static const glm::ivec3 g_shadow_triangles[2] = {{0, 1, 2}, {3, 4, 5}};
-static const glm::vec3 g_shadow_positions[6] = {
-    {-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f}, {250.0f, 250.0f, 0.0f},
-    {0.0f, 250.0f, -250.0f}, {0.0f, -250.0f, 0.0f}, {0.0f, 250.0f, 250.0f}};
+static const glm::vec3 g_shadow_positions[6] = {{-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f},
+                                                {250.0f, 250.0f, 0.0f},  {0.0f, 250.0f, -250.0f},
+                                                {0.0f, -250.0f, 0.0f},   {0.0f, 250.0f, 250.0f}};
 
 static stMaterial& ShadowMaterial()
 {

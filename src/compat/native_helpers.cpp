@@ -20,7 +20,6 @@ uint64_t w8_get_ticks(void)
     return w8_clock_us() / 1000;
 }
 
-
 char* w8_strupr(char* text)
 {
     for (char* cursor = text; *cursor != 0; ++cursor) {
@@ -41,10 +40,17 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
 {
     const bool has_drive = path[0] != 0 && path[1] == ':';
     if (drive != 0) {
-        if (has_drive) { drive[0] = path[0]; drive[1] = ':'; drive[2] = 0; }
-        else drive[0] = 0;
+        if (has_drive) {
+            drive[0] = path[0];
+            drive[1] = ':';
+            drive[2] = 0;
+        } else {
+            drive[0] = 0;
+        }
     }
-    if (has_drive) path += 2;
+    if (has_drive) {
+        path += 2;
+    }
     const char* separator = 0;
     for (const char* cursor = path; *cursor != 0; ++cursor) {
         if (*cursor == '/' || *cursor == '\\') {

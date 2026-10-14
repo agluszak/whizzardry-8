@@ -5,4 +5,4 @@ namespace wiz8::testing {
 enum class FileOperation { read, write, seek, flush, close, publish };
 using FileOperationHook = void (*)(FileOperation);
 FileOperationHook set_file_operation_hook(FileOperationHook hook);
-}
+} // namespace wiz8::testing

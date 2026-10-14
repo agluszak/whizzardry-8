@@ -29,7 +29,7 @@
 #include "local_code/Factions.h"
 #include "sight_state.h"
 
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 #define GROUP_ATTACKS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GroupAttacks.cpp"
 

@@ -142,7 +142,6 @@ static void NpcScriptEndgameScreen(void)
     SetPendingScreenState(W8_SCREEN_INTRO);
 }
 
-
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
    vectors, force the single-target mode, and reopen the party-member region
    sets (7 + slot, member region 0x5a + slot) for every occupied slot. */
@@ -250,7 +249,10 @@ struct W8SedexusScene {
 static W8SedexusScene g_sedexus_scene;
 
 // FUNCTION: WIZ8 0x0052A070
-bool IsSedexusCaptureActive(void) { return g_sedexus_scene.capture_active; }
+bool IsSedexusCaptureActive(void)
+{
+    return g_sedexus_scene.capture_active;
+}
 
 void ResetSedexusScene(void)
 {

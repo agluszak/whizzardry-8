@@ -211,11 +211,11 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
 public:
-  std::vector<W8WorldItem*> items;
-  std::vector<unsigned char> flags;
-  std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
-  int m_first_item;
-  W8WorldItem* m_item_group;
+    std::vector<W8WorldItem*> items;
+    std::vector<unsigned char> flags;
+    std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
+    int m_first_item;
+    W8WorldItem* m_item_group;
 };
 
 /* The item-split dialog opened for stackable item stacks. The destroy

@@ -2,7 +2,6 @@
 
 #include "wiz8/layouts/gameplay_databases.h"
 
-
 #include "surrender/srMath.h"
 #include "wiz8/layouts/targeting.h"
 

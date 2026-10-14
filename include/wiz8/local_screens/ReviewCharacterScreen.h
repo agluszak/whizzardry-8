@@ -23,15 +23,12 @@
 struct W8Character;
 struct W8CombatSlot;
 
-
 enum CampMainRegionOffset {
     kCampPartyPortraitRegionOffset = 1,
     kCampCharacterHeaderRegionOffset = 9
 };
 
-enum CampInventoryRegionOffset {
-    kCampEquipmentRegionOffset = 8
-};
+enum CampInventoryRegionOffset { kCampEquipmentRegionOffset = 8 };
 
 enum W8CampPage {
     W8_CAMP_PAGE_ITEMS = 0,
@@ -81,7 +78,10 @@ public:
     void SetActive(bool enabled);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void SetCombatView(bool enabled);
-    void InvalidateAll() { m_dirty = true; }
+    void InvalidateAll()
+    {
+        m_dirty = true;
+    }
     UiLayer input;
     bool m_combat_view = true;
     bool m_active = false;

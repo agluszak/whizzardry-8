@@ -12,7 +12,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srBoundingSphere.h"
 
-
 TEST_CASE("renderer platform")
 {
     srClock timer;
@@ -132,5 +131,4 @@ TEST_CASE("renderer platform")
     }
 
     puts("ok: renderer clock, owner-thread submission and core reinitialization");
-
 }

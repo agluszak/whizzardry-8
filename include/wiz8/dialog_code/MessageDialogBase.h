@@ -49,4 +49,3 @@ protected:
     bool m_show_confirm;
     bool allow_cancel; /* changes Escape handling */
 };
-

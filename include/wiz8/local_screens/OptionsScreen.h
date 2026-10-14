@@ -140,9 +140,10 @@ protected:
     bool m_active = false;
     bool m_dirty = true;
     SDL_Rect m_bounds;
-    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed,
-                             int hover = -1, int pressed_hover = -1, int disabled = -1,
-                             W8ButtonCallback callback = {});
+    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed, int hover = -1,
+                              int pressed_hover = -1, int disabled = -1,
+                              W8ButtonCallback callback = {});
+
 public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel() = default;
@@ -150,8 +151,14 @@ public:
     virtual void Populate() = 0;
     virtual void SetActive(bool active);
     virtual void SetCurrent(int current);
-    virtual void InvalidateAll() { m_dirty = true; }
-    const SDL_Rect& ScreenBounds() const { return m_bounds; }
+    virtual void InvalidateAll()
+    {
+        m_dirty = true;
+    }
+    const SDL_Rect& ScreenBounds() const
+    {
+        return m_bounds;
+    }
     void AddCheckbox(int label, int* value);
     W8ButtonWidget* AddChoiceButton(int label, W8ButtonCallback callback);
     W8OptionsSlider* AddSlider(int label, float* value, bool alternate);
@@ -280,6 +287,7 @@ struct W8OptionsPanelRange {
 
 class W8OptionsScreen final {
     UiLayer m_menu_input;
+
 public:
     W8OptionsScreen();
     ~W8OptionsScreen();

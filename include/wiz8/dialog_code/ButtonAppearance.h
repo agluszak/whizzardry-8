@@ -45,14 +45,17 @@ struct ButtonVisualState {
 };
 
 struct ButtonGraphics {
-    static ButtonImage Load(std::string_view filename, std::int32_t grayed,
-                            std::int32_t off_normal, std::int32_t off_hilite,
-                            std::int32_t on_normal, std::int32_t on_hilite);
+    static ButtonImage Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
+                            std::int32_t off_hilite, std::int32_t on_normal,
+                            std::int32_t on_hilite);
     static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
                             std::int32_t off_normal, std::int32_t off_hilite,
                             std::int32_t on_normal, std::int32_t on_hilite);
 
-    const SpriteSheet& object() const { return *sprites; }
+    const SpriteSheet& object() const
+    {
+        return *sprites;
+    }
 
 private:
     std::shared_ptr<const SpriteSheet> sprites;
@@ -74,7 +77,6 @@ struct GenericButtonImages {
     std::int16_t offset_x = 0;
     std::int16_t offset_y = 0;
 };
-
 
 void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
                           const SDL_Rect& bounds, const ButtonVisualState& state);

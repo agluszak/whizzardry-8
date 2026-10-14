@@ -1,7 +1,5 @@
 #pragma once
 
-
-
 /* Engine Code\Navigator.cpp owns these declarations. */
 
 struct srBoundingBox;
@@ -16,7 +14,9 @@ struct srBoundingBox;
 
 class srNode;
 struct W8PathAI;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* W8NavigatorAttachment::flags bits with established meaning.
    - RESULT_MASK holds the last path-search result; the planners clear it before

@@ -267,12 +267,12 @@ static void ClampEnvironmentComponent(float& component)
 
 /* The two binary colour tables differ only in their destination array. */
 static bool ReadColourTable(wiz8::File* file, EnvironmentColour (&colours)[256])
-try
-{
+try {
     unsigned char components[256 * 3];
     memset(components, 0xff, sizeof(components));
-    if (!file || file->read(components, sizeof(components)).bytes != sizeof(components))
+    if (!file || file->read(components, sizeof(components)).bytes != sizeof(components)) {
         return false;
+    }
 
     for (int index = 0; index < 256; ++index) {
         colours[index].x = components[index * 3] * (1.0f / 255.0f);

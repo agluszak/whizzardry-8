@@ -30,7 +30,7 @@ inline w8_long srFloatToInt(float value)
 
 // Character/location records embed these vectors at unaligned retail offsets.
 #pragma pack(push, 1)
-template <class T> class srVector3T {
+template<class T> class srVector3T {
 public:
     // Value copies keep packed storage independent of GLM alignment.
     srVector3T(const glm::vec<3, T>& value) : x(value.x), y(value.y), z(value.z) {}
@@ -56,8 +56,9 @@ public:
     srVector3T* SetLength(double length)
     {
         const auto v = glmValue();
-        if (glm::dot(v, v) != 0)
+        if (glm::dot(v, v) != 0) {
             *this = glm::normalize(v) * static_cast<T>(length);
+        }
         return this;
     }
     srVector3T* Unitize()
@@ -80,7 +81,7 @@ public:
     void SetZero();
     srVector3T<T>* Set(double source_0, double source_1, double source_2);
 
-    template <class U> srVector3T<T>& operator=(const srVector3T<U>& source)
+    template<class U> srVector3T<T>& operator=(const srVector3T<U>& source)
     {
         x = (T)source.x;
         y = (T)source.y;
@@ -115,16 +116,16 @@ public:
 
 #pragma pack(pop)
 
-template <class T> srVector3T<T>::srVector3T() {}
+template<class T> srVector3T<T>::srVector3T() {}
 
-template <class T> void srVector3T<T>::SetZero()
+template<class T> void srVector3T<T>::SetZero()
 {
     x = (T)0;
     y = (T)0;
     z = (T)0;
 }
 
-template <class T>
+template<class T>
 srVector3T<T>* srVector3T<T>::Set(double source_0, double source_1, double source_2)
 {
     x = (T)source_0;
@@ -133,7 +134,7 @@ srVector3T<T>* srVector3T<T>::Set(double source_0, double source_1, double sourc
     return this;
 }
 
-template <class T> srVector3T<T>& srVector3T<T>::operator+=(const srVector3T<T>& other)
+template<class T> srVector3T<T>& srVector3T<T>::operator+=(const srVector3T<T>& other)
 {
     x += other.x;
     y += other.y;
@@ -141,7 +142,7 @@ template <class T> srVector3T<T>& srVector3T<T>::operator+=(const srVector3T<T>&
     return *this;
 }
 
-template <class T> srVector3T<T>& srVector3T<T>::operator-=(const srVector3T<T>& other)
+template<class T> srVector3T<T>& srVector3T<T>::operator-=(const srVector3T<T>& other)
 {
     x -= other.x;
     y -= other.y;
@@ -149,7 +150,7 @@ template <class T> srVector3T<T>& srVector3T<T>::operator-=(const srVector3T<T>&
     return *this;
 }
 
-template <class T> srVector3T<T>& srVector3T<T>::operator*=(const srVector3T<T>& other)
+template<class T> srVector3T<T>& srVector3T<T>::operator*=(const srVector3T<T>& other)
 {
     x = other.x * x;
     y = other.y * y;
@@ -157,7 +158,7 @@ template <class T> srVector3T<T>& srVector3T<T>::operator*=(const srVector3T<T>&
     return *this;
 }
 
-template <class T> srVector3T<T>& srVector3T<T>::operator*=(double scalar)
+template<class T> srVector3T<T>& srVector3T<T>::operator*=(double scalar)
 {
     x = (T)(x * scalar);
     y = (T)(y * scalar);
@@ -165,7 +166,7 @@ template <class T> srVector3T<T>& srVector3T<T>::operator*=(double scalar)
     return *this;
 }
 
-template <class T> srVector3T<T>& srVector3T<T>::operator/=(double scalar)
+template<class T> srVector3T<T>& srVector3T<T>::operator/=(double scalar)
 {
     double reciprocal = 1.0 / scalar;
     x = (T)(x * reciprocal);
@@ -174,7 +175,7 @@ template <class T> srVector3T<T>& srVector3T<T>::operator/=(double scalar)
     return *this;
 }
 
-template <class T> srVector3T<T> operator+(const srVector3T<T>& first, const srVector3T<T>& second)
+template<class T> srVector3T<T> operator+(const srVector3T<T>& first, const srVector3T<T>& second)
 {
     srVector3T<T> result;
     result.x = first.x + second.x;
@@ -183,7 +184,7 @@ template <class T> srVector3T<T> operator+(const srVector3T<T>& first, const srV
     return result;
 }
 
-template <class T> srVector3T<T> operator-(const srVector3T<T>& first, const srVector3T<T>& second)
+template<class T> srVector3T<T> operator-(const srVector3T<T>& first, const srVector3T<T>& second)
 {
     srVector3T<T> result;
     result.x = first.x - second.x;
@@ -192,7 +193,7 @@ template <class T> srVector3T<T> operator-(const srVector3T<T>& first, const srV
     return result;
 }
 
-template <class T> srVector3T<T> operator-(const srVector3T<T>& vector)
+template<class T> srVector3T<T> operator-(const srVector3T<T>& vector)
 {
     srVector3T<T> result;
     result.x = -vector.x;
@@ -201,12 +202,12 @@ template <class T> srVector3T<T> operator-(const srVector3T<T>& vector)
     return result;
 }
 
-template <class T> bool srVector3T<T>::operator==(const srVector3T<T>& other) const
+template<class T> bool srVector3T<T>::operator==(const srVector3T<T>& other) const
 {
     return x == other.x && y == other.y && z == other.z;
 }
 
-template <class T> srVector3T<T> operator*(const srVector3T<T>& vector, double scalar)
+template<class T> srVector3T<T> operator*(const srVector3T<T>& vector, double scalar)
 {
     srVector3T<T> result;
     result.x = (T)(vector.x * scalar);
@@ -215,7 +216,7 @@ template <class T> srVector3T<T> operator*(const srVector3T<T>& vector, double s
     return result;
 }
 
-template <class T> srVector3T<T> operator*(double scalar, const srVector3T<T>& vector)
+template<class T> srVector3T<T> operator*(double scalar, const srVector3T<T>& vector)
 {
     srVector3T<T> result;
     result.x = (T)(vector.x * scalar);
@@ -224,7 +225,7 @@ template <class T> srVector3T<T> operator*(double scalar, const srVector3T<T>& v
     return result;
 }
 
-template <class T> srVector3T<T> operator*(const srVector3T<T>& first, const srVector3T<T>& second)
+template<class T> srVector3T<T> operator*(const srVector3T<T>& first, const srVector3T<T>& second)
 {
     srVector3T<T> result;
     result.x = first.x * second.x;
@@ -233,7 +234,7 @@ template <class T> srVector3T<T> operator*(const srVector3T<T>& first, const srV
     return result;
 }
 
-template <class T> srVector3T<T> operator/(const srVector3T<T>& vector, double scalar)
+template<class T> srVector3T<T> operator/(const srVector3T<T>& vector, double scalar)
 {
     double reciprocal = 1.0 / scalar;
     srVector3T<T> result;
@@ -243,8 +244,7 @@ template <class T> srVector3T<T> operator/(const srVector3T<T>& vector, double s
     return result;
 }
 
-class srVector2i
-{
+class srVector2i {
 public:
     int x;
     int y;
@@ -256,36 +256,36 @@ using srVector3 = srVector3T<float>;
 static_assert(sizeof(srVector3) == 12 && alignof(srVector3) == 1);
 static_assert(std::is_trivially_copyable_v<srVector3>);
 
-template <class T> srVector3T<T>& srVector3T<T>::Transform(const glm::mat<3, 3, T>& matrix)
+template<class T> srVector3T<T>& srVector3T<T>::Transform(const glm::mat<3, 3, T>& matrix)
 {
     *this = matrix * glmValue();
     return *this;
 }
-template <class T> srVector3T<T>* srVector3T<T>::RotateAboutX(double sine, double cosine)
+template<class T> srVector3T<T>* srVector3T<T>::RotateAboutX(double sine, double cosine)
 {
     *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(1, 0, 0)) *
                            glm::dvec3(glmValue()));
     return this;
 }
-template <class T> srVector3T<T>* srVector3T<T>::RotateAboutY(double sine, double cosine)
+template<class T> srVector3T<T>* srVector3T<T>::RotateAboutY(double sine, double cosine)
 {
     *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 1, 0)) *
                            glm::dvec3(glmValue()));
     return this;
 }
-template <class T> srVector3T<T>* srVector3T<T>::RotateAboutZ(double sine, double cosine)
+template<class T> srVector3T<T>* srVector3T<T>::RotateAboutZ(double sine, double cosine)
 {
     *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 0, 1)) *
                            glm::dvec3(glmValue()));
     return this;
 }
 
-template <glm::length_t N, class T, glm::qualifier Q>
+template<glm::length_t N, class T, glm::qualifier Q>
 glm::vec<N, T, Q> normalizedOrZero(const glm::vec<N, T, Q>& value)
 {
     return glm::dot(value, value) == T(0) ? value : glm::normalize(value);
 }
-template <glm::length_t N, class T, glm::qualifier Q> bool isFinite(const glm::vec<N, T, Q>& value)
+template<glm::length_t N, class T, glm::qualifier Q> bool isFinite(const glm::vec<N, T, Q>& value)
 {
     return !glm::any(glm::isnan(value)) && !glm::any(glm::isinf(value));
 }

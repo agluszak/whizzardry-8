@@ -9,40 +9,43 @@ inline std::string make_temporary_directory(const char* prefix)
 {
     std::random_device random;
     const auto base = std::filesystem::temp_directory_path();
-    for (unsigned attempt = 0; attempt < 100; ++attempt)
-    {
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
         const auto path = base / (std::string(prefix) + "-" + std::to_string(random()));
         std::error_code error;
-        if (std::filesystem::create_directory(path, error))
+        if (std::filesystem::create_directory(path, error)) {
             return path.generic_string();
-        if (error && error != std::errc::file_exists)
+        }
+        if (error && error != std::errc::file_exists) {
             throw std::filesystem::filesystem_error("create test directory", path, error);
+        }
     }
     throw std::runtime_error("Cannot create unique test directory");
 }
 
-class ScopedTemporaryDirectory
-{
-  public:
-    explicit ScopedTemporaryDirectory(const char* prefix)
-        : path(make_temporary_directory(prefix))
+class ScopedTemporaryDirectory {
+public:
+    explicit ScopedTemporaryDirectory(const char* prefix) : path(make_temporary_directory(prefix))
     {
     }
 
     ~ScopedTemporaryDirectory()
     {
         std::error_code ignored;
-        if (cleanup_)
+        if (cleanup_) {
             std::filesystem::remove_all(path, ignored);
+        }
     }
 
-    void keep() noexcept { cleanup_ = false; }
+    void keep() noexcept
+    {
+        cleanup_ = false;
+    }
 
     ScopedTemporaryDirectory(const ScopedTemporaryDirectory&) = delete;
     ScopedTemporaryDirectory& operator=(const ScopedTemporaryDirectory&) = delete;
 
     std::filesystem::path path;
 
-  private:
+private:
     bool cleanup_ = true;
 };

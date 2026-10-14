@@ -6,7 +6,7 @@
 struct W8World;
 struct W8PathAI;
 struct W8MonsterInfo;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* Runtime camera entry. The world owns the entry, which owns its path data;
    the level file's fixed-width camera record is decoded separately. */

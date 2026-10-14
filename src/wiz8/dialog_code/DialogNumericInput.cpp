@@ -18,9 +18,10 @@
 #include "local_code/ControlsRect.h"
 
 W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
-                                         Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
-    : m_editor_input(dialog->InputLayer()), m_bounds(*bounds), m_font(&font), m_value(value), m_dirty(false), m_active(false),
-      m_maximum(-1), m_dialog(dialog), m_button(button), m_control_id(control_id)
+                                           Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
+    : m_editor_input(dialog->InputLayer()), m_bounds(*bounds), m_font(&font), m_value(value),
+      m_dirty(false), m_active(false), m_maximum(-1), m_dialog(dialog), m_button(button),
+      m_control_id(control_id)
 {
     // The backing button activates editing; caret input shares the modal layer.
 }
@@ -48,7 +49,9 @@ void W8DialogNumericInput::SetActive(bool active)
 void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
 {
     SetActive(active);
-    if (!active) return;
+    if (!active) {
+        return;
+    }
     const auto text = std::to_string(m_value);
     m_editor = std::make_unique<TextFieldGroup>(m_editor_input, *m_font);
     m_editor->Add(m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
@@ -57,15 +60,18 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     m_editor->SetText(0, text); // Clear the editor's initial select-all.
     std::size_t cursor = text.size();
     while (cursor > 0 && (m_bounds.right - point->x) - m_bounds.left >=
-                            m_font->textWidth(std::string_view(text).substr(cursor - 1)))
+                             m_font->textWidth(std::string_view(text).substr(cursor - 1))) {
         --cursor;
+    }
     m_editor->SetCursor(cursor);
     m_dirty = m_button->m_dirty = true;
 }
 
 void W8DialogNumericInput::Draw(SDL_Surface& target, bool force)
 {
-    if (!force && !m_dirty) return;
+    if (!force && !m_dirty) {
+        return;
+    }
     const auto text = std::to_string(m_value);
     m_font->setShade(Font::kNormalShade);
     const SDL_Rect clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
@@ -75,7 +81,8 @@ void W8DialogNumericInput::Draw(SDL_Surface& target, bool force)
     const int left = std::max(m_bounds.left, m_bounds.right - m_font->textWidth(text));
     DrawTextAndInvalidate(target, *m_font, {left, top}, text);
     if (m_editor) {
-        const int x = m_bounds.right - m_font->textWidth(std::string_view(text).substr(m_editor->Cursor())) - 1;
+        const int x = m_bounds.right -
+                      m_font->textWidth(std::string_view(text).substr(m_editor->Cursor())) - 1;
         const SDL_Rect caret{x, top, 1, std::min(m_bounds.bottom - top, int(m_font->height())) + 1};
         SDL_FillSurfaceRect(&target, &caret, 0xffff);
     }
@@ -84,17 +91,23 @@ void W8DialogNumericInput::Draw(SDL_Surface& target, bool force)
 
 bool W8DialogNumericInput::HandleInput(const InputEvent* input)
 {
-    if (!m_editor) return false;
+    if (!m_editor) {
+        return false;
+    }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
         input->key == VK_ESCAPE) {
         SetActive(false);
         return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        (input->key == '+' || input->key == '-')) return false;
+        (input->key == '+' || input->key == '-')) {
+        return false;
+    }
     const auto previous = m_editor->Text(0);
     const auto previous_cursor = m_editor->Cursor();
-    if (!m_editor->HandleInput(*input)) return false;
+    if (!m_editor->HandleInput(*input)) {
+        return false;
+    }
     const auto text = m_editor->Text(0);
     unsigned int value = 0;
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);

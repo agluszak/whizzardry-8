@@ -1143,20 +1143,24 @@ void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* 
         for (realm = 0x18; realm <= 0x1b; ++realm) {
             switch (realm) {
             case 0x18:
-                if (g_spell_records[spell].wizardry_spell == 0)
+                if (g_spell_records[spell].wizardry_spell == 0) {
                     continue;
+                }
                 break;
             case 0x19:
-                if (g_spell_records[spell].divinity_spell == 0)
+                if (g_spell_records[spell].divinity_spell == 0) {
                     continue;
+                }
                 break;
             case 0x1a:
-                if (g_spell_records[spell].alchemy_spell == 0)
+                if (g_spell_records[spell].alchemy_spell == 0) {
                     continue;
+                }
                 break;
             case 0x1b:
-                if (g_spell_records[spell].psionics_spell == 0)
+                if (g_spell_records[spell].psionics_spell == 0) {
                     continue;
+                }
                 break;
             }
             if (character->skills[realm].active && character->skill_costs[realm - 0x18] > 0) {

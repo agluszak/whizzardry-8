@@ -29,10 +29,19 @@ class W8DialogBase : public ModalContent {
 
 public:
     W8DialogBase();
-    UiLayer& InputLayer() { return m_input; }
+    UiLayer& InputLayer()
+    {
+        return m_input;
+    }
     ~W8DialogBase() override;
-    void DrawModal(SDL_Surface& target) override { Draw(target); }
-    void RequestModalRedraw() override { m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW; }
+    void DrawModal(SDL_Surface& target) override
+    {
+        Draw(target);
+    }
+    void RequestModalRedraw() override
+    {
+        m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    }
     virtual int CreateControls();
     virtual void DestroyControls();
     virtual void Draw(SDL_Surface& target);
@@ -47,7 +56,7 @@ public:
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
 
-    template <class Dialog, class Field>
+    template<class Dialog, class Field>
     friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                                 bool (Dialog::*handle_event)(const InputEvent*));
 

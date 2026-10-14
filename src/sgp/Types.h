@@ -8,11 +8,11 @@
 #include <cstdlib>
 
 #define Assert(condition) AssertMsg(condition, "Assertion failed: " #condition)
-#define AssertMsg(condition, message)                                                               \
+#define AssertMsg(condition, message)                                                              \
     do {                                                                                           \
         if (!(condition)) {                                                                        \
-            SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "%s (%s:%d)",                             \
-                            reinterpret_cast<const char*>(message), __FILE__, __LINE__);            \
+            SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "%s (%s:%d)",                            \
+                            reinterpret_cast<const char*>(message), __FILE__, __LINE__);           \
             std::abort();                                                                          \
         }                                                                                          \
     } while (false)

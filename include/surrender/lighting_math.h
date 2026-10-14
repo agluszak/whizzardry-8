@@ -17,8 +17,9 @@ struct DirectionDistance {
     float distance;
 };
 
-inline DirectionDistance directionAndDistance(const glm::vec3& vector,
-    ZeroLengthDirection zero = ZeroLengthDirection::preserve)
+inline DirectionDistance
+directionAndDistance(const glm::vec3& vector,
+                     ZeroLengthDirection zero = ZeroLengthDirection::preserve)
 {
     const float distance = glm::length(vector);
     return {distance == 0 && zero == ZeroLengthDirection::preserve ? vector : vector / distance,
@@ -39,32 +40,37 @@ enum class DotRange { nonnegative, unit };
 
 // One direction broadcasts a directional light; otherwise use one per normal.
 inline void normalDots(std::span<float> destination, std::span<const glm::vec3> normals,
-                        std::span<const glm::vec3> directions, DotRange range)
+                       std::span<const glm::vec3> directions, DotRange range)
 {
     assert(normals.size() >= destination.size());
     assert(directions.size() == 1 || directions.size() >= destination.size());
     for (std::size_t i = 0; i < destination.size(); ++i) {
         const float dot = glm::dot(normals[i], directions[directions.size() == 1 ? 0 : i]);
         destination[i] = range == DotRange::unit ? glm::clamp(dot, 0.0f, 1.0f)
-                                                : dot <= 0 ? 0.0f : dot;
+                         : dot <= 0              ? 0.0f
+                                                 : dot;
     }
 }
 
 // Keep attenuation and angular weights separate to retain highlight rounding.
 template<glm::length_t Components>
 inline void accumulateLight(std::span<glm::vec<Components, float>> destination,
-                             const glm::vec<Components, float>& color,
-                             std::span<const float> weights = {},
-                             std::span<const float> attenuation = {})
+                            const glm::vec<Components, float>& color,
+                            std::span<const float> weights = {},
+                            std::span<const float> attenuation = {})
 {
     assert(weights.empty() || weights.size() >= destination.size());
     assert(attenuation.empty() || attenuation.size() >= destination.size());
     for (std::size_t i = 0; i < destination.size(); ++i) {
         glm::vec<Components, float> contribution = color;
-        if (!attenuation.empty()) contribution *= attenuation[i];
-        if (!weights.empty()) contribution *= weights[i];
+        if (!attenuation.empty()) {
+            contribution *= attenuation[i];
+        }
+        if (!weights.empty()) {
+            contribution *= weights[i];
+        }
         destination[i] = contribution + destination[i];
     }
 }
 
-}
+} // namespace srLightingMath

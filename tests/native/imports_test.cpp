@@ -53,36 +53,29 @@ static int assertions = 0;
 static void assertion(const char* expression, const char* path, w8_long line, const char* message)
 {
     if (strcmp(expression, "native probe") || strcmp(path, "imports_test.cpp") || line != 42 ||
-        strcmp(message, "value 7"))
-    {
+        strcmp(message, "value 7")) {
         fputs("assertion arguments\n", stderr);
         exit(1);
     }
     ++assertions;
 }
 static int destroyed_nodes = 0;
-struct ClientNode : srNode
-{
-    bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
+struct ClientNode : srNode {
+    bool transformDirty() const
+    {
+        return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0;
+    }
     ~ClientNode() override
     {
         ++destroyed_nodes;
     }
 };
-struct ClientMaterial : srMaterial
-{
-    ~ClientMaterial() override
-    {
-    }
+struct ClientMaterial : srMaterial {
+    ~ClientMaterial() override {}
 };
-struct ClientTextureFile : srTextureFile
-{
-    ClientTextureFile() : srTextureFile({}, 0)
-    {
-    }
-    ~ClientTextureFile() override
-    {
-    }
+struct ClientTextureFile : srTextureFile {
+    ClientTextureFile() : srTextureFile({}, 0) {}
+    ~ClientTextureFile() override {}
 };
 // Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
 static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
@@ -99,8 +92,9 @@ static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
 static int surface_storage()
 {
     std::array<unsigned char, 40> pixels;
-    for (std::size_t index = 0; index < pixels.size(); ++index)
+    for (std::size_t index = 0; index < pixels.size(); ++index) {
         pixels[index] = static_cast<unsigned char>(index * 7);
+    }
     const auto original = pixels;
     auto palette = std::make_shared<srPalette>();
     const auto references = palette.use_count();
@@ -133,12 +127,15 @@ static int surface_storage()
         REQUIRE(palette.use_count() == references + 2);
         REQUIRE(assigned.resize(7, 5));
         auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
-        REQUIRE(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
+        REQUIRE(std::all_of(begin, begin + assigned.getDataSize(),
+                            [](auto value) { return value == 0; }));
         assigned.fill(0xff336699);
         REQUIRE(assigned.rescale(3, 2));
-        for (int y = 0; y < 2; ++y)
-            for (int x = 0; x < 3; ++x)
+        for (int y = 0; y < 2; ++y) {
+            for (int x = 0; x < 3; ++x) {
                 REQUIRE(assigned.getPixelRaw(x, y) == 0xff336699);
+            }
+        }
         REQUIRE(assigned.changePixelFormat(format, 1));
         REQUIRE((assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633));
         REQUIRE(assigned.getPixel(0, 0) == 0xff336699);
@@ -196,7 +193,10 @@ static int shared_surface_lifetimes()
     {
         auto palette = std::make_shared<srPalette>(nullptr, 7);
         srARGB color;
-        color.alpha = 0xff; color.red = 0x12; color.green = 0x34; color.blue = 0x56;
+        color.alpha = 0xff;
+        color.red = 0x12;
+        color.green = 0x34;
+        color.blue = 0x56;
         palette->setColor(0, color);
         palette_lifetime = palette;
         srPalette borrowed;
@@ -226,11 +226,11 @@ TEST_CASE("imports_test")
     {
         srModeler modeler;
         srModeler::Triangle triangle;
-        for (int row = 0; row < 2; ++row)
-        {
-            for (int vertex = 0; vertex < 3; ++vertex)
+        for (int row = 0; row < 2; ++row) {
+            for (int vertex = 0; vertex < 3; ++vertex) {
                 triangle.vertices[vertex].position =
                     glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
+            }
             modeler.addTriangle(triangle);
         }
         REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{0.f, 12.f}));
@@ -238,15 +238,13 @@ TEST_CASE("imports_test")
         REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Z) == std::pair{-2.f, 0.f}));
         REQUIRE_FALSE(modeler.getAxialBounds(static_cast<srModeler::e_axis>(-1)));
     }
-    struct alignas(8) WordPair
-    {
+    struct alignas(8) WordPair {
         unsigned int padding;
         srQuadWord value;
     } words{0, {7, 1}};
     static_assert(offsetof(WordPair, value) == 4, "exercise four-byte aligned word pair");
     REQUIRE(double(words.value) == 4294967303.0);
-    for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO})
-    {
+    for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
         REQUIRE(fesetround(mode) == 0);
         const double inputs[] = {0.0,
                                  1.5,
@@ -259,8 +257,7 @@ TEST_CASE("imports_test")
                                  std::numeric_limits<double>::infinity(),
                                  -std::numeric_limits<double>::infinity(),
                                  std::numeric_limits<double>::quiet_NaN()};
-        for (volatile double input : inputs)
-        {
+        for (volatile double input : inputs) {
             feclearexcept(FE_ALL_EXCEPT);
             const w8_long actual = srFloatToInt(input);
             const bool invalid = fetestexcept(FE_INVALID);
@@ -268,18 +265,21 @@ TEST_CASE("imports_test")
             w8_long retail;
             unsigned short saved_control, status;
             asm volatile("fnstcw %0" : "=m"(saved_control));
-            const unsigned rounding = mode == FE_DOWNWARD ? 1 : mode == FE_UPWARD ? 2
-                                       : mode == FE_TOWARDZERO ? 3 : 0;
+            const unsigned rounding = mode == FE_DOWNWARD     ? 1
+                                      : mode == FE_UPWARD     ? 2
+                                      : mode == FE_TOWARDZERO ? 3
+                                                              : 0;
             const unsigned short control = (saved_control & ~0x0c00u) | (rounding << 10);
             // The Windows x64 CRT controls SSE, not the oracle's x87 state.
             asm volatile("fldcw %0; fnclex" : : "m"(control));
             asm volatile("fldl %2; fistpl %0; fnstsw %1"
-                         : "=m"(retail), "=m"(status) : "m"(input) : "st");
+                         : "=m"(retail), "=m"(status)
+                         : "m"(input)
+                         : "st");
             asm volatile("fnclex; fldcw %0" : : "m"(saved_control));
             REQUIRE((actual == retail && invalid == bool(status & 1)));
 #else
-            if (!std::isfinite(input) || input >= 2147483648.0 || input < -2147483648.0)
-            {
+            if (!std::isfinite(input) || input >= 2147483648.0 || input < -2147483648.0) {
                 REQUIRE((actual == (-2147483647 - 1) && invalid));
             }
 #endif
@@ -322,8 +322,7 @@ TEST_CASE("imports_test")
         delete parent_node;
         delete other_parent;
 
-        struct alignas(16) PackedVectors
-        {
+        struct alignas(16) PackedVectors {
             char padding;
             srVector3 values[2];
             srVector3 minimum;
@@ -343,10 +342,12 @@ TEST_CASE("imports_test")
                 // Keep the comparison order for NaNs in recovered bounds.
                 for (int c = 0; c < 3; ++c) {
                     if (v[c] >= lower[c]) {
-                        if (v[c] > upper[c])
+                        if (v[c] > upper[c]) {
                             upper[c] = v[c];
-                    } else
+                        }
+                    } else {
                         lower[c] = v[c];
+                    }
                 }
             }
             (vectors.minimum) = lower;
@@ -369,8 +370,7 @@ TEST_CASE("imports_test")
         const auto before = source.getViewPlane();
         const auto after = copy.getViewPlane();
         REQUIRE((before.rectangle.left == after.rectangle.left &&
-                 before.rectangle.top == after.rectangle.top &&
-                 before.distance == after.distance));
+                 before.rectangle.top == after.rectangle.top && before.distance == after.distance));
         const auto normalized = copy.getNormalizedViewPlane();
         REQUIRE((normalized.left == after.rectangle.left / after.distance &&
                  normalized.bottom == after.rectangle.bottom / after.distance &&
@@ -416,7 +416,7 @@ TEST_CASE("imports_test")
         clone->setParent(parent, 0);
         delete original;
         REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent &&
-              sibling->getParent() == parent));
+                 sibling->getParent() == parent));
         delete parent; // Recursively releases the sibling and copied light.
         srHuffman::Sampler sampler;
         sampler.insert(10);
@@ -426,8 +426,9 @@ TEST_CASE("imports_test")
         // Exercise a branching symbol tree, as used by octree alpha bits.
         const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
         srHuffman::Sampler tree_sampler;
-        for (auto value : values)
+        for (auto value : values) {
             tree_sampler.insert(value);
+        }
         srHuffman::Compressor compressor(tree_sampler);
         auto encoded = srIO::own(SDL_IOFromDynamicMem());
         {
@@ -436,30 +437,34 @@ TEST_CASE("imports_test")
             bits.put(compressor.code_width, 6);
             bits.put(sizeof(values) / sizeof(values[0]), 32);
             compressor.storeSymbolTable(bits);
-            for (auto value : values)
+            for (auto value : values) {
                 compressor.compressSymbol(bits, value);
+            }
             bits.flush();
         }
         // Captured from main's pre-consolidation stream/Huffman implementation.
-        const unsigned char golden[] = {
-            0x06,0x00,0x00,0x00,0x60,0x02,0x00,0x00,0x00,0x2e,0x00,0x00,0x00,
-            0x64,0x00,0x00,0x00,0xd0,0x01,0x00,0x00,0xe0,0xff,0xff,0xff,0xbf,
-            0x0d,0x00,0x00,0x00,0x15,0x00,0x00,0x00,0x1e,0xec,0x64
-        };
+        const unsigned char golden[] = {0x06, 0x00, 0x00, 0x00, 0x60, 0x02, 0x00, 0x00, 0x00, 0x2e,
+                                        0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0xd0, 0x01, 0x00,
+                                        0x00, 0xe0, 0xff, 0xff, 0xff, 0xbf, 0x0d, 0x00, 0x00, 0x00,
+                                        0x15, 0x00, 0x00, 0x00, 0x1e, 0xec, 0x64};
         REQUIRE(SDL_GetIOSize(encoded.get()) == sizeof(golden));
         REQUIRE(memcmp(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
-                     SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), golden, sizeof(golden)) == 0);
-        auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(encoded.get())));
+                                              SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
+                       golden, sizeof(golden)) == 0);
+        auto input = srIO::own(SDL_IOFromConstMem(
+            SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
+                                   SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
+            SDL_GetIOSize(encoded.get())));
         srHuffman::BitIStream bits(input.get());
         srHuffman::Decompressor decoder(bits);
         REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
-        for (auto value : values)
+        for (auto value : values) {
             REQUIRE(decoder.decompressSymbol() == value);
+        }
     }
     srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7);
     REQUIRE(assertions == 1);
     srExit();
     srAssertSetFunc(nullptr);
     puts("ok: native renderer consumer imports, generated special members and variadic assertion");
-
 }

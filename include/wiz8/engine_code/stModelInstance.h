@@ -34,12 +34,13 @@ public:
         return "stModelInstance";
     }
 
-    explicit stModelInstance(srNode* parent, Ownership ownership = Ownership::parent);                 /* 0x0047EC80 */
+    explicit stModelInstance(srNode* parent,
+                             Ownership ownership = Ownership::parent); /* 0x0047EC80 */
     stModelInstance& operator=(const stModelInstance& other); /* 0x0047EDF0 */
 
     /* Queues opaque models ahead of their siblings and sorted-rendering
        models after them. */
-    virtual void traverse(TraverseInfo& info) override;                         /* 0x004803F0 */
+    virtual void traverse(TraverseInfo& info) override; /* 0x004803F0 */
     virtual void process(const ProcessInfo& info, e_processType type) override; /* 0x0047F560 */
     /* Mesh-chain submit reached from process(): frustum culling, ambient and
        highlight state, the linked stMeshModel list, then the optional
@@ -76,13 +77,11 @@ public:
     float frame_interpolation;
 };
 
-
 /* Concrete 2D model instance. Slot 5 and the secondary slot-0 adjustor are
    SYNTHETIC compiler-generated deleting destructors; no source body owns
    either address. */
 // VTABLE: WIZ8 0x005ec858 srClassSupport<srModelInstance, class srNode, 4352>
-class stModelInstance2D
-    : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
+class stModelInstance2D : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
 public:
     static const char* sGetClassName()
     {
@@ -92,12 +91,12 @@ public:
     explicit stModelInstance2D(srNode* parent); /* 0x0047F0F0 */
 
     stModelInstance2D& operator=(const stModelInstance2D& other); /* 0x0047F290 */
-    void SetModel(std::shared_ptr<srModel> model);                                /* 0x0047F3A0 */
+    void SetModel(std::shared_ptr<srModel> model); /* 0x0047F3A0 */
 
     void process(const ProcessInfo& info, e_processType type) override; /* 0x00480920 */
-    unsigned short GetScaledWidth();                                    /* 0x00480EF0 */
-    unsigned short GetScaledHeight();                                   /* 0x00480F70 */
-    void SetGlowEnabled(bool enable);                                   /* 0x00480EB0 */
+    unsigned short GetScaledWidth(); /* 0x00480EF0 */
+    unsigned short GetScaledHeight(); /* 0x00480F70 */
+    void SetGlowEnabled(bool enable); /* 0x00480EB0 */
     void SetGlowColors(const glm::vec4& first, const glm::vec4& second);
 
     unsigned char displayState() const

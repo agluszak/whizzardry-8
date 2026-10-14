@@ -18,7 +18,7 @@ class srModelInstance;
 class srTexture;
 class srTextureIFace;
 class stTextureAnim;
-template <class T> class ResourceCache;
+template<class T> class ResourceCache;
 
 /* Combinable flags in level materials; distinct from srShader's packed word. */
 enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
@@ -103,7 +103,8 @@ struct W8MeshMaterial {
 };
 
 W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& source);
-std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name, bool required);
+std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name,
+                                                 bool required);
 std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
                                                    const W8MaterialRecord* source, bool required);
 bool MeshHasAnimatedTexture(srMeshModel* model);
@@ -111,8 +112,8 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame);
 stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance);
 
 W8MeshMaterial CreateDefaultMaterial();
-std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
-                                                    bool required);
+std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
+                                                    const W8MaterialRecord* source, bool required);
 
 struct W8OctPreTreeVertex;
 struct W8OctRegionPolygon;

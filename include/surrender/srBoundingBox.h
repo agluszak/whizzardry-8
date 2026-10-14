@@ -49,8 +49,9 @@ struct srBoundingBox {
 
     bool intersectsSphere(const glm::vec3& center, float radius) const
     {
-        if (!(radius >= 0))
+        if (!(radius >= 0)) {
             return false;
+        }
         const auto offset = center - glm::clamp(center, minimum, maximum);
         return glm::dot(offset, offset) <= radius * radius;
     }
@@ -68,12 +69,11 @@ struct srBoundingBox {
     // Visibility probes test the midpoint first, then these ordered corners.
     std::array<glm::vec3, 9> visibilitySamples() const
     {
-        return {center(), corner(7), corner(0), corner(3), corner(2),
+        return {center(),  corner(7), corner(0), corner(3), corner(2),
                 corner(6), corner(5), corner(1), corner(4)};
     }
 
-    template<class TransformPoint>
-    srBoundingBox transformedBy(TransformPoint transform) const
+    template<class TransformPoint> srBoundingBox transformedBy(TransformPoint transform) const
     {
         const glm::vec3 first = transform(minimum);
         srBoundingBox result{first, first};
@@ -85,19 +85,23 @@ struct srBoundingBox {
 
     srBoundingBox transformed(const glm::mat4& matrix) const
     {
-        return transformedBy([&](const glm::vec3& point) {
-            return glm::vec3(matrix * glm::vec4(point, 1));
-        });
+        return transformedBy(
+            [&](const glm::vec3& point) { return glm::vec3(matrix * glm::vec4(point, 1)); });
     }
 };
 
-template<class Point>
-inline srBoundingBox boundingBox(std::span<const Point> points)
+template<class Point> inline srBoundingBox boundingBox(std::span<const Point> points)
 {
-    if (points.empty()) return {};
-    const auto coordinates = [](const Point& point) { return glm::vec3(point.x, point.y, point.z); };
+    if (points.empty()) {
+        return {};
+    }
+    const auto coordinates = [](const Point& point) {
+        return glm::vec3(point.x, point.y, point.z);
+    };
     const auto first = coordinates(points.front());
     srBoundingBox result{first, first};
-    for (const auto& point : points.subspan(1)) result.include(coordinates(point));
+    for (const auto& point : points.subspan(1)) {
+        result.include(coordinates(point));
+    }
     return result;
 }

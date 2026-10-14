@@ -123,10 +123,7 @@ void KillTrynnieGroups(void)
     int iNewTable;
     int index;
 
-    for (index = 0;
-         index < static_cast<int>(
-                     gXStatus.monster_groups.size());
-         ++index) {
+    for (index = 0; index < static_cast<int>(gXStatus.monster_groups.size()); ++index) {
         group = GetMonsterGroupByListIndex(index);
         if (group != 0 && group->members_active &&
             (record = MonsterGroupGetRecord(group), record->faction_id == 0xd) &&

@@ -21,7 +21,7 @@ struct W8World;
 class stLight;
 class W8Missile;
 struct W8AnimObj;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
    path record is kind 0). UpdateMissileAI ticks it: +0x04 is the

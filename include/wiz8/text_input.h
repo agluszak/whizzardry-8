@@ -61,7 +61,10 @@ public:
     int FocusedId() const;
     void FocusNext();
     void ClearFocus();
-    bool Editing() const { return editing_; }
+    bool Editing() const
+    {
+        return editing_;
+    }
 
     /* Returns true when the focused field consumed the key or text event. */
     bool HandleInput(const InputEvent& input);

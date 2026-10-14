@@ -77,8 +77,14 @@ public:
     srBoundingBox computeBounds();
     /* Box-vs-bound test used by the pre-tree path obstruction pass. */
     bool boundsOverlap(const srBoundingBox& box);
-    std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
-    std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
+    std::span<const unsigned short> conditionalEdges() const
+    {
+        return m_path_edges;
+    }
+    std::span<const unsigned short> conditionalWaypoints() const
+    {
+        return m_path_waypoints;
+    }
     /* Appends the index to the waypoint list when the grid point lies inside
        the path bounds; the prop owns the counted list. */
     unsigned char RegisterPathSurface(unsigned int index, const glm::ivec2& point);

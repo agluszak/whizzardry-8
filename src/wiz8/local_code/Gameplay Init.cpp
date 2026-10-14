@@ -53,19 +53,19 @@
 namespace {
 std::unique_ptr<W8FactDatabaseRecord[]> fact_records;
 std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
-}
+} // namespace
 
 /* NPC.DBS records carry an optional sub-list, stored after the record when its
    leading count exceeds one and its 0x9D flag is clear: a count, then that many
    six-byte elements appended to a freshly created list. */
 // FUNCTION: WIZ8 0x0054aac0
 unsigned char InitializeNpcDatabase(void)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\NPC.DBS", wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
+    if (count >
+        (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
         return 0;
     }
     auto records = std::make_unique<W8NpcDatabaseRecord[]>(count);
@@ -79,9 +79,11 @@ try
             unsigned int entry_count;
             handle->read_exact(&entry_count, sizeof(entry_count));
             const auto remaining = handle->size() - handle->tell();
-            const auto following_records = std::int64_t(count - index - 1) * std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
+            const auto following_records = std::int64_t(count - index - 1) *
+                                           std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
             if (remaining < following_records ||
-                entry_count > (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
+                entry_count >
+                    (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
                 entry_count > std::numeric_limits<int>::max()) {
                 return 0;
             }
@@ -109,22 +111,24 @@ try
         (void)list.release();
     }
     return 1;
+} catch (const std::exception&) {
+    return 0;
 }
-catch (const std::exception&) { return 0; }
 
 // FUNCTION: WIZ8 0x0054ad00
 unsigned char InitializeFactDatabase(void)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    auto records = wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
+    auto records =
+        wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
     fact_records = std::move(records);
     g_fact_records = fact_records.get();
     gXStatus.uiFactsInDatabase = count;
     return 1;
+} catch (const std::exception&) {
+    return 0;
 }
-catch (const std::exception&) { return 0; }
 
 // FUNCTION: WIZ8 0x0054ae00
 void DestroyFactDatabase(void)
@@ -136,8 +140,7 @@ void DestroyFactDatabase(void)
 
 // FUNCTION: WIZ8 0x0054ae20
 unsigned char InitializeLevelDatabase(void)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
     unsigned int count;
     auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
@@ -145,8 +148,9 @@ try
     g_level_records = level_records.get();
     gXStatus.uiLevelsInDatabase = count;
     return 1;
+} catch (const std::exception&) {
+    return 0;
 }
-catch (const std::exception&) { return 0; }
 
 // FUNCTION: WIZ8 0x0054af10
 void DestroyLevelDatabase(void)
@@ -162,7 +166,8 @@ void ResetGameStatus(bool /*release*/)
 {
     static std::array<W8Character, W8_PARTY_SLOT_COUNT> characters;
     static std::array<W8PartySlotRow, W8_PARTY_SLOT_COUNT> rows;
-    characters.fill({}); rows.fill({});
+    characters.fill({});
+    rows.fill({});
     g_status = {};
     g_status.buffers.Char = characters.data();
     g_status.buffers.XChar = rows.data();
@@ -207,8 +212,9 @@ void DestroyGameplayObjects(void)
         delete owned;
         gXStatus.character_event_queue = 0;
     }
-    for (auto& slot : gXStatus.monster_manager_entries)
+    for (auto& slot : gXStatus.monster_manager_entries) {
         slot.mouth_gap = {};
+    }
     if (gXStatus.gameplay_timer) {
         delete gXStatus.gameplay_timer;
         gXStatus.gameplay_timer = 0;

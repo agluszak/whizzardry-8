@@ -46,21 +46,32 @@ class W8TextField final {
 public:
     W8TextField(TextFieldGroup& group, int id, int priority, SDL_Rect bounds)
         : group(group), id(id), bounds(bounds),
-          target(group.layer_->add(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
-                                  [this](const UiPointerEvent& event) {
-              return HandleInput(event);
-          }, priority))
+          target(group.layer_->add(
+              SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
+              [this](const UiPointerEvent& event) { return HandleInput(event); }, priority))
     {
         target.useTextCursor();
     }
-    ~W8TextField() { group.layer_->remove(target); }
+    ~W8TextField()
+    {
+        group.layer_->remove(target);
+    }
     W8TextField(const W8TextField&) = delete;
     W8TextField& operator=(const W8TextField&) = delete;
 
     UiResult HandleInput(const UiPointerEvent& event);
-    W8ControlsRect Edges() const { return ToEdges(bounds); }
-    int EditWidth() const { return bounds.w - 10; }
-    Font& font() { return *group.style_.font; }
+    W8ControlsRect Edges() const
+    {
+        return ToEdges(bounds);
+    }
+    int EditWidth() const
+    {
+        return bounds.w - 10;
+    }
+    Font& font()
+    {
+        return *group.style_.font;
+    }
 
     /* Scrolls so the cursor stays visible; updates the caret x and visible byte span. */
     void Relayout()
@@ -68,12 +79,15 @@ public:
         const std::string_view view = text;
         const auto at = std::min(cursor, view.size());
         auto start = std::min(visible_start, at);
-        while (start < at && font().textWidth(view.substr(start, at - start)) > EditWidth())
+        while (start < at && font().textWidth(view.substr(start, at - start)) > EditWidth()) {
             start = wiz8::text::next_grapheme(view, start);
+        }
         auto end = start;
         while (end < view.size()) {
             const auto next = wiz8::text::next_grapheme(view, end);
-            if (font().textWidth(view.substr(start, next - start)) > EditWidth()) break;
+            if (font().textWidth(view.substr(start, next - start)) > EditWidth()) {
+                break;
+            }
             end = next;
         }
         visible_start = start;
@@ -87,7 +101,9 @@ public:
         std::size_t boundary = 0;
         while (boundary < position) {
             const auto next = wiz8::text::next_grapheme(text, boundary);
-            if (next > position) break;
+            if (next > position) {
+                break;
+            }
             boundary = next;
         }
         cursor = boundary;
@@ -108,7 +124,9 @@ public:
             const auto end = wiz8::text::next_grapheme(text, position);
             const auto width =
                 font().textWidth(std::string_view(text).substr(parking, end - parking));
-            if (offset < (width + previous_width) / 2) return position;
+            if (offset < (width + previous_width) / 2) {
+                return position;
+            }
             previous_width = width;
             position = end;
         }
@@ -155,11 +173,18 @@ UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 
 void W8TextField::MouseMoved(UiPointerAction action, int mouse_x, SDL_MouseButtonFlags buttons)
 {
-    if (blocks_mouse) return;
-    if (action == UiPointerAction::Enter) SetTargetCursor(GetTextInputCursor());
-    if (action == UiPointerAction::Leave) SetTargetCursor(W8_CURSOR_NONE);
-    if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || action != UiPointerAction::Move)
+    if (blocks_mouse) {
         return;
+    }
+    if (action == UiPointerAction::Enter) {
+        SetTargetCursor(GetTextInputCursor());
+    }
+    if (action == UiPointerAction::Leave) {
+        SetTargetCursor(W8_CURSOR_NONE);
+    }
+    if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || action != UiPointerAction::Move) {
+        return;
+    }
     if (group.focused_ != this) {
         group.focused_ = this;
         mouse_down = 0;
@@ -184,26 +209,38 @@ void W8TextField::MouseClicked(const UiPointerEvent& event)
 {
     const auto mouse_x = event.position.x;
     const auto buttons = event.buttons;
-    if (blocks_mouse) return;
+    if (blocks_mouse) {
+        return;
+    }
     if (event.action == UiPointerAction::Down && event.clicks >= 2) {
-        if (group.focused_) group.SelectWordAtMouse(mouse_x);
+        if (group.focused_) {
+            group.SelectWordAtMouse(mouse_x);
+        }
         return;
     }
     if (event.action == UiPointerAction::Down) {
-        if (group.focused_ != this) return;
+        if (group.focused_ != this) {
+            return;
+        }
         SetCursor(MousePosition(mouse_x));
         mouse_down = cursor;
         return;
     }
-    if (event.action != UiPointerAction::Up) return;
+    if (event.action != UiPointerAction::Up) {
+        return;
+    }
     if (group.focused_ != this) {
-        if (!enabled) return;
+        if (!enabled) {
+            return;
+        }
         group.FocusField(*this);
         return;
     }
     if ((buttons & SDL_BUTTON_LMASK) != 0) {
         const auto position = MousePosition(mouse_x);
-        if (position == mouse_down) selecting = false;
+        if (position == mouse_down) {
+            selecting = false;
+        }
         SetCursor(position);
     }
 }
@@ -212,12 +249,14 @@ TextFieldGroup::TextFieldGroup(Font& font) : TextFieldGroup(font, nullptr) {}
 TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : TextFieldGroup(font, &layer) {}
 
 TextFieldGroup::TextFieldGroup(Font& font, UiLayer* layer)
-    : owned_layer_(layer ? nullptr : new UiLayer()),
-      layer_(layer ? layer : owned_layer_.get()), previous_(g_ui.focus)
+    : owned_layer_(layer ? nullptr : new UiLayer()), layer_(layer ? layer : owned_layer_.get()),
+      previous_(g_ui.focus)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
-    if (previous_) previous_->Suspend();
+    if (previous_) {
+        previous_->Suspend();
+    }
     g_ui.focus = this;
     SetNativeTextInputEnabled(false);
 }
@@ -235,10 +274,11 @@ TextFieldGroup::~TextFieldGroup()
     fields_.clear();
     if (g_ui.focus == this) {
         g_ui.focus = previous_;
-        if (previous_)
+        if (previous_) {
             previous_->Resume();
-        else
+        } else {
             SetNativeTextInputEnabled(false);
+        }
         return;
     }
     for (auto* group = g_ui.focus; group; group = group->previous_) {
@@ -249,7 +289,10 @@ TextFieldGroup::~TextFieldGroup()
     }
 }
 
-TextFieldGroup* TextFieldGroup::Focused() { return g_ui.focus; }
+TextFieldGroup* TextFieldGroup::Focused()
+{
+    return g_ui.focus;
+}
 
 void TextFieldGroup::Suspend()
 {
@@ -267,7 +310,9 @@ void TextFieldGroup::Resume()
         field->target.setEnabled(true);
         field->enabled = true;
     }
-    focused_ = suspended_focus_ ? suspended_focus_ : fields_.empty() ? nullptr : fields_.front().get();
+    focused_ = suspended_focus_  ? suspended_focus_
+               : fields_.empty() ? nullptr
+                                 : fields_.front().get();
     suspended_focus_ = nullptr;
     SetNativeTextInputEnabled(editing_ && focused_);
 }
@@ -328,12 +373,15 @@ int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
                         bool use_inactive_color)
 {
     const int id = fields_.empty() ? 0 : fields_.back()->id + 1;
-    auto& field = *fields_.emplace_back(std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
+    auto& field = *fields_.emplace_back(
+        std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
     field.input_type = input_type;
     field.capacity = input_type == 0x1002 ? 6 : capacity;
     field.text.assign(text);
     field.use_inactive_color = use_inactive_color;
-    if (fields_.size() == 1) field.SelectAll();
+    if (fields_.size() == 1) {
+        field.SelectAll();
+    }
     return id;
 }
 
@@ -346,20 +394,28 @@ W8TextField* TextFieldGroup::Find(int id) const
 void TextFieldGroup::Remove(int id)
 {
     const auto found = std::ranges::find(fields_, id, &W8TextField::id);
-    if (found == fields_.end()) return;
+    if (found == fields_.end()) {
+        return;
+    }
     if (found->get() == focused_) {
         focused_ = nullptr;
         SetEditing(false);
     }
-    if (found->get() == suspended_focus_) suspended_focus_ = nullptr;
+    if (found->get() == suspended_focus_) {
+        suspended_focus_ = nullptr;
+    }
     fields_.erase(found);
-    if (fields_.empty()) SetEditing(false);
+    if (fields_.empty()) {
+        SetEditing(false);
+    }
 }
 
 void TextFieldGroup::SetText(int id, std::string_view text)
 {
     auto* field = Find(id);
-    if (!field) return;
+    if (!field) {
+        return;
+    }
     field->text.assign(text);
     if (focused_) {
         focused_->selecting = false;
@@ -381,7 +437,9 @@ std::size_t TextFieldGroup::ByteLength(int id) const
 
 void TextFieldGroup::SetBlocksMouse(int id, bool blocks)
 {
-    if (auto* field = Find(id)) field->blocks_mouse = blocks;
+    if (auto* field = Find(id)) {
+        field->blocks_mouse = blocks;
+    }
 }
 
 void TextFieldGroup::FocusField(W8TextField& field)
@@ -395,24 +453,37 @@ void TextFieldGroup::FocusField(W8TextField& field)
 void TextFieldGroup::Focus(int id)
 {
     auto* field = Find(id);
-    if (!field || field == focused_ || !field->enabled) return;
+    if (!field || field == focused_ || !field->enabled) {
+        return;
+    }
     FocusField(*field);
 }
 
-int TextFieldGroup::FocusedId() const { return focused_ ? focused_->id : -1; }
+int TextFieldGroup::FocusedId() const
+{
+    return focused_ ? focused_->id : -1;
+}
 
 void TextFieldGroup::FocusNext()
 {
-    if (!focused_) return;
+    if (!focused_) {
+        return;
+    }
     auto* previous = focused_;
     auto position = std::ranges::find(fields_, previous, &std::unique_ptr<W8TextField>::get);
     for (std::size_t step = 0; step < fields_.size(); ++step) {
-        if (++position == fields_.end()) position = fields_.begin();
+        if (++position == fields_.end()) {
+            position = fields_.begin();
+        }
         auto& candidate = **position;
-        if (!candidate.enabled) continue;
+        if (!candidate.enabled) {
+            continue;
+        }
         FocusField(candidate);
         // Retail: wrapping back to the only enabled field ends editing.
-        if (&candidate == previous) SetEditing(false);
+        if (&candidate == previous) {
+            SetEditing(false);
+        }
         return;
     }
     SetEditing(false);
@@ -420,21 +491,30 @@ void TextFieldGroup::FocusNext()
 
 void TextFieldGroup::ClearFocus()
 {
-    if (!focused_) return;
+    if (!focused_) {
+        return;
+    }
     SetEditing(false);
     focused_ = nullptr;
 }
 
-std::size_t TextFieldGroup::Cursor() const { return focused_ ? focused_->cursor : 0; }
+std::size_t TextFieldGroup::Cursor() const
+{
+    return focused_ ? focused_->cursor : 0;
+}
 
 void TextFieldGroup::SetCursor(std::size_t cursor)
 {
-    if (focused_) focused_->SetCursor(cursor);
+    if (focused_) {
+        focused_->SetCursor(cursor);
+    }
 }
 
 void TextFieldGroup::DeleteSelection(std::size_t first, std::size_t last)
 {
-    if (last < first) std::swap(first, last);
+    if (last < first) {
+        std::swap(first, last);
+    }
     focused_->text.erase(first, last - first);
     focused_->selection_start = focused_->selection_end = 0;
     focused_->SetCursor(first);
@@ -446,8 +526,9 @@ void TextFieldGroup::InsertCharacter(char32_t character)
     std::string bytes;
     utf8::append(character, std::back_inserter(bytes));
     if (wiz8::text::to_utf16(field.text).size() + wiz8::text::to_utf16(bytes).size() >
-        field.capacity)
+        field.capacity) {
         return;
+    }
     field.text.insert(field.cursor, bytes);
     field.cursor += bytes.size();
     field.Relayout();
@@ -461,31 +542,42 @@ void TextFieldGroup::InsertRestricted(char32_t character)
     const auto is_digit = [](char32_t c) { return c >= '0' && c <= '9'; };
     if (field.input_type == 0x1000) {
         if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 &&
-            !is_digit(character) && character != '_' && character != '.')
+            !is_digit(character) && character != '_' && character != '.') {
             return;
-        if (field.cursor == 0 && is_digit(character)) return;
+        }
+        if (field.cursor == 0 && is_digit(character)) {
+            return;
+        }
         InsertCharacter(character);
         return;
     }
     if (field.input_type == 0x1001) {
         if (field.cursor == 0) {
-            if (IsLowercaseCharacter(character) != 0)
+            if (IsLowercaseCharacter(character) != 0) {
                 InsertCharacter(character);
-            else if (IsUppercaseCharacter(character) != 0)
+            } else if (IsUppercaseCharacter(character) != 0) {
                 InsertCharacter(ToLowercaseCharacter(character));
+            }
             return;
         }
-        if (is_digit(character)) InsertCharacter(character);
+        if (is_digit(character)) {
+            InsertCharacter(character);
+        }
         return;
     }
-    if (field.input_type != 0x1002) return;
+    if (field.input_type != 0x1002) {
+        return;
+    }
     switch (field.cursor) {
     case 0:
-        if (character >= '0' && character <= '2') InsertCharacter(character);
+        if (character >= '0' && character <= '2') {
+            InsertCharacter(character);
+        }
         return;
     case 1:
-        if (is_digit(character) && (field.text[0] != '2' || character <= '3'))
+        if (is_digit(character) && (field.text[0] != '2' || character <= '3')) {
             InsertCharacter(character);
+        }
         if (field.text.size() <= 2) {
             InsertCharacter(':');
             return;
@@ -501,10 +593,14 @@ void TextFieldGroup::InsertRestricted(char32_t character)
         }
         return;
     case 3:
-        if (character >= '0' && character <= '5') InsertCharacter(character);
+        if (character >= '0' && character <= '5') {
+            InsertCharacter(character);
+        }
         return;
     case 4:
-        if (is_digit(character)) InsertCharacter(character);
+        if (is_digit(character)) {
+            InsertCharacter(character);
+        }
         return;
     default:
         return;
@@ -525,8 +621,8 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         (input.type != InputEventType::KeyDown && input.type != InputEventType::KeyRepeat) ||
         input.key == VK_ESCAPE || input.key == VK_RETURN || input.key == VK_TAB ||
         (input.modifiers & ALT_DOWN) != 0 ||
-        ((input.modifiers & CTRL_DOWN) != 0 && input.key != VK_DELETE &&
-         input.key != VK_RIGHT && input.key != VK_LEFT) ||
+        ((input.modifiers & CTRL_DOWN) != 0 && input.key != VK_DELETE && input.key != VK_RIGHT &&
+         input.key != VK_LEFT) ||
         (input.key > 0x6f && input.key < 0x7c)) {
         return false;
     }
@@ -577,12 +673,15 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         field.Relayout();
         return true;
     case 0x23: /* End */
-        if (shift)
+        if (shift) {
             extend_selection();
-        else
+        } else {
             field.selecting = false;
+        }
         field.cursor = field.text.size();
-        if (shift) field.selection_end = field.cursor;
+        if (shift) {
+            field.selection_end = field.cursor;
+        }
         field.Relayout();
         return true;
     case 0x24: /* Home */
@@ -612,8 +711,9 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
             return true;
         }
         field.selecting = false;
-        if (field.selection_start != selection_end)
+        if (field.selection_start != selection_end) {
             DeleteSelection(field.selection_start, selection_end);
+        }
         return true;
     case 8: /* Backspace */
         if (!field.selecting) {
@@ -625,8 +725,9 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
             }
         } else {
             field.selecting = false;
-            if (field.selection_start != selection_end)
+            if (field.selection_start != selection_end) {
                 DeleteSelection(field.selection_start, selection_end);
+            }
         }
         return true;
     default:
@@ -635,12 +736,17 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     char32_t character = committed ? event.text
                                    : TranslateKeyToCharacter(static_cast<unsigned short>(input.key),
                                                              input.modifiers);
-    if (!committed && NativeTextInputEnabled()) return true;
-    if (character == 0) return true;
+    if (!committed && NativeTextInputEnabled()) {
+        return true;
+    }
+    if (character == 0) {
+        return true;
+    }
     if (field.selecting) {
         field.selecting = false;
-        if (field.selection_start != field.selection_end)
+        if (field.selection_start != field.selection_end) {
             DeleteSelection(field.selection_start, field.selection_end);
+        }
     }
     const auto input_type = static_cast<unsigned short>(field.input_type);
     if (input_type > 0x0fff) {
@@ -666,7 +772,9 @@ void TextFieldGroup::SelectWordAtMouse(int mouse_x)
 {
     auto& field = *focused_;
     const auto position = field.MousePosition(mouse_x);
-    if (position < field.text.size() && field.text[position] == ' ') return;
+    if (position < field.text.size() && field.text[position] == ' ') {
+        return;
+    }
     const auto before = position == 0 ? std::string::npos : field.text.rfind(' ', position);
     const auto after = field.text.find(' ', position + 1);
     field.selection_start = before == std::string::npos ? 0 : before + 1;
@@ -686,7 +794,9 @@ void TextFieldGroup::RenderBackground(W8TextField& field, SDL_Surface& target)
     unsigned short colour = !field.enabled && !style_.disabled_auto_shade
                                 ? style_.disabled_field_color
                                 : style_.field_color;
-    if (field.use_inactive_color && &field != focused_) colour = style_.inactive_field_color;
+    if (field.use_inactive_color && &field != focused_) {
+        colour = style_.inactive_field_color;
+    }
     const SDL_Rect area{left, top, right - left, bottom - top};
     SDL_FillSurfaceRect(&target, &area, colour);
     InvalidateRegion(left, top, right, bottom);
@@ -699,7 +809,9 @@ TextOptions FieldTextOptions(Font& font, unsigned char fore, unsigned char shado
     TextOptions options;
     options.colors.foreground = font.color(fore);
     options.colors.shadow = font.color(shadow);
-    if (options.colors.shadow == 0 && shadow != 0) options.colors.shadow = 1;
+    if (options.colors.shadow == 0 && shadow != 0) {
+        options.colors.shadow = 1;
+    }
     options.colors.background = font.color(background);
     options.mono = true;
     return options;
@@ -708,7 +820,9 @@ TextOptions FieldTextOptions(Font& font, unsigned char fore, unsigned char shado
 
 void TextFieldGroup::RenderFocused(SDL_Surface& target)
 {
-    if (!focused_) return;
+    if (!focused_) {
+        return;
+    }
     auto& field = *focused_;
     auto& font = *style_.font;
     if (IsLeftButtonHeld()) {
@@ -717,13 +831,17 @@ void TextFieldGroup::RenderFocused(SDL_Surface& target)
                 field.cursor = wiz8::text::previous_grapheme(field.text, field.cursor);
                 field.Relayout();
             }
-            if (field.selecting) field.selection_start = field.visible_start;
+            if (field.selecting) {
+                field.selection_start = field.visible_start;
+            }
         } else if (field.Edges().right < GetGameMousePosition().x) {
             if (field.cursor < field.text.size()) {
                 field.cursor = wiz8::text::next_grapheme(field.text, field.cursor);
                 field.Relayout();
             }
-            if (field.selecting) field.selection_end = field.visible_count + field.visible_start;
+            if (field.selecting) {
+                field.selection_end = field.visible_count + field.visible_start;
+            }
         }
     }
     const unsigned short font_height = font.height();
@@ -760,8 +878,9 @@ void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
     auto& font = *style_.font;
     const bool disabled = !field.enabled && style_.disabled_auto_shade;
     const auto options =
-        disabled ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
-                 : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
+        disabled
+            ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
+            : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
     const unsigned short font_height = font.height();
     const int text_top =
         field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
@@ -769,7 +888,9 @@ void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
     const std::string_view text = field.text;
     for (std::size_t index = 0; index < text.size();) {
         const short prefix = font.prefixWidth(text, index);
-        if (field.EditWidth() < prefix + 3) break;
+        if (field.EditWidth() < prefix + 3) {
+            break;
+        }
         std::size_t end = index;
         wiz8::text::next(text, end);
         DrawText(target, font, {field.Edges().left + prefix + 3, text_top},
@@ -784,12 +905,16 @@ void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
 
 void TextFieldGroup::RenderAll(SDL_Surface& target)
 {
-    for (auto* group = previous_; group; group = group->previous_)
-        for (auto& field : group->fields_) group->RenderInactive(*field, target);
+    for (auto* group = previous_; group; group = group->previous_) {
+        for (auto& field : group->fields_) {
+            group->RenderInactive(*field, target);
+        }
+    }
     for (auto& field : fields_) {
-        if (field.get() == focused_)
+        if (field.get() == focused_) {
             RenderFocused(target);
-        else
+        } else {
             RenderInactive(*field, target);
+        }
     }
 }

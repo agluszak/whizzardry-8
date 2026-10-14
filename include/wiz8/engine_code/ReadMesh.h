@@ -10,8 +10,10 @@
 struct W8MaterialRecord;
 struct W8MeshMaterial;
 struct W8ReadLevelInfo;
-namespace wiz8 { class File; }
-template <class T> class srVector3T;
+namespace wiz8 {
+class File;
+}
+template<class T> class srVector3T;
 
 #pragma pack(push, 1)
 struct W8SerializedMeshFace {
@@ -31,14 +33,16 @@ struct W8ReadMeshFace {
     int material_index;
     unsigned char flags;
 };
-inline W8ReadMeshFace DecodeMeshFace(const W8SerializedMeshFace& record) {
+inline W8ReadMeshFace DecodeMeshFace(const W8SerializedMeshFace& record)
+{
     W8ReadMeshFace face{};
     for (int corner = 0; corner < 3; ++corner) {
         face.vertices[corner] = record.vertices[corner];
         face.texture_coordinates[corner] = {record.texture_coordinates[corner][0],
-                                             record.texture_coordinates[corner][1]};
+                                            record.texture_coordinates[corner][1]};
     }
-    face.material_index = record.material_index; face.flags = record.flags;
+    face.material_index = record.material_index;
+    face.flags = record.flags;
     return face;
 }
 
@@ -48,16 +52,17 @@ class stMeshModel;
 class srMeshModel;
 
 // Loaders return detached owned instances; failure returns an empty result.
-std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info,
-                                                   const char* name, bool load_materials);
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name,
+                                                     bool load_materials);
 std::vector<std::unique_ptr<stModelInstance>>
 ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name);
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
 std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
-                     const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,
-                     std::vector<short>* mapped_values, std::vector<short>* mapped_keys);
+                     const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count,
+                     std::vector<std::vector<int>>& vertex_maps, std::vector<short>* mapped_values,
+                     std::vector<short>* mapped_keys);
 
 void OptimizeMeshOrder(srMeshModel* model);
 

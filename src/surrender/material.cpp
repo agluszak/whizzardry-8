@@ -52,7 +52,8 @@ void srMaterial::verify(srRuntimeClass::e_verify mode)
     checkRange(parms.specular.z, 1.0, "parms.specular.z >= 0.0 && parms.specular.z <= 1.0", 0x37);
     checkRange(parms.specular.w, 1.0, "parms.specular.w >= 0.0 && parms.specular.w <= 1.0", 0x38);
     checkRange(parms.shininess, 127.0, "parms.shininess >= 0.0 && parms.shininess <= 127.0", 0x39);
-    checkRange(parms.translucency, 1.0, "parms.translucency >= 0.0 && parms.translucency <= 1.0", 0x3a);
+    checkRange(parms.translucency, 1.0, "parms.translucency >= 0.0 && parms.translucency <= 1.0",
+               0x3a);
 }
 
 // FUNCTION: SURRENDER 0x100339B0
@@ -355,8 +356,10 @@ struct NamedValue {
 template<std::size_t Count>
 static void dumpNamed(std::ostream& stream, w8_ulong value, const NamedValue (&names)[Count])
 {
-    if (const auto found = std::ranges::find(names, value, &NamedValue::value); found != std::end(names))
+    if (const auto found = std::ranges::find(names, value, &NamedValue::value);
+        found != std::end(names)) {
         stream << found->name;
+    }
 }
 
 constexpr NamedValue kDetailAlphaNames[] = {
@@ -379,14 +382,10 @@ constexpr NamedValue kDetailColorNames[] = {
 };
 
 constexpr NamedValue kPassNames[] = {
-    {srShader::PASS_NEVER, "PASS_NEVER"},
-    {srShader::PASS_LESS, "PASS_LESS"},
-    {srShader::PASS_EQUAL, "PASS_EQUAL"},
-    {srShader::PASS_LEQUAL, "PASS_LEQUAL"},
-    {srShader::PASS_GREATER, "PASS_GREATER"},
-    {srShader::PASS_NOTEQUAL, "PASS_NOTEQUAL"},
-    {srShader::PASS_GEQUAL, "PASS_GEQUAL"},
-    {srShader::PASS_ALWAYS, "PASS_ALWAYS"},
+    {srShader::PASS_NEVER, "PASS_NEVER"},     {srShader::PASS_LESS, "PASS_LESS"},
+    {srShader::PASS_EQUAL, "PASS_EQUAL"},     {srShader::PASS_LEQUAL, "PASS_LEQUAL"},
+    {srShader::PASS_GREATER, "PASS_GREATER"}, {srShader::PASS_NOTEQUAL, "PASS_NOTEQUAL"},
+    {srShader::PASS_GEQUAL, "PASS_GEQUAL"},   {srShader::PASS_ALWAYS, "PASS_ALWAYS"},
 };
 
 constexpr NamedValue kDepthWriteNames[] = {
@@ -477,7 +476,8 @@ std::ostream& operator<<(std::ostream& stream, const srShader& shader)
     stream << '/';
     dumpNamed(stream, (shader.value >> srShader::GRADIENT_SHIFT) & 0x3, kGradientNames);
     stream << '/';
-    dumpNamed(stream, (shader.value >> srShader::SECONDARY_GRADIENT_SHIFT) & 0x1, kSecondaryGradientNames);
+    dumpNamed(stream, (shader.value >> srShader::SECONDARY_GRADIENT_SHIFT) & 0x1,
+              kSecondaryGradientNames);
     stream << '/';
     dumpNamed(stream, (shader.value >> srShader::TEXTURING_SHIFT) & 0x1, kTexturingNames);
     return stream;

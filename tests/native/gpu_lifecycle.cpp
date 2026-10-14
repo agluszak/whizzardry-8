@@ -18,7 +18,10 @@ struct VideoSession {
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     }
-    ~VideoSession() { SDL_Quit(); }
+    ~VideoSession()
+    {
+        SDL_Quit();
+    }
 };
 using Device = std::unique_ptr<SDL_GPUDevice, decltype(&SDL_DestroyGPUDevice)>;
 Device CreateDevice()
@@ -28,12 +31,13 @@ Device CreateDevice()
     INFO(SDL_GetError());
     REQUIRE(device);
     const auto properties = SDL_GetGPUDeviceProperties(device.get());
-    std::printf("GPU device: %s; driver: %s\n",
-                SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown"),
-                SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "unknown"));
+    std::printf(
+        "GPU device: %s; driver: %s\n",
+        SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown"),
+        SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "unknown"));
     return device;
 }
-}
+} // namespace
 
 TEST_CASE("SDL video startup and shutdown without GPU")
 {

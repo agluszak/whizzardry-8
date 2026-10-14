@@ -7,7 +7,7 @@
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 struct W8ItemInstance;
 
 void ResetCombatSlot(W8CombatSlot* slot);

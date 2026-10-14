@@ -189,8 +189,12 @@ int W8ListBoxDialog::CreateControls()
     if (W8DialogBase::CreateControls() != 0) {
         return m_error;
     }
-    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
-    if (!edge_inlay) return m_error = 4;
+    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {},
+                                         "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path,
+                                         static_cast<short>(m_background_flags), 0, 0);
+    if (!edge_inlay) {
+        return m_error = 4;
+    }
     m_text_button.ConfigureTextButton(
         m_text, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
         {m_x + 9, m_y + 9, m_width - 0x12, g_dialog_interface_font->height() * 0x96 / 100},
@@ -199,8 +203,9 @@ int W8ListBoxDialog::CreateControls()
         SetText(m_text);
     }
     m_text_button.SetMultiColor(g_dialog_font_enabled);
-    area_inlay =
-        LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
+    area_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {},
+                                         "Data\\Dialogs\\DialogInlay.STI", {},
+                                         "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
     if (!area_inlay) {
         m_error = 4;
         return 4;
@@ -231,7 +236,9 @@ int W8ListBoxDialog::CreateControls()
     } else {
         m_up_button.policy.activation = m_down_button.policy.activation = ButtonActivation::Press;
         m_up_button.policy.repeat = m_down_button.policy.repeat = true;
-        third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
+        third_btn_inlay = LoadGenericButtonImages(
+            {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {},
+            "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay) {
             m_third_text_button.ConfigureTextButton(
                 {}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
@@ -251,16 +258,14 @@ int W8ListBoxDialog::CreateControls()
                 m_cancel_button.SetPosition(
                     m_second_text_button.Bounds().x - m_cancel_button.Bounds().w +
                         m_second_text_button.Bounds().w,
-                    m_second_text_button.Bounds().h / 2 -
-                        m_cancel_button.Bounds().h / 2 + m_second_text_button.Bounds().y);
-                m_ok_button.SetPosition(
-                                  m_cancel_button.Bounds().x -
-                                      m_cancel_button.Bounds().w / 2 -
-                                      m_ok_button.Bounds().w,
-                                  m_cancel_button.Bounds().y);
-                m_area_button.Resize(m_text_button.Bounds().w,
-                    -6 - m_text_button.Bounds().y - m_text_button.Bounds().h +
-                    m_second_text_button.Bounds().y);
+                    m_second_text_button.Bounds().h / 2 - m_cancel_button.Bounds().h / 2 +
+                        m_second_text_button.Bounds().y);
+                m_ok_button.SetPosition(m_cancel_button.Bounds().x -
+                                            m_cancel_button.Bounds().w / 2 - m_ok_button.Bounds().w,
+                                        m_cancel_button.Bounds().y);
+                m_area_button.Resize(m_text_button.Bounds().w, -6 - m_text_button.Bounds().y -
+                                                                   m_text_button.Bounds().h +
+                                                                   m_second_text_button.Bounds().y);
                 int selected = m_selected_line;
                 m_selected_line = 0;
                 SetCurrentLine(selected);
@@ -300,11 +305,14 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     int index;
     int line;
 
-    if (m_area_button.m_dirty || m_third_text_button.m_dirty ||
-        m_up_button.m_dirty || m_down_button.m_dirty || m_slider_button.m_dirty ||
-        m_ok_button.m_dirty || m_cancel_button.m_dirty)
+    if (m_area_button.m_dirty || m_third_text_button.m_dirty || m_up_button.m_dirty ||
+        m_down_button.m_dirty || m_slider_button.m_dirty || m_ok_button.m_dirty ||
+        m_cancel_button.m_dirty) {
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) return;
+    }
+    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) {
+        return;
+    }
     W8DialogBase::Draw(target);
     m_text_button.m_dirty = m_second_text_button.m_dirty = true;
     m_text_button.Draw(target);
@@ -312,16 +320,16 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     int dx = m_text_button.Bounds().x - m_x;
     int dy = m_text_button.Bounds().y + m_text_button.Bounds().h + 4 - m_y;
     int width = m_text_button.Bounds().w;
-    int height = -6 - m_text_button.Bounds().y - m_text_button.Bounds().h +
-                 m_second_text_button.Bounds().y;
+    int height =
+        -6 - m_text_button.Bounds().y - m_text_button.Bounds().h + m_second_text_button.Bounds().y;
     unsigned int visible_lines;
-    if (static_cast<int>(m_lines.size()) < height / static_cast<int>(static_cast<unsigned int>(
-                                                        g_dialog_interface_font->height()))) {
+    if (static_cast<int>(m_lines.size()) <
+        height / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()))) {
         m_scrollable = false;
         visible_lines = static_cast<int>(m_lines.size());
     } else {
-        int rows = height / static_cast<int>(
-                                static_cast<unsigned int>(g_dialog_interface_font->height()));
+        int rows =
+            height / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
         if (static_cast<int>(m_lines.size()) > rows) {
             width = width + (-7 - m_up_button.Bounds().w);
             m_scrollable = true;
@@ -338,15 +346,15 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     m_slider_button.SetVisible(m_scrollable);
     m_third_text_button.SetVisible(m_scrollable);
     if (m_scrollable) {
-        m_up_button.SetPosition( m_x + dx + 4 + width, m_y + 4 + dy);
-        m_down_button.SetPosition( m_x + dx + 4 + width,
-                          m_y + dy + height - m_down_button.Bounds().h - 4);
-        m_slider_button.SetPosition( m_x + dx + 4 + width,
-            m_area_button.Bounds().h +
-                ((height - m_up_button.Bounds().h - m_down_button.Bounds().h - 7) *
-                 m_selected_line) /
-                    static_cast<int>(m_lines.size()) +
-                m_y + 3 + dy);
+        m_up_button.SetPosition(m_x + dx + 4 + width, m_y + 4 + dy);
+        m_down_button.SetPosition(m_x + dx + 4 + width,
+                                  m_y + dy + height - m_down_button.Bounds().h - 4);
+        m_slider_button.SetPosition(m_x + dx + 4 + width, m_area_button.Bounds().h +
+                                                              ((height - m_up_button.Bounds().h -
+                                                                m_down_button.Bounds().h - 7) *
+                                                               m_selected_line) /
+                                                                  static_cast<int>(m_lines.size()) +
+                                                              m_y + 3 + dy);
         const int fill_left = m_x + width + dx;
         const int fill_top = m_y + dy + m_up_button.Bounds().h;
         const SDL_Rect fill{fill_left, fill_top, m_up_button.Bounds().w,
@@ -370,9 +378,10 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
         m_cancel_button.m_dirty = true;
         m_cancel_button.Draw(target);
     }
-    if (!m_scrollable)
+    if (!m_scrollable) {
         m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty =
             m_third_text_button.m_dirty = false;
+    }
     rect = m_area_button.Bounds();
     {
         SDL_Rect text_clip{rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6};
@@ -388,8 +397,7 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
                 const int top = m_y + g_dialog_interface_font->height() * index + 2 + dy;
                 const SDL_Rect selection{m_x + 3 + dx, top, width - 6,
                                          g_dialog_interface_font->height() - 2};
-                SDL_FillSurfaceRect(&target, &selection,
-                                    Get16BPPColor(m_fill_colour));
+                SDL_FillSurfaceRect(&target, &selection, Get16BPPColor(m_fill_colour));
             }
             DrawText(target, *g_dialog_interface_font,
                      {m_x + 3 + dx,
@@ -416,7 +424,9 @@ bool W8ListBoxDialog::ProcessInput()
                 return route();
             },
     });
-    if (!m_keep_open) EndModalInput();
+    if (!m_keep_open) {
+        EndModalInput();
+    }
     return m_keep_open;
 }
 
@@ -446,10 +456,7 @@ static DesignRect g_split_amount_field_bounds = {0xbe, 0x35, 0xf4, 0x41};
 static int g_split_amount_string_ids[3] = {265, 266, 267};
 
 // FUNCTION: WIZ8 0x005d97d0
-W8SplitAmountDialog::W8SplitAmountDialog()
-    : W8SplitAmountDialog(0)
-{
-}
+W8SplitAmountDialog::W8SplitAmountDialog() : W8SplitAmountDialog(0) {}
 
 // FUNCTION: WIZ8 0x005d9890
 W8SplitAmountDialog::W8SplitAmountDialog(int total)
@@ -465,8 +472,12 @@ void W8SplitAmountDialog::DestroyControls()
 {
     m_active_field = nullptr;
     m_split_input.reset();
-    for (auto& text : m_text_buffers) text.reset();
-    for (auto& button : m_buttons) button.reset();
+    for (auto& text : m_text_buffers) {
+        text.reset();
+    }
+    for (auto& button : m_buttons) {
+        button.reset();
+    }
     W8DialogBase::DestroyControls();
 }
 
@@ -478,7 +489,9 @@ W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 // FUNCTION: WIZ8 0x005d99f0
 int W8SplitAmountDialog::CreateControls()
 {
-    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
+    if (int error = W8DialogBase::CreateControls(); error != 0) {
+        return error;
+    }
     m_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
         DestroyControls();
@@ -505,7 +518,9 @@ bool W8SplitAmountDialog::CreateButtons()
 {
     int index;
 
-    for (auto& button : m_buttons) button = std::make_unique<W8ButtonWidget>(InputLayer());
+    for (auto& button : m_buttons) {
+        button = std::make_unique<W8ButtonWidget>(InputLayer());
+    }
     if (!m_buttons[0]->Configure(
             "Data\\Dialogs\\popup_splititem.sti", {0xc, 9, 10, 0xd, 0xb},
             {.on_click = [this](W8ButtonWidget*) { DecreaseAmount(1); },
@@ -558,8 +573,8 @@ bool W8SplitAmountDialog::CreateTextBuffers()
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
         m_text_buffers[index] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
-            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
+            &bounds, g_localized_strings[g_split_amount_string_ids[index]],
+            g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
     }
     return true;
 }
@@ -586,7 +601,9 @@ void W8SplitAmountDialog::Draw(SDL_Surface& target)
     int index;
 
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized && CreateControls() != 0) return;
+        if (!m_initialized && CreateControls() != 0) {
+            return;
+        }
         for (index = 0; index < 6; ++index) {
             m_buttons[index]->m_dirty = true;
         }
@@ -696,8 +713,9 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
 // FUNCTION: WIZ8 0x005da180
 bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input))
+    if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input)) {
         return true;
+    }
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         int key = toupper(input->key);
         if (key == 0x1b) {
@@ -1184,7 +1202,9 @@ bool W8TriggerItemPickerDialog::ProcessInput()
                 return route();
             },
     });
-    if (!m_keep_open) EndModalInput();
+    if (!m_keep_open) {
+        EndModalInput();
+    }
     return m_keep_open;
 }
 
@@ -1237,8 +1257,8 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         m_buttons[9]->SetPosition(m_buttons[12]->Bounds().x + 4, m_buttons[12]->Bounds().y + 3);
         m_buttons[9]->Draw(target);
         m_buttons[10]->SetPosition(m_buttons[9]->Bounds().x, m_buttons[12]->Bounds().y +
-                                                             m_buttons[12]->Bounds().h - 4 -
-                                                             m_buttons[10]->Bounds().h);
+                                                                 m_buttons[12]->Bounds().h - 4 -
+                                                                 m_buttons[10]->Bounds().h);
         m_buttons[10]->Draw(target);
 
         int progress = 0;
@@ -1296,17 +1316,16 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         }
         W8WorldItem* world_item = items[item_index];
         W8ItemInstance* item = &world_item->item;
-        DrawSprite(target, g_item_video_objects.Sprites(item->iItemNo), 0,
-                   button->Bounds().x + 2, button->Bounds().y + 2);
+        DrawSprite(target, g_item_video_objects.Sprites(item->iItemNo), 0, button->Bounds().x + 2,
+                   button->Bounds().y + 2);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);
-            DrawText(target, g_wiz_text_font,
-                     {button->Bounds().x + 0x3c, button->Bounds().y + 6},
+            DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
                      fmt::format("{}({:d})", name, item->stack_count));
         } else {
             auto name = GetItemDisplayName(item);
-            DrawText(target, g_wiz_text_font,
-                     {button->Bounds().x + 0x3c, button->Bounds().y + 6}, name);
+            DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
+                     name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
         DrawText(target, g_wiz_text_font,

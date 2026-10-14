@@ -23,7 +23,9 @@ public:
 
     struct Input {
         Input(const glm::mat4& model_view, const glm::mat4& normal_matrix)
-            : model_view(model_view), normal_matrix(normal_matrix) {}
+            : model_view(model_view), normal_matrix(normal_matrix)
+        {
+        }
 
         std::span<const w8_ulong> active_vertices;
         bool direct_vertex_indices = false;
@@ -86,8 +88,7 @@ public:
     static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
     getShaderDisableMask(const srShader& shader);
     static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
-    getShaderDisableMask(const srShader* shader, const w8_ulong* channels,
-                         w8_ulong channel_count);
+    getShaderDisableMask(const srShader* shader, const w8_ulong* channels, w8_ulong channel_count);
     SR_DLL_IMPORT std::span<glm::vec4> getSpecular();
     SR_DLL_IMPORT void* getUserArray(w8_ulong index);
     w8_ulong getVertexCount() const;
@@ -140,10 +141,8 @@ private:
     SR_DLL_IMPORT void finishDiffuseAlpha();
     SR_DLL_IMPORT void finishSpecularFog();
     SR_DLL_IMPORT void processVertexBuffer();
-    static SR_DLL_IMPORT w8_ulong scanChangeIndexed(const w8_ulong* first,
-                                                         w8_ulong first_count,
-                                                         const w8_ulong* second,
-                                                         w8_ulong second_count);
+    static SR_DLL_IMPORT w8_ulong scanChangeIndexed(const w8_ulong* first, w8_ulong first_count,
+                                                    const w8_ulong* second, w8_ulong second_count);
     SR_DLL_IMPORT void setMaterial(srMaterialIFace* material);
     SR_DLL_IMPORT void setupAlpha();
     SR_DLL_IMPORT void setupDepthCue();
@@ -182,32 +181,33 @@ private:
     alignas(16) Scratch scratch;
     /* Borrowed processors selected for this invocation; the pipe owns only the list. */
     std::vector<srVertexProcessor*> active_processors;
-    w8_ulong channel_mask;                    /* 0x0c */
-    w8_ulong lazy_setup_mask;                 /* 0x10 */
+    w8_ulong channel_mask; /* 0x0c */
+    w8_ulong lazy_setup_mask; /* 0x10 */
     srVertexProcessor::MaterialInfo material_info; /* 0x14 through 0x67 */
-    srMaterialIFace* material;                     /* 0x68 */
-    const Input* input;                            /* 0x6c */
-    const w8_ulong* avt;                      /* 0x70 */
-    const Record* current_record;                  /* 0x74 */
-    srVertexArray* vertex_array;                   /* 0x78 */
-    glm::vec4* eye_space_locations;        /* 0x7c */
-    w8_ulong batch_base;                      /* 0x80 */
-    w8_ulong sub_batch_offset;                /* 0x84 */
-    w8_ulong vertex_count;                    /* 0x88 */
-    w8_ulong batch_count;                     /* 0x8c */
+    srMaterialIFace* material; /* 0x68 */
+    const Input* input; /* 0x6c */
+    const w8_ulong* avt; /* 0x70 */
+    const Record* current_record; /* 0x74 */
+    srVertexArray* vertex_array; /* 0x78 */
+    glm::vec4* eye_space_locations; /* 0x7c */
+    w8_ulong batch_base; /* 0x80 */
+    w8_ulong sub_batch_offset; /* 0x84 */
+    w8_ulong vertex_count; /* 0x88 */
+    w8_ulong batch_count; /* 0x8c */
 private:
     using SetupChannel = void (srVertexPipe::*)();
     template<class T, std::size_t Count>
     std::span<const T> scratchChannel(const T (&values)[Count], w8_ulong ready, SetupChannel setup)
     {
-        if ((scratch.flags & ready) == 0) (this->*setup)();
+        if ((scratch.flags & ready) == 0) {
+            (this->*setup)();
+        }
         return std::span<const T>(values).subspan(sub_batch_offset, vertex_count);
     }
     void prepareOutputChannel(srVertexProcessor::e_channel channel, w8_ulong& operations,
                               SetupChannel setup);
     void copyColorChannel(std::span<const glm::vec4> source, glm::vec4* destination,
                           srVertexProcessor::e_channel channel);
-
 };
 
 // FUNCTION: SURRENDER 0x1002C4B0 SYMBOL
@@ -228,7 +228,8 @@ inline int srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel
 // RECOMP: ?getEyeSpaceNormal@srVertexPipe@@QAEPBV?$srVector3T@M@@XZ
 inline std::span<const glm::vec3> srVertexPipe::getEyeSpaceNormal()
 {
-    return scratchChannel(scratch.normals, Scratch::READY_EYE_NORMALS, &srVertexPipe::setupEyeSpaceNormal);
+    return scratchChannel(scratch.normals, Scratch::READY_EYE_NORMALS,
+                          &srVertexPipe::setupEyeSpaceNormal);
 }
 
 inline glm::vec2* srVertexPipe::getST(w8_ulong index, int create)

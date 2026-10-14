@@ -11,8 +11,10 @@
 class stModelInstance;
 struct W8ReadLevelInfo;
 struct W8World;
-namespace wiz8 { class File; }
-template <class T> class srVector3T;
+namespace wiz8 {
+class File;
+}
+template<class T> class srVector3T;
 
 struct W8AniMesh {
     W8AniMesh();

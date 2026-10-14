@@ -33,3 +33,4 @@ ReflowComments: false
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
+SpaceAfterTemplateKeyword: false

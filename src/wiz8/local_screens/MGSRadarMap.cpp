@@ -213,7 +213,9 @@ void RefreshRadarMap(void)
 
     const auto map_artwork = CatalogArtwork::Load(g_radar_zoomed ? 0xa3 : 0xa4);
     auto map_surface = RenderSpriteToImage(*map_artwork.spriteSheet(), 0);
-    if (!map_surface) return;
+    if (!map_surface) {
+        return;
+    }
     if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* row = &g_status.buffers.XChar[slot];
@@ -221,7 +223,9 @@ void RefreshRadarMap(void)
 
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index, g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y);
+                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index,
+                                                   g_radar_cell_offsets[cell].x,
+                                                   g_radar_cell_offsets[cell].y);
             }
         }
     }
@@ -229,10 +233,14 @@ void RefreshRadarMap(void)
     const auto frame_artwork =
         CatalogArtwork::Load(g_level_block->radar_map_alternate ? 0xa2 : 0xa1);
     auto frame_surface = RenderSpriteToImage(*frame_artwork.spriteSheet(), 0);
-    if (!frame_surface) return;
+    if (!frame_surface) {
+        return;
+    }
     const auto compass_artwork = CatalogArtwork::Load(0x9b);
     auto compass_surface = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
-    if (!compass_surface) return;
+    if (!compass_surface) {
+        return;
+    }
 
     g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_radar_compass, 0x1e, 0x167);
@@ -420,8 +428,8 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    const float angle = static_cast<float>(360 - g_status.party_facing) *
-                        (std::numbers::pi_v<float> / 180.0f);
+    const float angle =
+        static_cast<float>(360 - g_status.party_facing) * (std::numbers::pi_v<float> / 180.0f);
     *delta = glm::rotateY(delta->glmValue(), angle);
     delta->y = 0.0f;
 

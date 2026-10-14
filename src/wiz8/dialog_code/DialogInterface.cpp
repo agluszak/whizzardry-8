@@ -44,7 +44,6 @@ void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
     g_dialog_font_background = background;
 }
 
-
 // FUNCTION: WIZ8 0x005CF4F0
 void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text)
 {

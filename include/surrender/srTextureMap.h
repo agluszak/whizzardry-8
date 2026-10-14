@@ -8,8 +8,7 @@
 
 // VTABLE: SURRENDER 0x10077578 srTextureMap
 // class srTextureMap
-class SR_DLL_IMPORT srTextureMap
-    : public srClassSupport<srTextureMap, srTexture, 0x2111> {
+class SR_DLL_IMPORT srTextureMap : public srClassSupport<srTextureMap, srTexture, 0x2111> {
 public:
     virtual ~srTextureMap() override;
     srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface = {});
@@ -35,4 +34,3 @@ protected:
     std::shared_ptr<srColorSurfaceIFace> surface;
     w8_ulong frame_handle; /* 0x58: ctor stores getNewFrameHandle() */
 };
-

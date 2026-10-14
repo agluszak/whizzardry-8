@@ -17,7 +17,7 @@ class Trigger;
 class srModelInstance;
 class stModelInstance;
 class srNode;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* Bit masks in W8ItemRep::flags and the saved W8WorldItem::entity_flags.
    The world item's own flags are a separate domain. */

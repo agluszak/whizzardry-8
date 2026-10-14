@@ -28,8 +28,8 @@ TEST_CASE("resource_text_test")
     w8_native::configure_paths({(root / "assets").string(), (root / "user").string(), {}});
     wiz8::create_directory("Data/Databases");
     const std::string long_line = "SOUND " + std::string(600, 'x') + "é";
-    write_text("Data/script.txt", "* comment\r\n\r\nStart:\r\n  " + long_line +
-               "\r\nSTART:\r\nend");
+    write_text("Data/script.txt",
+               "* comment\r\n\r\nStart:\r\n  " + long_line + "\r\nSTART:\r\nend");
     stScript script;
     REQUIRE((script.Load("Data/script.txt")));
     REQUIRE((script.lines.size() == 2 && script.labels.size() == 1));
@@ -59,10 +59,12 @@ TEST_CASE("resource_text_test")
     REQUIRE((srExit()));
 
     std::string attacks;
-    for (int i = 0; i < 38; ++i) attacks += "attack * comment\r\n";
+    for (int i = 0; i < 38; ++i) {
+        attacks += "attack * comment\r\n";
+    }
     const std::string impact = "impact_" + std::string(300, 'x') + "é";
-    write_text("Data/Databases/HitSounds.txt", attacks + "# metal\r\n" + impact +
-               " * comment\r\nsecond\r\n# wood\r\nwood");
+    write_text("Data/Databases/HitSounds.txt",
+               attacks + "# metal\r\n" + impact + " * comment\r\nsecond\r\n# wood\r\nwood");
     REQUIRE((LoadHitSoundDatabase()));
     REQUIRE((GetMaterialImpactSound(0, 0) == impact));
     REQUIRE((GetMaterialImpactSound(1, 0) == "second"));

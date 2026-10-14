@@ -19,8 +19,7 @@ struct GroundShadowProjection {
         const glm::mat2 scale(0.5f / width, 0, 0, 0.5f / depth);
         const auto transform = scale * rotation;
         // The original second coordinate exchanges x/z relative to the first.
-        matrix = glm::mat2(transform[0][0], transform[1][1],
-                            transform[1][0], transform[0][1]);
+        matrix = glm::mat2(transform[0][0], transform[1][1], transform[1][0], transform[0][1]);
     }
 
     glm::vec2 coordinates(const glm::vec3& position) const

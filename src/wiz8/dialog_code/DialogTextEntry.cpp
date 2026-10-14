@@ -22,8 +22,9 @@ unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 // FUNCTION: WIZ8 0x005d1050
 W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text,
                                      unsigned int prefix_palette, unsigned int text_palette,
-                                     const W8ControlsRect* bounds, Font& font, unsigned char category,
-                                     unsigned int layout_mode, unsigned char shorten)
+                                     const W8ControlsRect* bounds, Font& font,
+                                     unsigned char category, unsigned int layout_mode,
+                                     unsigned char shorten)
 {
     m_prefix_palette = prefix_palette;
     m_font = &font;
@@ -42,7 +43,8 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     UpdateLayout();
 }
 
-int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int prefix_remaining, int y)
+int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int prefix_remaining,
+                                int y)
 {
     int x = GetHorizontalPosition(m_font->textWidth(line));
     if (prefix_remaining > 0) {
@@ -51,9 +53,8 @@ int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int 
             DrawText(target, *m_font, {x, y}, prefix);
             x += m_font->textWidth(prefix);
             if (!m_selected) {
-                m_font->setPalette(m_text_palette < 15
-                                      ? g_font_state_palettes[m_text_palette]
-                                      : g_wiz_text_font_secondary.glyphs->colors);
+                m_font->setPalette(m_text_palette < 15 ? g_font_state_palettes[m_text_palette]
+                                                       : g_wiz_text_font_secondary.glyphs->colors);
             }
             line.remove_prefix(prefix_remaining);
         }
@@ -103,9 +104,13 @@ void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
     for (;;) {
         const auto end = remaining.find('\n');
         prefix_remaining = DrawLine(target, remaining.substr(0, end), prefix_remaining, y);
-        if (end == std::string_view::npos) break;
+        if (end == std::string_view::npos) {
+            break;
+        }
         y += GetLineHeight();
-        if (m_layoutBounds.bottom <= y) break;
+        if (m_layoutBounds.bottom <= y) {
+            break;
+        }
         remaining.remove_prefix(end + 1);
     }
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,

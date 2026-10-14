@@ -209,7 +209,6 @@ bool OnSecurityButtonActivated(Trigger* trigger)
     return true;
 }
 
-
 bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate* gate)
 {
     g_remove_current_master_function = false;

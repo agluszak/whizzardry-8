@@ -13,7 +13,9 @@
 
 class W8Prop;
 struct W8PathAI;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 extern unsigned int g_light_update_flags;
 

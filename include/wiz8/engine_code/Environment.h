@@ -17,10 +17,12 @@ unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 
 class stTextureAnim;
 class W8Prop;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 struct EnvironmentColour;
 struct W8World;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* Environment.cpp. The vertex processor that scrolls the first texture
    coordinate set of the sky's AnimatedCloudMaterial by a fixed per-frame

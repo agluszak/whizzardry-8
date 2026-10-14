@@ -46,13 +46,18 @@ void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info);
 
 namespace {
 
-static srPixelConvert::ConversionFunctions GenericConversionFunctions(srPixelConvert::e_colorModel model)
+static srPixelConvert::ConversionFunctions
+GenericConversionFunctions(srPixelConvert::e_colorModel model)
 {
     switch (model) {
-    case srPixelConvert::COLOR_RGB: return {writeRGB, readRGB};
-    case srPixelConvert::COLOR_YUV: return {writeYUV, readYUV};
-    case srPixelConvert::COLOR_INTENSITY: return {writeIntensity, readIntensity};
-    case srPixelConvert::COLOR_INDEXED: return {writeIndexed, readIndexed};
+    case srPixelConvert::COLOR_RGB:
+        return {writeRGB, readRGB};
+    case srPixelConvert::COLOR_YUV:
+        return {writeYUV, readYUV};
+    case srPixelConvert::COLOR_INTENSITY:
+        return {writeIntensity, readIntensity};
+    case srPixelConvert::COLOR_INDEXED:
+        return {writeIndexed, readIndexed};
     }
     return {};
 }
@@ -114,8 +119,6 @@ const glm::vec3 yuvToRGB[3] = {
     glm::vec3(1.0f, -0.272f, -0.647f),
     glm::vec3(1.0f, -1.108f, 1.705f),
 };
-
-
 
 // GLOBAL: SURRENDER 0x100A2BFC
 unsigned char lutExpand128[128];
@@ -229,8 +232,6 @@ void __cdecl initPixelTables(void)
         lutReduce4[i] = static_cast<unsigned char>(value * 3.0 + 0.5);
         lutReduce2[i] = static_cast<unsigned char>(value * 1.0 + 0.5);
     }
-
-
 }
 
 namespace {
@@ -354,12 +355,16 @@ std::string srPixelConvert::PixelFormat::getName() const
     }
 
     std::string name;
-    for (int k = 0; k < 4; k++)
-        if (bits[k] != 0)
+    for (int k = 0; k < 4; k++) {
+        if (bits[k] != 0) {
             name.push_back(channel_letters[color_model * 4 + order[k]]);
-    for (int j = 0; j < 4; j++)
-        if (bits[j] != 0)
+        }
+    }
+    for (int j = 0; j < 4; j++) {
+        if (bits[j] != 0) {
             name.push_back(static_cast<char>(bits[j] + '0'));
+        }
+    }
     name += '/';
     name += std::to_string(pixel_size * 8 + 8);
     return name;
@@ -371,14 +376,20 @@ static glm::vec4 channelBitCounts(const srPixelConvert::PixelFormat& format)
 }
 
 // FUNCTION: SURRENDER 0x10008020
-std::optional<std::size_t> srPixelConvert::PixelFormat::match(
-    std::span<const PixelFormat> formats) const
+std::optional<std::size_t>
+srPixelConvert::PixelFormat::match(std::span<const PixelFormat> formats) const
 {
-    if (formats.empty()) return std::nullopt;
-    if (formats.size() == 1) return 0;
+    if (formats.empty()) {
+        return std::nullopt;
+    }
+    if (formats.size() == 1) {
+        return 0;
+    }
     if (fourcc != 0) {
         const auto exact = std::ranges::find(formats, fourcc, &PixelFormat::fourcc);
-        if (exact != formats.end()) return exact - formats.begin();
+        if (exact != formats.end()) {
+            return exact - formats.begin();
+        }
     }
     const auto wanted = channelBitCounts(*this);
     const auto required = glm::min(wanted, glm::vec4(1));
@@ -388,8 +399,9 @@ std::optional<std::size_t> srPixelConvert::PixelFormat::match(
     for (std::size_t index = 0; index < formats.size(); ++index) {
         const auto& candidate = formats[index];
         const auto bits = channelBitCounts(candidate);
-        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required)))
+        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required))) {
             continue;
+        }
         // Only shortfall costs distance; byte-sized channel counts score exactly in float.
         const auto shortfall = glm::min(bits - wanted, glm::vec4(0));
         const auto distance = glm::dot(shortfall, shortfall);
@@ -400,7 +412,9 @@ std::optional<std::size_t> srPixelConvert::PixelFormat::match(
             best_bytes = candidate.pixel_size;
         }
     }
-    if (best) return best;
+    if (best) {
+        return best;
+    }
     // No compatible class: retain the first widest format.
     return std::ranges::max_element(formats, {}, &PixelFormat::pixel_size) - formats.begin();
 }
@@ -431,10 +445,12 @@ srPixelConvert::PixelFormat srPixelConvert::pixelFormat(e_surfaceType type)
 srPixelConvert::ConversionFunctions srPixelConvert::selectFuncs(const PixelFormat& format)
 {
     initFormats();
-    const auto entry = std::find_if(std::begin(format_table), std::end(format_table),
-        [&](const FormatEntry& candidate) { return candidate.format == format; });
-    if (entry != std::end(format_table))
+    const auto entry =
+        std::find_if(std::begin(format_table), std::end(format_table),
+                     [&](const FormatEntry& candidate) { return candidate.format == format; });
+    if (entry != std::end(format_table)) {
         return {entry->write, entry->read};
+    }
 
     return GenericConversionFunctions(format.color_model);
 }
@@ -455,7 +471,8 @@ static void ConvertPixelRun(const srPixelConvert::ConversionInfo& info, unsigned
         w8_ulong pixel = 0;
         std::memcpy(&pixel, source + index * source_bytes, source_bytes);
         const auto output = convert(pixel, index);
-        std::memcpy(destination + output.index * destination_bytes, &output.value, destination_bytes);
+        std::memcpy(destination + output.index * destination_bytes, &output.value,
+                    destination_bytes);
     }
 }
 
@@ -466,25 +483,39 @@ struct PackedChannel {
     const unsigned char* reduce_table;
 
     PackedChannel(unsigned bits, unsigned shift)
-        : shift(shift), mask((1u << bits) - 1),
-          expand_table(channel_expand[bits]), reduce_table(channel_reduce[bits]) {}
-    w8_ulong extract(w8_ulong pixel) const { return (pixel >> shift) & mask; }
-    w8_ulong expand(w8_ulong pixel) const { return expand_table[extract(pixel)]; }
-    w8_ulong reduce(unsigned value) const { return w8_ulong(reduce_table[value]) << shift; }
+        : shift(shift), mask((1u << bits) - 1), expand_table(channel_expand[bits]),
+          reduce_table(channel_reduce[bits])
+    {
+    }
+    w8_ulong extract(w8_ulong pixel) const
+    {
+        return (pixel >> shift) & mask;
+    }
+    w8_ulong expand(w8_ulong pixel) const
+    {
+        return expand_table[extract(pixel)];
+    }
+    w8_ulong reduce(unsigned value) const
+    {
+        return w8_ulong(reduce_table[value]) << shift;
+    }
 };
 
 struct PackedChannels {
     PackedChannel red, green, blue, alpha;
     explicit PackedChannels(const srPixelConvert::PixelFormat& format)
         : red(format.red_bits, format.red_shift), green(format.green_bits, format.green_shift),
-          blue(format.blue_bits, format.blue_shift), alpha(format.alpha_bits, format.alpha_shift) {}
+          blue(format.blue_bits, format.blue_shift), alpha(format.alpha_bits, format.alpha_shift)
+    {
+    }
     glm::uvec4 expand(w8_ulong pixel) const
     {
         return {red.expand(pixel), green.expand(pixel), blue.expand(pixel), alpha.expand(pixel)};
     }
     w8_ulong reduce(const glm::uvec4& value) const
     {
-        return red.reduce(value.r) | green.reduce(value.g) | blue.reduce(value.b) | alpha.reduce(value.a);
+        return red.reduce(value.r) | green.reduce(value.g) | blue.reduce(value.b) |
+               alpha.reduce(value.a);
     }
 };
 
@@ -517,7 +548,8 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
         const auto y = srFloatToInt(yuv.x), u = srFloatToInt(yuv.y), v = srFloatToInt(yuv.z);
         const auto index = channels.green.reduce((u >> 8) & 255);
         return PixelAt{channels.red.reduce((y >> 16) & 255) | index |
-                       channels.blue.reduce(v & 255) | channels.alpha.reduce(color.a), index};
+                           channels.blue.reduce(v & 255) | channels.alpha.reduce(color.a),
+                       index};
     });
 }
 
@@ -535,7 +567,8 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
         const glm::vec3 yuv(color);
         const glm::vec3 rgb(glm::dot(yuvToRGB[0], yuv), glm::dot(yuvToRGB[1], yuv),
                             glm::dot(yuvToRGB[2], yuv));
-        return PixelAt{srPixels::pack({clampChannel(rgb.x), clampChannel(rgb.y), clampChannel(rgb.z), color.a}),
+        return PixelAt{srPixels::pack({clampChannel(rgb.x), clampChannel(rgb.y),
+                                       clampChannel(rgb.z), color.a}),
                        color.g};
     });
 }
@@ -557,7 +590,8 @@ void __cdecl writeIndexed(const srPixelConvert::ConversionInfo& info)
         quantized.blue = color.b;
         quantized.alpha = bytes <= 2 ? 0 : color.a;
         return PixelAt{w8_ulong(info.palette->quantize(quantized)) << format.red_shift |
-                       alpha.reduce(color.a), index};
+                           alpha.reduce(color.a),
+                       index};
     });
 }
 
@@ -572,7 +606,8 @@ void __cdecl readIndexed(const srPixelConvert::ConversionInfo& info)
     /* reinterpret-ok: palette entries are packed srARGB dwords. */
     const auto* palette = reinterpret_cast<const w8_ulong*>(info.palette->getPaletteDataPtr());
     ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong index) {
-        return PixelAt{(palette[palette_index.extract(pixel)] & 0xffffff) | alpha.expand(pixel) << 24, index};
+        return PixelAt{
+            (palette[palette_index.extract(pixel)] & 0xffffff) | alpha.expand(pixel) << 24, index};
     });
 }
 
@@ -608,11 +643,12 @@ static SDL_PixelFormat byteChannelFormat(const srPixelConvert::PixelFormat& f)
 {
     if (f.red_bits != 8 || f.green_bits != 8 || f.blue_bits != 8 ||
         !((f.pixel_size == srPixelConvert::PIXEL_SIZE_24 && f.alpha_bits == 0) ||
-          (f.pixel_size == srPixelConvert::PIXEL_SIZE_32 && f.alpha_bits == 8)))
+          (f.pixel_size == srPixelConvert::PIXEL_SIZE_32 && f.alpha_bits == 8))) {
         return SDL_PIXELFORMAT_UNKNOWN;
-    return SDL_GetPixelFormatForMasks((f.pixel_size + 1) * 8,
-        255u << f.red_shift, 255u << f.green_shift, 255u << f.blue_shift,
-        f.alpha_bits ? 255u << f.alpha_shift : 0);
+    }
+    return SDL_GetPixelFormatForMasks((f.pixel_size + 1) * 8, 255u << f.red_shift,
+                                      255u << f.green_shift, 255u << f.blue_shift,
+                                      f.alpha_bits ? 255u << f.alpha_shift : 0);
 }
 
 void __cdecl writeRGB(const srPixelConvert::ConversionInfo& info)
@@ -648,13 +684,15 @@ void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000A8C0
 void __cdecl writeRGB24(const srPixelConvert::ConversionInfo& info)
 {
-    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGB24);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888,
+                     SDL_PIXELFORMAT_RGB24);
 }
 
 // FUNCTION: SURRENDER 0x1000A900
 void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info)
 {
-    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGB24, SDL_PIXELFORMAT_ARGB8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGB24,
+                     SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_BGRA32] write/read: straight dword copy for BGRA32. */
@@ -678,7 +716,8 @@ void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000A9E0
 void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_XRGB8888, SDL_PIXELFORMAT_ARGB8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_XRGB8888,
+                     SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_RGBA32] write/read: rotate each BGRA pixel one byte lane so
@@ -686,13 +725,15 @@ void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000AA10
 void __cdecl writeABGR(const srPixelConvert::ConversionInfo& info)
 {
-    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGBA8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888,
+                     SDL_PIXELFORMAT_RGBA8888);
 }
 
 // FUNCTION: SURRENDER 0x1000AB70
 void __cdecl readABGR(const srPixelConvert::ConversionInfo& info)
 {
-    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGBA8888, SDL_PIXELFORMAT_ARGB8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGBA8888,
+                     SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_RGB555] write/read: 32-bit BGRA packed to RGB555 through the
@@ -702,8 +743,9 @@ void __cdecl writeRGB555(const srPixelConvert::ConversionInfo& info)
 {
     ConvertPixelRun(info, 4, 2, [](w8_ulong pixel, w8_ulong index) {
         const auto color = srPixels::channels(pixel);
-        return PixelAt{w8_ulong(lutReduce32[color.r]) << 10 |
-                       w8_ulong(lutReduce32[color.g]) << 5 | lutReduce32[color.b], index};
+        return PixelAt{w8_ulong(lutReduce32[color.r]) << 10 | w8_ulong(lutReduce32[color.g]) << 5 |
+                           lutReduce32[color.b],
+                       index};
     });
 }
 
@@ -718,7 +760,8 @@ void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info)
 {
     ConvertPixelRun(info, 2, 4, [](w8_ulong pixel, w8_ulong index) {
         return PixelAt{0xff000000 | w8_ulong(expandRGB555Red(pixel)) << 16 |
-                       w8_ulong(lutExpand5And6.expand32[pixel >> 5 & 0x1f]) << 8 |
-                       lutExpand5And6.expand32[pixel & 0x1f], index};
+                           w8_ulong(lutExpand5And6.expand32[pixel >> 5 & 0x1f]) << 8 |
+                           lutExpand5And6.expand32[pixel & 0x1f],
+                       index};
     });
 }

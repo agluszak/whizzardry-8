@@ -78,7 +78,6 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
 }
 #endif
 
-
 #define _strupr w8_strupr
 #define strupr w8_strupr
 #define _strlwr w8_strlwr

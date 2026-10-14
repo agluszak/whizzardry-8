@@ -229,8 +229,7 @@ void UpdateHeldItemCursor(void)
 void ApplyCurrentCursor(void)
 {
     if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
-        srAssertFail("gXStatus.iCurrentCursor != -1",
-                     __FILE__, 0x18d, 0);
+        srAssertFail("gXStatus.iCurrentCursor != -1", __FILE__, 0x18d, 0);
     }
     if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
         ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
@@ -291,7 +290,8 @@ void SetItemCursor(int overlay_video_object)
 }
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
-void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
+void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
+                    bool cancel)
 {
     switch (g_current_screen_state.id) {
     case W8_SCREEN_CAMP:
@@ -339,7 +339,8 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->enchantment_orb_party_slot = -1;
     g_level_block->condition_highlight_party_slot = -1;
     g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
-    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
+    g_level_block->dialogue_content_region =
+        CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;

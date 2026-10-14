@@ -11,7 +11,9 @@ template<class Enum, std::size_t N>
 static void resolveDefault(Enum& stored, w8_ulong (&map)[N], Enum requested, Enum fallback,
                            Enum default_value)
 {
-    if (requested == default_value) requested = fallback;
+    if (requested == default_value) {
+        requested = fallback;
+    }
     stored = requested;
     map[static_cast<std::size_t>(default_value)] = map[static_cast<std::size_t>(requested)];
 }

@@ -8,4 +8,3 @@ public:
     virtual int isActive(srVertexPipe& pipe) override;
     virtual void process(srVertexPipe& pipe) override;
 };
-

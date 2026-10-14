@@ -36,7 +36,6 @@
 #include "himage.h"
 #include "image.h"
 
-
 /* The screen's own state. */
 // GLOBAL: WIZ8 0x0069c4ba
 bool g_main_menu_has_save_games;
@@ -54,30 +53,42 @@ static std::unique_ptr<W8MessageDialogBase> main_menu_dialog;
 namespace {
 // Retail right/bottom edges are inclusive; SDL extents include that last pixel.
 constexpr std::array<SDL_Rect, 6> main_menu_item_bounds = {{
-    {174, 138, 294, 45}, {140, 187, 362, 45}, {204, 235, 233, 45},
-    {239, 284, 165, 45}, {234, 335, 175, 45}, {279, 423, 86, 45},
+    {174, 138, 294, 45},
+    {140, 187, 362, 45},
+    {204, 235, 233, 45},
+    {239, 284, 165, 45},
+    {234, 335, 175, 45},
+    {279, 423, 86, 45},
 }};
 constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
-}
+} // namespace
 
 // The original six item rectangles are now screen-owned data, not global
 // region registrations. The load-game item uses the disabled sprite when
 // the party has no saves.
 unsigned char DrawMainMenuItem(short item, short state)
 {
-    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return 0;
-    if (item == 2 && !g_main_menu_has_save_games) state = 3;
+    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) {
+        return 0;
+    }
+    if (item == 2 && !g_main_menu_has_save_games) {
+        state = 3;
+    }
 
     const auto& bounds = main_menu_item_bounds[item];
-    if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
-        CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
+    if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size()) {
+        CatalogArtwork::Load(main_menu_sprite_objects[state], 0)
+            .draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
+    }
     InvalidateRegion(0x98, bounds.y, 0x1f2, bounds.y + bounds.h - 1);
     return 1;
 }
 
 static void DrawMainMenuItems()
 {
-    for (short item = 0; item < 6; ++item) DrawMainMenuItem(item, 0);
+    for (short item = 0; item < 6; ++item) {
+        DrawMainMenuItem(item, 0);
+    }
     DrawMainMenuItem(g_main_menu_selected_item, 1);
 }
 
@@ -87,7 +98,6 @@ static void SelectMainMenuItem(short item)
     g_main_menu_selected_item = item;
     DrawMainMenuItem(item, 1);
 }
-
 
 // The screen owns its input registrations; artwork stays in this file.
 namespace {
@@ -126,19 +136,24 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
     const bool available = item != 2 || g_main_menu_has_save_games;
     switch (event.action) {
     case UiPointerAction::Enter:
-        if (available) SelectMainMenuItem(item);
+        if (available) {
+            SelectMainMenuItem(item);
+        }
         break;
     case UiPointerAction::Leave:
         DrawMainMenuItem(g_main_menu_selected_item, 0);
         g_main_menu_selected_item = -1;
         break;
     case UiPointerAction::Down:
-        if (available && event.button == UiPointerButton::Left)
+        if (available && event.button == UiPointerButton::Left) {
             DrawMainMenuItem(g_main_menu_selected_item, 2);
+        }
         break;
     case UiPointerAction::Up:
         if (!available || event.button != UiPointerButton::Left ||
-            !(event.captured_buttons & SDL_BUTTON_LMASK)) break;
+            !(event.captured_buttons & SDL_BUTTON_LMASK)) {
+            break;
+        }
         DrawMainMenuItem(g_main_menu_selected_item, event.inside ? 1 : 0);
         if (event.inside) {
             AfterUiDispatch([item] { ActivateMainMenuItem(item); });
@@ -146,7 +161,8 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
             g_main_menu_selected_item = -1;
         }
         break;
-    default: break;
+    default:
+        break;
     }
     return UiResult::Handled;
 }
@@ -197,8 +213,8 @@ unsigned char MainMenuScreenEnter(void)
     CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
-        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE",
-                     __FILE__, 0x87, 0);
+        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE", __FILE__, 0x87,
+                     0);
     }
     if (g_previous_screen_id != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);

@@ -179,7 +179,8 @@ void LoadJournalEntries(wiz8::File& file)
 }
 
 // FUNCTION: WIZ8 0x005bdd00
-void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette, bool centered)
+void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette,
+                     bool centered)
 {
     int left;
     int right;
@@ -216,14 +217,15 @@ void JournalScreen::Refresh()
     if (!m_alternate_mode) {
         const int last_page = (static_cast<int>(g_journal_entries.size()) - 1) / 12;
         const int page_count = last_page + 1;
-        if (page_count != g_journal_page_count || g_journal_page < 0 || g_journal_page >= page_count) {
+        if (page_count != g_journal_page_count || g_journal_page < 0 ||
+            g_journal_page >= page_count) {
             g_journal_page_count = page_count;
             g_journal_page = last_page;
         }
         m_buttons[Next]->SetEnabled(g_journal_page < last_page);
         m_buttons[Previous]->SetEnabled(g_journal_page > 0);
         m_page_text->SetText(fmt::format("{:d} / {:d}", g_journal_page + 1, page_count),
-                            g_options_detail_font);
+                             g_options_detail_font);
     } else {
         m_buttons[Next]->SetEnabled(false);
         m_buttons[Previous]->SetEnabled(false);
@@ -291,8 +293,8 @@ void JournalScreen::DrawContent(SDL_Surface& target)
                 if (!disposition_name.empty()) {
                     DrawJournalLine(target, disposition_name, 0, y, 0, true);
                 }
-                DrawJournalLine(target, g_localized_strings[g_journal_faction_name_indices[index]], 1, y, 0,
-                                false);
+                DrawJournalLine(target, g_localized_strings[g_journal_faction_name_indices[index]],
+                                1, y, 0, false);
                 y += 0x1e;
             }
         }
@@ -309,7 +311,9 @@ JournalScreen::JournalScreen()
         const SDL_Rect bounds{origin.x, origin.y, size.x, size.y};
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
-        const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
+        const auto frame = [&](int index) {
+            return index < 0 ? -1 : index + artwork.imageOffset();
+        };
         button->Configure(artwork.spriteSheet(),
                           {frame(frames[4]), frame(frames[0]), frame(frames[2]), frame(frames[1]),
                            frame(frames[3])},
@@ -330,16 +334,20 @@ JournalScreen::JournalScreen()
     m_buttons[Close]->SetTooltipIndex(0x6ed);
     const auto size = m_bar.size(0);
     const W8ControlsRect bounds{0x66, 0x1bb, 0x66 + size.x, 0x1bb + size.y};
-    m_page_text = std::make_unique<W8TextBuffer>(&bounds, "", g_options_detail_font,
-        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    m_page_text =
+        std::make_unique<W8TextBuffer>(&bounds, "", g_options_detail_font,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 }
 
 void JournalScreen::Draw(SDL_Surface& target)
 {
     bool redraw_buttons = m_dirty;
-    for (auto& button : m_buttons)
+    for (auto& button : m_buttons) {
         redraw_buttons = button->m_dirty || redraw_buttons;
-    if (m_dirty) DrawContent(target);
+    }
+    if (m_dirty) {
+        DrawContent(target);
+    }
     if (redraw_buttons) {
         CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(target, 1, 0, 0x1b4);
         m_bar.drawAndInvalidate(target, 0, 0x66, 0x1bb);
@@ -356,7 +364,10 @@ void JournalScreen::Activate(JournalAction action)
 {
     switch (action) {
     case Previous:
-        if (g_journal_page > 0) { --g_journal_page; Refresh(); }
+        if (g_journal_page > 0) {
+            --g_journal_page;
+            Refresh();
+        }
         break;
     case Next:
         if (g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
@@ -364,7 +375,9 @@ void JournalScreen::Activate(JournalAction action)
             Refresh();
         }
         break;
-    case Close: RequestScreenTransition(); break;
+    case Close:
+        RequestScreenTransition();
+        break;
     case Mode:
         m_alternate_mode = m_buttons[Mode]->IsPressed();
         m_buttons[Mode]->SetTooltipIndex(m_alternate_mode ? 0x6ec : 0x6eb);
@@ -382,8 +395,9 @@ void JournalScreen::Activate(JournalAction action)
 // FUNCTION: WIZ8 0x005bddd0
 unsigned char JournalScreenInitialize(void)
 {
-    if (!g_journal_font.load("Data\\Journal\\journal_font.sti"))
+    if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) {
         return 0;
+    }
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
     return 1;
 }
@@ -423,7 +437,8 @@ unsigned char JournalScreenEnter(void)
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
         std::string description =
             entry.alternate_text ? fact->alternate_description : fact->description;
-        if ((g_journal_show_all || fact->visibility <= maximum_visibility) && !description.empty()) {
+        if ((g_journal_show_all || fact->visibility <= maximum_visibility) &&
+            !description.empty()) {
             g_journal_entries.push_back(entry);
         }
     }

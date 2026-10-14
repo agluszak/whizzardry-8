@@ -17,7 +17,6 @@
 #include "wiz8/filesystem.h"
 #include "mgs_commands.h"
 
-
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800
    asserts this unit (line 478); it is the only body placed here. */
 
@@ -48,7 +47,13 @@ static MGSKeyName g_mgs_key_names[] = {
 unsigned char MGSKeyboard::LoadDefaults(const char* path)
 {
     bool loaded_binding = false;
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file((char*)path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> handle = [&]() {
+        try {
+            return wiz8::open_file((char*)path, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Local Code\\InputMapper.cpp", 478,
                      fmt::format("Couldn't open keyboard init file {}", path));
@@ -57,7 +62,9 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
     std::string line;
     while (!(handle->tell() >= handle->size())) {
         auto line_result = ReadRetailTextLine(handle.get());
-        if (!line_result) break;
+        if (!line_result) {
+            break;
+        }
         line = std::move(*line_result);
         if (line.empty() || line[0] == '*') {
             continue;
@@ -116,7 +123,9 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         m_command_index.emplace(command, borrowed);
         loaded_binding = true;
     }
-    if (handle) handle->close();
+    if (handle) {
+        handle->close();
+    }
     handle.reset();
     return loaded_binding;
 }

@@ -116,8 +116,9 @@ stLight& stLight::operator=(const stLight& other)
 void stLight::traverse(srNode::TraverseInfo& info)
 {
     traverseEffect(info, [&] {
-        if (fabs(intensity) <= g_double_one_ten_thousandth || (g_light_update_flags & 1) == 0)
+        if (fabs(intensity) <= g_double_one_ten_thousandth || (g_light_update_flags & 1) == 0) {
             return EffectTraversal::childrenOnly;
+        }
         return m_definition ? EffectTraversal::active : EffectTraversal::skipSubtree;
     });
 }
@@ -201,8 +202,8 @@ void stLight::Update()
             index = definition->keyframe_index;
             const auto& color_to = definition->key_colors[index + 1];
             const auto& color_from = definition->key_colors[index];
-            diffuse = glm::min(glm::mix(color_from.glmValue(), color_to.glmValue(), blend),
-                               glm::vec3(1));
+            diffuse =
+                glm::min(glm::mix(color_from.glmValue(), color_to.glmValue(), blend), glm::vec3(1));
             return;
         }
         intensity = g_float_zero;

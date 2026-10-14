@@ -94,7 +94,9 @@ enum { NUM_RPC_RACES = 5 };
 // FUNCTION: WIZ8 0x005d6fb0
 W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
 {
-    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) m_buttons.emplace_back(InputLayer());
+    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
+        m_buttons.emplace_back(InputLayer());
+    }
     int index;
 
     SetExtent(0x180, 0x11d);
@@ -150,7 +152,9 @@ int W8AssayDialog::CreateControls()
             m_buttons[3].SetPressed(true);
             return 0;
         }
-        for (auto& button : m_buttons) button.Reset();
+        for (auto& button : m_buttons) {
+            button.Reset();
+        }
     }
     m_error = 7;
     return 7;
@@ -160,7 +164,9 @@ int W8AssayDialog::CreateControls()
 void W8AssayDialog::DestroyControls()
 {
     W8DialogBase::DestroyControls();
-    for (auto& button : m_buttons) button.Reset();
+    for (auto& button : m_buttons) {
+        button.Reset();
+    }
     DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
 }
 
@@ -306,9 +312,9 @@ bool W8AssayDialog::PopulateText()
             m_text_area.AddEntry(g_localized_strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
         }
         if (record->slays_kind != 0xff) {
-            m_text_area.AddEntry(g_localized_strings[0x8d8],
-                                 g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10,
-                                 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8d8],
+                g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10, 0xf, 0);
         }
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SHIELD && m_character != 0 &&
             IsItemWornByCharacter(m_character, m_item)) {
@@ -327,7 +333,8 @@ bool W8AssayDialog::PopulateText()
     if (record->property != 0) {
         m_text_area.AddEntry(
             g_localized_strings[0x8e9],
-            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]],
+            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST +
+                                                    record->property]],
             10, 0xf, 0);
     }
     switch (record->equip_class) {
@@ -338,15 +345,15 @@ bool W8AssayDialog::PopulateText()
     case W8_ITEM_EQUIP_CLASS_BOMB:
     case W8_ITEM_EQUIP_CLASS_POWDER:
         m_text_area.AddEntry(g_localized_strings[0x8e7],
-                             g_localized_strings[g_spell_range_name_ids[record->range_category]], 10, 0xf,
-                             0);
+                             g_localized_strings[g_spell_range_name_ids[record->range_category]],
+                             10, 0xf, 0);
     }
     W8Skill presentation_skill = GetItemSpellPresentation(record);
     if (presentation_skill == W8_SKILL_NONE) {
         if (record->weapon_skill != W8_SKILL_NONE) {
-            m_text_area.AddEntry(g_localized_strings[0x8c8],
-                                 g_localized_strings[g_character_skill_name_ids[record->weapon_skill]],
-                                 10, 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8c8],
+                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]], 10, 0xf, 0);
         }
     } else {
         if (record->weapon_skill == W8_SKILL_NONE) {
@@ -558,9 +565,8 @@ void W8AssayDialog::Draw(SDL_Surface& target)
         W8DialogBase::Draw(target);
     }
     if (m_item_portrait_dirty) {
-        DrawSpriteAndInvalidate(target,
-                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45,
-                                m_y + 0xe);
+        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
+                                m_x + 0x45, m_y + 0xe);
         if (!m_item->identified) {
             CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(target, 0, m_x + 0x45, m_y + 0xe);
         }
@@ -741,7 +747,7 @@ bool W8AssayDialog::PopulateRequirements()
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
         m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
-                                      m_y + g_assay_button_offsets[index].y);
+                                     m_y + g_assay_button_offsets[index].y);
     }
     return true;
 }

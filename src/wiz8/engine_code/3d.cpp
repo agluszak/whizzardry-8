@@ -141,14 +141,17 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
 
     for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next()) {
         const auto count = mesh->vertex_location_count;
-        if (count <= 0)
+        if (count <= 0) {
             continue;
+        }
         const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        if (vertex_lights.empty())
+        if (vertex_lights.empty()) {
             return 0;
-        if (!lights)
+        }
+        if (!lights) {
             continue;
+        }
         auto* vertex_materials = mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
         auto* base_material =
             static_cast<srMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
@@ -173,26 +176,28 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
-            if (!light ||
-                _strnicmp(node->getName().c_str(), "Sun", 3) == 0)
+            if (!light || _strnicmp(node->getName().c_str(), "Sun", 3) == 0) {
                 continue;
+            }
             const float range = static_cast<float>(
                 g_light_range_attenuation_numerator /
                 (light->opengl_attenuation.y * g_light_range_attenuation_denominator));
             const auto position = glm::vec3(light->getWorldSpaceLocation());
-            if (!box.overlaps({position - range, position + range}))
+            if (!box.overlaps({position - range, position + range})) {
                 continue;
+            }
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
             for (int i = 0; i < count; ++i) {
                 const auto direction = world_vertices[i] - position;
                 const float distance = glm::length(direction);
-                if (distance > range)
+                if (distance > range) {
                     continue;
+                }
                 const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
                 if (facing < 0) {
                     const float contribution = -facing * light->intensity * (1 - distance / range);
-                    vertex_lights[i] = vertex_lights[i] +
-                                       material_colors[i] * light->diffuse * contribution;
+                    vertex_lights[i] =
+                        vertex_lights[i] + material_colors[i] * light->diffuse * contribution;
                 }
             }
         }
@@ -239,7 +244,8 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
 void SetWorldMeshVertexLightTable(W8World* world, int table)
 {
     if (world->octree == 0) {
-        for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
+        for (stMeshModel* model : stMeshModel::Meshes(
+                 static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
@@ -247,7 +253,8 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
         for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
             srModelInstance* instance = world->psrMeshes[mesh];
             if (instance != 0) {
-                for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+                for (stMeshModel* model :
+                     stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     model->vertex_light_table = table;
                     model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
                 }
@@ -262,9 +269,13 @@ bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
     const srVector3 from(eye);
     for (const auto& sample : bounds.visibilitySamples()) {
-        if (!projectsToCamera(sample)) continue;
+        if (!projectsToCamera(sample)) {
+            continue;
+        }
         srVector3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (g_octree->HasLineOfSight(&from, &point, true)) {
+            return true;
+        }
     }
     return false;
 }
@@ -275,7 +286,9 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& boun
     const srVector3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         srVector3 point(sample);
-        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
+        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) {
+            return true;
+        }
     }
     return false;
 }
@@ -286,7 +299,9 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
     const srVector3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         srVector3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (g_octree->HasLineOfSight(&from, &point, true)) {
+            return true;
+        }
     }
     return false;
 }
@@ -425,8 +440,7 @@ void WorldUpdateProps(W8World* world)
     W8Prop* prop;
 
     if (!world) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
-                     0x158, 0);
+        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp", 0x158, 0);
     }
     count = static_cast<int>(world->plsProps.size());
     for (index = 0; index < count; index++) {
@@ -454,10 +468,16 @@ void WorldUpdateLights(W8World* world)
    this global instead. */
 
 // FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8World*, W8Monster* monster) { g_world->plsMonsters.push_back(monster); }
+void AddMonsterToWorld(W8World*, W8Monster* monster)
+{
+    g_world->plsMonsters.push_back(monster);
+}
 
 // FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems.push_back(item); }
+void AddItemToWorld(W8World*, W8Item* item)
+{
+    g_world->plsItems.push_back(item);
+}
 
 // FUNCTION: WIZ8 0x0046e5e0
 void RemoveItemFromWorld(W8World*, W8Item* item)
@@ -469,7 +489,10 @@ void RemoveItemFromWorld(W8World*, W8Item* item)
    discarded by the wrapper itself, which is what makes these thin forwarders
    rather than accessors. */
 // FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*) { return g_world->plsProps.size(); }
+int WorldGetPropCount(W8World*)
+{
+    return g_world->plsProps.size();
+}
 
 // FUNCTION: WIZ8 0x0046e620
 W8Prop* WorldGetPropAt(W8World*, int index)
@@ -498,7 +521,8 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
         if (auto* instance = sr_cast<stModelInstance>(node)) {
-            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+            for (stMeshModel* mesh :
+                 stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 srShader* polygon_shader = mesh->getPolyShader(0, 0);
                 bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
 
@@ -535,7 +559,8 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
         if (auto* instance = sr_cast<stModelInstance>(node)) {
-            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+            for (stMeshModel* mesh :
+                 stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }
@@ -625,8 +650,9 @@ void WorldSetFarClip(W8World* world, float distance)
 // FUNCTION: WIZ8 0x0046e440
 double WorldGetFarClip(W8World* world)
 {
-    if (world != nullptr && world->camera != nullptr)
+    if (world != nullptr && world->camera != nullptr) {
         return world->camera->getClipRange().second;
+    }
     return 0;
 }
 
@@ -672,14 +698,14 @@ bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
                          const glm::vec3& point)
 {
     return srTriangleProjection::contains(vertices, axis, point,
-                                           srTriangleProjection::Boundary::visibility);
+                                          srTriangleProjection::Boundary::visibility);
 }
 
 // FUNCTION: WIZ8 0x0046d7e0
 std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points)
 {
-    constexpr std::array<std::array<unsigned, 3>, 6> corners{{
-        {1, 5, 4}, {6, 7, 3}, {0, 2, 3}, {4, 5, 7}, {4, 6, 2}, {1, 3, 7}}};
+    constexpr std::array<std::array<unsigned, 3>, 6> corners{
+        {{1, 5, 4}, {6, 7, 3}, {0, 2, 3}, {4, 5, 7}, {4, 6, 2}, {1, 3, 7}}};
     std::array<W8Plane, 6> planes;
     for (unsigned plane = 0; plane < planes.size(); ++plane) {
         const auto& indices = corners[plane];
@@ -695,10 +721,12 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
     std::array<glm::vec3, 8> sorted;
     std::ranges::copy(points, sorted.begin());
     constexpr std::array<std::pair<unsigned, unsigned>, 3> passes{{{1, 8}, {2, 4}, {0, 2}}};
-    for (const auto [axis, run] : passes)
-        for (unsigned start = 0; start < sorted.size(); start += run)
+    for (const auto [axis, run] : passes) {
+        for (unsigned start = 0; start < sorted.size(); start += run) {
             std::stable_sort(sorted.begin() + start, sorted.begin() + start + run,
                              [axis](const auto& a, const auto& b) { return a[axis] < b[axis]; });
+        }
+    }
     return sorted;
 }
 
@@ -706,18 +734,24 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
     const auto coefficients = planes | std::views::transform([](const W8Plane& plane) {
-        return glm::vec4(plane.normal.glmValue(), plane.w);
-    });
+                                  return glm::vec4(plane.normal.glmValue(), plane.w);
+                              });
     return srPlaneMath::containsSphere(coefficients, point, radius);
 }
 
 // FUNCTION: WIZ8 0x0046d920
 bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds)
 {
-    for (unsigned corner = 0; corner < 8; ++corner)
-        if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) return true;
-    for (unsigned corner = 1; corner < 9; ++corner)
-        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) return true;
+    for (unsigned corner = 0; corner < 8; ++corner) {
+        if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) {
+            return true;
+        }
+    }
+    for (unsigned corner = 1; corner < 9; ++corner) {
+        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) {
+            return true;
+        }
+    }
     return false;
 }
 

@@ -59,10 +59,13 @@ void ExitScreenFrame(void)
 {
     RenderFrame();
     PumpUiInput({
-        .unhandled = [](const InputEvent& input) {
-            if (input.type == InputEventType::KeyDown) gfProgramIsRunning = 0;
-            return InputRoute::Handled;
-        },
+        .unhandled =
+            [](const InputEvent& input) {
+                if (input.type == InputEventType::KeyDown) {
+                    gfProgramIsRunning = 0;
+                }
+                return InputRoute::Handled;
+            },
         .track_hover = false,
     });
     if (!IsLeftButtonHeld() && !IsRightButtonHeld()) {

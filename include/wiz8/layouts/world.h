@@ -117,8 +117,7 @@ inline W8Prop* GetWorldProp(W8World* world, int index)
 
 inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
 {
-    if (index < 0 ||
-        std::cmp_greater_equal(index, world->plsCameras.size())) {
+    if (index < 0 || std::cmp_greater_equal(index, world->plsCameras.size())) {
         return nullptr;
     }
     return world->plsCameras[index].get();
@@ -126,8 +125,7 @@ inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
 
 inline W8AmbientSound* GetWorldAmbientSound(W8World* world, int index)
 {
-    if (index < 0 ||
-        std::cmp_greater_equal(index, world->plsAmbientSounds.size())) {
+    if (index < 0 || std::cmp_greater_equal(index, world->plsAmbientSounds.size())) {
         return nullptr;
     }
     return world->plsAmbientSounds[index];

@@ -24,12 +24,12 @@ SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
 {
     SDL_Window* window = SDL_CreateWindow("Whizzardry 8", std::max(width, 640),
                                           std::max(height, 480), SDL_WINDOW_RESIZABLE);
-    if (!window)
+    if (!window) {
         return nullptr;
+    }
     SDL_SetWindowMinimumSize(window, 640, 480);
     SDL_SetWindowAspectRatio(window, 4.f / 3.f, 4.f / 3.f);
-    if (!W8ConfigureGameWindow(window, fullscreen, width, height))
-    {
+    if (!W8ConfigureGameWindow(window, fullscreen, width, height)) {
         SDL_DestroyWindow(window);
         return nullptr;
     }
@@ -38,22 +38,26 @@ SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
 }
 void W8DestroyGameWindow(SDL_Window* window)
 {
-    if (!window)
+    if (!window) {
         return;
+    }
     SetInputWindow(nullptr);
     SDL_DestroyWindow(window);
 }
 bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int height)
 {
-    return window && width >= 640 && height >= 480 &&
-           SDL_SetWindowSize(window, width, height) &&
+    return window && width >= 640 && height >= 480 && SDL_SetWindowSize(window, width, height) &&
            SDL_SetWindowFullscreen(window, fullscreen) && SDL_SyncWindow(window);
 }
-srDD* W8CreateNativeRenderDevice() { return srCreateSDLGPUDevice(); }
+srDD* W8CreateNativeRenderDevice()
+{
+    return srCreateSDLGPUDevice();
+}
 bool W8VideoGetClientRect(SDL_Window* window, SDL_Rect* rect)
 {
-    if (!window || !rect)
+    if (!window || !rect) {
         return false;
+    }
     /* Recovered cursor/viewport logic operates in the 640x480 design space.
        SDL event and warp adapters perform the actual window scaling. */
     *rect = {0, 0, 640, 480};
@@ -62,8 +66,9 @@ bool W8VideoGetClientRect(SDL_Window* window, SDL_Rect* rect)
 unsigned int W8TotalPhysicalMemory()
 {
     const int megabytes = SDL_GetSystemRAM();
-    if (megabytes <= 0)
+    if (megabytes <= 0) {
         return 0;
+    }
     const uint64_t bytes = uint64_t(megabytes) * 1024 * 1024;
     return std::min<uint64_t>(bytes, UINT_MAX);
 }
@@ -71,24 +76,29 @@ bool W8HasEnoughSaveSpace()
 {
     std::error_code error;
     auto root = wiz8::path_from_utf8(w8_native::path_roots().user);
-    while (!root.empty())
-    {
+    while (!root.empty()) {
         const bool exists = std::filesystem::exists(root, error);
-        if (error)
+        if (error) {
             return false;
-        if (exists)
+        }
+        if (exists) {
             break;
+        }
         const auto parent = root.parent_path();
-        if (parent == root)
+        if (parent == root) {
             return false;
+        }
         root = parent;
     }
-    if (root.empty())
+    if (root.empty()) {
         return false;
-    if (!std::filesystem::is_directory(root, error) || error)
+    }
+    if (!std::filesystem::is_directory(root, error) || error) {
         return false;
+    }
     const auto space = std::filesystem::space(root, error);
-    return !error && space.available != static_cast<std::uintmax_t>(-1) && space.available >= 0x10000000;
+    return !error && space.available != static_cast<std::uintmax_t>(-1) &&
+           space.available >= 0x10000000;
 }
 
 int W8ReadProfileInt(const char* path, const char* section, const char* key, int fallback)
@@ -97,37 +107,43 @@ int W8ReadProfileInt(const char* path, const char* section, const char* key, int
     try {
         auto file = wiz8::open_file(path);
         const auto size = file->size();
-        if (size < 0 || size > 1024 * 1024) return fallback;
+        if (size < 0 || size > 1024 * 1024) {
+            return fallback;
+        }
         std::string text(static_cast<std::size_t>(size), '\0');
         file->read_exact(text.data(), text.size());
         input.str(text);
-    } catch (const std::exception&) { return fallback; }
+    } catch (const std::exception&) {
+        return fallback;
+    }
     std::string line, current;
-    auto trim = [](std::string value)
-    {
+    auto trim = [](std::string value) {
         auto first = value.find_first_not_of(" \t\r\n");
-        if (first == std::string::npos)
+        if (first == std::string::npos) {
             return std::string();
+        }
         return value.substr(first, value.find_last_not_of(" \t\r\n") - first + 1);
     };
-    while (std::getline(input, line))
-    {
+    while (std::getline(input, line)) {
         line = trim(line);
-        if (line.empty() || line[0] == ';' || line[0] == '#')
+        if (line.empty() || line[0] == ';' || line[0] == '#') {
             continue;
-        if (line[0] == '[')
-        {
+        }
+        if (line[0] == '[') {
             auto end = line.find(']');
-            if (end != std::string::npos)
+            if (end != std::string::npos) {
                 current = trim(line.substr(1, end - 1));
+            }
             continue;
         }
         auto separator = line.find('=');
-        if (separator == std::string::npos || stricmp(current.c_str(), section))
+        if (separator == std::string::npos || stricmp(current.c_str(), section)) {
             continue;
+        }
         auto name = trim(line.substr(0, separator));
-        if (!stricmp(name.c_str(), key))
+        if (!stricmp(name.c_str(), key)) {
             return atoi(line.c_str() + separator + 1);
+        }
     }
     return fallback;
 }

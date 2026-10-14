@@ -5,7 +5,9 @@
 
 extern glm::vec3 g_environment_offset;
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 struct W8World;
 struct W8NamedPosition;
@@ -19,7 +21,8 @@ struct W8ReadLevelInfo {
     const char* mesh_filename; /* 0x0c */
 };
 
-unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
+unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
+                        const char* bitmap_folder);
 unsigned char ReadWorldItems(W8ReadLevelInfo* info, W8World* world);
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
                                  std::vector<stParticle*>* particles);

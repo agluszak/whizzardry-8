@@ -28,7 +28,6 @@
 #include "mgs_commands.h"
 #include "sight_state.h"
 
-
 static std::vector<int> masterCalls;
 
 static void laterMaster(int command)
@@ -171,8 +170,7 @@ static bool journalSerialization()
     const auto assets = root / "assets", user = root / "user";
     std::filesystem::create_directories(assets);
     std::filesystem::create_directories(user);
-    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                            {"", "", ""}}};
+    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}}};
     const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
     const std::array<W8JournalEntry, count> expected{{{1, static_cast<W8FactId>(10), 0},
@@ -193,7 +191,7 @@ static bool journalSerialization()
     for (int i = 0; i < count; ++i) {
         const auto& actual = g_fact_journal_entries[i];
         REQUIRE((actual.level == expected[i].level && actual.fact == expected[i].fact &&
-              actual.alternate_text == expected[i].alternate_text));
+                 actual.alternate_text == expected[i].alternate_text));
     }
     {
         auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
@@ -235,7 +233,9 @@ static bool visibilityRecordLifetime()
     row.sight_state = W8_SIGHT_SEEN;
     auto* original = FindMonToMonVisibility(&observer, &target);
     REQUIRE(original == &row);
-    for (int id = 1000; id < 2000; ++id) records[id].about_location_id = id;
+    for (int id = 1000; id < 2000; ++id) {
+        records[id].about_location_id = id;
+    }
     REQUIRE(FindMonToMonVisibility(&observer, &target) == original);
     REQUIRE(original->sight_state == W8_SIGHT_SEEN);
     gXStatus.monsters = {&observer, &target};

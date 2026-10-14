@@ -46,21 +46,33 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
     for (;;) {
         std::array<std::byte, 2> unit{};
         const auto result = handle->read(unit.data(), unit.size());
-        if (!result.bytes) { if (bytes.empty()) return {}; break; }
-        if (result.bytes != 2) throw std::runtime_error("Truncated UTF-16LE line");
-        if (unit[0] == std::byte{10} && unit[1] == std::byte{}) break;
-        if (bytes.size() >= 254) throw std::runtime_error("Oversized credits line");
+        if (!result.bytes) {
+            if (bytes.empty()) {
+                return {};
+            }
+            break;
+        }
+        if (result.bytes != 2) {
+            throw std::runtime_error("Truncated UTF-16LE line");
+        }
+        if (unit[0] == std::byte{10} && unit[1] == std::byte{}) {
+            break;
+        }
+        if (bytes.size() >= 254) {
+            throw std::runtime_error("Oversized credits line");
+        }
         bytes.insert(bytes.end(), unit.begin(), unit.end());
     }
     auto text = wiz8::text::from_utf16le(bytes);
-    if (!text.empty() && text.back() == '\r') text.pop_back();
+    if (!text.empty() && text.back() == '\r') {
+        text.pop_back();
+    }
     return text;
 }
 
 // FUNCTION: WIZ8 0x005bc130
 unsigned char CreditsScreenEnter(void)
-try
-{
+try {
     std::unique_ptr<wiz8::File> handle;
     std::string line;
 
@@ -68,15 +80,27 @@ try
     DisableCursorScene();
     std::vector<W8CreditLine> pending;
 
-    handle = [&]() { try { return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    handle = [&]() {
+        try {
+            return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle != 0) {
         std::optional<std::string> line_result;
-        if (handle->size() % 2) throw std::runtime_error("Truncated credits character");
+        if (handle->size() % 2) {
+            throw std::runtime_error("Truncated credits character");
+        }
         std::uint16_t marker;
         handle->read_exact(&marker, sizeof(marker));
-        if (marker != 0xfeff) handle->seek(0, wiz8::SeekOrigin::begin);
+        if (marker != 0xfeff) {
+            handle->seek(0, wiz8::SeekOrigin::begin);
+        }
         while (!(handle->tell() >= handle->size())) {
-            if (((line_result = ReadRetailTextLine(handle.get())) && (line = std::move(*line_result), true)) && line[0] != '*') {
+            if (((line_result = ReadRetailTextLine(handle.get())) &&
+                 (line = std::move(*line_result), true)) &&
+                line[0] != '*') {
                 W8CreditLine entry{};
                 bool blank = false;
                 bool bold = false;
@@ -98,13 +122,16 @@ try
                     }
                 }
                 if (!blank) {
-                    entry.pixel_width = (bold ? g_options_title_font : g_options_detail_font).textWidth(entry.primary);
+                    entry.pixel_width = (bold ? g_options_title_font : g_options_detail_font)
+                                            .textWidth(entry.primary);
                 }
                 entry.line_height = 0x14 + (bold ? 5 : 0);
                 pending.push_back(std::move(entry));
             }
         }
-        if (handle) handle->close();
+        if (handle) {
+            handle->close();
+        }
         handle.reset();
     }
     g_credit_line = 0;
@@ -114,8 +141,9 @@ try
     g_credit_started_at = w8_get_ticks();
     g_credit_redraw = true;
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x005bc420
 unsigned char CreditsScreenLeave(int)
@@ -136,8 +164,9 @@ void CreditsScreenFrame(void)
     // No clickable controls: dismiss directly on a key or mouse release.
     while (DequeueEvent(&input) == 1) {
         if (input.type == InputEventType::KeyDown || input.type == InputEventType::LeftButtonUp ||
-            input.type == InputEventType::RightButtonUp)
+            input.type == InputEventType::RightButtonUp) {
             RequestScreenTransition();
+        }
     }
 
     int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
@@ -168,8 +197,8 @@ void CreditsScreenFrame(void)
         if ((entry->flags & 4) == 0) {
             Font& font = (entry->flags & 1) ? g_options_title_font : g_options_detail_font;
             if ((entry->flags & 2) == 0) {
-                DrawText(GetFrameBufferSurface(), font,
-                         {(0x280 - entry->pixel_width) / 2, y}, entry->primary);
+                DrawText(GetFrameBufferSurface(), font, {(0x280 - entry->pixel_width) / 2, y},
+                         entry->primary);
             } else {
                 DrawText(GetFrameBufferSurface(), font, {0x136 - entry->pixel_width, y},
                          entry->primary);

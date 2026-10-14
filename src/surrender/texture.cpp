@@ -275,19 +275,22 @@ void srTexture::setCorrection(e_correction correction)
 // FUNCTION: SURRENDER 0x1005EC80
 void srTexture::setMagFilter(e_filter filter)
 {
-    packed_state = withField(packed_state, Parameters::MAG_FILTER_MASK, Parameters::MAG_FILTER_SHIFT, filter);
+    packed_state =
+        withField(packed_state, Parameters::MAG_FILTER_MASK, Parameters::MAG_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECA0
 void srTexture::setMinFilter(e_filter filter)
 {
-    packed_state = withField(packed_state, Parameters::MIN_FILTER_MASK, Parameters::MIN_FILTER_SHIFT, filter);
+    packed_state =
+        withField(packed_state, Parameters::MIN_FILTER_MASK, Parameters::MIN_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECC0
 void srTexture::setMipmap(e_mipmap mipmap)
 {
-    packed_state = withField(packed_state, Parameters::MIPMAP_MASK, Parameters::MIPMAP_SHIFT, mipmap);
+    packed_state =
+        withField(packed_state, Parameters::MIPMAP_MASK, Parameters::MIPMAP_SHIFT, mipmap);
 }
 
 // FUNCTION: SURRENDER 0x1005ECE0
@@ -416,11 +419,17 @@ const char* srTextureIFace::getTextureName()
 
 void srTexture::copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request)
 {
-    if (request.destinations.empty()) return;
-    if (auto* first = request.destinations.front()) first->copy(source);
+    if (request.destinations.empty()) {
+        return;
+    }
+    if (auto* first = request.destinations.front()) {
+        first->copy(source);
+    }
     for (std::size_t level = 1; level < request.destinations.size(); ++level) {
         auto* destination = request.destinations[level];
         auto* previous = request.destinations[level - 1];
-        if (destination && previous) destination->copy(*previous);
+        if (destination && previous) {
+            destination->copy(*previous);
+        }
     }
 }
