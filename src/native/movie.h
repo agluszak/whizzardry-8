@@ -1,4 +1,5 @@
 #pragma once
+// CI dependency-selection probe; this comment does not affect compilation.
 #include <cstdint>
 #include <memory>
 #include <vector>
