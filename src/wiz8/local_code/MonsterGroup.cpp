@@ -1601,7 +1601,6 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
 void SetMonsterGroupEngagementState(int group_id, bool state)
 {
     W8MonsterGroup* group;
-    int ally_index;
 
     group = FindMonsterGroup(group_id);
     if ((group->monster_id == 0x1b6 || group->monster_id == 0x234) && state) {
@@ -1614,15 +1613,15 @@ void SetMonsterGroupEngagementState(int group_id, bool state)
     if (group->engagement) {
         ++group->engagement_ticks;
     }
-    for (ally_index = 0; ally_index < W8_MONSTER_GROUP_ALLY_COUNT; ++ally_index) {
-        if (group->allied_group_ids[ally_index] != 0) {
-            group = FindMonsterGroup(group->allied_group_ids[ally_index]);
-            if (group->engagement != state) {
-                group->engagement = state;
-                group->engagement_ticks = 0;
+    for (const int ally_id : group->allied_group_ids) {
+        if (ally_id != 0) {
+            auto* ally = FindMonsterGroup(ally_id);
+            if (ally->engagement != state) {
+                ally->engagement = state;
+                ally->engagement_ticks = 0;
             }
-            if (group->engagement) {
-                ++group->engagement_ticks;
+            if (ally->engagement) {
+                ++ally->engagement_ticks;
             }
         }
     }

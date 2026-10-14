@@ -31,6 +31,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -141,7 +142,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     if (gXStatus.fNpcDialogueMode) {
-        QueueNpcAction(W8NpcCommand::journal_quote);
+        g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
     int range = GetTextBoxScrollRange();

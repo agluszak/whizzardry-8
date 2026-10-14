@@ -6977,7 +6977,7 @@ void ConfirmNpcTradeItem(void)
         SetSelectedTextLine(slot, 2);
         UpdateNpcTradeSelection(slot, 0, 1);
         if (wants) {
-            QueueNpcScriptLine(0x15, false, false, false);
+            g_npc_dialogue.QueueQuote(0x15, false, false, false);
         }
         break;
     case W8_NPC_TRADE_BUY:
@@ -7254,7 +7254,7 @@ bool ValidateNpcTradeSelection(void)
         if (!NpcAcceptsTradeItem(g_npc_interaction_state->dialogue_npc,
                                  g_npc_interaction_state->trade_item)) {
             accepted = false;
-            QueueNpcScriptLine(0x11, false, false, false);
+            g_npc_dialogue.QueueQuote(0x11, false, false, false);
         }
     } else if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_BUY) {
         W8ItemInstance* item = g_npc_interaction_state->trade_item;
@@ -7265,7 +7265,7 @@ bool ValidateNpcTradeSelection(void)
             g_npc_interaction_state->dialogue_npc, item->iItemNo, W8_TRADE_PRICE_PARTY_BUYS,
             static_cast<unsigned char>(g_npc_interaction_state->trade_quantity), item->identified);
         if (g_status.party_gold < price) {
-            QueueNpcScriptLine(0x14, false, false, false);
+            g_npc_dialogue.QueueQuote(0x14, false, false, false);
             return false;
         }
     }
@@ -7315,7 +7315,7 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
         return false;
     }
     if (result == W8_ITEM_THEFT_CAUGHT) {
-        QueueNpcScriptLine(0x17, false, false, false);
+        g_npc_dialogue.QueueQuote(0x17, false, false, false);
         SetNpcDispositionBand(g_npc_interaction_state->dialogue_npc, W8_NPC_BAND_NEUTRAL);
         ApplyFactionChange(3, g_npc_interaction_state->dialogue_npc->record->faction, 1, -5);
         CloseNpcDialogueOptionLayout();

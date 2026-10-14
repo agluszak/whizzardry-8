@@ -151,7 +151,7 @@ void BeginNpcScriptedScene(void)
 {
     int party_slot;
 
-    SetScriptedSceneActive();
+    g_npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
     gXStatus.scripted_scene = true;
     SetTargetingMode(W8_TARGET_NEED_ALLY);
@@ -192,7 +192,7 @@ void EndScriptedPortraitPick(int party_slot)
             g_main_input->edge_targets[slot]->setEnabled(false);
         }
     }
-    ClearScriptedSceneActive();
+    g_npc_dialogue.ReleaseScene();
     gXStatus.scripted_scene = false;
     other_gender_present = false;
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 0, false);
@@ -271,7 +271,7 @@ void UpdateSedexusScene(void)
     if (environment != 0 && environment != 2) {
         return;
     }
-    ClearScriptedSceneActive();
+    g_npc_dialogue.ReleaseScene();
     if (!g_sedexus_scene.release_pending) {
         g_sedexus_scene.moaning =
             wiz8::sound::stream("Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav");
@@ -311,7 +311,7 @@ void BeginSedexusCapture(void)
 {
     unsigned int party_slot;
 
-    SetScriptedSceneActive();
+    g_npc_dialogue.HoldForScene();
     BeginScriptedWorldAction();
     g_sedexus_scene.capture_pending = true;
     g_sedexus_scene.capture_active = true;
@@ -351,7 +351,7 @@ static void ResolveSedexusCapture(void)
             }
         }
     }
-    SetScriptedSceneActive();
+    g_npc_dialogue.HoldForScene();
     g_sedexus_scene.release_pending = true;
     BeginWorldLightingFade(1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);

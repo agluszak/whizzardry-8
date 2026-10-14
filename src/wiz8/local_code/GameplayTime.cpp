@@ -906,10 +906,10 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, srVector3T<float>* position, float yaw)
 {
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
-    for (int index = 0; index < 4; ++index) {
-        if (group->allied_group_ids[index] != 0) {
-            group = FindMonsterGroup(group->allied_group_ids[index]);
-            MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
+    for (const int ally_id : group->allied_group_ids) {
+        if (ally_id != 0) {
+            auto* ally = FindMonsterGroup(ally_id);
+            MoveMonsterGroupToPosition(ally, position, yaw, false, false, false, false);
         }
     }
 }
