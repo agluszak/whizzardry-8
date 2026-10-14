@@ -148,7 +148,7 @@ void CreditsScreenFrame(void)
         g_credit_y -= steps;
         while (g_credit_y < 0) {
             ++g_credit_line;
-            if (g_credit_line >= g_credit_lines.size()) {
+            if (g_credit_line >= static_cast<int>(g_credit_lines.size())) {
                 RequestScreenTransition();
                 break;
             }
@@ -162,7 +162,8 @@ void CreditsScreenFrame(void)
 
     CatalogArtwork::Load(0xe9, 0).draw(GetFrameBufferSurface(), 0, 0, 0, {}, BitmapKey::Opaque);
     int y = g_credit_y;
-    for (int index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
+    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines.size()) && y <= 0x1df;
+         ++index) {
         const W8CreditLine* entry = &g_credit_lines[index];
         if ((entry->flags & 4) == 0) {
             Font& font = (entry->flags & 1) ? g_options_title_font : g_options_detail_font;

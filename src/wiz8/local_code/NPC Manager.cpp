@@ -1925,7 +1925,6 @@ void UpdateNpcEvents(void)
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
     W8NpcState* npc;
-    unsigned int index;
 
     if (g_status.trang_check_pending &&
         static_cast<unsigned int>(g_status.world_clock - g_status.trang_check_clock) > 0x2a30) {

@@ -287,7 +287,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
         if (built != 0) {
             snprintf(line, sizeof(line), "%s.pvl", stem);
             if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
-                (wiz8::clear_read_only(line), true);
+                wiz8::clear_read_only(line);
                 wiz8::remove_file(line);
             }
             move_pvl = (wiz8::copy_file("NewLevel.lvl", line, wiz8::CopyMode::replace), true);
@@ -300,7 +300,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
             }
             snprintf(line, sizeof(line), "%s.oct", stem);
             if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
-                (wiz8::clear_read_only(line), true);
+                wiz8::clear_read_only(line);
                 wiz8::remove_file(line);
             }
             move_oct = (wiz8::copy_file("NewLevel.oct", line, wiz8::CopyMode::replace), true);
@@ -931,7 +931,6 @@ void ReportStartupMessage(std::string_view message)
     static EnvironmentColour s_black;
     static EnvironmentColour s_saved_colour;
     std::string* line;
-    short length;
     bool scroll;
     bool scrolled;
     int index;
@@ -1687,8 +1686,6 @@ void W8Octree::OctBuildOptions(char* stem)
     InputEvent atom;
     int edit_mode;
     int line;
-    int index;
-    short length;
 
     colour_saved.SetZero();
     colour_backup.SetZero();

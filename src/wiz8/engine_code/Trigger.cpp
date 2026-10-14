@@ -490,7 +490,6 @@ try
     unsigned char has_action_data;
     unsigned char action_type;
     unsigned char flag_mode;
-    unsigned char flag;
 
     header_ok = (hFile.read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags))) &&
                 (hFile.read(&state_index, sizeof(state_index)).bytes == static_cast<std::size_t>(sizeof(state_index))) &&

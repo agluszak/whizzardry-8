@@ -1167,7 +1167,7 @@ bool W8TriggerItemPickerDialog::ProcessInput()
     const auto route = [this] { return m_keep_open ? InputRoute::Handled : InputRoute::Stop; };
     PumpUiInput({
         .before =
-            [this](const InputEvent& input) {
+            [](const InputEvent& input) {
                 const bool button_down = input.type == InputEventType::LeftButtonDown ||
                                          input.type == InputEventType::RightButtonDown;
                 return button_down && ProcessPendingEvent() ? InputRoute::Handled

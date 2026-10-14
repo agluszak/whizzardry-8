@@ -366,7 +366,7 @@ try
         (*cycle)->GetRepresentation()->current_cycle = -1;
     }
 
-    (info->hFile->read(&has_path, 1).bytes == static_cast<std::size_t>(1));
+    info->hFile->read(&has_path, 1);
     if (has_path != 0) {
         /* LoadPathAI stores its result only on success; the base-typed AI
            slot takes the loaded path from there. */
@@ -379,7 +379,7 @@ try
         }
     }
 
-    (info->hFile->read(&has_particles, 1).bytes == static_cast<std::size_t>(1));
+    info->hFile->read(&has_particles, 1);
     if (has_particles != 0) {
         std::vector<stParticle*> particles;
 

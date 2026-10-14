@@ -81,6 +81,8 @@ public:
         m_layoutMode = mode;
     }
 
+    W8TextBuffer(const W8TextBuffer&) = default;
+    W8TextBuffer& operator=(const W8TextBuffer&) = default;
     virtual ~W8TextBuffer();
 
 protected:

@@ -355,7 +355,9 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 std::size_t end = 0, last_space = 0;
                 while (end < remaining.size() && remaining[end] != '\n') {
                     const auto next = wiz8::text::next_grapheme(remaining, end);
-                    if (g_level_block->text_box_font->textWidth(remaining.substr(0, next)) >= wrap_width && end) {
+                    if (g_level_block->text_box_font->textWidth(remaining.substr(0, next)) >=
+                            static_cast<int>(wrap_width) &&
+                        end) {
                         if (last_space) end = last_space;
                         break;
                     }
@@ -1100,12 +1102,12 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Down)
         return UiResult::Handled;
     const short box = g_status.text_line_cursor;
-    const auto visible = GetTextBoxVisibleLineCount();
-    const auto count = GetTextBoxLineCount(box);
+    const int visible = GetTextBoxVisibleLineCount();
+    const int count = static_cast<int>(GetTextBoxLineCount(box));
     if (count <= visible) return UiResult::Handled;
     const auto position = std::clamp(event.local.y + 1, 0, 46);
-    const auto previous = g_level_block->text_lines[box];
-    const auto current = (count - visible) * position / 47;
+    const int previous = static_cast<int>(g_level_block->text_lines[box]);
+    const int current = (count - visible) * position / 47;
     g_level_block->text_lines[box] = current;
     if (current != previous) {
         g_level_block->text_content_region = current ? kUpArrowEnabled : kUpArrowDisabled;

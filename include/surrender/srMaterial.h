@@ -43,6 +43,7 @@ protected:
     virtual void reset();
 
 public:
+    srMaterial(const srMaterial&) = default;
     srMaterial& operator=(const srMaterial& other);
     void disable(e_oper operation);
     void enable(e_oper operation);

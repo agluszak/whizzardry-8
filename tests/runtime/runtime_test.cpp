@@ -1321,7 +1321,7 @@ void QuickSaveScenario()
     const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
     const int level = g_status.current_level;
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
-    const int health = g_status.buffers.Char[PremadeSlot()].hp_current;
+    const auto health = g_status.buffers.Char[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
     const fs::path save = QuickSave(game);
     WriteSaveFixture(WIZ8_RUNTIME_SAVE_FIXTURE, save, anchor);

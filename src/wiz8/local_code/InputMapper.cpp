@@ -55,7 +55,6 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
     }
 
     std::string line;
-    unsigned char more;
     while (!(handle->tell() >= handle->size())) {
         auto line_result = ReadRetailTextLine(handle.get());
         if (!line_result) break;

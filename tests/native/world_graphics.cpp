@@ -5,7 +5,6 @@
 #include <SDL3/SDL_timer.h>
 #include <cstdio>
 #include <filesystem>
-#include <stdexcept>
 #include <vector>
 #include <array>
 #include <cstring>
@@ -52,12 +51,6 @@
 #include "surrender/srTextureMap.h"
 
 extern srScene* g_cursor_scene;
-
-static void Check(bool condition, const char* expression)
-{
-    if (!condition)
-        throw std::runtime_error(expression);
-}
 
 static std::vector<unsigned int> ReadFrame()
 {

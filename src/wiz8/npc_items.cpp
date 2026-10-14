@@ -424,7 +424,6 @@ char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay)
 {
     int index;
-    W8NpcItemEntry* entry;
 
     if (npc == 0) {
         return -1;

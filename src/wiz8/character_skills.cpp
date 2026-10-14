@@ -83,11 +83,9 @@ void FlushDeferredSkillNotices(void)
     W8SkillNoticePayload extra{};
     int slot;
     unsigned int skill_id;
-    unsigned int length;
 
     count = 0;
     have_line = false;
-    length = 0;
     if (!gXStatus.deferred_skill_notices) {
         return;
     }
@@ -111,7 +109,6 @@ void FlushDeferredSkillNotices(void)
                 extra.count = 8;
                 QueueNpcPortraitMessage(std::move(text), extra);
                 count = 0;
-                length = 0;
                 have_line = false;
                 text.clear();
                 extra = {};
@@ -668,7 +665,6 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                     g_current_screen_state.id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
                     !suppress_notification) {
                     std::string text;
-                    unsigned int length = 0;
                     text += FormatSkillIncreaseNoticeText(slot, false, skill_id);
                     W8SkillNoticePayload extra{};
                     extra.count = 1;

@@ -1814,7 +1814,6 @@ static srCamera* createOverlayCamera(srNode* parent, const char* name, double ri
 // FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
-    srCamera::Rect view;
     std::shared_ptr<srMaterial> material;
     glm::vec4 material_value;
     char renderer_name[128];

@@ -72,7 +72,6 @@ void CosmicCircleSetup(void)
     W8MonsterGroup* group;
     Trigger* pTrigger;
     int uiMonsterID;
-    unsigned int index;
 
     if (!g_status.world_suspended && !g_status.cc_arena_spawned) {
         if (FindEntityByName("NP_ALTHEIDESARENA", &positionAltheides, 0, 0)) {

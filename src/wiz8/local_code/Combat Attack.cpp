@@ -828,7 +828,6 @@ void ResolveSpellMissileHit(W8Missile* missile)
     W8SpellRuntimeRecord* spell;
     W8CombatSlot struck;
     unsigned int magnitude;
-    unsigned int monster_list_index;
     W8MonsterInfo* monster_info;
     srVector3T<float> location;
     bool announce;
@@ -949,7 +948,6 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
     W8MonsterRecord* record;
     std::string text;
     std::string location_name;
-    unsigned int monster_list_index;
     unsigned char target_start;
     unsigned char target_stop;
     char source_color;
@@ -3183,7 +3181,6 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     float radius;
     float yaw;
     float pitch;
-    unsigned int index;
 
     if (!use_default_accuracy && g_combat_state->engaged_missile != nullptr) {
         srAssertFail("FALSE", COMBAT_ATTACK_CPP, 0x132c, 0);

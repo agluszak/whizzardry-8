@@ -76,10 +76,6 @@ W8ItemInstance* g_use_item_select_override_item;
 static int g_use_item_list_count;
 // GLOBAL: WIZ8 0x0069B994
 
-// GLOBAL: WIZ8 0x0069B9A8
-static int g_use_item_cursor_x;
-// GLOBAL: WIZ8 0x0069B9AC
-static int g_use_item_cursor_y;
 // GLOBAL: WIZ8 0x0069B9B0
 static int g_use_item_owner_index;
 // GLOBAL: WIZ8 0x0069B9B4
@@ -193,8 +189,6 @@ unsigned char OpenUseItemSelectView(int slot)
     CreateUseItemSelectControls();
     g_use_item_select_mode = -1;
     g_use_item_select_flags = 0;
-    g_use_item_cursor_x = -1;
-    g_use_item_cursor_y = -1;
     g_use_item_hover_row = -1;
     g_use_item_selected = 0;
     g_use_item_select_override_item = 0;
@@ -698,8 +692,6 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
         ClearHoveredTextLine(2);
         g_use_item_hover_row = -1;
     } else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter) {
-        g_use_item_cursor_x = event.position.x;
-        g_use_item_cursor_y = event.position.y;
         const int row = event.local.y / 11;
         if (event.inside && row != g_use_item_hover_row) HighlightNoticeRow(row);
         g_use_item_hover_row = row;

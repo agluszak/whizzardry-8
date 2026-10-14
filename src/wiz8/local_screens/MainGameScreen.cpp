@@ -2198,7 +2198,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
     }
-    if (1u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
+    if (text_area.m_all_lines.size() > 1) {
         for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
             if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
@@ -6527,7 +6527,7 @@ void LoadMainGameCursorResources(void)
         const auto artwork = CatalogArtwork::Load(slot->image_id);
         const auto sprites = artwork.spriteSheet();
         short frame = artwork.imageOffset();
-        if (frame < sprites->frames.size()) {
+        if (frame < static_cast<int>(sprites->frames.size())) {
             slot->size_x = sprites->frames[frame].width;
             slot->size_y = sprites->frames[frame].height;
         }
@@ -6780,7 +6780,7 @@ void W8NpcDialogueTextController::SaveTranscriptEntries()
 
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
-    while (0u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
+    while (!text_area.m_all_lines.empty()) {
         text_area.RemoveEntry(0);
     }
     InvalidateAll();

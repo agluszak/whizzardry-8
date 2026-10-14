@@ -66,7 +66,6 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     W8NpcState* npc;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
-    unsigned int index;
     srVector3T<float> target;
     srVector3T<float> position;
     glm::mat3 rotation;

@@ -15,6 +15,7 @@ public:
     using srVertexProcessor::process;
     SR_DLL_IMPORT srIlluminator(srNode* parent = 0);
     ~srIlluminator() override = default;
+    srIlluminator(const srIlluminator&) = default;
 
     SR_DLL_IMPORT srIlluminator& operator=(const srIlluminator& other);
     static SR_DLL_IMPORT const char* sGetClassName();

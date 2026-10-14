@@ -43,11 +43,6 @@
 class srMaterialIFace;
 class srTextureIFace;
 
-static int operator==(const srShader& left, const srShader& right)
-{
-    return left.value == right.value;
-}
-
 // FUNCTION: WIZ8 0x004896C0
 void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
                        srVector3T<float>* scale)

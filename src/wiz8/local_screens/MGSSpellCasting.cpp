@@ -139,9 +139,7 @@ static void CreateSpellCastingViewControls(void)
                     .skills[W8_SKILL_FIRE_MAGIC + realm].level);
         };
         button->SetTooltip(tooltip);
-        button->on_hover = [tooltip](bool entered) {
-            gpSCSV->dirty[0] = true;
-        };
+        button->on_hover = [](bool) { gpSCSV->dirty[0] = true; };
         auto& text = gpSCSV->realm_text[realm];
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
         text.SetLayoutBounds(0x17 + text_left[realm], 0x166 + pos.y,

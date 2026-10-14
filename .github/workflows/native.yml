@@ -80,7 +80,7 @@ jobs:
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
             -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
             -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
-            -DWIZ8_SURRENDER_UNITY_BUILD=ON \
+            -DWIZ8_SURRENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"

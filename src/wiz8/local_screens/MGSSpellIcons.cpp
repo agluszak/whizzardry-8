@@ -47,20 +47,22 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
         if (icon < 0) continue;
         CatalogArtwork::Load(icon, 0).drawAndInvalidate(GetFrameBufferSurface(), 0,
                                                        origin.x, origin.y);
-        auto& target = layer->add(SDL_Rect{origin.x, origin.y, size + 1, size + 1},
-            [&slot, show_duration, duration = slot.duration](const UiPointerEvent& event) mutable {
-                PushButtonSoundScheme(0, true);
-                if (event.action == UiPointerAction::Enter) {
-                    duration = slot.duration;
-                    return UiResult::Handled;
-                }
-                if (event.action == UiPointerAction::Leave) return UiResult::Handled;
-                if (event.action == UiPointerAction::Move && duration != slot.duration) {
-                    duration = slot.duration;
-                    ResetUiHelp(false);
-                }
-                return UiResult::Pass;
-            });
+        auto& target =
+            layer->add(SDL_Rect{origin.x, origin.y, size + 1, size + 1},
+                       [&slot, duration = slot.duration](const UiPointerEvent& event) mutable {
+                           PushButtonSoundScheme(0, true);
+                           if (event.action == UiPointerAction::Enter) {
+                               duration = slot.duration;
+                               return UiResult::Handled;
+                           }
+                           if (event.action == UiPointerAction::Leave)
+                               return UiResult::Handled;
+                           if (event.action == UiPointerAction::Move && duration != slot.duration) {
+                               duration = slot.duration;
+                               ResetUiHelp(false);
+                           }
+                           return UiResult::Pass;
+                       });
         target.setPassive();
         target.setTooltip([&slot, show_duration] { return EffectHelp(slot, show_duration); });
         origin.x += step;

@@ -524,7 +524,7 @@ bool W8AssayDialog::PopulateText()
                              fmt::format("{:d}", record->maximum_quantity), 10, 0xf, 0);
     }
     strcpy(path, "Data\\Databases\\ItemDesc.dbs");
-    (!(description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0)).empty());
+    description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0);
     if (description.size() != 0 && m_item->identified) {
         m_text_area.AddEntry(g_localized_strings[0x90f], description, 10, 0xf, 0);
     }

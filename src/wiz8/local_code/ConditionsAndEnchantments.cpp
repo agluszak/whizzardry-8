@@ -595,7 +595,6 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
 // FUNCTION: WIZ8 0x00523F40
 void ClearMonsterCondition(int location_id, W8Condition condition)
 {
-    unsigned int list_index;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* monster_group;
 

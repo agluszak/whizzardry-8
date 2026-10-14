@@ -202,7 +202,6 @@ int W8MessageDialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005d2f40
 void W8MessageDialogBase::DestroyControls()
 {
-    unsigned int index;
 
     W8DialogBase::DestroyControls();
     m_edge_image.reset();

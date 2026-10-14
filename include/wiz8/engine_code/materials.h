@@ -48,6 +48,7 @@ public:
     virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
 
 public:
+    stMaterial(const stMaterial&) = default;
     stMaterial& operator=(const stMaterial&) = default;
     int m_surface_flags; /* 0x78 */
 };

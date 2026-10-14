@@ -830,10 +830,10 @@ W8CampCharacterInfo::W8CampCharacterInfo()
     constexpr SDL_Point positions[] = {{0x1d6, 0x4c}, {0x258, 0x4c}, {0x1d6, 0x3e}, {0x258, 0x3e}};
     for (int index = 0; index < 4; ++index) {
         m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13},
-            [this, index](const UiPointerEvent& event) {
-                PushButtonSoundScheme(0, true);
-                return UiResult::Handled;
-            });
+                                     [](const UiPointerEvent&) {
+                                         PushButtonSoundScheme(0, true);
+                                         return UiResult::Handled;
+                                     });
         m_values[index]->setTooltip([this, index] { return m_help[index]; });
     }
     input.setEnabled(false);
