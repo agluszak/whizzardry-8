@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include "wiz8/camera_motion.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/placement_math.h"
@@ -917,13 +918,13 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Ground polygon queries return owned sort
     tree.m_spatial.m_bounds.minimum = {-100, -100, -100};
     tree.m_spatial.m_node_extent = 1000;
     tree.m_leaf_grid_dimensions = {1, 1, 1};
-    tree.m_leaf_lookup = static_cast<w8_ulong*>(std::calloc(1, sizeof(w8_ulong)));
+    tree.m_leaf_lookup.resize(1);
     tree.m_leaf_lookup[0] = 1;
-    tree.m_leaves = static_cast<W8OctPreTreeLeaf*>(std::calloc(2, sizeof(W8OctPreTreeLeaf)));
+    tree.m_leaves.resize(2);
     tree.m_leaves[1].polygon_offset = 1;
-    tree.m_polygon_index_stream = static_cast<w8_ulong*>(std::calloc(faces + 2, sizeof(w8_ulong)));
+    tree.m_polygon_index_stream.resize(faces + 2);
     tree.m_polygon_index_stream[1] = faces;
-    tree.m_aulPolyLookup = static_cast<w8_ulong*>(std::calloc(faces + 1, sizeof(w8_ulong)));
+    tree.m_aulPolyLookup.resize(faces + 1);
     for (unsigned i = 0; i < faces; ++i) {
         tree.m_polygon_index_stream[i + 2] = i + 1;
         tree.m_aulPolyLookup[i + 1] = (1u << 16) | (faces - i - 1);
@@ -1188,9 +1189,17 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
 TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geometry][viewport]")
 {
     struct RestoreViewport {
-        W8ViewportRect saved = g_viewport;
+        DesignRect saved = g_viewport;
         ~RestoreViewport() { g_viewport = saved; }
     } restore;
+    // Odd surface dimensions retain independent origin/extent rounding.
+    const auto scaled = ToSurfaceRect({23, 18, 617, 450}, 801, 601);
+    REQUIRE(scaled.x == 28);
+    REQUIRE(scaled.y == 22);
+    REQUIRE(scaled.w == 743);
+    REQUIRE(scaled.h == 540);
+    SetViewport({23, 18, 618, 451});
+    REQUIRE(g_viewport == DesignRect{23, 18, 618, 451});
     g_viewport = {80, 60, 560, 420};
     const auto bounds = GetScaledViewportBounds();
     REQUIRE(glm::length(bounds.minimum - glm::vec2(0.125f)) < 1e-6f);
@@ -2155,9 +2164,9 @@ TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independ
     OctPreTree tree;
     tree.m_spatial.m_depth = 0;
     tree.m_leaf_count = 1;
-    tree.m_leaves = static_cast<W8OctPreTreeLeaf*>(std::calloc(2, sizeof(W8OctPreTreeLeaf)));
-    tree.m_polygon_index_stream = static_cast<w8_ulong*>(std::calloc(8, sizeof(w8_ulong)));
-    tree.m_gd_surface_index_stream = static_cast<w8_ulong*>(std::calloc(8, sizeof(w8_ulong)));
+    tree.m_leaves.resize(2);
+    tree.m_polygon_index_stream.resize(8);
+    tree.m_gd_surface_index_stream.resize(8);
     tree.polygon_cursor = 1;
     tree.m_gd_surface_stream_len = 2;
     W8OctRegionPolygon polygon{};

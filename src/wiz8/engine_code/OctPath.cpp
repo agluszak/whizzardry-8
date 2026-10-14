@@ -149,7 +149,6 @@ const float g_path_span_scale = 1.5259254723787308e-05f;
 // GLOBAL: WIZ8 0x00659c5c
 static bool g_path_continue_after_blocker;
 // GLOBAL: WIZ8 0x00659c64
-static unsigned short* g_path_scratch;
 // GLOBAL: WIZ8 0x005ec3a8
 const double g_path_initial_cost_slack = 1.1;
 // GLOBAL: WIZ8 0x005ec3a0
@@ -348,9 +347,8 @@ try
         static_cast<W8PathSurface*>(calloc(surface_capacity, sizeof(W8PathSurface))), free);
     std::unique_ptr<W8PathEdge, decltype(&free)> edges(
         static_cast<W8PathEdge*>(calloc(edge_capacity, sizeof(W8PathEdge))), free);
-    std::unique_ptr<unsigned short, decltype(&free)> scratch(
-        static_cast<unsigned short*>(malloc(std::size_t{surface_capacity} * sizeof(unsigned short))), free);
-    if (!file_waypoints || !waypoints || !edges || !scratch) {
+    std::vector<std::uint16_t> scratch(surface_capacity);
+    if (!file_waypoints || !waypoints || !edges) {
         return false;
     }
     handle->read_exact(file_waypoints.get(), std::size_t{waypoint_count} * sizeof(W8FileWaypoint));
@@ -401,12 +399,11 @@ try
     free(m_pFileWayPoints);
     free(m_waypoints);
     free(m_pEdges);
-    free(g_path_scratch);
     delete path_heap;
     m_pFileWayPoints = file_waypoints.release();
     m_waypoints = waypoints.release();
     m_pEdges = edges.release();
-    g_path_scratch = scratch.release();
+    m_path_scratch = std::move(scratch);
     path_heap = heap.release();
     m_marked_path_nodes = std::move(marked);
     m_visited_path_nodes = std::move(visited_nodes);
@@ -1205,9 +1202,9 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
 
 void W8PathingService::AppendScratchPath(W8NavigatorAttachment* attachment, unsigned int count)
 {
-    g_path_scratch[count] = 0;
+    m_path_scratch[count] = 0;
     while (count != 0) {
-        unsigned short surface_index = g_path_scratch[count - 1];
+        unsigned short surface_index = m_path_scratch[count - 1];
         srVector3T<float>* position = &m_waypoints[surface_index].position;
         attachment->AppendPathPosition(position, surface_index);
         --count;
@@ -1237,7 +1234,7 @@ bool W8PathingService::BuildAttachmentPath(W8NavigatorAttachment* attachment, un
                 if (m_ulNumWayPoints <= count) {
                     srAssertFail("i < m_ulNumWayPoints", OCTPATH_CPP, 0x1ba2, 0);
                 }
-                g_path_scratch[count] = node;
+                m_path_scratch[count] = node;
                 node = m_waypoints[node].search_parent;
                 ++count;
             } while (node != 0);
@@ -1331,7 +1328,7 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
         if (m_ulNumWayPoints <= count) {
             srAssertFail("i < m_ulNumWayPoints", OCTPATH_CPP, 0x1c97, 0);
         }
-        g_path_scratch[count] = current;
+        m_path_scratch[count] = current;
         current = m_waypoints[current].search_parent;
         ++count;
     }
@@ -1496,7 +1493,7 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
             srAssertFail("i < m_ulNumWayPoints", OCTPATH_CPP, 0x1d87, 0);
         }
         previous = static_cast<unsigned short>(current);
-        g_path_scratch[count] = previous;
+        m_path_scratch[count] = previous;
         current = m_waypoints[current & 0xffff].search_parent;
         ++count;
     } while (previous != static_cast<unsigned short>(current));
@@ -3079,8 +3076,6 @@ W8PathingService::~W8PathingService()
     if (m_steering_context != 0) {
         delete m_steering_context;
     }
-    free(g_path_scratch);
-    g_path_scratch = 0;
     free(m_pCondPaths);
     free(m_pulCondLookup);
     free(m_pusCondNodeFrames);
@@ -5093,8 +5088,7 @@ void W8PathingService::AddWaypoint(const srVector3T<float>* position)
         m_visited_path_nodes.assign(capacity, false);
         m_collected_path_nodes.assign(capacity, false);
 
-        free(g_path_scratch);
-        g_path_scratch = static_cast<unsigned short*>(malloc(capacity * sizeof(unsigned short)));
+        m_path_scratch.resize(capacity);
     }
 
     W8PathSurface* surface = &m_waypoints[m_ulNumWayPoints];

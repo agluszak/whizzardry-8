@@ -1,3 +1,5 @@
+#include <array>
+#include <string>
 #pragma once
 
 #include "wiz8/engine_code/mesh_links.h"
@@ -314,10 +316,10 @@ public:
     void UpdateCameraVisibility();
     void UpdateVisibility();
     unsigned char UpdateWorldTrace();
-    /* Store `path` with its extension stripped into m_owned_0c0; the sibling
+    /* Store `path` with its extension stripped into m_path_stem; the sibling
        data files are then derived from the stem. */
     bool SetPathStem(const char* path); /* 0x0042CF90 */
-    bool SavePoints(char* path);
+    bool SavePoints(const char* path);
     bool LoadPointFiles(const char* level_name);
     bool ReadRegionLinkFile(const char* level_name);
     /* Region containing `point` (1-based index into the volume array), else
@@ -335,7 +337,7 @@ public:
        `rebuild_all` sweeps every cell and discards the saved point list, a
        zero value samples a sparse checkerboard plus the stored points. */
     void BuildRegionLinks(bool rebuild_all); /* 0x004314C0 */
-    bool SaveRegionLinks(char* path);
+    bool SaveRegionLinks(const char* path);
     unsigned char ValidateRegionMeshLinks();
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
@@ -369,28 +371,26 @@ public:
     }
 
 public:
-    /* Same proven 0x9c value used by the level build tree.  Construction and
-       teardown operate on the offset-zero subobject, but current evidence does
-       not distinguish first-member composition from inheritance, so the
-       declaration makes the narrower composition claim. */
+    // Shared spatial queries borrow region volumes owned by this tree.
     W8OctSpatialState m_spatial;
-    W8OctPreTreeBranch* m_branches;
-    W8OctPreTreeLeaf* m_leaves;
+    std::vector<W8OctRegionVolume> m_region_volumes; // Owns the spatial state's borrowed view.
+    std::vector<W8OctPreTreeBranch> m_branches;
+    std::vector<W8OctPreTreeLeaf> m_leaves;
     srVector3T<w8_ulong> m_leaf_grid_dimensions;
-    w8_ulong* m_leaf_lookup;
+    std::vector<w8_ulong> m_leaf_lookup;
     w8_ulong m_branch_count;
     w8_ulong m_leaf_count;
     W8OctreeObjectRegistry* object_registry;
-    char* m_owned_0c0;
+    std::string m_path_stem;
     bool m_fAccumulating;
     unsigned char m_padding_0c5[3];
     w8_ulong m_vertex_count;
     w8_ulong m_leaf_polygon_stream_len;
-    w8_ulong* m_polygon_index_stream;
+    std::vector<w8_ulong> m_polygon_index_stream;
     /* ReadOctFile's allocation assertion calls this the "Poly Lookup table":
        polygon index to (kind<<16)|id object key. */
-    w8_ulong* m_aulPolyLookup;
-    W8OctSubmesh* m_pSubmeshes;
+    std::vector<w8_ulong> m_aulPolyLookup;
+    std::vector<W8OctSubmesh> m_pSubmeshes;
     /* Retail m_pAlphaBits; empty without a mesh count. Link tables retain
        unsigned-short disk records but use native owned containers. */
     std::vector<bool> m_alpha_bits;
@@ -401,19 +401,17 @@ public:
     std::vector<bool> m_visible_particles;
     std::vector<bool> m_linked_props;
     std::vector<bool> m_visible_props;
-    W8Prop** m_papProps;
-    stParticle** m_papParticles;
-    unsigned short m_usNumPropsLoaded;
-    unsigned short m_usNumParticlesLoaded;
+    std::vector<W8Prop*> m_props;
+    std::vector<stParticle*> m_particles;
     /* Registered prop id the last prop trace or test_props snap hit; -1 when
        the ground resolve touched only static geometry. */
     int current_prop;
     w8_ulong m_gd_surface_stream_len;
     w8_ulong m_trigger_count;
-    w8_ulong* m_gd_surface_index_stream;
+    std::vector<w8_ulong> m_gd_surface_index_stream;
     /* Trigger list: serialized as 2-byte elements (ReadOctFile allocates
        count * 2 + 4) even though WriteOctFile emits them four bytes wide. */
-    unsigned short* m_trigger_indices;
+    std::vector<unsigned short> m_trigger_indices;
     w8_ulong m_trace_skip_flag;
     w8_ulong m_region_list_len;
     w8_ulong m_unknown_13c;
@@ -422,8 +420,7 @@ public:
        byte of each (mask<<24 | x<<16 | y<<8 | z) key. */
     w8_ulong m_region_mask;
     w8_ulong m_depth_mask;
-    unsigned short* m_region_index_stream;
-    unsigned char* m_pfRegsVisited;
+    std::vector<unsigned short> m_region_index_stream;
     std::unordered_multimap<unsigned int, unsigned short>* m_pRegionLinks;
     std::vector<bool> m_projected_regions;
     std::vector<bool> m_current_regions;
@@ -438,7 +435,7 @@ public:
     bool m_points_dirty;
     unsigned char m_padding_16e[2];
     w8_ulong m_point_count;
-    srVector3T<float>* m_sample_points;
+    std::vector<srVector3T<float>> m_sample_points;
     /* Region-link sample cell size read from .oct offset 0xac; the link
        builder strides the x/z grid by it (times three for a sparse pass). */
     float m_region_cell;
@@ -457,7 +454,7 @@ public:
     w8_ulong m_alpha_polygon_count;
     w8_ulong m_meshCount;
     w8_ulong m_gd_result_count;
-    w8_ulong* m_aulGDObjs; /* 0x1bc */
+    std::array<w8_ulong, 10000> m_aulGDObjs;
     W8OctreeView view;
     w8_ulong m_unknown_27c[6];
     bool m_visibility_suspended;
@@ -546,7 +543,6 @@ extern bool g_octree_disabled;
 
 bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
-extern unsigned int* g_octree_storage_;
 extern w8_ulong* g_octree_state;
 extern stModelInstance* g_octree_trace_node;
 extern const float g_octree_cell_scale;

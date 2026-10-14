@@ -754,13 +754,6 @@ private:
     void resetTexture();
     void assertContext() const;
     void setMatrixDirty();
-    // Replaces the current matrix with op(current) and marks it dirty.
-    template<class Op> void updateCurrentMatrix(Op op)
-    {
-        auto& current = state.matrix_current[state.matrix_mode];
-        current = op(current);
-        setMatrixDirty();
-    }
     void classifyMatrix(e_matrixMode mode);
     void applyViewStateChanges();
     void applyClipPlaneChanges();

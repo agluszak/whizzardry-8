@@ -946,3 +946,21 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
         }
     }
 }
+
+TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts",
+                 "[loader][records]")
+{
+    W8World world{};
+    for (const int count : {-1, 100000, 0}) {
+        std::string bytes;
+        append(bytes, count);
+        store("items.bin", bytes);
+        auto file = wiz8::open_file("items.bin");
+        W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+        REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
+    }
+    store("items.bin", std::string(3, '\0'));
+    auto file = wiz8::open_file("items.bin");
+    W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+    REQUIRE_FALSE(ReadWorldItems(&info, &world));
+}

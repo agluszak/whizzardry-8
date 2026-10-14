@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #include "wiz8/unicode.h"
 #include "wiz8/engine_code/stScript.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include <fmt/format.h>
@@ -1434,7 +1435,7 @@ catch (const std::exception&) { return false; }
 void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
 {
     screenshot.version = 1.0f;
-    W8ScreenRect rect;
+    DesignRect rect;
     rect.left = 0;
     rect.top = 0;
     rect.right = 640;

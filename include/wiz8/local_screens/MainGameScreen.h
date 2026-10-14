@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #pragma once
 #include "wiz8/modal_content.h"
 
@@ -28,7 +29,6 @@ struct MainGameInput {
 extern std::unique_ptr<MainGameInput> g_main_input;
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
-struct W8ScreenRect;
 
 void RequestRedrawParty(void);
 void RedrawCombatMonsterList(void);
@@ -38,7 +38,7 @@ void ClearHighlightIfItIs(const int* item);
 #include "wiz8/layouts/main_game_screen.h"
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
-extern W8ScreenRect g_viewport_modes[];
+extern DesignRect g_viewport_modes[];
 extern const float g_float_one_fiftieth;
 extern const float g_float_half_turn_degrees;
 /* String-list ids naming each trap row; Traps.cpp indexes it with the

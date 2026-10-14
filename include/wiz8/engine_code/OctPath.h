@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <optional>
 #pragma once
 
@@ -464,6 +465,7 @@ public:
     W8PathEdge* m_pEdges;                  /* 0x4c */
     W8FileWaypoint* m_pFileWayPoints;      /* 0x50 */
     std::unique_ptr<stModelInstance> m_path_visualization;
+    std::vector<std::uint16_t> m_path_scratch;
     std::vector<bool> m_marked_path_nodes;
     std::vector<bool> m_visited_path_nodes;
     std::vector<bool> m_collected_path_nodes;

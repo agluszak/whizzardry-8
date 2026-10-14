@@ -679,7 +679,7 @@ unsigned char ScreenLifecycleSuccess(void)
 // FUNCTION: WIZ8 0x005b1750
 unsigned char CharacterScreenEnter(void)
 {
-    SetViewport(0, 0, 0x280, 0x1e0);
+    SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     ResetUiInput();
     UpdateHeldItemCursor();

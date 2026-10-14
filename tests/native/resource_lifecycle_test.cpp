@@ -287,6 +287,26 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[re
     CheckEmitterCloneLifetime<W8SpellEmitterHost>();
 }
 
+TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and ordered borrowers",
+                 "[resources][registry]")
+{
+    W8SpellVisual first, second, other;
+    RegisterGrCycle("MixedCase", &first);
+    const char* borrowed_name = first.GetRegisteredName();
+    RegisterGrCycle("mixedcase", &second);
+    RegisterGrCycle("AnotherName", &other);
+    REQUIRE(std::string_view(borrowed_name) == "MixedCase");
+    REQUIRE(FindFirstGrCycleByName("MIXEDCASE") == &first);
+    REQUIRE_FALSE(first.IsSoleRegisteredCycleForName());
+    REQUIRE_FALSE(UnregisterGrCycle(&first));
+    REQUIRE(FindFirstGrCycleByName("mixedcase") == &second);
+    REQUIRE(second.IsSoleRegisteredCycleForName());
+    REQUIRE(UnregisterGrCycle(&second));
+    REQUIRE(FindFirstGrCycleByName("mixedcase") == nullptr);
+    REQUIRE(first.GetRegisteredName() == nullptr);
+    REQUIRE(FindFirstGrCycleByName("anothername") == &other);
+}
+
 // Valid retail animation header and light; optionally truncate after the light
 // to exercise cleanup after resources have actually been acquired.
 static void WriteEmitterFixture(unsigned char cycle, bool truncate)
