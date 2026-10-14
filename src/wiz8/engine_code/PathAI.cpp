@@ -26,10 +26,6 @@
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 
-/* Retail shares this empty body with the stub at 0x004023a0. */
-
-void NoOp(void) {}
-
 // FUNCTION: WIZ8 0x004a9260
 bool PathAIUpdate(W8AIRecord* record, signed char direction)
 {

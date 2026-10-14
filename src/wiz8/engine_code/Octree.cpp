@@ -68,7 +68,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stCube.h"
@@ -530,7 +529,6 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
         if (reported_region == 0 && region_index != g_octree_region_debug_last) {
             sprintf(expected_regions, "Point in region %d, expected regions: %s\n", region_index,
                     point_region_label);
-            NoOp();
             g_octree_region_debug_last = region_index;
             reported_region = region_index;
         }
@@ -967,16 +965,13 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
                             (region_key >> 0x10) & 0xff, (region_key >> 8) & 0xff,
                             region_key & 0xff);
                 }
-                NoOp();
                 reported = true;
             }
             sprintf(text, "%d, ", mesh);
-            NoOp();
             InsertIndexValue(*m_pRegionLinks, region_key, mesh);
         }
     }
     if (reported) {
-        NoOp();
     }
 }
 
@@ -1000,7 +995,6 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
     view.far_clip = m_spatial.m_extent;
     char text[104];
     sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
-    NoOp();
     glm::dvec3 location;
     location = glm::dvec3(point->glmValue());
     world->camera->setLocation(location);
@@ -1114,7 +1108,6 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                 unsigned int faces = MeasureNodeRender(mesh);
                                 if (9 < faces) {
                                     sprintf(text, "%d, ", cell);
-                                    NoOp();
                                     SetBit(m_projected_regions, cell);
                                     linked = true;
                                 }
@@ -1142,7 +1135,6 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
         }
         region_key = key;
     }
-    NoOp();
     if (!linked) {
         region_key = 0;
     }

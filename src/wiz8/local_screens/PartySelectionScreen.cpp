@@ -1231,7 +1231,6 @@ unsigned char PartySelectionScreenLeave(int leaving)
         g_party_selection_character_collection.reset();
         g_party_selection_controller.reset();
     }
-    NoOp();
     return 1;
 }
 

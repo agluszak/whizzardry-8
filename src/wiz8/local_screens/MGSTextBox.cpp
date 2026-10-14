@@ -53,7 +53,6 @@
 #include "wiz8/fonts.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "dialog_code/DialogBase.h"
 #include "game_timer.h"
 #include "layouts/character.h"
 #include "layouts/main_game_screen.h"
@@ -265,12 +264,6 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     }
 }
 
-static void NoticeDialogDestroyed(W8DialogBase*)
-{
-    if (g_current_screen_state.id == W8_SCREEN_OPTIONS) {
-        NoOp();
-    }
-}
 
 void InitTextBoxRegions()
 {
@@ -384,7 +377,6 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
         W8MessageDialogBase* dialog =
             CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
-        dialog->m_destroy_callback = NoticeDialogDestroyed;
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         g_modal_owner->DrawModal(GetFrameBufferSurface());
     }

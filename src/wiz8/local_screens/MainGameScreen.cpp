@@ -2764,7 +2764,6 @@ update_screen:
         }
     }
     DrainNpcDialogueDeferralInput();
-    NoOp();
     FlushInputWhileWorldCursorGate();
     gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
     UpdateCharacterEventState();
@@ -3064,7 +3063,6 @@ unsigned char MainGameScreenLeave(int leaving)
         g_level_block.reset();
         ReleaseCatalogArtwork();
     }
-    NoOp();
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
     DisableSky();
@@ -4692,8 +4690,6 @@ apply_mode_tail:
             } else {
                 SetUseItemSelectReturnMode(g_settings.main_ui_mode);
             }
-        } else {
-            NoOp();
         }
     } else {
         SetSpellCastingMode(g_settings.main_ui_mode);
@@ -5036,7 +5032,6 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     }
                     PushButtonSoundScheme(0, true);
                     g_level_block->portrait_right_hold_armed = false;
-                    NoOp();
                     if (IsNpcDialogueCursorActive() == 0) {
                         SetTooltipSubject(0, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
@@ -5047,7 +5042,6 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 }
             } else {
                 g_level_block->portrait_right_hold_armed = false;
-                NoOp();
                 if (IsNpcDialogueCursorActive() == 0) {
                     SetTooltipSubject(0, -1);
                     SetTargetCursor(GetTargetingCursorForState(0));

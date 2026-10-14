@@ -28,7 +28,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -119,7 +118,6 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
 W8AssayDialog::~W8AssayDialog()
 {
     DestroyControls();
-    NoOp();
 }
 
 // FUNCTION: WIZ8 0x005d7160

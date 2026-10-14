@@ -331,7 +331,6 @@ unsigned char PleaseWaitScreenLeave(int leaving)
     if (leaving) {
         g_load_descriptor.reset();
     }
-    NoOp();
     EnableCursorScene();
     return 1;
 }

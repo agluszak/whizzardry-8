@@ -698,7 +698,6 @@ unsigned char CharacterScreenEnter(void)
 unsigned char CharacterScreenLeave(int leaving)
 {
     if (leaving) g_character_screen.reset();
-    NoOp();
     return 1;
 }
 

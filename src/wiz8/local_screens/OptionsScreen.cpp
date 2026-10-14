@@ -1659,7 +1659,6 @@ unsigned char OptionsScreenLeave(int)
     g_options_values.applying = 1;
     g_options_values.TransferSettings();
     g_options_screen.reset();
-    NoOp();
     return 1;
 }
 

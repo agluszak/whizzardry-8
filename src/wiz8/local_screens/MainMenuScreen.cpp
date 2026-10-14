@@ -314,7 +314,6 @@ void MainMenuScreenFrame()
         }});
     }
 
-    NoOp();
     if (g_main_menu_redraw || IsMessageBoxActive() || main_menu_dialog != nullptr) {
         if (main_menu_dialog != nullptr) {
             main_menu_dialog->Draw(GetFrameBufferSurface());

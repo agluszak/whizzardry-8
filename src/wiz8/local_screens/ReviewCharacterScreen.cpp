@@ -1319,7 +1319,6 @@ void DrawCampScreen(void)
     W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
-    NoOp();
     if (!IsKeyHeld(VK_CONTROL) && state->item_icons_drawn) {
         state->redraw_flags |= W8_CAMP_REDRAW_ALL;
         state->item_icons_drawn = false;

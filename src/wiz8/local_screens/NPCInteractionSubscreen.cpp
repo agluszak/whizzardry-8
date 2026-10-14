@@ -1895,8 +1895,6 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_4, 0x737, RequestNpcJoinParty);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_5, 0x723, PromptNpcDispositionChange);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_6, 0x725, LeaveNpcDialogueLayout);
-    g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_SCROLL].primary =
-        NoOp;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_SCROLL_UP_BUTTON].down = ScrollNpcDialogueUp;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_SCROLL_DOWN_BUTTON].down = ScrollNpcDialogueDown;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_12].primary = SubmitNpcDialogueKeyword;
