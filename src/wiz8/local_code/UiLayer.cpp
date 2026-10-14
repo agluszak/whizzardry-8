@@ -31,22 +31,9 @@ bool g_dev_mode;
 bool g_ui_help_forced;
 
 namespace {
-unsigned dispatch_depth = 0;
+unsigned transaction_depth = 0;
 std::vector<std::function<void()>> pending_actions;
-// Targets removed during dispatch live on until it ends, because their
-// handler may be the code that removed them.
-std::vector<std::unique_ptr<HitTarget>> retired_targets;
-struct DispatchScope {
-    DispatchScope() { ++dispatch_depth; }
-    ~DispatchScope() noexcept(false)
-    {
-        if (--dispatch_depth) return;
-        retired_targets.clear();
-        if (std::uncaught_exceptions()) { pending_actions.clear(); return; }
-        auto actions = std::exchange(pending_actions, {});
-        for (auto& action : actions) action();
-    }
-};
+std::vector<RetiredObject> retired_objects;
 InputEvent PointerMotion(SDL_Point point)
 {
     const auto& input = GetInputState();
@@ -188,10 +175,40 @@ namespace {
 UiState& State() { static UiState state; return state; }
 }
 
+UiTransaction::UiTransaction()
+{
+    ++transaction_depth;
+}
+UiTransaction::~UiTransaction() noexcept(false)
+{
+    if (--transaction_depth) {
+        return;
+    }
+    // Retired objects outlive the actions, which may still refer to them.
+    auto retired = std::exchange(retired_objects, {});
+    if (std::uncaught_exceptions()) {
+        pending_actions.clear();
+        return;
+    }
+    auto actions = std::exchange(pending_actions, {});
+    for (auto& action : actions) {
+        action();
+    }
+}
+
 void AfterUiDispatch(std::function<void()> action)
 {
-    if (dispatch_depth) pending_actions.push_back(std::move(action));
-    else action();
+    if (transaction_depth) {
+        pending_actions.push_back(std::move(action));
+    } else
+        action();
+}
+
+void RetireAfterUiDispatch(RetiredObject object)
+{
+    if (transaction_depth) {
+        retired_objects.push_back(std::move(object));
+    }
 }
 
 HitTarget::HitTarget(UiLayer& layer, HitShape shape, Handler handler, int priority)
@@ -254,9 +271,8 @@ HitTarget& UiLayer::add(HitShape shape, HitTarget::Handler handler, int priority
 }
 void UiLayer::retire(std::unique_ptr<HitTarget> target)
 {
-    if (!dispatch_depth) return;
     State().forget(*target);
-    retired_targets.push_back(std::move(target));
+    DestroyAfterUiDispatch(std::move(target));
 }
 void UiLayer::remove(HitTarget& target)
 {
@@ -274,7 +290,7 @@ void UiLayer::setEnabled(bool enabled)
 void UiLayer::setModal(bool modal)
 {
     if (modal_ == modal) return;
-    const DispatchScope scope;
+    const UiTransaction transaction;
     auto& state = State();
     modal_ = modal;
     if (modal) {
@@ -313,7 +329,7 @@ void UiLayer::setModal(bool modal)
 HitTarget* UiTargetAt(SDL_Point point) { return State().at(point); }
 void UpdateUiPointer(int x, int y)
 {
-    const DispatchScope scope;
+    const UiTransaction transaction;
     State().motion(PointerMotion({x, y}));
 }
 SDL_Point UiPointerPosition() { return g_ui.pointer; }
@@ -322,7 +338,7 @@ void ReleaseUiCapture() { if (g_ui.captured) g_ui.captured->releaseCapture(); }
 
 bool DispatchUiInput(const InputEvent* input)
 {
-    const DispatchScope scope;
+    const UiTransaction transaction;
     UiPointerAction action;
     UiPointerButton button = UiPointerButton::None;
     switch (input->type) {
@@ -368,7 +384,7 @@ bool DispatchUiInput(const InputEvent* input)
 
 void ClearUiHover()
 {
-    const DispatchScope scope;
+    const UiTransaction transaction;
     State().leave(PointerMotion(g_ui.pointer));
     g_ui.current = nullptr;
 }
@@ -400,13 +416,12 @@ std::size_t LiveUiTargetCount()
     return count;
 }
 std::size_t LiveUiLayerCount() { return State().layers.size(); }
-
 bool PumpUiInput(const UiInputPolicy& policy)
 {
     if (policy.track_hover) {
         bool changed;
         {
-            const DispatchScope scope;
+            const UiTransaction transaction;
             SDL_Point point;
             SGPMouseGetPos(&point);
             UpdateUiPointer(point.x, point.y);
@@ -420,7 +435,7 @@ bool PumpUiInput(const UiInputPolicy& policy)
         drained = true;
         bool stop;
         {
-            const DispatchScope scope;
+            const UiTransaction transaction;
             auto route = policy.before ? policy.before(input) : InputRoute::Pass;
             if (route == InputRoute::Pass) {
                 const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) && DispatchUiInput(&input);

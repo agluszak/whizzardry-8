@@ -992,8 +992,11 @@ void CreateCampItemControls()
     const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds,
                            int help, bool toggle, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(layer);
-        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4],
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(),
+                          {f[0], f[1], f[2], f[3], f[4]},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         result->policy.controller_activation = true;
         result->policy.primary_toggle = toggle ? ButtonToggle::Release : ButtonToggle::None;
         result->SetPosition(bounds.x, bounds.y);

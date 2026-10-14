@@ -28,6 +28,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" ON)
 option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
 option(WIZ8_SURRENDER_UNITY_BUILD "Unity-build SurRender independently of the game" OFF)
+option(WIZ8_WARNINGS_AS_ERRORS "Fail first-party compilation on warnings (CI enables this)" OFF)
 set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
 if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")
     message(FATAL_ERROR "WIZ8_UNITY_BATCH_SIZE must be a positive integer")
@@ -39,8 +40,11 @@ if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 else()
     add_compile_options(-Wall -Wextra)
 endif()
+# Designated initializers name only the fields they set; the rest keep their
+# defaults (UiInputPolicy, ButtonSetup), so omitting fields is intended.
 add_compile_options(-Wdeprecated -Wimplicit-fallthrough -Wno-unused-parameter
-    $<$<COMPILE_LANGUAGE:CXX>:-Wsuggest-override>)
+    $<$<COMPILE_LANGUAGE:CXX>:-Wsuggest-override>
+    $<$<CXX_COMPILER_ID:Clang,AppleClang>:-Wno-missing-designated-field-initializers>)
 # Check view bounds in Debug builds on libstdc++ versions that otherwise leave
 # these checks disabled. This does not change the container ABI.
 add_compile_definitions($<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
@@ -55,6 +59,19 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
 include(FetchContent)
+# Treat fetched headers as system headers: their warnings are not ours to fix
+# and must not fail WIZ8_WARNINGS_AS_ERRORS builds.
+function(wiz8_system_headers)
+    foreach(dependency IN LISTS ARGN)
+        get_target_property(aliased ${dependency} ALIASED_TARGET)
+        if(aliased)
+            set(dependency ${aliased})
+        endif()
+        get_target_property(directories ${dependency} INTERFACE_INCLUDE_DIRECTORIES)
+        set_target_properties(${dependency} PROPERTIES
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${directories}")
+    endforeach()
+endfunction()
 set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(glm
@@ -62,6 +79,7 @@ FetchContent_Declare(glm
     URL_HASH SHA256=6775e47231a446fd086d660ecc18bcd076531cfedd912fbd66e576b118607001
 )
 FetchContent_MakeAvailable(glm)
+wiz8_system_headers(glm::glm-header-only)
 # Native text facilities: typed runtime printf formatting, Unicode conversion,
 # and Unicode grapheme boundaries. Pin downloads to reproducible releases.
 set(FMT_TEST OFF CACHE BOOL "" FORCE)
@@ -77,6 +95,7 @@ FetchContent_Declare(utf8proc
     URL https://codeload.github.com/JuliaStrings/utf8proc/tar.gz/refs/tags/v2.10.0
     URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136)
 FetchContent_MakeAvailable(fmt utf8cpp utf8proc)
+wiz8_system_headers(fmt::fmt utf8cpp utf8proc)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
@@ -105,6 +124,7 @@ if(BUILD_TESTING)
         GIT_TAG 8b08d4d79514f45f7e4ce2a607ac9c94e920d1bb # v3.15.3
         GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(Catch2)
+    wiz8_system_headers(Catch2::Catch2 Catch2::Catch2WithMain)
     include("${catch2_SOURCE_DIR}/extras/Catch.cmake")
     add_subdirectory(tests/portable)
 endif()
@@ -138,6 +158,13 @@ else()
         $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 endif()
 target_compile_options(wiz8_native_settings INTERFACE ${WIZ8_GAME_OPTIONS})
+if(WIZ8_WARNINGS_AS_ERRORS)
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        target_compile_options(wiz8_native_settings INTERFACE /WX)
+    else()
+        target_compile_options(wiz8_native_settings INTERFACE -Werror)
+    endif()
+endif()
 target_include_directories(wiz8_native_settings INTERFACE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/include/wiz8"

@@ -507,7 +507,7 @@ static void procedural_meshes()
     REQUIRE((std::abs(area - 2) < 1e-5));
     srMeshModel mesh(0, 0);
     modeler.convert(mesh, 1);
-    REQUIRE((mesh.polygon_count == modeler.getTriangleCount()));
+    REQUIRE((static_cast<w8_ulong>(mesh.polygon_count) == modeler.getTriangleCount()));
     const auto index = mesh.findClosestVertex({2, 0, 0});
     REQUIRE((mesh.getVertexLoc()[index] == glm::vec3(2, 0, 0)));
     REQUIRE((mesh.getVertexDCG(0, 0)[index] == glm::vec4(0.2f, 0.4f, 0.6f, 0.25f)));
@@ -2696,7 +2696,7 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
         REQUIRE(polygon.material == original * 10);
         for (unsigned corner = 0; corner < 3; ++corner) {
             REQUIRE(polygon.vertices[corner] == geometry.m_vertices + expected[face - 1][corner]);
-            REQUIRE(polygon.face.vertices[corner] == expected[face - 1][corner]);
+            REQUIRE(polygon.face.vertices[corner] == static_cast<int>(expected[face - 1][corner]));
             REQUIRE(polygon.face.texture_coordinates[corner] == glm::vec2(original, corner));
         }
     }

@@ -18,6 +18,7 @@ enum W8AIRecordKind { W8_AI_RECORD_PATH, W8_AI_RECORD_MISSILE = 3 };
 
 struct W8AIRecord {
     explicit W8AIRecord(W8AIRecordKind kind) : kind(kind) {}
+    W8AIRecord(const W8AIRecord&) = default;
     virtual ~W8AIRecord() = default;
     virtual std::unique_ptr<W8AIRecord> Clone() const = 0;
     const W8AIRecordKind kind;

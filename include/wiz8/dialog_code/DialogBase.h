@@ -19,7 +19,6 @@ class W8DialogTextArea;
 
 typedef void (*W8DialogDestroyCallback)(W8DialogBase* dialog);
 /* Shared close-button callback used by the monster and spell info dialogs. */
-void DialogCloseButtonCallback(W8ButtonWidget* button);
 
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */

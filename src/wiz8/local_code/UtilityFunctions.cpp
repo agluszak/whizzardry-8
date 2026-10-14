@@ -6,69 +6,21 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-#include <optional>
 
 #include "wiz8/utility.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "input.h"
-#include "wiz8/ui_input.h"
 #include "random.h"
 #include "wiz8/layouts/game_status.h"
-#include "Font.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "dice.h"
-
-struct MessageBoxState {
-    UiLayer input;
-    W8ButtonWidget background{input}, accept{input}, cancel{input};
-
-    int state = 0;
-    void (*callback)(void) = nullptr;
-    Font* font = nullptr;
-    unsigned int shade = 0;
-    bool accepted = false;
-    bool has_accept = false;
-    bool has_cancel = false;
-};
-
-static std::optional<MessageBoxState> g_message_box;
-// GLOBAL: WIZ8 0x0068BFD0
-// GLOBAL: WIZ8 0x00689FD0
-
-static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
-{
-    auto bounds = message_box.background.Bounds();
-    const auto include = [&bounds](SDL_Rect control) {
-        const int left = std::min(bounds.x, control.x);
-        const int top = std::min(bounds.y, control.y);
-        const int right = std::max(bounds.x + bounds.w, control.x + control.w);
-        const int bottom = std::max(bounds.y + bounds.h, control.y + control.h);
-        bounds = {left, top, right - left, bottom - top};
-    };
-
-    if (message_box.accept.IsConfigured()) include(message_box.accept.Bounds());
-    if (message_box.cancel.IsConfigured()) include(message_box.cancel.Bounds());
-    return bounds;
-}
-
-static void SetMessageBoxResult(bool accepted)
-{
-    if (!g_message_box) return;
-    g_message_box->state = 1;
-    g_message_box->accepted = accepted;
-}
 
 // FUNCTION: WIZ8 0x00517950
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
@@ -509,163 +461,3 @@ void FreeStringTable(void)
     ReleaseLocalizedStrings();
 }
 
-// FUNCTION: WIZ8 0x00518510
-bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, bool has_accept, bool has_cancel,
-                      void (*callback)(void))
-{
-    if (g_message_box) return false;
-
-    auto& message_box = g_message_box.emplace();
-    unsigned short height = 0x58;
-    if (has_accept || has_cancel) {
-        height = 0x6c;
-    }
-    unsigned short width = font.textWidth(text) + 10;
-    if (width > 0x258) {
-        width = 0x258;
-    } else if (width < 0x64) {
-        width = 0x78;
-    }
-    const int y = (0x1e0 - height) / 2;
-    const auto background_image = LoadGenericButtonImages(
-        {}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {},
-        "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);
-    const auto fail_creation = [] {
-        g_message_box.reset();
-        return false;
-    };
-
-    if (!message_box.background.ConfigureTextButton(
-            text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
-            [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-            0, background_image, UI_PRIORITY_BACKGROUND)) {
-        return fail_creation();
-    }
-    message_box.background.SetMultiColor(true);
-
-    message_box.has_accept = has_accept;
-    message_box.has_cancel = has_cancel;
-    if (has_accept) {
-        if (!message_box.accept.Configure(
-                "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
-                [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-                nullptr, false, UI_PRIORITY_HIGHEST - 1,
-                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
-            return fail_creation();
-        }
-        message_box.accept.SetPosition(0x131 - (has_cancel ? 0x1e : 0), y + 0x46);
-    }
-    if (has_cancel) {
-        if (!message_box.cancel.Configure(
-                "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
-                [](W8ButtonWidget*) { SetMessageBoxResult(false); },
-                nullptr, false, UI_PRIORITY_HIGHEST - 1,
-                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
-            return fail_creation();
-        }
-        message_box.cancel.SetPosition(0x131 + (has_accept ? 0x1e : 0), y + 0x46);
-    }
-    if (has_accept || has_cancel) {
-        message_box.background.SetEnabled(false);
-    }
-    message_box.font = &font;
-    message_box.shade = shade;
-    message_box.state = 2;
-    message_box.callback = callback;
-    message_box.input.setModal(true);
-    const auto bounds = MessageBoxBounds(message_box);
-    InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
-    return true;
-}
-
-static void ReleaseMessageBoxControls()
-{
-    if (!g_message_box) return;
-
-    auto& message_box = *g_message_box;
-    message_box.input.setModal(false);
-    const auto bounds = MessageBoxBounds(message_box);
-    message_box.accept.Reset();
-    message_box.cancel.Reset();
-    message_box.background.Reset();
-    if (bounds.w > 0 && bounds.h > 0) {
-        ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
-        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
-    }
-}
-
-/* Force-dismiss an open message box (state 2 -> 3): remove the buttons and
-   images, clear and invalidate the background rect, and drop the accepted
-   latch so RenderMessageBox never fires the callback. */
-// FUNCTION: WIZ8 0x005187E0
-void CloseMessageBox(void)
-{
-    if (g_message_box && g_message_box->state == 2) {
-        ReleaseMessageBoxControls();
-        g_message_box->state = 3;
-        g_message_box->accepted = false;
-    }
-}
-
-// FUNCTION: WIZ8 0x00518b20
-bool IsMessageBoxActive(void)
-{
-    return g_message_box.has_value();
-}
-
-// FUNCTION: WIZ8 0x005189b0
-void RenderMessageBox(void)
-{
-    if (!g_message_box) return;
-
-    auto& message_box = *g_message_box;
-    if (message_box.state == 1) {
-        ReleaseMessageBoxControls();
-        message_box.state = 3;
-    } else if (message_box.state == 2) {
-        Font& shade_font = message_box.font == &g_large_font ? g_large_font
-            : message_box.font == &g_small_font ? g_small_font
-            : message_box.font == &g_small_font_secondary ? g_small_font_secondary
-            : message_box.font == &g_wiz_text_font ? g_wiz_text_font
-            : g_wiz_text_font_secondary;
-        shade_font.setShade(message_box.shade);
-        message_box.background.Draw(GetFrameBufferSurface());
-        if (message_box.has_accept) message_box.accept.Draw(GetFrameBufferSurface());
-        if (message_box.has_cancel) message_box.cancel.Draw(GetFrameBufferSurface());
-    } else if (message_box.state == 3) {
-        const bool accepted = message_box.accepted;
-        const auto callback = message_box.callback;
-        g_message_box.reset();
-        if (accepted && callback != nullptr) {
-            callback();
-        }
-    }
-}
-
-// FUNCTION: WIZ8 0x00518b30
-void ProcessMessageBoxInput(void)
-{
-    if (!g_message_box || g_message_box->state != 2) return;
-
-    PumpUiInput({
-        .ui_accepts = IsMouseButtonEvent,
-        .unhandled =
-            [](const InputEvent& input) {
-                if (input.type != InputEventType::KeyDown) return InputRoute::Handled;
-                switch (toupper(input.key)) {
-                case '\r':
-                case ' ':
-                case 'Y':
-                    g_message_box->state = 1;
-                    g_message_box->accepted = true;
-                    break;
-                case 27:
-                case 'N':
-                    g_message_box->accepted = !g_message_box->has_cancel;
-                    g_message_box->state = 1;
-                    break;
-                }
-                return InputRoute::Handled;
-            },
-    });
-}

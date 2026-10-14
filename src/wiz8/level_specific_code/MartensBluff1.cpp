@@ -451,11 +451,10 @@ bool MartensBluff1ButtonMaten(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DF5C0
 bool MartensBluff1TeleportState(int new_state)
 {
-    Trigger* pTelTrigger;
     Trigger* pOldButtonTrigger;
     int state;
 
-    pTelTrigger = FindRequiredTriggerByName("MR109");
+    FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 0);
         return false;

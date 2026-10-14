@@ -194,7 +194,6 @@ unsigned char MainMenuScreenEnter(void)
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, wide);
     g_wiz_text_font_secondary.resetPalette();
     main_menu_input.reset();
-    ResetUiInput();
     CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
@@ -253,8 +252,6 @@ void MainMenuScreenFrame()
             CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
             DrawMainMenuItems();
         }
-    } else if (IsMessageBoxActive()) {
-        ProcessMessageBoxInput();
     } else {
         PumpUiInput({.unhandled = [&](const InputEvent& input) {
             if (input.type == InputEventType::KeyDown) {
@@ -315,12 +312,10 @@ void MainMenuScreenFrame()
         }});
     }
 
-    NoOp();
-    if (g_main_menu_redraw || IsMessageBoxActive() || main_menu_dialog != nullptr) {
+    if (g_main_menu_redraw || main_menu_dialog != nullptr) {
         if (main_menu_dialog != nullptr) {
             main_menu_dialog->Draw(GetFrameBufferSurface());
         }
-        RenderMessageBox();
         ResetTransientRenderScenes();
         g_main_menu_redraw = false;
     }
@@ -332,7 +327,6 @@ unsigned char MainMenuScreenLeave(int)
     main_menu_dialog.reset();
     main_menu_input.reset();
     ReleaseCatalogArtwork();
-    ResetUiInput();
     return 1;
 }
 

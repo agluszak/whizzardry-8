@@ -6,6 +6,8 @@
 #include <cstdint>
 
 #include "wiz8/character_skills.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #include "input.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text
@@ -15,22 +17,30 @@
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 
-class W8ButtonWidget;
-
-/* Owned globals. */
-extern std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
-extern std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
-extern std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
-extern std::array<W8ButtonWidget, 5> g_combat_stance_buttons;
-extern std::array<W8ButtonWidget, 3> g_roof_buttons;
-extern W8ButtonWidget g_options_disk_button;
+/* The main game's fixed interface buttons. Create/DestroyMainGameInterfaceButtons
+   configure and reset them; SyncMainGameModeRegions re-enables their layer. */
+struct MainGameButtons {
+    MainGameButtons();
+    UiLayer input;
+    /* The cancel row lands at [built-1] where built is the available-entry count
+       plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
+       Pray (priest trait 0x0b) can never be available together. */
+    std::array<W8ButtonWidget, 9> submenu;
+    std::array<W8ButtonWidget, 2> submenu_scroll;
+    /* [0] closes the panel, [1] toggles the formation screen. */
+    std::array<W8ButtonWidget, 2> submenu_panel;
+    /* [0..2] left column (radar/action/formation), [3..5] right. */
+    std::array<W8ButtonWidget, 6> layout_arrows;
+    /* Attack confirm, stop, continuous start/toggle/pending. */
+    std::array<W8ButtonWidget, 5> combat_stance;
+    /* Roof viewpoint buttons: modes 0, 1 and 2. */
+    std::array<W8ButtonWidget, 3> roof;
+    W8ButtonWidget options_disk;
+};
+extern MainGameButtons g_main_game_buttons;
 extern short g_submenu_entry_count;
 extern uint64_t g_submenu_clock;
 extern bool g_submenu_close_pending;
-/* The cancel row lands at [built-1] where built is the available-entry count
-   plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
-   Pray (priest trait 0x0b) can never be available together. */
-extern std::array<W8ButtonWidget, 9> g_submenu_buttons;
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
 /* Which menu the open sub-menu panel serves (W8SubMenuPage value), each row's

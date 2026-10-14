@@ -1,3 +1,4 @@
+#include "wiz8/ui_input.h"
 #include <utility>
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/local_code/ButtonWidget.h"
@@ -110,8 +111,10 @@ static void CreateSpellCastingViewControls(void)
                                 SDL_Rect bounds, int help, std::function<void()> action) {
         auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
         button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
-            frames[0], frames[1], frames[2], frames[3], frames[4],
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+                          {frames[0], frames[1], frames[2], frames[3], frames[4]},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         button->policy.controller_activation = true;
         button->policy.primary_toggle = ButtonToggle::Release;
         button->SetPosition(bounds.x, bounds.y);
@@ -136,9 +139,7 @@ static void CreateSpellCastingViewControls(void)
                     .skills[W8_SKILL_FIRE_MAGIC + realm].level);
         };
         button->SetTooltip(tooltip);
-        button->on_hover = [tooltip](bool entered) {
-            gpSCSV->dirty[0] = true;
-        };
+        button->on_hover = [](bool) { gpSCSV->dirty[0] = true; };
         auto& text = gpSCSV->realm_text[realm];
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
         text.SetLayoutBounds(0x17 + text_left[realm], 0x166 + pos.y,

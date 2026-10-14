@@ -51,8 +51,7 @@ bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot);
 
 struct W8Character;
 
-bool SaveCharacter(W8Character* character, int slot, bool report_failure,
-                   void (*continuation)(void));
+bool SaveCharacter(W8Character* character, int slot);
 
 bool AutoSaveIfAllowed(bool forced);
 
@@ -62,7 +61,7 @@ struct W8Chunk;
 struct W8GlobalStatus;
 
 unsigned char SaveSlotFileExists(std::string_view slot_name);
-bool LoadCharacter(std::string_view name, W8Character* character, int slot, bool report_failure);
+bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);

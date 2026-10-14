@@ -10,7 +10,6 @@ void ApplyCurrentCursor(void);
 void RequestPartySlotRedraw(int bit);
 unsigned char GetPartyOrderTextColor(signed char party_order);
 unsigned char ScreenLifecycleSuccess(void); // bool-byte-ok: screen-table unsigned char (*)() slot
-void NoOp(void);
 W8ScreenId GetPendingScreenState(void);
 void SetPendingScreenState(W8ScreenId value);
 void RequestScreenTransition(void);

@@ -58,7 +58,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srMaterial.h"
@@ -815,10 +814,13 @@ W8CampCharacterInfo::W8CampCharacterInfo()
 {
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
-        result->Configure(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3,
-            frame, frame + 2, frame + 1, frame + 4,
-            [this, combat](auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
-            {}, false, 0, help, {}, {});
+        result->Configure(
+            CatalogArtwork::Load(0x121, 0).spriteSheet(),
+            {frame + 3, frame, frame + 2, frame + 1, frame + 4},
+            {.on_click = [this, combat](
+                             auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = help});
         result->policy.controller_activation = true;
         result->SetPosition(0x13e, 0x8b);
         return result;
@@ -828,10 +830,10 @@ W8CampCharacterInfo::W8CampCharacterInfo()
     constexpr SDL_Point positions[] = {{0x1d6, 0x4c}, {0x258, 0x4c}, {0x1d6, 0x3e}, {0x258, 0x3e}};
     for (int index = 0; index < 4; ++index) {
         m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13},
-            [this, index](const UiPointerEvent& event) {
-                PushButtonSoundScheme(0, true);
-                return UiResult::Handled;
-            });
+                                     [](const UiPointerEvent&) {
+                                         PushButtonSoundScheme(0, true);
+                                         return UiResult::Handled;
+                                     });
         m_values[index]->setTooltip([this, index] { return m_help[index]; });
     }
     input.setEnabled(false);
@@ -1195,9 +1197,6 @@ void CampScreenFrame(void)
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    if (IsMessageBoxActive()) {
-        ProcessMessageBoxInput();
-    }
     ServiceMusicPlaylist();
     if (g_camp_screen->dialog && !g_camp_screen->dialog->ProcessInput()) {
         g_camp_screen->dialog.reset();
@@ -1216,9 +1215,6 @@ void CampScreenFrame(void)
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
                     g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
                     if (!g_camp_character_pending) {
-                        if (IsMessageBoxActive()) {
-                            CloseMessageBox();
-                        }
                         BeginCombatRound();
                         RequestScreenTransition();
                     } else {
@@ -1281,7 +1277,6 @@ unsigned char CampScreenLeave(int)
     DestroyCampItemControls();
     DestroyCampHeaderButtons();
     g_camp_screen.reset();
-    ResetUiInput();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
     }
@@ -1305,29 +1300,24 @@ void DismissSelectedPartyCharacter(void)
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
-    if (IsMessageBoxActive()) {
-        CloseMessageBox();
-    }
     BeginCombatRound();
     RequestScreenTransition();
 }
 
 /* The camp screen's per-frame update: on the first frame after combat mode
    ends it re-raises every redraw flag, then repaints whichever page is active
-   together with the message box, the level-up/dismissal panels and the dialog
-   on top of the frame. */
+   together with the level-up/dismissal panels and the dialog on top of the
+   frame. */
 void DrawCampScreen(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
-    NoOp();
     if (!IsKeyHeld(VK_CONTROL) && state->item_icons_drawn) {
         state->redraw_flags |= W8_CAMP_REDRAW_ALL;
         state->item_icons_drawn = false;
     }
-    if (state->redraw_flags != 0 || state->item_redraw_flags != 0 || IsMessageBoxActive() ||
-        g_status.item_in_cursor) {
+    if (state->redraw_flags != 0 || state->item_redraw_flags != 0 || g_status.item_in_cursor) {
         if (state->redraw_flags == W8_CAMP_REDRAW_ALL) {
             state->item_redraw_flags = 0xffffffff;
             if (state->dialog != 0) {
@@ -1356,12 +1346,6 @@ void DrawCampScreen(void)
         g_calligraphy_font.setShade(Font::kNormalShade);
         state->item_redraw_flags = 0;
         state->redraw_flags = 0;
-        if (IsMessageBoxActive()) {
-            RenderMessageBox();
-            if (!IsMessageBoxActive()) {
-                state->redraw_flags |= W8_CAMP_REDRAW_ALL;
-            }
-        }
     }
     state->character_info->Redraw(GetFrameBufferSurface(), false);
     if (state->page == W8_CAMP_PAGE_ITEMS) {

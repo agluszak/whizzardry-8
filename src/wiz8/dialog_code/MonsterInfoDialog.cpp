@@ -72,12 +72,13 @@ int W8MonsterInfoDialog::CreateControls()
     resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
     resources.track_path = g_info_dialog_background;
     resources.track_frame = 1;
-    resources.on_scroll = ScrollCallback;
+    resources.on_scroll = [this](int first_visible_entry) {
+        ScrollTextArea(m_text_area, first_visible_entry);
+    };
     m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x26, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb9);
-    m_scroll_bar.m_owner = this;
 
     CreateCloseButton(m_button, 0x11a, 0xe6);
     return 0;
@@ -458,15 +459,6 @@ void W8MonsterInfoDialog::OnRightButtonUp()
 void W8MonsterInfoDialog::OnMouseWheel(int delta)
 {
     m_scroll_bar.ScrollBy(delta);
-}
-
-// FUNCTION: WIZ8 0x005d6ec0
-void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8MonsterInfoDialog* dialog = static_cast<W8MonsterInfoDialog*>(scroll_bar->m_owner);
-    if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
-    }
 }
 
 

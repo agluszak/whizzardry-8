@@ -145,9 +145,11 @@ void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
-        result->Configure(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 2,
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+        result->Configure(CatalogArtwork::Load(0x106, 0).spriteSheet(),
+                          {frame + 3, frame, frame + 1, frame + 2, frame + 2},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         result->policy.controller_activation = true;
         result->SetPosition(x, 0x1c2);
         return result;
@@ -526,7 +528,7 @@ bool W8CharacterScreen::CommitCharacter()
             wiz8::remove_file(path);
         }
         m_character.fInParty = false;
-        if (!SaveCharacter(&m_character, -1, false, 0)) {
+        if (!SaveCharacter(&m_character, -1)) {
             m_character = backup;
             ShowMessage(g_localized_strings[0xd4], 0, 0);
             return false;
@@ -681,7 +683,6 @@ unsigned char CharacterScreenEnter(void)
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
@@ -699,8 +700,6 @@ unsigned char CharacterScreenEnter(void)
 unsigned char CharacterScreenLeave(int leaving)
 {
     if (leaving) g_character_screen.reset();
-    NoOp();
-    ResetUiInput();
     return 1;
 }
 

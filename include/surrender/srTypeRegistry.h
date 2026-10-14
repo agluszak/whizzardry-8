@@ -167,6 +167,7 @@ public:
         sGetClassNode();
     }
 
+    srClassSupport(const srClassSupport&) = default;
     srClassSupport& operator=(const srClassSupport&) = default;
 };
 

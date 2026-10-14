@@ -5,7 +5,6 @@
 #include <SDL3/SDL_timer.h>
 #include <cstdio>
 #include <filesystem>
-#include <stdexcept>
 #include <vector>
 #include <array>
 #include <cstring>
@@ -52,12 +51,6 @@
 #include "surrender/srTextureMap.h"
 
 extern srScene* g_cursor_scene;
-
-static void Check(bool condition, const char* expression)
-{
-    if (!condition)
-        throw std::runtime_error(expression);
-}
 
 static std::vector<unsigned int> ReadFrame()
 {
@@ -111,7 +104,7 @@ TEST_CASE("world graphics")
         application = std::make_unique<wiz8::Application>(arguments);
         ResetForNewGame();
         W8Character character{};
-        REQUIRE(LoadCharacter(character_name, &character, -1, false));
+        REQUIRE(LoadCharacter(character_name, &character, -1));
         REQUIRE(AddCharacterToParty(character, -1) == 2);
         RunNewGameOpeningSequence(false, {});
         // Bypass only the opening movie; use the normal new-game loading screen.

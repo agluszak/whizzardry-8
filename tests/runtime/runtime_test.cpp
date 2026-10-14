@@ -1,6 +1,8 @@
 #include "wiz8/ui_layer.h"
 #include <algorithm>
 #include <array>
+#include <catch2/catch_get_random_seed.hpp>
+#include <cstdlib>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_rect.h>
@@ -63,6 +65,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/cursor.h"
 #include "layouts/party_formation.h"
 #include "wiz8/item_video_object_vector.h"
@@ -75,6 +78,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "input.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -194,6 +198,9 @@ class Game
         SDL_SetLogOutputFunction(CaptureLog, nullptr);
         const std::string_view arguments[] = {"/WINDOW"};
         application_.emplace(arguments);
+        // The game seeds rand() from the clock. Catch's seed makes a run
+        // repeatable: CTest fixes it, and failures print it.
+        std::srand(Catch::getSeed());
         window_ = reinterpret_cast<SDL_Window*>(ghWindow);
         REQUIRE(window_);
         SDL_Event focus{};
@@ -703,7 +710,7 @@ void StartPremadeGame(Game& game)
     ReachMainMenu(game);
     ResetForNewGame();
     W8Character character{};
-    REQUIRE(LoadCharacter("vi.CHR", &character, -1, false));
+    REQUIRE(LoadCharacter("vi.CHR", &character, -1));
     REQUIRE((character.record_version == 1 && character.uiExpLevel == 1));
     REQUIRE(character.name == "vi");
     REQUIRE((character.iProfession == W8_PROFESSION_FIGHTER &&
@@ -716,6 +723,14 @@ void StartPremadeGame(Game& game)
 }
 
 // The formation layer must keep gameplay dragging independent of its artwork.
+/* The interface overlay's color at a point; zero where nothing is drawn. */
+int OverlayPixel(SDL_Point point)
+{
+    Uint8 r, g, b, a;
+    REQUIRE(SDL_ReadSurfacePixel(&GetFrameBufferSurface(), point.x, point.y, &r, &g, &b, &a));
+    return r | g | b;
+}
+
 void FormationUiScenario()
 {
     Game game(false);
@@ -771,8 +786,10 @@ void FormationUiScenario()
     OpenFormationPanel();
     game.frame();
     REQUIRE(gXStatus.fReviewCharacterMode);
+    REQUIRE(OverlayPixel({320, 180}));
     game.click_at(394, 276); // Cancel after re-entry.
     REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE(!OverlayPixel({320, 180})); // Closing erases the panel.
     REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
 }
 
@@ -1155,17 +1172,17 @@ void ResourceLifecycleScenario()
     for (int visit = 0; visit != 2; ++visit) {
         game.command(W8_MGS_COMMAND_AUTOMAP);
         game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
-        REQUIRE(g_automap_buttons.size() == 16);
+        REQUIRE(g_automap_buttons);
         for (int index = 0; index != 16; ++index) {
-            REQUIRE(g_automap_buttons[index]);
-            REQUIRE(g_automap_buttons[index]->Bounds().w > 0);
-            REQUIRE(g_automap_buttons[index]->Bounds().h > 0);
-            g_automap_buttons[index]->m_dirty = true;
-            g_automap_buttons[index]->Draw(GetFrameBufferSurface());
+            REQUIRE(g_automap_buttons->buttons[index]);
+            REQUIRE(g_automap_buttons->buttons[index]->Bounds().w > 0);
+            REQUIRE(g_automap_buttons->buttons[index]->Bounds().h > 0);
+            g_automap_buttons->buttons[index]->m_dirty = true;
+            g_automap_buttons->buttons[index]->Draw(GetFrameBufferSurface());
         }
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
-        REQUIRE(g_automap_buttons.empty());
+        REQUIRE(!g_automap_buttons);
     }
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
@@ -1209,6 +1226,15 @@ void ResourceLifecycleScenario()
     game.click_at(600, 450);
     game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
     REQUIRE(g_screen_return_stack.size() == return_depth);
+    // Returning re-arms the interface buttons; the roof buttons switch views.
+    const auto click_roof = [&](int index) {
+        const auto& bounds = g_main_game_buttons.roof[index].Bounds();
+        game.click("roof-button", {bounds.x + bounds.w / 2, bounds.y + bounds.h / 2});
+    };
+    click_roof(2);
+    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
+    click_roof(0);
+    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS);
     REQUIRE((GetWorld() && GetWorld()->level));
 
     const int level = g_status.current_level;
@@ -1270,6 +1296,24 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save,
 }
 
 /* Quick save, walk away, quick load: the party is back where it saved. */
+/* Toggle combat and engage a live hostile monster, so the fight persists. */
+W8MonsterInfo* EnterCombat(Game& game)
+{
+    game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
+    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
+    REQUIRE(g_combat_state);
+    W8MonsterInfo* monster = GetNextMonsterInfo(true);
+    while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
+                       monster->ubDisposition != W8_DISPOSITION_HOSTILE)) {
+        monster = GetNextMonsterInfo(false);
+    }
+    REQUIRE(monster);
+    if (!monster->fInCombat) {
+        MonsterInfoEnterCombat(monster);
+    }
+    return monster;
+}
+
 void QuickSaveScenario()
 {
     Game game(false);
@@ -1277,7 +1321,7 @@ void QuickSaveScenario()
     const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
     const int level = g_status.current_level;
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
-    const int health = g_status.buffers.Char[PremadeSlot()].hp_current;
+    const auto health = g_status.buffers.Char[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
     const fs::path save = QuickSave(game);
     WriteSaveFixture(WIZ8_RUNTIME_SAVE_FIXTURE, save, anchor);
@@ -1287,6 +1331,8 @@ void QuickSaveScenario()
     // the character record, not just reposition the party.
     g_status.buffers.Char[PremadeSlot()].experience = experience + 123;
     g_status.buffers.Char[PremadeSlot()].hp_current = health - 1;
+    // Loading ends the fight while the main game is suspended.
+    EnterCombat(game);
 
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     bool loading = false;
@@ -1300,6 +1346,7 @@ void QuickSaveScenario()
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
+    REQUIRE(!gXStatus.fCombatMode);
     std::printf("quick-save: %s round-tripped after %lu frames\n",
                 save.filename().string().c_str(), game.frames());
 }
@@ -1489,24 +1536,19 @@ void NpcDialogueScenario()
     std::printf("npc-dialogue: two visits after %lu frames\n", game.frames());
 }
 
-/* Combat through its key bindings: enter, run a defended round, kill a
-   monster, leave. */
+/* Dismiss the quit prompt, then combat through its key bindings and End Turn
+   button: enter, run a defended round, kill a monster, leave. */
 void CombatScenario()
 {
     Game game(false);
     StartPremadeGame(game);
     Settle(game, "settle");
-    game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
-    REQUIRE(g_combat_state);
-
-    W8MonsterInfo* monster = GetNextMonsterInfo(true);
-    while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
-                       monster->ubDisposition != W8_DISPOSITION_HOSTILE))
-        monster = GetNextMonsterInfo(false);
-    REQUIRE(monster);
-    if (!monster->fInCombat)
-        MonsterInfoEnterCombat(monster);
+    // A closed dialog erases itself from the interface overlay.
+    game.key(SDLK_ESCAPE);
+    REQUIRE(game.within_frames(4, [] { return g_modal_owner && OverlayPixel({320, 240}); }));
+    game.key(SDLK_ESCAPE);
+    REQUIRE(game.within_frames(4, [] { return !g_modal_owner && !OverlayPixel({320, 240}); }));
+    W8MonsterInfo* monster = EnterCombat(game);
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
     const int kills = g_status.buffers.Char[PremadeSlot()].kill_count;
     const unsigned reward = GetMonsterExperience(GetMonsterDataForInfo(monster));
@@ -1516,7 +1558,9 @@ void CombatScenario()
         if (g_status.buffers.XChar[slot].fOccupied)
             ChooseAction(slot, W8_ACTION_DEFEND, -1, nullptr, false, 1);
     const unsigned round = g_combat_state->round_count;
-    game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
+    // Interface buttons take input again after the level load.
+    const auto& end_turn = g_main_game_buttons.combat_stance[0].Bounds();
+    game.click("end-turn", {end_turn.x + end_turn.w / 2, end_turn.y + end_turn.h / 2});
     REQUIRE((g_combat_state && g_combat_state->round_count == round + 1));
     game.wait("round", [&] {
         REQUIRE(g_combat_state);
@@ -1548,6 +1592,8 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE(!g_combat_state);
+    // Shutting down mid-fight ends it before the interface is released.
+    EnterCombat(game);
     std::printf("combat: round, kill and exit after %lu frames\n", game.frames());
 }
 

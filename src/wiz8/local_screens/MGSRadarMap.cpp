@@ -87,8 +87,6 @@ static float g_radar_map_scale;
 // GLOBAL: WIZ8 0x0069c0e4
 static bool g_radar_map_enabled = false;
 
-// GLOBAL: WIZ8 0x005eecd8
-const double g_radar_pi = 3.141592653589793;
 // GLOBAL: WIZ8 0x005eece8
 const float g_radar_center_y = 404.0f;
 // GLOBAL: WIZ8 0x005eecec

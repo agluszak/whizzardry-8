@@ -466,7 +466,7 @@ try
         return 1;
     }
 
-    (pInfo->hFile->read(&version, sizeof(version)).bytes == static_cast<std::size_t>(sizeof(version)));
+    pInfo->hFile->read(&version, sizeof(version));
     plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
     for (index = 0; index < count; ++index) {
         clip_plane = new srClipPlane(pWorld->static_scene);
@@ -475,8 +475,8 @@ try
                          "out of memory creating clip plane");
         }
 
-        (pInfo->hFile->read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name)));
-        (pInfo->hFile->read(&serialized_position, sizeof(serialized_position)).bytes == static_cast<std::size_t>(sizeof(serialized_position)));
+        pInfo->hFile->read(name, sizeof(name));
+        pInfo->hFile->read(&serialized_position, sizeof(serialized_position));
         _strupr(name);
         clip_plane->setName(name);
         clip_plane->setClipPlane(plane);
@@ -602,23 +602,23 @@ try
         trigger = 0;
         success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes == static_cast<std::size_t>(sizeof(record.item_name)));
         if (success) {
-            (pInfo->hFile->read(&record.position, sizeof(record.position)).bytes == static_cast<std::size_t>(sizeof(record.position)));
+            pInfo->hFile->read(&record.position, sizeof(record.position));
             record.position *= g_world_scale;
-            (pInfo->hFile->read(&record.positional0, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
-            (pInfo->hFile->read(&record.positional2, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
-            (pInfo->hFile->read(&record.positional3, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
-            (pInfo->hFile->read(&record.positional4, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
-            (pInfo->hFile->read(&has_trigger, sizeof(has_trigger)).bytes == static_cast<std::size_t>(sizeof(has_trigger)));
+            pInfo->hFile->read(&record.positional0, sizeof(int));
+            pInfo->hFile->read(&record.positional2, sizeof(int));
+            pInfo->hFile->read(&record.positional3, sizeof(int));
+            pInfo->hFile->read(&record.positional4, sizeof(int));
+            pInfo->hFile->read(&has_trigger, sizeof(has_trigger));
             if (has_trigger != 0) {
                 trigger = Trigger::CreateAndLoadLevelTrigger(pInfo->hFile, pInfo->world);
             }
-            (pInfo->hFile->read(&positional_byte, sizeof(positional_byte)).bytes == static_cast<std::size_t>(sizeof(positional_byte)));
-            (pInfo->hFile->read(&positional_byte, sizeof(positional_byte)).bytes == static_cast<std::size_t>(sizeof(positional_byte)));
-            (pInfo->hFile->read(&positional_byte, sizeof(positional_byte)).bytes == static_cast<std::size_t>(sizeof(positional_byte)));
-            (pInfo->hFile->read(&positional_value, sizeof(positional_value)).bytes == static_cast<std::size_t>(sizeof(positional_value)));
-            (pInfo->hFile->read(&positional_value, sizeof(positional_value)).bytes == static_cast<std::size_t>(sizeof(positional_value)));
-            (pInfo->hFile->read(&positional_value, sizeof(positional_value)).bytes == static_cast<std::size_t>(sizeof(positional_value)));
-            (pInfo->hFile->read(&positional_value, sizeof(positional_value)).bytes == static_cast<std::size_t>(sizeof(positional_value)));
+            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
+            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
+            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
+            pInfo->hFile->read(&positional_value, sizeof(positional_value));
+            pInfo->hFile->read(&positional_value, sizeof(positional_value));
+            pInfo->hFile->read(&positional_value, sizeof(positional_value));
+            pInfo->hFile->read(&positional_value, sizeof(positional_value));
 
             if (record.item_name[0] >= '0' && record.item_name[0] <= '9') {
                 item_id = atoi(record.item_name);
@@ -805,28 +805,28 @@ try
     int count;
     int index;
 
-    (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
+    pInfo->hFile->read(&count, sizeof(count));
     for (index = 0; index < count; ++index) {
         unsigned char version;
         stParticle* particle;
         glm::dvec3 axis;
         glm::dvec3 location;
 
-        (pInfo->hFile->read(&version, sizeof(version)).bytes == static_cast<std::size_t>(sizeof(version)));
+        pInfo->hFile->read(&version, sizeof(version));
         if (version == 4) {
-            (pInfo->hFile->read(&record, sizeof(record)).bytes == static_cast<std::size_t>(sizeof(record)));
+            pInfo->hFile->read(&record, sizeof(record));
         } else if (version == 3) {
-            (pInfo->hFile->read(&record, 0x21d).bytes == static_cast<std::size_t>(0x21d));
+            pInfo->hFile->read(&record, 0x21d);
             record.start_frame = -1;
             record.end_frame = -1;
         } else if (version == 2) {
-            (pInfo->hFile->read(&record, 0x218).bytes == static_cast<std::size_t>(0x218));
+            pInfo->hFile->read(&record, 0x218);
             record.emission_limit = 0;
             record.requires_sorted_renderer = 0;
             record.start_frame = -1;
             record.end_frame = -1;
         } else if (version == 1) {
-            (pInfo->hFile->read(&record, 0x216).bytes == static_cast<std::size_t>(0x216));
+            pInfo->hFile->read(&record, 0x216);
             record.attachment_key = -1;
             record.emission_limit = 0;
             record.requires_sorted_renderer = 0;
@@ -1092,7 +1092,7 @@ try
         return 0;
     }
 
-    (info.hFile->read(&section_count, sizeof(section_count)).bytes == static_cast<std::size_t>(sizeof(section_count)));
+    info.hFile->read(&section_count, sizeof(section_count));
     if (section_count == 0) {
         WorldSetFarClip(world, 42500.0f);
         WorldSetRenderRange(world, 37500.0f);
@@ -1107,7 +1107,7 @@ try
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after fog options.");
 
     if (success && info.hFile != 0) {
-        (info.hFile->read(&section_count, sizeof(section_count)).bytes == static_cast<std::size_t>(sizeof(section_count)));
+        info.hFile->read(&section_count, sizeof(section_count));
         if (section_count != 0) {
             for (index = 0; index < section_count; ++index) {
                 Trigger::CreateAndLoadLevelTrigger(info.hFile, world);
@@ -1123,7 +1123,7 @@ try
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after triggers.");
 
     UpdateWorldProps(world);
-    (info.hFile->read(&camera_mode, sizeof(camera_mode)).bytes == static_cast<std::size_t>(sizeof(camera_mode)));
+    info.hFile->read(&camera_mode, sizeof(camera_mode));
     SetCameraSwayMode(world->camera, camera_mode == 0 ? -1 : 1);
     if (world->octree == 0 && world != g_secondary_world) {
         FinalizeWorldScenes(world->static_scene, world->dynamic_scene);

@@ -1360,11 +1360,11 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         if (gold != 0) {
             AddPartyGold(gold, true);
         }
-        if (static_cast<int>(items.size()) <= 1) {
+        if (items.size() == 1) {
             item = items[0];
             gXStatus.world_items.push_back(item);
             item->position = position;
-        } else {
+        } else if (items.size() > 1) {
             W8WorldItem* container;
             int item_index;
             if (value == -1) {

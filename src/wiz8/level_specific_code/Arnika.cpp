@@ -462,7 +462,7 @@ void ArnikaMookholoWatch(int command)
 // FUNCTION: WIZ8 0x004E1040
 bool ArnikaMookFrontDoor(Trigger* pTrigger)
 {
-    Trigger* pMookHolo = FindRequiredTriggerByName("Mookholo");
+    FindRequiredTriggerByName("Mookholo");
     if (GetLocationVarIDByName("MookDoorOpen") != -1) {
         SetTriggerVariableByName("MookDoorOpen", 1);
     } else {
@@ -886,7 +886,6 @@ bool ArnikaCMbox(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E24E0
 int ArnikaPedestalItem(int* previous_item)
 {
-    Trigger* pTrigger;
     W8NpcState* npc;
     W8MonsterInfo* info;
     srVector3T<float> position;
@@ -899,7 +898,7 @@ int ArnikaPedestalItem(int* previous_item)
             return -2;
         }
     }
-    pTrigger = FindRequiredTriggerByName("ChaosMolori");
+    FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
         ClearHeldItemDisplay();
     }

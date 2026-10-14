@@ -310,10 +310,14 @@ JournalScreen::JournalScreen()
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
         const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
-        button->Configure(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]),
-            frame(frames[2]), frame(frames[1]), frame(frames[3]),
-            [this, action](W8ButtonWidget*) { AfterUiDispatch([this, action] { Activate(action); }); },
-            {}, false, 0, W8_DIALOG_BUTTON_NO_TOOLTIP, {}, {});
+        button->Configure(artwork.spriteSheet(),
+                          {frame(frames[4]), frame(frames[0]), frame(frames[2]), frame(frames[1]),
+                           frame(frames[3])},
+                          {.on_click =
+                               [this, action](W8ButtonWidget*) {
+                                   AfterUiDispatch([this, action] { Activate(action); });
+                               },
+                           .priority = UI_PRIORITY_LOWEST});
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
         button->policy = {.primary_toggle = toggle, .controller_activation = true};
@@ -399,7 +403,6 @@ unsigned char JournalScreenEnter(void)
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_journal_panel = std::make_unique<JournalScreen>();
 
@@ -431,7 +434,6 @@ unsigned char JournalScreenEnter(void)
 // FUNCTION: WIZ8 0x005be0b0
 unsigned char JournalScreenLeave(int)
 {
-    ResetUiInput();
     g_journal_panel.reset();
     g_journal_entries.clear();
     if (gXStatus.fCampMode) {

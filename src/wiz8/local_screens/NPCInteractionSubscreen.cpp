@@ -1895,8 +1895,6 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_4, 0x737, RequestNpcJoinParty);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_5, 0x723, PromptNpcDispositionChange);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_6, 0x725, LeaveNpcDialogueLayout);
-    g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_SCROLL].primary =
-        NoOp;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_SCROLL_UP_BUTTON].down = ScrollNpcDialogueUp;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_SCROLL_DOWN_BUTTON].down = ScrollNpcDialogueDown;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_12].primary = SubmitNpcDialogueKeyword;
@@ -1958,8 +1956,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
     SetNpcPanelActive(6, false);
     SetNpcDialogueLayoutMode(W8_DIALOGUE_LAYOUT_NONE);
     g_npc_interaction_state->ui->transcript->ClearBackground();
-    ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
-    InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
+    EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
     for (index = 0; index < 8; ++index) {
         if (g_status.buffers.XChar[index].fOccupied) {
             EnableMainGamePortraitSlot(index);
@@ -3878,8 +3875,7 @@ static void SetNpcDialogueHidden(char value)
         }
         SetNpcDialogueInputEnabled(0, false);
         g_npc_interaction_state->ui->transcript->ClearBackground();
-        ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
-        InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
+        EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
@@ -4264,8 +4260,7 @@ unsigned char SetNpcDialoguePanelVisible(unsigned char value)
             SetNpcPanelActive(3, false);
             controller = g_npc_interaction_state->ui->transcript.get();
             controller->ClearBackground();
-            ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
-            InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
+            EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);

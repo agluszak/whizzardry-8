@@ -85,12 +85,12 @@ private:
 
     /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
-    static void TextAreaButtonCallback(W8ButtonWidget* button);
-    static void UpButtonCallback(W8ButtonWidget* button);
-    static void DownButtonCallback(W8ButtonWidget* button);
-    static void OkButtonCallback(W8ButtonWidget* button);
-    static void CancelButtonCallback(W8ButtonWidget* button);
-    static void SliderTrackButtonCallback(W8ButtonWidget* button);
+    void OnTextAreaClick();
+    void OnUp();
+    void OnDown();
+    void OnOk();
+    void OnCancel();
+    void OnSliderTrackClick();
 
 public:
     std::vector<std::string> m_lines;
@@ -154,13 +154,8 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure. */
-    static void SplitDecrementOne(W8ButtonWidget* button);
-    static void SplitDecrementFive(W8ButtonWidget* button);
-    static void SplitIncrementOne(W8ButtonWidget* button);
-    static void SplitIncrementFive(W8ButtonWidget* button);
-    static void SplitAccept(W8ButtonWidget* button);
-    static void SplitCancel(W8ButtonWidget* button);
-    static void SplitActivateField(W8ButtonWidget* button);
+    void Finish(W8SplitDialogResult result);
+    void ActivateField();
 
 private:
     std::array<std::unique_ptr<W8ButtonWidget>, 6> m_buttons;
@@ -204,7 +199,9 @@ private:
     bool IsItemSelected(int index);
     void SetItemSelected(int index, bool selected);
     void ToggleItem(int index, W8ButtonWidget* button);
-    static void ShowVisibleItemInfo(W8ButtonWidget* button, int row);
+    void ToggleAllItems();
+    void ShowVisibleItemInfo(int row);
+    void ScrollItemsToMouse();
     /* Move every flagged item to the destination: -1 copies it into the shared
        party pool, any other value gives it to that party slot's character.
        Each successful transfer unlinks the item and its flag; a failure plays
@@ -212,29 +209,6 @@ private:
     void TransferSelectedItems(int destination);
     /* Handle one event the picker owns: keyboard list navigation and clicks. */
     bool HandleInputEvent(const InputEvent* input);
-
-    /* Per-button callbacks stored through W8ButtonWidget::Configure.
-       CloseOwningDialog is public because AssayDialog also stores it
-       on its close button. */
-    static void ToggleAllItems(W8ButtonWidget* button);
-    static void TakeSelectedToParty(W8ButtonWidget* button);
-    static void TakeSelectedToCharacter(W8ButtonWidget* button);
-
-public:
-    static void CloseOwningDialog(W8ButtonWidget* button);
-
-private:
-    static void ToggleVisibleItem0(W8ButtonWidget* button);
-    static void ToggleVisibleItem1(W8ButtonWidget* button);
-    static void ToggleVisibleItem2(W8ButtonWidget* button);
-    static void ToggleVisibleItem3(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo0(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo1(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo2(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo3(W8ButtonWidget* button);
-    static void ScrollItemsUp(W8ButtonWidget* button);
-    static void ScrollItemsDown(W8ButtonWidget* button);
-    static void ScrollItemsToMouse(W8ButtonWidget* button);
 
 public:
   std::vector<W8WorldItem*> items;
@@ -279,13 +253,9 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure. */
-    static void OnSplitDecrement(W8ButtonWidget* button);
-    static void OnSplitIncrement(W8ButtonWidget* button);
-    static void OnSplitDecrementMany(W8ButtonWidget* button);
-    static void OnSplitIncrementMany(W8ButtonWidget* button);
-    static void OnAccept(W8ButtonWidget* button);
-    static void OnCancel(W8ButtonWidget* button);
-    static void OnCountFieldClick(W8ButtonWidget* button);
+    void StepSplit(int count);
+    void Finish(W8SplitDialogResult result);
+    void OnCountFieldClick();
 
 public:
     std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */

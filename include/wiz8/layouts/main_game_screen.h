@@ -94,7 +94,6 @@ struct W8DialogueTextState {
 struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
-    bool message_box_pending; /* Historical offset 0x0f0: message box lived last frame; render deferred */
     unsigned char flags[3];
     unsigned int redraw_flags; /* Historical offset 0x0f4 */
     /* Snapshot of redraw_flags taken before the two redraw passes; the second

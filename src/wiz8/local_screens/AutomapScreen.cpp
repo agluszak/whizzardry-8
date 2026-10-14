@@ -137,7 +137,7 @@ std::vector<srClass*> g_automap_markers;
 // GLOBAL: WIZ8 0x0068f220
 std::vector<std::unique_ptr<srClipPlane>> g_automap_created_layers;
 // GLOBAL: WIZ8 0x0068f24c
-std::vector<std::unique_ptr<W8ButtonWidget>> g_automap_buttons;
+std::unique_ptr<AutomapButtons> g_automap_buttons;
 struct W8AutomapState {
     uint64_t blink_time = 0;
     bool blink_enabled = false;
@@ -454,24 +454,25 @@ void RestoreAutomapCameraPosition(void)
    tooltip / position tables. */
 void CreateAutomapButtons(void)
 {
-    std::vector<std::unique_ptr<W8ButtonWidget>> buttons(16);
-    for (size_t index = 0; index < buttons.size(); ++index) {
+    auto buttons = std::make_unique<AutomapButtons>();
+    for (size_t index = 0; index < buttons->buttons.size(); ++index) {
         const int catalog_id = g_automap_button_catalogs[index];
         auto artwork = CatalogArtwork::Load(catalog_id);
         auto sprites = artwork.spriteSheet();
         if (!sprites) continue;
         const int base_frame = artwork.imageOffset();
-        auto button = std::make_unique<W8ButtonWidget>();
+        auto button = std::make_unique<W8ButtonWidget>(buttons->input);
         const auto action = g_automap_button_callbacks[index];
         W8ButtonCallback callback;
         if (action) callback = [action](W8ButtonWidget*) { action(); };
-        if (button->Configure(std::move(sprites), base_frame + 3, base_frame, base_frame + 1,
-                              base_frame + 2, base_frame + 2, callback, nullptr, false,
-                              UI_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
+        if (button->Configure(
+                std::move(sprites),
+                {base_frame + 3, base_frame, base_frame + 1, base_frame + 2, base_frame + 2},
+                {.on_click = callback, .tooltip = g_automap_button_tooltips[index]})) {
             button->SetPosition(g_automap_button_positions[index].x,
                                 g_automap_button_positions[index].y);
         }
-        buttons[index] = std::move(button);
+        buttons->buttons[index] = std::move(button);
     }
     g_automap_buttons = std::move(buttons);
 }
@@ -503,13 +504,13 @@ void AutomapZoomOutButton(void)
             float height = g_automap_top_y - (g_automap_top_y - ground_y) * g_float_half;
             if (g_automap_position.y <= height) {
                 g_automap_position.y = height;
-                if (!g_automap_buttons.empty()) {
-                    g_automap_buttons[0]->SetEnabled(true);
-                    g_automap_buttons[1]->SetEnabled(true);
-                    g_automap_buttons[0]->m_dirty = true;
-                    g_automap_buttons[0]->Draw(GetFrameBufferSurface());
-                    g_automap_buttons[1]->m_dirty = true;
-                    g_automap_buttons[1]->Draw(GetFrameBufferSurface());
+                if (g_automap_buttons) {
+                    g_automap_buttons->buttons[0]->SetEnabled(true);
+                    g_automap_buttons->buttons[1]->SetEnabled(true);
+                    g_automap_buttons->buttons[0]->m_dirty = true;
+                    g_automap_buttons->buttons[0]->Draw(GetFrameBufferSurface());
+                    g_automap_buttons->buttons[1]->m_dirty = true;
+                    g_automap_buttons->buttons[1]->Draw(GetFrameBufferSurface());
                 }
                 g_automap_zoom = g_automap_position.y - ground_y;
                 g_automap_zoom_mode = 1;
@@ -689,9 +690,9 @@ unsigned char AutomapScreenEnter(void)
     CatalogArtwork::Load(0x14a, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
     UpdateAutomapPageButtons();
     for (int button = 0; button < 16; ++button) {
-        if (g_automap_buttons[button]) {
-            g_automap_buttons[button]->m_dirty = true;
-            g_automap_buttons[button]->Draw(GetFrameBufferSurface());
+        if (g_automap_buttons->buttons[button]) {
+            g_automap_buttons->buttons[button]->m_dirty = true;
+            g_automap_buttons->buttons[button]->Draw(GetFrameBufferSurface());
         }
     }
     ResetTransientRenderScenes();
@@ -964,7 +965,7 @@ unsigned char AutomapScreenLeave(int)
     g_automap_surface.reset();
     ClearAutomapMarkers();
     g_automap_party_marker->setParent(0, 1);
-    g_automap_buttons.clear();
+    g_automap_buttons.reset();
     UpdateHeldItemCursor();
     EnableCursorScene();
     for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
@@ -996,24 +997,24 @@ unsigned char AutomapScreenFinalize(void)
    and redraw both and remember the mode. */
 void SetAutomapButtonMode(int update)
 {
-    if (g_automap_buttons.empty()) {
+    if (!g_automap_buttons) {
         g_automap_zoom_mode = update;
         return;
     }
     if (update == 0) {
-        g_automap_buttons[0]->SetEnabled(true);
-        g_automap_buttons[1]->SetEnabled(false);
+        g_automap_buttons->buttons[0]->SetEnabled(true);
+        g_automap_buttons->buttons[1]->SetEnabled(false);
     } else if (update == 1) {
-        g_automap_buttons[0]->SetEnabled(true);
-        g_automap_buttons[1]->SetEnabled(true);
+        g_automap_buttons->buttons[0]->SetEnabled(true);
+        g_automap_buttons->buttons[1]->SetEnabled(true);
     } else if (update == 2) {
-        g_automap_buttons[0]->SetEnabled(false);
-        g_automap_buttons[1]->SetEnabled(true);
+        g_automap_buttons->buttons[0]->SetEnabled(false);
+        g_automap_buttons->buttons[1]->SetEnabled(true);
     }
-    g_automap_buttons[0]->m_dirty = true;
-    g_automap_buttons[0]->Draw(GetFrameBufferSurface());
-    g_automap_buttons[1]->m_dirty = true;
-    g_automap_buttons[1]->Draw(GetFrameBufferSurface());
+    g_automap_buttons->buttons[0]->m_dirty = true;
+    g_automap_buttons->buttons[0]->Draw(GetFrameBufferSurface());
+    g_automap_buttons->buttons[1]->m_dirty = true;
+    g_automap_buttons->buttons[1]->Draw(GetFrameBufferSurface());
     g_automap_zoom_mode = update;
 }
 
@@ -1086,13 +1087,13 @@ void SetAutomapLayer(int layer)
     g_automap_layer = layer;
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
-    if (!g_automap_buttons.empty()) {
-        if (g_automap_buttons[9] != 0) {
-            g_automap_buttons[9]->SetEnabled(layer !=
-                                             static_cast<int>(g_automap_layers.size()) - 1);
+    if (g_automap_buttons) {
+        if (g_automap_buttons->buttons[9] != 0) {
+            g_automap_buttons->buttons[9]->SetEnabled(
+                layer != static_cast<int>(g_automap_layers.size()) - 1);
         }
-        if (g_automap_buttons[8] != 0) {
-            g_automap_buttons[8]->SetEnabled(layer != 0);
+        if (g_automap_buttons->buttons[8] != 0) {
+            g_automap_buttons->buttons[8]->SetEnabled(layer != 0);
         }
     }
 }
@@ -1327,8 +1328,8 @@ void RenderAutomapFrame(void)
         g_automap_redraw = false;
     }
     for (int button = 0; button < 16; ++button) {
-        if (g_automap_buttons[button] != 0) {
-            g_automap_buttons[button]->Draw(GetFrameBufferSurface());
+        if (g_automap_buttons->buttons[button] != 0) {
+            g_automap_buttons->buttons[button]->Draw(GetFrameBufferSurface());
         }
     }
     RenderFrame();
@@ -1336,11 +1337,11 @@ void RenderAutomapFrame(void)
 
 void UpdateAutomapPageButtons(void)
 {
-    g_automap_buttons[5]->SetVisible(g_automap_page == 0);
-    g_automap_buttons[6]->SetVisible(g_automap_page == 1);
-    g_automap_buttons[7]->SetVisible(g_automap_page == 2);
-    g_automap_buttons[g_automap_page + 5]->m_dirty = true;
-    g_automap_buttons[g_automap_page + 5]->Draw(GetFrameBufferSurface());
+    g_automap_buttons->buttons[5]->SetVisible(g_automap_page == 0);
+    g_automap_buttons->buttons[6]->SetVisible(g_automap_page == 1);
+    g_automap_buttons->buttons[7]->SetVisible(g_automap_page == 2);
+    g_automap_buttons->buttons[g_automap_page + 5]->m_dirty = true;
+    g_automap_buttons->buttons[g_automap_page + 5]->Draw(GetFrameBufferSurface());
 }
 
 /* Blit the saved automap surface back over a screen rect to erase whatever

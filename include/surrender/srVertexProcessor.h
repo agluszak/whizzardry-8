@@ -32,6 +32,9 @@ struct srVertexArray {
 // VTABLE: SURRENDER 0x10076c74 srVertexProcessor
 class srVertexProcessor {
 public:
+    srVertexProcessor() = default;
+    srVertexProcessor(const srVertexProcessor&) = default;
+    srVertexProcessor& operator=(const srVertexProcessor&) = default;
     virtual ~srVertexProcessor() {}
     struct MaterialInfo {
         // FUNCTION: WIZ8 0x00424A80

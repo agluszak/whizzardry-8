@@ -269,14 +269,6 @@ int GetLoadedLevelID(void)
 {
     return g_status.current_level;
 }
-/* Retail shares the no-op stub at 0x004023A0 across arities; this typed
-   overload is called with the sky world and two zero arguments. */
-void NoOp(W8World* world, int first, int second)
-{
-    (void)world;
-    (void)first;
-    (void)second;
-}
 
 /* Load or replace the sky world for a level. A level whose sky index already
    matches the world held in g_secondary_world reuses it; a level with no sky
@@ -369,7 +361,6 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
 
     SetWorldSceneMeshShaderLowBits(GetSecondaryWorld(), 0);
     SetWorldSceneMeshShaderBit3(GetSecondaryWorld(), 1);
-    NoOp(sky_world, 0, 0);
     WorldRemoveLight(sky_world, sky_world->camera_light);
     sky_world->camera_light = 0;
     g_loaded_sky_index = sky_index;

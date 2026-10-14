@@ -138,7 +138,7 @@ catch_discover_tests(native_owner_test
     TEST_PREFIX "native_owners/"
     TEST_SPEC "~[.death]"
     PROPERTIES TIMEOUT 10)
-foreach(mode plain message)
+foreach(mode plain message button-self-destroy)
     add_test(NAME native_assertion_${mode}
         COMMAND "${CMAKE_COMMAND}" "-DPROGRAM=$<TARGET_FILE:native_owner_test>" "-DMODE=${mode}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/assertion_failure.cmake")
@@ -239,7 +239,8 @@ target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
 foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest quick-save combat npc-dialogue load-game)
-    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
+    # A fixed seed makes the game's rand() rolls repeatable.
+    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120

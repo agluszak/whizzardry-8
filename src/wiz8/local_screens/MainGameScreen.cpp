@@ -178,10 +178,6 @@ std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 std::unique_ptr<ModalContent> g_modal_owner;
 // GLOBAL: WIZ8 0x0068edd4
 std::unique_ptr<ModalContent> g_pending_main_game_dialog;
-namespace {
-bool g_modal_processing = false;
-std::vector<std::unique_ptr<ModalContent>> g_retired_modals;
-}
 
 // GLOBAL: WIZ8 0x0068edb0
 static uint64_t g_mouselook_last_tick;
@@ -809,9 +805,13 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     for (int i = 0; i < 4; ++i) {
         auto& button = buttons[i] = std::make_unique<W8ButtonWidget>(input);
         button->Configure(CatalogArtwork::Load(i == 3 ? 0x8e : 0x1b0, 0).spriteSheet(),
-            normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2,
-            [this](auto* control) { AfterUiDispatch([this, control] { OnPrimary(control); }); },
-            {}, false, 0, help[i], {}, {});
+                          {normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2},
+                          {.on_click =
+                               [this](auto* control) {
+                                   AfterUiDispatch([this, control] { OnPrimary(control); });
+                               },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help[i]});
         button->policy.controller_activation = true;
         button->SetPosition(positions[i].x, positions[i].y);
     }
@@ -1603,9 +1603,12 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     const int help[]{-1, 0x7ce, 0x7cf, 0x7cc, 0x7d0};
     for (int i = 0; i < 5; ++i) {
         auto& button = m_action_controls[i] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
-            normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2,
-            [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); }, {}, false, 0, help[i], {}, {});
+        button->Configure(
+            CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
+            {normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2},
+            {.on_click = [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = help[i]});
         button->policy.controller_activation = true;
         button->SetPosition(positions[i].x, positions[i].y);
     }
@@ -2195,7 +2198,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
     }
-    if (1u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
+    if (text_area.m_all_lines.size() > 1) {
         for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
             if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
@@ -2307,8 +2310,7 @@ void W8NpcDialogueTextController::ClearBackground()
     int top;
 
     top = ((1 - scroll_height / line_height) * line_height - margin) + 0x11b;
-    ClearSurfaceRect(0x1dc, top, 0x269, 0x140);
-    InvalidateRegion(0x1dc, top, 0x269, 0x140);
+    EraseRegion(0x1dc, top, 0x269, 0x140);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2495,7 +2497,6 @@ unsigned char MainGameScreenEnter(void)
         LoadMainGameCursorResources();
     }
     gXStatus.level_up_notice = true;
-    ResetUiInput();
     CreatePartyPortraitEventRegions();
 
 
@@ -2643,9 +2644,6 @@ void SetMainGameMode(W8MainGameMode mode)
     case W8_MAIN_GAME_NPC_DIALOGUE:
         CloseNpcDialogueIfActive();
         break;
-    case W8_MAIN_GAME_MODAL:
-        CloseMessageBox();
-        break;
     case W8_MAIN_GAME_HIGHLIGHT_OVERLAY:
         if (g_level_block->highlight_graphic != 0) {
             ReleaseObject(g_level_block->highlight_graphic);
@@ -2723,12 +2721,9 @@ void MainGameScreenFrame(void)
 update_screen:
     ApplyPendingMouselook();
     ApplyPendingTooltip();
-    if (IsMessageBoxActive() || g_modal_owner) {
+    if (g_modal_owner) {
         CancelMouselook();
         UpdateHeldItemCursor();
-        if (!g_modal_owner) {
-            ProcessMessageBoxInput();
-        }
     }
     if (!g_level_block->review_transition_done) {
         if (g_level_block->review_transition_active) {
@@ -2766,7 +2761,6 @@ update_screen:
         }
     }
     DrainNpcDialogueDeferralInput();
-    NoOp();
     FlushInputWhileWorldCursorGate();
     gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
     UpdateCharacterEventState();
@@ -2990,6 +2984,10 @@ unsigned char MainGameScreenLeave(int leaving)
     if (leaving) {
         OpenModal(nullptr);
         g_pending_main_game_dialog.reset();
+        // End a fight while the interface it updates still exists.
+        if (gXStatus.fCombatMode) {
+            EndCombat(true);
+        }
     }
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
 
@@ -3062,8 +3060,6 @@ unsigned char MainGameScreenLeave(int leaving)
         g_level_block.reset();
         ReleaseCatalogArtwork();
     }
-    NoOp();
-    ResetUiInput();
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
     DisableSky();
@@ -3357,11 +3353,6 @@ void DrawMainGameScreen(void)
             SetRendererModePair();
         }
     }
-    if (IsMessageBoxActive()) {
-        g_level_block->message_box_pending = true;
-    } else if (g_level_block->message_box_pending) {
-        g_level_block->message_box_pending = false;
-    }
     g_level_block->saved_redraw_flags = g_level_block->redraw_flags;
     if (g_level_block->redraw_flags != 0) {
         ApplyMainGameRedrawFlags();
@@ -3371,9 +3362,6 @@ void DrawMainGameScreen(void)
     }
     g_level_block->redraw_flags = 0;
     g_level_block->saved_redraw_flags = 0;
-    if (g_level_block->message_box_pending) {
-        RenderMessageBox();
-    }
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
             g_modal_owner->DrawModal(GetFrameBufferSurface());
@@ -3510,8 +3498,7 @@ void RedrawCombatMonsterList(void)
     if (g_level_block->group_list_rows != 0) {
         unsigned int clear_bottom = g_level_block->group_list_rows * 0xb + 0x1a;
         int clear_right = g_level_block->group_list_width + 0xfb;
-        ClearSurfaceRect(0xfa, 0x19, clear_right, clear_bottom);
-        InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom);
+        EraseRegion(0xfa, 0x19, clear_right, clear_bottom);
     }
     if (gXStatus.active_monster_count != 0) {
         group_list_index = 0;
@@ -3699,8 +3686,6 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
 
     if (g_main_game_mode == W8_MAIN_GAME_NPC_DIALOGUE) {
         CloseNpcDialogueIfActive();
-    } else if (g_main_game_mode == W8_MAIN_GAME_MODAL) {
-        CloseMessageBox();
     } else if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
         if (g_level_block->highlight_graphic != 0) {
             ReleaseObject(g_level_block->highlight_graphic);
@@ -4589,8 +4574,7 @@ void ClearPortraitRefreshSlot(int slot)
         g_level_block->portrait_refresh_mode[slot] = 0;
         g_level_block->portrait_refresh_image[slot] = 0;
         row = &g_main_game_invalidate_rects[slot];
-        ClearSurfaceRect(row->left - 1, row->top, row->right + 1, row->bottom);
-        InvalidateRegion(row->left - 1, row->top, row->right + 1, row->bottom);
+        EraseRegion(row->left - 1, row->top, row->right + 1, row->bottom);
         RequestRedraw(1 << (slot & 0x1f));
         g_main_input->edge_targets[slot]->setEnabled(true);
         DisableMainGamePortraitSlot(slot);
@@ -4693,8 +4677,6 @@ apply_mode_tail:
             } else {
                 SetUseItemSelectReturnMode(g_settings.main_ui_mode);
             }
-        } else {
-            NoOp();
         }
     } else {
         SetSpellCastingMode(g_settings.main_ui_mode);
@@ -4720,14 +4702,16 @@ apply_mode_tail:
 
 bool ProcessModalOwner()
 {
-    // A completion callback may open another modal; only close the one that
-    // was running, never its replacement.
-    ModalContent* const running = g_modal_owner.get();
-    g_modal_processing = true;
-    const bool keep_open = running->ProcessInput();
-    g_modal_processing = false;
-    g_retired_modals.clear();
-    if (keep_open || g_modal_owner.get() != running) return false;
+    {
+        // A completion callback may open another modal. The transaction keeps
+        // the running one alive until it returns; only close it, never its
+        // replacement.
+        const UiTransaction transaction;
+        ModalContent* const running = g_modal_owner.get();
+        if (running->ProcessInput() || g_modal_owner.get() != running) {
+            return false;
+        }
+    }
     g_modal_owner = std::move(g_pending_main_game_dialog);
     if (g_modal_owner) g_modal_owner->RequestModalRedraw();
     return true;
@@ -4736,9 +4720,8 @@ bool ProcessModalOwner()
 /* Take the screen for a modal owner and put its region up. */
 void OpenModal(std::unique_ptr<ModalContent> owner)
 {
-    auto previous = std::exchange(g_modal_owner, std::move(owner));
     // The replaced modal may be the one whose ProcessInput() opened this one.
-    if (previous && g_modal_processing) g_retired_modals.push_back(std::move(previous));
+    DestroyAfterUiDispatch(std::exchange(g_modal_owner, std::move(owner)));
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -4767,6 +4750,7 @@ void SyncMainGameModeRegions(void)
     SetMouseCursorHotspot(0, 0);
     SyncSystemCursor();
     g_main_input->world.setEnabled(true);
+    g_main_game_buttons.input.setEnabled(true);
     if (g_level_block->group_list_rows == 0) {
         g_main_input->monster_list->setEnabled(false);
     } else {
@@ -5036,7 +5020,6 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     }
                     PushButtonSoundScheme(0, true);
                     g_level_block->portrait_right_hold_armed = false;
-                    NoOp();
                     if (IsNpcDialogueCursorActive() == 0) {
                         SetTooltipSubject(0, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
@@ -5047,7 +5030,6 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 }
             } else {
                 g_level_block->portrait_right_hold_armed = false;
-                NoOp();
                 if (IsNpcDialogueCursorActive() == 0) {
                     SetTooltipSubject(0, -1);
                     SetTargetCursor(GetTargetingCursorForState(0));
@@ -5443,7 +5425,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     int slot;
 
     PushButtonSoundScheme(0, true);
-    if (IsMessageBoxActive() || gXStatus.fReviewCharacterMode || g_camera_path_active) {
+    if (gXStatus.fReviewCharacterMode || g_camera_path_active) {
         return UiResult::Pass;
     }
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
@@ -6545,7 +6527,7 @@ void LoadMainGameCursorResources(void)
         const auto artwork = CatalogArtwork::Load(slot->image_id);
         const auto sprites = artwork.spriteSheet();
         short frame = artwork.imageOffset();
-        if (frame < sprites->frames.size()) {
+        if (frame < static_cast<int>(sprites->frames.size())) {
             slot->size_x = sprites->frames[frame].width;
             slot->size_y = sprites->frames[frame].height;
         }
@@ -6632,8 +6614,7 @@ void ResumeMainGameWorld(void)
             if (gXStatus.fPartyMovementUi) {
                 UpdatePartyMovementPanel();
             }
-            ClearSurfaceRect(0xb1, 0x13f, 0x1cf, 0x153);
-            InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153);
+            EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         }
     }
@@ -6799,7 +6780,7 @@ void W8NpcDialogueTextController::SaveTranscriptEntries()
 
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
-    while (0u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
+    while (!text_area.m_all_lines.empty()) {
         text_area.RemoveEntry(0);
     }
     InvalidateAll();
@@ -7370,9 +7351,6 @@ static std::unique_ptr<stModelInstance2D> g_surprise_fade_node;
 void ResetMainGameMode(void)
 {
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
-    if (IsMessageBoxActive()) {
-        CloseMessageBox();
-    }
     if (gXStatus.fCombatMode) {
         EndCombat(true);
     } else if (AnyCharacterActive() && !gXStatus.party_moving) {

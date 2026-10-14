@@ -14,11 +14,9 @@
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
-    button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
-                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, UI_PRIORITY_HIGHEST,
-                     W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 0, 1, 4, 2},
+                     {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }});
     button.SetPosition(m_x + left, m_y + top);
-    button.m_owner = this;
 }
 
 void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line)
@@ -96,7 +94,7 @@ void W8DialogBase::SetExtent(int width, int height)
 {
     if (m_width != width || m_height != height) {
         if (m_initialized && m_width > 0 && m_height > 0) {
-            InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
+            EraseRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
         }
         m_width = width;
         m_height = height;
@@ -151,7 +149,7 @@ void W8DialogBase::DestroyControls()
     m_background_path.clear();
     m_background_flags = 0;
     if (m_initialized && m_x >= 0 && m_y >= 0 && m_width >= 0 && m_height >= 0) {
-        InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
+        EraseRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
     }
     m_initialized = false;
 }
@@ -192,15 +190,6 @@ bool W8DialogBase::ProcessInput()
     });
     if (!m_keep_open) EndModalInput();
     return m_keep_open;
-}
-
-// FUNCTION: WIZ8 0x005d6eb0
-void DialogCloseButtonCallback(W8ButtonWidget* button)
-{
-    W8DialogBase* dialog = button->m_owner;
-    if (dialog != 0) {
-        dialog->m_keep_open = false;
-    }
 }
 
 // FUNCTION: WIZ8 0x005d6fa0

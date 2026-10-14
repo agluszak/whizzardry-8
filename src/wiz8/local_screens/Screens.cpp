@@ -318,7 +318,6 @@ void InitializeMainGameLevelBlock(void)
     }
     g_level_block->transition_pending = false;
     g_level_block->camera_mode = 7;
-    g_level_block->message_box_pending = IsMessageBoxActive();
     g_level_block->portrait_strip_dirty = false;
     g_level_block->flag3 = false;
     g_level_block->value_194 = -1;

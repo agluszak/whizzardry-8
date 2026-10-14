@@ -1,4 +1,3 @@
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Quality.h"
@@ -22,7 +21,6 @@ unsigned char InitializeStartupNavigation(void)
 {
     W8Navigator* navigator;
 
-    NoOp();
     InitializeAniMeshCache(-1, -1);
     InitializeRenderQuality();
     InitializeEnvironmentColours();
@@ -45,7 +43,6 @@ unsigned char InitializeStartupNavigation(void)
 // FUNCTION: WIZ8 0x0044F190
 void ShutdownStartupNavigation(void)
 {
-    NoOp();
     FreeAniMeshCache();
     DestroyRenderQuality();
     ClearEnvironmentObjects();

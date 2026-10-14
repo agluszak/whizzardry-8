@@ -110,10 +110,13 @@ W8CampStatsControls::W8CampStatsControls()
         const int frame = index * 5;
         auto& button = m_buttons[index];
         button = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3,
-            frame, frame + 2, index == 2 ? 15 : frame + 1, index == 2 ? 17 : frame + 4,
-            [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); },
-            {}, false, 0, 0x954 + index, {}, {});
+        button->Configure(
+            CatalogArtwork::Load(0x145, 0).spriteSheet(),
+            {frame + 3, frame, frame + 2, index == 2 ? 15 : frame + 1, index == 2 ? 17 : frame + 4},
+            {.on_click =
+                 [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = 0x954 + index});
         button->policy.controller_activation = true;
         button->policy.primary_toggle = ButtonToggle::Release;
         button->SetPosition(0x13c, y[index]);
@@ -837,10 +840,14 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         const int frame = action == 4 ? 20 : action % 2 ? 15 : 10;
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 4,
-            [this, action](auto*) { AfterUiDispatch([this, action] { ChangePortrait(action); }); },
-            {}, false, 0, action == 4 ? 0xf5 : -1, {}, {});
+        button->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(),
+                          {frame + 3, frame, frame + 1, frame + 2, frame + 4},
+                          {.on_click =
+                               [this, action](auto*) {
+                                   AfterUiDispatch([this, action] { ChangePortrait(action); });
+                               },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = action == 4 ? 0xf5 : -1});
         button->policy.controller_activation = true;
         button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);
     }

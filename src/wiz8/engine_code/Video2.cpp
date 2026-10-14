@@ -1814,7 +1814,6 @@ static srCamera* createOverlayCamera(srNode* parent, const char* name, double ri
 // FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
-    srCamera::Rect view;
     std::shared_ptr<srMaterial> material;
     glm::vec4 material_value;
     char renderer_name[128];
@@ -1885,6 +1884,12 @@ void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom
     const SDL_Rect rectangle{left, static_cast<int>(top), right - left,
                              static_cast<int>(bottom - top)};
     SDL_FillSurfaceRect(primarySurface.get(), &rectangle, 0);
+}
+
+void EraseRegion(int left, int top, int right, int bottom)
+{
+    ClearSurfaceRect(left, top, right, bottom);
+    InvalidateRegion(left, top, right, bottom);
 }
 
 // FUNCTION: WIZ8 0x00426500

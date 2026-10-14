@@ -456,8 +456,10 @@ void srMeshModel::calculateVertexNormals()
         shade_indices ? std::span<const w8_ulong>(shade_indices, vertex_location_count)
                       : std::span<const w8_ulong>{});
     auto* normals = getVertexNormal();
-    for (std::size_t vertex = 0; vertex < vertex_location_count; ++vertex)
+    for (std::size_t vertex = 0; vertex < static_cast<std::size_t>(vertex_location_count);
+         ++vertex) {
         normals[vertex] = normalizedOrZero(smooth[vertex]);
+    }
 }
 
 // FUNCTION: SURRENDER 0x1003E690

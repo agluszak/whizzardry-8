@@ -178,18 +178,14 @@ int W8MessageDialogBase::CreateControls()
         }
     }
     m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
-                                        g_dialog_font_background, m_x + 9, m_y + 9,
-                                        m_width - 0x12, m_height - 0x12, nullptr, 0,
-                                        m_edge_image, UI_PRIORITY_HIGHEST - 1);
+                                         g_dialog_font_background,
+                                         {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12},
+                                         {.priority = UI_PRIORITY_HIGHEST - 1}, m_edge_image);
 
-    if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
-                                   MessageDialogConfirmCallback, nullptr, false, UI_PRIORITY_HIGHEST,
-                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
-        m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
-                                  MessageDialogCancelCallback, nullptr, false, UI_PRIORITY_HIGHEST,
-                                  W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
-        m_confirm_button.m_owner = this;
-        m_cancel_button.m_owner = this;
+    if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", {3, 0, 1, 2, 2},
+                                   {.on_click = [this](W8ButtonWidget*) { Close(true); }}) &&
+        m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", {7, 4, 5, 6, 6},
+                                  {.on_click = [this](W8ButtonWidget*) { Close(false); }})) {
         const int button_width = m_confirm_button.Bounds().w;
         const int button_y = m_y + m_height - m_confirm_button.Bounds().h - 0xf;
         const int button_x = m_x + (m_width - button_width * (allow_cancel ? 3 : 1)) / 2;
@@ -206,7 +202,6 @@ int W8MessageDialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005d2f40
 void W8MessageDialogBase::DestroyControls()
 {
-    unsigned int index;
 
     W8DialogBase::DestroyControls();
     m_edge_image.reset();
@@ -262,20 +257,9 @@ bool W8MessageDialogBase::ProcessInput()
     return keep_open;
 }
 
-// FUNCTION: WIZ8 0x005d32c0
-void MessageDialogConfirmCallback(W8ButtonWidget* button)
+void W8MessageDialogBase::Close(bool accept)
 {
-    auto* dialog = static_cast<W8MessageDialogBase*>(button->m_owner);
-    dialog->accepted = true;
-    dialog->is_open = false;
-    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-}
-
-// FUNCTION: WIZ8 0x005d3370
-void MessageDialogCancelCallback(W8ButtonWidget* button)
-{
-    auto* dialog = static_cast<W8MessageDialogBase*>(button->m_owner);
-    dialog->accepted = false;
-    dialog->is_open = false;
-    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    accepted = accept;
+    is_open = false;
+    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }

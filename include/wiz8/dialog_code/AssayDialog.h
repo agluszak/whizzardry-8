@@ -27,7 +27,6 @@ public:
     virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
 private:
     bool PopulateText();
@@ -38,8 +37,6 @@ private:
     void ShowTab(bool professions);
     void ShowPrimaryTab();
     void ShowSecondaryTab();
-    static void PrimaryTabCallback(W8ButtonWidget* button);
-    static void SecondaryTabCallback(W8ButtonWidget* button);
 
     std::deque<W8ButtonWidget> m_buttons;
     W8TextBuffer* m_text_buffers[W8_ASSAY_TEXT_BUFFER_COUNT];
