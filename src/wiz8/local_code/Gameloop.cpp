@@ -126,9 +126,11 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
 }
 
 /* Screens own their input layers. A suspended screen keeps its layers, so
-   every screen boundary disables all input; the entering screen enables its own. */
+   every screen boundary disables all input; the entering screen enables its own.
+   The main game also shows tooltips outside the dispatcher, so remove any. */
 static bool EnterScreen(W8ScreenId state)
 {
+    VideoRemoveToolTip();
     ResetUiInput();
     return g_screen_handlers[state].enter();
 }
@@ -143,7 +145,6 @@ void GameLoop(void)
     state = g_current_screen_state.id;
     if (g_screen_return_requested) {
         g_previous_screen_id = state;
-        VideoRemoveToolTip();
         if (!g_screen_handlers[g_current_screen_state.id].leave(1)) {
             gfProgramIsRunning = 0;
             g_current_screen_state.id = W8_SCREEN_NONE;
@@ -171,7 +172,6 @@ void GameLoop(void)
         }
         if (state != W8_SCREEN_NONE) {
             g_previous_screen_id = state;
-            VideoRemoveToolTip();
             if (!g_screen_handlers[g_current_screen_state.id].leave(0)) {
                 g_current_screen_state.id = W8_SCREEN_NONE;
                 gfProgramIsRunning = 0;
@@ -226,7 +226,6 @@ void GameloopExit(unsigned char release_screens)
     for (;;) {
         if (g_current_screen_state.id != W8_SCREEN_NONE) {
             g_previous_screen_id = g_current_screen_state.id;
-            VideoRemoveToolTip();
             g_screen_handlers[g_current_screen_state.id].leave(1);
             g_current_screen_state.id = W8_SCREEN_NONE;
         }
