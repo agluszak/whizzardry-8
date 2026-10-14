@@ -189,7 +189,13 @@ jobs:
         run: ccache --show-stats || true
 
   include-hygiene:
+    strategy:
+      fail-fast: false
+      matrix:
+        tidy-jobs: [4, 8] # Temporary CI benchmark; retain winner after measuring
     runs-on: ubuntu-26.04
+    env:
+      CLANG_TIDY_JOBS: ${{ matrix.tidy-jobs }}
     defaults:
       run:
         shell: bash
