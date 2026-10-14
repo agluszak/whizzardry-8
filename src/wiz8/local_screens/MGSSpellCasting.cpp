@@ -178,7 +178,8 @@ static void CreateSpellCastingViewControls(void)
                 }
             },
             [pip](bool entered) { PreviewSpellPowerPipHover(entered ? pip : -1); });
-        button->SetCircularHitArea({0x1a4 + pip_centers[pip].x, 0x166 + pip_centers[pip].y}, radius);
+        button->SetCircularHitArea({0x1a4 + pip_centers[pip].x, 0x166 + pip_centers[pip].y},
+                                   radius);
     }
     gpSCSV->spell_name.SetLayoutBounds(0x1b2, 0x170, 0x1d4, 0x17e);
     gpSCSV->spell_name.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -195,9 +196,9 @@ static void CreateSpellCastingViewControls(void)
 
     if (gXStatus.fCampMode) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-            if (g_main_input) {
+            if (g_main_game_state) {
                 DisableMainGamePortraitSlot(index);
-                g_main_input->edge_targets[index]->setEnabled(false);
+                g_main_game_state->edge_targets[index]->setEnabled(false);
             }
         }
     }

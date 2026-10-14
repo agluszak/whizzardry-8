@@ -1586,6 +1586,46 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     REQUIRE(!closing);
 }
 
+TEST_CASE("Main-game screen state owns HUD input through suspension and teardown",
+          "[owner][ui-layer]")
+{
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    const auto layers = LiveUiLayerCount();
+    const auto targets = LiveUiTargetCount();
+    PushButtonSoundScheme(0, true);
+    {
+        MainGameScreenState screen;
+        auto& hud = screen.hud_buttons;
+        int clicks = 0;
+        REQUIRE(hud.options_disk.Configure(ButtonAppearance{}, {100, 100, 20, 20},
+                                           {.on_click = [&](W8ButtonWidget*) { ++clicks; }}));
+        REQUIRE(LiveUiTargetCount() > targets);
+        REQUIRE(UiTargetAt({105, 105}) == nullptr);
+        hud.input.setEnabled(true);
+        REQUIRE(UiTargetAt({105, 105}) != nullptr);
+        ResetUiInput(); // Screen suspension keeps its state but disables input.
+        REQUIRE(UiTargetAt({105, 105}) == nullptr);
+        hud.input.setEnabled(true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
+        REQUIRE(clicks == 1);
+        dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
+        REQUIRE(g_ui.captured != nullptr);
+        // State destruction must remove the captured target and the HUD layer.
+    }
+    REQUIRE(g_ui.captured == nullptr);
+    REQUIRE(g_ui.hover == nullptr);
+    REQUIRE(LiveUiTargetCount() == targets);
+    REQUIRE(LiveUiLayerCount() == layers);
+    {
+        MainGameScreenState reentered;
+        REQUIRE_FALSE(reentered.hud_buttons.options_disk.IsConfigured());
+    }
+    REQUIRE(LiveUiTargetCount() == targets);
+    REQUIRE(LiveUiLayerCount() == layers);
+}
+
 TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
 {
     initialize_test_framebuffer();

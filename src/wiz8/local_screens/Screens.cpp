@@ -370,7 +370,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
-    g_main_input->monster_list->setEnabled(false);
+    g_main_game_state->monster_list->setEnabled(false);
     g_level_block->action_group = -1;
     g_level_block->value_2ac = 0;
     g_level_block->value_2b4 = 0;

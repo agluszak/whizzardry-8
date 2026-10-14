@@ -73,11 +73,23 @@ There is no separate numeric editing algorithm or global numeric scratch buffer.
 `W8ButtonWidget::Draw` paints every visible configured button into its supplied
 canvas, even when the button is clean. It does not invalidate the main framebuffer
 or clear screen dirtiness. Owners restore backing artwork, paint in order, then
-clear control dirtiness and invalidate the composed area. Auxiliary painting cannot
-commit an on-screen update. All button groups borrow an explicitly owned input
+commit button updates through `DrawAndInvalidate`. That helper checks dirtiness,
+paints, invalidates and clears the dirty flag only for the main framebuffer. A
+forced call repaints after backing artwork has been restored. Auxiliary targets
+always receive a pure paint and retain pending screen updates. Scrollbars follow
+the same rule and recompose the track before painting the thumb. All button groups borrow an explicitly owned input
 layer, including the HUD banks and automap chrome; there is no per-button layer.
-Configuration uses existing image/appearance values and closures capturing the
-actual owner or action, without a generic dialog-owner or numeric payload route.
+`MainGameScreenState` owns its HUD button bank and input layer as value members.
+Suspension disables input while retaining that state; full game exit destroys the
+buttons and layer together. Entry and mode changes explicitly enable the HUD layer.
+
+Configuration uses existing image/appearance values plus a named `ButtonSetup`
+containing callbacks, interaction policy, tooltip, priority and menu artwork.
+Successful `Configure` replaces the entire setup, including secondary, movement,
+double-click and hover callbacks, and resets visibility, enabled and pressed state.
+Failed image configuration leaves the previous setup and input target untouched.
+Callbacks capture the actual owner or action without a generic dialog-owner or
+numeric payload route.
 
 Buttons, text buffers, editors, scrollbars and dialog text controls paint into an
 explicit `SDL_Surface&`, including the complete dialog painting path. Scroll

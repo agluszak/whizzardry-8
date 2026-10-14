@@ -714,8 +714,8 @@ void OpenKeyboardMenuForSlot(int slot)
     gXStatus.monster_manager_entries[slot].keyboard_menu_open = true;
     DisableMainGamePortraitSlot(slot);
 
-    g_main_input->edge_targets[slot]->setEnabled(false);
-    g_main_input->combat_targets[slot]->setEnabled(false);
+    g_main_game_state->edge_targets[slot]->setEnabled(false);
+    g_main_game_state->combat_targets[slot]->setEnabled(false);
     EnableKeyboardMenuInput();
     RequestRedraw(1 << slot);
 }
@@ -730,9 +730,9 @@ void CloseKeyboardMenu(void)
     g_level_block->cursor_grace = 0;
     RefreshPartySlotRegions();
     if (gXStatus.fCombatMode) {
-        g_main_input->combat.setEnabled(true);
+        g_main_game_state->combat.setEnabled(true);
     } else {
-        g_main_input->combat.setEnabled(false);
+        g_main_game_state->combat.setEnabled(false);
     }
     if (keyboard_menu && g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
         ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,

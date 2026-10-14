@@ -17,8 +17,9 @@
 
 #include "wiz8/local_code/ButtonWidget.h"
 
-// The HUD banks share a screen-owned input group. Modal submenu controls
-// retain their separate layer because they activate independently.
+// Owned by MainGameScreenState while the screen is active. The layer precedes
+// the buttons so input registrations are removed before the layer is destroyed.
+// Modal submenu controls retain their independently activated layer.
 struct MainGameHudButtons {
     UiLayer input{0x33};
     std::array<W8ButtonWidget, 2> submenu_scroll{W8ButtonWidget{input}, W8ButtonWidget{input}};
@@ -37,7 +38,6 @@ struct MainGameHudButtons {
                                        W8ButtonWidget{input}};
     W8ButtonWidget options_disk{input};
 };
-extern MainGameHudButtons g_hud_buttons;
 
 /* Submenu selection state. */
 extern short g_submenu_entry_count;
@@ -82,8 +82,7 @@ void RedrawLayoutArrowButtons(void);
 unsigned char CreateLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
-void CreateMainGameInterfaceButtons(void);
-void DestroyMainGameInterfaceButtons(void);
+void ConfigureMainGameHudButtons(void);
 /* Draw the selected character's name/profession line and the caption for
    their queued action. */
 void DrawSubMenuCharacterAction(void);

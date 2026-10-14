@@ -1926,7 +1926,7 @@ void OpenNpcDialogueTranscriptLayout(void)
         if (g_status.buffers.XChar[index].fOccupied) {
             DisableMainGamePortraitSlot(index);
 
-            g_main_input->edge_targets[index]->setEnabled(false);
+            g_main_game_state->edge_targets[index]->setEnabled(false);
         }
     }
     if (g_npc_interaction_state->dialogue_npc->record->merchant != 0) {
@@ -1964,7 +1964,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
         if (g_status.buffers.XChar[index].fOccupied) {
             EnableMainGamePortraitSlot(index);
 
-            g_main_input->edge_targets[index]->setEnabled(true);
+            g_main_game_state->edge_targets[index]->setEnabled(true);
         }
     }
 }
