@@ -6,6 +6,7 @@ struct SDL_Surface;
 
 #include "input.h"
 #include "sprite.h"
+#include "wiz8/audio_resources.h"
 #include "wiz8/conditions.h"
 
 bool IsVoiceMuted(void);
