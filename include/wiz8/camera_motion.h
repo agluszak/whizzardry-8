@@ -21,6 +21,7 @@ enum {
 };
 
 #include <array>
+
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -38,21 +39,25 @@ struct CameraMotion {
 
 // Apply each held key in input order, clamping after each contribution. Opposed
 // keys near a limit are not equivalent to summing the contributions first.
-inline glm::vec3 cameraMotionInput(unsigned flags, glm::vec3 input, float step,
-                                   float limit, bool allow_up, bool allow_down)
+inline glm::vec3 cameraMotionInput(unsigned flags, glm::vec3 input, float step, float limit,
+                                   bool allow_up, bool allow_down)
 {
-    struct Contribution { unsigned flag; unsigned axis; float step; bool allowed; };
-    const std::array contributions{
-        Contribution{W8_CAMERA_MOTION_FORWARD, 2, step, true},
-        Contribution{W8_CAMERA_MOTION_BACKWARD, 2, -step, true},
-        Contribution{W8_CAMERA_MOTION_STRAFE_LEFT, 0, -step, true},
-        Contribution{W8_CAMERA_MOTION_STRAFE_RIGHT, 0, step, true},
-        Contribution{W8_CAMERA_MOTION_UP, 1, step, allow_up},
-        Contribution{W8_CAMERA_MOTION_DOWN, 1, -step, allow_down}};
+    struct Contribution {
+        unsigned flag;
+        unsigned axis;
+        float step;
+        bool allowed;
+    };
+    const std::array contributions{Contribution{W8_CAMERA_MOTION_FORWARD, 2, step, true},
+                                   Contribution{W8_CAMERA_MOTION_BACKWARD, 2, -step, true},
+                                   Contribution{W8_CAMERA_MOTION_STRAFE_LEFT, 0, -step, true},
+                                   Contribution{W8_CAMERA_MOTION_STRAFE_RIGHT, 0, step, true},
+                                   Contribution{W8_CAMERA_MOTION_UP, 1, step, allow_up},
+                                   Contribution{W8_CAMERA_MOTION_DOWN, 1, -step, allow_down}};
     for (const auto& contribution : contributions)
         if ((flags & contribution.flag) && contribution.allowed)
-            input[contribution.axis] = glm::clamp(
-                input[contribution.axis] + contribution.step, -limit, limit);
+            input[contribution.axis] =
+                glm::clamp(input[contribution.axis] + contribution.step, -limit, limit);
     if (glm::length(input) > limit) input = glm::normalize(input) * limit;
     return input;
 }

@@ -1,13 +1,13 @@
 #include "wiz8/level_specific_code/Monastery2.h"
 
+#include "Item.h"
+#include "layouts/world.h"
+#include "soundman.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/item_spawning.h"
 #include "wiz8/sr_api.h"
-#include "soundman.h"
-#include "Item.h"
-#include "layouts/world.h"
-#include "surrender/srMath.h"
 
 /* Level Specific Code\Monastery2.cpp (level 9).
 

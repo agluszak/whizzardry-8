@@ -1,11 +1,12 @@
-#include <utility>
-#include <cstdint>
-#include <SDL3/SDL_rect.h>
-#include <cstddef>
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
+
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
 #include "wiz8/unicode.h"
@@ -77,8 +78,7 @@ void Font::resetPalette()
 
 std::uint16_t Font::createShades(std::uint32_t glow)
 {
-    if (!glyphs)
-        return false;
+    if (!glyphs) return false;
     shades.clear();
     shades.resize(16);
     switch (glow) {
@@ -116,8 +116,7 @@ std::uint16_t Font::createShades(std::uint32_t glow)
 
 std::uint16_t Font::setShade(std::uint32_t shade)
 {
-    if (shade != kNormalShade && (shade >= shades.size() || !shades[shade]))
-        return false;
+    if (shade != kNormalShade && (shade >= shades.size() || !shades[shade])) return false;
     currentShade = shade;
     return true;
 }
@@ -130,18 +129,15 @@ std::uint16_t Font::color(std::uint8_t index) const
 bool Font::load(std::string_view filename)
 {
     auto sheet = g_image_assets.sprites(filename);
-    if (!sheet)
-        return false;
+    if (!sheet) return false;
     clear();
     glyphs = std::move(sheet);
     return true;
 }
 
-
 static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
-    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
-        return 0;
+    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size()) return 0;
     const auto& glyph = sprites.frames[ssIndex];
     return glyph.width + glyph.offset.x;
 }
@@ -173,8 +169,7 @@ std::int16_t Font::textWidth(std::string_view string) const
 
 static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
-    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
-        return 0;
+    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size()) return 0;
     const auto& glyph = sprites.frames[ssIndex];
     return glyph.height + glyph.offset.y;
 }
@@ -193,7 +188,9 @@ std::int16_t GetIndex(char32_t siChar)
     if (glyph != g_font_translation.end())
         return static_cast<std::int16_t>(glyph - g_font_translation.begin());
     const auto fallback = std::find(g_font_translation.begin(), g_font_translation.end(), '?');
-    return fallback == g_font_translation.end() ? 0 : static_cast<std::int16_t>(fallback - g_font_translation.begin());
+    return fallback == g_font_translation.end()
+               ? 0
+               : static_cast<std::int16_t>(fallback - g_font_translation.begin());
 }
 
 SDL_Point Font::rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const
@@ -203,15 +200,13 @@ SDL_Point Font::rightAlignedPosition(const SDL_Rect& bounds, std::string_view te
 
 SDL_Point Font::centeredPosition(const SDL_Rect& bounds, std::string_view text) const
 {
-    return {bounds.x + (bounds.w - textWidth(text) + 1) / 2,
-            bounds.y + (bounds.h - height()) / 2};
+    return {bounds.x + (bounds.w - textWidth(text) + 1) / 2, bounds.y + (bounds.h - height()) / 2};
 }
 
 void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
               TextOptions options)
 {
-    if (!font.glyphs)
-        return;
+    if (!font.glyphs) return;
     SDL_Rect clip{};
     SDL_GetSurfaceClipRect(&target, &clip);
     const auto& sprites = *font.glyphs;
@@ -219,8 +214,7 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
     int y = at.y;
     for (std::size_t offset = 0; offset < text.size();) {
         const auto glyph = GetIndex(wiz8::text::next(text, offset));
-        if (glyph < 0 || static_cast<std::size_t>(glyph) >= sprites.frames.size())
-            continue;
+        if (glyph < 0 || static_cast<std::size_t>(glyph) >= sprites.frames.size()) continue;
         if (options.wrap && SpriteIsClipped(sprites, glyph, x, y, clip)) {
             x = at.x;
             y += GetHeight(sprites, glyph);
@@ -235,8 +229,8 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
     }
 }
 
-void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
-                           std::string_view text, TextOptions options)
+void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
+                           TextOptions options)
 {
     DrawText(target, font, at, text, options);
     InvalidateRegion(at.x, at.y, at.x + font.textWidth(text), at.y + font.height());
@@ -257,32 +251,256 @@ void ResetFontRendering()
 
 std::vector<std::uint16_t> CreateEnglishTransTable()
 {
-    return {
-        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-        'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-        'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd',
-        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-        'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
-        'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7',
-        '8', '9', '!', '@', '#', '$', '%', '^', '&', '*',
-        '(', ')', '-', '_', '+', '=', '|', '\\', '{', '}',
-        '[', ']', ':', ';', '"', '\'', '<', '>', ',', '.',
-        '?', '/', ' ', 193, 192, 193, 196, 195, 197, 199,
-        201, 200, 202, 203, 205, 204, 206, 207, 209, 211,
-        210, 212, 214, 213, 216, 218, 217, 219, 220, 221,
-        225, 224, 226, 228, 227, 229, 231, 233, 232, 234,
-        235, 237, 236, 238, 239, 241, 243, 242, 244, 246,
-        245, 248, 250, 249, 251, 252, 254, 255, 223, FONT_GLYPH_TARGET_POINT,
-        FONT_GLYPH_TARGET_CONE, FONT_GLYPH_TARGET_SINGLE, FONT_GLYPH_TARGET_GROUP, FONT_GLYPH_TARGET_NONE, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        191, 161
-    };
+    return {'A',
+            'B',
+            'C',
+            'D',
+            'E',
+            'F',
+            'G',
+            'H',
+            'I',
+            'J',
+            'K',
+            'L',
+            'M',
+            'N',
+            'O',
+            'P',
+            'Q',
+            'R',
+            'S',
+            'T',
+            'U',
+            'V',
+            'W',
+            'X',
+            'Y',
+            'Z',
+            'a',
+            'b',
+            'c',
+            'd',
+            'e',
+            'f',
+            'g',
+            'h',
+            'i',
+            'j',
+            'k',
+            'l',
+            'm',
+            'n',
+            'o',
+            'p',
+            'q',
+            'r',
+            's',
+            't',
+            'u',
+            'v',
+            'w',
+            'x',
+            'y',
+            'z',
+            '0',
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7',
+            '8',
+            '9',
+            '!',
+            '@',
+            '#',
+            '$',
+            '%',
+            '^',
+            '&',
+            '*',
+            '(',
+            ')',
+            '-',
+            '_',
+            '+',
+            '=',
+            '|',
+            '\\',
+            '{',
+            '}',
+            '[',
+            ']',
+            ':',
+            ';',
+            '"',
+            '\'',
+            '<',
+            '>',
+            ',',
+            '.',
+            '?',
+            '/',
+            ' ',
+            193,
+            192,
+            193,
+            196,
+            195,
+            197,
+            199,
+            201,
+            200,
+            202,
+            203,
+            205,
+            204,
+            206,
+            207,
+            209,
+            211,
+            210,
+            212,
+            214,
+            213,
+            216,
+            218,
+            217,
+            219,
+            220,
+            221,
+            225,
+            224,
+            226,
+            228,
+            227,
+            229,
+            231,
+            233,
+            232,
+            234,
+            235,
+            237,
+            236,
+            238,
+            239,
+            241,
+            243,
+            242,
+            244,
+            246,
+            245,
+            248,
+            250,
+            249,
+            251,
+            252,
+            254,
+            255,
+            223,
+            FONT_GLYPH_TARGET_POINT,
+            FONT_GLYPH_TARGET_CONE,
+            FONT_GLYPH_TARGET_SINGLE,
+            FONT_GLYPH_TARGET_GROUP,
+            FONT_GLYPH_TARGET_NONE,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            191,
+            161};
 }

@@ -2,10 +2,10 @@
 
 #include <functional>
 
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/ControlsRect.h"
 #include "Types.h"
 #include "compat/compiler.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
 
 class W8DialogScrollBar {
 public:

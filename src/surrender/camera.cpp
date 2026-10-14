@@ -1,26 +1,27 @@
-#include "surrender/srDebug.h"
-#include <glm/gtc/matrix_access.hpp>
-#include <ostream>
 #include <algorithm>
 #include <cmath>
-#include <utility>
 #include <optional>
+#include <ostream>
 #include <span>
+#include <utility>
+
+#include <glm/gtc/matrix_access.hpp>
 
 #include "glm/common.hpp"
-#include "glm/matrix.hpp"
-#include "glm/vector_relational.hpp"
-#include "surrender/srCamera.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srGERD.h"
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/vector_double2.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/matrix.hpp"
+#include "glm/vector_relational.hpp"
+#include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srFlags.h"
+#include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
 
 /* Flag-name table; never assigned, so dump prints numeric bit indices. */
 static const char* flag_names;
@@ -329,7 +330,8 @@ srCamera::Projection srCamera::project(const glm::dvec3& input)
     const auto uv = (glm::dvec2(point) * (view_plane_distance / point.z) - start) / (end - start);
     const bool inside = glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) &&
                         glm::all(glm::lessThanEqual(uv, glm::dvec2(1)));
-    return {glm::vec3(uv, point.z), inside ? PROJECTION_RESULT_ACCEPTED : PROJECTION_RESULT_OUTSIDE_VIEW};
+    return {glm::vec3(uv, point.z),
+            inside ? PROJECTION_RESULT_ACCEPTED : PROJECTION_RESULT_OUTSIDE_VIEW};
 }
 
 bool srCamera::projectsAny(std::span<const glm::vec3> points)

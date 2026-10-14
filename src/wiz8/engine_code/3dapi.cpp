@@ -1,40 +1,46 @@
-#include "glm/geometric.hpp"
-#include <cstdlib>
+#include "wiz8/engine_code/3dapi.h"
+
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
-#include <vector>
-#include <cmath>
 #include <exception>
 #include <memory>
 #include <string>
+#include <vector>
 
+#include "camera_motion.h"
 #include "compat/compiler.h"
+#include "compat/native.h"
+#include "environment_colour.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
+#include "input.h"
+#include "layouts/world.h"
+#include "named_position.h"
+#include "surrender/srCamera.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/GDFileIO.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/monster_generators.h"
-#include "wiz8/local_code/MonsterGenerator.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/Level.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/GDFileIO.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Level.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Prop.h"
@@ -42,32 +48,27 @@
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/UpdateMesh.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/world_cursor.h"
-#include "surrender/srNode.h"
-#include "surrender/srCamera.h"
-#include "surrender/srScene.h"
 #include "wiz8/filesystem.h"
-#include "input.h"
-#include "camera_motion.h"
-#include "compat/native.h"
-#include "environment_colour.h"
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_double3.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "named_position.h"
-#include "surrender/srMath.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/MonsterGenerator.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/monster_generators.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/world_cursor.h"
+#include "wiz8/xstatus.h"
 
 class srModelInstance;
 
@@ -180,7 +181,13 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     world->update_mesh_source = 0;
     memset(world->m_unknown_07c, 0, 0x10);
 
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(level_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> handle = [&]() {
+        try {
+            return wiz8::open_file(level_path, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle == 0) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
@@ -365,25 +372,20 @@ static void DestroyWorldEntities(W8World* world)
 {
     wiz8::remove_all_and_delete_in_order(world->monster_generators);
     wiz8::remove_all_and_delete_in_order(world->plsMonsters);
-    if (g_world_cleanup_flag)
-        RenderFrame();
+    if (g_world_cleanup_flag) RenderFrame();
     wiz8::remove_all_and_delete_in_order(world->plsItems);
-    if (g_world_cleanup_flag)
-        RenderFrame();
+    if (g_world_cleanup_flag) RenderFrame();
     wiz8::remove_all_and_delete_in_order(world->plsProps);
-    if (g_world_cleanup_flag)
-        RenderFrame();
+    if (g_world_cleanup_flag) RenderFrame();
 
     DestroyAllWorldTriggers(world);
-    if (g_world_cleanup_flag)
-        RenderFrame();
+    if (g_world_cleanup_flag) RenderFrame();
 
     world->plsCameras.clear();
 
     StopAllAmbientSounds();
     wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
-    if (g_world_cleanup_flag)
-        RenderFrame();
+    if (g_world_cleanup_flag) RenderFrame();
 
     wiz8::remove_all_and_delete_in_order(world->particles);
     world->named_positions.clear();
@@ -415,13 +417,10 @@ void DestroyWorld(W8World* world)
         world->octree = 0;
     }
     world->quads.reset();
-    if (g_world_cleanup_flag)
-        RenderFrame();
+    if (g_world_cleanup_flag) RenderFrame();
     DestroyWorldEntities(world);
-    if (g_world_cleanup_flag)
-        RenderFrame();
-    if (IsWorldCursorVisible())
-        HideWorldCursor();
+    if (g_world_cleanup_flag) RenderFrame();
+    if (IsWorldCursorVisible()) HideWorldCursor();
 
     wiz8::erase_first(g_worlds, world);
     ReleaseRendererObject(world->static_scene);
@@ -459,16 +458,16 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         }
         if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            const auto orientation = world->game_data->cameraRotation(
-                flags, world->camera->getRotation<glm::mat3>());
+            const auto orientation =
+                world->game_data->cameraRotation(flags, world->camera->getRotation<glm::mat3>());
             world->camera->setRotation(orientation.rotation);
             s_saved_camera_rotation = orientation.rotation;
             yaw = GetCameraYawInDegrees();
             pitch = GetCameraPitchInDegrees();
             g_startup_world->SetAngles(yaw);
             g_startup_world->SetPitch(pitch);
-            const auto motion = world->game_data->cameraMotion(
-                flags, camera_position, orientation.movement_basis);
+            const auto motion =
+                world->game_data->cameraMotion(flags, camera_position, orientation.movement_basis);
             if (motion.moved) {
                 camera_position += motion.displacement;
                 navigator_position.Set(camera_position.x,

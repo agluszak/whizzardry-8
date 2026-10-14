@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 #include <variant>
+
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
@@ -35,8 +36,8 @@ private:
 };
 
 std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image);
-void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image,
-                             int left, int top, SpriteDraw options = {});
+void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image, int left,
+                             int top, SpriteDraw options = {});
 
 void ReleaseCatalogArtwork();
 

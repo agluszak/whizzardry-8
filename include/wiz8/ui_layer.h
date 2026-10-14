@@ -1,13 +1,14 @@
 #pragma once
 
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
 
 enum class UiPointerAction { Enter, Leave, Move, Down, Up, Repeat, Wheel };
 enum class UiPointerButton { None, Left, Right };
@@ -135,7 +136,7 @@ using RetiredObject = std::unique_ptr<void, void (*)(void*)>;
 void RetireAfterUiDispatch(RetiredObject object);
 // Destroys `object` when the outermost transaction ends, or now outside one.
 // Removed hit targets and replaced modals go through here.
-template <class T> void DestroyAfterUiDispatch(std::unique_ptr<T> object)
+template<class T> void DestroyAfterUiDispatch(std::unique_ptr<T> object)
 {
     if (object) {
         RetireAfterUiDispatch({object.release(), [](void* p) { delete static_cast<T*>(p); }});

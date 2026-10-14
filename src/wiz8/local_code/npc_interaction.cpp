@@ -1,12 +1,13 @@
 
+#include "wiz8/npc_interaction.h"
+
+#include "conditions.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/npc_interaction.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "conditions.h"
-#include "wiz8/npc_speech.h"
 #include "wiz8/local_code/npc_story_events.h"
+#include "wiz8/npc_speech.h"
 
 // GLOBAL: WIZ8 0x0068C430
 W8NpcScriptingState g_npc_scripting;

@@ -1,9 +1,11 @@
 #pragma once
 
-#include "wiz8/engine_code/game_timer.h"
 #include "compat/compiler.h"
+#include "wiz8/engine_code/game_timer.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* The 0x28-byte timer-derived helper constructed by GDCamera. Its original
    name is not exposed; the vtable address remains the stable identity. */
@@ -15,10 +17,7 @@ public:
     /* 0x0043A500 */
     void Arm();                          /* 0x0043A530 */
     unsigned int PollElapsedIntervals(); /* 0x0043A5D0 */
-    bool IsFinished() const
-    {
-        return m_finished;
-    }
+    bool IsFinished() const { return m_finished; }
     /* Every waiter polls an unfinished gate before testing it again; the
        level scripts and the camera's manual-input hold expand this body. */
     bool PollFinished()

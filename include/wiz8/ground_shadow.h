@@ -1,11 +1,12 @@
 #pragma once
 
-#include "surrender/srGERD.h"
-#include "surrender/srNode.h"
+#include <cmath>
+
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include <cmath>
+#include "surrender/srGERD.h"
+#include "surrender/srNode.h"
 
 struct GroundShadowProjection {
     glm::mat2 matrix;
@@ -19,8 +20,7 @@ struct GroundShadowProjection {
         const glm::mat2 scale(0.5f / width, 0, 0, 0.5f / depth);
         const auto transform = scale * rotation;
         // The original second coordinate exchanges x/z relative to the first.
-        matrix = glm::mat2(transform[0][0], transform[1][1],
-                            transform[1][0], transform[0][1]);
+        matrix = glm::mat2(transform[0][0], transform[1][1], transform[1][0], transform[0][1]);
     }
 
     glm::vec2 coordinates(const glm::vec3& position) const
@@ -34,10 +34,7 @@ struct GroundShadowProjection {
 // VTABLE: WIZ8 0x005ed3c4
 class stGroundShadow : public srClassSupport<stGroundShadow, srNode, 0x10010> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stGroundShadow";
-    }
+    static const char* sGetClassName() { return "stGroundShadow"; }
     stGroundShadow(srNode* parent);              /* 0x004D61B0 */
     stGroundShadow(const stGroundShadow& other); /* 0x004D6430 */
     stGroundShadow& operator=(const stGroundShadow&) = default;

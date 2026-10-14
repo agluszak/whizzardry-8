@@ -1,26 +1,24 @@
 #pragma once
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/catalog_artwork.h"
-#include <optional>
 #include <array>
 #include <functional>
-
-#include "wiz8/text_input.h"
-
-#include <string_view>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/compat/compiler.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/compat/compiler.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/CharGeneration.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/text_input.h"
+#include "wiz8/ui_layer.h"
 
 class W8DialogBase;
 class W8CharacterScreen;
@@ -117,8 +115,9 @@ class W8CharacterStatsPage;
 class W8CharacterStatsRow {
 public:
     W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int y, int count,
-        const W8CharacterStatsRecord* table, const W8CharacterStatsRecord* default_record,
-        int help_first, int help_second, int help_value);
+                        const W8CharacterStatsRecord* table,
+                        const W8CharacterStatsRecord* default_record, int help_first,
+                        int help_second, int help_value);
     ~W8CharacterStatsRow();
     void Collapse();
     void CollapseIfNotHovered();

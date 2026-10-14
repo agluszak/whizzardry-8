@@ -3,10 +3,10 @@
 
 #include <array>
 
+#include "compat/compiler.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "compat/compiler.h"
 
 struct W8Character;
 class W8ButtonWidget;

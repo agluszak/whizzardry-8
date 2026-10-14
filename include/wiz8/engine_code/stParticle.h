@@ -1,33 +1,31 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
 #include <memory>
 #include <optional>
-#include "glm/ext/vector_float3.hpp"
 #include <vector>
 
-#include "wiz8/engine_code/particle_modes.h"
-#include "surrender/srMaterialIFace.h"
-#include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "surrender/srMaterialIFace.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/particle_modes.h"
 
 class W8MonsterShakeCallback;
 class srGERD;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stParticle";
-    }
+    static const char* sGetClassName() { return "stParticle"; }
     stParticle(srNode* parent, int count); /* 0x00497AF0 */
     stParticle(const stParticle& other);   /* 0x00498180 */
     void SetActive(unsigned char active);

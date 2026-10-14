@@ -1,9 +1,8 @@
 #ifndef WIZ8_LAYOUTS_WORLD_H
 #define WIZ8_LAYOUTS_WORLD_H
 
-#include <utility>
 #include <memory>
-
+#include <utility>
 #include <vector>
 class W8AmbientSound;
 struct W8Item;
@@ -12,12 +11,13 @@ class W8Prop;
 class srNode;
 class stLight;
 
-#include "surrender/srMath.h"
-#include "wiz8/environment_colour.h"
 #include <algorithm>
-#include "wiz8/named_position.h"
+
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
+#include "wiz8/environment_colour.h"
+#include "wiz8/named_position.h"
 
 class srCamera;
 class srModelInstance;
@@ -117,8 +117,7 @@ inline W8Prop* GetWorldProp(W8World* world, int index)
 
 inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
 {
-    if (index < 0 ||
-        std::cmp_greater_equal(index, world->plsCameras.size())) {
+    if (index < 0 || std::cmp_greater_equal(index, world->plsCameras.size())) {
         return nullptr;
     }
     return world->plsCameras[index].get();
@@ -126,8 +125,7 @@ inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
 
 inline W8AmbientSound* GetWorldAmbientSound(W8World* world, int index)
 {
-    if (index < 0 ||
-        std::cmp_greater_equal(index, world->plsAmbientSounds.size())) {
+    if (index < 0 || std::cmp_greater_equal(index, world->plsAmbientSounds.size())) {
         return nullptr;
     }
     return world->plsAmbientSounds[index];

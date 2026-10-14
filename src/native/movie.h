@@ -3,16 +3,9 @@
 #include <memory>
 #include <vector>
 struct SDL_Surface;
-struct W8NativeVideo
-{
-    enum Result
-    {
-        Waiting,
-        FrameReady,
-        Done
-    };
-    struct Frame
-    {
+struct W8NativeVideo {
+    enum Result { Waiting, FrameReady, Done };
+    struct Frame {
         int width, height;
         double time, duration;
         std::vector<uint16_t> pixels;
@@ -27,7 +20,7 @@ struct W8NativeVideo
     unsigned decoded_frames() const;
     uint64_t decoded_audio_frames() const;
 
-  private:
+private:
     struct State;
     std::unique_ptr<State> state;
 };

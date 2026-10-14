@@ -12,8 +12,7 @@ class srFilter;
 class srTexture;
 class stSurface2D;
 
-class SR_DLL_IMPORT srTextureIFace
-    : public srClassSupport<srTextureIFace, srClass, 0x2100> {
+class SR_DLL_IMPORT srTextureIFace : public srClassSupport<srTextureIFace, srClass, 0x2100> {
 public:
     /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
        srTexture ctor seeds Dimensions::compression with DEFAULT. */
@@ -96,10 +95,7 @@ public:
 
     // FUNCTION: SURRENDER 0x1005F5B0 SYMBOL
     // RECOMP: ?sGetClassName@srTextureIFace@@SAPBDXZ
-    static const char* sGetClassName()
-    {
-        return "srTextureIFace";
-    }
+    static const char* sGetClassName() { return "srTextureIFace"; }
 
     /* srTextureFile's vftable is this interface exactly. */
     virtual w8_ulong getTextureFrameHandle() = 0;

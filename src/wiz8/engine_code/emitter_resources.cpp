@@ -1,7 +1,9 @@
-#include <memory>
 #include "wiz8/engine_code/emitter_resources.h"
-#include "wiz8/engine_code/stLight.hpp"
+
+#include <memory>
+
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/layouts/world.h"
 
 EmitterLights::~EmitterLights()

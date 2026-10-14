@@ -2,13 +2,13 @@
 #pragma once
 
 #include <memory>
-#include <SDL3/SDL_rect.h>
 #include <string_view>
 
-#include "image.h"
-#include "wiz8/catalog_artwork.h"
-#include "input.h"
+#include <SDL3/SDL_rect.h>
 
+#include "image.h"
+#include "input.h"
+#include "wiz8/catalog_artwork.h"
 
 /* Button order differs from W8CampItemAction's byte values. */
 enum W8CampItemActionButton {

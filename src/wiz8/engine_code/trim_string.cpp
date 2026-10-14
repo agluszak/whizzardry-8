@@ -1,6 +1,6 @@
-#include "wiz8/engine_code/materials.h"
-
 #include <cstring>
+
+#include "wiz8/engine_code/materials.h"
 
 /* Trim leading/trailing spaces and fold A-Z to lowercase. Live query:
    0x00497940 sits in the gap between Engine Code\Cursor3d.cpp (upper

@@ -19,7 +19,6 @@ struct W8SkillNoticePayload {
     signed char skills[8];
 };
 
-
 struct W8LevelUpNotice {
     int party_slot;
 };
@@ -161,8 +160,8 @@ struct W8NpcTravelConfirm {
 using W8NpcAction =
     std::variant<W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedNotice, W8NpcCommand,
                  W8NpcStoryAction, W8NpcRecruit, W8NpcDismiss, W8NpcPartySpeakerEvent,
-                 W8NpcLevelUpReaction, W8NpcPartyScriptLine, W8NpcPortraitString,
-                 W8NpcMarkMissing, W8NpcLeaveCombat, W8NpcTravelConfirm>;
+                 W8NpcLevelUpReaction, W8NpcPartyScriptLine, W8NpcPortraitString, W8NpcMarkMissing,
+                 W8NpcLeaveCombat, W8NpcTravelConfirm>;
 
 /* Queue record consumed by ProcessMessageBoxQueue. */
 struct W8MessageBoxLine {

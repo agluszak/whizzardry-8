@@ -1,8 +1,5 @@
-#include "wiz8/layouts/world.h"
-#include <cstddef>
-#include "wiz8/engine_code/emitter_resources.h"
 #include <array>
-#include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
@@ -10,44 +7,47 @@
 #include <utility>
 #include <vector>
 
+#include <catch2/catch_test_macros.hpp>
+
 #include "GrCycle.h"
 #include "SpellVisual.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "local_code/NPCScripting.h"
+#include "scoped_asset_roots.h"
+#include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
+#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
-#include "surrender/srClock.h"
+#include "temporary_directory.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/emitter_cycles.h"
+#include "wiz8/engine_code/emitter_resources.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/character_event_queue.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/world.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/emitter_cycles.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
-#include "local_code/NPCScripting.h"
-#include "surrender/srPixelConvert.h"
+#include "wiz8/xstatus.h"
 
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern std::unique_ptr<srColorSurface> g_automap_surface;
-
 
 static void shutdown_survivors()
 {
@@ -74,7 +74,8 @@ static void shutdown_survivors()
     try {
         auto scene = std::make_unique<InterruptedScene>(model);
         REQUIRE((false));
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 
     // These are the actual global owners used by mouse and automap rendering.
     REQUIRE((srExit()));
@@ -112,7 +113,6 @@ static void npc_script_teardown()
     owner = std::make_unique<W8NpcScriptFile>();
     owner->name.assign(80, 'n');
     // Zero-quote scripts still own their name and header.
-
 }
 
 static void queued_state_teardown()
@@ -124,8 +124,7 @@ static void queued_state_teardown()
     ClearNpcDialogueTranscript();
     REQUIRE((g_npc_interaction_state->dialogue_transcript.size() == 0));
     QueueNpcPortraitMessage(std::string(80, 't'));
-    QueueNpcPortraitMessage(std::string(80, 't'),
-                          W8ExperienceNoticePayload{});
+    QueueNpcPortraitMessage(std::string(80, 't'), W8ExperienceNoticePayload{});
     QueueNpcPortraitMessage(std::string(80, 't'), W8SkillNoticePayload{});
     QueueNpcPortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
     ClearNpcMessageQueue();
@@ -133,7 +132,8 @@ static void queued_state_teardown()
     REQUIRE((IsMessageBoxLineQueueEmpty()));
 }
 
-TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization", "[resources][lifecycle]")
+TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization",
+          "[resources][lifecycle]")
 {
     shutdown_survivors();
     shutdown_survivors();
@@ -174,8 +174,7 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
     REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
 }
 
-struct SpellVisualFixture
-{
+struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
     W8World* previous_world = GetWorld();
@@ -195,7 +194,8 @@ struct SpellVisualFixture
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(),
-                         (directory.path / "user").string(), {"", "", ""}});
+                         (directory.path / "user").string(),
+                         {"", "", ""}});
         SetCurrentWorld(&world);
     }
 
@@ -407,10 +407,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
             : stModelInstance(nullptr), observations(observations)
         {
         }
-        ~ObservedInstance() override
-        {
-            observations.push_back(g_world->transient_lights.size());
-        }
+        ~ObservedInstance() override { observations.push_back(g_world->transient_lights.size()); }
         std::vector<std::size_t>& observations;
     };
     std::vector<std::size_t> observations;

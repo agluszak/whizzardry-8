@@ -1,17 +1,18 @@
 #pragma once
 
+#include <functional>
+#include <memory>
+#include <string_view>
+#include <utility>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+
 #include "Font.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-
-#include <memory>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
-#include <functional>
-#include <string_view>
-#include <utility>
 
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
@@ -119,5 +120,4 @@ private:
 
 public:
     ButtonPolicy policy;
-
 };

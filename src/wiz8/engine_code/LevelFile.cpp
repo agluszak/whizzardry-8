@@ -1,4 +1,5 @@
-#include <fmt/format.h>
+#include "wiz8/engine_code/LevelFile.h"
+
 #include <climits>
 #include <cmath>
 #include <cstddef>
@@ -16,15 +17,16 @@
 #include <variant>
 #include <vector>
 
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/LevelFile.h"
-#include "wiz8/evidence/LevelFile_layout.inc"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/filesystem.h"
+#include <fmt/format.h>
+
 #include "materials.h"
+#include "wiz8/engine_code/OctMeshModel.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/evidence/LevelFile_layout.inc"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/local_screens/AutomapScreen.h"
 
 #define LEVELFILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\LevelFile.cpp"
 
@@ -115,7 +117,8 @@ struct LevelWriter {
     template<std::size_t N> void text(const char (&value)[N]) { field(value); }
     template<class T> void array(const std::vector<T>& values, std::int64_t count)
     {
-        if (static_cast<std::int64_t>(values.size()) != count) throw LevelError("record count mismatch");
+        if (static_cast<std::int64_t>(values.size()) != count)
+            throw LevelError("record count mismatch");
         file.write(values.data(), values.size() * sizeof(T));
     }
     template<class T> void records(const std::vector<T>&, std::int64_t) {}
@@ -146,7 +149,8 @@ void TransferRecords(IO& io, Values& values, Transfer&& transfer)
     for (auto& value : values) transfer(io, value);
 }
 
-template<class Record, class Transfer> bool ReadRecord(wiz8::File& file, Record& record, Transfer&& transfer)
+template<class Record, class Transfer> bool ReadRecord(wiz8::File& file, Record& record,
+                                                       Transfer&& transfer)
 try {
     Record loaded{};
     LevelReader io{file};
@@ -206,7 +210,8 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
             throw LevelError("invalid mesh vertex count");
         }
         if (mesh.num_faces <= 0 || mesh.num_faces > kMaxMeshFaces) {
-            ReportBuildStatus(7, fmt::format("Invalid number of faces in mesh ({} faces).\n", mesh.num_faces));
+            ReportBuildStatus(
+                7, fmt::format("Invalid number of faces in mesh ({} faces).\n", mesh.num_faces));
             throw LevelError("invalid mesh face count");
         }
     }
@@ -220,7 +225,8 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
     if (mesh.version >= 4) {
         io.field(mesh.mapping_count);
         // One mapping fits the record; more would need an expanded one.
-        if (mesh.mapping_count < 0 || mesh.mapping_count > 1) throw LevelError("unsupported mesh mappings");
+        if (mesh.mapping_count < 0 || mesh.mapping_count > 1)
+            throw LevelError("unsupported mesh mappings");
         if (mesh.mapping_count != 0) {
             io.field(mesh.mapped_value);
             io.field(mesh.mapped_key);
@@ -243,7 +249,8 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
         if (mesh.lod_mode >= 2 && (!IO::reading || mesh.HasShortLods())) {
             io.field(mesh.lod_scale);
             if constexpr (IO::reading) {
-                if (!std::isfinite(mesh.lod_scale) || mesh.lod_scale <= 0) throw LevelError("invalid LOD scale");
+                if (!std::isfinite(mesh.lod_scale) || mesh.lod_scale <= 0)
+                    throw LevelError("invalid LOD scale");
             }
         }
         if (mesh.HasShortLods()) {
@@ -267,7 +274,8 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
         if constexpr (IO::reading) {
             for (const auto& face : mesh.faces)
                 for (int vertex : face.vertices)
-                    if (vertex < 0 || vertex >= mesh.num_vertices) throw LevelError("face vertex out of range");
+                    if (vertex < 0 || vertex >= mesh.num_vertices)
+                        throw LevelError("face vertex out of range");
         }
     }
 }
@@ -342,7 +350,8 @@ template<class IO, class Switch> void TransferSwitch(IO& io, Switch& trigger)
     io.text(trigger.recipients);
     io.field(trigger.sound);
     if constexpr (IO::reading)
-        ReportBuildStatus(5, fmt::format("Switch Trigger: {}, recipients: {}\n", trigger.name, trigger.recipients));
+        ReportBuildStatus(5, fmt::format("Switch Trigger: {}, recipients: {}\n", trigger.name,
+                                         trigger.recipients));
     if (trigger.version > 1) {
         io.field(trigger.minimum_range);
         io.text(trigger.surface_id);
@@ -371,7 +380,8 @@ template<class IO, class Invisible> void TransferInvisible(IO& io, Invisible& tr
     io.text(trigger.name);
     io.text(trigger.recipients);
     if constexpr (IO::reading)
-        ReportBuildStatus(5, fmt::format("Invisible Trigger: {}, recipients: {}\n", trigger.name, trigger.recipients));
+        ReportBuildStatus(5, fmt::format("Invisible Trigger: {}, recipients: {}\n", trigger.name,
+                                         trigger.recipients));
     if (trigger.version > 1) {
         io.field(trigger.plane_flag);
         io.field(io.present(trigger.plane));
@@ -419,7 +429,8 @@ template<class IO, class Sound> void TransferSound(IO& io, Sound& trigger)
     }
     if (trigger.version > 3) {
         io.field(trigger.name);
-        if constexpr (IO::reading) ReportBuildStatus(5, fmt::format("Sound Trigger: {}\n", trigger.name));
+        if constexpr (IO::reading)
+            ReportBuildStatus(5, fmt::format("Sound Trigger: {}\n", trigger.name));
     }
     if (trigger.version > 4) io.field(trigger.shared);
 }
@@ -446,7 +457,8 @@ template<class IO, class Super> void TransferSuper(IO& io, Super& trigger)
     io.field(trigger.door_kind);
     io.field(trigger.animation);
     if constexpr (IO::reading)
-        ReportBuildStatus(5, fmt::format("Super Trigger: {}, recipients: {}\n", trigger.name, trigger.recipients));
+        ReportBuildStatus(5, fmt::format("Super Trigger: {}, recipients: {}\n", trigger.name,
+                                         trigger.recipients));
     if (trigger.version >= 2) {
         io.field(trigger.size);
         io.field(trigger.direction);
@@ -510,16 +522,20 @@ template<class IO, class Trigger> void TransferTriggerBody(IO& io, Trigger& trig
     };
     switch (trigger.type) {
     case W8_LEVEL_TRIGGER_SWITCH:
-        transfer.template operator()<W8LevelFileSwitch>([&](auto& record) { TransferSwitch(io, record); });
+        transfer.template operator()<W8LevelFileSwitch>(
+            [&](auto& record) { TransferSwitch(io, record); });
         break;
     case W8_LEVEL_TRIGGER_INVISIBLE:
-        transfer.template operator()<W8LevelFileInvisible>([&](auto& record) { TransferInvisible(io, record); });
+        transfer.template operator()<W8LevelFileInvisible>(
+            [&](auto& record) { TransferInvisible(io, record); });
         break;
     case W8_LEVEL_TRIGGER_SOUND:
-        transfer.template operator()<W8LevelFileSound>([&](auto& record) { TransferSound(io, record); });
+        transfer.template operator()<W8LevelFileSound>(
+            [&](auto& record) { TransferSound(io, record); });
         break;
     case W8_LEVEL_TRIGGER_SUPER:
-        transfer.template operator()<W8LevelFileSuperTrigger>([&](auto& record) { TransferSuper(io, record); });
+        transfer.template operator()<W8LevelFileSuperTrigger>(
+            [&](auto& record) { TransferSuper(io, record); });
         break;
     }
 }
@@ -535,7 +551,8 @@ enum class FrameKind { morph, transform };
 
 /* A channel's frames. A morph whose first frame is an LOD mesh stores only
    that frame; transforms store every frame. */
-template<class IO, class Frames> void TransferFrames(IO& io, Frames& frames, int count, FrameKind kind)
+template<class IO, class Frames> void TransferFrames(IO& io, Frames& frames, int count,
+                                                     FrameKind kind)
 {
     io.records(frames, count);
     for (auto& frame : frames) {
@@ -546,8 +563,9 @@ template<class IO, class Frames> void TransferFrames(IO& io, Frames& frames, int
         io.field(texture_count);
         if constexpr (IO::reading) {
             if (kind == FrameKind::transform && texture_count > kMaxTransformMaterials) {
-                ReportBuildStatus(7, fmt::format("Invalid number of materials in mesh ({} materials).\n",
-                                                 texture_count));
+                ReportBuildStatus(
+                    7, fmt::format("Invalid number of materials in mesh ({} materials).\n",
+                                   texture_count));
                 throw LevelError("too many frame materials");
             }
         }
@@ -563,7 +581,8 @@ template<class IO, class AnimObj> void TransferAnimObj(IO& io, AnimObj& anim)
     char animation_count{};
     if constexpr (!IO::reading) animation_count = DiskCount<char>(anim.channel_counts.size());
     io.field(animation_count);
-    if constexpr (IO::reading) ValidateRecordCount(animation_count, sizeof(W8LevelFileMorph), io.file);
+    if constexpr (IO::reading)
+        ValidateRecordCount(animation_count, sizeof(W8LevelFileMorph), io.file);
     io.field(anim.animation_playing);
     io.field(anim.frame_method);
     io.field(anim.behaviour);
@@ -649,8 +668,9 @@ template<class IO, class System> void TransferParticleSystem(IO& io, System& sys
         io.field(particle.end_frame);
     }
     if constexpr (IO::reading) {
-        ReportBuildStatus(5, fmt::format("Particle System: {}, Position {:f}, {:f}, {:f}\n", particle.name,
-                                         particle.location.x * g_world_scale, particle.location.y * g_world_scale,
+        ReportBuildStatus(5, fmt::format("Particle System: {}, Position {:f}, {:f}, {:f}\n",
+                                         particle.name, particle.location.x * g_world_scale,
+                                         particle.location.y * g_world_scale,
                                          particle.location.z * g_world_scale));
     }
 }
@@ -735,17 +755,21 @@ try {
     io.records(level->textures, texture_count);
     for (auto& material : level->textures) TransferMaterial(io, material);
 
-    TransferRecords<short>(io, level->lights, [](auto& io, auto& light) { TransferLight(io, light); });
-    TransferRecords<int>(io, level->monsters, [](auto& io, auto& monster) { TransferMonster(io, monster); });
+    TransferRecords<short>(io, level->lights,
+                           [](auto& io, auto& light) { TransferLight(io, light); });
+    TransferRecords<int>(io, level->monsters,
+                         [](auto& io, auto& monster) { TransferMonster(io, monster); });
     TransferArray<int>(io, level->items);
     io.field(level->missile_count);
     ValidateRecordCount(level->missile_count, 1, file);
     TransferRecords<int>(io, level->props, [](auto& io, auto& prop) { TransferProp(io, prop); });
     TransferRecords<int>(io, level->bitmaps, [](auto& io, auto& prop) { TransferProp(io, prop); });
-    TransferRecords<int>(io, level->cameras, [](auto& io, auto& camera) { TransferCamera(io, camera); });
+    TransferRecords<int>(io, level->cameras,
+                         [](auto& io, auto& camera) { TransferCamera(io, camera); });
     io.field(level->has_block);
     if (level->has_block != 0) TransferBlock(io, level->block);
-    TransferRecords<int>(io, level->triggers, [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
+    TransferRecords<int>(io, level->triggers,
+                         [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
     io.field(level->camera_mode);
 
     int clipping_plane_count;
@@ -763,7 +787,8 @@ try {
     for (const auto& position : level->named_positions) {
         if (!std::memchr(position.name, '\0', sizeof(position.name))) return nullptr;
         ReportBuildStatus(5, fmt::format("Named Position: {} ({:f}, {:f}, {:f})\n", position.name,
-                                         position.position.x, position.position.y, position.position.z));
+                                         position.position.x, position.position.y,
+                                         position.position.z));
     }
     io.field(level->unknown_6b9);
     level->read_end_position = static_cast<int>(file.tell());
@@ -796,9 +821,11 @@ try {
 
     for (auto& model : models) model.Write(file);
     io.field(separator);
-    TransferRecords<short>(io, level.lights, [](auto& io, auto& light) { TransferLight(io, light); });
+    TransferRecords<short>(io, level.lights,
+                           [](auto& io, auto& light) { TransferLight(io, light); });
     io.field(separator);
-    TransferRecords<int>(io, level.monsters, [](auto& io, auto& monster) { TransferMonster(io, monster); });
+    TransferRecords<int>(io, level.monsters,
+                         [](auto& io, auto& monster) { TransferMonster(io, monster); });
     io.field(separator);
     TransferArray<int>(io, level.items);
     io.field(separator);
@@ -808,12 +835,14 @@ try {
     io.field(separator);
     TransferRecords<int>(io, level.bitmaps, [](auto& io, auto& prop) { TransferProp(io, prop); });
     io.field(separator);
-    TransferRecords<int>(io, level.cameras, [](auto& io, auto& camera) { TransferCamera(io, camera); });
+    TransferRecords<int>(io, level.cameras,
+                         [](auto& io, auto& camera) { TransferCamera(io, camera); });
     io.field(separator);
     io.field(level.has_block);
     if (level.has_block != 0) TransferBlock(io, level.block);
     io.field(separator);
-    TransferRecords<int>(io, level.triggers, [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
+    TransferRecords<int>(io, level.triggers,
+                         [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
     io.field(separator);
     io.field(level.camera_mode);
     io.field(DiskCount<int>(level.clipping_planes.size()));
@@ -922,7 +951,9 @@ bool ReadDoorTriggerFile(wiz8::File& file, W8LevelFileDoorRef& door)
 // FUNCTION: WIZ8 0x004D3660
 bool WriteDoorTriggerFile(wiz8::File& file, const W8LevelFileDoorRef& door)
 {
-    return WriteRecord(file, door, [](auto& io, auto& record) { TransferDoorRecord(io, io.present(record.door)); });
+    return WriteRecord(file, door, [](auto& io, auto& record) {
+        TransferDoorRecord(io, io.present(record.door));
+    });
 }
 
 // FUNCTION: WIZ8 0x004D3770
@@ -969,13 +1000,15 @@ bool WritePropsFile(wiz8::File& file, const std::vector<W8LevelFileProp>& props)
 // FUNCTION: WIZ8 0x004D5240
 bool ReadParticleSystemFile(wiz8::File& file, W8LevelFileParticleSystem& system)
 {
-    return ReadRecord(file, system, [](auto& io, auto& record) { TransferParticleSystem(io, record); });
+    return ReadRecord(file, system,
+                      [](auto& io, auto& record) { TransferParticleSystem(io, record); });
 }
 
 // FUNCTION: WIZ8 0x004D5370
 bool WriteParticleSystemFile(wiz8::File& file, const W8LevelFileParticleSystem& system)
 {
-    return WriteRecord(file, system, [](auto& io, auto& record) { TransferParticleSystem(io, record); });
+    return WriteRecord(file, system,
+                       [](auto& io, auto& record) { TransferParticleSystem(io, record); });
 }
 
 // FUNCTION: WIZ8 0x004D5430

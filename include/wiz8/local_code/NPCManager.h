@@ -1,10 +1,9 @@
 #include <string_view>
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/fact_state.h"
 #include "surrender/srMath.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/layouts/npc_state.h"
 
 enum W8NpcPickpocketResult {
@@ -161,4 +160,3 @@ void LoadNpcStates(wiz8::File& file);
 char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
-

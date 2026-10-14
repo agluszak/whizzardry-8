@@ -1,33 +1,32 @@
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
-#include <optional>
-#include "surrender/srBoundingBox.h"
-#include "wiz8/audio_resources.h"
-
-#include <string_view>
 #include <cstdint>
+#include <optional>
+#include <string_view>
 
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/fwd.hpp"
+#include "surrender/srBoundingBox.h"
+#include "wiz8/audio_resources.h"
 
 class srNode;
 struct W8AIRecord;
 struct W8PathAI;
 struct W8World;
 
-#include <vector>
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "wiz8/monster_spell_icons.h"
-#include "wiz8/monster_actions.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/Emitter.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/monster_spell_icons.h"
 
 struct W8AnimObj;
 struct W8ReadLevelInfo;
@@ -365,8 +364,9 @@ W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0
 unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                        const char* monster_name, W8Monster** monster,
                                        int load_value, int location_id);
-unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::string_view monster_name,
-                                   W8Monster** monster, int load_value, int location_id);
+unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context,
+                                   std::string_view monster_name, W8Monster** monster,
+                                   int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);

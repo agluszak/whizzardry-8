@@ -1,13 +1,13 @@
 #include "wiz8/level_specific_code/RapaxMainFloor.h"
 
+#include "Item.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/location_variables.h"
-#include "surrender/srMath.h"
-#include "Item.h"
 
 /* Level Specific Code for RapaxMainFloor.LVL (level 0x12) — the Rapax castle
    main floor altar and platform sequence.

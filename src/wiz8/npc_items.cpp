@@ -1,26 +1,27 @@
+#include "wiz8/npc_items.h"
+
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <utility>
 #include <vector>
-#include <algorithm>
-#include <cmath>
 
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/npc_items.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "random.h"
-#include "soundman.h"
 #include "character_skills.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
+#include "random.h"
+#include "soundman.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
 #include "xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -265,9 +266,10 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0055b9c0
 void SortNpcItems(W8NpcState* npc)
 {
-    std::ranges::stable_sort(npc->items, [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
-        return CompareItemsForPool(&first.item, &second.item) < 0;
-    });
+    std::ranges::stable_sort(npc->items,
+                             [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
+                                 return CompareItemsForPool(&first.item, &second.item) < 0;
+                             });
 }
 
 /* Release an NPC's owned item list, but only for the database records that ask
@@ -446,7 +448,10 @@ W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
 }
 
 // FUNCTION: WIZ8 0x0055b710
-unsigned int GetNpcItemCount(W8NpcState* npc) { return npc->items.size(); }
+unsigned int GetNpcItemCount(W8NpcState* npc)
+{
+    return npc->items.size();
+}
 
 // GLOBAL: WIZ8 0x0062A80C
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";

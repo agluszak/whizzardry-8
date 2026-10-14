@@ -3,16 +3,15 @@
 
 #include <string>
 
-#include "wiz8/difficulty.h"
+#include <stddef.h>
 
+#include "wiz8/difficulty.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/world.h"
-
-#include <stddef.h>
 
 struct W8PartySlotRow;
 
@@ -45,7 +44,7 @@ struct W8CharacterSpellUsageRecord {
 
 struct W8GlobalStatus {
     W8StatusBuffers buffers;
-    bool game_started; /* Retail offset 0x000c */
+    bool game_started;
     /* Retail offset 0x000d..0x0018: the three join counters the party-add entry advances:
        the regular-member, auxiliary and total counts. */
     int regular_member_count;
@@ -70,7 +69,7 @@ struct W8GlobalStatus {
     int current_level;
     /* Retail offset 0x1904..0x1a03: the 0x100-byte STAT header block. */
     unsigned char status_header_prefix[0xd4];
-    unsigned int uiTurnsElapsed; /* Retail offset 0x19d8 */
+    unsigned int uiTurnsElapsed;
     unsigned char status_header_suffix[0x28];
     W8LevelProgressRow level_progress[W8_LEVEL_COUNT];
     unsigned char unknown_2013[0x294];
@@ -152,7 +151,7 @@ struct W8GlobalStatus {
     /* Retail offset 0x2488: one-shot gate; when set, the next condition-change and
        condition-cleared reaction is swallowed and the flag cleared. */
     unsigned char skip_next_condition_reaction;
-    bool rpc_active; /* Retail offset 0x2489: fact 0x14c gate */
+    bool rpc_active;
     /* Retail offset 0x248a: armed by the long NPC reward event; the event also stamps
        0x2493 with the world clock. */
     bool fact_b8_pending;
@@ -209,9 +208,6 @@ struct W8GlobalStatus {
     bool dev_flagged;
 };
 
-
-
 extern W8GlobalStatus g_status;
-
 
 #endif

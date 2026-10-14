@@ -1,11 +1,11 @@
-#include "glm/ext/vector_int3.hpp"
-#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/quad.h"
 
 #include <cmath>
 #include <cstddef>
 #include <memory>
 
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"

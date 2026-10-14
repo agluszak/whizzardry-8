@@ -20,10 +20,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-format-21
-      - name: Check changed C and C++ lines
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - name: Check C and C++ files
         run: |
-          MERGE_BASE="$(git merge-base "$BASE_SHA" HEAD)"
-          git clang-format-21 --binary clang-format-21 "$MERGE_BASE" -- include src tests
-          git diff --exit-code -- include src tests
+          git ls-files -z -- include src tests \
+            | grep -zE '\.(c|cc|cxx|cpp|h|hpp)$' \
+            | xargs -0 clang-format-21 --dry-run --Werror

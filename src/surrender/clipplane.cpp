@@ -1,11 +1,11 @@
 #include <ostream>
 
-#include "surrender/srClipPlane.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srGERD.h"
-#include "surrender/srTypeRegistry.h"
 #include "glm/ext/vector_float4.hpp"
+#include "surrender/srClipPlane.h"
+#include "surrender/srGERD.h"
 #include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x10049B90
 srClipPlane::srClipPlane(srNode* parent)

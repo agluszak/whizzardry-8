@@ -1,7 +1,5 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -11,6 +9,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include "wiz8/filesystem.h"
 
 struct W8ChunkHead {
     unsigned int chunk_id; /* 0x00 */
@@ -24,7 +24,8 @@ struct W8ChunkHead {
 constexpr unsigned int W8ChunkId(const char (&tag)[5])
 {
     return static_cast<unsigned char>(tag[0]) | static_cast<unsigned char>(tag[1]) << 8 |
-           static_cast<unsigned char>(tag[2]) << 16 | static_cast<unsigned>(static_cast<unsigned char>(tag[3])) << 24;
+           static_cast<unsigned char>(tag[2]) << 16 |
+           static_cast<unsigned>(static_cast<unsigned char>(tag[3])) << 24;
 }
 
 // Runtime navigation is owned value storage; only the ten-byte disk header
@@ -151,6 +152,7 @@ public:
     void SetCurrentChunkAtEnd();
     bool ReleaseCurrentChunk();
     unsigned char CurrentChunkAtEnd();
+
 private:
     W8ChunkHead& CurrentHead();
 };

@@ -1,11 +1,12 @@
 #pragma once
 
-#include "srNode.h"
-#include <utility>
 #include <optional>
 #include <span>
-#include "glm/ext/vector_float3.hpp"
+#include <utility>
+
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "srNode.h"
 
 class srGERD;
 
@@ -64,10 +65,7 @@ public:
     void setProjectionType(e_project projection);
     void normalizeViewPlane();
     // FUNCTION: SURRENDER 0x10048020
-    static const char* sGetClassName()
-    {
-        return "srCamera";
-    }
+    static const char* sGetClassName() { return "srCamera"; }
     void setEnvironmentScale(float near_scale, float far_scale);
     void setFocalLength(double focal_length, double aspect_ratio);
     void setFOV(double field_of_view, double aspect_ratio);
@@ -86,13 +84,12 @@ public:
 
     srFlags<e_flag> flags; /* 0x138 */
 private:
-    Rect view_plane;              /* 0x140 */
-    double view_plane_distance;   /* 0x160 */
-    double near_clip;             /* 0x168 */
-    double far_clip;              /* 0x170 */
-    float environment_near;       /* 0x178 */
-    float environment_far;        /* 0x17c */
+    Rect view_plane; /* 0x140 */
+    double view_plane_distance; /* 0x160 */
+    double near_clip; /* 0x168 */
+    double far_clip; /* 0x170 */
+    float environment_near; /* 0x178 */
+    float environment_far; /* 0x17c */
     float environment_near_scale; /* 0x180 */
-    float environment_far_scale;  /* 0x184 */
+    float environment_far_scale; /* 0x184 */
 };
-

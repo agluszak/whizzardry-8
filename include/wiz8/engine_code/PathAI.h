@@ -1,16 +1,18 @@
 #ifndef WIZ8_ENGINE_CODE_PATH_AI_H
 #define WIZ8_ENGINE_CODE_PATH_AI_H
 
+#include <cstdint>
 #include <memory>
 #include <vector>
-#include <cstdint>
 
 #include "glm/fwd.hpp"
 #include "surrender/srMath.h"
 
 class srNode;
 class W8AnimRepBase;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Runtime path data. File records are read field by field by LoadPathAI. */
 
@@ -53,7 +55,6 @@ struct W8PathAI : W8AIRecord {
     bool timed{};
 };
 
-
 /* Tagged-record dispatchers: the body switches on kind and hands the
    record to the path or missile implementation. */
 bool PathAIUpdate(W8AIRecord* record, signed char direction);
@@ -75,7 +76,6 @@ bool PathAITick(W8PathAI* path, signed char direction);
 void PathAIPosition(W8PathAI* path, srVector3T<float>* value);
 bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
 void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point);
-
 
 void PathAIAdvanceByDistance(W8PathAI* path, float value);
 

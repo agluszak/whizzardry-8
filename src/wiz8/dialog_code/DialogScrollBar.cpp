@@ -1,15 +1,17 @@
-#include <SDL3/SDL_surface.h>
-#include "wiz8/engine_code/Video2.h"
-#include <SDL3/SDL_rect.h>
+#include "wiz8/dialog_code/DialogScrollBar.h"
+
 #include <algorithm>
 
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/button_interaction.h"
-#include "wiz8/dialog_code/DialogScrollBar.h"
-#include "wiz8/ui_input.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Video2.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_input.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper
@@ -46,8 +48,8 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         m_track_button.Reset();
         return false;
     }
-    m_up_button.policy.activation = m_down_button.policy.activation = m_track_button.policy.activation =
-        ButtonActivation::Press;
+    m_up_button.policy.activation = m_down_button.policy.activation =
+        m_track_button.policy.activation = ButtonActivation::Press;
     m_up_button.policy.repeat = m_down_button.policy.repeat = m_track_button.policy.repeat = true;
     m_on_scroll = resources->on_scroll;
     m_initialized = true;
@@ -63,17 +65,16 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
     if (m_initialized) {
         int track_width = m_track_button.Bounds().w;
         int arrow_width = m_up_button.Bounds().w;
-        m_track_button.SetPosition( static_cast<short>(x), static_cast<short>(y));
+        m_track_button.SetPosition(static_cast<short>(x), static_cast<short>(y));
         int arrow_x = x + (track_width - arrow_width) / 2;
-        m_up_button.SetPosition( static_cast<short>(arrow_x), static_cast<short>(y));
-        m_down_button.SetPosition( static_cast<short>(arrow_x),
-                          static_cast<short>(y - m_down_button.Bounds().h +
-                                             m_track_button.Bounds().h));
+        m_up_button.SetPosition(static_cast<short>(arrow_x), static_cast<short>(y));
+        m_down_button.SetPosition(
+            static_cast<short>(arrow_x),
+            static_cast<short>(y - m_down_button.Bounds().h + m_track_button.Bounds().h));
         m_track_bounds.left = x;
         m_track_bounds.top = y + m_up_button.Bounds().h;
         m_track_bounds.right = x + m_track_button.Bounds().w;
-        m_track_bounds.bottom =
-            y - m_down_button.Bounds().h + m_track_button.Bounds().h;
+        m_track_bounds.bottom = y - m_down_button.Bounds().h + m_track_button.Bounds().h;
         m_entry_count = entry_count;
         m_first_visible_entry = first_visible_entry;
         m_entry_height = entry_height;
@@ -96,13 +97,12 @@ void W8DialogScrollBar::UpdateThumb()
                 (m_track_bounds.right - m_track_bounds.left - m_thumb_button.Bounds().w) / 2;
         int offset = 0;
         if (m_entry_count > m_view_height / m_entry_height) {
-            offset =
-                ((m_track_bounds.bottom - m_track_bounds.top - m_thumb_button.Bounds().h) *
-                 m_first_visible_entry) /
-                (m_entry_count - m_view_height / m_entry_height);
+            offset = ((m_track_bounds.bottom - m_track_bounds.top - m_thumb_button.Bounds().h) *
+                      m_first_visible_entry) /
+                     (m_entry_count - m_view_height / m_entry_height);
         }
-        m_thumb_button.SetPosition( static_cast<short>(x),
-                          static_cast<short>(m_track_bounds.top + offset));
+        m_thumb_button.SetPosition(static_cast<short>(x),
+                                   static_cast<short>(m_track_bounds.top + offset));
         m_dirty = true;
     }
 }
@@ -110,8 +110,9 @@ void W8DialogScrollBar::UpdateThumb()
 // FUNCTION: WIZ8 0x005e10b0
 void W8DialogScrollBar::Draw(SDL_Surface& target, bool force)
 {
-    if (m_initialized && m_visible && (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
-        m_track_button.m_dirty || m_thumb_button.m_dirty)) {
+    if (m_initialized && m_visible &&
+        (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
+         m_track_button.m_dirty || m_thumb_button.m_dirty)) {
         m_track_button.m_dirty = true;
         m_track_button.Draw(target);
         m_up_button.m_dirty = true;

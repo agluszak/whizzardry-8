@@ -4,12 +4,11 @@
 void InitializeItemVideoObjects(void);
 void ReleaseGenericItemNames(void);
 
-#include "wiz8/npc_trade_price.h"
 #include "wiz8/character_skills.h"
-
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/npc_trade_price.h"
 
 struct W8ItemDatabaseRecord;
 struct W8NpcState;
@@ -95,7 +94,7 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
 void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity,
                          bool force_identified, bool mark_special);
 bool PlaceItemOnCursor(int item_id, bool maximum_quantity, bool force_identified,
-                      bool mark_special);
+                       bool mark_special);
 void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character,
                        bool refresh);
 void NormalizeItemStack(W8ItemInstance* item);

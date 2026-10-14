@@ -1,48 +1,21 @@
-#include <list>
-#include <utility>
-#include <deque>
-#include <optional>
-#include "wiz8/unicode.h"
-#include "surrender/srBoundingBox.h"
-#include <fmt/format.h>
-#include <string_view>
-#include <vector>
+#include "wiz8/engine_code/GrCycle.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <deque>
 #include <exception>
+#include <list>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-#include "wiz8/containers.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/float_constants.h"
-#include "random.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stParticle.h"
-#include "wiz8/ground_shadow.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/SpellVisual.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/sr_api.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srCore.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/GameData.h"
+#include <fmt/format.h>
+
 #include "Emitter.h"
 #include "Navigator.h"
 #include "SpellEmitterHost.h"
@@ -52,8 +25,37 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "particle_modes.h"
+#include "random.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srClock.h"
+#include "surrender/srCore.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/Quality.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/SpellVisual.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/ground_shadow.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/unicode.h"
 
 // GLOBAL: WIZ8 0x005ebc3c
 const float g_float_one_tenth = 0.10000000149011612f;
@@ -216,8 +218,7 @@ const float g_float_one_thousand = 1000.0f;
 bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle** cycle,
                  int cycle_index, int value, const char* directory, unsigned char object_type,
                  const char* bitmap_directory)
-try
-{
+try {
     W8ReadLevelInfo info;
     char mon_path[128];
     char bitmap_path[1024];
@@ -236,7 +237,13 @@ try
         strcpy(bitmap_path, bitmap_directory);
     }
 
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(mon_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> handle = [&]() {
+        try {
+            return wiz8::open_file(mon_path, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle == 0) {
         ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
@@ -272,8 +279,7 @@ try
 // FUNCTION: WIZ8 0x004A6970
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycle_index, int value,
                               unsigned char object_type)
-try
-{
+try {
     unsigned char has_path;
     unsigned char has_particles;
     unsigned char success;
@@ -696,8 +702,7 @@ void W8GrCycle::UpdateLights()
 std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
 {
     auto* representation = GetRepresentation();
-    if (!representation)
-        return std::nullopt;
+    if (!representation) return std::nullopt;
     return AnimObjGetBounds(GetCurrentAnimation(), representation->m_bLOD,
                             representation->subcycle);
 }

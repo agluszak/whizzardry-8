@@ -1,15 +1,18 @@
 #pragma once
-#include "wiz8/attack_modes.h"
-#include "wiz8/dice.h"
 #include <cstddef>
 #include <type_traits>
+
+#include "wiz8/attack_modes.h"
+#include "wiz8/dice.h"
 
 namespace wiz8::retail {
 // Unchanged numeric portions of Items.dbs. These contain no runtime ownership
 // or handles, so the same checked, trivially copyable payload is shared by the
 // disk record and the native item. The string-owning record has natural layout.
 #pragma pack(push, 1)
-struct ItemRequirement { unsigned char stat_id, minimum; };
+struct ItemRequirement {
+    unsigned char stat_id, minimum;
+};
 struct ItemProperties {
     /* 0x03c: the item number the Wizardry 7 import matches imported item ids
        against (Party Import.cpp). */
@@ -68,7 +71,6 @@ struct ItemProperties {
     unsigned int value;                          /* 0x086 */
     unsigned short weight;                       /* 0x08a */
     unsigned char binds_on_equip;                /* 0x08c */
-
 };
 struct ItemEffects {
     /* 0x0ad: extra swings the weapon grants when the wielder starts an
@@ -95,7 +97,6 @@ struct ItemEffects {
     /* 0x0cc: the missile table entry the item fires; the missile resolver
        bounds it against g_missile_table_count. */
     signed char missile_type;
-
 };
 #pragma pack(pop)
 static_assert(sizeof(ItemRequirement) == 2);

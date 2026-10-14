@@ -1,17 +1,17 @@
 #include <ios>
-#include "surrender/stream_scope.h"
-#include <ostream>
-#include <utility>
 #include <memory>
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "surrender/srTypeRegistry.h"
-#include "surrender/srDebug.h"
 #include "compat/compiler.h"
 #include "surrender/srCore.h"
+#include "surrender/srDebug.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
 
 #define SRRUNTIMECLASS_CPP "srRuntimeClass.cpp"
 
@@ -175,7 +175,7 @@ srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
 }
 
 srRegistry::ClassNode* srRegistry::registerClass(const char* class_name, ClassNode* parent,
-                                               w8_ulong class_id)
+                                                 w8_ulong class_id)
 {
     std::lock_guard lock(mutex);
     if (auto* existing = getClassNode(class_id)) {

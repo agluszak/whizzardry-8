@@ -1,16 +1,17 @@
 #include "wiz8/packed_bits.h"
 
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_properties.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #include <exception>
 #include <utility>
 #include <vector>
 
-#include "wiz8/filesystem.h"
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+
 #include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
+#include "wiz8/filesystem.h"
 
 namespace {
 constexpr Uint32 kMagic = 0xdeadd00d;
@@ -23,8 +24,7 @@ std::size_t WordCount(std::size_t bit_count)
 } // namespace
 
 bool LoadPackedBits(wiz8::File& handle, std::vector<bool>& bits)
-try
-{
+try {
     auto* io = handle.io();
     Uint32 magic, bit_count, packed_size;
     srIO::check(SDL_ReadU32LE(io, &magic));
@@ -54,8 +54,9 @@ try
     if (magic != kMagic) return false;
     bits = std::move(decoded);
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
 {
@@ -87,8 +88,10 @@ bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
 
     const auto packed_size = static_cast<Uint32>(SDL_GetIOSize(stream.get()));
     srIO::check(SDL_WriteU32LE(handle.io(), packed_size));
-    srIO::writeExact(handle.io(), SDL_GetPointerProperty(SDL_GetIOProperties(stream.get()),
-                     SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), packed_size);
+    srIO::writeExact(handle.io(),
+                     SDL_GetPointerProperty(SDL_GetIOProperties(stream.get()),
+                                            SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
+                     packed_size);
     srIO::check(SDL_WriteU32LE(handle.io(), kMagic));
     return true;
 }

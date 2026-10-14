@@ -1,41 +1,43 @@
-#include <fmt/format.h>
-#include <glm/gtx/euler_angles.hpp>
+#include "wiz8/engine_code/Item.h"
+
 #include <cstdio>
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <optional>
-#include <utility>
-#include "surrender/srBoundingBox.h"
 #include <string>
+#include <utility>
 
-#include "wiz8/engine_code/Item.h"
+#include <fmt/format.h>
+#include <glm/gtx/euler_angles.hpp>
+
+#include "AnimRep.hpp"
+#include "GrObject.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
-#include "wiz8/filesystem.h"
-#include "random.h"
-#include "wiz8/application.h"
 #include "input.h"
+#include "layouts/world.h"
+#include "random.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "timer.h"
+#include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "timer.h"
-#include "AnimRep.hpp"
-#include "GrObject.h"
-#include "compat/native.h"
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_double3.hpp"
-#include "layouts/world.h"
-#include "surrender/srMath.h"
-#include "surrender/srModel.h"
-#include "surrender/srModelInstance.h"
 
 #define ITEM_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp"
 
@@ -211,15 +213,20 @@ W8Item::W8Item()
 // FUNCTION: WIZ8 0x0049F4A0
 bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** output,
                       bool anonymous_mesh)
-try
-{
+try {
     W8Item* item = 0;
     if (name == 0 || output == 0) {
         srAssertFail("pacName && ppItem", ITEM_CPP, 0x11a, 0);
     }
     char filename[52];
     sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
-    std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(filename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> file = [&]() {
+        try {
+            return wiz8::open_file(filename, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (file == 0) {
         ShutdownWithErrorBox(fmt::format("Couldn't load {}", filename));
         return false;

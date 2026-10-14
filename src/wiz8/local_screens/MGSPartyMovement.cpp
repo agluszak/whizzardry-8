@@ -1,14 +1,20 @@
-#include "wiz8/ui_input.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
-#include <memory>
-#include <SDL3/SDL_rect.h>
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
+#include <SDL3/SDL_rect.h>
+
+#include "compat/native.h"
+#include "conditions.h"
 #include "image.h"
+#include "layouts/character.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
 #include "timer.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
@@ -17,10 +23,9 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -28,13 +33,9 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
-#include "compat/native.h"
-#include "conditions.h"
-#include "layouts/character.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/targeting.h"
 
 #define PARTY_MOVEMENT_CPP __FILE__
 
@@ -60,8 +61,9 @@ unsigned char CreatePartyMovementPanel(void)
 {
     movement = std::make_unique<PartyMovementPanel>();
     const W8ControlsRect bounds{0xc3, 0x13f, 0x1b9, 0x153};
-    movement->caption = std::make_unique<W8TextBuffer>(&bounds, std::string_view{},
-        g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    movement->caption =
+        std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     const auto art = CatalogArtwork::Load(0x94, 0);
     for (int index = 0; index < 2; ++index) {
         auto& button = movement->buttons[index];
@@ -159,7 +161,8 @@ void DrawPartyMovementPanel(void)
     if (panel_live) {
         clip = {right, 0, 0x1b9 - right, 0x1e0};
         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3, 0x144);
+        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3,
+                                                        0x144);
     }
     DrawPartyMovementGauge(right, image, panel_live, caption);
     if (panel_live) {
@@ -218,11 +221,13 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         }
         return;
     }
-    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(), movement->animation_frame + frame_base + frame, right - 0xf, 0x142);
+    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(),
+                                                    movement->animation_frame + frame_base + frame,
+                                                    right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
         movement->caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
-                                               false, GetFrameBufferSurface());
+                                        false, GetFrameBufferSurface());
     }
 }
 

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -12,10 +9,13 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
+
 #include "wiz8/file_time.h"
 
-namespace wiz8
-{
+namespace wiz8 {
 // All game path strings and strings passed to SDL are UTF-8.
 std::filesystem::path path_from_utf8(std::string_view text);
 std::string path_to_utf8(const std::filesystem::path& path);
@@ -24,14 +24,12 @@ enum class OpenMode { read, update, replace, append };
 enum class SeekOrigin { begin, current, end };
 enum class CopyMode { fail_if_exists, replace };
 
-struct ReadResult
-{
+struct ReadResult {
     std::size_t bytes;
     bool eof;
 };
 
-struct FileStatus
-{
+struct FileStatus {
     SDL_PathInfo info{};
     // Mutable-layer policy for the resolved path, not host permission guarantees.
     bool writable = false;
@@ -40,15 +38,13 @@ struct FileStatus
     bool archived = false;
 };
 
-struct FileTimes
-{
+struct FileTimes {
     DiskFileTime created, accessed, modified;
 };
 
 // Owns one SDL stream. No shared cursor or global handle registry. Operations
 // throw on failure; read returns a short result only for EOF. Not thread-safe.
-class File
-{
+class File {
 public:
     ~File();
     File(File&& other) noexcept;
@@ -92,8 +88,7 @@ private:
     std::filesystem::path path_;
     bool writable_ = false;
     std::optional<SDL_Time> writer_create_time_;
-    struct Extent
-    {
+    struct Extent {
         std::int64_t offset, length;
         DiskFileTime modified;
     };
@@ -134,7 +129,7 @@ void clear_read_only(std::string_view game_path);
 // Basenames, merged overlay-first, ASCII case-insensitive * / ? matching.
 // *.* also matches extensionless game files. Missing directories throw.
 std::vector<std::string> list_directory(std::string_view game_directory,
-                                      std::string_view pattern = "*");
+                                        std::string_view pattern = "*");
 
 // Streams opened for a copy are closed before destination replacement. Callers
 // must close independently owned destination streams themselves (also Windows).
@@ -150,6 +145,7 @@ public:
     StagedFile& operator=(const StagedFile&) = delete;
     std::shared_ptr<File> file() const;
     void commit();
+
 private:
     struct Impl;
 

@@ -1,41 +1,42 @@
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <string>
+#include "wiz8/character_skills.h"
+
 #include <cstring>
 #include <iterator>
+#include <string>
 #include <utility>
 #include <vector>
 
-#include "random.h"
-#include "utf8/checked.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/message_box.h"
-#include "wiz8/utility.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/xstatus.h"
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
 #include "local_code/ConditionsAndEnchantments.h"
+#include "random.h"
+#include "utf8/checked.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/message_box.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
-
 
 unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id)
 {
@@ -65,7 +66,9 @@ std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8
     auto* character = &g_status.buffers.Char[party_slot];
     std::string text = continue_line ? " \n  " : " ";
     utf8::append(0xb4, std::back_inserter(text));
-    utf8::append(GetPartyOrderTextColor(static_cast<signed char>(g_status.buffers.XChar[party_slot].party_order_index)), std::back_inserter(text));
+    utf8::append(GetPartyOrderTextColor(static_cast<signed char>(
+                     g_status.buffers.XChar[party_slot].party_order_index)),
+                 std::back_inserter(text));
     text += " " + fmt::format("{}'s", character->name) + " ";
     utf8::append(0xb5, std::back_inserter(text));
     text += " " + fmt::sprintf(g_localized_strings[0x1db],

@@ -28,26 +28,17 @@ public:
     SR_DLL_IMPORT srFilter* getFilter() const;
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
-    srMaterial* getMaterial() const
-    {
-        return material.get();
-    }
+    srMaterial* getMaterial() const { return material.get(); }
     SR_DLL_IMPORT std::shared_ptr<srPalette> getPalette() const;
     SR_DLL_IMPORT srNode* getRootNode() const;
     // FUNCTION: SURRENDER 0x100156B0
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
-    srStatisticsManager* getStatisticsManager() const
-    {
-        return statistics_manager.get();
-    }
+    srStatisticsManager* getStatisticsManager() const { return statistics_manager.get(); }
     SR_DLL_IMPORT srColorSurfaceIFace* getSurface() const;
     SR_DLL_IMPORT srTexture* getTexture() const;
     // FUNCTION: SURRENDER 0x100156C0
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
-    srClock* getTimer() const
-    {
-        return timer.get();
-    }
+    srClock* getTimer() const { return timer.get(); }
     SR_DLL_IMPORT w8_ulong getUniqueID();
     SR_DLL_IMPORT int isInitialized() const;
     SR_DLL_IMPORT void setDebugLevel(unsigned char level);
@@ -57,10 +48,7 @@ public:
 
     // FUNCTION: SURRENDER 0x10015760
     // RECOMP: ?getRegistry@srCore@@QBEPAVsrRegistry@@XZ
-    srRegistry* getRegistry() const
-    {
-        return registry_.get();
-    }
+    srRegistry* getRegistry() const { return registry_.get(); }
 
 private:
     friend w8_long __cdecl srDebugPrintf(w8_ulong level, const char* format, ...);

@@ -1,31 +1,34 @@
 #include "Font.h"
 #pragma once
 
-#include <vector>
 #include <memory>
 #include <optional>
-#include <string_view>
 #include <string>
+#include <string_view>
+#include <vector>
 
 void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
 void HideNpcQuoteBubbleRegion();
 
+#include <array>
+#include <functional>
+
 #include "input.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
-#include "wiz8/message_box.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/message_box.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
-#include <array>
-#include <functional>
 #include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/PortraitQuote.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
@@ -58,9 +61,13 @@ struct NpcDialogueUi {
         int background;
         bool active = false, dirty = true;
     };
-    std::array<Panel, 7> panels{{{{0x17, 0x166}, 0}, {{0xa4, 0x166}, 1},
-        {{0x1dc, 0x11b}, 2}, {{0x1dc, 0x12f}, 5}, {{0x1dc, 0x166}, 7},
-        {{0x1dc, 0x166}, 6}, {{0x1dc, 0x166}, 13}}};
+    std::array<Panel, 7> panels{{{{0x17, 0x166}, 0},
+                                 {{0xa4, 0x166}, 1},
+                                 {{0x1dc, 0x11b}, 2},
+                                 {{0x1dc, 0x12f}, 5},
+                                 {{0x1dc, 0x166}, 7},
+                                 {{0x1dc, 0x166}, 6},
+                                 {{0x1dc, 0x166}, 13}}};
     struct Action {
         int panel = -1;
         SDL_Rect bounds{};
@@ -280,8 +287,8 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette,
-                              W8QuoteNotice notice, int npc_kind);
+                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
+                              int npc_kind);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);

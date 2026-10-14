@@ -1,57 +1,58 @@
+#include <cstdlib>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <vector>
-#include <memory>
-#include <utility>
-#include <cstdlib>
-#include <string>
 
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/monster_cycles.h"
-#include "wiz8/conditions.h"
-#include "wiz8/fonts.h"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/local_screens/Screens.h"
-#include "soundman.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-#include "random.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/layouts/game_status.h"
 #include "attack_modes.h"
 #include "compat/native.h"
 #include "dice.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
+#include "random.h"
+#include "soundman.h"
 #include "surrender/srMath.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/conditions.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/monster_cycles.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* Local Code\Health Stamina Mana.cpp, named by the assertions these bodies
    embed. The party sweeps in here all share one shape: walk the eight party
@@ -701,8 +702,7 @@ int __cdecl CompareSpellPointDeficits(const void* first, const void* second)
 {
     const W8SpellPointDeficit* a = static_cast<const W8SpellPointDeficit*>(first);
     const W8SpellPointDeficit* b = static_cast<const W8SpellPointDeficit*>(second);
-    if (a->deficit < b->deficit)
-        return 1;
+    if (a->deficit < b->deficit) return 1;
     return (a->deficit == b->deficit) - 1;
 }
 
@@ -899,9 +899,8 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
                 W8_DISPOSITION_FRIENDLY) {
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
-        } else if (MonsterHostility(
-                       FindMonster(attacker->iMonsterID),
-                       monster_info) == W8_DISPOSITION_FRIENDLY) {
+        } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) ==
+                   W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
         }
     }
@@ -1429,7 +1428,6 @@ W8Character* FindPartyMemberWithLowestResistance4(void)
             lowest = character->resistances[4].total;
         }
     }
-    if (lowest == 999)
-        return 0;
+    if (lowest == 999) return 0;
     return &g_status.buffers.Char[selected];
 }

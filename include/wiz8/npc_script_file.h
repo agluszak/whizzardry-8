@@ -1,7 +1,9 @@
 #ifndef WIZ8_NPC_SCRIPT_FILE_H
 #define WIZ8_NPC_SCRIPT_FILE_H
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 #include <cstdint>
 #include <optional>
@@ -49,7 +51,10 @@ enum {
 // following records; they are never converted to native handles.
 namespace wiz8::retail::nsf {
 #pragma pack(push, 1)
-struct SubEntry { std::int32_t operand; std::uint32_t text; };
+struct SubEntry {
+    std::int32_t operand;
+    std::uint32_t text;
+};
 struct Entry {
     std::uint8_t kind;
     std::int32_t operand0, operand1, operand2;

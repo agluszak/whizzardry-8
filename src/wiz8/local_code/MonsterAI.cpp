@@ -1,48 +1,11 @@
-#include <fmt/format.h>
-#include <vector>
+#include "wiz8/local_code/MonsterAI.h"
+
 #include <cmath>
 #include <span>
+#include <vector>
 
-#include "wiz8/compat/unaligned.h"
-#include "wiz8/spell_ids.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/Noise.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/engine_code/SpellVisual.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "random.h"
-#include "wiz8/local_code/GroupAttacks.h"
-#include "wiz8/local_code/MonsterAI.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
+#include <fmt/format.h>
+
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/character.h"
@@ -51,8 +14,47 @@
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
+#include "random.h"
 #include "sight_state.h"
 #include "surrender/srMath.h"
+#include "wiz8/application.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/compat/unaligned.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/SpellVisual.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/CombatRange.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GroupAttacks.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Noise.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/mipe.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 #define MONSTER_AI_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterAI.cpp"
 
@@ -213,9 +215,7 @@ void UpdateMonsterGroups(bool staggered)
         UpdateMonsterSight();
     }
     camera_position = cameraLocation(*GetWorld());
-    for (group_list_index = 0;
-         group_list_index <
-         gXStatus.monster_groups.size();
+    for (group_list_index = 0; group_list_index < gXStatus.monster_groups.size();
          ++group_list_index) {
         if (staggered && group_list_index % 5 != g_monster_group_tick % 5) {
             continue;
@@ -224,8 +224,7 @@ void UpdateMonsterGroups(bool staggered)
         if (MonsterGroupAllMembersDying(monster_group)) {
             continue;
         }
-        monster_info =
-            FindMonster(monster_group->leader_location_id);
+        monster_info = FindMonster(monster_group->leader_location_id);
         if (monster_info == 0 || monster_info->p3D == 0) {
             continue;
         }
@@ -259,8 +258,7 @@ void UpdateMonsterGroups(bool staggered)
                 srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 207, 0);
             }
             if (monster_group->leader_group_id == 0) {
-                monster_info =
-                    FindMonster(monster_group->leader_location_id);
+                monster_info = FindMonster(monster_group->leader_location_id);
                 if (!monster_info->p3D->IsDying()) {
                     DoMonsterRTAI(monster_info, true);
                 }
@@ -1374,8 +1372,8 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
             SetTargetSourceToMonster(monster_info, &source);
             power_level = ChooseMonsterSpellPowerLevel(
                 monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-            PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot,
-                                       monster_markers, party_markers, 0);
+            PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
+                                       party_markers, 0);
             for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
@@ -1888,7 +1886,8 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         targets.push_back(slot);
         break;
     case W8_TARGET_TYPE_ALLY:
-        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_FRIENDLY, false, targets);
+        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_FRIENDLY, false,
+                               targets);
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CanPartySlotParticipate(index) &&
@@ -1905,7 +1904,8 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         }
         break;
     case W8_TARGET_TYPE_ENEMY:
-        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_HOSTILE, true, targets);
+        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_HOSTILE, true,
+                               targets);
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CanPartySlotParticipate(index) &&
@@ -2589,8 +2589,8 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
     SetTargetSourceToMonster(monster_info, &source);
     power_level =
         ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers,
-                               party_markers, 0);
+    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers, party_markers,
+                               0);
     return !party_markers.empty();
 }
 
@@ -2649,8 +2649,7 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         return false;
     }
     if (monster_group->leader_location_id == -0x32323233 ||
-        (leader = FindMonster(monster_group->leader_location_id)) == 0 ||
-        leader->p3D == 0) {
+        (leader = FindMonster(monster_group->leader_location_id)) == 0 || leader->p3D == 0) {
         DebugMessage(1, fmt::format("ERROR: Group {:d} is without an active leader",
                                     monster_group->group_id));
         return false;

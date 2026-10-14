@@ -1,33 +1,35 @@
-#include <functional>
-#include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
+
+#include <algorithm>
+#include <functional>
+#include <memory>
+#include <string_view>
+#include <utility>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "Font.h"
+#include "Types.h"
 #include "image_assets.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/ui_input.h"
-#include "Types.h"
-
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
-#include <algorithm>
-#include <memory>
-#include <string_view>
-#include <utility>
+#include "wiz8/ui_layer.h"
 
 // FUNCTION: WIZ8 0x005db4e0
 void W8ButtonWidget::Draw(SDL_Surface& target)
 {
     if (m_dirty && m_target && m_visible) {
-        const ButtonVisualState visual{
-            .enabled = m_enabled, .pressed = m_interaction.pressed,
-            .hovered = m_target->hovered(), .menu_artwork = policy.controller_activation};
+        const ButtonVisualState visual{.enabled = m_enabled,
+                                       .pressed = m_interaction.pressed,
+                                       .hovered = m_target->hovered(),
+                                       .menu_artwork = policy.controller_activation};
         DrawButtonAppearance(target, m_appearance, Bounds(), visual);
         const auto bounds = Bounds();
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
@@ -38,11 +40,13 @@ void W8ButtonWidget::Draw(SDL_Surface& target)
 void W8ButtonWidget::SetBounds(SDL_Rect bounds)
 {
     m_bounds = bounds;
-    if (m_target)
-        m_target->setShape(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
+    if (m_target) m_target->setShape(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
 }
 
-SDL_Point W8ButtonWidget::GetMousePosition() const { return UiPointerPosition(); }
+SDL_Point W8ButtonWidget::GetMousePosition() const
+{
+    return UiPointerPosition();
+}
 
 // FUNCTION: WIZ8 0x005db550
 void W8ButtonWidget::SetPosition(int x, int y)
@@ -76,7 +80,8 @@ void W8ButtonWidget::SetEnabled(bool enabled)
     if (m_enabled == enabled) return;
     m_enabled = enabled;
     if (!enabled) {
-        m_interaction.cancel(policy.primary_toggle != ButtonToggle::None || policy.secondary_toggle != ButtonToggle::None);
+        m_interaction.cancel(policy.primary_toggle != ButtonToggle::None ||
+                             policy.secondary_toggle != ButtonToggle::None);
     }
     m_dirty = true;
 }
@@ -85,7 +90,8 @@ void W8ButtonWidget::SetEnabled(bool enabled)
 void W8ButtonWidget::SetPressed(bool pressed)
 {
     if (policy.primary_toggle == ButtonToggle::Release ||
-        policy.primary_toggle == ButtonToggle::StayLatched) m_interaction.selected = pressed;
+        policy.primary_toggle == ButtonToggle::StayLatched)
+        m_interaction.selected = pressed;
     if (m_interaction.pressed != pressed) {
         m_interaction.pressed = pressed;
         m_dirty = true;
@@ -98,7 +104,9 @@ void W8ButtonWidget::SetVisible(bool visible)
     if (!m_target || m_visible == visible) return;
     m_visible = visible;
     m_target->setEnabled(visible);
-    if (!visible) m_interaction.cancel(policy.primary_toggle != ButtonToggle::None || policy.secondary_toggle != ButtonToggle::None);
+    if (!visible)
+        m_interaction.cancel(policy.primary_toggle != ButtonToggle::None ||
+                             policy.secondary_toggle != ButtonToggle::None);
     m_dirty = true;
     const auto mouse = UiPointerPosition();
     UpdateUiPointer(mouse.x, mouse.y);
@@ -232,18 +240,15 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     ++m_handling_pointer;
     const struct Handling {
         int& depth;
-        ~Handling()
-        {
-            --depth;
-        }
+        ~Handling() { --depth; }
     } handling{m_handling_pointer};
     // The dispatcher owns hover, press and release sounds. Controller-style
     // buttons silence the next one while disabled.
     const bool backend_sound = event.action == UiPointerAction::Enter ||
-        event.action == UiPointerAction::Leave || event.action == UiPointerAction::Down ||
-        (event.action == UiPointerAction::Up && event.captured_buttons != 0);
-    if (policy.controller_activation && !m_enabled && backend_sound)
-        PushButtonSoundScheme(0, true);
+                               event.action == UiPointerAction::Leave ||
+                               event.action == UiPointerAction::Down ||
+                               (event.action == UiPointerAction::Up && event.captured_buttons != 0);
+    if (policy.controller_activation && !m_enabled && backend_sound) PushButtonSoundScheme(0, true);
     if (event.action == UiPointerAction::Leave) {
         if (m_interaction.leave(policy) && policy.controller_activation && policy.repeat)
             PushButtonSoundScheme(0, true);
@@ -287,12 +292,13 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         if (!(event.captured_buttons & mask)) return UiResult::Handled;
         response = m_interaction.repeat(mask, policy);
         break;
-    default: return UiResult::Handled;
+    default:
+        return UiResult::Handled;
     }
     if (was_pressed != m_interaction.pressed) m_dirty = true;
-    const bool double_click = event.action == UiPointerAction::Down &&
-        event.button == UiPointerButton::Left && event.clicks >= 2 &&
-        (policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
+    const bool double_click =
+        event.action == UiPointerAction::Down && event.button == UiPointerButton::Left &&
+        event.clicks >= 2 && (policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
     const auto double_click_callback = double_click ? m_setup.on_double_click : W8ButtonCallback{};
     // Only repeats are silent in the dispatcher.
     if (response.activate && event.action == UiPointerAction::Repeat) PlayButtonSound(3);

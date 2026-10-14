@@ -1,35 +1,36 @@
-#include "wiz8/design_rect.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <SDL3/SDL_rect.h>
-#include <string>
-#include <memory>
 #include <algorithm>
 #include <cctype>
+#include <memory>
+#include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/DialogInterface.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "dialog_code/DialogBase.h"
+#include "input.h"
+#include "npc_trade_price.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/design_rect.h"
+#include "wiz8/dialog_code/AssayDialog.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "wiz8/catalog_artwork.h"
-#include "input.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "dialog_code/DialogBase.h"
-#include "npc_trade_price.h"
 
 /* The split-stack dialog ("popup_splititem.sti"). Inventory splits use eight
    buttons and ten labels; the two trade modes add a passive frame and a price
@@ -209,7 +210,7 @@ bool W8SplitItemDialog::CreateButtons()
     m_buttons[1].policy.repeat = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index].SetPosition(g_split_button_offsets[index].x + m_x,
-                                      g_split_button_offsets[index].y + m_y);
+                                     g_split_button_offsets[index].y + m_y);
     }
     return true;
 }
@@ -233,9 +234,9 @@ bool W8SplitItemDialog::CreateTextBuffers()
         bounds.top = g_split_text_bounds[index].top + m_y;
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
-        m_texts[index] = new W8TextBuffer(&bounds, g_localized_strings[g_split_text_string_ids[index]],
-                                          g_wiz_text_font_secondary,
-                                          g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_texts[index] = new W8TextBuffer(
+            &bounds, g_localized_strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_texts[index] == 0) {
             DestroyTextBuffers();
             return false;
@@ -275,8 +276,8 @@ bool W8SplitItemDialog::CreateNumericInput()
     bounds.top = g_split_count_field_bounds.top + m_y;
     bounds.right = g_split_count_field_bounds.right + m_x;
     bounds.bottom = g_split_count_field_bounds.bottom + m_y;
-    m_count_input = std::make_unique<W8DialogNumericInput>(0, &bounds, split_count, g_wiz_text_font_secondary,
-                                             this, &m_buttons[3]);
+    m_count_input = std::make_unique<W8DialogNumericInput>(
+        0, &bounds, split_count, g_wiz_text_font_secondary, this, &m_buttons[3]);
     m_count_input->m_maximum = m_stack_total;
     return true;
 }
@@ -316,9 +317,8 @@ void W8SplitItemDialog::Draw(SDL_Surface& target)
         W8DialogBase::Draw(target);
     }
     if (m_first_draw) {
-        DrawSpriteAndInvalidate(target,
-                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18,
-                                m_y + 0xe);
+        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
+                                m_x + 0x18, m_y + 0xe);
         m_first_draw = false;
     }
     if (m_buttons[3].m_dirty) {

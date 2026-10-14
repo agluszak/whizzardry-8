@@ -1,15 +1,15 @@
 #pragma once
 
-#include "wiz8/audio_resources.h"
-
-#include "surrender/srNode.h"
-#include "wiz8/geometry.h"
-#include <vector>
 #include <algorithm>
-#include "soundman.h"
+#include <vector>
 
 #include <stdlib.h>
 #include <string.h>
+
+#include "soundman.h"
+#include "surrender/srNode.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/geometry.h"
 
 class stSound3D;
 extern std::vector<stSound3D*> g_sound3d_instances;
@@ -22,10 +22,7 @@ extern std::vector<stSound3D*> g_sound3d_instances;
    string to settle it. Move the bodies when the gap is attributed. */
 class stSound3D : public srClassSupport<stSound3D, srNode, 0x1000b> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stSound3D";
-    }
+    static const char* sGetClassName() { return "stSound3D"; }
     stSound3D(const char* sound_name, srNode* parent); /* 0x004AE6D0 */
     virtual ~stSound3D() override;
     bool IsPlaying(); /* 0x004AEC70 */
@@ -35,11 +32,11 @@ public:
     unsigned char Play(bool loop, bool auto_release); /* 0x004AEBF0 */
     wiz8::sound::PlayOptions BuildSoundOptions(const srVector3T<float>& listener); /* 0x004AECC0 */
 
-    int unknown_138;   /* 0x138: ctor zeroes it; no retail reader found */
-    wiz8::sound::Playback sound_handle;  // Current playback; empty when silent.
-    int volume;        /* 0x140: base volume before distance/effects scale */
-    float falloff;     /* 0x144: audible range in world units */
-    char* wave_name;   /* 0x148: owned copy of the wave filename */
+    int unknown_138; /* 0x138: ctor zeroes it; no retail reader found */
+    wiz8::sound::Playback sound_handle; // Current playback; empty when silent.
+    int volume; /* 0x140: base volume before distance/effects scale */
+    float falloff; /* 0x144: audible range in world units */
+    char* wave_name; /* 0x148: owned copy of the wave filename */
     bool auto_release; /* 0x14c: release the node when playback ends */
 
     /* srClassSupport::clone expands this class-specific assignment in the

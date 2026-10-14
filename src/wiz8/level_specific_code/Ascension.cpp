@@ -1,15 +1,22 @@
 #include "wiz8/level_specific_code/Ascension.h"
 
-#include <vector>
 #include <string>
+#include <vector>
 
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/npc_state.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "soundman.h"
+#include "surrender/srCamera.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -19,15 +26,8 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/message_box.h"
-#include "wiz8/xstatus.h"
-#include "soundman.h"
-#include "surrender/srCamera.h"
-#include "glm/ext/vector_float3.hpp"
-#include "layouts/npc_state.h"
-#include "layouts/world.h"
-#include "local_code/Factions.h"
-#include "surrender/srMath.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/xstatus.h"
 
 /* Level Specific Code\Ascension.cpp.
 
@@ -38,7 +38,6 @@
    0x004DFE60-0x004E04F0 callbacks plus the 0x004DF870 init call under case 1,
    the Ascension Peak level. 0x004E0560 and 0x004E05A0 are registered under
    case 0x24, the Footsteps level, which is part of the Ascension Peak block. */
-
 
 // GLOBAL: WIZ8 0x0068356C
 static W8IntervalGate* g_avalanche_gate;
@@ -308,7 +307,8 @@ bool AscensionChaosBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DFFF0
 bool AscensionChaosATrigger(Trigger* pTrigger)
 {
-    return answerAletheides(pTrigger, "AlethidiesChaosActive", 0x244, W8NpcStoryAction::spawn_alfie_chaos);
+    return answerAletheides(pTrigger, "AlethidiesChaosActive", 0x244,
+                            W8NpcStoryAction::spawn_alfie_chaos);
 }
 
 /* The LifeBTrigger activation callback: arm LifeATrigger, and once
@@ -326,7 +326,8 @@ bool AscensionLifeBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0110
 bool AscensionLifeATrigger(Trigger* pTrigger)
 {
-    return answerAletheides(pTrigger, "AlethidiesLifeActive", 0x242, W8NpcStoryAction::spawn_alfie_life);
+    return answerAletheides(pTrigger, "AlethidiesLifeActive", 0x242,
+                            W8NpcStoryAction::spawn_alfie_life);
 }
 
 /* The KnowBTrigger activation callback: arm KnowATrigger, and once
@@ -344,7 +345,8 @@ bool AscensionKnowBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0230
 bool AscensionKnowATrigger(Trigger* pTrigger)
 {
-    return answerAletheides(pTrigger, "AlethidiesKnowActive", 0x243, W8NpcStoryAction::spawn_alfie_know);
+    return answerAletheides(pTrigger, "AlethidiesKnowActive", 0x243,
+                            W8NpcStoryAction::spawn_alfie_know);
 }
 
 /* The second RampUp activation callback: spawn the Dark Savant (0xc2) and

@@ -1,11 +1,11 @@
 #pragma once
 
+#include "compat/compiler.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "compat/compiler.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 /* Shared storage for the attribute-information dialogs and the skill info
    dialog. */
@@ -21,7 +21,6 @@ public:
     virtual bool PopulateText();
 
 protected:
-
     W8DialogScrollBar scrollbar{InputLayer()};
     W8ButtonWidget button{InputLayer()};
     W8DialogTextArea textarea;

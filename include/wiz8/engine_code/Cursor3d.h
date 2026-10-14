@@ -1,6 +1,6 @@
 #pragma once
 
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* 0x00490AF0: toggle the 3D world cursor. If a cursor exists, release it;
    if not, initialize one. */

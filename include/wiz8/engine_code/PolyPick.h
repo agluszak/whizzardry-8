@@ -3,7 +3,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* Engine Code\PolyPick.cpp: world-space pick-angle and bounds helpers. */
 float GetHeadingAngle(const srVector3T<float>* source, const srVector3T<float>* target);

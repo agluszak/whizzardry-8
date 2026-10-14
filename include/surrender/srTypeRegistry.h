@@ -91,14 +91,11 @@ public:
 
 protected:
     SR_DLL_IMPORT srClass();
-    srClass(const srClass& other) : srRuntimeClass(other)
-    {
-        *this = other;
-    }
+    srClass(const srClass& other) : srRuntimeClass(other) { *this = other; }
 };
 
 /* Supplies format identity and cloning for a concrete scene/data type. */
-template <class Derived, class Base, w8_ulong ClassID>
+template<class Derived, class Base, w8_ulong ClassID>
 class srClassSupport : public Base {
 public:
     typedef Derived RegistryClass;
@@ -110,56 +107,45 @@ public:
         srRegistry::ClassNode* node = registry->getClassNode(ClassID);
 
         if (node == 0) {
-            node = registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID);
+            node =
+                registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID);
         }
         return node;
     }
 
-    virtual const char* getClassName() const override
-    {
-        return Derived::sGetClassName();
-    }
+    virtual const char* getClassName() const override { return Derived::sGetClassName(); }
 
-    virtual w8_ulong getClassID() const override
-    {
-        return ClassID;
-    }
+    virtual w8_ulong getClassID() const override { return ClassID; }
 
-    virtual srRegistry::ClassNode* getClassNode() const override
-    {
-        return sGetClassNode();
-    }
+    virtual srRegistry::ClassNode* getClassNode() const override { return sGetClassNode(); }
 
 public:
-    srClassSupport()
-    {
-        sGetClassNode();
-    }
+    srClassSupport() { sGetClassNode(); }
 
 public:
     /* Forwarding constructors. They are templates so that exporting an instantiation whose Base
        lacks a given constructor does not instantiate a forwarding body for it. */
-    template <class A0>
+    template<class A0>
         requires(!std::is_base_of_v<srClassSupport, A0>)
     explicit srClassSupport(A0 first_argument) : Base(first_argument)
     {
         sGetClassNode();
     }
 
-    template <class A0, class A1>
+    template<class A0, class A1>
     srClassSupport(A0 first_argument, A1 second_argument) : Base(first_argument, second_argument)
     {
         sGetClassNode();
     }
 
-    template <class A0, class A1, class A2>
+    template<class A0, class A1, class A2>
     srClassSupport(A0 first_argument, A1 second_argument, A2 third_argument)
         : Base(first_argument, second_argument, third_argument)
     {
         sGetClassNode();
     }
 
-    template <class A0, class A1, class A2, class A3, class A4>
+    template<class A0, class A1, class A2, class A3, class A4>
     srClassSupport(A0 first_argument, A1 second_argument, A2 third_argument, A3 fourth_argument,
                    A4 fifth_argument)
         : Base(first_argument, second_argument, third_argument, fourth_argument, fifth_argument)
@@ -172,13 +158,13 @@ public:
 };
 
 /* Exact-class downcast by format class ID; the engine builds without RTTI. */
-template <class T, class U> T* sr_cast(U* object)
+template<class T, class U> T* sr_cast(U* object)
 {
     return object != nullptr && object->getClassID() == T::CLASS_ID ? static_cast<T*>(object)
-                                                                   : nullptr;
+                                                                    : nullptr;
 }
 
-template <class T, class U> T* sr_cast(const std::shared_ptr<U>& object)
+template<class T, class U> T* sr_cast(const std::shared_ptr<U>& object)
 {
     return sr_cast<T>(object.get());
 }

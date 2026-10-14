@@ -1,53 +1,55 @@
-#include "glm/ext/vector_double3.hpp"
-#include <array>
-#include "surrender/srBoundingBox.h"
-#include <optional>
-#include <fmt/format.h>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/ext/quaternion_common.hpp>
-#include <glm/ext/quaternion_geometric.hpp>
-#include <vector>
+#include "wiz8/engine_code/Prop.h"
+
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
+#include <fmt/format.h>
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include "application.h"
 #include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/fwd.hpp"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/xstatus.h"
+#include "layouts/world.h"
+#include "random.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
+#include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "wiz8/filesystem.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
 #include "wiz8/local_code/Configuration.h"
-#include "random.h"
-#include "application.h"
-#include "compat/native.h"
-#include "layouts/world.h"
-#include "surrender/srModel.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/xstatus.h"
 
 /* Reset before the world Prop update; set when a Prop whose animation
    behaviour is 1 rebuilds its pathing geometry.  GameData keeps the world
@@ -128,8 +130,7 @@ void UpdateWorldProps(W8World* world)
     int index;
 
     if (world == 0) {
-        srAssertFail("pWorld",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
+        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
     }
     count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(count); ++index) {
@@ -254,9 +255,8 @@ void W8Prop::SetActivationState(unsigned char value)
 // FUNCTION: WIZ8 0x0044d5f0
 std::optional<srVector3T<float>> W8Prop::GetCenterPosition()
 {
-    return GetFrameBounds().transform([](const auto& bounds) {
-        return srVector3T<float>(bounds.center());
-    });
+    return GetFrameBounds().transform(
+        [](const auto& bounds) { return srVector3T<float>(bounds.center()); });
 }
 
 // GLOBAL: WIZ8 0x00659A60
@@ -371,11 +371,11 @@ bool ResolvePickedProp(W8World* world)
                   !static_cast<W8DoorTriggerActionData*>(trigger->m_pActionData)->open)) &&
                 representation->active != 0) {
                 if (const auto bounds = prop->GetFrameBounds()) {
-                    const float distance = (srVector3T<float>(bounds->center()) - camera_position).Length();
+                    const float distance =
+                        (srVector3T<float>(bounds->center()) - camera_position).Length();
                     if (trigger->range_minimum <= distance) {
                         g_selected_prop_index = prop_index;
-                        if (distance <= trigger->range_maximum)
-                            continue;
+                        if (distance <= trigger->range_maximum) continue;
                     }
                 }
             }
@@ -1157,8 +1157,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
    way. */
 // FUNCTION: WIZ8 0x0044dbd0
 bool W8Prop::LoadAnimationState(wiz8::File& hFile)
-try
-{
+try {
     unsigned char unused;
     unsigned int count;
     int index;
@@ -1166,12 +1165,13 @@ try
     bool success;
     W8PathAI* path;
 
-    success = (hFile.read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile.read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile.read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile.read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile.read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile.read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
+    success =
+        (hFile.read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+        (hFile.read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+        (hFile.read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+        (hFile.read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+        (hFile.read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+        (hFile.read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
     if (Rep()->animation != 0) {
         total = static_cast<int>(AnimObjValue(Rep()->animation, 2));
         if (Rep()->last_frame >= total) {
@@ -1207,13 +1207,11 @@ std::optional<srBoundingBox> W8Prop::GetBounds()
 {
     auto* animation = Rep()->animation;
     auto bounds = AnimObjGetBounds(animation, 2, 0);
-    if (!bounds)
-        return std::nullopt;
+    if (!bounds) return std::nullopt;
     const auto total = AnimObjValue(animation, 2);
     for (unsigned int frame = 1; frame < total; ++frame) {
         const auto frame_bounds = AnimObjGetBounds(animation, 2, frame);
-        if (!frame_bounds)
-            return std::nullopt;
+        if (!frame_bounds) return std::nullopt;
         bounds->include(*frame_bounds);
     }
     return bounds;
@@ -1309,12 +1307,10 @@ bool W8Prop::IsTriggerInView(srVector3T<float>* position)
         ((trigger->flags & W8_TRIGGER_ONCE) != 0 && (trigger->flags & W8_TRIGGER_FIRED) != 0))
         return false;
     const auto bounds = GetFrameBounds();
-    if (!bounds)
-        return false;
+    if (!bounds) return false;
     const srVector3T<float> center(bounds->center());
     const float distance = (center - *position).Length();
-    if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance))
-        return false;
+    if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance)) return false;
     const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
     return g_world->camera->projectsAny(points);
 }
@@ -1347,8 +1343,7 @@ bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop_out)
    PropRep method: LoadProp(pInfo, pProp). */
 // FUNCTION: WIZ8 0x0044aee0
 bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
-try
-{
+try {
     wiz8::File* hFile;
     bool success;
     signed char version;
@@ -1373,7 +1368,8 @@ try
         int ok;
         W8AniMesh* mesh;
 
-        if (!success || (success = (hFile->read(&b0, 1).bytes == static_cast<std::size_t>(1)), !success) ||
+        if (!success ||
+            (success = (hFile->read(&b0, 1).bytes == static_cast<std::size_t>(1)), !success) ||
             (success = (hFile->read(&b1, 1).bytes == static_cast<std::size_t>(1)), !success) ||
             (success = (hFile->read(&b2, 1).bytes == static_cast<std::size_t>(1)), !success)) {
             ok = 0;
@@ -1644,8 +1640,13 @@ try
             result = success;
         }
         if (extra != 0) {
-            if (result && (success = (hFile->read(&this->footstep_surface, 1).bytes == static_cast<std::size_t>(1)), success) &&
-                (success = (hFile->read(&this->footstep_material, 1).bytes == static_cast<std::size_t>(1)), success)) {
+            if (result &&
+                (success =
+                     (hFile->read(&this->footstep_surface, 1).bytes == static_cast<std::size_t>(1)),
+                 success) &&
+                (success = (hFile->read(&this->footstep_material, 1).bytes ==
+                            static_cast<std::size_t>(1)),
+                 success)) {
                 result = true;
             } else {
                 result = false;

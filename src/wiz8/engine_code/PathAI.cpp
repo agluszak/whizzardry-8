@@ -1,28 +1,30 @@
-#include "glm/ext/vector_double3.hpp"
-#include <cstdint>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/ext/quaternion_common.hpp>
-#include <glm/ext/quaternion_geometric.hpp>
-#include <glm/ext/quaternion_trigonometric.hpp>
+#include "wiz8/engine_code/PathAI.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <memory>
 
-#include "glm/fwd.hpp"
-#include "wiz8/filesystem.h"
-#include "surrender/srMath.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/sr_api.h"
-#include "surrender/srNode.h"
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "GrCycle.h"
 #include "compat/native.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/fwd.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/sr_api.h"
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 
@@ -44,8 +46,7 @@ bool PathAIUpdate(W8AIRecord* record, signed char direction)
 
 // FUNCTION: WIZ8 0x004a92a0
 bool LoadPathAI(W8PathAI** output, wiz8::File* handle)
-try
-{
+try {
     if (!output) return false;
     unsigned char version;
     handle->read_exact(&version, sizeof(version));
@@ -78,10 +79,12 @@ try
         auto& rotation = path->rotations[index];
         rotation = glm::mat3(1);
         if (angle != g_double_zero) {
-            rotation *= glm::mat3_cast(glm::angleAxis(
-                float(std::atan2(sin(angle), cos(angle))), normalizedOrZero(glm::vec3(axis.glmValue()))));
+            rotation *=
+                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                              normalizedOrZero(glm::vec3(axis.glmValue()))));
         }
-        if (path->version == 2) handle->read_exact(&path->scales[index], sizeof(path->scales[index]));
+        if (path->version == 2)
+            handle->read_exact(&path->scales[index], sizeof(path->scales[index]));
     }
     *output = path.release();
     return true;
@@ -96,7 +99,6 @@ void PathAIResetRecord(W8AIRecord* record)
         static_cast<W8PathAI*>(record)->position = 0;
     }
 }
-
 
 // FUNCTION: WIZ8 0x004a91f0
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
@@ -154,7 +156,6 @@ void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point)
     }
 }
 
-
 // FUNCTION: WIZ8 0x004a9ba0
 void PathAIEnableTimedMode(W8PathAI* path)
 {
@@ -198,13 +199,11 @@ bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
 bool PathAIIsComplete(W8PathAI* path)
 {
     if (path != 0 && !path->nodes.empty() &&
-        (path->point_index < static_cast<unsigned int>(path->nodes.size()) ||
-         path->looping)) {
+        (path->point_index < static_cast<unsigned int>(path->nodes.size()) || path->looping)) {
         return false;
     }
     return true;
 }
-
 
 // FUNCTION: WIZ8 0x004a9f60
 void PathAISetValue(W8PathAI* path, float value)

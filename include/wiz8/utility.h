@@ -2,16 +2,16 @@
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
-#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
 
-#include "wiz8/local_code/ControlsRect.h"
+#include <SDL3/SDL_rect.h>
+
 #include "wiz8/application.h"
-
 #include "wiz8/dice.h"
+#include "wiz8/local_code/ControlsRect.h"
 
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);
 int RollDice(const W8Dice* dice);
@@ -44,6 +44,5 @@ int GetRandomCharacter(int require_primary, int require_secondary, int excluded_
 unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
                                  unsigned int excluded_slot, unsigned int* selected,
                                  unsigned int count, bool skip_first_two);
-
 
 #endif

@@ -1,19 +1,19 @@
-#include <catch2/catch_test_macros.hpp>
+#include <cstdint>
+#include <cstdio>
+#include <vector>
+
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
-#include <cstdio>
-#include <cstdint>
-#include <vector>
+#include <catch2/catch_test_macros.hpp>
 
-#include "surrender/srHuffman.h"
-#include "surrender/srGERD.h"
-#include "surrender/srCore.h"
 #include "compat/compiler.h"
+#include "surrender/srCore.h"
+#include "surrender/srGERD.h"
+#include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
-
 
 static void checkConsumers()
 {
@@ -77,8 +77,10 @@ static void checkConsumers()
         REQUIRE(cache.intern(key) == i);
         REQUIRE(cache.sets[i].shader.value == i);
         const auto blend = (i >> srShader::DSTBLEND_SHIFT) & 7;
-        REQUIRE((cache.sets[i].blend == (blend == 1 ? 2 : blend == 2 || blend == 3 ? 3 :
-                                     blend == 4 || blend == 5 ? 1 : 0)));
+        REQUIRE((cache.sets[i].blend == (blend == 1                 ? 2
+                                         : blend == 2 || blend == 3 ? 3
+                                         : blend == 4 || blend == 5 ? 1
+                                                                    : 0)));
     }
     key.shader.value = 0;
     key.texture0 = &textures[0];

@@ -1,10 +1,12 @@
 #pragma once
 
-#include "wiz8/layouts/game_status.h"
-#include "surrender/srClock.h"
 #include "compat/compiler.h"
+#include "surrender/srClock.h"
+#include "wiz8/layouts/game_status.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 extern int g_shared_timer_pause_base;
 extern int g_shared_timer_pause_time;
@@ -50,8 +52,7 @@ public:
             if (g_shared_timer_paused) {
                 return g_shared_timer_pause_time;
             }
-            return m_shared->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) -
-                   g_shared_timer_pause_base;
+            return m_shared->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_base;
         }
         return m_shared->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND);
     }

@@ -5,8 +5,7 @@
 // Dump fields are left-aligned; restore the caller's native formatting on exit.
 class srDumpStreamScope {
 public:
-    explicit srDumpStreamScope(std::ios_base& stream)
-        : stream_(stream), flags_(stream.flags())
+    explicit srDumpStreamScope(std::ios_base& stream) : stream_(stream), flags_(stream.flags())
     {
         stream_.setf(std::ios_base::left, std::ios_base::adjustfield);
     }

@@ -1,23 +1,25 @@
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/StatInfoDialogs.h"
+
 #include <cstdint>
-#include <fmt/printf.h>
 #include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/StatInfoDialogs.h"
-#include "wiz8/dialog_code/MonsterInfoDialog.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/printf.h>
+
 #include "Font.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/sr_api.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/dialog_code/MonsterInfoDialog.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/sr_api.h"
 
 /* Dialog Code\StatInfoDialogs.cpp. Two attribute-info dialogs whose
    constructors are the same body twice over: the canonical pair differs only
@@ -100,8 +102,8 @@ void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
     g_wiz_text_font_secondary.resetPalette();
     std::string title = g_localized_strings[m_title_id];
     std::int16_t width = g_wiz_text_font_secondary.textWidth(title);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, title);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
+             title);
 }
 
 void W8StatInfoDialogBase::OnRightButtonUp()
@@ -171,11 +173,12 @@ bool W8SkillInfoDialog::PopulateText()
     W8StatInfoDialogBase::PopulateText();
     textarea.AddEntry(g_localized_strings[0x156], "", 10, 0xf, 0);
     W8SkillAttributes* skill = &g_skill_attributes[m_skill];
-    textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10,
-                      0xf, 0);
+    textarea.AddEntry(
+        {}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10, 0xf, 0);
     if (skill->attribute_1 != skill->attribute_2) {
-        textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]],
-                          10, 0xf, 0);
+        textarea.AddEntry(
+            {}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]], 10, 0xf,
+            0);
     }
     if (m_first) {
         textarea.AddEntry({}, "", 10, 0xf, 0);

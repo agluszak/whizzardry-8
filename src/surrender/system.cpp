@@ -1,17 +1,18 @@
-#include <wiz8/asset_paths.h>
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_stdinc.h>
-#include <string>
-#include <memory>
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
+#include <wiz8/asset_paths.h>
+
+#include "compat/compiler.h"
 #include "surrender/srSystem.h"
 #include "wiz8/filesystem.h"
-#include "compat/compiler.h"
 
 w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* path)
 {
@@ -45,7 +46,8 @@ w8_long srSystem::chDir(const char* path)
     return w8_native::change_directory(path);
 }
 
-w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directory, const char* pattern)
+w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directory,
+                            const char* pattern)
 {
     if (pattern == 0) {
         return 0;
@@ -54,13 +56,15 @@ w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directo
     w8_long count = 0;
     try {
         const auto host = wiz8::path_from_utf8(base);
-        const bool virtual_drive = base.size() >= 2 && base[1] == ':' &&
+        const bool virtual_drive =
+            base.size() >= 2 && base[1] == ':' &&
             ((base[0] >= 'C' && base[0] <= 'F') || (base[0] >= 'c' && base[0] <= 'f'));
         if (!virtual_drive && host.is_absolute()) {
             const std::string host_path = wiz8::path_to_utf8(host);
             std::unique_ptr<char*, decltype(&SDL_free)> entries(
                 SDL_GlobDirectory(host_path.c_str(), strcmp(pattern, "*.*") == 0 ? "*" : pattern,
-                                  SDL_GLOB_CASEINSENSITIVE, nullptr), &SDL_free);
+                                  SDL_GLOB_CASEINSENSITIVE, nullptr),
+                &SDL_free);
             if (!entries) return 0;
             for (char** entry = entries.get(); *entry; ++entry) {
                 const auto path = host / wiz8::path_from_utf8(*entry);

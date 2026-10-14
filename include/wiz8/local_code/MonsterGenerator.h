@@ -1,10 +1,9 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 #define WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/geometry.h"
 #include "wiz8/engine_code/IntervalGate.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/geometry.h"
 
 struct W8EncounterTableRuntime;
 struct W8EncounterEntry;

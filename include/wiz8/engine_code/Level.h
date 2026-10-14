@@ -9,10 +9,7 @@
 // VTABLE: WIZ8 0x005ED124 srClassSupport<stLevel, srNode, 65543>
 class stLevel : public srClassSupport<stLevel, srNode, 0x10007> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stLevel";
-    }
+    static const char* sGetClassName() { return "stLevel"; }
 
     explicit stLevel(srNode* parent);
     virtual void traverse(TraverseInfo& info) override;                         /* 0x004BA0E0 */

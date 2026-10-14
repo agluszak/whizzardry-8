@@ -1,10 +1,11 @@
-#include <fmt/format.h>
 #include <list>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include <fmt/format.h>
 
 #include "random.h"
 #include "wiz8/engine_code/Monster.h"
@@ -67,7 +68,8 @@ static int SelectNpcQuoteResponse(W8NpcQuoteEntry* entry, int quote_index, int e
    scan every quote for a subentry whose text
    matches, reporting the entry and subentry indices through the out-pointers. */
 // FUNCTION: WIZ8 0x00525E80
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index)
+int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
+                                short* sub_entry_index)
 {
     W8NpcScriptFile* script;
     W8NpcScriptQuote* quote;
@@ -187,10 +189,8 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_WORLD_ACTION:
-                    if (g_npc_scripting.session.current_quote_index <
-                            g_world_action_quote_min ||
-                        g_world_action_quote_max <
-                            g_npc_scripting.session.current_quote_index) {
+                    if (g_npc_scripting.session.current_quote_index < g_world_action_quote_min ||
+                        g_world_action_quote_max < g_npc_scripting.session.current_quote_index) {
                         std::string action_name;
                         BeginScriptedWorldAction();
                         action_name = entry->sub_entries[0].text.c_str() + 4;
@@ -214,12 +214,11 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_SELF_GROUP_ACTION:
-                    if (g_npc_scripting.session.current_quote_index <
-                            g_world_action_quote_min ||
-                        g_world_action_quote_max <
-                            g_npc_scripting.session.current_quote_index) {
+                    if (g_npc_scripting.session.current_quote_index < g_world_action_quote_min ||
+                        g_world_action_quote_max < g_npc_scripting.session.current_quote_index) {
                         BeginScriptedWorldAction();
-                        QueueNpcAction(W8NpcDismiss{static_cast<int>(g_npc_scripting.session.npc->group_index)});
+                        QueueNpcAction(W8NpcDismiss{
+                            static_cast<int>(g_npc_scripting.session.npc->group_index)});
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_INTERACTION: {
@@ -263,15 +262,13 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
         if (response >= 0) {
             QueueNpcScriptLine(response, false, false, false);
         }
-        SpeakNpcSubquote(quote, g_npc_scripting.session.subquote_index, false,
-                         force_npc_voice);
+        SpeakNpcSubquote(quote, g_npc_scripting.session.subquote_index, false, force_npc_voice);
         g_npc_scripting.session.subquote_index++;
         if (g_npc_scripting.session.current_quote_index == 0) {
             g_npc_scripting.session.npc->greeting_pending = false;
         }
         if (g_npc_scripting.session.subquote_index < quote->subquote_count) {
-            QueueNpcScriptLine(g_npc_scripting.session.current_quote_index, false, true,
-                               true);
+            QueueNpcScriptLine(g_npc_scripting.session.current_quote_index, false, true, true);
         }
     }
 }
@@ -294,8 +291,8 @@ static void QueueMessageBoxLine(W8MessageBoxLine line, bool prepend)
 // FUNCTION: WIZ8 0x00528830
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
-    QueueMessageBoxLine(
-        {SessionNpcKind(), W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
+    QueueMessageBoxLine({SessionNpcKind(), W8NpcQueuedQuote{quote, mark_pending, suppress_entries}},
+                        prepend);
 }
 
 // FUNCTION: WIZ8 0x005289B0

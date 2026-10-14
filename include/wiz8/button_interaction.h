@@ -61,9 +61,12 @@ public:
         } else if (button == SDL_BUTTON_LMASK) {
             pressed = false;
         }
-        const bool repeated = policy.controller_activation ? repeated_ != 0 : (repeated_ & button) != 0;
-        if (policy.controller_activation) repeated_ = 0;
-        else repeated_ &= ~button;
+        const bool repeated =
+            policy.controller_activation ? repeated_ != 0 : (repeated_ & button) != 0;
+        if (policy.controller_activation)
+            repeated_ = 0;
+        else
+            repeated_ &= ~button;
         return {.activate = !repeated && policy.activation == ButtonActivation::Release,
                 .repeated_release = repeated};
     }

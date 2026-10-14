@@ -1,13 +1,16 @@
 #pragma once
 
-#include <SDL3/SDL.h>
 #include <memory>
 #include <stdexcept>
 #include <string>
 
+#include <SDL3/SDL.h>
+
 // Ownership and checked transfers only. Scalar byte order belongs to SDL.
 namespace srIO {
-struct CloseIO { void operator()(SDL_IOStream* io) const noexcept { SDL_CloseIO(io); } };
+struct CloseIO {
+    void operator()(SDL_IOStream* io) const noexcept { SDL_CloseIO(io); }
+};
 using IO = std::unique_ptr<SDL_IOStream, CloseIO>;
 inline void check(bool succeeded)
 {

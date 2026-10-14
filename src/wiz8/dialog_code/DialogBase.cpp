@@ -1,16 +1,18 @@
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_rect.h>
+#include "wiz8/dialog_code/DialogBase.h"
+
 #include <string>
 #include <string_view>
 
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/dialog_code/DialogInterface.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_input.h"
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
@@ -66,8 +68,8 @@ void W8DialogBase::Draw(SDL_Surface& target)
     }
     if (m_error == 0 && m_body) {
         m_body->setShape(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1});
-        DrawButtonAppearance(target, {.generic_image = m_border},
-                             {m_x, m_y, m_width, m_height}, {});
+        DrawButtonAppearance(target, {.generic_image = m_border}, {m_x, m_y, m_width, m_height},
+                             {});
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
@@ -126,13 +128,16 @@ int W8DialogBase::CreateControls()
         return m_error = 4;
     }
     if (!m_border) {
-        m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+        m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {},
+                                           "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path,
+                                           static_cast<short>(m_background_flags), 0, 0);
         if (!m_border) {
             return m_error = 4;
         }
     }
     if (m_body) m_input.remove(*m_body);
-    m_body = &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, UI_PRIORITY_BACKGROUND);
+    m_body =
+        &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, UI_PRIORITY_BACKGROUND);
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     m_initialized = true;
     return 0;

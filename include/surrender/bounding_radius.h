@@ -1,9 +1,10 @@
 #pragma once
 
-#include "glm/geometric.hpp"
 #include <algorithm>
 #include <cmath>
 #include <ranges>
+
+#include "glm/geometric.hpp"
 
 // Accumulate in the center's scalar precision; padding belongs to the caller.
 template<class Point, std::ranges::input_range Range>

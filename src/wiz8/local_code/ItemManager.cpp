@@ -1,66 +1,68 @@
-#include <memory>
-#include "wiz8/modal_content.h"
-#include "wiz8/unicode.h"
-#include "surrender/srBoundingBox.h"
-#include <fmt/format.h>
-#include <glm/gtx/rotate_vector.hpp>
-#include <SDL3/SDL_filesystem.h>
-#include <vector>
+#include "wiz8/local_code/ItemManager.h"
+
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
+#include <SDL3/SDL_filesystem.h>
+#include <fmt/format.h>
+#include <glm/gtx/rotate_vector.hpp>
+
+#include "AnimRep.hpp"
+#include "Monster.h"
+#include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/trigonometric.hpp"
-#include "wiz8/containers.h"
-#include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/item_tables.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "random.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/cursor.h"
-#include "soundman.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "AnimRep.hpp"
-#include "Monster.h"
-#include "compat/native.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/item_tables.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
 #include "layouts/world.h"
+#include "random.h"
+#include "soundman.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/containers.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GDProp.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/item_tables.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/modal_content.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/unicode.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 class W8DialogBase;
 
@@ -333,8 +335,7 @@ int FindItemRecordByName(const char* name)
     for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
-            if (_stricmp(g_item_records[index].display_name.c_str(), name) ==
-                0) {
+            if (_stricmp(g_item_records[index].display_name.c_str(), name) == 0) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {
@@ -355,8 +356,7 @@ W8WorldItem* GetNextWorldItem(bool restart)
         g_world_item_cursor = 0;
     }
     index = g_world_item_cursor;
-    if (static_cast<unsigned int>(index) <
-        gXStatus.world_items.size()) {
+    if (static_cast<unsigned int>(index) < gXStatus.world_items.size()) {
         ++g_world_item_cursor;
         return GetWorldItemListEntry(index);
     }
@@ -454,9 +454,8 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
     W8WorldItem* item;
 
     if (item_list_index >= gXStatus.world_items.size()) {
-        srAssertFail(
-            "uiItemListIndex < (UINT32) gXStatus.world_items.size()",
-            ITEM_MANAGER_CPP, 961, 0);
+        srAssertFail("uiItemListIndex < (UINT32) gXStatus.world_items.size()", ITEM_MANAGER_CPP,
+                     961, 0);
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
@@ -689,10 +688,16 @@ void ActivateItem(W8WorldItem* item)
     } else {
         zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
     }
-    if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+    if (![&]() {
+            const auto status = wiz8::file_status(zItemFullPath);
+            return status && status->info.type == SDL_PATHTYPE_FILE;
+        }()) {
         zItemName = "questionmark";
         zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
-        if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        if (![&]() {
+                const auto status = wiz8::file_status(zItemFullPath);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
             srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
                          "status && status->info.type == SDL_PATHTYPE_FILE; }()",
                          ITEM_MANAGER_CPP, 0x1ed,
@@ -900,8 +905,8 @@ void DropHeldItem(int)
     delta.SetLength(glm::max(delta.Length() - g_float_one_hundred_twenty_five, g_float_zero));
 
     srVector3T<float> position = camera + delta;
-    position.y =
-        g_octree->settleToGround(position.glmValue(), true, 250).position.y + g_float_one_hundred_twenty_five;
+    position.y = g_octree->settleToGround(position.glmValue(), true, 250).position.y +
+                 g_float_one_hundred_twenty_five;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = CreateWorldItem(&g_status.item_in_hand, &position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);

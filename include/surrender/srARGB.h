@@ -13,4 +13,3 @@ public:
     unsigned char red;
     unsigned char alpha;
 };
-

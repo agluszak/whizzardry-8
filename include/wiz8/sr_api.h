@@ -3,14 +3,14 @@
 
 #include <string>
 
-typedef void(__cdecl* srAssertHandler)(const char* expression, const char* source_path, w8_long line,
-                                      const char* message);
+typedef void(__cdecl* srAssertHandler)(const char* expression, const char* source_path,
+                                       w8_long line, const char* message);
 
 int __cdecl srInit(void);
 int __cdecl srExit(void);
 void __cdecl srAssertSetFunc(srAssertHandler handler);
-void __cdecl srAssertFail(const char* expression, const char* source_path,
-                        w8_long line, const char* message, ...);
+void __cdecl srAssertFail(const char* expression, const char* source_path, w8_long line,
+                          const char* message, ...);
 
 inline void srAssertFail(const char* expression, const char* source_path, w8_long line,
                          const std::string& message)

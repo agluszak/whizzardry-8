@@ -4,6 +4,7 @@
 #include <cmath>
 #include <optional>
 #include <span>
+
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -20,7 +21,7 @@ inline glm::vec4 projectedPosition(const glm::vec4& position)
 }
 
 inline std::optional<float> triangleDepth(std::span<const glm::vec4, 3> corners,
-                                         const glm::vec3& pick)
+                                          const glm::vec3& pick)
 {
     unsigned positive_edges = 0;
     for (unsigned edge = 0; edge < corners.size(); ++edge) {
@@ -34,8 +35,8 @@ inline std::optional<float> triangleDepth(std::span<const glm::vec4, 3> corners,
     for (unsigned corner = 0; corner < points.size(); ++corner)
         points[corner] = glm::vec3(corners[corner]) * corners[corner].w;
     const auto normal = srPlaneMath::triangleNormal(points[0], points[1], points[2]);
-    const float depth = -(glm::dot(glm::vec2(normal), glm::vec2(pick)) -
-                          glm::dot(normal, points[0])) / normal.z;
+    const float depth =
+        -(glm::dot(glm::vec2(normal), glm::vec2(pick)) - glm::dot(normal, points[0])) / normal.z;
     // This also rejects degenerate and non-finite intersections.
     return depth >= -1 && depth < pick.z ? std::optional<float>(depth) : std::nullopt;
 }

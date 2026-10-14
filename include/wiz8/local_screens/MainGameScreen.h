@@ -1,19 +1,17 @@
 #include "wiz8/design_rect.h"
 #pragma once
-#include "wiz8/modal_content.h"
-
-#include "wiz8/audio_resources.h"
-
-#include <memory>
-#include <string_view>
 #include <array>
+#include <memory>
 #include <optional>
-#include "wiz8/ui_input.h"
+#include <string_view>
 
-#include "input.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "compat/compiler.h"
+#include "input.h"
 #include "layouts/targeting.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/modal_content.h"
+#include "wiz8/ui_input.h"
 
 class Trigger;
 
@@ -44,16 +42,16 @@ extern const float g_float_half_turn_degrees;
 /* String-list ids naming each trap row; Traps.cpp indexes it with the
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/RangeControl.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/RangeControl.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/ui_layer.h"
 
 class W8MainGameScreen;
 
@@ -78,7 +76,11 @@ public:
     void Redraw(SDL_Surface& target, bool full_redraw);
     void OnRangeChanged();
     void InvalidateAll() { m_dirty = true; }
-    void EnableInput(bool enabled) { input.setEnabled(enabled); m_key_handler->input.setEnabled(enabled); }
+    void EnableInput(bool enabled)
+    {
+        input.setEnabled(enabled);
+        m_key_handler->input.setEnabled(enabled);
+    }
     UiLayer input;
     struct Cell {
         HitTarget* target;
@@ -113,6 +115,7 @@ public:
     void Redraw(SDL_Surface& target, bool full_redraw);
     void RefreshStatusTexts();
     int m_target = 0;
+
 private:
     std::array<W8TextBuffer, 7> m_text;
     bool m_dirty = true;
@@ -510,8 +513,8 @@ unsigned char OpenUseItemSelectView(int slot);
 unsigned char MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
 unsigned char MainGameScreenLeave(int leaving);
-void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
-                            bool cancel);
+void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
+                            bool confirmation, bool cancel);
 
 unsigned char HandleWorldResumeInput(const InputEvent* event);
 void SetWorldResumeInput(bool enabled);

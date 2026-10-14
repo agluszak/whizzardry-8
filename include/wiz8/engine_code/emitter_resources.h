@@ -1,9 +1,10 @@
 #pragma once
 
 #include <array>
-#include <memory>
 #include <cstddef>
+#include <memory>
 #include <vector>
+
 #include "wiz8/engine_code/AnimObj.h"
 
 class stLight;
@@ -15,10 +16,7 @@ public:
     EmitterLights() = default;
     EmitterLights(const EmitterLights&) = delete;
     void CloneFrom(const EmitterLights&);
-    EmitterLights(EmitterLights&& other) noexcept
-    {
-        lights.swap(other.lights);
-    }
+    EmitterLights(EmitterLights&& other) noexcept { lights.swap(other.lights); }
     EmitterLights& operator=(const EmitterLights&) = delete;
     ~EmitterLights();
     std::vector<stLight*> lights;
@@ -32,10 +30,7 @@ struct EmitterCycleResources {
     EmitterCycleResources() = default;
     EmitterCycleResources(EmitterCycleResources&&) noexcept = default;
     EmitterCycleResources& operator=(const EmitterCycleResources&) = delete;
-    std::vector<stLight*>* lightView()
-    {
-        return lights.lights.empty() ? nullptr : &lights.lights;
-    }
+    std::vector<stLight*>* lightView() { return lights.lights.empty() ? nullptr : &lights.lights; }
     void swap(EmitterCycleResources& other) noexcept
     {
         lights.lights.swap(other.lights.lights);
@@ -45,7 +40,7 @@ struct EmitterCycleResources {
 
 // All animations must disappear before ANY light collection: animation scene
 // registrations currently depend on lights in other cycles as well.
-template <std::size_t Count> class EmitterResources {
+template<std::size_t Count> class EmitterResources {
 public:
     EmitterResources() = default;
     EmitterResources(const EmitterResources& other)

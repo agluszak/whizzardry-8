@@ -4,12 +4,10 @@
 #include <string_view>
 #include <vector>
 
-namespace w8_native
-{
+namespace w8_native {
 enum class PathDomain { game, host };
 
-struct ResolvedPath
-{
+struct ResolvedPath {
     std::filesystem::path readable;
     std::filesystem::path writable;
     std::filesystem::path readable_parent;

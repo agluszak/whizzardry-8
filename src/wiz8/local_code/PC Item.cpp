@@ -1,72 +1,73 @@
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <memory>
-#include <stdexcept>
-#include <string>
 #include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
-#include "random.h"
-#include "wiz8/conditions.h"
-#include "wiz8/fonts.h"
-#include "soundman.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/cursor.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/notices.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/item_video_object_vector.h"
-#include "image_assets.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/Screens.h"
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "dice.h"
 #include "equipment_slots.h"
+#include "image_assets.h"
 #include "layouts/levels.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
+#include "random.h"
 #include "retail_item_payloads.h"
+#include "soundman.h"
 #include "spell_ids.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/conditions.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/ItemManager.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/notices.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
 #include "xstatus.h"
 
 /* Items of equipment class four are priced and carried by the bundle rather
@@ -256,151 +257,152 @@ std::size_t W8ItemVideoObjectCache::LoadedImageCount() const
 }
 
 // GLOBAL: WIZ8 0x0062a88c
-static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {"Dagger.sti",
-                                                             "LongSword.sti",
-                                                             "Bipennis.sti",
-                                                             "BattleAxe.sti",
-                                                             "Flail.sti",
-                                                             "Mace.sti",
-                                                             "Hammer.sti",
-                                                             "ShortStaff.sti",
-                                                             "Halberd.sti",
-                                                             "Spear.sti",
-                                                             "BoStaff.sti",
-                                                             "LongBow.sti",
-                                                             "Crossbow.sti",
-                                                             "Sling.sti",
-                                                             "GreatSword.sti",
-                                                             "Rapier.sti",
-                                                             "Katana.sti",
-                                                             "LongStaff.sti",
-                                                             "Wand.sti",
-                                                             "MagicStave.sti",
-                                                             "QuestionMark.sti",
-                                                             "Shuriken.sti",
-                                                             "Arrow.sti",
-                                                             "SlingShot.sti",
-                                                             "KiteShield.sti",
-                                                             "Basnet.sti",
-                                                             "PlateTorso.sti",
-                                                             "PlateLegs.sti",
-                                                             "GauntletSteel.sti",
-                                                             "Sollerets.sti",
-                                                             "Amulet.sti",
-                                                             "Ring.sti",
-                                                             "BluePotion.sti",
-                                                             "Scroll.sti",
-                                                             "PowderPouch.sti",
-                                                             "Key.sti",
-                                                             "Locket.sti",
-                                                             "GreatBow.sti",
-                                                             "RoundShield.sti",
-                                                             "WizardCone.sti",
-                                                             "LeatherHelm.sti",
-                                                             "Cuirass.sti",
-                                                             "LeatherHauberk.sti",
-                                                             "Greaves.sti",
-                                                             "LeatherPants.sti",
-                                                             "Gloves.sti",
-                                                             "Sandals.sti",
-                                                             "Buskins.sti",
-                                                             "Boots.sti",
-                                                             "Book.sti",
-                                                             "Ankh.sti",
-                                                             "Ninjato.sti",
-                                                             "WarHammer.sti",
-                                                             "Flamberge.sti",
-                                                             "Bullwhip.sti",
-                                                             "Sai.sti",
-                                                             "Nunchuka.sti",
-                                                             "Glaive.sti",
-                                                             "BlackSword.sti",
-                                                             "FireSword.sti",
-                                                             "RobeUpper.sti",
-                                                             "RobeLower.sti",
-                                                             "HalterTop.sti",
-                                                             "Skirt.sti",
-                                                             "SkullCap.sti",
-                                                             "FeatheredCap.sti",
-                                                             "Mitre.sti",
-                                                             "QuestionMark.sti",
-                                                             "Kabuto.sti",
-                                                             "Do-MaruUpper.sti",
-                                                             "Tosei-GusokuLower.sti",
-                                                             "Burgonet.sti",
-                                                             "FurLegs.sti",
-                                                             "Cloak.sti",
-                                                             "QuestionMark.sti",
-                                                             "QuestionMark.sti",
-                                                             "Garland.sti",
-                                                             "CatONineTails.sti",
-                                                             "SilverCross.sti",
-                                                             "QuestionMark.sti",
-                                                             "QuestionMark.sti",
-                                                             "Bracelet.sti",
-                                                             "Necklace.sti",
-                                                             "Quarrel.sti",
-                                                             "QuestionMark.sti",
-                                                             "Coif.sti",
-                                                             "Hauberk.sti",
-                                                             "ChainLower.sti",
-                                                             "MailMittens.sti",
-                                                             "ChainHosen.sti",
-                                                             "Lance.sti",
-                                                             "Armet.sti",
-                                                             "NinjaCowl.sti",
-                                                             "NinjaGarbUpper.sti",
-                                                             "NinjaGarbLower.sti",
-                                                             "TabiBoots.sti",
-                                                             "Heaume.sti",
-                                                             "BoxHelm.sti",
-                                                             "DiamondRing.sti",
-                                                             "Bag.sti",
-                                                             "RedPotion.sti",
-                                                             "GreenPotion.sti",
-                                                             "PurplePotion.sti",
-                                                             "YellowPotion.sti",
-                                                             "QuestionMark.sti",
-                                                             "T'RangStaff.sti",
-                                                             "GauntletBronze.sti",
-                                                             "QuestionMark.sti",
-                                                             "LightSword.sti",
-                                                             "QuestionMark.sti",
-                                                             "QuestionMark.sti",
-                                                             "QuestionMark.sti",
-                                                             "Dart.sti",
-                                                             "PowderShot.sti",
-                                                             "Musket.sti",
-                                                             "QuestionMark.sti",
-                                                             "Stone.sti",
-                                                             "Stick.sti",
-                                                             "ShortSword.sti",
-                                                             "QuestionMark.sti",
-                                                             "Bagpipes.sti",
-                                                             "Lyre.sti",
-                                                             "Lute.sti",
-                                                             "Horn.sti",
-                                                             "QuestionMark.sti",
-                                                             "Bracelet2.sti",
-                                                             "Shuriken2.sti",
-                                                             "QuestionMark.sti",
-                                                             "Wand2.sti",
-                                                             "YellowPotion2.sti",
-                                                             "MediumShield.sti",
-                                                             "Omnigun_1.sti",
-                                                             "QuestionMark.sti",
-                                                             "QuestionMark.sti",
-                                                             "QuestionMark.sti",
-                                                             "QuestionMark.sti",
-                                                             "Saxaphone.sti",
-                                                             "Violin.sti",
-                                                             "Drum.sti",
-                                                             "Bullroar.sti",
-                                                             "QuestionMark.sti",
-                                                             "emptybottle.sti",
-                                                             "Stix.sti",
-                                                             "rocket.sti",
-                                                             "rocketlauncher.sti"};
+static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {
+    "Dagger.sti",
+    "LongSword.sti",
+    "Bipennis.sti",
+    "BattleAxe.sti",
+    "Flail.sti",
+    "Mace.sti",
+    "Hammer.sti",
+    "ShortStaff.sti",
+    "Halberd.sti",
+    "Spear.sti",
+    "BoStaff.sti",
+    "LongBow.sti",
+    "Crossbow.sti",
+    "Sling.sti",
+    "GreatSword.sti",
+    "Rapier.sti",
+    "Katana.sti",
+    "LongStaff.sti",
+    "Wand.sti",
+    "MagicStave.sti",
+    "QuestionMark.sti",
+    "Shuriken.sti",
+    "Arrow.sti",
+    "SlingShot.sti",
+    "KiteShield.sti",
+    "Basnet.sti",
+    "PlateTorso.sti",
+    "PlateLegs.sti",
+    "GauntletSteel.sti",
+    "Sollerets.sti",
+    "Amulet.sti",
+    "Ring.sti",
+    "BluePotion.sti",
+    "Scroll.sti",
+    "PowderPouch.sti",
+    "Key.sti",
+    "Locket.sti",
+    "GreatBow.sti",
+    "RoundShield.sti",
+    "WizardCone.sti",
+    "LeatherHelm.sti",
+    "Cuirass.sti",
+    "LeatherHauberk.sti",
+    "Greaves.sti",
+    "LeatherPants.sti",
+    "Gloves.sti",
+    "Sandals.sti",
+    "Buskins.sti",
+    "Boots.sti",
+    "Book.sti",
+    "Ankh.sti",
+    "Ninjato.sti",
+    "WarHammer.sti",
+    "Flamberge.sti",
+    "Bullwhip.sti",
+    "Sai.sti",
+    "Nunchuka.sti",
+    "Glaive.sti",
+    "BlackSword.sti",
+    "FireSword.sti",
+    "RobeUpper.sti",
+    "RobeLower.sti",
+    "HalterTop.sti",
+    "Skirt.sti",
+    "SkullCap.sti",
+    "FeatheredCap.sti",
+    "Mitre.sti",
+    "QuestionMark.sti",
+    "Kabuto.sti",
+    "Do-MaruUpper.sti",
+    "Tosei-GusokuLower.sti",
+    "Burgonet.sti",
+    "FurLegs.sti",
+    "Cloak.sti",
+    "QuestionMark.sti",
+    "QuestionMark.sti",
+    "Garland.sti",
+    "CatONineTails.sti",
+    "SilverCross.sti",
+    "QuestionMark.sti",
+    "QuestionMark.sti",
+    "Bracelet.sti",
+    "Necklace.sti",
+    "Quarrel.sti",
+    "QuestionMark.sti",
+    "Coif.sti",
+    "Hauberk.sti",
+    "ChainLower.sti",
+    "MailMittens.sti",
+    "ChainHosen.sti",
+    "Lance.sti",
+    "Armet.sti",
+    "NinjaCowl.sti",
+    "NinjaGarbUpper.sti",
+    "NinjaGarbLower.sti",
+    "TabiBoots.sti",
+    "Heaume.sti",
+    "BoxHelm.sti",
+    "DiamondRing.sti",
+    "Bag.sti",
+    "RedPotion.sti",
+    "GreenPotion.sti",
+    "PurplePotion.sti",
+    "YellowPotion.sti",
+    "QuestionMark.sti",
+    "T'RangStaff.sti",
+    "GauntletBronze.sti",
+    "QuestionMark.sti",
+    "LightSword.sti",
+    "QuestionMark.sti",
+    "QuestionMark.sti",
+    "QuestionMark.sti",
+    "Dart.sti",
+    "PowderShot.sti",
+    "Musket.sti",
+    "QuestionMark.sti",
+    "Stone.sti",
+    "Stick.sti",
+    "ShortSword.sti",
+    "QuestionMark.sti",
+    "Bagpipes.sti",
+    "Lyre.sti",
+    "Lute.sti",
+    "Horn.sti",
+    "QuestionMark.sti",
+    "Bracelet2.sti",
+    "Shuriken2.sti",
+    "QuestionMark.sti",
+    "Wand2.sti",
+    "YellowPotion2.sti",
+    "MediumShield.sti",
+    "Omnigun_1.sti",
+    "QuestionMark.sti",
+    "QuestionMark.sti",
+    "QuestionMark.sti",
+    "QuestionMark.sti",
+    "Saxaphone.sti",
+    "Violin.sti",
+    "Drum.sti",
+    "Bullroar.sti",
+    "QuestionMark.sti",
+    "emptybottle.sti",
+    "Stix.sti",
+    "rocket.sti",
+    "rocketlauncher.sti"};
 
 // FUNCTION: WIZ8 0x0055ce80
 const SpriteSheet& W8ItemVideoObjectCache::Sprites(int item_id)
@@ -417,11 +419,9 @@ std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(int ite
         if (name.empty())
             name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
         std::string path = fmt::format("Data\\Items\\{}", name);
-        if (path.find(".sti") == std::string::npos)
-            path += ".sti";
+        if (path.find(".sti") == std::string::npos) path += ".sti";
         image = g_image_assets.sprites(path);
-        if (!image)
-            throw std::runtime_error(fmt::format("Cannot load item image {}", path));
+        if (!image) throw std::runtime_error(fmt::format("Cannot load item image {}", path));
     }
     return image;
 }
@@ -787,8 +787,7 @@ static bool CanHoldItemsTogether(int first_item_id, int second_item_id)
 // FUNCTION: WIZ8 0x0051CDE0
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
 {
-    if (party_slot == -1)
-        srAssertFail("iChar != -1", PC_ITEM_CPP, 0x4e0, 0);
+    if (party_slot == -1) srAssertFail("iChar != -1", PC_ITEM_CPP, 0x4e0, 0);
     if (static_cast<unsigned int>(equip_slot) >= W8_EQUIP_SLOT_COUNT)
         srAssertFail("uiSlot < SLOT_COUNT", PC_ITEM_CPP, 0x4e1, 0);
 
@@ -830,15 +829,13 @@ enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 /* Return the first unmet item attribute or skill requirement, optionally
    identifying the corresponding localized attribute or skill name. */
 static bool FindUnmetItemRequirement(const W8Character* character,
-                                     const W8ItemDatabaseRecord* record,
-                                     unsigned short* message_id)
+                                     const W8ItemDatabaseRecord* record, unsigned short* message_id)
 {
     for (unsigned int index = 0; index < 2; ++index) {
         const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
         if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
             character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
-            if (message_id)
-                *message_id = g_character_description_first_ids[stat];
+            if (message_id) *message_id = g_character_description_first_ids[stat];
             return true;
         }
     }
@@ -846,8 +843,7 @@ static bool FindUnmetItemRequirement(const W8Character* character,
         const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
         if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
             character->skills[stat].level < record->skill_requirements[index].minimum) {
-            if (message_id)
-                *message_id = g_character_skill_name_ids[stat];
+            if (message_id) *message_id = g_character_skill_name_ids[stat];
             return true;
         }
     }
@@ -876,8 +872,7 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         return false;
     }
 
-    if (FindUnmetItemRequirement(character, record, nullptr))
-        return false;
+    if (FindUnmetItemRequirement(character, record, nullptr)) return false;
 
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         spell_id = record->spell_id;
@@ -895,7 +890,8 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         }
         minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
         const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
-                                   ? W8_CASTER_PROFESSION_INDEX_9 : W8_CASTER_PROFESSION_INDEX_8;
+                                   ? W8_CASTER_PROFESSION_INDEX_9
+                                   : W8_CASTER_PROFESSION_INDEX_8;
         if (static_cast<unsigned int>(character->profession_levels[profession]) <
             minimum_caster_level) {
             return false;
@@ -1197,9 +1193,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                 if (aimed->iType == W8_TARGET_KIND_CHARACTER) {
                     SetTargetSourceToCharacter(aimed->iChar, &target);
                 } else if (aimed->iType == W8_TARGET_KIND_MONSTER) {
-                    SetTargetSourceToMonster(
-                        FindMonster(aimed->iMonsterID),
-                        &target);
+                    SetTargetSourceToMonster(FindMonster(aimed->iMonsterID), &target);
                 }
             } else {
                 AimAtCharacter(party_slot, party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
@@ -1228,13 +1222,10 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                 fmt::format("{} {}", g_localized_strings[g_item_use_messages[record->category * 2]],
                             GetItemDisplayName(item)));
         } else if (TargetSourceIsMonster(&target, 0)) {
-            ShowNotice(
-                9, fmt::format("{} {} {}",
-                               GetMonsterName(
-                                   FindMonster(target.iMonsterID),
-                                   0, 0),
-                               g_localized_strings[g_item_use_messages[record->category * 2]],
-                               GetItemDisplayName(item)));
+            ShowNotice(9,
+                       fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
+                                   g_localized_strings[g_item_use_messages[record->category * 2]],
+                                   GetItemDisplayName(item)));
         } else {
             srAssertFail("FALSE", PC_ITEM_CPP, 0x924, 0);
         }
@@ -1714,8 +1705,7 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
         srAssertFail("gStatus.fItemInCursor", PC_ITEM_CPP, 376, 0);
     }
 
-    if (!item->identified)
-        PartyAttemptsToIdentifyItem(item, 0);
+    if (!item->identified) PartyAttemptsToIdentifyItem(item, 0);
 
     if (!g_status.game_started) {
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
@@ -2483,8 +2473,7 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
 // FUNCTION: WIZ8 0x005207e0
 W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 {
-    if (item == nullptr)
-        return W8_RANGE_NONE;
+    if (item == nullptr) return W8_RANGE_NONE;
     const int spell_id = GetItemSpell(item);
     return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : g_spell_records[spell_id].range_category;
 }
@@ -2537,7 +2526,8 @@ void BindEveryPartyItem(void)
     unsigned int party_slot;
 
     if (gXStatus.fCombatMode && !g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE,
+                   g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
         return;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -4118,7 +4108,8 @@ void BindCharacterItems(int party_slot, bool announce)
 {
     if (gXStatus.fCombatMode) {
         if (!g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
             return;
         }
         if (g_combat_state->iActionChar == party_slot && g_combat_state->eCombatActionStatus == 2 &&

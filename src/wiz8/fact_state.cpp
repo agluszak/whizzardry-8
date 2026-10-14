@@ -1,20 +1,21 @@
+#include "wiz8/fact_state.h"
+
 #include <cstring>
 #include <vector>
 
+#include "conditions.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Factions.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "conditions.h"
 
 /* Runs once the new-game level has finished loading: records the two starting
    transcript keywords from string-table entries 0x7e7/0x7e8 and

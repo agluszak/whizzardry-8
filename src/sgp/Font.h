@@ -3,15 +3,16 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string_view>
+#include <vector>
+
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
-#include <cstdint>
-#include <vector>
-#include <string_view>
-#include <cstddef>
-#include <optional>
-#include <memory>
 
 #include "himage.h"
 
@@ -72,8 +73,8 @@ struct TextOptions {
 
 void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
               TextOptions options = {});
-void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
-                           std::string_view text, TextOptions options = {});
+void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
+                           TextOptions options = {});
 
 void ConfigureFontRendering(const std::vector<std::uint16_t>& translation);
 void ResetFontRendering();
@@ -81,4 +82,3 @@ void ResetFontRendering();
 std::vector<std::uint16_t> CreateEnglishTransTable();
 
 std::int16_t GetIndex(char32_t siChar);
-

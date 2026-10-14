@@ -1,4 +1,8 @@
-#include <catch2/catch_test_macros.hpp>
+#include <cstdint>
+#include <cstdio>
+#include <thread>
+#include <vector>
+
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keyboard.h>
@@ -9,32 +13,55 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
-#include <thread>
-#include <vector>
-#include <cstdio>
-#include <cstdint>
+#include <catch2/catch_test_macros.hpp>
 
-#include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
-#include "input.h"
-#include "timer.h"
 #include "Video2.h"
 #include "compat/native.h"
-
+#include "input.h"
+#include "timer.h"
+#include "wiz8/application.h"
+#include "wiz8/engine_code/GameData.h"
 
 SDL_Window* ghWindow = nullptr;
 static int screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
 static std::vector<int> clock_actions;
-void PrintScreen() { ++screenshots; }
-void VideoCaptureToggle() { ++captures; }
-bool VideoInspectorIsEnabled() { return false; }
-void SuspendVideoManager() { ++suspensions; }
-bool RestoreVideoManager() { ++restorations; return true; }
-bool VideoResizeWindow() { ++resizes; return true; }
-float MoveTimer(int action) { clock_actions.push_back(action); return 0; }
+void PrintScreen()
+{
+    ++screenshots;
+}
+void VideoCaptureToggle()
+{
+    ++captures;
+}
+bool VideoInspectorIsEnabled()
+{
+    return false;
+}
+void SuspendVideoManager()
+{
+    ++suspensions;
+}
+bool RestoreVideoManager()
+{
+    ++restorations;
+    return true;
+}
+bool VideoResizeWindow()
+{
+    ++resizes;
+    return true;
+}
+float MoveTimer(int action)
+{
+    clock_actions.push_back(action);
+    return 0;
+}
 static SDL_WindowID id;
-static void push(SDL_Event event) { REQUIRE(SDL_PushEvent(&event)); }
+static void push(SDL_Event event)
+{
+    REQUIRE(SDL_PushEvent(&event));
+}
 static void focus(Uint32 kind)
 {
     SDL_Event event{};
@@ -58,14 +85,11 @@ static void mouse(Uint32 kind, Uint8 button, float x, float y, Uint8 clicks = 1)
 {
     SDL_Event event{};
     event.type = kind;
-    if (kind == SDL_EVENT_MOUSE_MOTION)
-    {
+    if (kind == SDL_EVENT_MOUSE_MOTION) {
         event.motion.windowID = id;
         event.motion.x = x;
         event.motion.y = y;
-    }
-    else
-    {
+    } else {
         event.button.windowID = id;
         event.button.button = button;
         event.button.clicks = clicks;
@@ -94,11 +118,11 @@ static std::vector<InputEvent> input()
 {
     std::vector<InputEvent> result;
     InputEvent atom;
-    while (DequeueEvent(&atom))
-        result.push_back(atom);
+    while (DequeueEvent(&atom)) result.push_back(atom);
     return result;
 }
-static void expect(const InputEvent& atom, InputEventType kind, std::uint16_t parameter, std::uint16_t state = 0)
+static void expect(const InputEvent& atom, InputEventType kind, std::uint16_t parameter,
+                   std::uint16_t state = 0)
 {
     REQUIRE((atom.type == kind && atom.key == parameter && atom.modifiers == state));
 }
@@ -154,7 +178,8 @@ TEST_CASE("events_test")
     events = input();
     REQUIRE(events.size() == 3);
     REQUIRE((events[0].text == 0x00e9 && events[1].text == 0x4e2d && events[2].text == 0x1f600));
-    for (const auto& event : events) REQUIRE((event.type == InputEventType::Text && event.key == 0));
+    for (const auto& event : events)
+        REQUIRE((event.type == InputEventType::Text && event.key == 0));
     SetNativeTextInputEnabled(false);
     REQUIRE(SDL_PushEvent(&committed));
     drain_events();
@@ -306,16 +331,15 @@ TEST_CASE("events_test")
     events = input();
     REQUIRE(events.size() == 3);
     REQUIRE(events[0].wheel == 1);
-    REQUIRE((events[1].wheel == -1 &&
-          events[2].wheel == -1));
+    REQUIRE((events[1].wheel == -1 && events[2].wheel == -1));
 
     key(SDL_EVENT_KEY_DOWN, SDLK_C, SDL_KMOD_LALT);
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_RIGHT, 640, 480);
     focus(SDL_EVENT_WINDOW_FOCUS_LOST);
     key(SDL_EVENT_KEY_DOWN, SDLK_D);
     drain_events();
-    REQUIRE((!IsKeyHeld('C') && !IsKeyHeld('D') && !(GetInputState().modifiers & ALT_DOWN) && !IsRightButtonHeld() &&
-          !GetInputState().right_repeat_at));
+    REQUIRE((!IsKeyHeld('C') && !IsKeyHeld('D') && !(GetInputState().modifiers & ALT_DOWN) &&
+             !IsRightButtonHeld() && !GetInputState().right_repeat_at));
     REQUIRE(input().size() == 2);
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
@@ -323,16 +347,13 @@ TEST_CASE("events_test")
     /* SDL can receive worker-produced events; game dispatch stays on the main thread. */
     key(SDL_EVENT_KEY_DOWN, SDLK_F);
     drain_events();
-    std::thread producer(
-        []
-        {
-            SDL_Delay(20);
-            key(SDL_EVENT_KEY_UP, SDLK_F);
-        });
+    std::thread producer([] {
+        SDL_Delay(20);
+        key(SDL_EVENT_KEY_UP, SDLK_F);
+    });
     events = input();
     Uint64 deadline = SDL_GetTicks() + 1000;
-    while (events.size() < 2 && SDL_GetTicks() < deadline)
-    {
+    while (events.size() < 2 && SDL_GetTicks() < deadline) {
         PumpGameEvents(true);
         auto next = input();
         events.insert(events.end(), next.begin(), next.end());
@@ -379,8 +400,7 @@ TEST_CASE("events_test")
     input();
 
     /* Ring wrap, full-queue drop and FIFO are still recovered SGP behavior. */
-    for (unsigned batch = 0; batch < 3; ++batch)
-    {
+    for (unsigned batch = 0; batch < 3; ++batch) {
         for (unsigned i = 0; i < 257; ++i)
             QueueEvent(InputEventType::KeyDown, {int(batch), 0}, std::uint16_t(i));
         events = input();
@@ -421,8 +441,7 @@ TEST_CASE("events_test")
         drain_events();
         events = input();
         REQUIRE(events.size() == 256);
-        for (unsigned i = 0; i < queued; ++i)
-            expect(events[i], InputEventType::KeyDown, i);
+        for (unsigned i = 0; i < queued; ++i) expect(events[i], InputEventType::KeyDown, i);
         if (queued < 256) {
             expect(events[queued], InputEventType::LeftButtonUp, 0, SHIFT_DOWN);
             REQUIRE((events[queued].position.x == 320 && events[queued].position.y == 240));
@@ -443,5 +462,4 @@ TEST_CASE("events_test")
     SDL_DestroyWindow(window);
     SDL_Quit();
     puts("ok: SDL events feed input, strings, repeats, focus, resize, quit and main-thread clock");
-
 }

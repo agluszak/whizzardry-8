@@ -1,59 +1,60 @@
+#include "wiz8/local_code/npc_story_events.h"
+
+#include <cstdint>
+#include <string>
+
 #include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
-#include <string>
-#include <cstdint>
 
-#include "wiz8/local_code/npc_story_events.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/conditions.h"
-#include "wiz8/monster_cycles.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/level_specific_code/Ascension.h"
-#include "wiz8/message_box.h"
-#include "soundman.h"
-#include "wiz8/audio_resources.h"
-#include "wiz8/location_variables.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/xstatus.h"
 #include "compat/native.h"
 #include "layouts/item_instance.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
+#include "soundman.h"
 #include "surrender/srMath.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/conditions.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_specific_code/Ascension.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/location_variables.h"
+#include "wiz8/message_box.h"
+#include "wiz8/monster_cycles.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/xstatus.h"
 
 static void ResolveSedexusCapture(void);
 static void NpcScriptHenchmanArrives(W8Monster* monster);
@@ -141,7 +142,6 @@ static void NpcScriptEndgameScreen(void)
     SetIntroVideoIndex(5);
     SetPendingScreenState(W8_SCREEN_INTRO);
 }
-
 
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
    vectors, force the single-target mode, and reopen the party-member region
@@ -250,7 +250,10 @@ struct W8SedexusScene {
 static W8SedexusScene g_sedexus_scene;
 
 // FUNCTION: WIZ8 0x0052A070
-bool IsSedexusCaptureActive(void) { return g_sedexus_scene.capture_active; }
+bool IsSedexusCaptureActive(void)
+{
+    return g_sedexus_scene.capture_active;
+}
 
 void ResetSedexusScene(void)
 {

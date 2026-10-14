@@ -1,12 +1,11 @@
 #pragma once
 
-#include "model_view_scope.h"
-
-#include "srModel.h"
-#include "glm/ext/vector_float3.hpp"
-#include "srNode.h"
-
 #include <math.h>
+
+#include "glm/ext/vector_float3.hpp"
+#include "model_view_scope.h"
+#include "srModel.h"
+#include "srNode.h"
 
 // VTABLE: SURRENDER 0x10077194
 // class srClassSupport<srModelInstance, srNode, 4352>
@@ -16,15 +15,13 @@
 class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100> {
 public:
     SR_DLL_IMPORT virtual ~srModelInstance() override;
-    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
+    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr,
+                                  Ownership ownership = Ownership::parent);
 
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
 
     // FUNCTION: SURRENDER 0x1004FFE0
-    static const char* sGetClassName()
-    {
-        return "srModelInstance";
-    }
+    static const char* sGetClassName() { return "srModelInstance"; }
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void traverse(TraverseInfo& info) override;
@@ -32,14 +29,8 @@ public:
     SR_DLL_IMPORT virtual BoundInfo getLocalBounds() override;
 
     // The instance shares ownership of its model; renderers borrow it.
-    srModel* getModel() const
-    {
-        return model_.get();
-    }
-    void setModel(std::shared_ptr<srModel> model)
-    {
-        model_ = std::move(model);
-    }
+    srModel* getModel() const { return model_.get(); }
+    void setModel(std::shared_ptr<srModel> model) { model_ = std::move(model); }
 
     double getAlignAngle() const;
     glm::vec3 getAlignAxis() const;
@@ -58,6 +49,7 @@ protected:
         ~RenderScope();
         RenderScope(const RenderScope&) = delete;
         RenderScope& operator=(const RenderScope&) = delete;
+
     private:
         friend class srModelInstance;
         RenderScope(const srModelInstance& instance, srGERD& renderer, bool apply_exclusion);

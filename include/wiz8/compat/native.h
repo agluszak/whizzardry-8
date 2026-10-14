@@ -19,8 +19,8 @@
 #endif
 #include <sys/stat.h>
 #ifdef _WIN32
-#include <io.h>
 #include <direct.h>
+#include <io.h>
 #endif
 #ifdef __cplusplus
 #include <cmath>
@@ -77,7 +77,6 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
 #ifdef __cplusplus
 }
 #endif
-
 
 #define _strupr w8_strupr
 #define strupr w8_strupr

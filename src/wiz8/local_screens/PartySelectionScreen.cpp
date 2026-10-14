@@ -1,60 +1,62 @@
-#include <SDL3/SDL_mouse.h>
-#include "wiz8/button_interaction.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_rect.h>
-#include <string_view>
-#include <string>
-#include <utility>
-#include <memory>
-#include <vector>
+#include "wiz8/local_screens/PartySelectionScreen.h"
+
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <exception>
-#include <algorithm>
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-#include "image.h"
-#include "sprite.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "input.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/PartyImport.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/cursor.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/fonts.h"
-#include "wiz8/text_input.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/filesystem.h"
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
 #include "Font.h"
 #include "compat/compiler.h"
 #include "difficulty.h"
 #include "file_time.h"
+#include "image.h"
+#include "input.h"
+#include "sprite.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/PartyImport.h"
+#include "wiz8/local_code/RangeControl.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/music_playlist.h"
+#include "wiz8/text_input.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 struct W8PartySelectionCharacterCollection {
     W8PartySelectionCharacterCollection() : first_visible(0) {}
@@ -166,7 +168,8 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
             int slot;
             for (slot = 2; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
-                    strcmp(g_status.buffers.Char[slot].name.c_str(), character->name.c_str()) == 0) {
+                    strcmp(g_status.buffers.Char[slot].name.c_str(), character->name.c_str()) ==
+                        0) {
                     break;
                 }
             }
@@ -241,7 +244,13 @@ void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
     for (int index = 0; index < static_cast<int>(characters.size()); ++index) {
         std::string path;
         path = BuildCharacterPath(characters[index]->name, -1);
-        std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+        std::unique_ptr<wiz8::File> handle = [&]() {
+            try {
+                return wiz8::open_file(path, wiz8::OpenMode::read);
+            } catch (const std::exception&) {
+                return std::unique_ptr<wiz8::File>{};
+            }
+        }();
         if (handle) {
             times[index] = handle->times().modified;
             if (handle) handle->close();
@@ -296,8 +305,8 @@ public:
     std::array<std::unique_ptr<W8ButtonWidget>, 3> difficulty_buttons;
     std::unique_ptr<W8ButtonWidget> npc_toggle, ironman_toggle;
     std::array<std::unique_ptr<W8ButtonWidget>, 7> actions;
-    W8ButtonWidget *m_create_button, *m_add_remove_button, *m_delete_button,
-                   *m_review_button, *m_reset_button, *m_confirm_button, *m_back_button;
+    W8ButtonWidget *m_create_button, *m_add_remove_button, *m_delete_button, *m_review_button,
+        *m_reset_button, *m_confirm_button, *m_back_button;
     std::vector<std::unique_ptr<W8TextBuffer>> option_text;
     W8TextBuffer title;
     std::unique_ptr<TextFieldGroup> name_input;
@@ -319,7 +328,8 @@ void RefreshPartySelectionPortrait(unsigned int party_slot)
     const auto position = PartySlotPosition(row);
     SpriteDraw draw{};
     draw.mirror = g_portrait_descriptors[portrait].render_mode == ((row & 1) ? 2 : 1);
-    BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, position.x, position.y, draw, row + 2, false);
+    BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, position.x, position.y, draw,
+                               row + 2, false);
 }
 
 bool PartySelectionInReviewMode()
@@ -331,8 +341,8 @@ void W8PartySelectionController::RefreshRows()
 {
     for (int row = 0; row < 6; ++row)
         rows[row]->setEnabled(m_mode == W8_PARTY_SELECT_CHARACTERS &&
-            g_party_selection_character_collection->GetCharacter(
-                g_party_selection_character_collection->first_visible + row));
+                              g_party_selection_character_collection->GetCharacter(
+                                  g_party_selection_character_collection->first_visible + row));
     rows_dirty = true;
 }
 
@@ -352,8 +362,10 @@ void W8PartySelectionController::SetSelectedRow(int selection)
     m_selected_row = selection;
     auto& collection = *g_party_selection_character_collection;
     const int visible = selection - collection.first_visible;
-    if (visible < 0 || visible > 5 || static_cast<int>(collection.characters.size()) < collection.first_visible + 6) {
-        collection.first_visible = std::max(0, std::min(selection, static_cast<int>(collection.characters.size()) - 6));
+    if (visible < 0 || visible > 5 ||
+        static_cast<int>(collection.characters.size()) < collection.first_visible + 6) {
+        collection.first_visible =
+            std::max(0, std::min(selection, static_cast<int>(collection.characters.size()) - 6));
         m_range->SetValue(collection.first_visible);
     }
     RefreshRows();
@@ -368,8 +380,8 @@ void W8PartySelectionController::DrawCharacters(SDL_Surface& target)
         const auto* character = g_party_selection_character_collection->GetCharacter(index);
         if (!character) continue;
         int left = 0x148, top = 0x31 + row * 0x2a;
-        CatalogArtwork::Load(0xfb, 0).drawAndInvalidate(target,
-            index == m_selected_row ? 1 : (row == hovered_row ? 2 : 0), left, top);
+        CatalogArtwork::Load(0xfb, 0).drawAndInvalidate(
+            target, index == m_selected_row ? 1 : (row == hovered_row ? 2 : 0), left, top);
         CatalogArtwork::Load(0x13, character->portrait_index).draw(target, 0, left + 2, top + 2);
         if (character->fInParty) {
             ShadowRect(target, {left + 2, top + 2, 0x2d, 0x24});
@@ -377,11 +389,14 @@ void W8PartySelectionController::DrawCharacters(SDL_Surface& target)
         }
         left += 0x36;
         DrawText(target, g_wiz_text_font_secondary, {left, top + 4}, character->name);
-        DrawText(target, g_wiz_text_font_secondary, {left, top + 0x0e}, fmt::format("{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
-            g_localized_strings[g_profession_name_message_ids[character->iProfession]]));
-        DrawText(target, g_wiz_text_font_secondary, {left, top + 0x18}, fmt::format("{} {}",
-            g_localized_strings[g_gender_name_message_rows[character->gender][0]],
-            g_localized_strings[g_race_name_message_ids[character->iRace]]));
+        DrawText(target, g_wiz_text_font_secondary, {left, top + 0x0e},
+                 fmt::format(
+                     "{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
+                     g_localized_strings[g_profession_name_message_ids[character->iProfession]]));
+        DrawText(target, g_wiz_text_font_secondary, {left, top + 0x18},
+                 fmt::format("{} {}",
+                             g_localized_strings[g_gender_name_message_rows[character->gender][0]],
+                             g_localized_strings[g_race_name_message_ids[character->iRace]]));
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
     }
 }
@@ -395,7 +410,8 @@ void W8PartySelectionController::DrawSlots(SDL_Surface& target)
         const auto size = CatalogArtwork::Load(0x101, 0).size(0);
         const SDL_Rect area{left, top, size.x, size.y};
         const W8Character* character = nullptr;
-        if (!g_status.buffers.XChar[row + 2].fOccupied) SDL_FillSurfaceRect(&target, &area, 0x8000);
+        if (!g_status.buffers.XChar[row + 2].fOccupied)
+            SDL_FillSurfaceRect(&target, &area, 0x8000);
         else {
             character = &g_status.buffers.Char[row + 2];
             const int portrait = character->portrait_index;
@@ -407,8 +423,9 @@ void W8PartySelectionController::DrawSlots(SDL_Surface& target)
         if (row == hovered_slot || row == selected_slot)
             CatalogArtwork::Load(0x101, 0).draw(target, row == hovered_slot ? 0 : 1, left, top);
         W8ControlsRect bounds{left - 8, top + 0x51, left + 0x61, top + 0x60};
-        W8TextBuffer label(&bounds, character ? std::string_view(character->name) : std::string_view{},
-                          g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        W8TextBuffer label(
+            &bounds, character ? std::string_view(character->name) : std::string_view{},
+            g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         label.RenderToTarget(0, false, target);
         advance[row]->m_dirty = true;
     }
@@ -426,10 +443,13 @@ void W8PartySelectionController::DrawImportList(SDL_Surface& target)
     const int end = std::min(import_first + 17, static_cast<int>(names.size()));
     for (int row = import_first; row < end; ++row) {
         auto colour = g_wiz_text_font_secondary.glyphs->colors;
-        if (row == import_selection) colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
-        else if (row == import_hovered) colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+        if (row == import_selection)
+            colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
+        else if (row == import_hovered)
+            colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
         g_wiz_text_font_secondary.setPalette(colour);
-        DrawText(target, g_wiz_text_font_secondary, {clip.x + 2, clip.y + 1 + (row - import_first) * 14}, names[row]);
+        DrawText(target, g_wiz_text_font_secondary,
+                 {clip.x + 2, clip.y + 1 + (row - import_first) * 14}, names[row]);
     }
     g_wiz_text_font_secondary.resetPalette();
 }
@@ -442,7 +462,8 @@ void W8PartySelectionController::DrawSummary(SDL_Surface& target)
     summary_dirty = false;
 
     CatalogArtwork::Load(0xfc, 0).drawAndInvalidate(target, 0, 0x7f, 0xc5);
-    CatalogArtwork::Load(0x1b6, 0).drawRect(target, SDL_Rect{0, 0, (0x139) - (0x85), (0xc0) - (0x30)}, 0x85, 0x30);
+    CatalogArtwork::Load(0x1b6, 0).drawRect(
+        target, SDL_Rect{0, 0, (0x139) - (0x85), (0xc0) - (0x30)}, 0x85, 0x30);
     InvalidateRegion(0x85, 0x30, 0x139, 0xc0);
     if (!m_character) {
         return;
@@ -473,41 +494,55 @@ void W8PartySelectionController::DrawSummary(SDL_Surface& target)
     std::string level_line =
         fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession);
     int width = g_wiz_text_font_secondary.textWidth(level_line);
-    DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x78, 0xef}, fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
+    DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x78, 0xef},
+             fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
 
     std::string gender = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
     std::string race = g_localized_strings[g_race_name_message_ids[character->iRace]];
     std::string race_line = fmt::format("{} {}", gender, race);
     width = g_wiz_text_font_secondary.textWidth(race_line);
-    DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x7f, 0xfd}, fmt::format("{} {}", gender, race));
+    DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x7f, 0xfd},
+             fmt::format("{} {}", gender, race));
 
-    std::string personality = g_localized_strings[g_personality_message_ids[character->personality]];
+    std::string personality =
+        g_localized_strings[g_personality_message_ids[character->personality]];
     width = g_wiz_text_font_secondary.textWidth(personality);
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x82, 0x10b}, personality);
 
     DrawText(target, g_wiz_text_font_secondary, {0x96, 0x127}, g_localized_strings[0x6ba]);
-    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x127}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
+    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x127},
+             fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
     DrawText(target, g_wiz_text_font_secondary, {0x96, 0x135}, g_localized_strings[0x6bb]);
-    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x135}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
+    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x135},
+             fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
     DrawText(target, g_wiz_text_font_secondary, {0x96, 0x143}, g_localized_strings[0x6bc]);
-    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x143}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
+    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x143},
+             fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
     DrawText(target, g_wiz_text_font_secondary, {0x96, 0x151}, g_localized_strings[0x6bd]);
-    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x151}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
+    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x151},
+             fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
     DrawText(target, g_wiz_text_font_secondary, {0x96, 0x15f}, g_localized_strings[0x6be]);
-    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x15f}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
+    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x15f},
+             fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
     DrawText(target, g_wiz_text_font_secondary, {0x96, 0x16d}, g_localized_strings[0x6bf]);
-    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x16d}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
+    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x16d},
+             fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
     DrawText(target, g_wiz_text_font_secondary, {0x96, 0x17b}, g_localized_strings[0x6c0]);
-    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x17b}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
+    DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x17b},
+             fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
 
     DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x127}, g_localized_strings[0x6c1]);
-    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x127}, fmt::format("{:d}", character->uiHPMax));
+    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x127},
+             fmt::format("{:d}", character->uiHPMax));
     DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x135}, g_localized_strings[0x6c2]);
-    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x135}, fmt::format("{:d}", SumCharacterSpellPoints(character)));
+    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x135},
+             fmt::format("{:d}", SumCharacterSpellPoints(character)));
     DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x143}, g_localized_strings[0x6c3]);
-    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x143}, fmt::format("{:d}", character->uiStaminaMax));
+    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x143},
+             fmt::format("{:d}", character->uiStaminaMax));
     DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x151}, g_localized_strings[0x6c4]);
-    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x151}, fmt::format("{:d}", character->carrying_capacity / 10));
+    DrawText(target, g_wiz_text_font_secondary, {0x115, 0x151},
+             fmt::format("{:d}", character->carrying_capacity / 10));
 }
 
 void W8PartySelectionController::DrawOptions(SDL_Surface& target)
@@ -553,27 +588,31 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
     npc_toggle->SetVisible(page == W8_PARTY_CREATION_OPTIONS);
     ironman_toggle->SetVisible(page == W8_PARTY_CREATION_OPTIONS);
 
-    W8ControlsRect bounds = {0x78 + 0x22, 0x28 + 0x12, 0x78 + 0x16e,
-                             0x28 + 0x171};
+    W8ControlsRect bounds = {0x78 + 0x22, 0x28 + 0x12, 0x78 + 0x16e, 0x28 + 0x171};
 
     if (page == W8_PARTY_CREATION_OPTIONS) {
-        option_text.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f7], g_options_detail_font,
-                                       g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        option_text.emplace_back(
+            new W8TextBuffer(&bounds, g_localized_strings[0x7f7], g_options_detail_font,
+                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.right = 0x78 + 0x155;
-        option_text.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f8], g_options_detail_font,
-                                       g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        option_text.emplace_back(
+            new W8TextBuffer(&bounds, g_localized_strings[0x7f8], g_options_detail_font,
+                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
-        option_text.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f9], g_options_detail_font,
-                                       g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        option_text.emplace_back(
+            new W8TextBuffer(&bounds, g_localized_strings[0x7f9], g_options_detail_font,
+                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
-        option_text.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7fa], g_options_detail_font,
-                                       g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        option_text.emplace_back(
+            new W8TextBuffer(&bounds, g_localized_strings[0x7fa], g_options_detail_font,
+                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
 
         bounds.right = 0x78 + 0x16e;
         bounds.top += 0x2c;
-        option_text.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x80b], g_options_detail_font,
-                                       g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        option_text.emplace_back(
+            new W8TextBuffer(&bounds, g_localized_strings[0x80b], g_options_detail_font,
+                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
         W8TextBuffer* text =
@@ -583,8 +622,9 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
         option_text.emplace_back(text);
 
         bounds.top += 0x42;
-        option_text.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x6ce], g_options_detail_font,
-                                       g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        option_text.emplace_back(
+            new W8TextBuffer(&bounds, g_localized_strings[0x6ce], g_options_detail_font,
+                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
         text = new W8TextBuffer(&bounds, g_localized_strings[0x6cf], g_options_detail_font,
@@ -610,16 +650,17 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
 
     bounds.left = 0x78 + 0x2c;
     bounds.right = 0x78 + 0x164;
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[0x6d1], g_options_detail_font,
-                                          g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
+    W8TextBuffer* text =
+        new W8TextBuffer(&bounds, g_localized_strings[0x6d1], g_options_detail_font,
+                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
     text->SetLineHeight(0x16);
     option_text.emplace_back(text);
 
     if (!name_input) {
         const auto size = CatalogArtwork::Load(0x102, 0).size(1);
         name_input = std::make_unique<TextFieldGroup>(1);
-        name_input->Add(0x92 + (0x160 - size.x) / 2, 0xaa, size.x - 4, size.y - 4,
-                        0x7f, "", 0x28, 0x0f, true);
+        name_input->Add(0x92 + (0x160 - size.x) / 2, 0xaa, size.x - 4, size.y - 4, 0x7f, "", 0x28,
+                        0x0f, true);
         name_input->Focus(0);
         OnToggle(false);
     }
@@ -640,37 +681,52 @@ void W8PartySelectionController::Setup()
     const auto row_size = CatalogArtwork::Load(0xfb, 0).size(0);
     const auto slot_size = CatalogArtwork::Load(0x101, 0).size(0);
     for (int row = 0; row < 6; ++row) {
-        rows[row] = &input.add(SDL_Rect{0x148, 0x31 + row * 0x2a, row_size.x + 1, row_size.y + 1},
+        rows[row] = &input.add(
+            SDL_Rect{0x148, 0x31 + row * 0x2a, row_size.x + 1, row_size.y + 1},
             [this, row](const UiPointerEvent& event) {
-                if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+                if (event.action == UiPointerAction::Enter ||
+                    event.action == UiPointerAction::Leave) {
                     hovered_row = event.action == UiPointerAction::Enter ? row : -1;
                     rows_dirty = true;
-                } else if (event.action == UiPointerAction::Wheel) m_range->AdjustValue(event.wheel);
+                } else if (event.action == UiPointerAction::Wheel)
+                    m_range->AdjustValue(event.wheel);
                 else if ((event.action == UiPointerAction::Up && event.inside &&
-                          (event.captured_buttons & (event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK))) ||
-                         (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left && event.clicks == 2)) {
+                          (event.captured_buttons &
+                           (event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK
+                                                                  : SDL_BUTTON_RMASK))) ||
+                         (event.action == UiPointerAction::Down &&
+                          event.button == UiPointerButton::Left && event.clicks == 2)) {
                     AfterUiDispatch([this, row, event] {
                         SetSelectedRow(g_party_selection_character_collection->first_visible + row);
                         SetSelection(m_selected_row, false, true);
-                        if (event.button == UiPointerButton::Right) OnPrimary(m_review_button);
-                        else if (event.action == UiPointerAction::Down) TogglePartyMemberSelection();
+                        if (event.button == UiPointerButton::Right)
+                            OnPrimary(m_review_button);
+                        else if (event.action == UiPointerAction::Down)
+                            TogglePartyMemberSelection();
                     });
                 }
                 return UiResult::Handled;
             });
         const auto [x, y] = PartySlotPosition(row);
-        slots[row] = &input.add(SDL_Rect{x, y, slot_size.x + 1, slot_size.y + 1},
+        slots[row] = &input.add(
+            SDL_Rect{x, y, slot_size.x + 1, slot_size.y + 1},
             [this, row](const UiPointerEvent& event) {
-                if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+                if (event.action == UiPointerAction::Enter ||
+                    event.action == UiPointerAction::Leave) {
                     hovered_slot = event.action == UiPointerAction::Enter ? row : -1;
                     slots_dirty = true;
                 } else if ((event.action == UiPointerAction::Up && event.inside &&
-                          (event.captured_buttons & (event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK))) ||
-                         (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left && event.clicks == 2)) {
+                            (event.captured_buttons &
+                             (event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK
+                                                                    : SDL_BUTTON_RMASK))) ||
+                           (event.action == UiPointerAction::Down &&
+                            event.button == UiPointerButton::Left && event.clicks == 2)) {
                     AfterUiDispatch([this, row, event] {
                         SetSelection(row, true, true);
-                        if (event.button == UiPointerButton::Right) OnPrimary(m_review_button);
-                        else if (event.action == UiPointerAction::Down) TogglePartyMemberSelection();
+                        if (event.button == UiPointerButton::Right)
+                            OnPrimary(m_review_button);
+                        else if (event.action == UiPointerAction::Down)
+                            TogglePartyMemberSelection();
                     });
                 }
                 return UiResult::Handled;
@@ -690,14 +746,18 @@ void W8PartySelectionController::Setup()
         button->policy.controller_activation = true;
         button->SetPosition((row & 1) ? 0x21d : 0x52, (row / 2) * 0x82 + 0x6c);
     }
-    import_list = &input.add(SDL_Rect{0x148, 0x31, 0x9e, 0xfb}, [this](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Leave) import_hovered = -1;
+    import_list = &input.add(SDL_Rect{0x148, 0x31, 0x9e, 0xfb}, [this](
+                                                                    const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Leave)
+            import_hovered = -1;
         else if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move)
             import_hovered = event.local.y / 14 + import_first;
         else if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left &&
                  event.inside && (event.captured_buttons & SDL_BUTTON_LMASK)) {
             const int selection = event.local.y / 14 + import_first;
-            if (selection != import_selection && selection < static_cast<int>(g_party_selection_character_collection->names.size())) {
+            if (selection != import_selection &&
+                selection <
+                    static_cast<int>(g_party_selection_character_collection->names.size())) {
                 import_selection = selection;
                 AfterUiDispatch([this, selection] { LoadImportedPartyFile(selection); });
             }
@@ -717,14 +777,18 @@ void W8PartySelectionController::Setup()
             {x, y, size.x, size.y}, {.on_click = [this](auto* control) {
                 AfterUiDispatch([this, control] { OnPrimary(control); });
             }});
-        button->SetImage(ButtonGraphics::Load(art.spriteSheet(), normal + 3, normal, normal + 1, normal + 2,
-                                             index == 4 ? 28 : normal + 2));
+        button->SetImage(ButtonGraphics::Load(art.spriteSheet(), normal + 3, normal, normal + 1,
+                                              normal + 2, index == 4 ? 28 : normal + 2));
         button->policy.controller_activation = true;
         if (index >= 4) button->SetTooltipIndex(index == 4 ? 0x6cc : (index == 5 ? 0x6cb : 0x6ca));
     }
-    m_create_button = actions[0].get(); m_add_remove_button = actions[1].get();
-    m_delete_button = actions[2].get(); m_review_button = actions[3].get();
-    m_reset_button = actions[4].get(); m_confirm_button = actions[5].get(); m_back_button = actions[6].get();
+    m_create_button = actions[0].get();
+    m_add_remove_button = actions[1].get();
+    m_delete_button = actions[2].get();
+    m_review_button = actions[3].get();
+    m_reset_button = actions[4].get();
+    m_confirm_button = actions[5].get();
+    m_back_button = actions[6].get();
     m_create_button->SetText(g_localized_strings[0x6c5]);
     m_delete_button->SetText(g_localized_strings[0x6c8]);
     m_review_button->SetText(g_localized_strings[0x6c9]);
@@ -782,7 +846,9 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     }
     if (characters || importing) {
         const auto& collection = *g_party_selection_character_collection;
-        const int maximum = std::max(0, static_cast<int>(characters ? collection.characters.size() : collection.names.size()) - (characters ? 6 : 17));
+        const int maximum = std::max(0, static_cast<int>(characters ? collection.characters.size()
+                                                                    : collection.names.size()) -
+                                            (characters ? 6 : 17));
         m_range->SetRange(0, maximum);
         m_range->SetValue(characters ? collection.first_visible : import_selection);
         m_range->SetEnabled(maximum > 0);
@@ -791,10 +857,16 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         npc_toggle->SetVisible(false);
         ironman_toggle->SetVisible(false);
     } else {
-        SetOptionPanelMode(mode == W8_PARTY_SELECT_OPTIONS ? W8_PARTY_CREATION_OPTIONS :
-            (mode == W8_PARTY_SELECT_CREATION_NOTICE ? W8_PARTY_CREATION_NOTICE : W8_PARTY_CREATION_SAVE_NAME));
+        SetOptionPanelMode(mode == W8_PARTY_SELECT_OPTIONS
+                               ? W8_PARTY_CREATION_OPTIONS
+                               : (mode == W8_PARTY_SELECT_CREATION_NOTICE
+                                      ? W8_PARTY_CREATION_NOTICE
+                                      : W8_PARTY_CREATION_SAVE_NAME));
     }
-    const int message = characters ? 0x6b4 : importing ? 0x6b5 : mode == W8_PARTY_SELECT_OPTIONS ? 0x6b6 : 0x6b7;
+    const int message = characters                        ? 0x6b4
+                        : importing                       ? 0x6b5
+                        : mode == W8_PARTY_SELECT_OPTIONS ? 0x6b6
+                                                          : 0x6b7;
     title.SetText(g_localized_strings[message], g_wiz_text_bold_font);
 }
 
@@ -848,7 +920,8 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
     }
 
     summary_dirty = true;
-    std::string text = g_localized_strings[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
+    std::string text =
+        g_localized_strings[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
     m_add_remove_button->SetText(text);
     bool have_character = m_character != 0;
     m_add_remove_button->SetEnabled(have_character);
@@ -934,8 +1007,7 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
             SetMode(W8_PARTY_SELECT_OPTIONS);
             return;
         case W8_PARTY_SELECT_OPTIONS:
-            g_settings.difficulty =
-                static_cast<W8Difficulty>(difficulty);
+            g_settings.difficulty = static_cast<W8Difficulty>(difficulty);
             g_settings.simplified_npc_interaction = npc_toggle->IsPressed();
             if (ironman_toggle->IsPressed()) {
                 SetMode(W8_PARTY_SELECT_CREATION_NOTICE);
@@ -987,7 +1059,8 @@ void W8PartySelectionController::OnDecision(bool accepted)
         std::string slot_name;
         slot_name = name_input->Text(0);
         if (SaveSlotFileExists(slot_name)) {
-            OpenNotification(g_localized_strings[0x829], true, W8_PARTY_CONFIRM_START_WITH_SAVE_NAME);
+            OpenNotification(g_localized_strings[0x829], true,
+                             W8_PARTY_CONFIRM_START_WITH_SAVE_NAME);
             return;
         }
         name_input.reset();
@@ -1020,7 +1093,8 @@ void W8PartySelectionController::OnToggle(bool enabled)
 
 void W8PartySelectionController::InvalidatePartySelectionComposition()
 {
-    m_redraw_backdrop = summary_dirty = rows_dirty = slots_dirty = list_dirty = options_dirty = true;
+    m_redraw_backdrop = summary_dirty = rows_dirty = slots_dirty = list_dirty = options_dirty =
+        true;
     m_range->InvalidateAll();
     for (auto& button : actions) button->m_dirty = true;
     for (auto& button : advance) button->m_dirty = true;
@@ -1032,7 +1106,8 @@ void W8PartySelectionController::DrawPartySelectionComposition()
     auto& target = GetFrameBufferSurface();
     if (m_redraw_backdrop) {
         CatalogArtwork::Load(0xfa, 0).drawAndInvalidate(target, 0, 0, 0);
-        if (m_mode == W8_PARTY_SELECT_IMPORT) CatalogArtwork::Load(0x103, 0).draw(target, 0, 0x140, 0x12e);
+        if (m_mode == W8_PARTY_SELECT_IMPORT)
+            CatalogArtwork::Load(0x103, 0).draw(target, 0, 0x140, 0x12e);
         m_redraw_backdrop = false;
     }
     m_range->Redraw(target, false);
@@ -1057,8 +1132,7 @@ void W8PartySelectionController::OpenNotification(std::string_view message, bool
     m_dialog->SetExtent(0xa0, 100);
     m_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     m_dialog->SetClientExtent(0xfa, 200);
-    m_dialog->SetMessage(message, 1, 0x32, true, allow_cancel, true, true, 0,
-                         0x15e);
+    m_dialog->SetMessage(message, 1, 0x32, true, allow_cancel, true, true, 0, 0x15e);
     m_dialog->InputLayer().setModal(true);
 }
 
@@ -1215,7 +1289,8 @@ unsigned char PartySelectionScreenEnter(void)
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     if (!collection) {
         ResetForNewGame();
-        g_party_selection_character_collection = std::make_unique<W8PartySelectionCharacterCollection>();
+        g_party_selection_character_collection =
+            std::make_unique<W8PartySelectionCharacterCollection>();
         collection = g_party_selection_character_collection.get();
 
         collection->ReloadCharacters();
@@ -1261,59 +1336,59 @@ void PartySelectionScreenFrame(void)
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);
         }
     }
-    if (!controller->m_dialog) PumpUiInput({.unhandled = [&](const InputEvent& input) {
-        if (!controller->HandleNameInput(input) &&
-            (input.type == InputEventType::KeyDown || input.type == InputEventType::KeyRepeat)) {
-            switch (input.key) {
-            case VK_RETURN:
-                controller->TogglePartyMemberSelection();
-                break;
-            case VK_ESCAPE:
-                switch (controller->m_mode) {
-                case W8_PARTY_SELECT_CHARACTERS:
-                case W8_PARTY_SELECT_IMPORT:
-                    if (CountActiveCharacters() == 0) {
-                        RequestScreenTransition();
-                    } else {
-                        controller->OpenNotification(g_localized_strings[0x6d3], true,
-                                                     W8_PARTY_CONFIRM_LEAVE);
+    if (!controller->m_dialog)
+        PumpUiInput({.unhandled = [&](const InputEvent& input) {
+            if (!controller->HandleNameInput(input) && (input.type == InputEventType::KeyDown ||
+                                                        input.type == InputEventType::KeyRepeat)) {
+                switch (input.key) {
+                case VK_RETURN:
+                    controller->TogglePartyMemberSelection();
+                    break;
+                case VK_ESCAPE:
+                    switch (controller->m_mode) {
+                    case W8_PARTY_SELECT_CHARACTERS:
+                    case W8_PARTY_SELECT_IMPORT:
+                        if (CountActiveCharacters() == 0) {
+                            RequestScreenTransition();
+                        } else {
+                            controller->OpenNotification(g_localized_strings[0x6d3], true,
+                                                         W8_PARTY_CONFIRM_LEAVE);
+                        }
+                        break;
+                    case W8_PARTY_SELECT_OPTIONS:
+                    case W8_PARTY_SELECT_CREATION_NOTICE:
+                    case W8_PARTY_SELECT_SAVE_NAME:
+                        controller->SetMode(controller->m_previous_mode);
+                        controller->SetSelection(
+                            0, controller->m_previous_mode == W8_PARTY_SELECT_IMPORT, true);
+                        break;
                     }
                     break;
-                case W8_PARTY_SELECT_OPTIONS:
-                case W8_PARTY_SELECT_CREATION_NOTICE:
-                case W8_PARTY_SELECT_SAVE_NAME:
-                    controller->SetMode(controller->m_previous_mode);
-                    controller->SetSelection(
-                        0, controller->m_previous_mode == W8_PARTY_SELECT_IMPORT, true);
+                case VK_UP:
+                    if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
+                        controller->m_selected_row > 0) {
+                        controller->SetSelection(controller->m_selected_row - 1, false, true);
+                    }
+                    break;
+                case VK_DOWN:
+                    if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
+                        controller->m_selected_row <
+                            static_cast<int>(
+                                g_party_selection_character_collection->characters.size()) -
+                                1) {
+                        controller->SetSelection(controller->m_selected_row + 1, false, true);
+                    }
+                    break;
+                case VK_DELETE:
+                    if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
+                        controller->m_character) {
+                        controller->OnPrimary(controller->m_delete_button);
+                    }
                     break;
                 }
-                break;
-            case VK_UP:
-                if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
-                    controller->m_selected_row > 0) {
-                    controller->SetSelection(controller->m_selected_row - 1,
-                                             false, true);
-                }
-                break;
-            case VK_DOWN:
-                if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
-                    controller->m_selected_row <
-                        static_cast<int>(
-                            g_party_selection_character_collection->characters.size()) -
-                            1) {
-                    controller->SetSelection(controller->m_selected_row + 1,
-                                             false, true);
-                }
-                break;
-            case VK_DELETE:
-                if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS && controller->m_character) {
-                    controller->OnPrimary(controller->m_delete_button);
-                }
-                break;
             }
-        }
-        return InputRoute::Handled;
-    }});
+            return InputRoute::Handled;
+        }});
     UpdateCharacterEventState();
     controller->DrawPartySelectionComposition();
     RenderFrame();

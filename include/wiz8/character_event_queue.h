@@ -2,15 +2,15 @@
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
-#include "wiz8/audio_resources.h"
-#include "timer.h"
-
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include <array>
 #include <memory>
 #include <vector>
+
+#include "timer.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
 
 struct W8Character;
 

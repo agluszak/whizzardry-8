@@ -1,50 +1,18 @@
-#include <cstddef>
-#include <utility>
-#include <SDL3/SDL_rect.h>
-#include "wiz8/engine_code/Video2.h"
-#include <memory>
-#include <cstdint>
-#include <fmt/format.h>
-#include <string>
+#include "wiz8/local_screens/MGSButtons.h"
+
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
-#include "wiz8/local_screens/MGSButtons.h"
-#include "Video2.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/cursor.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/xstatus.h"
+#include <SDL3/SDL_rect.h>
+#include <fmt/format.h>
+
 #include "Font.h"
-#include "timer.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "equipment_slots.h"
@@ -52,6 +20,40 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "surrender/srMath.h"
+#include "timer.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 #define MGSBUTTONS_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSButtons.cpp"
 
@@ -73,12 +75,12 @@ uint64_t g_submenu_clock;
 // GLOBAL: WIZ8 0x0069B8D4
 bool g_submenu_close_pending;
 namespace {
-template <std::size_t... I>
+template<std::size_t... I>
 std::array<W8ButtonWidget, sizeof...(I)> ButtonsOn(UiLayer& layer, std::index_sequence<I...>)
 {
     return {((void)I, W8ButtonWidget(layer))...};
 }
-template <std::size_t N> std::array<W8ButtonWidget, N> ButtonsOn(UiLayer& layer)
+template<std::size_t N> std::array<W8ButtonWidget, N> ButtonsOn(UiLayer& layer)
 {
     return ButtonsOn(layer, std::make_index_sequence<N>{});
 }
@@ -105,12 +107,14 @@ struct SubMenu {
 std::unique_ptr<SubMenu> submenu;
 }
 
-void DestroySubMenuPanel() { submenu.reset(); }
+void DestroySubMenuPanel()
+{
+    submenu.reset();
+}
 
 /* Five caption rows suffice: Berserk and Pray require mutually exclusive
    professions, leaving room for the cancel action. */
 // GLOBAL: WIZ8 0x0069B8EC
-
 
 static void SubMenuPanelCloseButton(W8ButtonWidget* button);
 static void SubMenuPanelFormationButton(W8ButtonWidget* button);
@@ -166,7 +170,8 @@ void RefreshSubMenuPanel(bool invalidate)
     submenu->dirty |= invalidate;
     auto& target = GetFrameBufferSurface();
     if (submenu->dirty) {
-        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left, 0x1c3);
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left,
+                                                        0x1c3);
         for (auto& button : submenu->buttons) button->m_dirty = true;
         submenu->dirty = false;
     }
@@ -920,8 +925,9 @@ void DrawSubMenuCharacterAction(void)
                 if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
                     text += g_localized_strings[0x5b8];
                 } else {
-                    text += g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                               &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
+                    text +=
+                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                            &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
                 }
             }
             if (!character->Hand[1].in_play) {
@@ -1208,8 +1214,7 @@ void UpdateSubMenuAutoClose(void)
     case 5:
         right = left + 0x67;
     }
-    if (!IsCursorInRectangle(left, 0x1c3, right,
-                             0x1c3 + 0x1c)) {
+    if (!IsCursorInRectangle(left, 0x1c3, right, 0x1c3 + 0x1c)) {
     check_clock:
         if (!g_submenu_close_pending) {
             g_submenu_clock = w8_get_ticks() + (500);
@@ -1313,18 +1318,21 @@ unsigned char BuildSubMenuPanel(short notification)
     submenu = std::make_unique<SubMenu>();
     submenu->left = left;
     submenu->background = base;
-    submenu->input.add(SDL_Rect{left, 0x1c3, icon_delta + 1, 0x1d}, [](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
-            AfterUiDispatch(DestroySubMenuControls);
-        return UiResult::Handled;
-    }, -1);
+    submenu->input.add(
+        SDL_Rect{left, 0x1c3, icon_delta + 1, 0x1d},
+        [](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+                AfterUiDispatch(DestroySubMenuControls);
+            return UiResult::Handled;
+        },
+        -1);
     static constexpr void (*actions[5][5])() = {
-        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead, SubMenuSelectPray},
+        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead,
+         SubMenuSelectPray},
         {SubMenuSelectDefend, SubMenuSelectProtect},
         {SubMenuSelectEquip, SubMenuOpenUseItemView, SubMenuUseRecordedItem},
         {SubMenuOpenSpellView, SubMenuCastRecordedSpell},
-        {SubMenuSelectWalk, SubMenuSelectRun}
-    };
+        {SubMenuSelectWalk, SubMenuSelectRun}};
     for (index = 0; index < built - 1; ++index) {
         entry = g_submenu_entries[index];
         state = g_submenu_entry_states[entry];
@@ -1368,13 +1376,17 @@ unsigned char BuildSubMenuPanel(short notification)
         button->SetPosition(left + index * 19 + 5, 0x1c8);
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
-            button->on_hover = [](bool hovered) { if (hovered) SetUiHelpForced(true); };
+            button->on_hover = [](bool hovered) {
+                if (hovered) SetUiHelpForced(true);
+            };
             button->SetTooltip([] {
                 const int slot = g_status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot)) return std::string(g_localized_strings[0x5d]);
+                if (!CanPartySlotUseRecordedItem(slot))
+                    return std::string(g_localized_strings[0x5d]);
                 const auto& row = g_status.buffers.XChar[slot];
                 const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
-                return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
+                return fmt::format("{}: {}", g_localized_strings[0x5d],
+                                   FormatItemDisplayName(item, false));
             });
         }
         submenu->buttons.push_back(std::move(button));

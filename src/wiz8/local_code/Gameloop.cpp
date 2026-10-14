@@ -1,49 +1,49 @@
 #include <cstddef>
 #include <vector>
 
-#include "wiz8/music_playlist.h"
 #include "layouts/game_status.h"
 #include "soundman.h"
+#include "wiz8/music_playlist.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
-#include "wiz8/character_event_queue.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/PleaseWaitScreen.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/CreditsScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/fonts.h"
-#include "wiz8/sr_api.h"
 #include "Font.h"
 #include "wiz8/application.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/local_code/CombatSound.h"
-#include "wiz8/local_code/Configuration.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/CreditsScreen.h"
+#include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/MainMenuScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/local_screens/PartySelectionScreen.h"
+#include "wiz8/local_screens/PleaseWaitScreen.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/xstatus.h"
 
 /* GameloopExit names this unit; GameLoop is placed with that companion. */
 
@@ -94,8 +94,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
 
-    if (gXStatus.character_event_queue)
-        gXStatus.character_event_queue->DestroyAllEvents();
+    if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();
     ReleaseHitSoundDatabase();
     ReleaseGenericItemNames();
     ReleaseNpcStates();
@@ -121,8 +120,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     ReleaseMessageStorage();
     FreeStringTable();
     g_status.buffers = {};
-    if (save_configuration)
-        SaveGameConfiguration();
+    if (save_configuration) SaveGameConfiguration();
 }
 
 /* Screens own their input layers. A suspended screen keeps its layers, so
@@ -209,8 +207,7 @@ void GameloopExit(unsigned char release_screens)
     W8ScreenId state;
 
     // Complete voice events before leaving gameplay unloads its UI.
-    if (gXStatus.character_event_queue)
-        gXStatus.character_event_queue->DestroyAllEvents();
+    if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();
 
     g_smfnt_font.resetPalette();
     g_calligraphy_font.resetPalette();

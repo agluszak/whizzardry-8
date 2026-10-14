@@ -1,27 +1,28 @@
-#include "surrender/model_view_scope.h"
+#include <atomic>
+#include <cmath>
+#include <mutex>
+#include <ostream>
+#include <string>
+#include <string_view>
+
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <ostream>
-#include <atomic>
-#include <cmath>
-#include <mutex>
-#include <string>
-#include <string_view>
 
+#include "compat/compiler.h"
+#include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
-#include "surrender/srNode.h"
-#include "surrender/stream_scope.h"
+#include "surrender/model_view_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srGERD.h"
-#include "compat/compiler.h"
 #include "surrender/srFlags.h"
+#include "surrender/srGERD.h"
 #include "surrender/srMath.h"
+#include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
-#include "glm/fwd.hpp"
+#include "surrender/stream_scope.h"
 
 // GLOBAL: SURRENDER 0x100A49E0
 std::recursive_mutex srNode::sceneGraphCSect;
@@ -149,8 +150,7 @@ void srNode::updateBounds()
 // FUNCTION: SURRENDER 0x10050510
 srNode::BoundInfo srNode::getLocalBounds()
 {
-    return {glm::vec3(0), glm::vec3(0), glm::vec3(0), 0.0f,
-            testFlag(FLAG_GLOBAL) != 0 ? 2 : 0};
+    return {glm::vec3(0), glm::vec3(0), glm::vec3(0), 0.0f, testFlag(FLAG_GLOBAL) != 0 ? 2 : 0};
 }
 
 // FUNCTION: SURRENDER 0x100505E0
@@ -211,8 +211,7 @@ w8_long srNode::getHierarchyLevel() const
 }
 
 // FUNCTION: SURRENDER 0x10050C10
-srNode::srNode(srNode* parent, Ownership ownership)
-    : parent_owns_(ownership == Ownership::parent)
+srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == Ownership::parent)
 {
     std::lock_guard access(sceneGraphCSect);
     world_transform0 = glm::dmat4x3(1);
@@ -525,8 +524,7 @@ void srNode::setRotation(const glm::dvec3& direction, double amount)
 }
 
 // FUNCTION: SURRENDER 0x10052B20
-void srNode::setRotation(const glm::dvec3& first, const glm::dvec3& second,
-                         double amount)
+void srNode::setRotation(const glm::dvec3& first, const glm::dvec3& second, double amount)
 {
     setRotation(first - second, amount);
 }
@@ -714,7 +712,8 @@ void srNode::dumpHierarchy(std::ostream& stream, w8_long indent) const
 {
     const srNode* node = this;
     do {
-        srStreamPrintf(stream, "%*c%s (%s)\n", indent, 0x20, node->getName().c_str(), node->getClassName());
+        srStreamPrintf(stream, "%*c%s (%s)\n", indent, 0x20, node->getName().c_str(),
+                       node->getClassName());
         if (node->first_child_ != 0) {
             node->first_child_->dumpHierarchy(stream, indent + 2);
         }
@@ -939,8 +938,7 @@ void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
     rotation = glm::dmat3(local);
     scale =
         glm::dvec3(glm::length(rotation[0]), glm::length(rotation[1]), glm::length(rotation[2]));
-    for (int column = 0; column < 3; ++column)
-        rotation[column] /= scale[column];
+    for (int column = 0; column < 3; ++column) rotation[column] /= scale[column];
     setWSDirty();
 }
 
@@ -949,8 +947,8 @@ void srNode::turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction
     auto basis = getWorldSpaceRotation();
     const unsigned numerator = axis == 0 ? 1 : 0;
     const unsigned denominator = axis == 2 ? 1 : 2;
-    const double turn = std::atan2(glm::dot(basis[numerator], direction),
-                                  glm::dot(basis[denominator], direction));
+    const double turn =
+        std::atan2(glm::dot(basis[numerator], direction), glm::dot(basis[denominator], direction));
     const double angle = (axis == 1 ? turn : -turn) * amount;
     glm::dvec3 rotation_axis(0);
     rotation_axis[axis] = 1;

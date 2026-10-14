@@ -1,22 +1,23 @@
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
 #include <algorithm>
-#include <string_view>
-#include <vector>
 #include <cctype>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
-#include "wiz8/unicode.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
 #include "input.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/unicode.h"
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
    unit (lines 131 and 213); the two button callbacks are proven by their
@@ -45,21 +46,18 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
-        y = m_y + (m_height - 0x21) / 2 -
-            (g_dialog_interface_font->height() * m_line_count >> 1);
+        y = m_y + (m_height - 0x21) / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     }
     if (!m_lines.empty()) {
         {
             TextOptions options;
-            options.colors.foreground =
-                g_dialog_interface_font->color(g_dialog_font_foreground);
-            options.colors.background =
-                g_dialog_interface_font->color(g_dialog_font_background);
+            options.colors.foreground = g_dialog_interface_font->color(g_dialog_font_foreground);
+            options.colors.background = g_dialog_interface_font->color(g_dialog_font_background);
             for (index = 0; index < m_line_count; ++index) {
                 const auto& line = m_lines[index];
                 short width = g_dialog_interface_font->textWidth(line);
-                DrawText(target, *g_dialog_interface_font,
-                         {m_x + (m_width - width) / 2, y}, line, options);
+                DrawText(target, *g_dialog_interface_font, {m_x + (m_width - width) / 2, y}, line,
+                         options);
                 y += g_dialog_interface_font->height();
             }
         }
@@ -149,7 +147,8 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         if (!line.empty() && g_dialog_interface_font->textWidth(candidate) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);
-        } else line = std::move(candidate);
+        } else
+            line = std::move(candidate);
         start = stop;
         if (start < message.size() && message[start] == ' ') ++start;
     }
@@ -172,7 +171,9 @@ int W8MessageDialogBase::CreateControls()
 {
     if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     if (!m_edge_image) {
-        m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+        m_edge_image = LoadGenericButtonImages(
+            {}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {},
+            m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (!m_edge_image) {
             return m_error = 3;
         }

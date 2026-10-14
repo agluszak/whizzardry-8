@@ -1,14 +1,13 @@
 #pragma once
 
-#include <memory>
 #include <array>
-
 #include <cstdint>
+#include <memory>
 
+#include "input.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_layer.h"
-#include "input.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text
    rows and the two scroll-arrow buttons: construction, teardown and the

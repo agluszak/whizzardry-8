@@ -1,19 +1,19 @@
 #pragma once
 
 #include <atomic>
-#include "glm/ext/vector_double3.hpp"
-#include <type_traits>
-#include <mutex>
 #include <memory>
+#include <mutex>
+#include <new>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
-#include "srFlags.h"
+
+#include "glm/ext/vector_double3.hpp"
 #include "model_view_scope.h"
+#include "srFlags.h"
 #include "srMath.h"
 #include "srTypeRegistry.h"
-
-#include <new>
 
 // VTABLE: SURRENDER 0x10077204
 // class srClassSupport<srNode, srClass, 4096>
@@ -70,10 +70,7 @@ public:
     enum class Ownership { parent, independent };
     SR_DLL_IMPORT srNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
     /* Copies the transform under the default parent; links are not copied. */
-    srNode(const srNode& other) : srNode(nullptr)
-    {
-        *this = other;
-    }
+    srNode(const srNode& other) : srNode(nullptr) { *this = other; }
     virtual SR_DLL_IMPORT ~srNode() override;
 
     SR_DLL_IMPORT srNode& operator=(const srNode& other);
@@ -101,8 +98,10 @@ protected:
         const auto mode = testFlag(FLAG_DISABLE) ? EffectTraversal::childrenOnly : activity();
         if (mode == EffectTraversal::skipSubtree) return;
         if (mode == EffectTraversal::active) {
-            if (testFlag(FLAG_GLOBAL)) info.nodes.push_back(this);
-            else info.entries.push_back({this, PROCESS_PUSH});
+            if (testFlag(FLAG_GLOBAL))
+                info.nodes.push_back(this);
+            else
+                info.entries.push_back({this, PROCESS_PUSH});
         }
         if (first_child_) first_child_->traverse(info);
         if (mode == EffectTraversal::active && !testFlag(FLAG_GLOBAL))
@@ -128,10 +127,7 @@ public:
     SR_DLL_IMPORT srNode* getNext() const;
     // FUNCTION: SURRENDER 0x10051A40 SYMBOL
     // RECOMP: ?getParent@srNode@@QBEPAV1@XZ
-    srNode* getParent() const
-    {
-        return parent_;
-    }
+    srNode* getParent() const { return parent_; }
     SR_DLL_IMPORT srNode* getPrev() const;
     SR_DLL_IMPORT int isChildOf(const srNode& node) const;
     SR_DLL_IMPORT int isParentOf(const srNode& node) const;
@@ -139,14 +135,18 @@ public:
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
-    [[nodiscard]] SR_DLL_IMPORT srModelViewScope scopedWorldSpaceMatrix(class srGERD& renderer) const;
+    [[nodiscard]] SR_DLL_IMPORT srModelViewScope
+    scopedWorldSpaceMatrix(class srGERD& renderer) const;
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
     SR_DLL_IMPORT glm::dvec3 getLocation() const;
     SR_DLL_IMPORT double getLocationX() const;
     SR_DLL_IMPORT double getLocationY() const;
     SR_DLL_IMPORT double getLocationZ() const;
     template<class Matrix = glm::dmat3>
-    Matrix getRotation() const { return Matrix(rotation); }
+    Matrix getRotation() const
+    {
+        return Matrix(rotation);
+    }
     SR_DLL_IMPORT glm::dvec3 getScale() const;
 
     template<class Scalar>
@@ -214,8 +214,8 @@ public:
     SR_DLL_IMPORT void setLocationZ(double z);
     SR_DLL_IMPORT void setRotation(const glm::mat3& rotation);
     SR_DLL_IMPORT void setRotation(const glm::dmat3& rotation);
-    SR_DLL_IMPORT void setRotation(const glm::dvec3& first,
-                                   const glm::dvec3& second, double amount);
+    SR_DLL_IMPORT void setRotation(const glm::dvec3& first, const glm::dvec3& second,
+                                   double amount);
     SR_DLL_IMPORT void setRotation(const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void setRotation(double amount, const glm::dvec3& direction);
     SR_DLL_IMPORT void setRotation(double x, double y, double z);
@@ -267,17 +267,17 @@ private:
 
     glm::dmat3 rotation; /* 0x018 */
     glm::dvec3 location; /* 0x060 */
-    glm::dvec3 scale;    /* 0x078 */
+    glm::dvec3 scale; /* 0x078 */
     /* Cached world transforms and the notification word mutate inside the
        const updateTransformation/getter family. */
     mutable glm::dmat4x3 world_transform0; /* 0x090: cached affine world transform */
-    mutable glm::mat4x3 world_transform1;  /* 0x0f0 */
-    mutable srFlags<e_notify> notifications;       /* 0x120 */
-    srFlags<e_flag> flags;                         /* 0x124 */
+    mutable glm::mat4x3 world_transform1; /* 0x0f0 */
+    mutable srFlags<e_notify> notifications; /* 0x120 */
+    srFlags<e_flag> flags; /* 0x124 */
 
 public:
-    srNode* next_sibling_;     /* 0x128 */
+    srNode* next_sibling_; /* 0x128 */
     srNode* previous_sibling_; /* 0x12c */
-    srNode* parent_;           /* 0x130 */
-    srNode* first_child_;      /* 0x134 */
+    srNode* parent_; /* 0x130 */
+    srNode* first_child_; /* 0x134 */
 };

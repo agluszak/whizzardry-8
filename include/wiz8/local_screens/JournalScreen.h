@@ -5,7 +5,9 @@ extern char g_default_level[];
 
 #include "wiz8/fact_state.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 struct W8JournalEntry {
     int level;

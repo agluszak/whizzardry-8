@@ -1,16 +1,17 @@
-#include <fmt/format.h>
 #include <cmath>
 #include <string>
 #include <string_view>
 
+#include <fmt/format.h>
+
+#include "input.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/mipe.h"
-#include "wiz8/unicode.h"
 #include "wiz8/sr_api.h"
-#include "input.h"
+#include "wiz8/unicode.h"
 
 #define MIPE_EDIT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\mipeEdit.cpp"
 
@@ -64,7 +65,7 @@ void CommitMipeEditFields(W8TriggerActionData* data, signed char bVarSet);
    g_mipe_table_base; the selected row gets palette 6, the rest 15. */
 #define MIPE_REDRAW_EDIT_FIELDS()                                                                  \
     do {                                                                                           \
-        W8MipeState* state_ = g_mipe_state.get();                                                        \
+        W8MipeState* state_ = g_mipe_state.get();                                                  \
         char shown_ =                                                                              \
             static_cast<char>(state_->edit_field_count - static_cast<char>(g_mipe_table_base));    \
         char row_;                                                                                 \

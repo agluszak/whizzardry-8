@@ -1,17 +1,17 @@
-#include <catch2/catch_test_macros.hpp>
-#include <memory>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 
+#include <catch2/catch_test_macros.hpp>
+
 #include "surrender/srClipPlane.h"
+#include "surrender/srCore.h"
 #include "surrender/srFog.h"
 #include "surrender/srLight.h"
-#include "surrender/srCore.h"
 #include "surrender/srTypeRegistry.h"
 
 class srNode;
-
 
 static bool identity()
 {
@@ -52,6 +52,7 @@ static bool identity()
 TEST_CASE("runtime_lookup_test")
 {
     // Metadata is owned by each runtime lifecycle, with no stale static cache.
-    REQUIRE(identity()); REQUIRE(identity());
+    REQUIRE(identity());
+    REQUIRE(identity());
     std::puts("ok: runtime format identity, names and clones");
 }

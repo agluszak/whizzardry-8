@@ -1,17 +1,18 @@
-#include <sstream>
-#include <string_view>
-#include <limits>
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
+#include "wiz8/engine_code/stScript.h"
+
 #include <cstddef>
 #include <exception>
+#include <limits>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-#include "wiz8/unicode.h"
-#include "wiz8/engine_code/stScript.h"
-#include "wiz8/virtual_file.h"
 #include "filesystem.h"
+#include "wiz8/unicode.h"
+#include "wiz8/virtual_file.h"
 
 /* Read one byte at a time through the virtual-file layer.  End-of-file after
    at least one byte still returns a line, while an empty end-of-file clears
@@ -19,8 +20,7 @@
    the CR after the loop. */
 // FUNCTION: WIZ8 0x004CEE40
 bool ReadTextLine(wiz8::File* handle, char* destination, int capacity, bool& more)
-try
-{
+try {
     more = 0;
     if (capacity <= 0) return 0;
     destination[0] = 0;
@@ -40,8 +40,10 @@ try
     }
     if (length != 0 && destination[length - 1] == '\r') destination[length - 1] = 0;
     return more != 0 || length != 0;
+} catch (const std::exception&) {
+    more = 0;
+    return false;
 }
-catch (const std::exception&) { more = 0; return false; }
 
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
@@ -53,8 +55,7 @@ void stScript::Clear()
 // FUNCTION: WIZ8 0x004CF3B0
 bool stScript::Load(const char* path)
 try {
-    if (!path)
-        return false;
+    if (!path) return false;
     std::istringstream input(wiz8::open_file(path)->read_text());
     std::string text;
     stScript pending;
@@ -62,20 +63,21 @@ try {
     while (std::getline(input, text)) {
         if (source_line == std::numeric_limits<int>::max()) return false;
         ++source_line;
-        if (text.ends_with('\r'))
-            text.pop_back();
+        if (text.ends_with('\r')) text.pop_back();
         const auto start = text.find_first_not_of(" \t");
-        if (start == text.npos || text[start] == '*')
-            continue;
+        if (start == text.npos || text[start] == '*') continue;
         const auto stop = text.find_first_of(" \t", start);
         std::string_view token(text.data() + start,
                                (stop == text.npos ? text.size() : stop) - start);
         if (token.ends_with(':')) {
             token.remove_suffix(1);
             if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1)
-                pending.labels.push_back({std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
+                pending.labels.push_back(
+                    {std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
         } else {
-            if (lines.size() + pending.lines.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max())) return false;
+            if (lines.size() + pending.lines.size() >=
+                static_cast<std::size_t>(std::numeric_limits<int>::max()))
+                return false;
             pending.lines.push_back({std::move(text), source_line});
         }
     }
@@ -92,8 +94,7 @@ try {
 int stScript::FindLabelLine(std::string_view label) const
 {
     for (const auto& entry : labels)
-        if (CompareTextIgnoreAsciiCase(entry.name, label) == 0)
-            return entry.line;
+        if (CompareTextIgnoreAsciiCase(entry.name, label) == 0) return entry.line;
     return -1;
 }
 

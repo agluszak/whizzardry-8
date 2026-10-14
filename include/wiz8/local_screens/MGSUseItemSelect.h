@@ -2,6 +2,7 @@
 
 #include "input.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/ui_layer.h"
 
 class W8DialogBase;
 struct W8ItemInstance;

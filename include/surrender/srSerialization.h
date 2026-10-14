@@ -1,8 +1,9 @@
 #pragma once
 
+#include <bit>
+
 #include "srIO.h"
 #include "srQuadWord.h"
-#include <bit>
 
 // Only formats SDL does not represent directly. Integers use SDL_Read/Write*.
 namespace srSerialization {
@@ -13,7 +14,9 @@ inline float readFloatLE(SDL_IOStream* io)
     return std::bit_cast<float>(bits);
 }
 inline void writeFloatLE(SDL_IOStream* io, float value)
-{ srIO::check(SDL_WriteU32LE(io, std::bit_cast<Uint32>(value))); }
+{
+    srIO::check(SDL_WriteU32LE(io, std::bit_cast<Uint32>(value)));
+}
 inline float readFloatBE(SDL_IOStream* io)
 {
     Uint32 bits;
@@ -21,7 +24,9 @@ inline float readFloatBE(SDL_IOStream* io)
     return std::bit_cast<float>(bits);
 }
 inline void writeFloatBE(SDL_IOStream* io, float value)
-{ srIO::check(SDL_WriteU32BE(io, std::bit_cast<Uint32>(value))); }
+{
+    srIO::check(SDL_WriteU32BE(io, std::bit_cast<Uint32>(value)));
+}
 inline double readDoubleLE(SDL_IOStream* io)
 {
     Uint64 bits;
@@ -29,7 +34,9 @@ inline double readDoubleLE(SDL_IOStream* io)
     return std::bit_cast<double>(bits);
 }
 inline void writeDoubleLE(SDL_IOStream* io, double value)
-{ srIO::check(SDL_WriteU64LE(io, std::bit_cast<Uint64>(value))); }
+{
+    srIO::check(SDL_WriteU64LE(io, std::bit_cast<Uint64>(value)));
+}
 inline double readDoubleBE(SDL_IOStream* io)
 {
     Uint64 bits;
@@ -37,7 +44,9 @@ inline double readDoubleBE(SDL_IOStream* io)
     return std::bit_cast<double>(bits);
 }
 inline void writeDoubleBE(SDL_IOStream* io, double value)
-{ srIO::check(SDL_WriteU64BE(io, std::bit_cast<Uint64>(value))); }
+{
+    srIO::check(SDL_WriteU64BE(io, std::bit_cast<Uint64>(value)));
+}
 inline srQuadWord readQuadWordLE(SDL_IOStream* io)
 {
     Uint64 bits;
@@ -45,7 +54,9 @@ inline srQuadWord readQuadWordLE(SDL_IOStream* io)
     return {Uint32(bits), Uint32(bits >> 32)};
 }
 inline void writeQuadWordLE(SDL_IOStream* io, srQuadWord value)
-{ srIO::check(SDL_WriteU64LE(io, Uint64(value.lo) | (Uint64(value.hi) << 32))); }
+{
+    srIO::check(SDL_WriteU64LE(io, Uint64(value.lo) | (Uint64(value.hi) << 32)));
+}
 inline srQuadWord readQuadWordBE(SDL_IOStream* io)
 {
     Uint64 bits;
@@ -53,5 +64,7 @@ inline srQuadWord readQuadWordBE(SDL_IOStream* io)
     return {Uint32(bits), Uint32(bits >> 32)};
 }
 inline void writeQuadWordBE(SDL_IOStream* io, srQuadWord value)
-{ srIO::check(SDL_WriteU64BE(io, Uint64(value.lo) | (Uint64(value.hi) << 32))); }
+{
+    srIO::check(SDL_WriteU64BE(io, Uint64(value.lo) | (Uint64(value.hi) << 32)));
+}
 } // namespace srSerialization

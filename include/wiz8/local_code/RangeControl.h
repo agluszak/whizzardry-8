@@ -1,10 +1,11 @@
 #pragma once
 
-#include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
-#include "wiz8/catalog_artwork.h"
 #include <array>
 #include <functional>
+
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/ui_layer.h"
 
 // A scrollbar owns three input targets and paints its retail artwork directly.
 class W8RangeControl {

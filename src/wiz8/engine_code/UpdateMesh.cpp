@@ -1,32 +1,33 @@
+#include "wiz8/engine_code/UpdateMesh.h"
+
 #include <algorithm>
 #include <array>
-#include "glm/ext/vector_int2.hpp"
-#include "glm/ext/vector_float2.hpp"
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <memory>
 #include <utility>
 #include <vector>
-#include <memory>
 
-#include "wiz8/engine_code/UpdateMesh.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/quad.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/sr_api.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srCamera.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int2.hpp"
 #include "layouts/world.h"
+#include "surrender/srCamera.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/quad.h"
+#include "wiz8/sr_api.h"
 
 /* Convert the mesh view half-angle from degrees to radians. */
 // GLOBAL: WIZ8 0x005ED168
 const float g_mesh_view_degrees_to_radians = 0.01745329424738884f;
 
-static bool AppendQuadRow(int left, int right, int max_x, int row,
-                          std::vector<glm::ivec2>& cells)
+static bool AppendQuadRow(int left, int right, int max_x, int row, std::vector<glm::ivec2>& cells)
 {
     if (left > 0) --left;
     if (right < max_x) ++right;
@@ -40,8 +41,8 @@ struct QuadRowEdges {
 };
 
 static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, int last_row,
-                                QuadRowEdges edges, bool clip_x, bool skip_boundary,
-                                std::vector<glm::ivec2>& cells)
+                                 QuadRowEdges edges, bool clip_x, bool skip_boundary,
+                                 std::vector<glm::ivec2>& cells)
 {
     if (first_row < 0) {
         edges.position -= float(first_row) * edges.step;
@@ -79,9 +80,9 @@ static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, in
 }
 
 // Scan either a flat edge converging to its tip or a tip fanning out to the edge.
-static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left,
-                                glm::ivec2 right, const glm::ivec2& tip, bool flat_top,
-                                bool skip_boundary, std::vector<glm::ivec2>& cells)
+static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left, glm::ivec2 right,
+                                 const glm::ivec2& tip, bool flat_top, bool skip_boundary,
+                                 std::vector<glm::ivec2>& cells)
 {
     if (right.x < left.x) std::swap(left, right);
     const int first_row = flat_top ? left.y : tip.y;
@@ -91,17 +92,18 @@ static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left,
     const float height = static_cast<float>(last_row - first_row);
     const bool clip_x = left.x < 0 || left.x >= dimensions.x || right.x < 0 ||
                         right.x >= dimensions.x || tip.x < 0 || tip.x >= dimensions.x;
-    return ScanQuadTriangleRows(dimensions, first_row, last_row,
-        {glm::vec2(start) + glm::vec2(0, 0.5f), glm::vec2(end - start) / height},
-        clip_x, skip_boundary, cells);
+    return ScanQuadTriangleRows(
+        dimensions, first_row, last_row,
+        {glm::vec2(start) + glm::vec2(0, 0.5f), glm::vec2(end - start) / height}, clip_x,
+        skip_boundary, cells);
 }
 
 std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions,
-                                            std::array<glm::ivec2, 3> points)
+                                              std::array<glm::ivec2, 3> points)
 {
     auto& [first, middle, last] = points;
-    if ((first.x == middle.x && middle.x == last.x) ||
-        (first.y == middle.y && middle.y == last.y)) return {};
+    if ((first.x == middle.x && middle.x == last.x) || (first.y == middle.y && middle.y == last.y))
+        return {};
     if (middle.y < first.y) std::swap(first, middle);
     if (last.y < first.y) std::swap(first, last);
     if (last.y < middle.y) std::swap(middle, last);
@@ -112,9 +114,10 @@ std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions,
         ScanQuadTriangleHalf(dimensions, middle, last, first, false, false, cells);
     } else {
         const int split = static_cast<int>(static_cast<float>(last.x - first.x) *
-                                          (middle.y - first.y) / (last.y - first.y));
+                                           (middle.y - first.y) / (last.y - first.y));
         const glm::ivec2 edge(first.x + split, middle.y);
-        const bool emitted = ScanQuadTriangleHalf(dimensions, edge, middle, first, false, false, cells);
+        const bool emitted =
+            ScanQuadTriangleHalf(dimensions, edge, middle, first, false, false, cells);
         ScanQuadTriangleHalf(dimensions, middle, edge, last, true, emitted, cells);
     }
     return cells;
@@ -131,10 +134,11 @@ std::vector<glm::ivec2> visibleQuadCells(const W8World& world)
         static_cast<int>((world.camera->getLocationZ() - quad.origin.y) / cell_size));
     const auto rotation = world.camera->getRotation<glm::mat3>();
     const auto edge = [&](float angle) {
-        const auto direction = rotation * glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0))) *
+        const auto direction = rotation *
+                               glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0))) *
                                glm::vec3(0, 0, world.render_range);
         return camera_cell + glm::ivec2(static_cast<int>(direction.x / cell_size),
-                                       static_cast<int>(direction.z / cell_size));
+                                        static_cast<int>(direction.z / cell_size));
     };
     const auto left = edge(-g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians);
     const auto right = edge(g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians);

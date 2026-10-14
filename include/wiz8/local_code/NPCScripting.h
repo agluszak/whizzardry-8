@@ -9,7 +9,6 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_speech.h"
 
-
 struct W8NpcState;
 struct W8NpcScriptFile;
 struct W8NpcQuoteEntry;
@@ -69,7 +68,8 @@ extern W8NpcScriptingState g_npc_scripting;
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
 void TryFinishNpcVoicePlayback(bool force);
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index);
+int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
+                                short* sub_entry_index);
 void RunNpcScriptLine(int script_line, bool force_npc_voice);
 /* Resolve the player's answer to the pending reply and clear it. */
 void AnswerNpcReply(std::string_view text);

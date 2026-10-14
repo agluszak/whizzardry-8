@@ -1,4 +1,5 @@
 #include "wiz8/integer_constants.h"
+
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 
 /* Definitions for integer_constants.h: this unit reads none of them, so no

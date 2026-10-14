@@ -1,30 +1,29 @@
-#include "glm/ext/vector_int3.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include <catch2/catch_test_macros.hpp>
 #include <array>
 #include <cstddef>
 #include <memory>
 #include <type_traits>
 #include <vector>
 
+#include <catch2/catch_test_macros.hpp>
+
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srMath.h"
-#include "glm/ext/vector_float2.hpp"
-#include "surrender/srMaterial.h"
-#include "surrender/srShader.h"
 #include "surrender/srVertexPipe.h"
 
-
 static_assert(std::is_same_v<decltype(srMeshModel::poly_vertices), std::vector<glm::ivec3>>);
-static_assert(std::is_same_v<decltype(srMeshModel::vertex_locations),
-                             std::vector<glm::vec3>>);
-static_assert(std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe),
-                             std::unique_ptr<srVertexPipe>>);
+static_assert(std::is_same_v<decltype(srMeshModel::vertex_locations), std::vector<glm::vec3>>);
+static_assert(
+    std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe), std::unique_ptr<srVertexPipe>>);
 static_assert(!std::is_copy_constructible_v<srTriMeshPipeline>);
 
 static bool defaults()
@@ -43,11 +42,13 @@ static bool defaults()
     REQUIRE(mesh->bounds_center == glm::vec3(0, 0, 0));
     REQUIRE((mesh->bounds_radius == 0 && mesh->sort_bias == 0));
     for (int pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
-        REQUIRE((mesh->dig[pass] == nullptr && mesh->dcg[pass] == nullptr && mesh->scg[pass] == nullptr));
+        REQUIRE((mesh->dig[pass] == nullptr && mesh->dcg[pass] == nullptr &&
+                 mesh->scg[pass] == nullptr));
         REQUIRE((mesh->poly_uv[pass] == nullptr && mesh->poly_shaders[pass] == nullptr));
         REQUIRE(mesh->shaders[pass].value == srShader().value);
         for (int side = 0; side < 2; ++side) {
-            REQUIRE((mesh->texcoords[pass][side] == nullptr && mesh->materials[pass][side] == nullptr));
+            REQUIRE(
+                (mesh->texcoords[pass][side] == nullptr && mesh->materials[pass][side] == nullptr));
             REQUIRE(mesh->textures[pass][side] == nullptr);
             REQUIRE(mesh->vertex_materials[pass][side] == nullptr);
             REQUIRE(mesh->poly_textures[pass][side] == nullptr);
@@ -62,8 +63,7 @@ static bool zeroNormals()
     std::array<srVector3, 2> normals;
     normals[0].Set(0, 0, 0);
     normals[1].Set(0, 0, 2);
-    for (auto& normal : normals)
-        normal.Normalize();
+    for (auto& normal : normals) normal.Normalize();
     REQUIRE(normals[0] == srVector3(0, 0, 0));
     REQUIRE(normals[1] == srVector3(0, 0, 1));
     return true;
@@ -82,15 +82,18 @@ static bool lazyTables()
     REQUIRE(empty.getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1) == nullptr);
 
     srMeshModel mesh(2, 3);
-    REQUIRE((mesh.poly_vertices.empty() && mesh.vertex_locations.empty() && mesh.vertex_normals.empty()));
+    REQUIRE((mesh.poly_vertices.empty() && mesh.vertex_locations.empty() &&
+             mesh.vertex_normals.empty()));
     REQUIRE((mesh.poly_equations.empty() && mesh.active_polygons.empty()));
     for (int pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
-        REQUIRE((mesh.getPolyShader(pass, 0) == nullptr && mesh.getPolyUVIndex(pass, 0) == nullptr));
+        REQUIRE(
+            (mesh.getPolyShader(pass, 0) == nullptr && mesh.getPolyUVIndex(pass, 0) == nullptr));
         REQUIRE((mesh.getVertexDIG(pass, 0) == nullptr && mesh.getVertexDCG(pass, 0) == nullptr));
         REQUIRE(mesh.getVertexSCG(pass, 0) == nullptr);
         for (int side = 0; side < 2; ++side) {
             REQUIRE(mesh.getPolyTexture(pass, side, 0) == nullptr);
-            REQUIRE(mesh.getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0) == nullptr);
+            REQUIRE(mesh.getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0) ==
+                    nullptr);
             REQUIRE(mesh.getVertexTexCoords(pass, side, 0) == nullptr);
         }
     }
@@ -105,7 +108,8 @@ static bool lazyTables()
     corners[0].y = 1;
     corners[0].z = 2;
     auto* uv_indices = mesh.getPolyUVIndex(2, 1);
-    REQUIRE((uv_indices != corners && uv_indices[0].x == 0 && uv_indices[0].y == 1 && uv_indices[0].z == 2));
+    REQUIRE((uv_indices != corners && uv_indices[0].x == 0 && uv_indices[0].y == 1 &&
+             uv_indices[0].z == 2));
     REQUIRE(mesh.getTriMesh().poly_uv[2] == uv_indices);
     REQUIRE(mesh.getPolyUVIndex(0, 0) == nullptr);
     auto* active = mesh.getActivePolygonTable(1);
@@ -180,15 +184,18 @@ static bool reset()
         mesh.setPassCount(3);
         REQUIRE(mesh.getTriMesh().texcoords[2][0][6].x == 0.5f);
         mesh.reset(2, 4);
-        REQUIRE((mesh.getVertexCount() == 4 && mesh.getUVCount() == 4 && mesh.getPolygonCount() == 2));
+        REQUIRE(
+            (mesh.getVertexCount() == 4 && mesh.getUVCount() == 4 && mesh.getPolygonCount() == 2));
         REQUIRE((mesh.getPassCount() == 1 && mesh.getActivePolygonCount() == 2));
-        REQUIRE((mesh.getSortBias() == 0.25f && mesh.getMaterial(0, srMeshModel::SIDE_FRONT) == material.get()));
+        REQUIRE((mesh.getSortBias() == 0.25f &&
+                 mesh.getMaterial(0, srMeshModel::SIDE_FRONT) == material.get()));
         REQUIRE(mesh.getTexture(0, 0) == texture.get());
         REQUIRE((mesh.vertex_locations.empty() && mesh.vertex_locations.capacity() == 0));
         REQUIRE((mesh.texcoords[2][0].empty() && mesh.texcoords[2][0].capacity() == 0));
         REQUIRE((mesh.tri_mesh.positions == nullptr && mesh.tri_mesh.texcoords[2][0] == nullptr));
         REQUIRE(mesh.getVertexMaterial(1, srMeshModel::SIDE_BACK, 0) == nullptr);
-        REQUIRE((mesh.getPolyTexture(1, 0, 0) == nullptr && mesh.getActivePolygonTable(0) == nullptr));
+        REQUIRE(
+            (mesh.getPolyTexture(1, 0, 0) == nullptr && mesh.getActivePolygonTable(0) == nullptr));
         REQUIRE(mesh.getVertexLoc()[1] == glm::vec3(0, 0, 0));
     }
     REQUIRE((material.use_count() == 1 && texture.use_count() == 1));
@@ -218,9 +225,9 @@ static bool pipelineSlots()
         REQUIRE(pipeline->current_record == &pipeline->records[slot]);
         REQUIRE(pipeline->current_pass == &pipeline->passes[slot]);
         REQUIRE((pipeline->current_record->flags == 0 &&
-              pipeline->current_record->st_source[0] == nullptr));
+                 pipeline->current_record->st_source[0] == nullptr));
         REQUIRE((pipeline->current_record->spec_for_diffuse == nullptr &&
-              pipeline->current_record->alpha_source == nullptr));
+                 pipeline->current_record->alpha_source == nullptr));
         REQUIRE(pipeline->current_pass->poly_uv == nullptr);
         pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, srShader());
         for (unsigned previous = 0; previous <= slot; ++previous) {
@@ -232,10 +239,12 @@ static bool pipelineSlots()
     }
     // Zero triangles exercise the real Flush boundary without any device work.
     pipeline->FlushIfCurrent();
-    REQUIRE((pipeline->records[0].st_source[0] == uv && pipeline->passes[0].texture_tables[0] == textures));
+    REQUIRE((pipeline->records[0].st_source[0] == uv &&
+             pipeline->passes[0].texture_tables[0] == textures));
     pipeline->Reset(&renderer);
     REQUIRE((pipeline->slot_count == 0 && pipeline->current_record->st_source[0] == nullptr));
-    REQUIRE((pipeline->current_pass->texture_tables[0] == nullptr && pipeline->current_pass->shaders == nullptr));
+    REQUIRE((pipeline->current_pass->texture_tables[0] == nullptr &&
+             pipeline->current_pass->shaders == nullptr));
     REQUIRE(pipeline->current_record->materials == nullptr);
     REQUIRE(pipeline->bounds_minimum == glm::vec3(0, 0, 0));
     // A per-polygon shader table wins over the caller's uniform override.
@@ -252,12 +261,12 @@ static bool pipelineSlots()
     for (unsigned box = 0; box < 2; ++box) {
         for (unsigned sphere = 0; sphere < 2; ++sphere) {
             pipeline->Reset(&renderer);
-            submitted.control_flags =
-                (box ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_BOX) |
-                (sphere ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+            submitted.control_flags = (box ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_BOX) |
+                                      (sphere ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
             pipeline->SetMeshBounds(submitted);
-            REQUIRE(pipeline->bounds_source == (sphere ? srTriMeshPipeline::BOUNDS_SPHERE :
-                box ? srTriMeshPipeline::BOUNDS_BOX : srTriMeshPipeline::BOUNDS_FROM_VERTICES));
+            REQUIRE(pipeline->bounds_source == (sphere ? srTriMeshPipeline::BOUNDS_SPHERE
+                                                : box  ? srTriMeshPipeline::BOUNDS_BOX
+                                                       : srTriMeshPipeline::BOUNDS_FROM_VERTICES));
         }
     }
     return true;

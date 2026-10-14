@@ -1,18 +1,23 @@
 #include "wiz8/level_specific_code/Arnika.h"
 
-#include <vector>
 #include <string>
+#include <vector>
 
-#include "wiz8/engine_code/IntervalGate.h"
-#include "wiz8/engine_code/Trigger.hpp"
+#include "layouts/item_instance.h"
+#include "monster_actions.h"
+#include "soundman.h"
+#include "surrender/srMath.h"
+#include "wiz8/cursor.h"
 #include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/cursor.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"
@@ -22,16 +27,10 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/layouts/game_status.h"
-#include "surrender/srMath.h"
-#include "soundman.h"
-#include "layouts/item_instance.h"
-#include "monster_actions.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/xstatus.h"
 
 struct W8NpcState;
-
 
 /* Level Specific Code\Arnika.cpp (level 0, Arnika).
 
@@ -151,7 +150,7 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
 }
 
 static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
-                                   const ElevatorStateBindings& bindings, int command)
+                                    const ElevatorStateBindings& bindings, int command)
 {
     if (command != 0) {
         if (command == -1) {
@@ -190,7 +189,7 @@ static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
 }
 
 static void RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings,
-                                   int command)
+                                    int command)
 {
     if (command != 0) {
         if (command == -1) {
@@ -427,8 +426,8 @@ bool ArnikaMookholo(Trigger* pTrigger)
                 g_npc_dialogue_closed = false;
                 g_master_functions.push_back(ArnikaMookholoWatch);
             }
-            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)),
-                                 0, -1, false, 0);
+            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0, -1, false,
+                                 0);
         }
     }
     return true;

@@ -45,10 +45,7 @@ public:
     /* Retail scales each word separately: hi * (2^32 * factor) + lo * factor
        (0x10060F90 multiplies by 4294.967296 and 1e-6; calibrate by 42949672.96
        and 0.01), which rounds differently from converting first. */
-    double operator*(double factor) const
-    {
-        return hi * (4294967296.0 * factor) + lo * factor;
-    }
+    double operator*(double factor) const { return hi * (4294967296.0 * factor) + lo * factor; }
 
     srQuadWord operator*(unsigned int factor) const
     {
@@ -70,4 +67,3 @@ public:
         return result;
     }
 };
-
