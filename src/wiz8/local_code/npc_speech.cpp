@@ -6,7 +6,6 @@
 #include <utility>
 
 #include "compat/native.h"
-#include "soundman.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/mouth_gap.h"
@@ -14,15 +13,9 @@
 
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)
 {
-    speech.voice_handle =
-        wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.voice_volume * 70 / 100),
-                                 .on_finished = [&speech, on_finished = std::move(on_finished)] {
-                                     if (!speech.stopping) {
-                                         on_finished();
-                                     }
-                                 }});
+    speech.voice_playing = speech.voice.Play(
+        path, std::uint32_t(g_settings.voice_volume * 70 / 100), std::move(on_finished));
     speech.voice_started_at = w8_get_ticks();
-    speech.voice_playing = speech.voice_handle != nullptr;
     return speech.voice_playing;
 }
 
@@ -32,11 +25,17 @@ void StopNpcVoice(W8NpcSpeech& speech)
         return;
     }
     speech.voice_playing = false;
-    if (speech.voice_handle != nullptr) {
-        speech.stopping = true;
-        wiz8::sound::stop(speech.voice_handle);
-        speech.stopping = false;
-    }
+    speech.voice.Stop();
+    speech.gap_track = {};
+}
+
+void ResetNpcSpeech(W8NpcSpeech& speech)
+{
+    StopNpcVoice(speech);
+    speech.voice.Stop();
+    speech.voice_started_at = 0;
+    speech.hold_ms = 0;
+    speech.hold_started_at = 0;
     speech.gap_track = {};
 }
 
@@ -59,7 +58,7 @@ bool IsNpcSpeechHoldOver(const W8NpcSpeech& speech)
 
 void UpdateNpcMouth(W8NpcSpeech& speech, W8Monster* monster)
 {
-    UpdateMouthGapTrack(speech.voice_handle, speech.gap_track);
+    UpdateMouthGapTrack(speech.voice.playback(), speech.gap_track);
     if (monster != 0) {
         monster->mouth_open = speech.gap_track.mouth_open;
     }
