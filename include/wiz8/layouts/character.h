@@ -30,7 +30,7 @@ struct W8Enchantment {
     /* Retail offset 0x08: turns left; the fatigue path consults it on slot five. */
     unsigned int turns;
 };
-#pragma pack(pop) /* Retail offset 0x0c */
+#pragma pack(pop)
 
 /* Runtime names own UTF-8 strings. retail_text_records.h encodes the
    10/6-unit UTF-16LE fields separately and preserves the following unknown bytes. */
@@ -38,18 +38,18 @@ struct W8Enchantment {
 /* Base attributes and their effective values after equipment and effects. */
 #pragma pack(push, 1)
 struct W8CharacterAttribute {
-    unsigned int base; /* Retail offset 0x00 */
+    unsigned int base;
     unsigned int effective;
     int change_counter;
     unsigned char unknown_0c[8];
 };
-#pragma pack(pop) /* Retail offset 0x14 */
+#pragma pack(pop)
 
 /* One skill record, indexed directly by skill id. The leading flag is set
    when a skill first becomes available. */
 #pragma pack(push, 1)
 struct W8CharacterSkill {
-    bool active; /* Retail offset 0x00: skill slot in use */
+    bool active;
     /* Retail offset 0x01: set by ResetSkillContribution; never read. */
     bool reset_flag;
     /* Retail offset 0x02: invested points. Spellbook selection and skill-increase notices
@@ -71,18 +71,18 @@ struct W8CharacterSkill {
     bool available;
     unsigned char unknown_14[0x12];
 };
-#pragma pack(pop) /* Retail offset 0x26 */
+#pragma pack(pop)
 
 /* One resistance channel. Recalculation rebuilds `base` from scratch each time
    and then derives `total` from it, so the two are a computed pair rather than
    a stored value and a cache. */
 #pragma pack(push, 1)
 struct W8CharacterResistance {
-    unsigned int base;  /* Retail offset 0x00 */
-    unsigned int total; /* Retail offset 0x04: clamped to 100 */
+    unsigned int base;
+    unsigned int total;
     unsigned char unknown_08[8];
 };
-#pragma pack(pop) /* Retail offset 0x10 */
+#pragma pack(pop)
 
 /* The six realms a spell point pool is kept per are W8SpellRealm's, declared
    with the spell record in wiz8/layouts/gameplay_databases.h. */
@@ -102,50 +102,50 @@ enum {
 enum { HOLDS_NOTHING = 0 };
 #pragma pack(push, 1)
 struct W8HandAttack {
-    int uiHolds;                 /* Retail offset 0x00 */
-    bool in_play;                /* Retail offset 0x04 */
-    W8Skill weapon_skill;        /* Retail offset 0x05, unaligned */
-    W8Skill combat_skill;        /* Retail offset 0x09 */
-    unsigned int combined_skill; /* Retail offset 0x0d */
-    int attack_score;            /* Retail offset 0x11 */
-    unsigned int attacks;        /* Retail offset 0x15 */
-    int swings;                  /* Retail offset 0x19 */
-    int damage_bonus;            /* Retail offset 0x1d */
-    int hit_bonus;               /* Retail offset 0x21 */
-    int attack_bonus;            /* Retail offset 0x25: attack-score term, paired with modifier attack_bonus */
-    int damage_percent; /* Retail offset 0x29: percent damage multiplier, paired with modifier damage_percent */
-    W8Dice damage_dice; /* Retail offset 0x2d */
-    unsigned short attack_flags; /* Retail offset 0x31 */
-    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT]; /* Retail offset 0x33: unarmed condition probabilities */
+    int uiHolds;
+    bool in_play;
+    W8Skill weapon_skill;
+    W8Skill combat_skill;
+    unsigned int combined_skill;
+    int attack_score;
+    unsigned int attacks;
+    int swings;
+    int damage_bonus;
+    int hit_bonus;
+    int attack_bonus;
+    int damage_percent;
+    W8Dice damage_dice;
+    unsigned short attack_flags;
+    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
     unsigned char unknown_43[0x18];
 };
-#pragma pack(pop) /* Retail offset 0x5b */
+#pragma pack(pop)
 
 /* One condition record. GetConditionRecordFlag reads byte 8 of one of the
    four; the condition-0x13 fold reads record one's leading dwords as the level
    the binding was made on and the bound monster's id. */
 #pragma pack(push, 1)
 struct W8CharacterConditionRecord {
-    int level_acquired; /* Retail offset 0x00: level the condition attached on */
-    int source_monster; /* Retail offset 0x04: monster id/location the dependence is bound to */
+    int level_acquired;
+    int source_monster;
     bool active;
     unsigned char unknown_09[8];
 };
-#pragma pack(pop) /* Retail offset 0x11 */
+#pragma pack(pop)
 
 struct W8Character {
     /* Retail offset 0x0000: SaveCharacter stamps 1 here before writing the record, so the
        leading dword is a saved-record version rather than runtime state. */
     unsigned int record_version;
-    bool fInParty; /* Retail offset 0x0004 */
+    bool fInParty;
     /* Retail offset 0x0005: the character's name, also the stem of its "%s.CHR" file. */
     std::string name;
-    std::string name_part_2; /* Retail offset 0x0019: rendered as the parenthesized name */
+    std::string name_part_2;
     unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
     /* Retail offset 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
-    W8Profession iProfession;         /* Retail offset 0x0069 */
-    W8Profession original_profession; /* Retail offset 0x006d */
+    W8Profession iProfession;
+    W8Profession original_profession;
     /* Retail offset 0x0071: indexes the race resistance table. */
     W8Race iRace;
     /* Retail offset 0x0075: zero is male and one is female. The quote lookup names the
@@ -161,23 +161,23 @@ struct W8Character {
        by the character rebuild; all three accesses are four-byte stores. */
     int unknown_007d;
     int personality; /* indexes the state-5 descriptor text */
-    int voice;       /* selected by the character voice control */
+    int voice; /* selected by the character voice control */
     /* Retail offset 0x0089: the experience level; averaged across occupied slots. */
     unsigned int uiExpLevel;
-    int profession_levels[W8_PROFESSION_COUNT]; /* Retail offset 0x008d */
+    int profession_levels[W8_PROFESSION_COUNT];
     unsigned char unknown_00c9[0x14];
     /* Retail offset 0x00dd: the eight-band ladder over the character's level in their
        current profession, and the base subtracted from it while they are still
        in the profession they started in. */
     int level_band;
     int level_band_base;
-    W8CharacterAttribute attributes[7]; /* Retail offset 0x00e5, indexed by skill_id - 0x22 */
+    W8CharacterAttribute attributes[7];
     unsigned char unknown_0171[0x28];
     /* Retail offset 0x199: the attribute points the level-up reset still owes against the
        profession's minimums. It accumulates as a negative debt and is drawn
        back down one point at a time once the pool is positive. */
     int attribute_point_deficit;
-    W8CharacterSkill skills[0x29]; /* Retail offset 0x019d, indexed by skill_id */
+    W8CharacterSkill skills[0x29];
     unsigned char unknown_07b3[0x23a];
     /* Retail offset 0x09ed..0x09f8: experience, the goal for the next level, and the goal
        the previous level had. A character is ready to advance once the first
@@ -193,9 +193,9 @@ struct W8Character {
     /* Retail offset 0x0a01: one entry per condition, holding how long it has left to run;
        W8_CONDITION_INDEFINITE means until something lifts it. The monster
        carries the identical array. */
-    unsigned int uiCondition[W8_CONDITION_COUNT]; /* Retail offset 0x0a01 */
+    unsigned int uiCondition[W8_CONDITION_COUNT];
     unsigned char unknown_0a51[0x14];
-    W8Enchantment enchantments[8]; /* Retail offset 0x0a65 */
+    W8Enchantment enchantments[8];
     unsigned char unknown_0ac5[0x3c];
     /* Retail offset 0x0b01: the highest currently-set condition index, rescanned from
        uiCondition[0x13] downward whenever a condition is
@@ -212,16 +212,16 @@ struct W8Character {
     /* Retail offset 0x0b0d..0x0b20: the two pools with a ceiling each, plus the adjustment
        damage is booked against before hit points are recalculated. A character
        whose hp_current is zero is treated as out of the fight everywhere. */
-    int uiHPMax;                  /* Retail offset 0x0b0d */
-    unsigned int hp_current;      /* Retail offset 0x0b11 */
-    int hp_adjustment;            /* Retail offset 0x0b15 */
-    int uiStaminaMax;             /* Retail offset 0x0b19 */
-    int stamina;                  /* Retail offset 0x0b1d */
-    unsigned int fatigue_penalty; /* Retail offset 0x0b21: taken off the stamina ceiling */
+    int uiHPMax;
+    unsigned int hp_current;
+    int hp_adjustment;
+    int uiStaminaMax;
+    int stamina;
+    unsigned int fatigue_penalty;
     /* Retail offset 0x0b25 and 0x0b45: the spell-point pools, one per spell realm. */
-    int sp_max[W8_SPELL_REALM_COUNT]; /* Retail offset 0x0b25 */
+    int sp_max[W8_SPELL_REALM_COUNT];
     unsigned char unknown_0b3d[8];
-    int iSPLeft[W8_SPELL_REALM_COUNT]; /* Retail offset 0x0b45 */
+    int iSPLeft[W8_SPELL_REALM_COUNT];
     unsigned char unknown_0b5d[8];
     /* Retail offset 0x0b65: game minutes until the alchemist (trait MAKE_POTIONS) may brew
        again; the aging tick counts it down outside surprise, and a successful
@@ -240,16 +240,16 @@ struct W8Character {
     float stamina_regen_accumulator;
     float spell_regen_rates[12];
     unsigned char unknown_0ba9[0x10];
-    unsigned int inventory_weight;     /* Retail offset 0x0bb9 */
-    unsigned int party_weight_share;   /* Retail offset 0x0bbd */
-    unsigned int total_carried_weight; /* Retail offset 0x0bc1 */
-    unsigned int carrying_capacity;    /* Retail offset 0x0bc5; displayed divided by 10 */
+    unsigned int inventory_weight;
+    unsigned int party_weight_share;
+    unsigned int total_carried_weight;
+    unsigned int carrying_capacity;
     /* Retail offset 0x0bc9: the load category, zero through four, which scales what an
        action costs in fatigue. FatigueCharacter's error text calls it that. */
     W8LoadCategory load_category;
     /* Retail offset 0x0bcd: one entry per spell. CanCharacterUseItem refuses a spell-source
        item whose spell already reads one here, so one is the learned state. */
-    int spell_learned[136]; /* Retail offset 0x0bcd */
+    int spell_learned[136];
     /* Retail offset 0x0ded: indexed by skill_id. For the six realm skills it counts the
        spells known in that realm, which is what makes the skill available at
        all - LearnSpell bumps the entry and IsCharacterSkillAvailable reads it.
@@ -266,25 +266,25 @@ struct W8Character {
     /* Retail offset 0x0e8d: thirteen armor-class components. CalcArmorClasses clears the
        whole run before applying equipment, traits, load and fatigue. */
     int armor_class_components[13];
-    int armor_class_by_location[5]; /* Retail offset 0x0ec1 */
+    int armor_class_by_location[5];
     unsigned char unknown_0ed5[4];
     /* Retail offset 0x0ed9: a percentage taken off incoming damage, the character's
        counterpart of the monster's own at 0x1e1. */
     int damage_reduction;
-    W8CharacterResistance resistances[W8_RESISTANCE_COUNT]; /* Retail offset 0x0edd */
+    W8CharacterResistance resistances[W8_RESISTANCE_COUNT];
     unsigned char flags0[0x20];
     /* Retail offset 0x0f5d: the twelve worn/held slots, indexed by W8EquipSlot. Slots six
        and seven are the primary hands and eight and nine the alternate pair. */
-    W8ItemInstance EquippedItem[12]; /* Retail offset 0x0f5d */
+    W8ItemInstance EquippedItem[12];
     unsigned char flags1[0x3c];
     /* Retail offset 0x1029: the eight per-character carried slots. GetOriginOfCharacterItem
        reports this array as origin zero and the equipment array as origin one. */
-    W8ItemInstance backpack[8]; /* Retail offset 0x1029 */
+    W8ItemInstance backpack[8];
     unsigned char unknown_1089[0xc0];
     /* Retail offset 0x1149: the two per-hand derived attack blocks. */
     W8HandAttack Hand[2];
     unsigned char unknown_11ff[0xb6];
-    unsigned char dual_wielding; /* Retail offset 0x12b5 */
+    unsigned char dual_wielding;
     /* Retail offset 0x12b6: per-monster-id detection score, one byte per record id. The
        wandering-group pass adds the group's member count while the party stays
        unaware, and the detection roll subtracts the record's effective level
@@ -306,11 +306,11 @@ struct W8Character {
     /* Retail offset 0x17d7: the CamPos record cameraState writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
        W8GlobalStatus::pending_move_location. */
-    W8WorldCameraState saved_location; /* Retail offset 0x17d7 */
+    W8WorldCameraState saved_location;
     /* Retail offset 0x1813: which level that anchor belongs to. The recall compares it
        against g_status.current_level and takes a different path when they differ. */
-    int saved_level;                          /* Retail offset 0x1813 */
-    W8CharacterConditionRecord conditions[4]; /* Retail offset 0x1817 .. 0x185a */
+    int saved_level;
+    W8CharacterConditionRecord conditions[4];
     /* Retail offset 0x185b: the deep-fatigue effect is already on this character, which is
        what stops FatigueCharacter re-applying it every turn. */
     bool deep_fatigue_applied;
@@ -331,7 +331,7 @@ enum W8SkillImportPolicy {
 
 struct W8SkillAttributes {
     int category;
-    W8SkillImportPolicy import_policy; /* Retail offset 0x04: Wiz7 skill import eligibility */
+    W8SkillImportPolicy import_policy;
     /* Retail offset 0x08/0x0c: governing attributes averaged into base_level and
        listed in the stat-info dialog. */
     W8Attribute attribute_1;

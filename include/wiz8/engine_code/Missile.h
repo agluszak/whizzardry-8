@@ -174,8 +174,8 @@ struct W8MissileTableRecord {
     /* Retail offset 0x100: the GrCycle resource name the launcher loads through the
        "Data\\Missiles" script path. */
     std::string cycle_name;
-    float radius;             /* Retail offset 0x140: replaces the launched effect's radius */
-    W8AttackMode attack_mode; /* Retail offset 0x144: the attack mode the hit is resolved with */
+    float radius;
+    W8AttackMode attack_mode;
     unsigned char unknown_148[8];
     /* Retail offset 0x150: copied into the launched effect block's magnitude_base. */
     int magnitude_base;
