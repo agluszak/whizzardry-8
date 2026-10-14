@@ -721,14 +721,19 @@ void W8PartySelectionController::Setup()
                                                                   : g_wiz_text_bold_font),
                                            .sForeColor = 0,
                                            .sShadowColor = -1},
-                          {x, y, size.x, size.y}, {.on_click = [this](auto* control) {
-                              AfterUiDispatch([this, control] { OnPrimary(control); });
-                          },
-             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
-             .tooltip = index < 4 ? -1 : index == 4 ? 0x6cc : index == 5 ? 0x6cb : 0x6ca,
-             .menu_artwork = true});
-        button->SetImage(ButtonGraphics::Load(art.spriteSheet(), normal + 3, normal, normal + 1, normal + 2,
-                                             index == 4 ? 28 : normal + 2));
+                          {x, y, size.x, size.y},
+                          {.on_click =
+                               [this](auto* control) {
+                                   AfterUiDispatch([this, control] { OnPrimary(control); });
+                               },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = index < 4    ? -1
+                                      : index == 4 ? 0x6cc
+                                      : index == 5 ? 0x6cb
+                                                   : 0x6ca,
+                           .menu_artwork = true});
+        button->SetImage(ButtonGraphics::Load(art.spriteSheet(), normal + 3, normal, normal + 1,
+                                              normal + 2, index == 4 ? 28 : normal + 2));
     }
     m_create_button = actions[0].get(); m_add_remove_button = actions[1].get();
     m_delete_button = actions[2].get(); m_review_button = actions[3].get();

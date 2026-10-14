@@ -23,6 +23,7 @@ struct MainGameScreenState {
     MainGameScreenState();
     bool resume_world = false;
     MainGameHudButtons hud_buttons;
+    std::unique_ptr<MainGameSubMenu> submenu;
     UiLayer combat{0x04}, edges{0x10}, radar{0x12}, formation{0x13}, world{0x28};
     std::array<std::unique_ptr<UiLayer>, 8> portraits;
     std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};

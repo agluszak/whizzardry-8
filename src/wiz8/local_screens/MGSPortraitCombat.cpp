@@ -364,7 +364,6 @@ void DestroySubMenuControls(void)
 {
     SetSubMenuButtonTooltips(1);
     g_level_block->combat_end_notification = -1;
-    g_submenu_entry_count = 0;
     DestroySubMenuPanel();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }

@@ -107,5 +107,8 @@ private:
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
 public:
-    ButtonPolicy& Policy() { return m_setup.policy; }
+    ButtonPolicy& Policy()
+    {
+        return m_setup.policy;
+    }
 };

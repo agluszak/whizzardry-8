@@ -87,7 +87,8 @@ void W8ButtonWidget::SetEnabled(bool enabled)
     if (m_enabled == enabled) return;
     m_enabled = enabled;
     if (!enabled) {
-        m_interaction.cancel(m_setup.policy.primary_toggle != ButtonToggle::None || m_setup.policy.secondary_toggle != ButtonToggle::None);
+        m_interaction.cancel(m_setup.policy.primary_toggle != ButtonToggle::None ||
+                             m_setup.policy.secondary_toggle != ButtonToggle::None);
     }
     m_dirty = true;
 }
@@ -96,7 +97,9 @@ void W8ButtonWidget::SetEnabled(bool enabled)
 void W8ButtonWidget::SetPressed(bool pressed)
 {
     if (m_setup.policy.primary_toggle == ButtonToggle::Release ||
-        m_setup.policy.primary_toggle == ButtonToggle::StayLatched) m_interaction.selected = pressed;
+        m_setup.policy.primary_toggle == ButtonToggle::StayLatched) {
+        m_interaction.selected = pressed;
+    }
     if (m_interaction.pressed != pressed) {
         m_interaction.pressed = pressed;
         m_dirty = true;
@@ -109,7 +112,10 @@ void W8ButtonWidget::SetVisible(bool visible)
     if (!m_target || m_visible == visible) return;
     m_visible = visible;
     m_target->setEnabled(visible);
-    if (!visible) m_interaction.cancel(m_setup.policy.primary_toggle != ButtonToggle::None || m_setup.policy.secondary_toggle != ButtonToggle::None);
+    if (!visible) {
+        m_interaction.cancel(m_setup.policy.primary_toggle != ButtonToggle::None ||
+                             m_setup.policy.secondary_toggle != ButtonToggle::None);
+    }
     m_dirty = true;
     const auto mouse = UiPointerPosition();
     UpdateUiPointer(mouse.x, mouse.y);
@@ -156,12 +162,16 @@ W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(layer) {}
 W8ButtonWidget::~W8ButtonWidget()
 {
     *m_alive = false;
-    if (m_target) m_layer.remove(*m_target);
+    if (m_target) {
+        m_layer.remove(*m_target);
+    }
 }
 
 void W8ButtonWidget::Reset()
 {
-    if (m_target) m_layer.remove(*m_target);
+    if (m_target) {
+        m_layer.remove(*m_target);
+    }
     m_target = nullptr;
     m_appearance = {};
     SetBounds({});
@@ -173,9 +183,12 @@ void W8ButtonWidget::Reset()
 
 void W8ButtonWidget::ConfigureInput(ButtonSetup setup)
 {
-    if (m_target) m_layer.remove(*m_target);
+    if (m_target) {
+        m_layer.remove(*m_target);
+    }
     m_setup = std::move(setup);
-    m_target = &m_layer.add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
+    m_target = &m_layer.add(
+        SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
         [this](const UiPointerEvent& event) { return HandlePointer(event); }, m_setup.priority);
     m_visible = true;
     m_enabled = true;
@@ -220,12 +233,14 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     const bool backend_sound = event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave || event.action == UiPointerAction::Down ||
         (event.action == UiPointerAction::Up && event.captured_buttons != 0);
-    if (m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled && backend_sound) {
+    if (m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled &&
+        backend_sound) {
         PushButtonSoundScheme(0, true);
     }
     if (event.action == UiPointerAction::Leave) {
         if (m_interaction.leave(m_setup.policy) &&
-            m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState && m_setup.policy.repeat) {
+            m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState &&
+            m_setup.policy.repeat) {
             PushButtonSoundScheme(0, true);
         }
         m_dirty = true;
@@ -276,8 +291,9 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     default: return UiResult::Handled;
     }
     if (was_pressed != m_interaction.pressed) m_dirty = true;
-    const bool double_click = event.action == UiPointerAction::Down &&
-        event.button == UiPointerButton::Left && event.clicks >= 2 &&
+    const bool double_click =
+        event.action == UiPointerAction::Down && event.button == UiPointerButton::Left &&
+        event.clicks >= 2 &&
         (m_setup.policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
     const auto double_click_callback = double_click ? m_setup.on_double_click : W8ButtonCallback{};
     // Only repeats are silent in the dispatcher.

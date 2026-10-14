@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <array>
+#include <SDL3/SDL_rect.h>
+#include <optional>
+#include <vector>
 
 #include <cstdint>
 
@@ -16,6 +19,7 @@
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 
 // Owned by MainGameScreenState while the screen is active. The layer precedes
 // the buttons so input registrations are removed before the layer is destroyed.
@@ -39,20 +43,18 @@ struct MainGameHudButtons {
     W8ButtonWidget options_disk{input};
 };
 
-/* Submenu selection state. */
-extern short g_submenu_entry_count;
-extern uint64_t g_submenu_clock;
-extern bool g_submenu_close_pending;
-/* The cancel row lands at [built-1] where built is the available-entry count
-   plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
-   Pray (priest trait 0x0b) can never be available together. */
+// An active submenu owns its independently enabled input and button rows.
+struct MainGameSubMenu {
+    UiLayer input{0x27};
+    SDL_Rect bounds{};
+    int background = 0;
+    bool dirty = true;
+    std::optional<uint64_t> close_deadline;
+    std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
+};
+
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
-/* Which menu the open sub-menu panel serves (W8SubMenuPage value), each row's
-   entry index and each row's W8SubMenuEntryState, stored as shorts. */
-extern short g_submenu_menu;
-extern short g_submenu_entries[6];
-extern short g_submenu_entry_states[5];
 
 /* Invalidate (when asked) then redraw the sub-menu panel. */
 void RefreshSubMenuPanel(bool invalidate);
@@ -135,7 +137,7 @@ void EnableSubMenuRegions(void);
 void OpenSubMenuPanel(short notification);
 /* Build the panel and one row per available entry of the notification's
    menu. */
-unsigned char BuildSubMenuPanel(short notification);
+bool BuildSubMenuPanel(short notification);
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
 /* The row availability states the refresh maps icon frames through. */
 W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot);

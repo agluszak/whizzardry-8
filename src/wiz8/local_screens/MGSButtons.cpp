@@ -1,9 +1,11 @@
 #include "wiz8/button_interaction.h"
+#include "Types.h"
 #include <utility>
 #include <SDL3/SDL_rect.h>
 #include "wiz8/engine_code/Video2.h"
 #include <memory>
 #include <cstdint>
+#include <cstddef>
 #include <fmt/format.h>
 #include <string>
 #include <array>
@@ -60,24 +62,12 @@ unsigned short g_action_kind_message_ids[12] = {
     0x050f, 0x0510, 0x0511, 0x0512, 0x0513, 0x0514, 0x0515, 0x0516, 0x0517, 0x0518, 0x0519, 0x051a,
 };
 
-short g_submenu_menu;
-short g_submenu_entries[6];
-short g_submenu_entry_states[5];
-short g_submenu_entry_count;
-uint64_t g_submenu_clock;
-bool g_submenu_close_pending;
-
-namespace {
-struct SubMenu {
-    UiLayer input{0x27};
-    int left = 0, background = 0;
-    bool dirty = true;
-    std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
-};
-std::unique_ptr<SubMenu> submenu;
+void DestroySubMenuPanel()
+{
+    if (g_main_game_state) {
+        g_main_game_state->submenu.reset();
+    }
 }
-
-void DestroySubMenuPanel() { submenu.reset(); }
 
 /* Five caption rows suffice: Berserk and Pray require mutually exclusive
    professions, leaving room for the cancel action. */
@@ -133,11 +123,13 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
 // FUNCTION: WIZ8 0x005963E0
 void RefreshSubMenuPanel(bool invalidate)
 {
+    auto& submenu = g_main_game_state->submenu;
     if (!submenu) return;
     submenu->dirty |= invalidate;
     auto& target = GetFrameBufferSurface();
     if (submenu->dirty) {
-        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left, 0x1c3);
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background,
+                                                        submenu->bounds.x, 0x1c3);
         for (auto& button : submenu->buttons) button->m_dirty = true;
         submenu->dirty = false;
     }
@@ -253,12 +245,11 @@ void OpenSubMenuPanel(short notification)
         DestroySubMenuControls();
     }
     UpdateScreenOverlays(0);
-    if (BuildSubMenuPanel(notification) == 0) {
+    if (!BuildSubMenuPanel(notification)) {
         DestroySubMenuControls();
+        return;
     }
     SetSubMenuButtonTooltips(0);
-    g_submenu_clock = w8_get_ticks() + (0);
-    g_submenu_close_pending = false;
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
@@ -1152,64 +1143,35 @@ void UpdateMainGameButtons(void)
 // FUNCTION: WIZ8 0x00598FA0
 void UpdateSubMenuAutoClose(void)
 {
-    int left;
-    int right;
-
-    left = submenu->left;
-    switch (g_submenu_entry_count) {
-    case 0:
-    case 1:
-        goto check_clock;
-    case 2:
-        right = left + 0x2f;
-        break;
-    case 3:
-        right = left + 0x42;
-        break;
-    case 4:
-        right = left + 0x55;
-        break;
-    case 5:
-        right = left + 0x67;
+    auto& submenu = g_main_game_state->submenu;
+    if (!submenu) {
+        return;
     }
-    if (!IsCursorInRectangle(left, 0x1c3, right,
-                             0x1c3 + 0x1c)) {
-    check_clock:
-        if (!g_submenu_close_pending) {
-            g_submenu_clock = w8_get_ticks() + (500);
-            g_submenu_close_pending = true;
-            return;
-        }
-        if (TimeUntilDeadline(g_submenu_clock) == 0) {
-            DestroySubMenuControls();
-        }
-    } else if (g_submenu_close_pending) {
-        g_submenu_clock = w8_get_ticks() + (0);
-        g_submenu_close_pending = false;
+    const auto& bounds = submenu->bounds;
+    if (IsCursorInRectangle(bounds.x, bounds.y, bounds.x + bounds.w - 1, bounds.y + bounds.h - 1)) {
+        submenu->close_deadline.reset();
+    } else if (!submenu->close_deadline) {
+        submenu->close_deadline = w8_get_ticks() + 500;
+    } else if (TimeUntilDeadline(*submenu->close_deadline) == 0) {
+        DestroySubMenuControls();
     }
 }
 
 // FUNCTION: WIZ8 0x005957E0
 void EnableSubMenuRegions(void)
 {
+    auto& submenu = g_main_game_state->submenu;
     if (submenu) submenu->input.setEnabled(true);
 }
 
 // FUNCTION: WIZ8 0x00595850
-unsigned char BuildSubMenuPanel(short notification)
+bool BuildSubMenuPanel(short notification)
 {
-    short index;
-    int left;
-    int menu;
-    short count = 0;
-    int built = 0;
-    int entry;
-    short message;
-    int icon_delta;
-    short state;
-    int base;
-
+    auto& submenu = g_main_game_state->submenu;
     submenu.reset();
+    int left;
+    W8SubMenuPage menu;
+    int count;
     switch (notification) {
     case 6:
         menu = W8_SUBMENU_ATTACK;
@@ -1237,51 +1199,33 @@ unsigned char BuildSubMenuPanel(short notification)
         left = g_submenu_panel_button_positions[0].x - 1;
         break;
     default:
-        left = notification;
-        break;
+        return false;
     }
-    for (index = 0; index < count; ++index) {
-        state = GetSubMenuEntryState(menu, index, g_status.selected_character);
-        g_submenu_entry_states[index] = state;
+    std::vector<std::pair<int, W8SubMenuEntryState>> entries;
+    for (int index = 0; index < count; ++index) {
+        const auto state = GetSubMenuEntryState(menu, index, g_status.selected_character);
         if (state != W8_SUBMENU_ENTRY_UNAVAILABLE) {
-            g_submenu_entries[built] = index;
-            ++built;
+            entries.emplace_back(index, state);
         }
     }
-    ++built;
-    switch (built) {
-    case 2:
-        base = 0;
-        icon_delta = 0x2f;
-        break;
-    case 3:
-        base = 1;
-        icon_delta = 0x42;
-        break;
-    case 4:
-        base = 2;
-        icon_delta = 0x55;
-        break;
-    case 5:
-        base = 3;
-        icon_delta = 0x67;
-        break;
-    case 0:
-    case 1:
-        return 0;
-    default:
-        base = notification;
-        icon_delta = notification;
-        break;
+    if (entries.empty()) {
+        return false;
     }
-    submenu = std::make_unique<SubMenu>();
-    submenu->left = left;
-    submenu->background = base;
-    submenu->input.add(SDL_Rect{left, 0x1c3, icon_delta + 1, 0x1d}, [](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
-            AfterUiDispatch(DestroySubMenuControls);
-        return UiResult::Handled;
-    }, -1);
+    // Berserk and Pray are mutually exclusive, leaving at most four action rows.
+    constexpr std::array widths{0x2f, 0x42, 0x55, 0x67};
+    Assert(entries.size() <= widths.size());
+    const int built = static_cast<int>(entries.size()) + 1;
+    submenu = std::make_unique<MainGameSubMenu>();
+    submenu->bounds = {left, 0x1c3, widths[entries.size() - 1] + 1, 0x1d};
+    submenu->background = static_cast<int>(entries.size()) - 1;
+    submenu->input.add(
+        submenu->bounds,
+        [](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+                AfterUiDispatch(DestroySubMenuControls);
+            return UiResult::Handled;
+        },
+        -1);
     static constexpr void (*actions[5][5])() = {
         {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead, SubMenuSelectPray},
         {SubMenuSelectDefend, SubMenuSelectProtect},
@@ -1289,17 +1233,16 @@ unsigned char BuildSubMenuPanel(short notification)
         {SubMenuOpenSpellView, SubMenuCastRecordedSpell},
         {SubMenuSelectWalk, SubMenuSelectRun}
     };
-    for (index = 0; index < built - 1; ++index) {
-        entry = g_submenu_entries[index];
-        state = g_submenu_entry_states[entry];
-        message = g_submenu_entry_message_ids[menu * 5 + entry];
-        icon_delta = 0;
+    for (std::size_t index = 0; index < entries.size(); ++index) {
+        const auto [entry, state] = entries[index];
+        int message = g_submenu_entry_message_ids[menu * 5 + entry];
+        int icon_delta = 0;
         if (menu == W8_SUBMENU_SPELLS && entry == 1) {
             message += g_spell_records[g_status.buffers.XChar[g_status.selected_character].spell_id]
                            .realm *
                        7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
-            base = GetAttackMenuWeaponOffset(
+            const int base = GetAttackMenuWeaponOffset(
                 g_status.buffers.Char[g_status.selected_character].Hand[0].weapon_skill);
             message += base * 7;
         }
@@ -1319,6 +1262,8 @@ unsigned char BuildSubMenuPanel(short notification)
         case W8_SUBMENU_ENTRY_USABLE:
             icon_delta = 2;
             break;
+        case W8_SUBMENU_ENTRY_UNAVAILABLE:
+            std::unreachable();
         }
         auto button = std::make_unique<W8ButtonWidget>(submenu->input);
 
@@ -1337,7 +1282,7 @@ unsigned char BuildSubMenuPanel(short notification)
              .tooltip = g_submenu_entry_help_ids[menu * 5 + entry],
              .priority = 0,
              .menu_artwork = true});
-        button->SetPosition(left + index * 19 + 5, 0x1c8);
+        button->SetPosition(left + static_cast<int>(index) * 19 + 5, 0x1c8);
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
             button->SetTooltip([] {
@@ -1364,10 +1309,8 @@ unsigned char BuildSubMenuPanel(short notification)
     cancel->Resize(18, 18);
     submenu->buttons.push_back(std::move(cancel));
     g_level_block->combat_end_notification = notification;
-    g_submenu_menu = menu;
-    g_submenu_entry_count = built;
     EnableSubMenuRegions();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00596360
