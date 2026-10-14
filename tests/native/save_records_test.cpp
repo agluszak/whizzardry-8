@@ -117,7 +117,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
         path = BuildCharacterPath(name, -1);
         const std::string filename = std::string(name) + ".CHR";
         REQUIRE(path == std::string("Saves\\Characters\\") + filename);
-        REQUIRE(SaveCharacter(&character, -1, false, nullptr));
+        REQUIRE(SaveCharacter(&character, -1));
         REQUIRE(character.record_version == 1);
         const auto saved = user / "Saves" / "Characters" / filename;
         REQUIRE(std::filesystem::file_size(saved) == 4 + wiz8::retail::kCharacterBytes);
@@ -128,40 +128,45 @@ static void character_file_contracts(const std::filesystem::path& assets,
         REQUIRE((encoded.good() && size == wiz8::retail::kCharacterBytes));
         encoded.close();
         W8Character loaded = {};
-        REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1, false));
+        REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
         REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
         std::size_t operations;
-        { FileFaults trace; REQUIRE(SaveCharacter(&character, -1, false, nullptr)); operations = trace.operations; }
+        {
+            FileFaults trace;
+            REQUIRE(SaveCharacter(&character, -1));
+            operations = trace.operations;
+        }
         W8Character replacement = character;
         replacement.uiExpLevel = 99;
         for (std::size_t operation = 1; operation <= operations; ++operation) {
-            { FileFaults fault(operation); REQUIRE(!SaveCharacter(&replacement, -1, false, nullptr)); REQUIRE(fault.fired); }
-            REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1, false));
+            {
+                FileFaults fault(operation);
+                REQUIRE(!SaveCharacter(&replacement, -1));
+                REQUIRE(fault.fired);
+            }
+            REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
             REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
         }
         character.uiExpLevel = 8;
-        REQUIRE(SaveCharacter(&character, -1, false, nullptr));
-        REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1, false));
+        REQUIRE(SaveCharacter(&character, -1));
+        REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
         REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
     }
 
-    // I/O errors must reach the same failure continuation as an unsuccessful
-    // current-game save. A directory at the destination cannot be opened as a file.
+    // I/O errors report failure. A directory at the destination cannot be opened as a file.
     W8Character blocked{};
     blocked.name = "Blocked";
     std::filesystem::create_directory(user / "Saves" / "Characters" / "Blocked.CHR");
-    static unsigned failed_saves = 0;
-    REQUIRE(!SaveCharacter(&blocked, -1, false, [] { ++failed_saves; }));
-    REQUIRE(failed_saves == 1);
+    REQUIRE(!SaveCharacter(&blocked, -1));
 
     W8Character npc = {};
     npc.name = "Vi";
     std::string path;
     path = BuildCharacterPath(npc.name, 0);
     REQUIRE(path == "Saves\\NPCs\\Vi.CHR");
-    REQUIRE(SaveCharacter(&npc, 0, false, nullptr));
+    REQUIRE(SaveCharacter(&npc, 0));
     W8Character loaded = {};
-    REQUIRE(LoadCharacter("Vi.CHR", &loaded, 0, false));
+    REQUIRE(LoadCharacter("Vi.CHR", &loaded, 0));
     REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(npc));
 
     g_status.game_started = true;

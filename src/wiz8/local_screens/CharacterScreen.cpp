@@ -526,7 +526,7 @@ bool W8CharacterScreen::CommitCharacter()
             wiz8::remove_file(path);
         }
         m_character.fInParty = false;
-        if (!SaveCharacter(&m_character, -1, false, 0)) {
+        if (!SaveCharacter(&m_character, -1)) {
             m_character = backup;
             ShowMessage(g_localized_strings[0xd4], 0, 0);
             return false;

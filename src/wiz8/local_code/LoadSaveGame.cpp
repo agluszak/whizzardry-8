@@ -2,7 +2,6 @@
 #include "wiz8/unicode.h"
 #include "wiz8/engine_code/stScript.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include <fmt/format.h>
-#include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
 #include <optional>
 #include <string_view>
@@ -43,7 +42,6 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/notices.h"
 #include "wiz8/chunk.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -729,9 +727,9 @@ std::string BuildCharacterPath(std::string_view name, int slot)
 }
 
 /* Load one character record from its loose file, or from the current save's
-   CHAR chunks in a started game. A failure clears the record and may report. */
+   CHAR chunks in a started game. A failure clears the record. */
 // FUNCTION: WIZ8 0x005152b0
-bool LoadCharacter(std::string_view name, W8Character* character, int slot, bool report_failure)
+bool LoadCharacter(std::string_view name, W8Character* character, int slot)
 try
 {
     bool loaded = false;
@@ -749,10 +747,6 @@ try
         }
     } catch (const std::exception&) {
         loaded = false;
-    }
-    if (!loaded && report_failure) {
-        CreateMessageBox(fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
-                         g_small_font, 1, true, false, 0);
     }
     return loaded;
 }
@@ -1338,12 +1332,9 @@ bool SaveGameExists(void)
 }
 
 /* Write a character record. Before the game starts it is a loose file (its
-   read-only bit cleared first); afterwards a CHAR chunk of the current save.
-   On failure either the save-failed notice is shown, taking the continuation
-   with it, or the continuation runs at once. */
+   read-only bit cleared first); afterwards a CHAR chunk of the current save. */
 // FUNCTION: WIZ8 0x00515090
-bool SaveCharacter(W8Character* character, int slot, bool report_failure,
-                   void (*continuation)(void))
+bool SaveCharacter(W8Character* character, int slot)
 try
 {
     character->record_version = 1;
@@ -1363,14 +1354,7 @@ try
     } catch (const std::exception&) {
         saved = false;
     }
-    if (saved) return true;
-    if (report_failure) {
-        CreateMessageBox(fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
-                         g_small_font, 1, true, false, continuation);
-    } else if (continuation) {
-        continuation();
-    }
-    return false;
+    return saved;
 }
 catch (const std::exception&) { return false; }
 

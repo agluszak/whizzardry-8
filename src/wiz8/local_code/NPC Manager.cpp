@@ -481,7 +481,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     npc->is_grouped = false;
     ReleaseNpcScriptFile(npc->script_file);
     npc->script_file = 0;
-    RemoveCharacterFromParty(party_slot, false);
+    RemoveCharacterFromParty(party_slot);
     *character = W8Character{};
     memset(row, 0, sizeof(*row));
     gXStatus.monster_manager_entries[party_slot] = {};
@@ -540,11 +540,11 @@ void UpdateNpcPartyMember(int party_slot)
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d4], character->name));
         StashDepartingCharacterItems(character);
-        RemoveCharacterFromParty(party_slot, false);
+        RemoveCharacterFromParty(party_slot);
         return;
     }
     if (character->highest_condition == W8_CONDITION_MISSING) {
-        RemoveCharacterFromParty(party_slot, false);
+        RemoveCharacterFromParty(party_slot);
         return;
     }
     if (!ProbeNpcPlacementNearParty(party_slot, 0, &position)) {

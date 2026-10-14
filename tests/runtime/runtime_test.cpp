@@ -710,7 +710,7 @@ void StartPremadeGame(Game& game)
     ReachMainMenu(game);
     ResetForNewGame();
     W8Character character{};
-    REQUIRE(LoadCharacter("vi.CHR", &character, -1, false));
+    REQUIRE(LoadCharacter("vi.CHR", &character, -1));
     REQUIRE((character.record_version == 1 && character.uiExpLevel == 1));
     REQUIRE(character.name == "vi");
     REQUIRE((character.iProfession == W8_PROFESSION_FIGHTER &&

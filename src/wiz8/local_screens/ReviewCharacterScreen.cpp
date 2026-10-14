@@ -1194,9 +1194,6 @@ void CampScreenFrame(void)
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    if (IsMessageBoxActive()) {
-        ProcessMessageBoxInput();
-    }
     ServiceMusicPlaylist();
     if (g_camp_screen->dialog && !g_camp_screen->dialog->ProcessInput()) {
         g_camp_screen->dialog.reset();
@@ -1215,9 +1212,6 @@ void CampScreenFrame(void)
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
                     g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
                     if (!g_camp_character_pending) {
-                        if (IsMessageBoxActive()) {
-                            CloseMessageBox();
-                        }
                         BeginCombatRound();
                         RequestScreenTransition();
                     } else {
@@ -1303,17 +1297,14 @@ void DismissSelectedPartyCharacter(void)
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
-    if (IsMessageBoxActive()) {
-        CloseMessageBox();
-    }
     BeginCombatRound();
     RequestScreenTransition();
 }
 
 /* The camp screen's per-frame update: on the first frame after combat mode
    ends it re-raises every redraw flag, then repaints whichever page is active
-   together with the message box, the level-up/dismissal panels and the dialog
-   on top of the frame. */
+   together with the level-up/dismissal panels and the dialog on top of the
+   frame. */
 void DrawCampScreen(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -1323,8 +1314,7 @@ void DrawCampScreen(void)
         state->redraw_flags |= W8_CAMP_REDRAW_ALL;
         state->item_icons_drawn = false;
     }
-    if (state->redraw_flags != 0 || state->item_redraw_flags != 0 || IsMessageBoxActive() ||
-        g_status.item_in_cursor) {
+    if (state->redraw_flags != 0 || state->item_redraw_flags != 0 || g_status.item_in_cursor) {
         if (state->redraw_flags == W8_CAMP_REDRAW_ALL) {
             state->item_redraw_flags = 0xffffffff;
             if (state->dialog != 0) {
@@ -1353,12 +1343,6 @@ void DrawCampScreen(void)
         g_calligraphy_font.setShade(Font::kNormalShade);
         state->item_redraw_flags = 0;
         state->redraw_flags = 0;
-        if (IsMessageBoxActive()) {
-            RenderMessageBox();
-            if (!IsMessageBoxActive()) {
-                state->redraw_flags |= W8_CAMP_REDRAW_ALL;
-            }
-        }
     }
     state->character_info->Redraw(GetFrameBufferSurface(), false);
     if (state->page == W8_CAMP_PAGE_ITEMS) {

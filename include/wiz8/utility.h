@@ -11,10 +11,6 @@
 
 #include "wiz8/dice.h"
 
-bool IsMessageBoxActive(void);
-void RenderMessageBox(void);
-void ProcessMessageBoxInput(void);
-
 template <class T> class srVector3T;
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);

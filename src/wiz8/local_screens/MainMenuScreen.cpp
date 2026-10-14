@@ -252,8 +252,6 @@ void MainMenuScreenFrame()
             CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
             DrawMainMenuItems();
         }
-    } else if (IsMessageBoxActive()) {
-        ProcessMessageBoxInput();
     } else {
         PumpUiInput({.unhandled = [&](const InputEvent& input) {
             if (input.type == InputEventType::KeyDown) {
@@ -314,11 +312,10 @@ void MainMenuScreenFrame()
         }});
     }
 
-    if (g_main_menu_redraw || IsMessageBoxActive() || main_menu_dialog != nullptr) {
+    if (g_main_menu_redraw || main_menu_dialog != nullptr) {
         if (main_menu_dialog != nullptr) {
             main_menu_dialog->Draw(GetFrameBufferSurface());
         }
-        RenderMessageBox();
         ResetTransientRenderScenes();
         g_main_menu_redraw = false;
     }

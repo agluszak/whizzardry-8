@@ -2641,9 +2641,6 @@ void SetMainGameMode(W8MainGameMode mode)
     case W8_MAIN_GAME_NPC_DIALOGUE:
         CloseNpcDialogueIfActive();
         break;
-    case W8_MAIN_GAME_MODAL:
-        CloseMessageBox();
-        break;
     case W8_MAIN_GAME_HIGHLIGHT_OVERLAY:
         if (g_level_block->highlight_graphic != 0) {
             ReleaseObject(g_level_block->highlight_graphic);
@@ -2721,12 +2718,9 @@ void MainGameScreenFrame(void)
 update_screen:
     ApplyPendingMouselook();
     ApplyPendingTooltip();
-    if (IsMessageBoxActive() || g_modal_owner) {
+    if (g_modal_owner) {
         CancelMouselook();
         UpdateHeldItemCursor();
-        if (!g_modal_owner) {
-            ProcessMessageBoxInput();
-        }
     }
     if (!g_level_block->review_transition_done) {
         if (g_level_block->review_transition_active) {
@@ -3356,11 +3350,6 @@ void DrawMainGameScreen(void)
             SetRendererModePair();
         }
     }
-    if (IsMessageBoxActive()) {
-        g_level_block->message_box_pending = true;
-    } else if (g_level_block->message_box_pending) {
-        g_level_block->message_box_pending = false;
-    }
     g_level_block->saved_redraw_flags = g_level_block->redraw_flags;
     if (g_level_block->redraw_flags != 0) {
         ApplyMainGameRedrawFlags();
@@ -3370,9 +3359,6 @@ void DrawMainGameScreen(void)
     }
     g_level_block->redraw_flags = 0;
     g_level_block->saved_redraw_flags = 0;
-    if (g_level_block->message_box_pending) {
-        RenderMessageBox();
-    }
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
             g_modal_owner->DrawModal(GetFrameBufferSurface());
@@ -3697,8 +3683,6 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
 
     if (g_main_game_mode == W8_MAIN_GAME_NPC_DIALOGUE) {
         CloseNpcDialogueIfActive();
-    } else if (g_main_game_mode == W8_MAIN_GAME_MODAL) {
-        CloseMessageBox();
     } else if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
         if (g_level_block->highlight_graphic != 0) {
             ReleaseObject(g_level_block->highlight_graphic);
@@ -5437,7 +5421,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     int slot;
 
     PushButtonSoundScheme(0, true);
-    if (IsMessageBoxActive() || gXStatus.fReviewCharacterMode || g_camera_path_active) {
+    if (gXStatus.fReviewCharacterMode || g_camera_path_active) {
         return UiResult::Pass;
     }
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
@@ -7363,9 +7347,6 @@ static std::unique_ptr<stModelInstance2D> g_surprise_fade_node;
 void ResetMainGameMode(void)
 {
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
-    if (IsMessageBoxActive()) {
-        CloseMessageBox();
-    }
     if (gXStatus.fCombatMode) {
         EndCombat(true);
     } else if (AnyCharacterActive() && !gXStatus.party_moving) {

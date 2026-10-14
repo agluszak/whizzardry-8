@@ -111,7 +111,7 @@ TEST_CASE("world graphics")
         application = std::make_unique<wiz8::Application>(arguments);
         ResetForNewGame();
         W8Character character{};
-        REQUIRE(LoadCharacter(character_name, &character, -1, false));
+        REQUIRE(LoadCharacter(character_name, &character, -1));
         REQUIRE(AddCharacterToParty(character, -1) == 2);
         RunNewGameOpeningSequence(false, {});
         // Bypass only the opening movie; use the normal new-game loading screen.

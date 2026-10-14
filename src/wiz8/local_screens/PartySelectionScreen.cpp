@@ -120,10 +120,10 @@ void W8PartySelectionCharacterCollection::DetachFromParty(int index)
     W8Character* replacement = new W8Character;
     std::string path;
     path = BuildCharacterPath(previous->name, -1);
-    if (!LoadCharacter(path, replacement, -1, false)) {
+    if (!LoadCharacter(path, replacement, -1)) {
         *replacement = *previous;
     }
-    RemoveCharacterFromParty(slot + 2, false);
+    RemoveCharacterFromParty(slot + 2);
     replacement->fInParty = false;
     characters[index] = replacement;
 }
@@ -160,7 +160,7 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
     const auto separator = pattern.find_last_of("\\/");
     for (const auto& entry : wiz8::list_directory(pattern.substr(0, separator), "*.CHR")) {
         W8Character* character = new W8Character;
-        if (!LoadCharacter(entry.c_str(), character, -1, false)) {
+        if (!LoadCharacter(entry.c_str(), character, -1)) {
             delete character;
         } else {
             int slot;

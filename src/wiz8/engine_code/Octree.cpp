@@ -1,8 +1,8 @@
+#include <SDL3/SDL_log.h>
 #include "wiz8/engine_code/mesh_links.h"
 #include <array>
 #include "surrender/plane_math.h"
 #include "wiz8/octree_walk.h"
-#include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -57,7 +57,6 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/local_code/CombatRange.h"
 #include "random.h"
-#include "wiz8/fonts.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
@@ -66,7 +65,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/engine_code/materials.h"
@@ -1313,20 +1311,10 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     if (aborted) {
         stale = m_pRegionLinks;
         m_pRegionLinks = saved_links;
-        if (gfProgramIsRunning) {
-            CreateMessageBox(std::string("  Linking Aborted!  "), g_small_font, 1, true, false, 0);
-        }
+        SDL_Log("Region linking aborted");
     } else {
         SaveRegionLinks(m_path_stem.c_str());
-        if (hours == 0) {
-            CreateMessageBox(
-                fmt::format("  Linking Time: {:d} Min, {:d} Sec  ", minutes, elapsed % 60),
-                g_small_font, 1, true, false, 0);
-        } else {
-            CreateMessageBox(fmt::format("  Linking Time: {:d} Hours, {:d} Min, {:d} Sec  ", hours,
-                                         minutes, elapsed % 60),
-                             g_small_font, 1, true, false, 0);
-        }
+        SDL_Log("Region linking took %u h %u min %u s", hours, minutes, elapsed % 60);
         stale = saved_links;
     }
     delete stale;
@@ -1442,8 +1430,7 @@ unsigned char W8Octree::ValidateRegionMeshLinks()
     spatial.m_level_kind = 1;
     int bad_links = CountBadRegionMeshLinks(&spatial);
     if (bad_links != 0) {
-        CreateMessageBox(fmt::format(" {:d} Bad Region-Mesh Links!", bad_links), g_small_font, 1,
-                         true, false, 0);
+        SDL_Log("%d bad region-mesh links", bad_links);
         return 0;
     }
     return 1;

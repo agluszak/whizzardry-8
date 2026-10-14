@@ -1078,30 +1078,16 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
     return slot;
 }
 
-/* Remove one character from the party: drop its queued events, optionally
-   persist it back to its NPC record, clear the row, its formation positions
-   and marching-order entry, and fix the member counts and selection. Saving
-   is only meaningful for NPC-bound slots; a failed save keeps the member. */
+/* Remove one character from the party: drop its queued events, clear the row,
+   its formation positions and marching-order entry, and fix the member counts
+   and selection. */
 // FUNCTION: WIZ8 0x004EF610
-bool RemoveCharacterFromParty(int party_slot, bool save_character_data)
+void RemoveCharacterFromParty(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    if (save_character_data && g_status.buffers.XChar[party_slot].npc_index == -1) {
-        srAssertFail("!fSaveCharData || fCHAR_NPC(uiSlot)", GAMEPLAY_CODE_CPP, 0x895, 0);
-    }
     gXStatus.character_event_queue->RemoveCharacterEvents(character);
     character->fInParty = false;
-    if (save_character_data) {
-        RebuildCharacterModifierBlock(character);
-        RecalculateCharacterDerivedStats(character);
-        if (!SaveCharacter(character, g_status.buffers.XChar[party_slot].npc_index, true, 0)) {
-            character->fInParty = true;
-            RebuildCharacterModifierBlock(character);
-            RecalculateCharacterDerivedStats(character);
-            return false;
-        }
-    }
     g_status.buffers.XChar[party_slot].fOccupied = false;
     character->highest_condition = W8_CONDITION_NONE;
     character->enchantment_top = W8_ENCHANTMENT_NONE;
@@ -1127,7 +1113,6 @@ bool RemoveCharacterFromParty(int party_slot, bool save_character_data)
     if (g_status.selected_character == party_slot) {
         g_status.selected_character = GetNextCharacter(1, 1, -1);
     }
-    return true;
 }
 
 /* Install a finished character record over a party slot: everything the old
@@ -1153,7 +1138,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
             AddItemToParty(&character->backpack[index], false, false);
         }
     }
-    RemoveCharacterFromParty(slot, false);
+    RemoveCharacterFromParty(slot);
     *character = *record;
     character->fInParty = true;
     ResetPartySlotRow(slot);
