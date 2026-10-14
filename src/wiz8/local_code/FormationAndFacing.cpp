@@ -1,34 +1,36 @@
-#include <fmt/printf.h>
+#include "wiz8/local_code/FormationAndFacing.h"
+
 #include <cmath>
 #include <cstring>
 #include <vector>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/utility.h"
-#include "surrender/srMath.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/engine_code/GameData.h"
+#include <fmt/printf.h>
+
 #include "Monster.h"
 #include "Navigator.h"
 #include "conditions.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "layouts/targeting.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSRadarMap.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* Original translation unit: Local Code\Formation & Facing.cpp. */
 

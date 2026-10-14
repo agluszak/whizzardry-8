@@ -1,13 +1,12 @@
 #pragma once
 
-#include "wiz8/file_time.h"
 #include <cstdint>
 
-namespace wiz8
-{
+#include "wiz8/file_time.h"
+
+namespace wiz8 {
 // Retail SLF records, including the format's padding bytes.
-struct SlfHeader
-{
+struct SlfHeader {
     char sLibName[256];
     char sPathToLibrary[256];
     std::int32_t iEntries, iUsed;
@@ -15,8 +14,7 @@ struct SlfHeader
     std::uint8_t fContainsSubDirectories;
     std::int32_t iReserved;
 };
-struct SlfEntry
-{
+struct SlfEntry {
     char sFileName[256];
     std::uint32_t uiOffset, uiLength;
     std::uint8_t ubState, ubReserved;

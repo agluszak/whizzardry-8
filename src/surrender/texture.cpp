@@ -1,19 +1,19 @@
-#include "surrender/stream_scope.h"
 #include <cstddef>
-#include <ostream>
 #include <memory>
+#include <ostream>
 #include <string>
 
-#include "surrender/srTexture.h"
-#include "surrender/srCore.h"
-#include "surrender/srDebug.h"
-#include "surrender/srGERD.h"
-#include "surrender/srPixelConvert.h"
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 #include "surrender/srFilter.h"
+#include "surrender/srGERD.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
 
 // GLOBAL: SURRENDER 0x100A4A20
 // Lazy e_flag names, "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS"
@@ -275,19 +275,22 @@ void srTexture::setCorrection(e_correction correction)
 // FUNCTION: SURRENDER 0x1005EC80
 void srTexture::setMagFilter(e_filter filter)
 {
-    packed_state = withField(packed_state, Parameters::MAG_FILTER_MASK, Parameters::MAG_FILTER_SHIFT, filter);
+    packed_state =
+        withField(packed_state, Parameters::MAG_FILTER_MASK, Parameters::MAG_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECA0
 void srTexture::setMinFilter(e_filter filter)
 {
-    packed_state = withField(packed_state, Parameters::MIN_FILTER_MASK, Parameters::MIN_FILTER_SHIFT, filter);
+    packed_state =
+        withField(packed_state, Parameters::MIN_FILTER_MASK, Parameters::MIN_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECC0
 void srTexture::setMipmap(e_mipmap mipmap)
 {
-    packed_state = withField(packed_state, Parameters::MIPMAP_MASK, Parameters::MIPMAP_SHIFT, mipmap);
+    packed_state =
+        withField(packed_state, Parameters::MIPMAP_MASK, Parameters::MIPMAP_SHIFT, mipmap);
 }
 
 // FUNCTION: SURRENDER 0x1005ECE0

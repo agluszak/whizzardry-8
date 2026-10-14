@@ -2,22 +2,21 @@
 #include <ostream>
 #include <vector>
 
-#include "surrender/srScene.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srCamera.h"
-#include "surrender/srCore.h"
-#include "surrender/srGERD.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "surrender/srCamera.h"
 #include "surrender/srClock.h"
+#include "surrender/srCore.h"
 #include "surrender/srFlags.h"
+#include "surrender/srGERD.h"
 #include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x100565D0
-srScene::srScene(srNode* parent)
-    : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
+srScene::srScene(srNode* parent) : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
 {
     ambient_light = glm::vec3(0.2f);
     fog_color = glm::vec3(0.1f, 0.2f, 0.4f);

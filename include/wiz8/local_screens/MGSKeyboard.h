@@ -1,14 +1,16 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
+#include "compat/compiler.h"
 #include "input.h"
 #include "wiz8/mgs_commands.h"
-#include "compat/compiler.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 #pragma pack(push, 1)
 struct MGSKeyBinding {
@@ -38,8 +40,8 @@ public:
     unsigned char LoadDefaults(const char* path);
 
 private:
-  std::vector<std::unique_ptr<MGSKeyBinding>> m_bindings;
-  std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
+    std::vector<std::unique_ptr<MGSKeyBinding>> m_bindings;
+    std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
 };
 
 extern MGSKeyboard* g_mgs_keyboard;

@@ -1,43 +1,45 @@
-#include <fmt/format.h>
-#include <vector>
+#include "wiz8/local_code/Traps.h"
+
 #include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/Traps.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Levels.h"
-#include "input.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/utility.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/filesystem.h"
-#include "random.h"
+#include <fmt/format.h>
+
 #include "compat/native.h"
+#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
+#include "random.h"
 #include "surrender/srMath.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/string_database.h"
+#include "wiz8/utility.h"
 
 #define TRAPS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp"
 
@@ -87,7 +89,13 @@ void WriteRecordModeEntry(void)
     std::unique_ptr<wiz8::File> file;
     unsigned int length;
 
-    file = [&]() { try { return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    file = [&]() {
+        try {
+            return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         state = cameraState(*GetWorld());
@@ -95,15 +103,11 @@ void WriteRecordModeEntry(void)
         line =
             fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
         file->write(line.data(), line.size());
-        line = fmt::format(
-            "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1], state.pitch[2],
-            state.pitch[3],
-            state.pitch[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1],
+                           state.pitch[2], state.pitch[3], state.pitch[4], 0);
         file->write(line.data(), line.size());
-        line = fmt::format(
-            "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1], state.yaw[2],
-            state.yaw[3],
-            state.yaw[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
+                           state.yaw[2], state.yaw[3], state.yaw[4], 0);
         file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
@@ -352,8 +356,7 @@ void ResolveSprungTrap(Trigger* trigger)
         GetCameraForwardPoint(1000.0f, &point);
     } else {
         const auto center = prop->GetCenterPosition();
-        if (!center)
-            return;
+        if (!center) return;
         point = *center;
     }
     camera = cameraLocation();

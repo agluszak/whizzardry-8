@@ -1,18 +1,15 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
-#include <source_location>
-
-#include <string>
 #include <cstddef>
+#include <source_location>
+#include <span>
+#include <string>
+#include <vector>
 
 #include "surrender/srMath.h"
-
-#include <vector>
-#include <span>
-
-#include "wiz8/monster_actions.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/monster_actions.h"
 
 struct W8MonsterRecord;
 struct W8MonsterGroup;
@@ -29,8 +26,7 @@ struct W8MonsterGroup {
     int MemberLocationId(std::size_t index) const
     {
         const auto ids = MemberIds();
-        if (index >= ids.size())
-            return -1;
+        if (index >= ids.size()) return -1;
         return ids[index];
     }
 
@@ -111,8 +107,9 @@ struct W8MonsterGroup {
     unsigned char unknown_d4[0x57];
 };
 
-unsigned int GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
-                                      std::source_location caller = std::source_location::current());
+unsigned int
+GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
+                         std::source_location caller = std::source_location::current());
 W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());

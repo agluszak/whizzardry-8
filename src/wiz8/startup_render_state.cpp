@@ -2,10 +2,10 @@
 #include <memory>
 #include <vector>
 
-#include "wiz8/engine_code/Environment.h"
 #include "compat/native.h"
 #include "environment_colour.h"
 #include "surrender/srMath.h"
+#include "wiz8/engine_code/Environment.h"
 
 class W8Prop;
 class stTextureAnim;

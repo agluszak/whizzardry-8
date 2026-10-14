@@ -1,40 +1,13 @@
-#include "wiz8/button_interaction.h"
-#include <span>
-#include "wiz8/engine_code/Video2.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <string_view>
-#include <string>
+#include "wiz8/dialog_code/AssayDialog.h"
+
 #include <cstring>
+#include <string>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/item_video_object_vector.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/local_code/ButtonWidget.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"
@@ -43,6 +16,32 @@
 #include "local_code/TextBuffer.h"
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/dialog_code/SpellInfoDialog.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/RCSItemsPage.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/string_database.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x0064f918
 static int g_assay_scroll_x_offset = 0x160;
@@ -97,7 +96,8 @@ enum { NUM_RPC_RACES = 5 };
 // FUNCTION: WIZ8 0x005d6fb0
 W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
 {
-    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) m_buttons.emplace_back(InputLayer());
+    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index)
+        m_buttons.emplace_back(InputLayer());
     int index;
 
     SetExtent(0x180, 0x11d);
@@ -125,14 +125,15 @@ int W8AssayDialog::CreateControls()
         m_error = 7;
         return 7;
     }
-    const W8DialogScrollBar::Resources resources{"Data\\Main Interface\\main_scroll.sti",
-                                                 "Data\\Dialogs\\popup_iteminfo.sti", 4,
-                                                 [this](int first) {
-                                                     m_text_area.SetFirstVisibleLine(first);
-                                                     m_buttons[4].m_dirty = true;
-                                                     m_text_area.m_dirty = true;
-                                                 }};
-    if (m_scroll_bar.CreateControls(&resources)) {
+    // GLOBAL: WIZ8 0x0064f908
+    const W8DialogScrollBar::Resources scroll_resources{
+        "Data\\Main Interface\\main_scroll.sti", "Data\\Dialogs\\popup_iteminfo.sti", 4,
+        [this](int first_visible_entry) {
+            m_text_area.SetFirstVisibleLine(first_visible_entry);
+            m_buttons[4].m_dirty = true;
+            m_text_area.m_dirty = true;
+        }};
+    if (m_scroll_bar.CreateControls(&scroll_resources)) {
         m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
                                m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
                                g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
@@ -308,9 +309,9 @@ bool W8AssayDialog::PopulateText()
             m_text_area.AddEntry(g_localized_strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
         }
         if (record->slays_kind != 0xff) {
-            m_text_area.AddEntry(g_localized_strings[0x8d8],
-                                 g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10,
-                                 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8d8],
+                g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10, 0xf, 0);
         }
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SHIELD && m_character != 0 &&
             IsItemWornByCharacter(m_character, m_item)) {
@@ -329,7 +330,8 @@ bool W8AssayDialog::PopulateText()
     if (record->property != 0) {
         m_text_area.AddEntry(
             g_localized_strings[0x8e9],
-            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]],
+            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST +
+                                                    record->property]],
             10, 0xf, 0);
     }
     switch (record->equip_class) {
@@ -340,15 +342,15 @@ bool W8AssayDialog::PopulateText()
     case W8_ITEM_EQUIP_CLASS_BOMB:
     case W8_ITEM_EQUIP_CLASS_POWDER:
         m_text_area.AddEntry(g_localized_strings[0x8e7],
-                             g_localized_strings[g_spell_range_name_ids[record->range_category]], 10, 0xf,
-                             0);
+                             g_localized_strings[g_spell_range_name_ids[record->range_category]],
+                             10, 0xf, 0);
     }
     W8Skill presentation_skill = GetItemSpellPresentation(record);
     if (presentation_skill == W8_SKILL_NONE) {
         if (record->weapon_skill != W8_SKILL_NONE) {
-            m_text_area.AddEntry(g_localized_strings[0x8c8],
-                                 g_localized_strings[g_character_skill_name_ids[record->weapon_skill]],
-                                 10, 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8c8],
+                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]], 10, 0xf, 0);
         }
     } else {
         if (record->weapon_skill == W8_SKILL_NONE) {
@@ -526,7 +528,7 @@ bool W8AssayDialog::PopulateText()
                              fmt::format("{:d}", record->maximum_quantity), 10, 0xf, 0);
     }
     strcpy(path, "Data\\Databases\\ItemDesc.dbs");
-    (!(description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0)).empty());
+    description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0);
     if (description.size() != 0 && m_item->identified) {
         m_text_area.AddEntry(g_localized_strings[0x90f], description, 10, 0xf, 0);
     }
@@ -560,9 +562,8 @@ void W8AssayDialog::Draw(SDL_Surface& target)
         W8DialogBase::Draw(target);
     }
     if (m_item_portrait_dirty) {
-        DrawSpriteAndInvalidate(target,
-                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45,
-                                m_y + 0xe);
+        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
+                                m_x + 0x45, m_y + 0xe);
         if (!m_item->identified) {
             CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(target, 0, m_x + 0x45, m_y + 0xe);
         }
@@ -638,13 +639,11 @@ bool W8AssayDialog::PopulateRequirements()
     m_buttons[1].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2),
         {.priority = UI_PRIORITY_LOWEST});
-
     m_buttons[2].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2),
         {.on_click = [this](W8ButtonWidget*) { ShowPrimaryTab(); },
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x115});
-
     m_buttons[3].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7),
         {.on_click = [this](W8ButtonWidget*) { ShowSecondaryTab(); },
@@ -653,26 +652,87 @@ bool W8AssayDialog::PopulateRequirements()
     m_buttons[4].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3),
         {.priority = UI_PRIORITY_LOWEST});
-
     m_buttons[5].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2),
         {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x12});
-    const auto configure_icons = [this](int first, std::string_view image,
-                                        std::span<const int> help) {
-        for (std::size_t icon = 0; icon < help.size(); ++icon) {
-            auto& button = m_buttons[first + icon];
-            const int frame = static_cast<int>(icon) * 2;
-            button.Configure(ButtonGraphics::Load(image, frame + 1, frame, BUTTON_NO_IMAGE, frame,
-                                                  BUTTON_NO_IMAGE),
-                             {.tooltip = help[icon]});
-        }
-    };
-    constexpr int professions_help[]{0x2ad, 0x2a7, 0x2b0, 0x2ac, 0x2a6, 0x2a4, 0x2aa, 0x2b1,
-                                     0x2a8, 0x2ae, 0x2a9, 0x2af, 0x2a5, 0x2b2, 0x2ab};
-    configure_icons(6, "Data\\Dialogs\\icons_profession.sti", professions_help);
-    constexpr int races_help[]{0x28a, 0x28c, 0x285, 0x28e, 0x284, 0x28b,
-                               0x286, 0x288, 0x287, 0x28d, 0x289};
-    configure_icons(21, "Data\\Dialogs\\icons_race.sti", races_help);
+    m_buttons[6].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 1, 0,
+                                                BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2ad});
+    m_buttons[7].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 3, 2,
+                                                BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2a7});
+    m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 5, 4,
+                                                BUTTON_NO_IMAGE, 4, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2b0});
+    m_buttons[9].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 7, 6,
+                                                BUTTON_NO_IMAGE, 6, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2ac});
+    m_buttons[10].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 9, 8,
+                                                 BUTTON_NO_IMAGE, 8, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a6});
+    m_buttons[11].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
+                                                 BUTTON_NO_IMAGE, 10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a4});
+    m_buttons[12].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
+                                                 BUTTON_NO_IMAGE, 0xc, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2aa});
+    m_buttons[13].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
+                                                 BUTTON_NO_IMAGE, 0xe, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2b1});
+    m_buttons[14].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
+                                                 BUTTON_NO_IMAGE, 0x10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a8});
+    m_buttons[15].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
+                                                 BUTTON_NO_IMAGE, 0x12, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2ae});
+    m_buttons[16].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
+                                                 BUTTON_NO_IMAGE, 0x14, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a9});
+    m_buttons[17].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
+                                                 BUTTON_NO_IMAGE, 0x16, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2af});
+    m_buttons[18].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
+                                                 BUTTON_NO_IMAGE, 0x18, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a5});
+    m_buttons[19].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
+                                                 BUTTON_NO_IMAGE, 0x1a, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2b2});
+    m_buttons[20].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
+                                                 BUTTON_NO_IMAGE, 0x1c, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2ab});
+    m_buttons[21].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 1, 0,
+                                                 BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28a});
+    m_buttons[22].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 3, 2,
+                                                 BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28c});
+    m_buttons[23].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 5, 4,
+                                                 BUTTON_NO_IMAGE, 4, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x285});
+    m_buttons[24].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 7, 6,
+                                                 BUTTON_NO_IMAGE, 6, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28e});
+    m_buttons[25].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 9, 8,
+                                                 BUTTON_NO_IMAGE, 8, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x284});
+    m_buttons[26].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xb, 10,
+                                                 BUTTON_NO_IMAGE, 10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28b});
+    m_buttons[27].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xd, 0xc,
+                                                 BUTTON_NO_IMAGE, 0xc, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x286});
+    m_buttons[28].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xf, 0xe,
+                                                 BUTTON_NO_IMAGE, 0xe, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x288});
+    m_buttons[29].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x11, 0x10,
+                                                 BUTTON_NO_IMAGE, 0x10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x287});
+    m_buttons[30].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x13, 0x12,
+                                                 BUTTON_NO_IMAGE, 0x12, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28d});
+    m_buttons[31].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x15, 0x14,
+                                                 BUTTON_NO_IMAGE, 0x14, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x289});
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
         if (us_index >= NUM_RPC_RACES) {
@@ -725,7 +785,6 @@ bool W8AssayDialog::PopulateRequirements()
             tooltip_index = 0x284;
             break;
         }
-
         m_buttons[button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti",
                                                                frame + 1, frame, BUTTON_NO_IMAGE,
                                                                frame, BUTTON_NO_IMAGE),

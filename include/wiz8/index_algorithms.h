@@ -50,9 +50,8 @@ template<class Index, class Key, class Value>
 void RemoveIndexValue(Index& index, Key key, Value value)
 {
     const auto [first, last] = index.equal_range(key);
-    const auto found = std::find_if(first, last, [&](const auto& item) {
-        return item.second == value;
-    });
+    const auto found =
+        std::find_if(first, last, [&](const auto& item) { return item.second == value; });
     if (found != last) index.erase(found);
 }
 

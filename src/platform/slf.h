@@ -7,10 +7,8 @@
 
 #include "wiz8/file_time.h"
 
-namespace wiz8
-{
-struct AssetEntry
-{
+namespace wiz8 {
+struct AssetEntry {
     std::filesystem::path archive;
     std::uint32_t offset, length;
     DiskFileTime modified;

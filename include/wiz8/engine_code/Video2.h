@@ -1,12 +1,14 @@
+#include "wiz8/design_rect.h"
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
-#include <SDL3/SDL_rect.h>
 #include <cstdint>
+#include <memory>
+#include <string_view>
+
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
-#include <string_view>
-#include <memory>
 
 #include "compat/compiler.h"
 #include "compat/native.h"
@@ -34,7 +36,8 @@ extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
 extern bool RestoreVideoManager(void);
-extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight, std::uint8_t* ubBitDepth);
+extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight,
+                                    std::uint8_t* ubBitDepth);
 /* Mark a game-space rectangle of the UI canvas for upload this frame. */
 void InvalidateRegion(int left, int top, int right, int bottom);
 inline void InvalidateRegion(SDL_Rect bounds)
@@ -80,9 +83,8 @@ void SGPMouseGetPos(SDL_Point* point);
 /* Tooltip ownership query: nonzero while a VideoToolTip object is alive. */
 bool HasScreenTransitionObjects(void); /* 0x004297D0 */
 /* 0x00422EC0: invalidate each rectangle in a run. */
-struct W8ScreenRect;
 
-void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count);
+void InvalidateScreenRects(DesignRect* rects, unsigned int count);
 
 /* Renderer state and helpers shared by the product C++ consumers. */
 extern bool g_auto_capture;
@@ -93,6 +95,8 @@ extern bool g_camera_sway_active;
 extern int g_screenshot_index;
 extern int g_screenshot_page;
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom);
+/* Clear a rectangle of the interface overlay and upload it. */
+void EraseRegion(int left, int top, int right, int bottom);
 
 extern const float g_viewport_x_scale;
 extern const float g_viewport_y_scale;
@@ -103,16 +107,16 @@ class srModelInstance;
 class srNode;
 class srTextureIFace;
 class stModelInstance2D;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
                        bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
-stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width, double height,
-                                           bool keep_aspect, bool overlay);
+stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width,
+                                           double height, bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
-unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
+unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect,
                                    bool render_secondary);
 void SetPickKey(void* key);
 
@@ -156,17 +160,19 @@ void DrawVideoInspector(int left, unsigned int top);
 unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node);
 /* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
-srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
-                                  double height, float mapping_x, float mapping_y,
+srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface,
+                                  double width, double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
 bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
-                                      srColorSurface& destination, int x, int y);
+                                   srColorSurface& destination, int x, int y);
 class stTextureAnim;
 
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
-std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites, unsigned short start_frame,
-                                         unsigned short frame_count, bool use_argb1555);
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
+                                                         unsigned short start_frame,
+                                                         unsigned short frame_count,
+                                                         bool use_argb1555);
 /* 0x00428A90: mark the primary renderer mode word dirty. */
 void SetOverlayRenderMode(void);
 /* 0x00428AA0: mark both renderer mode words dirty. */
@@ -194,7 +200,6 @@ extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
-extern const int* g_overlay_viewport;
 extern srModeler* g_modeler;
 extern srScene* g_scene_user;
 extern srScene* g_scene_fullscreen;
@@ -224,13 +229,7 @@ extern int g_paired_render_mode;
 extern float g_surface_scale;
 extern int g_surface_opaque_shader_bits;
 extern int g_surface_alpha_blend_shader_bits;
-struct W8ViewportRect {
-    int left;
-    int top;
-    int right;
-    int bottom;
-};
-extern W8ViewportRect g_viewport;
+extern DesignRect g_viewport;
 extern int g_resident_texture_policy;
 extern unsigned char g_world_render_enabled;
 extern bool g_world_blacked_out;
@@ -240,14 +239,9 @@ void SetSurfaceScale(float scale);
 void SetTextureCacheSize(w8_ulong bytes);
 void SetSwapInterval(bool enabled);
 unsigned char GetRendererModeByte(void);
-void SetViewport(int left, int top, int right, int bottom);
-/* Scale a 640x480 design-space rect onto the GERD surface and remember it;
-   no-ops when the stored bounds already match. */
-
-void SetWorldScaledViewport(int left, int top, int right, int bottom);
-/* 0x00425C90: same scaled-viewport update; the automap installs its viewport
-   through it. */
-void SetAutomapScaledViewport(int left, int top, int right, int bottom);
+void SetViewport(const DesignRect& bounds);
+// Update the surface viewport without changing the camera view plane.
+void SetScaledViewport(const DesignRect& bounds);
 /* Read the stored pixel viewport back out in normalized 0..1 scale. */
 struct ViewportBounds {
     glm::vec2 minimum;
@@ -263,7 +257,7 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled);
 unsigned char ClearPrimarySurface(void);
 void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
-void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
+void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, bool preserve_fog);
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
@@ -280,10 +274,10 @@ unsigned char InitializeVideoDevice(void);
 bool SetupDisablesAudio();
 unsigned char OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);
-void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message);
+void AssertFailureHandler(const char* expression, const char* file, w8_long line,
+                          const char* message);
 unsigned char DisableCursorScene(void);
 unsigned char EnableCursorScene(void);
-void SetOverlayViewport(const int* value);
 void SetWorldModelPickingEnabled(bool enabled);
 bool RendererBufferIsLockable(void);
 void SetRendererAutoFlipEnabled(bool enabled);
@@ -298,7 +292,7 @@ unsigned int GetTotalPhysicalMemory(void);
 int GetRendererFamily(void);
 
 /* Delete a scene object and clear the slot that owned it. */
-template <class T> inline void ReleaseRendererObject(T*& object)
+template<class T> inline void ReleaseRendererObject(T*& object)
 {
     delete object;
     object = nullptr;

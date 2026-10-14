@@ -178,22 +178,20 @@ its respective focused checks. The movie fixture can be regenerated with
 
 The project uses clang-format 21 and the root `.clang-format` configuration.
 Function definitions have opening braces on their own lines; control-flow braces
-are attached (`if (...) {`, `} else {`). All control-flow bodies must use
-braces, including one-statement bodies. Class/struct braces stay attached, and
-access labels (`public:`, `private:`, `protected:`) are not indented.
+are attached (`if (...) {`, `} else {`). A one-statement body may stay on the
+same line as its condition without braces (`if (x < 0) return;`); a body on its
+own line uses braces. The formatter keeps short `if`, `for`, and `while`
+statements on one line when they fit but does not add or remove braces, so
+brace multi-line bodies by hand. Short function bodies defined inside a class
+may stay on one line. Class/struct braces stay attached, and access labels
+(`public:`, `private:`, `protected:`) are not indented.
 
-The formatter can insert missing control-flow braces (`InsertBraces: true`);
-review those edits, since clang-format does not fully understand C++ semantics.
-
-On a feature branch, format the changed C and C++ lines:
+CI checks every C and C++ file under `include`, `src`, and `tests`, so format
+files before pushing:
 
 ```sh
-git clang-format-21 --binary clang-format-21 main -- include src tests
+clang-format-21 -i path/to/file.cpp
 ```
-
-For a complete reformat of one file, run `clang-format-21 -i path/to/file.cpp`.
-PR #201 will apply a one-time repository-wide reformat and switch CI to checking
-whole changed files.
 
 ## Catch2 test cases
 

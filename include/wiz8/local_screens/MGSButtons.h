@@ -1,31 +1,32 @@
 #pragma once
 
-#include <memory>
 #include <array>
-#include <SDL3/SDL_rect.h>
+#include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
-#include <cstdint>
+#include <SDL3/SDL_rect.h>
 
-#include "wiz8/character_skills.h"
 #include "input.h"
+#include "wiz8/character_skills.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text
    rows and the two scroll-arrow buttons: construction, teardown and the
    per-frame name/action caption draw. The shared W8SubMenu enums and the
    portrait-combat unit's const tables live in MGSPortraitCombat.h. */
 
-#include "wiz8/local_screens/MGSPortraitCombat.h"
-
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/ui_layer.h"
 
 // Owned by MainGameScreenState while the screen is active. The layer precedes
 // the buttons so input registrations are removed before the layer is destroyed.
 // Modal submenu controls retain their independently activated layer.
 struct MainGameHudButtons {
-    UiLayer input{0x33};
+    // Screen state constructs HUD before world input at the same order.
+    // The submenu (0x27) stays above both.
+    UiLayer input{0x28};
     std::array<W8ButtonWidget, 2> submenu_scroll{W8ButtonWidget{input}, W8ButtonWidget{input}};
     std::array<W8ButtonWidget, 2> submenu_panel{W8ButtonWidget{input}, W8ButtonWidget{input}};
     std::array<W8ButtonWidget, 6> layout_arrows{W8ButtonWidget{input}, W8ButtonWidget{input},

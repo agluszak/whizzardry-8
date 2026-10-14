@@ -3,23 +3,25 @@
 #include <string>
 #include <vector>
 
+#include "wiz8/engine_code/emitter_resources.h"
+
 unsigned char LoadMissileDatabase(void);
 void ReleaseMissileDatabase(void);
 
+#include "Emitter.h"
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 #include "wiz8/attack_modes.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "Emitter.h"
-#include "compat/compiler.h"
-#include "layouts/targeting.h"
 
 struct W8ReadLevelInfo;
 struct W8World;
 class stLight;
 class W8Missile;
 struct W8AnimObj;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
    path record is kind 0). UpdateMissileAI ticks it: +0x04 is the
@@ -68,12 +70,10 @@ public:
     virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
     unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile, int cycle_index, int);
 
-    unsigned int value_0ac;
-    unsigned int value_0b0;
+    unsigned int value_0ac{};
+    unsigned int value_0b0{};
     unsigned char unknown_0b4[0x24];
-    W8AnimObj* emitters[2];
-    float emitter_playback_scales[2];
-    std::vector<std::vector<stLight*>*> light_lists[2];
+    EmitterResources<2> resources;
 };
 
 /* The copy path allocates 0x328 bytes and invokes W8GrCycle's copy constructor
@@ -174,8 +174,8 @@ struct W8MissileTableRecord {
     /* Retail offset 0x100: the GrCycle resource name the launcher loads through the
        "Data\\Missiles" script path. */
     std::string cycle_name;
-    float radius;             /* Retail offset 0x140: replaces the launched effect's radius */
-    W8AttackMode attack_mode; /* Retail offset 0x144: the attack mode the hit is resolved with */
+    float radius;
+    W8AttackMode attack_mode;
     unsigned char unknown_148[8];
     /* Retail offset 0x150: copied into the launched effect block's magnitude_base. */
     int magnitude_base;

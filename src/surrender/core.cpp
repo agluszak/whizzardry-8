@@ -1,30 +1,31 @@
-#include <SDL3/SDL_platform.h>
-#include <memory>
 #include <iostream>
-#include <thread>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <thread>
 
-#include "surrender/srCore.h"
-#include "surrender/stream_scope.h"
+#include <SDL3/SDL_platform.h>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
+#include "surrender/srNode.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
-#include "compat/compiler.h"
-#include "compat/native.h"
-#include "surrender/srClock.h"
-#include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srNode.h"
-#include "surrender/srStatisticsManager.h"
-#include "surrender/srTexture.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)

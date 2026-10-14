@@ -1,26 +1,25 @@
 #pragma once
 
-#include <string_view>
-#include <string>
-
-#include <memory>
-#include <vector>
 #include <array>
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/ButtonWidget.h"
-
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/mgs_commands.h"
-#include "wiz8/catalog_artwork.h"
 #include <functional>
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/text_input.h"
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include "compat/compiler.h"
 #include "input.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/engine_code/Quality.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/mgs_commands.h"
+#include "wiz8/text_input.h"
+#include "wiz8/ui_layer.h"
 
 class W8OptionsPanel;
-class W8OptionsSaveRow;
+struct W8OptionsSaveRow;
 class W8MessageDialogBase;
 class W8TextBuffer;
 struct W8SaveSlot;
@@ -140,9 +139,10 @@ protected:
     bool m_active = false;
     bool m_dirty = true;
     SDL_Rect m_bounds;
-    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed,
-                             int hover = -1, int pressed_hover = -1, int disabled = -1,
-                             W8ButtonCallback callback = {});
+    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed, int hover = -1,
+                              int pressed_hover = -1, int disabled = -1,
+                              W8ButtonCallback callback = {});
+
 public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel() = default;
@@ -280,6 +280,7 @@ struct W8OptionsPanelRange {
 
 class W8OptionsScreen final {
     UiLayer m_menu_input;
+
 public:
     W8OptionsScreen();
     ~W8OptionsScreen();

@@ -1,18 +1,21 @@
+#include "wiz8/level_specific_code/Trynnie2.h"
+
 #include <string>
 #include <vector>
 
-#include "wiz8/fonts.h"
-#include "wiz8/level_specific_code/Trynnie2.h"
-#include "wiz8/level_specific_code/Trynnie1.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "Item.h"
+#include "conditions.h"
+#include "surrender/srMath.h"
+#include "wiz8/cursor.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/location_variables.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/cursor.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -20,11 +23,9 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/string_database.h"
-#include "Item.h"
-#include "conditions.h"
-#include "surrender/srMath.h"
+#include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/string_database.h"
 
 class Trigger;
 
@@ -35,7 +36,6 @@ class Trigger;
    InitializeLevelMasterFunctions registers the surrounding cluster
    (GoodaVine_A/B, Give_Zulu, Meat_Maker, Meat_Box, URN_Trigger_01-04) and runs
    the Trynnie2Killed location-variable sync. */
-
 
 /* Fact 0x229 records that the Trynnie2 group was wiped out; mirror it into the
    Trynnie2Killed location variable the first time this level sees it, so the

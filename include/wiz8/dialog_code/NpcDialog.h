@@ -3,14 +3,14 @@
 class TextFieldGroup;
 
 #include <array>
-#include <memory>
 #include <functional>
+#include <memory>
 #include <string>
 
+#include "compat/compiler.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/ui_layer.h"
-#include "compat/compiler.h"
 
 class W8TextBuffer;
 class W8ButtonWidget;
@@ -27,8 +27,7 @@ class W8NpcDialog final : public ModalContent {
     friend void OnNpcDialogClosed(W8NpcDialog& dialog);
 
 public:
-    W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
-                std::function<void(W8NpcDialog&)> closed);
+    W8NpcDialog(W8NpcQuoteEntry* message, int aux_data, std::function<void(W8NpcDialog&)> closed);
     virtual ~W8NpcDialog() override;
     void DrawModal(SDL_Surface& target) override;
     void RequestModalRedraw() override { m_dirty = true; }

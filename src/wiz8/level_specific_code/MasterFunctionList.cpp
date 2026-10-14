@@ -1,64 +1,65 @@
-#include <fmt/format.h>
-#include <string>
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+
 #include <cstdarg>
 #include <cstdlib>
+#include <string>
 #include <vector>
 
-#include "wiz8/integer_constants.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/level_specific_code/Arnika.h"
-#include "wiz8/level_specific_code/Monastery1.h"
-#include "wiz8/level_specific_code/Monastery2.h"
-#include "wiz8/level_specific_code/Trynnie2.h"
-#include "wiz8/level_specific_code/Swamp.h"
-#include "wiz8/level_specific_code/SeaCaves.h"
-#include "wiz8/level_specific_code/Rift1.h"
-#include "wiz8/level_specific_code/Camp.h"
-#include "wiz8/level_specific_code/RapaxMainFloor.h"
-#include "wiz8/level_specific_code/RapaxUpperFloor.h"
-#include "wiz8/level_specific_code/Ascension.h"
-#include "wiz8/level_specific_code/MtGigas1.h"
-#include "wiz8/level_specific_code/MtGigas2.h"
-#include "wiz8/level_specific_code/MtGigasOuter.h"
-#include "wiz8/level_specific_code/MtGigasTop.h"
-#include "wiz8/level_specific_code/CosmicCircle.h"
-#include "wiz8/level_specific_code/MartensBluff1.h"
-#include "wiz8/level_specific_code/MartensBluff2.h"
-#include "wiz8/level_specific_code/SavantTower.h"
-#include "wiz8/level_specific_code/ConnectiveTissue.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/layouts/world.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/save_game.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/location_variables.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/string_database.h"
-#include "wiz8/float_constants.h"
+#include <fmt/format.h>
+
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_double3.hpp"
 #include "item_spawning.h"
 #include "layouts/gameplay_databases.h"
 #include "surrender/srMath.h"
-
+#include "wiz8/character_skills.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/stCube.h"
+#include "wiz8/engine_code/stSound3D.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/layouts/world.h"
+#include "wiz8/level_specific_code/Arnika.h"
+#include "wiz8/level_specific_code/Ascension.h"
+#include "wiz8/level_specific_code/Camp.h"
+#include "wiz8/level_specific_code/ConnectiveTissue.h"
+#include "wiz8/level_specific_code/CosmicCircle.h"
+#include "wiz8/level_specific_code/MartensBluff1.h"
+#include "wiz8/level_specific_code/MartensBluff2.h"
+#include "wiz8/level_specific_code/Monastery1.h"
+#include "wiz8/level_specific_code/Monastery2.h"
+#include "wiz8/level_specific_code/MtGigas1.h"
+#include "wiz8/level_specific_code/MtGigas2.h"
+#include "wiz8/level_specific_code/MtGigasOuter.h"
+#include "wiz8/level_specific_code/MtGigasTop.h"
+#include "wiz8/level_specific_code/RapaxMainFloor.h"
+#include "wiz8/level_specific_code/RapaxUpperFloor.h"
+#include "wiz8/level_specific_code/Rift1.h"
+#include "wiz8/level_specific_code/SavantTower.h"
+#include "wiz8/level_specific_code/SeaCaves.h"
+#include "wiz8/level_specific_code/Swamp.h"
+#include "wiz8/level_specific_code/Trynnie2.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/mipe.h"
+#include "wiz8/location_variables.h"
+#include "wiz8/save_game.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/string_database.h"
 
 /* The world-cursor node the party is standing in, tracked across the
    command-0 sweep so enter/leave commands fire once per crossing. */
@@ -499,8 +500,6 @@ int NormalizeMasterFunctionValue(int value)
     return value;
 }
 
-#define MASTER_FUNCTION_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MasterFunctionList.cpp"
-
 // GLOBAL: WIZ8 0x006834DD
 bool g_running_trigger_from_script;
 // GLOBAL: WIZ8 0x006109F0
@@ -523,15 +522,15 @@ void LoadAwayCampChest(void)
 
     pChest = FindPropByName(g_world, "AwayCampChest");
     if (pChest == 0) {
-        srAssertFail("pChest", MASTER_FUNCTION_CPP, 0x5a4, 0);
+        srAssertFail("pChest", __FILE__, __LINE__, 0);
     }
     pTrigger = pChest->GetTrigger();
     if (pTrigger == 0) {
-        srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5a6, 0);
+        srAssertFail("pTrigger", __FILE__, __LINE__, 0);
     }
     pContainer = pTrigger->GetOrCreateItemGroup(true);
     if (pContainer == 0) {
-        srAssertFail("pContainer", MASTER_FUNCTION_CPP, 0x5a8, 0);
+        srAssertFail("pContainer", __FILE__, __LINE__, 0);
     }
     LoadSavedLevelItems(0x26, items);
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
@@ -627,26 +626,9 @@ static bool BlockTriggerActivation(Trigger* trigger)
     return false;
 }
 
-/* Repeated level setup owns the find/assert/bind operation. Diagnostics keep
-   their original line and literal spelling, including the inconsistent names. */
-static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback, int line,
-                             const char* diagnostic)
+static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback)
 {
-    Trigger* trigger = FindTriggerByName(name);
-    if (trigger == 0) {
-        srAssertFail("pTrigger", MASTER_FUNCTION_CPP, line, diagnostic);
-    }
-    trigger->activation_callback = callback;
-}
-
-static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback, int line)
-{
-    Trigger* trigger = FindTriggerByName(name);
-    if (trigger == 0) {
-        srAssertFail("pTrigger", MASTER_FUNCTION_CPP, line,
-                     fmt::format("Missing trigger '{}'! It's not in the LVL file!", name));
-    }
-    trigger->activation_callback = callback;
+    FindRequiredTriggerByName(name)->activation_callback = callback;
 }
 
 /* Install the level's trigger callbacks and master-function helpers. */
@@ -661,51 +643,51 @@ void InitializeLevelMasterFunctions(int level)
     g_sea_caves_slope_override_enabled = false;
     switch (level) {
     case 0:
-        BindLevelTrigger("ChaosMolori", ArnikaChaosMolori, 0x74);
-        BindLevelTrigger("Maddmook", ArnikaMaddmook, 0x78);
-        BindLevelTrigger("CMbox", ArnikaCMbox, 0x7c);
-        BindLevelTrigger("AstralDominae", ArnikaAstralDominae, 0x80);
-        BindLevelTrigger("BallSlot", ArnikaBallSlot, 0x84);
-        BindLevelTrigger("Flightrecordertrigger", ArnikaFlightRecorder, 0x88);
-        BindLevelTrigger("ULLspawn", AllowTriggerActivation, 0x8c);
-        BindLevelTrigger("Mookholo", ArnikaMookholo, 0x90);
-        BindLevelTrigger("MookFrontDoor", ArnikaMookFrontDoor, 0x9c);
-        BindLevelTrigger("YellowButton", ArnikaYellowButton, 0xa0);
-        BindLevelTrigger("Vaultalarmdoor", ArnikaVaultAlarmDoor, 0xa4);
-        BindLevelTrigger("Exitbutton", ArnikaExitButton, 0xa8);
-        BindLevelTrigger("GenVault-2-door", ArnikaGenVaultDoor, 0xac);
-        BindLevelTrigger("ARN11", CosmicCircleReturnFalse, 0xb8);
-        BindLevelTrigger("RedButton", ArnikaRedButton, 0xbd);
-        BindLevelTrigger("El1-TopButtons", ArnikaEl1TopButtons, 0xc1);
-        BindLevelTrigger("El1-BottomButtons", ArnikaEl1BottomButtons, 0xc5);
-        BindLevelTrigger("GreenButton", ArnikaGreenButton, 0xca);
-        BindLevelTrigger("Elevator-02", ArnikaElevator02Trigger, 0xce);
-        BindLevelTrigger("LazerScanner", ArnikaLazerScanner, 0xd8);
+        BindLevelTrigger("ChaosMolori", ArnikaChaosMolori);
+        BindLevelTrigger("Maddmook", ArnikaMaddmook);
+        BindLevelTrigger("CMbox", ArnikaCMbox);
+        BindLevelTrigger("AstralDominae", ArnikaAstralDominae);
+        BindLevelTrigger("BallSlot", ArnikaBallSlot);
+        BindLevelTrigger("Flightrecordertrigger", ArnikaFlightRecorder);
+        BindLevelTrigger("ULLspawn", AllowTriggerActivation);
+        BindLevelTrigger("Mookholo", ArnikaMookholo);
+        BindLevelTrigger("MookFrontDoor", ArnikaMookFrontDoor);
+        BindLevelTrigger("YellowButton", ArnikaYellowButton);
+        BindLevelTrigger("Vaultalarmdoor", ArnikaVaultAlarmDoor);
+        BindLevelTrigger("Exitbutton", ArnikaExitButton);
+        BindLevelTrigger("GenVault-2-door", ArnikaGenVaultDoor);
+        BindLevelTrigger("ARN11", CosmicCircleReturnFalse);
+        BindLevelTrigger("RedButton", ArnikaRedButton);
+        BindLevelTrigger("El1-TopButtons", ArnikaEl1TopButtons);
+        BindLevelTrigger("El1-BottomButtons", ArnikaEl1BottomButtons);
+        BindLevelTrigger("GreenButton", ArnikaGreenButton);
+        BindLevelTrigger("Elevator-02", ArnikaElevator02Trigger);
+        BindLevelTrigger("LazerScanner", ArnikaLazerScanner);
         pTrigger = FindRequiredTriggerByName("ScannerDoor");
         pTrigger->m_lData1 = 0;
         pTrigger->activation_callback = ArnikaScannerDoor;
         ArnikaLevelSetup();
         return;
     case 1:
-        BindLevelTrigger("RampUp", AscensionRampUp, 0x116);
-        BindLevelTrigger("ChaosATrigger", AscensionChaosATrigger, 0x11a);
-        BindLevelTrigger("ChaosBTrigger", AscensionChaosBTrigger, 0x11e);
-        BindLevelTrigger("LifeATrigger", AscensionLifeATrigger, 0x122);
-        BindLevelTrigger("LifeBTrigger", AscensionLifeBTrigger, 0x126);
-        BindLevelTrigger("KnowATrigger", AscensionKnowATrigger, 0x12a);
-        BindLevelTrigger("KnowBTrigger", AscensionKnowBTrigger, 0x12e);
-        BindLevelTrigger("RampUp", AscensionDarkSavantSpawn, 0x132);
-        BindLevelTrigger("Path1Camera", AscensionPath1Camera, 0x136);
-        BindLevelTrigger("Shaker", AscensionShaker, 0x5ee);
+        BindLevelTrigger("RampUp", AscensionRampUp);
+        BindLevelTrigger("ChaosATrigger", AscensionChaosATrigger);
+        BindLevelTrigger("ChaosBTrigger", AscensionChaosBTrigger);
+        BindLevelTrigger("LifeATrigger", AscensionLifeATrigger);
+        BindLevelTrigger("LifeBTrigger", AscensionLifeBTrigger);
+        BindLevelTrigger("KnowATrigger", AscensionKnowATrigger);
+        BindLevelTrigger("KnowBTrigger", AscensionKnowBTrigger);
+        BindLevelTrigger("RampUp", AscensionDarkSavantSpawn);
+        BindLevelTrigger("Path1Camera", AscensionPath1Camera);
+        BindLevelTrigger("Shaker", AscensionShaker);
         AscensionPeakInit();
         return;
     case 4:
         CosmicCircleSetup();
-        BindLevelTrigger("CC_TRIGGERPLANE1HEDRA", CosmicCircleTriggerPlane1Hedra, 0x33a);
+        BindLevelTrigger("CC_TRIGGERPLANE1HEDRA", CosmicCircleTriggerPlane1Hedra);
         break;
     case 5:
         MartensBluff1Setup();
-        BindLevelTrigger("MR109", MartensBluff1Teleporter, 0x144);
+        BindLevelTrigger("MR109", MartensBluff1Teleporter);
         pTrigger = FindTriggerByName("MR110");
         if (pTrigger != 0) {
             pTrigger->activation_callback = BlockTriggerActivation;
@@ -718,136 +700,132 @@ void InitializeLevelMasterFunctions(int level)
         if (pTrigger != 0) {
             pTrigger->activation_callback = BlockTriggerActivation;
         }
-        BindLevelTrigger("F-Handlock", MartensBluff1FHandlock, 0x154);
-        BindLevelTrigger("ButtonGigas", MartensBluff1ButtonGigas, 0x158);
-        BindLevelTrigger("ButtonTrang", MartensBluff1ButtonTrang, 0x15c);
-        BindLevelTrigger("ButtonRift", MartensBluff1ButtonRift, 0x160);
-        BindLevelTrigger("ButtonMaten", MartensBluff1ButtonMaten, 0x164);
-        BindLevelTrigger("WireTrigger", MartensBluff1WireTrigger, 0x168);
-        BindLevelTrigger("ButtonGigas", MartensBluff1ButtonGigas, 0x16c);
-        BindLevelTrigger("Controller", MartensBluff1Controller, 0x170);
-        BindLevelTrigger("Dial-A", MartensBluff1DialA, 0x174);
-        BindLevelTrigger("Dial-B", MartensBluff1DialB, 0x178);
-        BindLevelTrigger("Dial-C", MartensBluff1DialC, 0x17c);
-        BindLevelTrigger("Gas-Switch", MartensBluff1GasSwitch, 0x180);
-        BindLevelTrigger("J-Doorcontroller", MartensBluff1JDoorController, 0x184);
-        BindLevelTrigger("MartenBook", MartensBluff1MartenBook, 0x188,
-                         "Missing trigger 'trigger16254'! It's not in the LVL file!");
+        BindLevelTrigger("F-Handlock", MartensBluff1FHandlock);
+        BindLevelTrigger("ButtonGigas", MartensBluff1ButtonGigas);
+        BindLevelTrigger("ButtonTrang", MartensBluff1ButtonTrang);
+        BindLevelTrigger("ButtonRift", MartensBluff1ButtonRift);
+        BindLevelTrigger("ButtonMaten", MartensBluff1ButtonMaten);
+        BindLevelTrigger("WireTrigger", MartensBluff1WireTrigger);
+        BindLevelTrigger("ButtonGigas", MartensBluff1ButtonGigas);
+        BindLevelTrigger("Controller", MartensBluff1Controller);
+        BindLevelTrigger("Dial-A", MartensBluff1DialA);
+        BindLevelTrigger("Dial-B", MartensBluff1DialB);
+        BindLevelTrigger("Dial-C", MartensBluff1DialC);
+        BindLevelTrigger("Gas-Switch", MartensBluff1GasSwitch);
+        BindLevelTrigger("J-Doorcontroller", MartensBluff1JDoorController);
+        BindLevelTrigger("MartenBook", MartensBluff1MartenBook);
         return;
     case 6:
         MartensBluff2Setup();
-        BindLevelTrigger("Arrowtraptrigger", TriggerArrowTrap, 0x192);
-        BindLevelTrigger("Spikeballtrigger", MartensBluff2Spikeballtrigger, 0x196);
-        BindLevelTrigger("DoorBolt", MartensBluff2DoorBolt, 0x19a);
-        BindLevelTrigger("DummyLever", MartensBluff2DummyLever, 0x19e);
-        BindLevelTrigger("Dummy", MartensBluff2Dummy, 0x1a2);
-        BindLevelTrigger("PerfumeBox", MartensBluff2PerfumeBox, 0x1a6);
-        BindLevelTrigger("StoneIdol", MartensBluff2StoneIdol, 0x1aa);
-        BindLevelTrigger("BlueFlowers", MartensBluff2BlueFlowers, 0x1ae);
-        BindLevelTrigger("SquisherControls", MartensBluff2SquisherControls, 0x1b2);
-        BindLevelTrigger("DoorControls", MartensBluff2DoorControls, 0x1b6);
+        BindLevelTrigger("Arrowtraptrigger", TriggerArrowTrap);
+        BindLevelTrigger("Spikeballtrigger", MartensBluff2Spikeballtrigger);
+        BindLevelTrigger("DoorBolt", MartensBluff2DoorBolt);
+        BindLevelTrigger("DummyLever", MartensBluff2DummyLever);
+        BindLevelTrigger("Dummy", MartensBluff2Dummy);
+        BindLevelTrigger("PerfumeBox", MartensBluff2PerfumeBox);
+        BindLevelTrigger("StoneIdol", MartensBluff2StoneIdol);
+        BindLevelTrigger("BlueFlowers", MartensBluff2BlueFlowers);
+        BindLevelTrigger("SquisherControls", MartensBluff2SquisherControls);
+        BindLevelTrigger("DoorControls", MartensBluff2DoorControls);
         return;
     case 8:
         ClearTextForBarTrigger();
-        BindLevelTrigger("roach_trigger", OnRoachTriggerActivated, 0x1c0);
-        BindLevelTrigger("spider_trigger", OnSpiderTriggerActivated, 0x1c4);
-        BindLevelTrigger("Bartrigger", OnBarTriggerActivated, 0x1c8);
-        BindLevelTrigger("Coffinlide", OnCoffinlideActivated, 0x1cc);
-        BindLevelTrigger("Coffinlidg", OnCoffinlidgActivated, 0x1d0);
-        BindLevelTrigger("wheel_star", OnWheelStarActivated, 0x5ee);
+        BindLevelTrigger("roach_trigger", OnRoachTriggerActivated);
+        BindLevelTrigger("spider_trigger", OnSpiderTriggerActivated);
+        BindLevelTrigger("Bartrigger", OnBarTriggerActivated);
+        BindLevelTrigger("Coffinlide", OnCoffinlideActivated);
+        BindLevelTrigger("Coffinlidg", OnCoffinlidgActivated);
+        BindLevelTrigger("wheel_star", OnWheelStarActivated);
         return;
     case 9:
-        BindLevelTrigger("bell_button", Monastery2BellButton, 0x1d8);
-        BindLevelTrigger("micro_door2", Monastery2MicroDoor2, 0x1dc);
+        BindLevelTrigger("bell_button", Monastery2BellButton);
+        BindLevelTrigger("micro_door2", Monastery2MicroDoor2);
         return;
     case 0xc:
         MtGigas1Setup();
-        BindLevelTrigger("_VOC_EWAXXLIFT1", MtGigas1Lift1, 0x219);
-        BindLevelTrigger("_VOC_EWAXXLIFT2", MtGigas1Lift2, 0x21d);
-        BindLevelTrigger("PRESSUREPLATE", MtGigas1PressurePlate, 0x221,
-                         "Missing trigger '_VOC_EWAXXLIFT2'! It's not in the LVL file!");
-        BindLevelTrigger("mudWallTrigger", MtGigas1MudWall, 0x225);
+        BindLevelTrigger("_VOC_EWAXXLIFT1", MtGigas1Lift1);
+        BindLevelTrigger("_VOC_EWAXXLIFT2", MtGigas1Lift2);
+        BindLevelTrigger("PRESSUREPLATE", MtGigas1PressurePlate);
+        BindLevelTrigger("mudWallTrigger", MtGigas1MudWall);
         return;
     case 0xd:
         MtGigas2Setup();
-        BindLevelTrigger("_VOC_EWAXXTRAIN", MtGigas2Train, 0x22e);
-        BindLevelTrigger("redwire", MtGigas2RedWire, 0x232);
-        BindLevelTrigger("bluewire", MtGigas2BlueWire, 0x236);
-        BindLevelTrigger("yellowwire", MtGigas2YellowWire, 0x23a);
-        BindLevelTrigger("_VOC_EWAXXLIFT3", MtGigas2Lift3, 0x23e);
-        BindLevelTrigger("_VOC_EWAXXTOPDOOR1", MtGigas2TopDoor1, 0x242);
-        BindLevelTrigger("_VOC_EWAXXOFFICER1", MtGigas2Officer1, 0x246,
-                         "Missing trigger '_VOC_EWAXXTOPDOOR1'! It's not in the LVL file!");
-        BindLevelTrigger("_VOC_EWAXXOFFICER2", MtGigas2Officer2, 0x24a,
-                         "Missing trigger '_VOC_EWAXXTOPDOOR1'! It's not in the LVL file!");
-        BindLevelTrigger("triggerPlaneLaserAlarm", MtGigas2LaserAlarm, 0x24e);
-        BindLevelTrigger("triggerPlaneLaserAlarm01", MtGigas2LaserAlarm, 0x252);
-        BindLevelTrigger("accessHatch", MtGigas2AccessHatch, 0x256);
-        BindLevelTrigger("wiringMalfunction", MtGigas2WiringMalfunction, 0x25a);
+        BindLevelTrigger("_VOC_EWAXXTRAIN", MtGigas2Train);
+        BindLevelTrigger("redwire", MtGigas2RedWire);
+        BindLevelTrigger("bluewire", MtGigas2BlueWire);
+        BindLevelTrigger("yellowwire", MtGigas2YellowWire);
+        BindLevelTrigger("_VOC_EWAXXLIFT3", MtGigas2Lift3);
+        BindLevelTrigger("_VOC_EWAXXTOPDOOR1", MtGigas2TopDoor1);
+        BindLevelTrigger("_VOC_EWAXXOFFICER1", MtGigas2Officer1);
+        BindLevelTrigger("_VOC_EWAXXOFFICER2", MtGigas2Officer2);
+        BindLevelTrigger("triggerPlaneLaserAlarm", MtGigas2LaserAlarm);
+        BindLevelTrigger("triggerPlaneLaserAlarm01", MtGigas2LaserAlarm);
+        BindLevelTrigger("accessHatch", MtGigas2AccessHatch);
+        BindLevelTrigger("wiringMalfunction", MtGigas2WiringMalfunction);
         return;
     case 0xe:
         ProcessFlagPosition();
-        BindLevelTrigger("_VOC_EWAXXLIFT1", MtGigas1Lift1, 0x1ff);
-        BindLevelTrigger("crank", OnCrankTriggerActivated, 0x203);
-        BindLevelTrigger("Security Button", OnSecurityButtonActivated, 0x207);
-        BindLevelTrigger("VOC_EWAXXSENTRYtrig", OnSentryTriggerActivated, 0x20b);
-        BindLevelTrigger("ewaxxdoortrigger03", OnEwaxxDoor03Activated, 0x20f);
-        BindLevelTrigger("dummytrigger", OnDummyTriggerActivated, 0x5ee);
+        BindLevelTrigger("_VOC_EWAXXLIFT1", MtGigas1Lift1);
+        BindLevelTrigger("crank", OnCrankTriggerActivated);
+        BindLevelTrigger("Security Button", OnSecurityButtonActivated);
+        BindLevelTrigger("VOC_EWAXXSENTRYtrig", OnSentryTriggerActivated);
+        BindLevelTrigger("ewaxxdoortrigger03", OnEwaxxDoor03Activated);
+        BindLevelTrigger("dummytrigger", OnDummyTriggerActivated);
         return;
     case 0xf:
-        BindLevelTrigger("_VOC_EWAXXCANNON1", OnEwaxxCannon1Activated, 0x1e2);
-        BindLevelTrigger("EwaxxLanding", OnEwaxxLandingActivated, 0x1ea);
-        BindLevelTrigger("catchCord", OnCatchCordActivated, 0x1ee);
-        BindLevelTrigger("painActivatorTrigger", OnPainActivatorActivated, 0x1f2);
-        BindLevelTrigger("_VOC_EWAXXTOPDOOR2", OnEwaxxTopDoor2Activated, 0x1f6);
+        BindLevelTrigger("_VOC_EWAXXCANNON1", OnEwaxxCannon1Activated);
+        BindLevelTrigger("EwaxxLanding", OnEwaxxLandingActivated);
+        BindLevelTrigger("catchCord", OnCatchCordActivated);
+        BindLevelTrigger("painActivatorTrigger", OnPainActivatorActivated);
+        BindLevelTrigger("_VOC_EWAXXTOPDOOR2", OnEwaxxTopDoor2Activated);
         return;
     case 0x10:
         if (GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
             LoadAwayCampChest();
             SetFact(W8_FACT_PARTY_AT_RAC, 0, false);
         }
-        BindLevelTrigger("prisondoor06", CampPrisonDoor06, 0x308);
-        BindLevelTrigger("prisondoor04", CampPrisonDoor04, 0x30c);
-        BindLevelTrigger("prisondoor03", CampPrisonDoor03, 0x310);
+        BindLevelTrigger("prisondoor06", CampPrisonDoor06);
+        BindLevelTrigger("prisondoor04", CampPrisonDoor04);
+        BindLevelTrigger("prisondoor03", CampPrisonDoor03);
         return;
     case 0x12:
-        BindLevelTrigger("AltarBox", RapaxMainFloorAltarBox, 0x29c);
-        BindLevelTrigger("platformtrigger", RapaxMainFloorPlatform, 0x2a0);
-        BindLevelTrigger("platformtrigger01", RapaxMainFloorPlatform01, 0x2a4);
-        BindLevelTrigger("platformtrigger02", RapaxMainFloorPlatform02, 0x2a8);
+        BindLevelTrigger("AltarBox", RapaxMainFloorAltarBox);
+        BindLevelTrigger("platformtrigger", RapaxMainFloorPlatform);
+        BindLevelTrigger("platformtrigger01", RapaxMainFloorPlatform01);
+        BindLevelTrigger("platformtrigger02", RapaxMainFloorPlatform02);
         return;
     case 0x13:
-        BindLevelTrigger("AirBox", RapaxUpperFloorAirBox, 0x290);
-        BindLevelTrigger("DoorDone", RapaxUpperFloorDoorDone, 0x294);
+        BindLevelTrigger("AirBox", RapaxUpperFloorAirBox);
+        BindLevelTrigger("DoorDone", RapaxUpperFloorDoorDone);
         return;
     case 0x15:
-        BindLevelTrigger("Fireantspawn", Rift1Fireantspawn, 0x27a);
-        BindLevelTrigger("Sexspawn", Rift1Sexspawn, 0x27e);
-        BindLevelTrigger("Hotstuff", Rift1Hotstuff, 0x282);
-        BindLevelTrigger("Gate", Rift1Gate, 0x286);
-        BindLevelTrigger("AshLock", Rift1AshLock, 0x5ee);
-        BindLevelTrigger("TimeDorado", Rift1TimeDorado, 0x5ee);
+        BindLevelTrigger("Fireantspawn", Rift1Fireantspawn);
+        BindLevelTrigger("Sexspawn", Rift1Sexspawn);
+        BindLevelTrigger("Hotstuff", Rift1Hotstuff);
+        BindLevelTrigger("Gate", Rift1Gate);
+        BindLevelTrigger("AshLock", Rift1AshLock);
+        BindLevelTrigger("TimeDorado", Rift1TimeDorado);
         return;
     case 0x16:
         g_sea_caves_slope_override_enabled = true;
         g_party_has_slope_override_item = FindItemOnParty(0x254, 0, 0, 0, 0);
-        BindLevelTrigger("HigardiChest01", SeaCavesHigardiChest01, 0x2b1);
-        BindLevelTrigger("HigardiChest02", SeaCavesHigardiChest02, 0x2b5);
-        BindLevelTrigger("HigardiChest03", SeaCavesHigardiChest03, 0x2b9);
-        BindLevelTrigger("HigardiChest04", SeaCavesHigardiChest04, 0x2bd);
-        BindLevelTrigger("HigardiChest05", SeaCavesHigardiChest05, 0x2c1);
-        BindLevelTrigger("doortomb", SeaCavesDoorTomb, 0x5ee);
+        BindLevelTrigger("HigardiChest01", SeaCavesHigardiChest01);
+        BindLevelTrigger("HigardiChest02", SeaCavesHigardiChest02);
+        BindLevelTrigger("HigardiChest03", SeaCavesHigardiChest03);
+        BindLevelTrigger("HigardiChest04", SeaCavesHigardiChest04);
+        BindLevelTrigger("HigardiChest05", SeaCavesHigardiChest05);
+        BindLevelTrigger("doortomb", SeaCavesDoorTomb);
         return;
     case 0x18:
-        BindLevelTrigger("gas_trig_plane01", SwampGasPlane, 0x2ca);
-        BindLevelTrigger("gas_trig_plane02", SwampGasPlane, 0x2ce);
-        BindLevelTrigger("gas_trig_plane03", SwampGasPlane, 0x2d2);
-        BindLevelTrigger("gas_trig_plane04", SwampGasPlane, 0x2d6);
-        BindLevelTrigger("gas_trig_plane05", SwampGasPlane, 0x2da);
-        BindLevelTrigger("gas_trig_plane06", SwampGasPlane, 0x2de);
-        BindLevelTrigger("gas_trig_plane07", SwampGasPlane, 0x2e2);
-        BindLevelTrigger("oil_pool", SwampOilPool, 0x2e6);
-        BindLevelTrigger("onelid", SwampOnelid, 0x2ea);
+        BindLevelTrigger("gas_trig_plane01", SwampGasPlane);
+        BindLevelTrigger("gas_trig_plane02", SwampGasPlane);
+        BindLevelTrigger("gas_trig_plane03", SwampGasPlane);
+        BindLevelTrigger("gas_trig_plane04", SwampGasPlane);
+        BindLevelTrigger("gas_trig_plane05", SwampGasPlane);
+        BindLevelTrigger("gas_trig_plane06", SwampGasPlane);
+        BindLevelTrigger("gas_trig_plane07", SwampGasPlane);
+        BindLevelTrigger("oil_pool", SwampOilPool);
+        BindLevelTrigger("onelid", SwampOnelid);
         pTrigger = FindRequiredTriggerByName("fire_trig_plane01");
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindRequiredTriggerByName("fire_trig_plane02");
@@ -864,34 +842,31 @@ void InitializeLevelMasterFunctions(int level)
         pTrigger->activation_callback = SwampFirePlane;
         return;
     case 0x19:
-        BindLevelTrigger("Fount_randomFX", Trynnie1FountRandomFX, 0x2fa);
+        BindLevelTrigger("Fount_randomFX", Trynnie1FountRandomFX);
         EnsureTrynnie1KilledVar();
         return;
     case 0x1a:
-        BindLevelTrigger("GoodaVine_A", Trynnie2GoodaVineA, 0x31a);
-        BindLevelTrigger("GoodaVine_B", Trynnie2GoodaVineB, 0x31e);
-        BindLevelTrigger("Meat_Maker", Trynnie2MeatMaker, 0x322,
-                         "Missing trigger 'Meat maker'! It's not in the LVL file!");
-        BindLevelTrigger("Meat_Box", Trynnie2MeatBox, 0x326,
-                         "Missing trigger 'Meat_Box! It's not in the LVL file!");
-        BindLevelTrigger("Give_Zulu", Trynnie2GiveZulu, 0x32a,
-                         "Missing trigger 'Give Zulu'! It's not in the LVL file!");
-        BindLevelTrigger("URN_Trigger_01", Trynnie2UrnTrigger, 0x5ee);
-        BindLevelTrigger("URN_Trigger_02", Trynnie2UrnTrigger, 0x5ee);
-        BindLevelTrigger("URN_Trigger_03", Trynnie2UrnTrigger, 0x5ee);
-        BindLevelTrigger("URN_Trigger_04", Trynnie2UrnTrigger, 0x5ee);
+        BindLevelTrigger("GoodaVine_A", Trynnie2GoodaVineA);
+        BindLevelTrigger("GoodaVine_B", Trynnie2GoodaVineB);
+        BindLevelTrigger("Meat_Maker", Trynnie2MeatMaker);
+        BindLevelTrigger("Meat_Box", Trynnie2MeatBox);
+        BindLevelTrigger("Give_Zulu", Trynnie2GiveZulu);
+        BindLevelTrigger("URN_Trigger_01", Trynnie2UrnTrigger);
+        BindLevelTrigger("URN_Trigger_02", Trynnie2UrnTrigger);
+        BindLevelTrigger("URN_Trigger_03", Trynnie2UrnTrigger);
+        BindLevelTrigger("URN_Trigger_04", Trynnie2UrnTrigger);
         EnsureTrynnie2KilledVar();
         return;
     case 0x1b:
-        BindLevelTrigger("Liche", ConnectiveTissueLiche, 0xe7);
+        BindLevelTrigger("Liche", ConnectiveTissueLiche);
         return;
     case 0x24:
         SavantTowerSyncButtonBlocker();
-        BindLevelTrigger("Triangle", SavantTowerShape, 0xf2);
-        BindLevelTrigger("Circle", SavantTowerShape, 0xf6);
-        BindLevelTrigger("Square", SavantTowerShape, 0xfa);
-        BindLevelTrigger("Star", SavantTowerShape, 0xfe);
-        BindLevelTrigger("ButtonBlocker", SavantTowerButtonBlocker, 0x102);
+        BindLevelTrigger("Triangle", SavantTowerShape);
+        BindLevelTrigger("Circle", SavantTowerShape);
+        BindLevelTrigger("Square", SavantTowerShape);
+        BindLevelTrigger("Star", SavantTowerShape);
+        BindLevelTrigger("ButtonBlocker", SavantTowerButtonBlocker);
         return;
     }
     return;

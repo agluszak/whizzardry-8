@@ -1,11 +1,11 @@
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Quality.h"
 #include "wiz8/startup_world.h"
+
+#include "float_constants.h"
+#include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Levels.h"
-#include "float_constants.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/Quality.h"
 
 // GLOBAL: WIZ8 0x00659c0c
 W8Navigator* g_startup_world;
@@ -22,7 +22,6 @@ unsigned char InitializeStartupNavigation(void)
 {
     W8Navigator* navigator;
 
-    NoOp();
     InitializeAniMeshCache(-1, -1);
     InitializeRenderQuality();
     InitializeEnvironmentColours();
@@ -45,7 +44,6 @@ unsigned char InitializeStartupNavigation(void)
 // FUNCTION: WIZ8 0x0044F190
 void ShutdownStartupNavigation(void)
 {
-    NoOp();
     FreeAniMeshCache();
     DestroyRenderQuality();
     ClearEnvironmentObjects();

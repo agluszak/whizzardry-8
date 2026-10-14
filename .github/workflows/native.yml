@@ -80,7 +80,7 @@ jobs:
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
             -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
             -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
-            -DWIZ8_SURRENDER_UNITY_BUILD=ON \
+            -DWIZ8_SURRENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
@@ -188,7 +188,12 @@ jobs:
         if: always()
         run: ccache --show-stats || true
 
-  include-hygiene:
+  static-analysis:
+    name: ${{ matrix.check }}
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [include-hygiene, clang-tidy]
     runs-on: ubuntu-26.04
     defaults:
       run:
@@ -220,29 +225,31 @@ jobs:
           sudo apt-get install -y \
             ./libsdl3-mixer0_3.2.4+ds-1_amd64.deb \
             ./libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
-      - name: Determine include-hygiene scope
+      - name: Determine analysis scope
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/include-hygiene-changed"
+          git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/static-analysis-changed"
       # Include-cleaner must analyze direct includes, not headers supplied by
-      # the game's PCH. Keep unity off here so every source is checked.
-      - name: Configure include-hygiene database
+      # the game's PCH. Keep unity off for both checks so the database covers
+      # every first-party translation unit.
+      - name: Configure analysis database
         run: |
           cmake --preset linux -B build/linux-tidy \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
           cmake --build build/linux-tidy --target surrender_shader_headers
-      - name: Check first-party include hygiene
+      - name: Run ${{ matrix.check }}
         env:
           CLANG_TIDY: clang-tidy-22
           RUN_CLANG_TIDY: run-clang-tidy-22
+          CLANG_TIDY_CONFIG: ${{ matrix.check == 'include-hygiene' && '.clang-tidy-includes' || '.clang-tidy' }}
         run: |
           if [[ "${{ github.event_name }}" == pull_request ]]; then
-            ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/include-hygiene-changed"
+            ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/static-analysis-changed"
           else
             ./tools/run-clang-tidy.sh build/linux-tidy
           fi

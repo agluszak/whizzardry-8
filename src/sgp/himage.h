@@ -3,15 +3,16 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
-#include <cstdint>
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <string_view>
 #include <variant>
 #include <vector>
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "wiz8/surface_storage.h"
 
@@ -60,11 +61,10 @@ std::optional<DecodedImage> LoadImage(std::string_view filename);
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, std::uint32_t rscale, std::uint32_t gscale,
-                                 std::uint32_t bscale, bool mono);
+Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, std::uint32_t rscale,
+                                   std::uint32_t gscale, std::uint32_t bscale, bool mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
 std::uint16_t Get16BPPColor(SDL_Color color);
 // The rendering session's 16-bit format: the framebuffer, frame surfaces, cached
 // images and every packed palette or colour use it.
 extern SDL_PixelFormat g_sgp_pixel_format;
-

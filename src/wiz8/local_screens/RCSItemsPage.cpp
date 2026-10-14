@@ -1,63 +1,65 @@
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/button_interaction.h"
+#include "wiz8/local_screens/RCSItemsPage.h"
+
 #include <algorithm>
-#include <SDL3/SDL_mouse.h>
-#include <utility>
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
 #include <array>
 #include <functional>
 #include <memory>
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_stdinc.h>
-#include <fmt/format.h>
-#include <fmt/printf.h>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "wiz8/spell_ids.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/cursor.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/dialog_code/StatInfoDialogs.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/RCSCommon.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/fonts.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/xstatus.h"
-#include "input.h"
-#include "soundman.h"
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
 #include "Font.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"
+#include "input.h"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/RangeControl.h"
 #include "local_code/TextBuffer.h"
+#include "soundman.h"
 #include "ui_input.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/AssayDialog.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/dialog_code/StatInfoDialogs.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/RCSCommon.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 /* Retail Local Screens\RCSItemsPage.cpp - the items page of the camp
    review screen: page-mode toggling, the item-info/split/stat dialogs,
@@ -81,7 +83,10 @@ struct CampItemControls {
 std::unique_ptr<CampItemControls> item_controls;
 }
 
-void SetCampItemHelp(std::string text) { item_controls->help_text = std::move(text); }
+void SetCampItemHelp(std::string text)
+{
+    item_controls->help_text = std::move(text);
+}
 
 static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag);
 
@@ -820,9 +825,11 @@ static std::pair<W8ItemInstance*, int> CampItemAt(int slot, int origin)
     if (origin == W8_ITEM_ORIGIN_BACKPACK) return {g_review_character->backpack + slot, slot};
     if (origin == W8_ITEM_ORIGIN_EQUIPPED) return {g_review_character->EquippedItem + slot, slot};
     const auto visible = g_camp_screen->item_scroll + slot;
-    const int index = visible < g_camp_screen->item_list_count &&
-        g_status.party_item_pool[g_camp_screen->item_list[visible]].iItemNo != -1
-        ? g_camp_screen->item_list[visible] : g_status.party_item_count;
+    const int index =
+        visible < g_camp_screen->item_list_count &&
+                g_status.party_item_pool[g_camp_screen->item_list[visible]].iItemNo != -1
+            ? g_camp_screen->item_list[visible]
+            : g_status.party_item_count;
     return {g_status.party_item_pool + index, index};
 }
 
@@ -837,7 +844,8 @@ static std::string CampItemTooltip(int slot, int origin)
     if (item->iItemNo != -1) {
         const auto& record = g_item_records[item->iItemNo];
         if (record.category == W8_ITEM_CATEGORY_SPELL_SOURCE && record.spell_id != W8_SPELL_NONE &&
-            g_review_character->spell_learned[record.spell_id] && (item->identified || item->spell_hint))
+            g_review_character->spell_learned[record.spell_id] &&
+            (item->identified || item->spell_hint))
             text += fmt::format(" ({})", g_localized_strings[0x930]);
     }
     return text;
@@ -848,18 +856,22 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
     const auto [item, index] = CampItemAt(slot, origin);
     const bool equipped = origin == W8_ITEM_ORIGIN_EQUIPPED;
     const bool pool = origin == W8_ITEM_ORIGIN_PARTY_POOL;
-    auto& target = *(pool ? g_camp_screen->pool_targets[slot] :
-        g_camp_screen->inventory_targets[slot + (equipped ? 8 : 0)]);
-    if (item->iItemNo == -1 && (!g_status.item_in_cursor || (equipped &&
-        (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
-         !CanEquipItemInSlot(g_review_character, g_status.item_in_hand.iItemNo,
-                            static_cast<unsigned char>(slot), true) ||
-         !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo)))))
+    auto& target = *(pool ? g_camp_screen->pool_targets[slot]
+                          : g_camp_screen->inventory_targets[slot + (equipped ? 8 : 0)]);
+    if (item->iItemNo == -1 &&
+        (!g_status.item_in_cursor ||
+         (equipped && (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
+                       !CanEquipItemInSlot(g_review_character, g_status.item_in_hand.iItemNo,
+                                           static_cast<unsigned char>(slot), true) ||
+                       !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo)))))
         PushButtonSoundScheme(0, true);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
         if (item->iItemNo != -1 || g_status.item_in_cursor)
-            g_camp_screen->item_redraw_flags |= (pool ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST :
-                equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST) << slot;
+            g_camp_screen->item_redraw_flags |=
+                (pool       ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
+                 : equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
+                            : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST)
+                << slot;
         UpdateItemCursorForState(event.action == UiPointerAction::Enter, item, 0);
     }
     if (event.action == UiPointerAction::Leave ||
@@ -871,7 +883,9 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
         g_camp_screen->item_range->AdjustValue(event.wheel);
     if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
-            AfterUiDispatch([item, index, origin] { HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin)); });
+            AfterUiDispatch([item, index, origin] {
+                HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin));
+            });
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
             item->iItemNo != -1 && g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY)
             AfterUiDispatch([item] { ShowCampItemInfo(item); });
@@ -989,10 +1003,9 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
 void CreateCampItemControls()
 {
     item_controls = std::make_unique<CampItemControls>();
-    const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds,
-                           int help, bool toggle, void (*action)()) {
+    const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds, int help,
+                           bool toggle, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(layer);
-
         result->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), f[0], f[1], f[2], f[3],
                                  f[4]),
@@ -1000,57 +1013,64 @@ void CreateCampItemControls()
              .policy = {.primary_toggle = toggle ? ButtonToggle::Release : ButtonToggle::None,
                         .input_rule = ButtonInputRule::PrimaryPressedState},
              .tooltip = help,
-             .priority = 0,
+             .priority = UI_PRIORITY_LOWEST,
              .menu_artwork = true});
+
         result->SetPosition(bounds.x, bounds.y);
         result->Resize(bounds.w, bounds.h);
         return result;
     };
     item_controls->actions[0] = button(item_controls->input, 0x11e, {3, 0, 1, 2, 2},
-        {0x7d, 0x19c, 28, 24}, 2385, false, UnequipBothHands);
+                                       {0x7d, 0x19c, 28, 24}, 2385, false, UnequipBothHands);
     item_controls->actions[1] = button(item_controls->input, 0x11e, {11, 8, 9, 4, 5},
-        {0x9e, 0x19c, 28, 24}, 2386, true, TogglePartyRowFlag);
+                                       {0x9e, 0x19c, 28, 24}, 2386, true, TogglePartyRowFlag);
     constexpr int frames[] = {0, 15, 20, 5, 10, 40, 30};
     constexpr int y[] = {0, 25, 75, 50, 108, 142, 176};
-    const std::array actions{ToggleCampHandItemFilter, ToggleCampBodyItemFilter,
-        ToggleCampOtherItemFilter, ToggleCampAccessoryItemFilter, ToggleCampUsabilityFilter,
-        ToggleCampUnidentifiedItemFilter, SortCampItemPool};
+    const std::array actions{ToggleCampHandItemFilter,  ToggleCampBodyItemFilter,
+                             ToggleCampOtherItemFilter, ToggleCampAccessoryItemFilter,
+                             ToggleCampUsabilityFilter, ToggleCampUnidentifiedItemFilter,
+                             SortCampItemPool};
     for (int index = 0; index < 7; ++index) {
         const int f = frames[index];
-        item_controls->filters[index] = button(item_controls->input, 0x11f,
-            {f + 3, f, f + 1, f + 2, f + 4}, {0x1e5, 0xc1 + y[index], 24, 24},
-            2378 + index, index < 6, actions[index]);
+        item_controls->filters[index] =
+            button(item_controls->input, 0x11f, {f + 3, f, f + 1, f + 2, f + 4},
+                   {0x1e5, 0xc1 + y[index], 24, 24}, 2378 + index, index < 6, actions[index]);
     }
     for (int index = 0; index < 2; ++index) {
         const int f = index * 5;
-        item_controls->tabs[index] = button(item_controls->secondary, 0x121,
-            {f + 3, f, f + 1, f + 2, f + 4}, {0x13e, 9 + index * 21, 20, 20},
-            0x95d + index, true, index ? ShowCampCharacterPage : ShowCampItemsPage);
+        item_controls->tabs[index] =
+            button(item_controls->secondary, 0x121, {f + 3, f, f + 1, f + 2, f + 4},
+                   {0x13e, 9 + index * 21, 20, 20}, 0x95d + index, true,
+                   index ? ShowCampCharacterPage : ShowCampItemsPage);
     }
     const auto label = [](SDL_Rect bounds, std::function<void()> action, int help) {
-        auto& target = item_controls->secondary.add(bounds,
-            [action](const UiPointerEvent& event) {
-                if (event.button != UiPointerButton::Right) PushButtonSoundScheme(0, true);
-                if (event.action == UiPointerAction::Up && event.inside &&
-                    event.button == UiPointerButton::Right && event.captured_buttons)
-                    AfterUiDispatch(action);
-                return UiResult::Handled;
-            });
+        auto& target = item_controls->secondary.add(bounds, [action](const UiPointerEvent& event) {
+            if (event.button != UiPointerButton::Right) PushButtonSoundScheme(0, true);
+            if (event.action == UiPointerAction::Up && event.inside &&
+                event.button == UiPointerButton::Right && event.captured_buttons)
+                AfterUiDispatch(action);
+            return UiResult::Handled;
+        });
         if (help >= 0) target.setTooltip([help] { return std::string(g_localized_strings[help]); });
         return &target;
     };
     for (int index = 0; index < 7; ++index)
-        item_controls->stats[index] = label({0x1c2, 0x3a + index * 14, 77, 13},
+        item_controls->stats[index] = label(
+            {0x1c2, 0x3a + index * 14, 77, 13},
             [index] { OpenAttributeInfoDialog(static_cast<W8Attribute>(index)); }, 0x958);
     constexpr int info_y[] = {0x3a, 0x48, 0x80, 0x8e};
     for (int index = 0; index < 4; ++index)
-        item_controls->info[index] = label({0x144, info_y[index], 118, 13},
+        item_controls->info[index] = label(
+            {0x144, info_y[index], 118, 13},
             [index] { OpenSecondaryAttributeInfoDialog(index < 2 ? index : 3); }, 0x958);
     item_controls->help = label({0x141, 0x54, 120, 13}, OpenSecondaryAttributeInfoDialog4, -1);
     item_controls->help->setTooltip([] { return item_controls->help_text; });
 }
 
-void DestroyCampItemControls() { item_controls.reset(); }
+void DestroyCampItemControls()
+{
+    item_controls.reset();
+}
 
 // FUNCTION: WIZ8 0x005b9270
 void EnableCampActionButtons(void)
@@ -1202,9 +1222,7 @@ void RefreshCampSecondaryPanel(bool invalidate)
         CatalogArtwork::Load(0x120, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x13c, 7);
         for (const auto& tab : item_controls->tabs) {
             tab->m_dirty = true;
-            {
-                tab->DrawAndInvalidate(GetFrameBufferSurface());
-            }
+            tab->DrawAndInvalidate(GetFrameBufferSurface());
         }
         item_controls->dirty = false;
     }

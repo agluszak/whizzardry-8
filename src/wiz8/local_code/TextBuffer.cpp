@@ -1,14 +1,17 @@
 #include "wiz8/local_code/TextBuffer.h"
+
+#include <cstring>
+#include <string>
+#include <string_view>
+
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
 #include "image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
-#include <cstring>
-#include <string>
-#include <string_view>
 
 // GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
@@ -249,7 +252,8 @@ void W8TextBuffer::SetLineHeight(unsigned int height)
 // FUNCTION: WIZ8 0x004f3d50
 void W8TextBuffer::FillBounds(SDL_Surface& target, int colour)
 {
-    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right - m_layoutBounds.left,
+    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top,
+                        m_layoutBounds.right - m_layoutBounds.left,
                         m_layoutBounds.bottom - m_layoutBounds.top};
     SDL_FillSurfaceRect(&target, &area, colour);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
@@ -285,11 +289,9 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
             DrawText(target, *m_font, {x + x_offset, y + y_offset}, line,
                      {.mono = m_alternateRenderer != 0});
 
-            if (end == std::string_view::npos)
-                break;
+            if (end == std::string_view::npos) break;
             y += GetLineHeight();
-            if (m_layoutBounds.bottom <= y)
-                break;
+            if (m_layoutBounds.bottom <= y) break;
             remaining.remove_prefix(end + 1);
         }
 
@@ -327,11 +329,9 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
         const int x = GetHorizontalPosition(m_font->textWidth(line));
         DrawText(target, *m_font, {x + offset, y + offset}, line);
 
-        if (end == std::string_view::npos)
-            break;
+        if (end == std::string_view::npos) break;
         y += GetLineHeight();
-        if (m_layoutBounds.bottom <= y)
-            break;
+        if (m_layoutBounds.bottom <= y) break;
         remaining.remove_prefix(end + 1);
     }
 

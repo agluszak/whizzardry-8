@@ -1,52 +1,19 @@
-#include "wiz8/button_interaction.h"
-#include "Types.h"
-#include <utility>
-#include <SDL3/SDL_rect.h>
-#include "wiz8/engine_code/Video2.h"
-#include <memory>
-#include <cstdint>
-#include <cstddef>
-#include <fmt/format.h>
-#include <string>
+#include "wiz8/local_screens/MGSButtons.h"
+
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
-#include "wiz8/local_screens/MGSButtons.h"
-#include "Video2.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/cursor.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/xstatus.h"
+#include <SDL3/SDL_rect.h>
+#include <fmt/format.h>
+
 #include "Font.h"
-#include "timer.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "Types.h"
+#include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "equipment_slots.h"
@@ -54,6 +21,41 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "surrender/srMath.h"
+#include "timer.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 #define MGSBUTTONS_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSButtons.cpp"
 
@@ -64,9 +66,7 @@ unsigned short g_action_kind_message_ids[12] = {
 
 void DestroySubMenuPanel()
 {
-    if (g_main_game_state) {
-        g_main_game_state->submenu.reset();
-    }
+    if (g_main_game_state) g_main_game_state->submenu.reset();
 }
 
 /* Five caption rows suffice: Berserk and Pray require mutually exclusive
@@ -133,9 +133,7 @@ void RefreshSubMenuPanel(bool invalidate)
         for (auto& button : submenu->buttons) button->m_dirty = true;
         submenu->dirty = false;
     }
-    for (auto& button : submenu->buttons) {
-        button->DrawAndInvalidate(target);
-    }
+    for (auto& button : submenu->buttons) button->DrawAndInvalidate(target);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -247,7 +245,6 @@ void OpenSubMenuPanel(short notification)
     UpdateScreenOverlays(0);
     if (!BuildSubMenuPanel(notification)) {
         DestroySubMenuControls();
-        return;
     }
     SetSubMenuButtonTooltips(0);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -271,7 +268,6 @@ static void CreateSubMenuScrollButtons()
     g_main_game_state->hud_buttons.submenu_scroll[0].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1, 2, 2),
         {.on_click = [](auto*) { ScrollSubMenuCharacter(0); }, .tooltip = 0x4b});
-
     g_main_game_state->hud_buttons.submenu_scroll[1].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5, 6, 6),
         {.on_click = [](auto*) { ScrollSubMenuCharacter(1); }, .tooltip = 0x4c});
@@ -305,7 +301,6 @@ static void CreateSubMenuPanelButtons()
     g_main_game_state->hud_buttons.submenu_panel[0].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22),
         {.on_click = SubMenuPanelCloseButton, .tooltip = 0x4d});
-
     g_main_game_state->hud_buttons.submenu_panel[1].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27),
         {.on_click = SubMenuPanelFormationButton,
@@ -329,7 +324,6 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 // FUNCTION: WIZ8 0x00597A30
 static void CreateOptionsDiskButton()
 {
-
     g_main_game_state->hud_buttons.options_disk.Configure(
         ButtonGraphics::Load(g_options_disk_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
@@ -443,25 +437,21 @@ static void CreateCombatStanceButtons()
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x4f});
-
     g_main_game_state->hud_buttons.combat_stance[1].Configure(
         ButtonGraphics::Load(g_combat_stop_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x50});
-
     g_main_game_state->hud_buttons.combat_stance[2].Configure(
         ButtonGraphics::Load(g_cont_start_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x4f});
-
     g_main_game_state->hud_buttons.combat_stance[3].Configure(
         ButtonGraphics::Load(g_cont_toggle_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x51});
-
     g_main_game_state->hud_buttons.combat_stance[4].Configure(
         ButtonGraphics::Load(g_cont_pending_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
@@ -504,13 +494,11 @@ static void CreateRoofButtons()
         {.on_click = MainGameRoofButton0,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x38});
-
     g_main_game_state->hud_buttons.roof[1].Configure(
         ButtonGraphics::Load(g_roof_buttons_path, 10, 1, 7, 4, 7),
         {.on_click = MainGameRoofButton1,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x39});
-
     g_main_game_state->hud_buttons.roof[2].Configure(
         ButtonGraphics::Load(g_roof_buttons_path, 0xb, 2, 8, 5, 8),
         {.on_click = MainGameRoofButton2,
@@ -758,23 +746,18 @@ static void CreateLayoutArrowButtons()
     g_main_game_state->hud_buttons.layout_arrows[0].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
-
     g_main_game_state->hud_buttons.layout_arrows[1].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
-
     g_main_game_state->hud_buttons.layout_arrows[2].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
-
     g_main_game_state->hud_buttons.layout_arrows[3].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
-
     g_main_game_state->hud_buttons.layout_arrows[4].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
-
     g_main_game_state->hud_buttons.layout_arrows[5].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
@@ -787,7 +770,6 @@ static void CreateLayoutArrowButtons()
 // FUNCTION: WIZ8 0x00598AB0
 void ConfigureMainGameHudButtons(void)
 {
-    g_main_game_state->hud_buttons.input.setEnabled(true);
     CreateSubMenuButtons();
     CreateSubMenuScrollButtons();
     CreateSubMenuPanelButtons();
@@ -878,8 +860,9 @@ void DrawSubMenuCharacterAction(void)
                 if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
                     text += g_localized_strings[0x5b8];
                 } else {
-                    text += g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                               &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
+                    text +=
+                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                            &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
                 }
             }
             if (!character->Hand[1].in_play) {
@@ -1216,12 +1199,12 @@ bool BuildSubMenuPanel(short notification)
         },
         -1);
     static constexpr void (*actions[5][5])() = {
-        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead, SubMenuSelectPray},
+        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead,
+         SubMenuSelectPray},
         {SubMenuSelectDefend, SubMenuSelectProtect},
         {SubMenuSelectEquip, SubMenuOpenUseItemView, SubMenuUseRecordedItem},
         {SubMenuOpenSpellView, SubMenuCastRecordedSpell},
-        {SubMenuSelectWalk, SubMenuSelectRun}
-    };
+        {SubMenuSelectWalk, SubMenuSelectRun}};
     for (std::size_t index = 0; index < entries.size(); ++index) {
         const auto [entry, state] = entries[index];
         int message = g_submenu_entry_message_ids[menu * 5 + entry];
@@ -1276,10 +1259,12 @@ bool BuildSubMenuPanel(short notification)
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
             button->SetTooltip([] {
                 const int slot = g_status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot)) return std::string(g_localized_strings[0x5d]);
+                if (!CanPartySlotUseRecordedItem(slot))
+                    return std::string(g_localized_strings[0x5d]);
                 const auto& row = g_status.buffers.XChar[slot];
                 const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
-                return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
+                return fmt::format("{}: {}", g_localized_strings[0x5d],
+                                   FormatItemDisplayName(item, false));
             });
         }
         submenu->buttons.push_back(std::move(button));

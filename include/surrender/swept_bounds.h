@@ -1,8 +1,8 @@
 #pragma once
 
-#include "surrender/srBoundingBox.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
+#include "surrender/srBoundingBox.h"
 
 namespace srSegmentMath {
 /* Match collision-query expansion: the margin is at least the motion length.

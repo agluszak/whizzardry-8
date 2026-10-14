@@ -1,25 +1,26 @@
+#include "wiz8/engine_code/OctBuildTree.h"
+
 #include <algorithm>
 #include <optional>
 #include <span>
 #include <unordered_set>
-#include <vector>
 #include <utility>
+#include <vector>
+
+#include "OctPreTree.h"
+#include "compat/compiler.h"
+#include "geometry.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_bool3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
 #include "surrender/swept_bounds.h"
-
-#include "compat/compiler.h"
-#include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/float_constants.h"
-#include "OctPreTree.h"
-#include "geometry.h"
-#include "surrender/srMath.h"
 
 #define OCT_BUILD_TREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctBuildTree.cpp"
 
@@ -43,8 +44,8 @@ W8OctBuildNode::~W8OctBuildNode()
 /* Build the cubic spatial domain used to insert processed GameData surfaces.
    The optional level bounds are expanded locally by half a leaf on every axis. */
 // FUNCTION: WIZ8 0x00446390
-W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit,
-                               short extent_mode)
+W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
+                               unsigned short item_limit, short extent_mode)
     : spatial(0)
 {
     spatial.Reset();
@@ -148,8 +149,7 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
     const auto triangle = surfaceTriangle(surface->vertex_indices);
     if (!triangle) return 0;
     const auto normal = surface->plane.normal.glmValue();
-    if (!triangleIntersectsBox(spatial.bounds(),
-                               *triangle, normal)) return 0;
+    if (!triangleIntersectsBox(spatial.bounds(), *triangle, normal)) return 0;
 
     if (spatial.m_root == 0) {
         if (!use_owned_nodes) {
@@ -174,8 +174,7 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
 // FUNCTION: WIZ8 0x004469f0
 unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
                                                      W8GDSurface* surface,
-                                                     const glm::vec3& planeNormal,
-                                                     w8_ulong mode)
+                                                     const glm::vec3& planeNormal, w8_ulong mode)
 {
     W8OctSpatialState child(working);
     bool inserted = false;
@@ -196,9 +195,9 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
         inserted = InsertBuildSurfaceChildren(
             working, child, half_extent,
             [&](W8OctSpatialState& candidate) {
-                return triangleIntersectsBox(candidate.bounds(),
-                                             std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3),
-                                             planeNormal);
+                return triangleIntersectsBox(
+                    candidate.bounds(),
+                    std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3), planeNormal);
             },
             [&]() -> W8OctBuildNode* {
                 if (use_owned_nodes) return new W8CountedOctBuildNode;
@@ -269,8 +268,8 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
     bool all_inside = true;
     bool inside = false;
     for (unsigned corner = 0; corner < 8; ++corner) {
-        const auto point = glm::mix(box.minimum, box.maximum,
-                                   glm::bvec3(corner & 4, corner & 2, corner & 1));
+        const auto point =
+            glm::mix(box.minimum, box.maximum, glm::bvec3(corner & 4, corner & 2, corner & 1));
         if (glm::any(glm::lessThan(point, bounds.minimum)) ||
             glm::any(glm::greaterThanEqual(point, bounds.maximum))) {
             all_inside = false;
@@ -284,7 +283,7 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
     if (!inside) {
         for (unsigned corner = 0; corner < 8; ++corner) {
             const auto point = glm::mix(bounds.minimum, bounds.maximum,
-                                       glm::bvec3(corner & 4, corner & 2, corner & 1));
+                                        glm::bvec3(corner & 4, corner & 2, corner & 1));
             if (box.contains(point)) return 1;
         }
     }
@@ -293,8 +292,8 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
 
 // FUNCTION: WIZ8 0x00446d80
 std::vector<W8GDSurface*> W8OctBuildTree::queryAlongSegment(const glm::vec3& origin,
-                                                          const glm::vec3& delta, float extent,
-                                                          unsigned short kind)
+                                                            const glm::vec3& delta, float extent,
+                                                            unsigned short kind)
 {
     SurfaceCollector collector;
     if (spatial.m_root) {
@@ -310,11 +309,10 @@ std::vector<W8GDSurface*> W8OctBuildTree::queryAlongSegment(const glm::vec3& ori
 
 // FUNCTION: WIZ8 0x00446f20
 void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBoundingBox& bounds,
-                                     short kind, SurfaceCollector& collector) const
+                                      short kind, SurfaceCollector& collector) const
 {
     const bool leaf = state.m_depth == spatial.m_depth;
-    const int verdict = classifyBuildBox(
-        state.bounds(), bounds, leaf);
+    const int verdict = classifyBuildBox(state.bounds(), bounds, leaf);
     if (verdict == 2 || (verdict == 1 && leaf)) {
         collectLeaf(state.m_root, state.m_depth, kind, collector);
     } else if (verdict == 1) {
@@ -327,7 +325,7 @@ void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBo
 
 // FUNCTION: WIZ8 0x00447110
 void W8OctBuildTree::collectLeaf(W8OctBuildNode* node, short depth, short kind,
-                                SurfaceCollector& collector) const
+                                 SurfaceCollector& collector) const
 {
     if (depth != spatial.m_depth) {
         for (auto* child : node->children)

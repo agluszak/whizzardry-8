@@ -1,35 +1,36 @@
-#include "wiz8/engine_code/Video2.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <SDL3/SDL_rect.h>
-#include <string>
-#include <memory>
 #include <algorithm>
 #include <cctype>
+#include <memory>
+#include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/DialogInterface.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "dialog_code/DialogBase.h"
+#include "input.h"
+#include "npc_trade_price.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/design_rect.h"
+#include "wiz8/dialog_code/AssayDialog.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "wiz8/catalog_artwork.h"
-#include "input.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "dialog_code/DialogBase.h"
-#include "npc_trade_price.h"
 
 /* The split-stack dialog ("popup_splititem.sti"). Inventory splits use eight
    buttons and ten labels; the two trade modes add a passive frame and a price
@@ -61,7 +62,7 @@ static int g_split_text_string_ids[14] = {
 };
 
 // GLOBAL: WIZ8 0x0064FFA0
-static W8ScreenRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
+static DesignRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 
 // FUNCTION: WIZ8 0x005DCED0
 W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count)
@@ -178,26 +179,22 @@ bool W8SplitItemDialog::CreateButtons()
     } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 10;
     }
-
     m_buttons[0].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb),
-        {.on_click = [this](W8ButtonWidget*) { OnSplitDecrement(); },
-         .on_right_click = [this](W8ButtonWidget*) { OnSplitDecrementMany(); },
-         .policy = {.repeat = true}});
-
+        {.on_click = [this](W8ButtonWidget*) { StepSplit(-1); },
+         .on_right_click = [this](W8ButtonWidget*) { StepSplit(-5); }});
     m_buttons[1].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6),
-        {.on_click = [this](W8ButtonWidget*) { OnSplitIncrement(); },
-         .on_right_click = [this](W8ButtonWidget*) { OnSplitIncrementMany(); },
-         .policy = {.repeat = true}});
+        {.on_click = [this](W8ButtonWidget*) { StepSplit(1); },
+         .on_right_click = [this](W8ButtonWidget*) { StepSplit(5); }});
     m_buttons[2].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                 BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                 BUTTON_NO_IMAGE),
                            {.priority = UI_PRIORITY_LOWEST});
-    m_buttons[3].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                             BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
-        {.on_click = [this](W8ButtonWidget* button) { OnCountFieldClick(button); }});
+    m_buttons[3].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
+                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
+                                                BUTTON_NO_IMAGE),
+                           {.on_click = [this](W8ButtonWidget*) { OnCountFieldClick(); }});
     m_buttons[4].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                 BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                 BUTTON_NO_IMAGE),
@@ -208,10 +205,10 @@ bool W8SplitItemDialog::CreateButtons()
                            {.priority = UI_PRIORITY_LOWEST});
     m_buttons[6].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2),
-        {.on_click = [this](W8ButtonWidget*) { OnAccept(); }});
+        {.on_click = [this](W8ButtonWidget*) { Finish(W8_SPLIT_RESULT_CONFIRMED); }});
     m_buttons[7].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7),
-        {.on_click = [this](W8ButtonWidget*) { OnCancel(); }});
+        {.on_click = [this](W8ButtonWidget*) { Finish(W8_SPLIT_RESULT_CANCELLED); }});
     if (m_mode == W8_ITEM_SPLIT_SELL || m_mode == W8_ITEM_SPLIT_BUY) {
         m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                     BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
@@ -222,6 +219,8 @@ bool W8SplitItemDialog::CreateButtons()
                                                     BUTTON_NO_IMAGE),
                                {.priority = UI_PRIORITY_LOWEST});
     }
+    m_buttons[0].Policy().repeat = true;
+    m_buttons[1].Policy().repeat = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index].SetPosition(g_split_button_offsets[index].x + m_x,
                                      g_split_button_offsets[index].y + m_y);
@@ -248,9 +247,9 @@ bool W8SplitItemDialog::CreateTextBuffers()
         bounds.top = g_split_text_bounds[index].top + m_y;
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
-        m_texts[index] = new W8TextBuffer(&bounds, g_localized_strings[g_split_text_string_ids[index]],
-                                          g_wiz_text_font_secondary,
-                                          g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_texts[index] = new W8TextBuffer(
+            &bounds, g_localized_strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_texts[index] == 0) {
             DestroyTextBuffers();
             return false;
@@ -290,8 +289,8 @@ bool W8SplitItemDialog::CreateNumericInput()
     bounds.top = g_split_count_field_bounds.top + m_y;
     bounds.right = g_split_count_field_bounds.right + m_x;
     bounds.bottom = g_split_count_field_bounds.bottom + m_y;
-    m_count_input = std::make_unique<W8DialogNumericInput>(0, &bounds, split_count, g_wiz_text_font_secondary,
-                                             this, &m_buttons[3]);
+    m_count_input = std::make_unique<W8DialogNumericInput>(
+        0, &bounds, split_count, g_wiz_text_font_secondary, this, &m_buttons[3]);
     m_count_input->m_maximum = m_stack_total;
     return true;
 }
@@ -331,9 +330,8 @@ void W8SplitItemDialog::Draw(SDL_Surface& target)
         W8DialogBase::Draw(target);
     }
     if (m_first_draw) {
-        DrawSpriteAndInvalidate(target,
-                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18,
-                                m_y + 0xe);
+        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
+                                m_x + 0x18, m_y + 0xe);
         m_first_draw = false;
     }
     if (m_buttons[3].m_dirty) {
@@ -520,62 +518,35 @@ bool W8SplitItemDialog::ProcessInput()
     return m_keep_open;
 }
 
+/* Move `count` items between the split and the remaining stack; a negative
+   count moves them back. Both sides stay within the stack. */
 // FUNCTION: WIZ8 0x005DE350
-void W8SplitItemDialog::OnSplitDecrement()
-{
-    split_count = std::max(0, split_count - 1);
-    m_remaining = std::min(m_stack_total, m_remaining + 1);
-    UpdateTotals();
-}
-
 // FUNCTION: WIZ8 0x005DE4E0
-void W8SplitItemDialog::OnSplitIncrement()
-{
-    m_remaining = std::max(0, m_remaining - 1);
-    split_count = std::min(m_stack_total, split_count + 1);
-    UpdateTotals();
-}
-
 // FUNCTION: WIZ8 0x005DE670
-void W8SplitItemDialog::OnSplitDecrementMany()
-{
-    split_count = std::max(0, split_count - 5);
-    m_remaining = std::min(m_stack_total, m_remaining + 5);
-    UpdateTotals();
-}
-
 // FUNCTION: WIZ8 0x005DE810
-void W8SplitItemDialog::OnSplitIncrementMany()
+void W8SplitItemDialog::StepSplit(int count)
 {
-    m_remaining = std::max(0, m_remaining - 5);
-    split_count = std::min(m_stack_total, split_count + 5);
+    split_count = std::clamp(split_count + count, 0, m_stack_total);
+    m_remaining = std::clamp(m_remaining - count, 0, m_stack_total);
     UpdateTotals();
 }
 
 // FUNCTION: WIZ8 0x005DE9B0
-void W8SplitItemDialog::OnAccept()
-{
-    split_result = W8_SPLIT_RESULT_CONFIRMED;
-    m_keep_open = false;
-}
-
 // FUNCTION: WIZ8 0x005DE9D0
-void W8SplitItemDialog::OnCancel()
+void W8SplitItemDialog::Finish(W8SplitDialogResult result)
 {
-    split_result = W8_SPLIT_RESULT_CANCELLED;
+    split_result = result;
     m_keep_open = false;
 }
 
 // FUNCTION: WIZ8 0x005DE9F0
-void W8SplitItemDialog::OnCountFieldClick(W8ButtonWidget* button)
+void W8SplitItemDialog::OnCountFieldClick()
 {
-    SDL_Point point;
-    const SDL_Point mouse = button->GetMousePosition();
-    if (m_count_input == 0) {
+    if (!m_count_input) {
         return;
     }
-    point.x = mouse.x - m_x;
-    point.y = mouse.y - m_y;
+    const SDL_Point mouse = UiPointerPosition();
+    SDL_Point point{mouse.x - m_x, mouse.y - m_y};
     if (!ScreenPointInRect(&g_split_count_field_bounds, &point)) {
         return;
     }

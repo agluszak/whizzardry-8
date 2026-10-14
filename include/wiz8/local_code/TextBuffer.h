@@ -1,10 +1,11 @@
 #pragma once
 
-#include <SDL3/SDL_surface.h>
 #include <string>
 #include <string_view>
-#include "Font.h"
 
+#include <SDL3/SDL_surface.h>
+
+#include "Font.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 extern char g_W8TextSeparator[];
@@ -59,28 +60,18 @@ public:
         m_pendingBounds = m_layoutBounds;
     }
 
-    bool HasBuffer() const
-    {
-        return !m_buffer.empty();
-    }
-    void SetGeometryDirty()
-    {
-        m_geometryDirty = true;
-    }
-    void SetRenderMode(int mode)
-    {
-        m_renderMode = mode;
-    }
-    void SetFontStateIndex(int index)
-    {
-        m_fontStateIndex = index;
-    }
+    bool HasBuffer() const { return !m_buffer.empty(); }
+    void SetGeometryDirty() { m_geometryDirty = true; }
+    void SetRenderMode(int mode) { m_renderMode = mode; }
+    void SetFontStateIndex(int index) { m_fontStateIndex = index; }
     void MarkGeometryDirty(unsigned int mode)
     {
         m_geometryDirty = true;
         m_layoutMode = mode;
     }
 
+    W8TextBuffer(const W8TextBuffer&) = default;
+    W8TextBuffer& operator=(const W8TextBuffer&) = default;
     virtual ~W8TextBuffer();
 
 protected:

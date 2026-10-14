@@ -1,36 +1,33 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
-#include "srBoundingSphere.h"
-
 #include <condition_variable>
 #include <list>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <span>
-#include "glm/ext/vector_int4_sized.hpp"
-#include "glm/ext/vector_float3.hpp"
 
-#include <unordered_map>
-#include "srTexture.h"
-#include "srTypeRegistry.h"
-#include "srVertexPipe.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_int4_sized.hpp"
+#include "srARGB.h"
+#include "srBoundingSphere.h"
+#include "srColorSurfaceIFace.h"
+#include "srDD.h"
+#include "srFlags.h"
 #include "srMath.h"
 #include "srModel.h"
-#include "srShader.h"
-#include "srFlags.h"
-
 #include "srRendererDefs.h"
-#include "srDD.h"
+#include "srShader.h"
+#include "srTexture.h"
 #include "srTriMeshPipeline.h"
-#include "srColorSurfaceIFace.h"
-#include "srARGB.h"
+#include "srTypeRegistry.h"
+#include "srVertexPipe.h"
 class srColorSurface;
 class srModelInstance;
 class srPalette;
@@ -111,10 +108,7 @@ public:
                 return texture0 == other.texture0 && texture1 == other.texture1 &&
                        shader.value == other.shader.value;
             }
-            bool operator!=(const TextureSetKey& other) const
-            {
-                return !(*this == other);
-            }
+            bool operator!=(const TextureSetKey& other) const { return !(*this == other); }
         };
         struct TextureSetHash {
             size_t operator()(const TextureSetKey& key) const noexcept
@@ -186,8 +180,8 @@ public:
         /* intern the pass's {texture0,texture1,shader} key into
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
-        void assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices,
-                               w8_ulong count, const srTriMeshPipeline::Pass* pass);
+        void assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices, w8_ulong count,
+                               const srTriMeshPipeline::Pass* pass);
         /* While a vertex range is reserved (first_vertex != -1), give count accumulated vertices
            back. */
         void rewindVertexArray(w8_ulong count);
@@ -471,28 +465,16 @@ public:
     void setExclusionMask(w8_ulong mask);
     // FUNCTION: SURRENDER 0x1001BB70 SYMBOL
     // RECOMP: ?getMaxTextureStages@srGERD@@QBEJXZ
-    w8_long getMaxTextureStages() const
-    {
-        return device.info.max_texture_stages;
-    }
+    w8_long getMaxTextureStages() const { return device.info.max_texture_stages; }
     // FUNCTION: SURRENDER 0x1001CF10 SYMBOL
     // RECOMP: ?getMaxPickStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxPickStackDepth() const
-    {
-        return 0x20;
-    }
+    w8_long getMaxPickStackDepth() const { return 0x20; }
     // FUNCTION: SURRENDER 0x1001CF20 SYMBOL
     // RECOMP: ?getMaxModelviewStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxModelviewStackDepth() const
-    {
-        return 0x20;
-    }
+    w8_long getMaxModelviewStackDepth() const { return 0x20; }
     // FUNCTION: SURRENDER 0x1001CF30 SYMBOL
     // RECOMP: ?getMaxProjectionStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxProjectionStackDepth() const
-    {
-        return 0x20;
-    }
+    w8_long getMaxProjectionStackDepth() const { return 0x20; }
     bool pushMatrix();
     void popMatrix();
     void pushEnable();
@@ -534,8 +516,8 @@ public:
     void setTextureDefaultMagFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMinFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMipmap(srTextureIFace::e_mipmap mipmap);
-    void setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y, w8_long width,
-                            w8_long height);
+    void setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y,
+                            w8_long width, w8_long height);
     void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count);
     void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                       srRendererDefs::e_indexType type, const void* indices);
@@ -619,17 +601,11 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BB80 SYMBOL
     // RECOMP: ?isPickStackEmpty@srGERD@@QBEHXZ
-    int isPickStackEmpty() const
-    {
-        return pick.pick_depth == 0;
-    }
+    int isPickStackEmpty() const { return pick.pick_depth == 0; }
 
     // FUNCTION: SURRENDER 0x1001BAE0 SYMBOL
     // RECOMP: ?isEnabled@srGERD@@QBEHW4e_enable@1@@Z
-    int isEnabled(e_enable option) const
-    {
-        return (enable_flags.value & (1UL << option)) != 0;
-    }
+    int isEnabled(e_enable option) const { return (enable_flags.value & (1UL << option)) != 0; }
 
     // FUNCTION: SURRENDER 0x1001BB90 SYMBOL
     // RECOMP: ?setCullMode@srGERD@@QAEXW4e_cullMode@1@@Z
@@ -661,10 +637,7 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BEE0 SYMBOL
     // RECOMP: ?getVertexArrayMask@srGERD@@QBE?AV?$srFlags@W4e_vertexArray@srRendererDefs@@@@XZ
-    srFlags<srRendererDefs::e_vertexArray> getVertexArrayMask() const
-    {
-        return vertex_arrays.mask;
-    }
+    srFlags<srRendererDefs::e_vertexArray> getVertexArrayMask() const { return vertex_arrays.mask; }
 
     void setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
                            const void* values);
@@ -754,13 +727,6 @@ private:
     void resetTexture();
     void assertContext() const;
     void setMatrixDirty();
-    // Replaces the current matrix with op(current) and marks it dirty.
-    template<class Op> void updateCurrentMatrix(Op op)
-    {
-        auto& current = state.matrix_current[state.matrix_mode];
-        current = op(current);
-        setMatrixDirty();
-    }
     void classifyMatrix(e_matrixMode mode);
     void applyViewStateChanges();
     void applyClipPlaneChanges();

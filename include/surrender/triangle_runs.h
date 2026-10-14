@@ -1,12 +1,13 @@
 #pragma once
 
-#include "compat/compiler.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <span>
 #include <numeric>
+#include <span>
 #include <vector>
+
+#include "compat/compiler.h"
 
 struct srTriangleRun {
     std::size_t first;
@@ -17,8 +18,7 @@ struct srTriangleRun {
 // An empty order uses contiguous input; otherwise runs follow its permutation.
 template<class Visit>
 inline void visitTriangleRuns(std::span<const w8_ulong> texture_sets,
-                              std::span<const w8_ulong> order,
-                              std::size_t maximum_run, Visit visit)
+                              std::span<const w8_ulong> order, std::size_t maximum_run, Visit visit)
 {
     assert(maximum_run > 0);
     const auto count = order.empty() ? texture_sets.size() : order.size();

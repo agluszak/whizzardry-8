@@ -1,27 +1,28 @@
-#include "wiz8/engine_code/Video2.h"
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/SpellInfoDialog.h"
+
 #include <cstdint>
-#include <fmt/format.h>
 #include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/string_database.h"
-#include "wiz8/catalog_artwork.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "Font.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"
 #include "game_timer.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/string_database.h"
 
 // GLOBAL: WIZ8 0x0064fccc
 const char* g_spell_info_background_path = "Data\\Dialogs\\popup_spellinfo.sti";
@@ -84,7 +85,9 @@ int W8SpellInfoDialog::CreateControls()
     resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
     resources.track_path = g_spell_info_background_path;
     resources.track_frame = 1;
-    resources.on_scroll = [this](int first) { ScrollTextArea(m_text_area, first); };
+    resources.on_scroll = [this](int first_visible_entry) {
+        ScrollTextArea(m_text_area, first_visible_entry);
+    };
     m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x43, m_text_area.GetTotalLineCount(), 0,
@@ -120,7 +123,8 @@ void W8SpellInfoDialog::Draw(SDL_Surface& target)
         animation = &g_spell_realm_animations[realm];
         m_animation_frame += steps;
         m_animation_frame %= animation->frame_count;
-        CatalogArtwork::Load(animation->image, 0).drawAndInvalidate(target, m_animation_frame, m_x + 0xe, m_y + 0xe);
+        CatalogArtwork::Load(animation->image, 0)
+            .drawAndInvalidate(target, m_animation_frame, m_x + 0xe, m_y + 0xe);
     }
 }
 
@@ -166,7 +170,8 @@ bool W8SpellInfoDialog::PopulateText()
     }
     m_text_area.AddEntry(g_localized_strings[0x11c], text, 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x11d],
-                         g_localized_strings[g_spell_usage_name_ids[record->usable_when]], 10, 0xf, 0);
+                         g_localized_strings[g_spell_usage_name_ids[record->usable_when]], 10, 0xf,
+                         0);
 
     target_type = GetSpellTargetType(m_spell, false);
     m_text_area.AddEntry(g_localized_strings[0x11e],
@@ -175,7 +180,8 @@ bool W8SpellInfoDialog::PopulateText()
                                      g_spell_target_parentheticals[target_type]),
                          10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x11f],
-                         g_localized_strings[g_spell_range_name_ids[record->range_category]], 10, 0xf, 0);
+                         g_localized_strings[g_spell_range_name_ids[record->range_category]], 10,
+                         0xf, 0);
 
     if (record->show_effect_dice != 0 &&
         (record->effect_dice.base != 0 || record->effect_dice.count != 0)) {
@@ -262,12 +268,14 @@ bool W8SpellInfoDialog::PopulateText()
     }
 
     text.clear();
-    if ((!(text = GetStringFromStringDatabase(g_spell_effect_database_path, m_spell, 0, 0)).empty()) != 0 &&
+    if ((!(text = GetStringFromStringDatabase(g_spell_effect_database_path, m_spell, 0, 0))
+              .empty()) != 0 &&
         text[0] != '\0') {
         m_text_area.AddEntry(g_localized_strings[0x12b], text, 10, 0xf, 0);
     }
     text.clear();
-    if ((!(text = GetStringFromStringDatabase(g_spell_desc_database_path, m_spell, 0, 0)).empty()) != 0 &&
+    if ((!(text = GetStringFromStringDatabase(g_spell_desc_database_path, m_spell, 0, 0))
+              .empty()) != 0 &&
         text[0] != '\0') {
         m_text_area.AddEntry(g_localized_strings[0x12c], text, 10, 0xf, 0);
     }
@@ -284,28 +292,28 @@ void W8SpellInfoDialog::DrawLabels(SDL_Surface& target)
     g_wiz_text_font_secondary.resetPalette();
     text = record->display_name;
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12}, text);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12},
+             text);
     text = g_localized_strings[0x118];
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24}, text);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24},
+             text);
     if (record->power_class == W8_SPELL_POWER_FIXED) {
         text = g_localized_strings[0x11a];
     } else {
         text = g_localized_strings[0x119];
     }
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33}, text);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33},
+             text);
     text = fmt::format("{:d}", record->spell_level);
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24}, text);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24},
+             text);
     text = fmt::format("{:d} {}", record->spell_point_cost, g_localized_strings[0x11b]);
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33}, text);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33},
+             text);
 }
 
 /* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;

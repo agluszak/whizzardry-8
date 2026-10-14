@@ -1,26 +1,27 @@
+#include "wiz8/level_specific_code/MtGigasOuter.h"
+
 #include <vector>
 
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/level_specific_code/MtGigasOuter.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/location_variables.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/IntervalGate.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/cursor.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/float_constants.h"
-#include "surrender/srCamera.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
+#include "surrender/srCamera.h"
 #include "surrender/srMath.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/IntervalGate.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/stSound3D.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/location_variables.h"
 
 struct W8ItemInstance;
 struct W8NpcState;
@@ -208,7 +209,6 @@ bool OnSecurityButtonActivated(Trigger* trigger)
     ControlCampAlarm(0xEFFFFFFF);
     return true;
 }
-
 
 bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate* gate)
 {

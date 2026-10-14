@@ -1,16 +1,16 @@
 #include "Font.h"
 #pragma once
 
-#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
-#include <functional>
+
+#include <SDL3/SDL_rect.h>
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/modal_content.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/modal_content.h"
 
 enum { W8_DIALOG_DIRTY_REDRAW = 1u };
 
@@ -18,7 +18,8 @@ class W8DialogBase;
 class W8ButtonWidget;
 class W8DialogTextArea;
 
-using W8DialogDestroyCallback = std::function<void(W8DialogBase* dialog)>;
+using W8DialogDestroyCallback = std::function<void(W8DialogBase*)>;
+/* Shared close-button callback used by the monster and spell info dialogs. */
 
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
@@ -47,7 +48,7 @@ public:
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
 
-    template <class Dialog, class Field>
+    template<class Dialog, class Field>
     friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                                 bool (Dialog::*handle_event)(const InputEvent*));
 
@@ -80,8 +81,8 @@ public:
     bool m_keep_open;
 
 public:
-  // Completion can capture its actual actor. List and picker destructors
-  // notify while their derived state is still live, before base teardown.
+    /* The trigger update installs its callback with a plain store, so this
+       slot is public rather than reachable only through the setter. */
     W8DialogDestroyCallback m_destroy_callback;
 
 protected:

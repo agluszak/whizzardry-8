@@ -1,14 +1,14 @@
 #pragma once
 
 #include <optional>
-#include "surrender/srBoundingBox.h"
 #include <vector>
 
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/GrObject.h"
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/fwd.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/GrObject.h"
 
 class GDProp;
 struct W8AnimObj;
@@ -20,7 +20,9 @@ class Trigger;
 class W8Prop;
 struct W8AIMissile;
 class W8GameTimer;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 extern bool g_animated_prop_present;
 
@@ -40,12 +42,12 @@ struct W8PropAnimationSegment {
 class W8PropRepresentation : public W8AnimRep {
 public:
     /* Default construction is inlined at Prop::Prop. */
-  W8PropRepresentation()
-      : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
-        play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
-        footstep_material(0xff)
-  {
-  }
+    W8PropRepresentation()
+        : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
+          play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
+          footstep_material(0xff)
+    {
+    }
     W8PropRepresentation(const W8PropRepresentation& other);
     virtual ~W8PropRepresentation() override;
     virtual W8AnimRepBase* Clone() override;
@@ -94,10 +96,7 @@ public:
     W8Prop();                   /* 0x0044BC00 */
     virtual ~W8Prop() override; /* complete destructor 0x0044BEC0 */
 
-    W8PropRepresentation* Rep() const
-    {
-        return static_cast<W8PropRepresentation*>(m_pRep);
-    }
+    W8PropRepresentation* Rep() const { return static_cast<W8PropRepresentation*>(m_pRep); }
 
     void DetachAnimationInstances(W8World* world);
     void UpdatePropAnimation();

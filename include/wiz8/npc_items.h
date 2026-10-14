@@ -25,7 +25,7 @@ void RestockNpcInventory(W8NpcState* npc); /* 0x0055BCC0 */
 W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index);
 unsigned int GetNpcItemCount(W8NpcState* npc);
 bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item);
-bool NpcAcceptsTradeItemClass(W8NpcState* npc, W8ItemInstance* item); /* 0x0055B290 */
+bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item); /* 0x0055B290 */
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
                                 unsigned char stack_count, bool identified);
 unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity);

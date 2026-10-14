@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <optional>
+
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/float_constants.h"
@@ -28,7 +29,7 @@ struct Grid {
 };
 
 inline std::optional<glm::vec3> grounded(const glm::vec3& candidate, float ground,
-                                        bool allow_large_drop)
+                                         bool allow_large_drop)
 {
     const float height = std::abs(candidate.y - ground);
     if (!(height >= 1 && height <= g_navigator_vertical_snap_limit &&

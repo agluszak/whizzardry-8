@@ -1,9 +1,10 @@
 #ifndef WIZ8_ITEM_TABLES_H
 #define WIZ8_ITEM_TABLES_H
 
-#include "wiz8/layouts/item_tables.h"
-#include <vector>
 #include <algorithm>
+#include <vector>
+
+#include "wiz8/layouts/item_tables.h"
 
 struct W8WorldItem;
 

@@ -8,27 +8,26 @@
 #include "wiz8/dice.h"
 #include "wiz8/retail_item_payloads.h"
 
-
 #pragma pack(push, 1)
 struct W8ItemTableEntry {
-    short selector;         /* Retail offset 0x00: zero disables the slot */
-    unsigned short item_id; /* Retail offset 0x02: index into Items.dbs */
-    unsigned char weight;   /* Retail offset 0x04 */
+    short selector;
+    unsigned short item_id;
+    unsigned char weight;
 };
-#pragma pack(pop) /* Retail offset 0x05 */
+#pragma pack(pop)
 
 #pragma pack(push, 1)
 struct W8ItemTableRecord {
-    char name[256];               /* Retail offset 0x000 */
-    unsigned int category_id;     /* Retail offset 0x100 */
-    W8ItemTableEntry entries[40]; /* Retail offset 0x104 */
-    unsigned char level_scaled;   /* Retail offset 0x1cc */
-    W8Dice item_count_dice;       /* Retail offset 0x1cd */
+    char name[256];
+    unsigned int category_id;
+    W8ItemTableEntry entries[40];
+    unsigned char level_scaled;
+    W8Dice item_count_dice;
     unsigned char unknown_1d1[4];
-    W8Dice gold_dice; /* Retail offset 0x1d5 */
+    W8Dice gold_dice;
     unsigned char unknown_1d9[0x18];
 };
-#pragma pack(pop) /* Retail offset 0x1f1 */
+#pragma pack(pop)
 
 /* One "you need this much of that" entry. CanCharacterUseItem walks two of
    these for attributes and two for skills, stopping at an id of 0xff. */
@@ -110,9 +109,6 @@ struct W8ItemDatabaseRecord : wiz8::retail::ItemProperties, wiz8::retail::ItemEf
     std::string video_object_name;
     std::string sound_name;
 };
-
-
-
 
 /* GameplayDatabase.cpp owns the runtime Items.dbs and ItemTables.dbs roots.
    Keeping their declarations beside the record layouts gives item consumers a

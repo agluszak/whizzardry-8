@@ -1,27 +1,17 @@
+#include "wiz8/design_rect.h"
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
-#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
 
-#include "wiz8/local_code/ControlsRect.h"
+#include <SDL3/SDL_rect.h>
+
 #include "wiz8/application.h"
-
 #include "wiz8/dice.h"
+#include "wiz8/local_code/ControlsRect.h"
 
-bool IsMessageBoxActive(void);
-void RenderMessageBox(void);
-void ProcessMessageBoxInput(void);
-
-template <class T> class srVector3T;
-
-struct W8ScreenRect {
-    int left;
-    int top;
-    int right;
-    int bottom;
-};
+template<class T> class srVector3T;
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);
 int RollDice(const W8Dice* dice);
@@ -35,8 +25,8 @@ int CompareSignedDescending(const void* first, const void* second);
 std::string FormatUnsignedIntegerWithCommas(unsigned int value);
 char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
-W8ScreenRect UnionScreenRects(const W8ScreenRect& first, const W8ScreenRect& second);
-bool ScreenPointInRect(const W8ScreenRect* rect, const SDL_Point* point);
+DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second);
+bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point);
 void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
@@ -54,6 +44,5 @@ int GetRandomCharacter(int require_primary, int require_secondary, int excluded_
 unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
                                  unsigned int excluded_slot, unsigned int* selected,
                                  unsigned int count, bool skip_first_two);
-
 
 #endif

@@ -1,16 +1,16 @@
 #include <ostream>
 
 #include "glm/common.hpp"
-#include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
-#include "surrender/srBoundingBox.h"
-#include "surrender/srBounder.h"
-#include "surrender/stream_scope.h"
-#include "surrender/srGERD.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "surrender/srBounder.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x1004a5a0
 srBounder::srBounder(srNode* parent)

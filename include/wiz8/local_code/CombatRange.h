@@ -1,11 +1,10 @@
 #pragma once
 
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Factions.h"
 
-#include "wiz8/layouts/targeting.h"
-#include "wiz8/layouts/gameplay_databases.h"
-
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 struct W8MonsterInfo;
 struct W8MonsterRecord;

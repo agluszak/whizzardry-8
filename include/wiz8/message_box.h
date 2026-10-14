@@ -19,7 +19,6 @@ struct W8SkillNoticePayload {
     signed char skills[8];
 };
 
-
 struct W8LevelUpNotice {
     int party_slot;
 };
@@ -161,17 +160,11 @@ struct W8NpcTravelConfirm {
 using W8NpcAction =
     std::variant<W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedNotice, W8NpcCommand,
                  W8NpcStoryAction, W8NpcRecruit, W8NpcDismiss, W8NpcPartySpeakerEvent,
-                 W8NpcLevelUpReaction, W8NpcPartyScriptLine, W8NpcPortraitString,
-                 W8NpcMarkMissing, W8NpcLeaveCombat, W8NpcTravelConfirm>;
+                 W8NpcLevelUpReaction, W8NpcPartyScriptLine, W8NpcPortraitString, W8NpcMarkMissing,
+                 W8NpcLeaveCombat, W8NpcTravelConfirm>;
 
-/* Queue record consumed by ProcessMessageBoxQueue. */
+/* One queued action and the speaker it was queued for. */
 struct W8MessageBoxLine {
     int npc_kind; /* record kind of the speaking NPC, or -1; resolved when the line runs */
     W8NpcAction action;
 };
-
-bool IsMessageBoxLineQueueEmpty(void);
-/* Append `action` to the NPC message queue on behalf of the current speaker. */
-void QueueNpcAction(W8NpcAction action);
-/* Queue a portrait message; `notice` posts when its bubble is dismissed. */
-void QueueNpcPortraitMessage(std::string text, W8QuoteNotice notice = {});

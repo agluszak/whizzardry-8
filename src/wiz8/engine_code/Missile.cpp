@@ -1,71 +1,72 @@
-#include "wiz8/engine_code/emitter_cycles.h"
-#include <fmt/format.h>
-#include <glm/gtx/rotate_vector.hpp>
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <string>
-#include <vector>
+#include "wiz8/engine_code/Missile.h"
+
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
-#include "compat/compiler.h"
-#include "layouts/targeting.h"
-#include "wiz8/retail_text_records.h"
-#include "wiz8/containers.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/spell_ids.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/Emitter.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
-#include "random.h"
-#include "wiz8/startup_world.h"
+#include <fmt/format.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+
 #include "GrCycle.h"
 #include "Navigator.h"
+#include "compat/compiler.h"
 #include "compat/native.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "layouts/targeting.h"
 #include "layouts/world.h"
+#include "random.h"
 #include "retail_records.h"
 #include "surrender/srClock.h"
 #include "surrender/srMath.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Emitter.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/emitter_cycles.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/utility.h"
+#include "wiz8/virtual_file.h"
+#include "wiz8/xstatus.h"
 
 #define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
-
 
 // FUNCTION: WIZ8 0x004a53a0
 std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
@@ -189,7 +190,8 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
     out->Set(position.x + direction.x * advance, position.y + direction.y * advance,
              position.z + direction.z * advance);
     if (g_world->octree != 0) {
-        if (const auto hit = g_world->octree->traceProps(position.glmValue(), out->glmValue(), 0, 0)) {
+        if (const auto hit =
+                g_world->octree->traceProps(position.glmValue(), out->glmValue(), 0, 0)) {
             *out = hit->position;
             record->limit = 1.0f;
             prop = g_world->collidable_props[hit->prop_id];
@@ -241,8 +243,8 @@ const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
 static int missileCycleIndex(const char* pac_name)
 {
     for (int index = 0; index < 2; ++index) {
-        if (_strnicmp(pac_name, g_missile_cycle_names[index], strlen(g_missile_cycle_names[index])) ==
-            0)
+        if (_strnicmp(pac_name, g_missile_cycle_names[index],
+                      strlen(g_missile_cycle_names[index])) == 0)
             return index;
     }
     return -1;
@@ -254,8 +256,7 @@ unsigned int g_missile_table_count;
    0x101-byte editor prefix followed by the 0x1e5-byte runtime record. */
 // FUNCTION: WIZ8 0x004a5600
 unsigned char LoadMissileDatabase(void)
-try
-{
+try {
     ReleaseMissileDatabase();
     auto handle = wiz8::open_file("Data\\Databases\\MissileTables.dbs");
     std::int32_t count;
@@ -267,13 +268,15 @@ try
     for (std::int32_t index = 0; index < count; ++index) {
         handle->seek(0x101, wiz8::SeekOrigin::current);
         if (wiz8::retail::read(*handle, rows[index]).bytes !=
-            wiz8::retail::kMissileTableRecordBytes) return false;
+            wiz8::retail::kMissileTableRecordBytes)
+            return false;
     }
     g_missile_table = rows.release();
     g_missile_table_count = count;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Release the one allocation that owns every runtime missile-table row. */
 // FUNCTION: WIZ8 0x004a5760
@@ -396,7 +399,8 @@ W8Missile* AllocateMissile(int missile_table_index)
     context.world = g_world;
     context.directory = "Data\\Spells\\Bitmaps";
     missile = 0;
-    LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str(), &missile, 1);
+    LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str(), &missile,
+                     1);
     if (missile == 0) {
         return 0;
     }
@@ -448,7 +452,6 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     float duration;
     float seconds;
     float intensity;
-    W8CameraShakeEffect* effect;
     std::unique_ptr<W8SoundEvent> sound;
     char path[100];
     char line[100];
@@ -485,7 +488,13 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     align_explosion = false;
     velocity = 15000.0f;
     snprintf(path, sizeof(path), "data\\Missiles\\%s.mls", name);
-    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    handle = [&]() {
+        try {
+            return wiz8::open_file(path, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     *ppMissile = 0;
     if (handle != 0) {
         for (;;) {
@@ -547,15 +556,13 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
 #pragma clang diagnostic pop
                                     srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                                 }
-                                                                cycle = missileCycleIndex(pacName);
-                                effect = new W8CameraShakeEffect(duration, true, intensity,
-                                                                 seconds * g_world_scale, 0);
-                                if (effect != 0) {
-                                    effect->cycle = cycle;
-                                    effect->frame = frame;
-                                    effect->subcycle = 0;
-                                    (*ppMissile)->AddShakeEffect(effect);
-                                }
+                                cycle = missileCycleIndex(pacName);
+                                ShakeDefinition effect(duration, true, intensity,
+                                                       seconds * g_world_scale, 0);
+                                effect.cycle = cycle;
+                                effect.frame = frame;
+                                effect.subcycle = 0;
+                                (*ppMissile)->AddShakeEffect(effect);
                             }
                             goto next_line;
                         }
@@ -571,10 +578,11 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
 #pragma clang diagnostic pop
                         srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                     }
-                                        cycle = missileCycleIndex(pacName);
-                    snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV", pacFileName);
+                    cycle = missileCycleIndex(pacName);
+                    snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV",
+                             pacFileName);
                     sound = std::make_unique<W8SoundEvent>(sound_kind, cycle, frame, 0, wave_path,
-                                             _stricmp(pacLoop, "LOOP") == 0);
+                                                           _stricmp(pacLoop, "LOOP") == 0);
                     if (sound != 0) {
                         (*ppMissile)->AddSoundEvent(std::move(sound));
                     }
@@ -686,12 +694,12 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
 srModelInstance* W8MissileRep::SetCycleFrameLod(signed char emitter, signed char frame,
                                                 signed char lod)
 {
-    return AnimObjDispatch(emitters[emitter], lod, frame);
+    return AnimObjDispatch(resources.cycles[emitter].animation.get(), lod, frame);
 }
 
 W8AniMesh* W8MissileRep::GetEmitterAniMesh(signed char emitter)
 {
-    W8AnimObj* target = emitters[emitter];
+    W8AnimObj* target = resources.cycles[emitter].animation.get();
 
     if (target == 0) {
         return 0;
@@ -703,7 +711,7 @@ W8AniMesh* W8MissileRep::GetEmitterAniMesh(signed char emitter)
 // FUNCTION: WIZ8 0x004A2710
 unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
 {
-    W8AnimObj* target = emitters[emitter];
+    W8AnimObj* target = resources.cycles[emitter].animation.get();
 
     if (target == 0) {
         srAssertFail("pao", MISSILE_CPP, 0x7e, 0);
@@ -714,10 +722,7 @@ unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
 /* The two emitter slots start empty and at the source default playback value.
    Construction of the two light-list vectors is ordinary array-member
    construction and precedes these assignments in the retail body. */
-W8MissileRep::W8MissileRep()
-{
-    ResetEmitterAnimations(*this);
-}
+W8MissileRep::W8MissileRep() = default;
 
 /* Copy the two proven representation values, clone each animation, and deep
    copy every optional light vector. The copied lights are ordinary scene
@@ -725,10 +730,9 @@ W8MissileRep::W8MissileRep()
    their emitter. */
 // FUNCTION: WIZ8 0x004a2db0
 W8MissileRep::W8MissileRep(const W8MissileRep& other)
-    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0)
+    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
+      resources(other.resources)
 {
-    CloneEmitterAnimations(*this, other);
-    CloneEmitterLightLists(*this, other);
 }
 
 // FUNCTION: WIZ8 0x004a5d40
@@ -744,7 +748,8 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
     if (info == 0 || info->hFile == 0 || missile == 0) {
         srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
     }
-    return ReadEmitterCycle(*this, info, *missile, cycle_index, missile->m_pRep != nullptr);
+    return ReadEmitterCycle(*this, resources.cycles, info, *missile, cycle_index,
+                            missile->m_pRep != nullptr);
 }
 
 /* Retail constructs the +0x2d8 growable vector normally, then clears the
@@ -879,9 +884,8 @@ void W8Missile::StartIfHostActive()
 void W8Missile::DestroyMissile()
 {
     if (m_plsLights != 0) {
-        wiz8::clear_and_dispose(*m_plsLights, [](stLight* light) {
-            WorldRemoveLight(g_world, light);
-        });
+        wiz8::clear_and_dispose(*m_plsLights,
+                                [](stLight* light) { WorldRemoveLight(g_world, light); });
     }
     delete this;
 }
@@ -891,18 +895,10 @@ void W8Missile::DestroyMissile()
 // FUNCTION: WIZ8 0x004a4210
 void DestroyAllMissiles(W8World* world)
 {
-    wiz8::clear_and_dispose(world->missiles, [](W8Missile* missile) {
-        missile->DestroyMissile();
-    });
+    wiz8::clear_and_dispose(world->missiles, [](W8Missile* missile) { missile->DestroyMissile(); });
 }
 
-/* Release the two owned animations and every light vector before the ordinary
-   vector members and W8EmitterHost base tear themselves down. */
-// FUNCTION: WIZ8 0x004A3230
-W8MissileRep::~W8MissileRep()
-{
-    ReleaseEmitterCycles(emitters, light_lists);
-}
+W8MissileRep::~W8MissileRep() = default;
 
 /* Copy the effect definition, then replace its radius from the selected
    0x1e5-byte missile database row. */
@@ -924,20 +920,20 @@ W8EmitterHost* W8Missile::GetRepresentation()
 // FUNCTION: WIZ8 0x004a4570
 W8AnimObj* W8Missile::GetCurrentAnimation()
 {
-    return m_pRep->emitters[m_pRep->current_cycle];
+    return m_pRep->resources.cycles[m_pRep->current_cycle].animation.get();
 }
 
 /* That animation's own playback scale. */
 // FUNCTION: WIZ8 0x004a45c0
 float W8Missile::GetCurrentAnimationScale()
 {
-    return m_pRep->emitters[m_pRep->current_cycle]->playback_scale;
+    return m_pRep->resources.cycles[m_pRep->current_cycle].animation->playback_scale;
 }
 
 // FUNCTION: WIZ8 0x004a45f0
 W8AniMesh* W8Missile::GetCurrentAniMesh()
 {
-    W8AnimObj* animation = m_pRep->emitters[m_pRep->current_cycle];
+    W8AnimObj* animation = m_pRep->resources.cycles[m_pRep->current_cycle].animation.get();
 
     if (animation == 0) {
         srAssertFail("pao", MISSILE_CPP, 0x55e, 0);
@@ -952,11 +948,11 @@ signed char W8Missile::GetTotalAnimationCount()
 {
     signed char count = 0;
 
-    if (m_pRep->emitters[0] != 0) {
+    if (m_pRep->resources.cycles[0].animation != 0) {
         count = 1;
     }
 
-    if (m_pRep->emitters[1] != 0) {
+    if (m_pRep->resources.cycles[1].animation != 0) {
         ++count;
     }
     return count;
@@ -984,7 +980,7 @@ bool W8Missile::IsCycleSupported(signed char cycle)
     if (cycle >= 2) {
         srAssertFail("bCycle<MISSILE_NUM_CYCLES", MISSILE_CPP, 0x4bf, 0);
     }
-    return m_pRep->emitters[cycle] != 0;
+    return m_pRep->resources.cycles[cycle].animation != 0;
 }
 
 /* Select one of the missile representation's two emitters and rebuild its
@@ -1002,12 +998,12 @@ void W8Missile::SetCycle(signed char cycle)
                      0x4d6, 0);
     }
 
-    lights = m_pRep->light_lists[m_pRep->current_cycle][0];
+    lights = m_pRep->resources.cycles[m_pRep->current_cycle].lightView();
     DetachCycleLights(lights);
 
-    StartEmitterCycle(*m_pRep, cycle);
+    StartEmitterCycle(*m_pRep, *m_pRep->resources.cycles[cycle].animation, cycle);
 
-    lights = m_pRep->light_lists[cycle][0];
+    lights = m_pRep->resources.cycles[cycle].lightView();
     SetLights(lights);
     AttachCycleLights(lights);
 
@@ -1178,8 +1174,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
         if (combat_slot.iType == W8_TARGET_KIND_CHARACTER) {
             deflect_chance = g_status.buffers.Char[combat_slot.iChar].bonus.missile_deflect_chance;
         } else {
-            W8MonsterInfo* monster_info =
-                FindMonster(combat_slot.iMonsterID);
+            W8MonsterInfo* monster_info = FindMonster(combat_slot.iMonsterID);
             deflect_chance = monster_info->modifiers.missile_deflect_chance;
         }
         if (deflect_chance > 0 && Random(100) + 1 <= deflect_chance) {

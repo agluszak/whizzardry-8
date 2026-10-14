@@ -1,13 +1,13 @@
 #pragma once
 
-#include <vector>
 #include <string>
 #include <string_view>
+#include <vector>
 
-#include "wiz8/dialog_code/DialogBase.h"
-#include "input.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 // VTABLE: WIZ8 0x005ef8b0
 class W8MessageDialogBase : public W8DialogBase {
@@ -37,11 +37,9 @@ public:
     bool accepted; /* cleared; a derived close passes it on */
     bool is_open;  /* set, and gates the close path */
 
-private:
-    void Confirm();
-    void Cancel();
-
 protected:
+    // FUNCTION: WIZ8 0x005d32c0 (confirm), 0x005d3370 (cancel)
+    void Close(bool accept);
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
     W8ButtonWidget m_message_button{InputLayer()};
     W8ButtonWidget m_confirm_button{InputLayer()};

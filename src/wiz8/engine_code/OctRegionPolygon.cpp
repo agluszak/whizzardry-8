@@ -1,16 +1,16 @@
-#include "wiz8/engine_code/3d.h"
 #include <array>
-#include <span>
 #include <cstddef>
-#include "surrender/srBoundingBox.h"
 #include <cstdlib>
 #include <cstring>
+#include <span>
 
+#include "geometry.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/materials.h"
-#include "geometry.h"
-#include "surrender/srMath.h"
 
 /* Test the polygon's representative point against six frustum planes; inside
    means every plane distance is non-negative. */
@@ -88,7 +88,8 @@ void W8OctPreTreeGeometry::Release()
 {
     if (m_vertices != 0) {
         if (vertex_count > 1)
-            ReleaseSharedRuns(std::span{m_vertices + 1, vertex_count - 1},
+            ReleaseSharedRuns(
+                std::span{m_vertices + 1, vertex_count - 1},
                 std::array{&W8OctPreTreeVertex::face_indices, &W8OctPreTreeVertex::owned});
         free(m_vertices);
         m_vertices = nullptr;
@@ -97,7 +98,7 @@ void W8OctPreTreeGeometry::Release()
     if (m_polygons != 0) {
         if (m_polygon_count > 1)
             ReleaseSharedRuns(std::span{m_polygons + 1, m_polygon_count - 1},
-                std::array{&W8OctRegionPolygon::face_indices});
+                              std::array{&W8OctRegionPolygon::face_indices});
         free(m_polygons);
         m_polygons = nullptr;
     }

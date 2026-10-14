@@ -1,23 +1,24 @@
 #include "wiz8/engine_code/SoundEvent.h"
 
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
 #include <memory>
 #include <string>
-#include <vector>
 #include <utility>
+#include <vector>
 
-#include "surrender/srMath.h"
-#include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "random.h"
-#include "soundman.h"
-#include "wiz8/engine_code/GameData.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "random.h"
+#include "soundman.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/xstatus.h"
 
 #define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
 
@@ -34,9 +35,9 @@ W8SoundEvent::~W8SoundEvent()
    releases. */
 // FUNCTION: WIZ8 0x004d57a0
 W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
-                         std::string wave_name, bool looping)
-    : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle),
-      wave_name(std::move(wave_name)), looping(looping)
+                           std::string wave_name, bool looping)
+    : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle), wave_name(std::move(wave_name)),
+      looping(looping)
 {
 }
 
@@ -51,8 +52,8 @@ static int g_previous_footstep_variant;
    repeating the previous choice for as long as a second candidate exists. */
 // FUNCTION: WIZ8 0x004d5890
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
-                       const srVector3T<float>& position, unsigned int event_mask,
-                       int cycle, int frame, int subcycle)
+                       const srVector3T<float>& position, unsigned int event_mask, int cycle,
+                       int frame, int subcycle)
 {
     std::vector<W8SoundEvent*> candidates;
     for (unsigned int bit = 1; bit != 0; bit <<= 1) {
@@ -63,7 +64,8 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
             if ((bit & kind) == 0) continue;
             if (kind == W8_SOUND_EVENT_FRAME || kind == W8_SOUND_EVENT_FOOTSTEP) {
                 if ((event->cycle != -1 && event->cycle != cycle) || event->frame != frame ||
-                    event->subcycle != subcycle) continue;
+                    event->subcycle != subcycle)
+                    continue;
             } else if (kind == W8_SOUND_EVENT_CYCLE) {
                 if (event->cycle != cycle || event->subcycle != subcycle) continue;
             }
@@ -146,10 +148,11 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                                   W8_FOOTSTEP_KIND_STEP, variant);
                 wave_name = path;
             }
-            sound_handle = wiz8::sound::play(wave_name, {.volume = event_volume,
-                                                         .loops = looping ? 0u : 1u,
-                                                         .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
-                                                         .position = transformed.glmValue()});
+            sound_handle = wiz8::sound::play(
+                wave_name, {.volume = event_volume,
+                            .loops = looping ? 0u : 1u,
+                            .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
+                            .position = transformed.glmValue()});
             if (sound_handle == nullptr) {
                 return false;
             }

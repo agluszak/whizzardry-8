@@ -2,28 +2,28 @@
 
 #include <vector>
 
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "surrender/srCamera.h"
-#include "wiz8/local_code/NPCManager.h"
 #include "Navigator.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "message_box.h"
+#include "surrender/srCamera.h"
 #include "surrender/srMath.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
 
 struct W8NpcState;
@@ -66,7 +66,6 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     W8NpcState* npc;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
-    unsigned int index;
     srVector3T<float> target;
     srVector3T<float> position;
     glm::mat3 rotation;
@@ -95,8 +94,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     SetEnvironmentLoadFlag(g_saved_environment_flag);
     if (g_status.current_level == 1) {
         if (_stricmp(path->name0, "Camera01") == 0) {
-            QueueNpcAction(W8NpcPortraitString{0x721});
-            QueueNpcAction(W8NpcStoryAction::path2_trigger);
+            g_npc_dialogue.Queue(W8NpcPortraitString{0x721});
+            g_npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
             return;
         }
         if (_stricmp(path->name0, "Camera02") == 0) {

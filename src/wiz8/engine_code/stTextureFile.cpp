@@ -1,16 +1,17 @@
+#include "wiz8/engine_code/stTextureFile.h"
+
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <ostream>
 #include <string>
 
-#include "wiz8/engine_code/stTextureFile.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
-#include "surrender/srImageIO.h"
-#include "surrender/srColorSurfaceIFace.h"
 
 std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 {
@@ -136,7 +137,13 @@ void stTextureFile::loadSurface()
     }
 
     surface = 0;
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(file_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> handle = [&]() {
+        try {
+            return wiz8::open_file(file_name, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle != 0) {
         surface = LoadSurface(handle.get(), &unused);
         if (handle) handle->close();

@@ -1,33 +1,34 @@
-#include <catch2/catch_test_macros.hpp>
 #include <array>
 #include <filesystem>
 #include <fstream>
 #include <ios>
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
-#include <vector>
 #include <memory>
 #include <span>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/npc_items.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/MGSKeyboard.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "fact_state.h"
 #include "input.h"
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
+#include "scoped_asset_roots.h"
 #include "sight_state.h"
-
+#include "temporary_directory.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/npc_items.h"
+#include "wiz8/xstatus.h"
 
 static std::vector<int> masterCalls;
 
@@ -171,8 +172,7 @@ static bool journalSerialization()
     const auto assets = root / "assets", user = root / "user";
     std::filesystem::create_directories(assets);
     std::filesystem::create_directories(user);
-    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                            {"", "", ""}}};
+    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}}};
     const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
     const std::array<W8JournalEntry, count> expected{{{1, static_cast<W8FactId>(10), 0},
@@ -193,7 +193,7 @@ static bool journalSerialization()
     for (int i = 0; i < count; ++i) {
         const auto& actual = g_fact_journal_entries[i];
         REQUIRE((actual.level == expected[i].level && actual.fact == expected[i].fact &&
-              actual.alternate_text == expected[i].alternate_text));
+                 actual.alternate_text == expected[i].alternate_text));
     }
     {
         auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
@@ -258,4 +258,35 @@ TEST_CASE("collections_test")
     REQUIRE(keyboardBindingReplacement());
     REQUIRE(journalSerialization());
     REQUIRE(visibilityRecordLifetime());
+}
+
+TEST_CASE("Engagement propagates to the original leader's direct allies", "[groups]")
+{
+    struct RestoreGroups {
+        std::vector<W8MonsterGroup*> saved = std::exchange(gXStatus.monster_groups, {});
+        ~RestoreGroups() { gXStatus.monster_groups = std::move(saved); }
+    } restore;
+    W8MonsterGroup leader{}, first{}, second{}, unrelated{};
+    leader.group_id = 1;
+    first.group_id = 2;
+    second.group_id = 3;
+    unrelated.group_id = 4;
+    leader.allied_group_ids[0] = first.group_id;
+    leader.allied_group_ids[2] = second.group_id;
+    first.allied_group_ids[2] = unrelated.group_id;
+    gXStatus.monster_groups = {&leader, &first, &second, &unrelated};
+
+    SetMonsterGroupEngagementState(leader.group_id, true);
+    for (const auto* group : {&leader, &first, &second}) {
+        REQUIRE(group->engagement);
+        REQUIRE(group->engagement_ticks == 1);
+    }
+    REQUIRE_FALSE(unrelated.engagement);
+    SetMonsterGroupEngagementState(leader.group_id, true);
+    REQUIRE(second.engagement_ticks == 2);
+    SetMonsterGroupEngagementState(leader.group_id, false);
+    for (const auto* group : {&leader, &first, &second}) {
+        REQUIRE_FALSE(group->engagement);
+        REQUIRE(group->engagement_ticks == 0);
+    }
 }

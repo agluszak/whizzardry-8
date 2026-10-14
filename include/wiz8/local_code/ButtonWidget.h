@@ -1,15 +1,15 @@
 #pragma once
 
-#include "Font.h"
-#include "wiz8/button_interaction.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/ui_input.h"
+#include <functional>
+#include <string_view>
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
-#include <functional>
-#include <string_view>
+
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
@@ -106,8 +106,5 @@ private:
     int m_handling_pointer = 0;
 
 public:
-    ButtonPolicy& Policy()
-    {
-        return m_setup.policy;
-    }
+    ButtonPolicy& Policy() { return m_setup.policy; }
 };

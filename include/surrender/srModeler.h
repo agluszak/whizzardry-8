@@ -1,11 +1,12 @@
 #pragma once
 
 #include <array>
-#include <span>
 #include <memory>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
+
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srMeshModel.h"
@@ -136,7 +137,8 @@ public:
     void cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapping);
     void removeMapping(w8_long pass, w8_long layer);
 
-    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, srMeshModel::e_side side);
+    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass,
+                     srMeshModel::e_side side);
     void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer);
     void setShader(srShader shader, w8_long pass);
     /* A nonzero remove_degenerate disables and drops triangles with
@@ -177,4 +179,3 @@ private:
     std::vector<Triangle> triangles;
     w8_long pass_count;
 };
-

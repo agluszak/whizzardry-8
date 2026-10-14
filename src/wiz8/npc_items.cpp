@@ -1,25 +1,27 @@
-#include <utility>
-#include <vector>
+#include "wiz8/npc_items.h"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <utility>
+#include <vector>
 
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/npc_items.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "random.h"
-#include "soundman.h"
 #include "character_skills.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
+#include "random.h"
+#include "soundman.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
 #include "xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -264,9 +266,10 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0055b9c0
 void SortNpcItems(W8NpcState* npc)
 {
-    std::ranges::stable_sort(npc->items, [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
-        return CompareItemsForPool(&first.item, &second.item) < 0;
-    });
+    std::ranges::stable_sort(npc->items,
+                             [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
+                                 return CompareItemsForPool(&first.item, &second.item) < 0;
+                             });
 }
 
 /* Release an NPC's owned item list, but only for the database records that ask
@@ -423,7 +426,6 @@ char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay)
 {
     int index;
-    W8NpcItemEntry* entry;
 
     if (npc == 0) {
         return -1;
@@ -446,7 +448,10 @@ W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
 }
 
 // FUNCTION: WIZ8 0x0055b710
-unsigned int GetNpcItemCount(W8NpcState* npc) { return npc->items.size(); }
+unsigned int GetNpcItemCount(W8NpcState* npc)
+{
+    return npc->items.size();
+}
 
 // GLOBAL: WIZ8 0x0062A80C
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
@@ -477,50 +482,12 @@ unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char
     return 0;
 }
 
-// Each equip class an NPC accepts for trade, with its bit in trade_item_class_mask.
-struct TradeClassBit {
-    unsigned int equip_class;
-    unsigned int bit;
-};
-
-static constexpr TradeClassBit kTradeClassBits[] = {
-    {W8_ITEM_EQUIP_CLASS_SHORT_WEAPON, 0x1u},
-    {W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON, 0x2u},
-    {W8_ITEM_EQUIP_CLASS_THROWN_WEAPON, 0x4u},
-    {W8_ITEM_EQUIP_CLASS_RANGED_WEAPON, 0x8u},
-    {W8_ITEM_EQUIP_CLASS_AMMUNITION, 0x10u},
-    {W8_ITEM_EQUIP_CLASS_SHIELD, 0x20u},
-    {W8_ITEM_EQUIP_CLASS_TORSO, 0x40u},
-    {W8_ITEM_EQUIP_CLASS_LEGS, 0x80u},
-    {W8_ITEM_EQUIP_CLASS_HEAD, 0x100u},
-    {W8_ITEM_EQUIP_CLASS_HANDS, 0x200u},
-    {W8_ITEM_EQUIP_CLASS_FEET, 0x400u},
-    {W8_ITEM_EQUIP_CLASS_MISC, 0x800u},
-    {W8_ITEM_EQUIP_CLASS_CLOAK, 0x1000u},
-    {W8_ITEM_EQUIP_CLASS_INSTRUMENT, 0x2000u},
-    {W8_ITEM_EQUIP_CLASS_GADGET, 0x4000u},
-    {W8_ITEM_EQUIP_CLASS_MISC_MAGIC, 0x8000u},
-    {W8_ITEM_EQUIP_CLASS_POTION, 0x10000u},
-    {W8_ITEM_EQUIP_CLASS_BOMB, 0x20000u},
-    {W8_ITEM_EQUIP_CLASS_POWDER, 0x40000u},
-    {W8_ITEM_EQUIP_CLASS_SPELLBOOK, 0x80000u},
-    {W8_ITEM_EQUIP_CLASS_SCROLL, 0x100000u},
-    {W8_ITEM_EQUIP_CLASS_FOOD, 0x200000u},
-    {W8_ITEM_EQUIP_CLASS_DRINK, 0x400000u},
-    {W8_ITEM_EQUIP_CLASS_KEY, 0x800000u},
-    {W8_ITEM_EQUIP_CLASS_WRITING, 0x1000000u},
-    {W8_ITEM_EQUIP_CLASS_OTHER, 0x2000000u},
-};
-
 // FUNCTION: WIZ8 0x0055b290
-bool NpcAcceptsTradeItemClass(W8NpcState* npc, W8ItemInstance* item)
+bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
 {
-    const unsigned int equip_class = g_item_records[item->iItemNo].equip_class;
-    for (const auto& entry : kTradeClassBits) {
-        if (entry.equip_class == equip_class)
-            return (npc->record->trade_item_class_mask & entry.bit) != 0;
-    }
-    return false;
+    const auto cls = g_item_records[item->iItemNo].equip_class;
+    return cls <= W8_ITEM_EQUIP_CLASS_OTHER &&
+           (npc->record->trade_item_class_mask & (std::uint32_t{1} << cls)) != 0;
 }
 
 // FUNCTION: WIZ8 0x0055b250

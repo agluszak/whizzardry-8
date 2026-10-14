@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-#include "wiz8/layouts/character.h"
+#include "compat/compiler.h"
+#include "input.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "input.h"
-#include "compat/compiler.h"
 
 class W8DialogNumericInput;
 class W8TextBuffer;

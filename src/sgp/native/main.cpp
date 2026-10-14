@@ -1,10 +1,11 @@
-#include <wiz8/asset_paths.h>
 #include <cstdio>
 #include <exception>
-#include <vector>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
+
+#include <wiz8/asset_paths.h>
 
 #include "wiz8/application.h"
 
@@ -13,8 +14,7 @@ int main(int argc, char** argv)
     try {
         if (argc == 2 && std::string_view(argv[1]) == "--print-user-root") {
             const auto root = w8_native::path_roots().user;
-            if (root.empty())
-                return 1;
+            if (root.empty()) return 1;
             printf("%s\n", root.c_str());
             return 0;
         }

@@ -1,16 +1,24 @@
-#include "sprite.h"
-#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
-#include <glm/gtx/rotate_vector.hpp>
+#include "wiz8/local_screens/MGSRadarMap.h"
+
 #include <cmath>
 #include <numbers>
 #include <vector>
 
-#include "wiz8/containers.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
+#include <glm/gtx/rotate_vector.hpp>
+
+#include "AnimRep.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/party_formation.h"
+#include "sight_state.h"
+#include "sprite.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
+#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
@@ -18,22 +26,16 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/catalog_artwork.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/engine_code/GameData.h"
-#include "AnimRep.hpp"
-#include "glm/ext/vector_float4.hpp"
-#include "layouts/gameplay_databases.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/party_formation.h"
-#include "sight_state.h"
 
 /* The blip palette, six classes of three distance rings. Items
    take class 4 and missiles class 5; monsters take their disposition-mapped
@@ -87,8 +89,6 @@ static float g_radar_map_scale;
 // GLOBAL: WIZ8 0x0069c0e4
 static bool g_radar_map_enabled = false;
 
-// GLOBAL: WIZ8 0x005eecd8
-const double g_radar_pi = 3.141592653589793;
 // GLOBAL: WIZ8 0x005eece8
 const float g_radar_center_y = 404.0f;
 // GLOBAL: WIZ8 0x005eecec
@@ -223,7 +223,9 @@ void RefreshRadarMap(void)
 
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index, g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y);
+                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index,
+                                                   g_radar_cell_offsets[cell].x,
+                                                   g_radar_cell_offsets[cell].y);
             }
         }
     }
@@ -422,8 +424,8 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    const float angle = static_cast<float>(360 - g_status.party_facing) *
-                        (std::numbers::pi_v<float> / 180.0f);
+    const float angle =
+        static_cast<float>(360 - g_status.party_facing) * (std::numbers::pi_v<float> / 180.0f);
     *delta = glm::rotateY(delta->glmValue(), angle);
     delta->y = 0.0f;
 

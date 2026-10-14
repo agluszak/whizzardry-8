@@ -1,22 +1,24 @@
-#include <functional>
-#include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
 
+#include <algorithm>
+#include <functional>
+#include <string>
+#include <string_view>
+#include <utility>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
+#include "Types.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/ui_input.h"
-#include "Types.h"
-
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
-#include <algorithm>
-#include <string_view>
-#include <utility>
+#include "wiz8/ui_layer.h"
 
 // FUNCTION: WIZ8 0x005db4e0
 void W8ButtonWidget::Draw(SDL_Surface& target) const
@@ -49,11 +51,13 @@ void W8ButtonWidget::DrawAndInvalidate(SDL_Surface& target, bool force)
 void W8ButtonWidget::SetBounds(SDL_Rect bounds)
 {
     m_bounds = bounds;
-    if (m_target)
-        m_target->setShape(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
+    if (m_target) m_target->setShape(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
 }
 
-SDL_Point W8ButtonWidget::GetMousePosition() const { return UiPointerPosition(); }
+SDL_Point W8ButtonWidget::GetMousePosition() const
+{
+    return UiPointerPosition();
+}
 
 // FUNCTION: WIZ8 0x005db550
 void W8ButtonWidget::SetPosition(int x, int y)
@@ -231,16 +235,14 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     ++m_handling_pointer;
     const struct Handling {
         int& depth;
-        ~Handling()
-        {
-            --depth;
-        }
+        ~Handling() { --depth; }
     } handling{m_handling_pointer};
     // The dispatcher owns hover, press and release sounds. Controller-style
     // buttons silence the next one while disabled.
     const bool backend_sound = event.action == UiPointerAction::Enter ||
-        event.action == UiPointerAction::Leave || event.action == UiPointerAction::Down ||
-        (event.action == UiPointerAction::Up && event.captured_buttons != 0);
+                               event.action == UiPointerAction::Leave ||
+                               event.action == UiPointerAction::Down ||
+                               (event.action == UiPointerAction::Up && event.captured_buttons != 0);
     if (m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled &&
         backend_sound) {
         PushButtonSoundScheme(0, true);
@@ -295,7 +297,8 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         if (!(event.captured_buttons & mask)) return UiResult::Handled;
         response = m_interaction.repeat(mask, m_setup.policy);
         break;
-    default: return UiResult::Handled;
+    default:
+        return UiResult::Handled;
     }
     if (was_pressed != m_interaction.pressed) m_dirty = true;
     const bool double_click =

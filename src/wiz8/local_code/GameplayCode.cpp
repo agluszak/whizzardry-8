@@ -1,55 +1,15 @@
-#include <cstdint>
-#include <fmt/printf.h>
-#include <vector>
+#include "wiz8/local_code/GameplayCode.h"
+
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <iterator>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "utf8/checked.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/utility.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/message_box.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/dice.h"
-#include "random.h"
-#include "soundman.h"
+#include <fmt/printf.h>
+
 #include "attack_modes.h"
 #include "conditions.h"
 #include "equipment_slots.h"
@@ -59,6 +19,48 @@
 #include "layouts/targeting.h"
 #include "load_category.h"
 #include "local_code/Factions.h"
+#include "random.h"
+#include "soundman.h"
+#include "utf8/checked.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/dice.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/CharGeneration.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/message_box.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 #define GAMEPLAY_CODE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayCode.cpp"
 
@@ -269,15 +271,17 @@ void RefreshLevelUpReadyNotices(void)
                     if (row->portrait_advance == 0) {
                         std::string text = " ";
                         utf8::append(0xb4, std::back_inserter(text));
-                        utf8::append(GetPartyOrderTextColor(static_cast<signed char>(row->party_order_index)), std::back_inserter(text));
+                        utf8::append(GetPartyOrderTextColor(
+                                         static_cast<signed char>(row->party_order_index)),
+                                     std::back_inserter(text));
                         text += " " + character->name + " ";
                         utf8::append(0xb5, std::back_inserter(text));
                         text += " ";
                         text = fmt::sprintf(g_localized_strings[0x773], text);
                         *ready_flag = 1;
-                        QueueNpcPortraitMessage(std::move(text),
-                                              W8LevelUpNotice{party_slot});
-                        QueueNpcAction(W8NpcLevelUpReaction{party_slot});
+                        g_npc_dialogue.QueuePortraitMessage(std::move(text),
+                                                            W8LevelUpNotice{party_slot});
+                        g_npc_dialogue.Queue(W8NpcLevelUpReaction{party_slot});
                     } else {
                         *ready_flag = 1;
                     }
@@ -383,7 +387,8 @@ void HandleLevelOverride(float fall)
     unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
     if (count > 0) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x252]);
-        wiz8::sound::play(s_fall_impact_wav, {.volume = std::uint32_t(g_settings.sound_effects_volume)});
+        wiz8::sound::play(s_fall_impact_wav,
+                          {.volume = std::uint32_t(g_settings.sound_effects_volume)});
         W8Dice dice;
         SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
         ApplyRolledHealthChangeToParty(&dice, 0, 1);
@@ -1078,30 +1083,16 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
     return slot;
 }
 
-/* Remove one character from the party: drop its queued events, optionally
-   persist it back to its NPC record, clear the row, its formation positions
-   and marching-order entry, and fix the member counts and selection. Saving
-   is only meaningful for NPC-bound slots; a failed save keeps the member. */
+/* Remove one character from the party: drop its queued events, clear the row,
+   its formation positions and marching-order entry, and fix the member counts
+   and selection. */
 // FUNCTION: WIZ8 0x004EF610
-bool RemoveCharacterFromParty(int party_slot, bool save_character_data)
+void RemoveCharacterFromParty(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    if (save_character_data && g_status.buffers.XChar[party_slot].npc_index == -1) {
-        srAssertFail("!fSaveCharData || fCHAR_NPC(uiSlot)", GAMEPLAY_CODE_CPP, 0x895, 0);
-    }
     gXStatus.character_event_queue->RemoveCharacterEvents(character);
     character->fInParty = false;
-    if (save_character_data) {
-        RebuildCharacterModifierBlock(character);
-        RecalculateCharacterDerivedStats(character);
-        if (!SaveCharacter(character, g_status.buffers.XChar[party_slot].npc_index, true, 0)) {
-            character->fInParty = true;
-            RebuildCharacterModifierBlock(character);
-            RecalculateCharacterDerivedStats(character);
-            return false;
-        }
-    }
     g_status.buffers.XChar[party_slot].fOccupied = false;
     character->highest_condition = W8_CONDITION_NONE;
     character->enchantment_top = W8_ENCHANTMENT_NONE;
@@ -1127,7 +1118,6 @@ bool RemoveCharacterFromParty(int party_slot, bool save_character_data)
     if (g_status.selected_character == party_slot) {
         g_status.selected_character = GetNextCharacter(1, 1, -1);
     }
-    return true;
 }
 
 /* Install a finished character record over a party slot: everything the old
@@ -1153,7 +1143,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
             AddItemToParty(&character->backpack[index], false, false);
         }
     }
-    RemoveCharacterFromParty(slot, false);
+    RemoveCharacterFromParty(slot);
     *character = *record;
     character->fInParty = true;
     ResetPartySlotRow(slot);
@@ -1210,7 +1200,7 @@ void AwardPartyExperience(int amount, int alternate_message)
         }
     }
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
-    QueueNpcPortraitMessage(std::move(text),
-                          W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
-                                                    static_cast<unsigned char>(alternate_message)});
+    g_npc_dialogue.QueuePortraitMessage(
+        std::move(text), W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
+                                                   static_cast<unsigned char>(alternate_message)});
 }

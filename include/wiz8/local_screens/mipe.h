@@ -1,10 +1,10 @@
 #pragma once
 
-#include <SDL3/SDL_rect.h>
 #include <memory>
 #include <string>
-
 #include <vector>
+
+#include <SDL3/SDL_rect.h>
 
 #include "input.h"
 #include "surrender/srMath.h"
@@ -22,7 +22,6 @@ struct W8MipeMonsterEntry {
     bool selectable;
 };
 
-
 /* One row of mipeEdit.cpp's prop field editor: a label index into the
    g_mipe_prop_labels table plus the live value slots.  type 1 edits
    float_value, types 2/4/5 edit value as int/bool, 6 edits owned UTF-8 text
@@ -38,13 +37,11 @@ struct W8MipeEditField {
     int value;
 };
 
-
 /* The editor owns selected monster IDs and borrows its waypoint monsters. */
 struct W8MipeState {
     int SelectedMonsterLocationId() const
     {
-        if (monster_ids.empty())
-            return -1;
+        if (monster_ids.empty()) return -1;
         return monster_ids.front();
     }
 
@@ -69,7 +66,6 @@ struct W8MipeState {
     signed char edit_field_count;
     signed char edit_selection; /* -1 = no row selected */
 };
-
 
 extern bool g_debug_monster_cycle;
 extern std::unique_ptr<W8MipeState> g_mipe_state;

@@ -1,33 +1,33 @@
-#include <string_view>
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <string>
+#include <string_view>
 
-#include "wiz8/conditions.h"
-#include "wiz8/local_code/PartyImport.h"
-#include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/learned_spells.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/dialog_code/ProfRaceInfoDialog.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
-#include "random.h"
-#include "wiz8/filesystem.h"
 #include "equipment_slots.h"
 #include "layouts/game_status.h"
 #include "layouts/item_instance.h"
 #include "layouts/learned_spells.h"
+#include "random.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/conditions.h"
+#include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/learned_spells.h"
+#include "wiz8/local_code/CharGeneration.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/PartyImport.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
@@ -108,8 +108,7 @@ W8Wiz7Character g_imported_characters[6];
    the shared tag and the flag bits unpack into g_import_flags. */
 // FUNCTION: WIZ8 0x00558D00
 unsigned char LoadWizardry7ImportFile(std::string_view path)
-try
-{
+try {
     if (path.empty()) return 0;
     auto file = wiz8::open_file(path, wiz8::OpenMode::read);
     unsigned char header[0x34c];
@@ -135,19 +134,35 @@ try
     int ending = -1;
     if (ending_record) {
         switch (characters[0].party_tag & 0xf0) {
-        case 0x10: ending = 0; break;
-        case 0x20: ending = 1; break;
-        case 0x40: ending = 2; break;
-        case 0x80: ending = 3; break;
-        default: return 0;
+        case 0x10:
+            ending = 0;
+            break;
+        case 0x20:
+            ending = 1;
+            break;
+        case 0x40:
+            ending = 2;
+            break;
+        case 0x80:
+            ending = 3;
+            break;
+        default:
+            return 0;
         }
     }
     int difficulty = -1;
     switch (characters[0].party_tag & 0xf) {
-    case 1: difficulty = 0; break;
-    case 2: difficulty = 1; break;
-    case 4: difficulty = 2; break;
-    default: break;
+    case 1:
+        difficulty = 0;
+        break;
+    case 2:
+        difficulty = 1;
+        break;
+    case 4:
+        difficulty = 2;
+        break;
+    default:
+        break;
     }
 
     memcpy(g_imported_characters, characters, sizeof(characters));
@@ -159,8 +174,9 @@ try
         g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Apply the loaded Wizardry 7 import: reset the run, seed the party gold,
    mark the imported-party path and convert each record into a regular member.

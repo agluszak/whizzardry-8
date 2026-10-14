@@ -8,7 +8,7 @@ struct W8Item;
 struct W8WorldItem;
 struct W8ItemInstance;
 struct W8MonsterInfo;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* When set, world items flagged invisible are not activated;
    MIPE's item-create 'A' key toggles it ("hidden" versus "blue"). */

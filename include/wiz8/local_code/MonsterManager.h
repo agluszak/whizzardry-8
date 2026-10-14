@@ -1,17 +1,15 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
-#include <source_location>
-
-#include "wiz8/audio_resources.h"
-
-#include <string>
 #include <cstdint>
-#include <optional>
 #include <memory>
+#include <optional>
+#include <source_location>
+#include <string>
 
 #include "conditions.h"
 #include "layouts/targeting.h"
+#include "wiz8/audio_resources.h"
 
 class W8Monster;
 struct W8MonsterGroup;
@@ -21,15 +19,15 @@ struct W8MonsterRecord;
 #include <unordered_map>
 #include <vector>
 
-#include "wiz8/monster_actions.h"
-#include "wiz8/sight_state.h"
 #include "surrender/srMath.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/gameplay_modifiers.h"
-#include "wiz8/mouth_gap.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
+#include "wiz8/gameplay_modifiers.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/monster_actions.h"
+#include "wiz8/mouth_gap.h"
+#include "wiz8/sight_state.h"
 
 struct W8CharacterEvent;
 
@@ -418,10 +416,11 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
-unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
-                                         std::source_location caller = std::source_location::current());
+unsigned int
+MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
+                            std::source_location caller = std::source_location::current());
 W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
-                                 std::source_location caller = std::source_location::current());
+                           std::source_location caller = std::source_location::current());
 W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 W8Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
@@ -455,7 +454,7 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 unsigned char ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                        unsigned char name_form);
+                           unsigned char name_form);
 bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
 void DeactivateMonster(W8MonsterInfo* monster_info);

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/layouts/encounter_tables.h"
-#include <vector>
-#include <string>
 #include <algorithm>
+#include <string>
+#include <vector>
+
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/encounter_tables.h"
 
 // Runtime records own their storage; the database layout stays in layouts/.
 struct W8EncounterEntry {

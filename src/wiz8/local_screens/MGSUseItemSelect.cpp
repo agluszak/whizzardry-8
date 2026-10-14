@@ -1,48 +1,17 @@
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include <SDL3/SDL_mouse.h>
-#include "wiz8/button_interaction.h"
-#include <SDL3/SDL_rect.h>
-#include "wiz8/modal_content.h"
-#include <memory>
-#include <fmt/format.h>
+#include "wiz8/local_screens/MGSUseItemSelect.h"
+
 #include <array>
-#include <string>
 #include <cstring>
+#include <memory>
+#include <string>
 #include <vector>
 
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/item_video_object_vector.h"
-#include "image.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/level_specific_code/Trynnie2.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/fonts.h"
-#include "wiz8/xstatus.h"
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <fmt/format.h>
+
 #include "conditions.h"
+#include "image.h"
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
@@ -50,6 +19,40 @@
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "local_code/TextBuffer.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/AssayDialog.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/level_specific_code/Trynnie2.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/modal_content.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 
@@ -76,10 +79,6 @@ W8ItemInstance* g_use_item_select_override_item;
 static int g_use_item_list_count;
 // GLOBAL: WIZ8 0x0069B994
 
-// GLOBAL: WIZ8 0x0069B9A8
-static int g_use_item_cursor_x;
-// GLOBAL: WIZ8 0x0069B9AC
-static int g_use_item_cursor_y;
 // GLOBAL: WIZ8 0x0069B9B0
 static int g_use_item_owner_index;
 // GLOBAL: WIZ8 0x0069B9B4
@@ -132,40 +131,43 @@ static void CreateUseItemSelectControls(void)
     const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
                                 int disabled, SDL_Rect bounds, int help, void (*action)()) {
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
-
         button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(),
                                                disabled, normal, hover, pressed, pressed_hover),
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
                            .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
                            .tooltip = help,
-                           .priority = 0,
+                           .priority = UI_PRIORITY_LOWEST,
                            .menu_artwork = true});
+
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
         return button;
     };
     for (int index = 0; index < 2; ++index) {
         const int base = index * 5;
-        use_item->pools[index] = make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
-            {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
-            index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
+        use_item->pools[index] =
+            make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
+                        {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
+                        index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
         use_item->pools[index]->Policy().primary_toggle = ButtonToggle::Release;
     }
-    use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13,
-        {0x234, 0x16c, 14, 14}, 99, UseItemSelectFilterToggle);
+    use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13, {0x234, 0x16c, 14, 14}, 99,
+                                   UseItemSelectFilterToggle);
     use_item->filter->Policy().primary_toggle = ButtonToggle::Release;
     use_item->filter->SetEnabled(false);
-    use_item->close = make_button(0x8e, 4, -1, 5, 6, 7,
-        {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
+    use_item->close =
+        make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
     use_item->caption.SetLayoutBounds(0x1b, 0x16a, 0xa0, 0x179);
     use_item->caption.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     use_item->caption.SetText(g_localized_strings[0x77a], g_wiz_text_font_secondary);
     use_item->quantity.SetLayoutBounds(0x1e1, 0x16b, 0x20d, 0x19f);
     use_item->quantity.SetLayoutMode(g_W8TextBufferAlignBottom | g_W8TextBufferAlignRight);
-    auto& item = use_item->input.add(SDL_Rect{0x1e1, 0x16b, 45, 53},
-        [](const UiPointerEvent& event) {
-            const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-            if (event.action == UiPointerAction::Up && event.inside && (event.captured_buttons & mask))
+    auto& item =
+        use_item->input.add(SDL_Rect{0x1e1, 0x16b, 45, 53}, [](const UiPointerEvent& event) {
+            const auto mask =
+                event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+            if (event.action == UiPointerAction::Up && event.inside &&
+                (event.captured_buttons & mask))
                 AfterUiDispatch(UseItemSelectAssayButton);
             return UiResult::Handled;
         });
@@ -195,8 +197,6 @@ unsigned char OpenUseItemSelectView(int slot)
     CreateUseItemSelectControls();
     g_use_item_select_mode = -1;
     g_use_item_select_flags = 0;
-    g_use_item_cursor_x = -1;
-    g_use_item_cursor_y = -1;
     g_use_item_hover_row = -1;
     g_use_item_selected = 0;
     g_use_item_select_override_item = 0;
@@ -288,7 +288,8 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         item = FindCharacterItemAt(party_slot, g_status.buffers.XChar[party_slot].item_origin,
                                    g_status.buffers.XChar[party_slot].item_slot);
         if (CanUseItemForAction(g_use_item_owner_index, item)) {
-            const bool party_pool = g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
+            const bool party_pool =
+                g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode)
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
             use_item->pools[party_pool ? 1 : 0]->SetPressed(true);
@@ -342,17 +343,20 @@ void UpdateUseItemSelect(bool active)
             for (auto& button : use_item->pools) {
                 button->DrawAndInvalidate(target, true);
             }
-        } else if (panel == 1) RedrawTextBoxScrollChrome();
+        } else if (panel == 1)
+            RedrawTextBoxScrollChrome();
         else {
             // These unavailable actions are artwork, not six disabled widgets.
             const auto actions = CatalogArtwork::Load(0x1ab, 0);
             for (int index : {0, 1, 3, 4, 5})
-                actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17, 0x16c + (index / 3) * 17);
+                actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17,
+                             0x16c + (index / 3) * 17);
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
             use_item->filter->m_dirty = use_item->close->m_dirty = true;
             use_item->filter->DrawAndInvalidate(target);
             use_item->close->DrawAndInvalidate(target);
-            if (use_item->item_image) DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
+            if (use_item->item_image)
+                DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
             use_item->quantity.RenderToTarget(0, true, target);
         }
         use_item->dirty[panel] = false;
@@ -699,8 +703,6 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
         ClearHoveredTextLine(2);
         g_use_item_hover_row = -1;
     } else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter) {
-        g_use_item_cursor_x = event.position.x;
-        g_use_item_cursor_y = event.position.y;
         const int row = event.local.y / 11;
         if (event.inside && row != g_use_item_hover_row) HighlightNoticeRow(row);
         g_use_item_hover_row = row;

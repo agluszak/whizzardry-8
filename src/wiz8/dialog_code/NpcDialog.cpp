@@ -1,30 +1,32 @@
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <memory>
+#include "wiz8/dialog_code/NpcDialog.h"
+
 #include <functional>
-#include <utility>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
+#include "Font.h"
+#include "input.h"
+#include "local_code/ControlsRect.h"
+#include "npc_script_file.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "input.h"
-#include "Font.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "local_code/ControlsRect.h"
-#include "npc_script_file.h"
 
 /* Dialog Code\NpcDialog.cpp. The NPC dialogue popup; see the header for the
    request-buffer layout. The option-list strings and the two price-check
@@ -95,9 +97,9 @@ int W8NpcDialog::CreateControls()
     m_input.add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1}, {},
                 UI_PRIORITY_BACKGROUND);
     if (m_message->kind == W8_NPC_ENTRY_OPTIONS) {
-        int x =
-            (m_bounds.w - static_cast<short>((m_text_width + 10) * m_message->sub_entry_count - 10)) /
-            2;
+        int x = (m_bounds.w -
+                 static_cast<short>((m_text_width + 10) * m_message->sub_entry_count - 10)) /
+                2;
         for (index = 0; index < m_message->sub_entry_count; ++index) {
             line = m_message->sub_entries[index].text;
             m_buttons[index] = std::make_unique<W8ButtonWidget>(m_input);
@@ -111,7 +113,7 @@ int W8NpcDialog::CreateControls()
                  m_text_width, 0x14},
                 {.on_click = [this, index](W8ButtonWidget*) {
                     m_selected_option = index;
-                    AfterUiDispatch([this] { m_keep_open = false; });
+                    m_keep_open = false;
                 }});
             x += m_text_width + 10;
         }
@@ -119,9 +121,9 @@ int W8NpcDialog::CreateControls()
         bounds.top = m_bounds.y + 10;
         bounds.right = m_bounds.x + m_bounds.w - 10;
         bounds.bottom = m_bounds.y + 0x19;
-        m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[0] = std::make_unique<W8TextBuffer>(
+            &bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         short x = static_cast<short>((m_bounds.w - static_cast<short>((m_text_width + 5) * 2)) / 2);
@@ -135,7 +137,7 @@ int W8NpcDialog::CreateControls()
                                  static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14},
                                 {.on_click = [this](W8ButtonWidget*) {
                                     m_selected_option = 0;
-                                    AfterUiDispatch([this] { m_keep_open = false; });
+                                    m_keep_open = false;
                                 }});
         m_buttons[1] = std::make_unique<W8ButtonWidget>(m_input);
         m_buttons[1]->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
@@ -147,36 +149,36 @@ int W8NpcDialog::CreateControls()
                                  static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14},
                                 {.on_click = [this](W8ButtonWidget*) {
                                     m_selected_option = 1;
-                                    AfterUiDispatch([this] { m_keep_open = false; });
+                                    m_keep_open = false;
                                 }});
-        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_scripting.price_check->price);
+        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_dialogue.price_check()->price);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 10;
         bounds.right = m_bounds.x + m_bounds.w - 10;
         bounds.bottom = m_bounds.y + 0x19;
-        m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[0] = std::make_unique<W8TextBuffer>(
+            &bounds, line, g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         line = fmt::format("{} {:d}g", g_localized_strings[0x7e6], g_status.party_gold);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 0x37;
         bounds.right = m_bounds.x + m_bounds.w - 10;
         bounds.bottom = m_bounds.y + 0x46;
-        m_text_buffers[1] =
-            std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[1] = std::make_unique<W8TextBuffer>(
+            &bounds, line, g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
         m_input_group->SetScheme(1);
-        m_input_field = m_input_group->Add(m_bounds.x + (m_bounds.w - 0x8c) / 2, m_bounds.y + 0x23, 0x8c, 0x10, 0x7f,
-                                          "", 0x28, 0xf, true);
+        m_input_field = m_input_group->Add(m_bounds.x + (m_bounds.w - 0x8c) / 2, m_bounds.y + 0x23,
+                                           0x8c, 0x10, 0x7f, "", 0x28, 0xf, true);
         m_input_group->Focus(m_input_field);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 10;
         bounds.right = m_bounds.x + m_bounds.w - 10;
         bounds.bottom = m_bounds.y + 0x19;
-        m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[0] = std::make_unique<W8TextBuffer>(
+            &bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
     m_initialized = true;
     return 0;
@@ -222,22 +224,30 @@ void W8NpcDialog::DrawModal(SDL_Surface& target)
 bool W8NpcDialog::ProcessInput()
 {
     m_input.setModal(true);
-    if (m_keep_open) PumpUiInput({
-        .before = [this](const InputEvent& input) {
-            if (IsTypingEvent(input) && m_input_group && m_input_group->HandleInput(input)) {
-                return InputRoute::Handled;
-            }
-            if (input.type == InputEventType::KeyDown &&
-                (input.key == VK_RETURN || input.key == VK_ESCAPE) &&
-                m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-                m_cancelled = input.key == VK_ESCAPE;
-                if (!m_cancelled) m_input_text = m_input_group->Text(m_input_field);
-                m_keep_open = false;
-                return InputRoute::Stop;
-            }
-            return InputRoute::Pass;
-        },
-    });
+    if (m_keep_open)
+        PumpUiInput({
+            .before =
+                [this](const InputEvent& input) {
+                    if (IsTypingEvent(input) && m_input_group &&
+                        m_input_group->HandleInput(input)) {
+                        return InputRoute::Handled;
+                    }
+                    if (input.type == InputEventType::KeyDown &&
+                        (input.key == VK_RETURN || input.key == VK_ESCAPE) &&
+                        m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
+                        m_cancelled = input.key == VK_ESCAPE;
+                        if (!m_cancelled) m_input_text = m_input_group->Text(m_input_field);
+                        m_keep_open = false;
+                        return InputRoute::Stop;
+                    }
+                    return InputRoute::Pass;
+                },
+            // A chosen option closes the reply; later events belong to its successor.
+            .consumed =
+                [this](const InputEvent&) {
+                    return m_keep_open ? InputRoute::Handled : InputRoute::Stop;
+                },
+        });
     if (!m_keep_open) {
         // Restore the previous editor before delivering the reply. Destruction
         // during screen teardown must not submit an unfinished reply.

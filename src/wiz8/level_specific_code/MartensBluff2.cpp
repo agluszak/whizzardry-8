@@ -1,13 +1,23 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <vector>
 #include <cmath>
 #include <string>
+#include <vector>
 
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include "Navigator.h"
+#include "compat/compiler.h"
+#include "conditions.h"
+#include "dice.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/world.h"
+#include "local_code/SpellEffect.h"
+#include "random.h"
+#include "surrender/srMath.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -16,6 +26,8 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
@@ -35,18 +47,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/string_database.h"
-#include "surrender/srMath.h"
-#include "random.h"
-#include "Navigator.h"
-#include "compat/compiler.h"
-#include "conditions.h"
-#include "dice.h"
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "layouts/gameplay_databases.h"
-#include "layouts/world.h"
-#include "local_code/SpellEffect.h"
-
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
 
@@ -170,8 +170,8 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
             rotation *=
                 glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
                                               normalizedOrZero(glm::vec3(direction.glmValue()))));
-            }
-            offset = position + srVector3T<float>{rotation * offset.glmValue()};
+        }
+        offset = position + srVector3T<float>{rotation * offset.glmValue()};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -476,8 +476,7 @@ void MartensBluff2MonsterCrusher(int command)
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
             const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
             const auto other_bounds = g_squisher4_prop->GetFrameBounds();
-            if (!crusher_bounds || !other_bounds)
-                return;
+            if (!crusher_bounds || !other_bounds) return;
             crusher_lower = crusher_bounds->minimum;
             crusher_upper = crusher_bounds->maximum;
             lower = other_bounds->minimum;
@@ -549,7 +548,8 @@ void MartensBluff2MonsterCrusher(int command)
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
     right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
-    location_ids = g_octree->locationsInBox({crusher_lower.glmValue(), crusher_upper.glmValue()}, 0);
+    location_ids =
+        g_octree->locationsInBox({crusher_lower.glmValue(), crusher_upper.glmValue()}, 0);
     count = location_ids.size();
     if (count == 0) {
         return;

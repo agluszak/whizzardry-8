@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vector>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 struct stScriptLine {
     std::string text;
@@ -18,14 +18,8 @@ struct stScriptLabel {
 /* Owns parsed script lines and labels. */
 class stScript {
 public:
-    const std::string& getName() const
-    {
-        return name;
-    }
-    void setName(std::string name)
-    {
-        this->name = std::move(name);
-    }
+    const std::string& getName() const { return name; }
+    void setName(std::string name) { this->name = std::move(name); }
 
     int FindLabelLine(std::string_view label) const;
     int GetSourceLine(int line) const;

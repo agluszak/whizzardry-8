@@ -5,10 +5,8 @@
 /* Asset namespace. Roots are initialized from WIZ8_ASSET_ROOT,
    WIZ8_USER_ROOT and WIZ8_CD1_ROOT..WIZ8_CD3_ROOT. A configured disc is exposed
    as D:, E: or F: with the label WIZ8_1, WIZ8_2 or WIZ8_3. */
-namespace w8_native
-{
-struct Roots
-{
+namespace w8_native {
+struct Roots {
     std::string assets;
     std::string user;
     std::string discs[3];

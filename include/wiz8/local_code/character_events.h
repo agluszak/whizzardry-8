@@ -3,10 +3,10 @@
 struct SDL_Surface;
 
 #include <string_view>
-#include "wiz8/conditions.h"
 
 #include "input.h"
 #include "sprite.h"
+#include "wiz8/conditions.h"
 
 bool IsVoiceMuted(void);
 /* Audio panels pass 0 or 2 for the enabled setting. */
@@ -64,12 +64,12 @@ void RedrawPortraitQuoteBubbles(void);
 /* Queue the character's breath/idle event unless a spell or item
    is being aimed; `force` queues it regardless. */
 void StartBreathCycle(int party_slot, bool force);
-void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, unsigned char value,
-                         int party_slot);
+void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
+                         unsigned char value, int party_slot);
 /* Blit one animated portrait frame and its transition, returning
    whether a frame was drawn. */
-bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, int party_slot,
-                                bool animate);
+bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
+                                SpriteDraw options, int party_slot, bool animate);
 
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                 std::string_view quote_text, int show_quote);

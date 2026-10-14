@@ -1,9 +1,9 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include <vector>
 #include <algorithm>
+#include <vector>
+
+#include "wiz8/filesystem.h"
 
 extern std::vector<char*> g_location_variable_names;
 extern std::vector<int> g_location_variable_levels;

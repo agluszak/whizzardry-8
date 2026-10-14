@@ -1,25 +1,25 @@
+#include <array>
+#include <string>
 #pragma once
 
-#include "wiz8/engine_code/mesh_links.h"
 #include <memory>
-
-#include "wiz8/ground_probe.h"
-#include "wiz8/octree_walk.h"
-#include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_int3.hpp"
-#include "surrender/srBoundingBox.h"
-
-#include <vector>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
-#include "surrender/srMath.h"
-#include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/geometry.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/OctPreTree.h"
+#include "wiz8/engine_code/mesh_links.h"
+#include "wiz8/geometry.h"
+#include "wiz8/ground_probe.h"
+#include "wiz8/octree_walk.h"
 
 struct OctreeCellCoordinates {
     glm::ivec3 cell;
@@ -36,7 +36,9 @@ class GDProp;
 class W8Prop;
 class stParticle;
 class stModelInstance;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 
@@ -219,18 +221,17 @@ public:
     void UnregisterLocationObject(unsigned int location_id,
                                   W8OctreeObjectKind kind); /* 0x0042E880 */
     std::vector<w8_ulong> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
-                                           float extent, unsigned short kind);
+                                            float extent, unsigned short kind);
     /* Kind-12 box query; `exclusion` 0 maps to none. */
     std::vector<w8_ulong> locationsInBox(const srBoundingBox& bounds,
-                                       unsigned short exclusion); /* 0x0042EF00 */
+                                         unsigned short exclusion); /* 0x0042EF00 */
     /* AABB occupancy test: GD triangles, kind-12 location objects (with each
        monster's navigator radius) and collidable-prop surfaces. */
     unsigned char TestBoxOccupied(const srVector3T<float>* lower,
                                   const srVector3T<float>* upper); /* 0x0042EF30 */
     /* Append the objects of `kind` inside one cell to the shared query
        buffer; the registry path deduplicates through m_visited_object_bits. */
-    unsigned int CollectObjectsInCell(const glm::ivec3& cell,
-                                      unsigned short kind); /* 0x0042F400 */
+    unsigned int CollectObjectsInCell(const glm::ivec3& cell, unsigned short kind); /* 0x0042F400 */
     /* Bounds-checked cell -> leaf index: the direct leaf grid when present,
        else a masked descent through the branch tree. */
     unsigned int LeafIndexForCell(const glm::ivec3& cell); /* 0x00433730 */
@@ -264,7 +265,7 @@ public:
         int prop_id;
     };
     std::optional<PropTraceHit> traceProps(const glm::vec3& from, const glm::vec3& to,
-                                         int skip_flag, int gate);
+                                           int skip_flag, int gate);
     struct SphereTraceHit {
         glm::vec3 position;
         int location_id;
@@ -274,8 +275,9 @@ public:
        The location winner and final collider offset retain the existing
        selection behavior. */
     std::optional<SphereTraceHit> traceSphereHit(const glm::vec3& from, const glm::vec3& to,
-        int excluded, int target, int excluded_location, unsigned int flags,
-        bool noise_adjust); /* 0x004353F0 */
+                                                 int excluded, int target, int excluded_location,
+                                                 unsigned int flags,
+                                                 bool noise_adjust); /* 0x004353F0 */
     /* Navigator placement query: retail callers pass modes such as 5, 10, 20
        and 30; retail callers load the octree into ecx and the body returns
        with ret 0x28, so this is an ordinary member. `source`'s y may be
@@ -284,10 +286,12 @@ public:
        columns over ten rings instead of the mode-driven cell grid, and can
        flatten every accepted position back to the source height. */
     std::vector<glm::vec3> scatterPositions(const glm::vec3& position, float yaw, float spacing,
-                                           unsigned int count, bool proximity_check, bool flatten_y);
+                                            unsigned int count, bool proximity_check,
+                                            bool flatten_y);
     NavigatorPlacement navigatorPositions(const glm::vec3& source, float yaw, float radius,
-                                           unsigned int count, bool first_only, bool settle_any_height,
-                                           bool avoid_triggers, int mode, bool require_waypoint_span);
+                                          unsigned int count, bool first_only,
+                                          bool settle_any_height, bool avoid_triggers, int mode,
+                                          bool require_waypoint_span);
     unsigned int AdvanceNavigator(W8NavigatorMovementState* movement, float radius,
                                   float separation);
     unsigned char PrepareNavigatorTarget(W8NavigatorMovementState* movement, float radius,
@@ -297,7 +301,8 @@ public:
     unsigned char LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                       const srVector3T<float>* target, float separation);
     void GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal);
-    GroundProbe settleToGround(const glm::vec3& position, bool test_props, float limit); /* 0x00433820 */
+    GroundProbe settleToGround(const glm::vec3& position, bool test_props,
+                               float limit); /* 0x00433820 */
     /* Clamp `position` to the clipped ceiling, probe the ground one
        world-scale unit lower and keep the settled height on a hit. */
     /* Returns the ground-hit flag in AL; pathing callers test it. */
@@ -306,7 +311,7 @@ public:
     /* Owned query results remain valid across subsequent octree queries.
        IDs retain cell traversal order and the existing 10,000-entry limit. */
     std::vector<w8_ulong> queryObjects(const srBoundingBox& bounds, unsigned short kind,
-                                      int excluded); /* 0x0042F280 */
+                                       int excluded); /* 0x0042F280 */
     std::vector<w8_ulong> nearbyLocations(const glm::vec3& position, float spacing);
     /* Refresh the pathing service's debug preview from the world cursor,
        falling back to the camera eye when the cursor is unset. */
@@ -314,10 +319,10 @@ public:
     void UpdateCameraVisibility();
     void UpdateVisibility();
     unsigned char UpdateWorldTrace();
-    /* Store `path` with its extension stripped into m_owned_0c0; the sibling
+    /* Store `path` with its extension stripped into m_path_stem; the sibling
        data files are then derived from the stem. */
     bool SetPathStem(const char* path); /* 0x0042CF90 */
-    bool SavePoints(char* path);
+    bool SavePoints(const char* path);
     bool LoadPointFiles(const char* level_name);
     bool ReadRegionLinkFile(const char* level_name);
     /* Region containing `point` (1-based index into the volume array), else
@@ -335,19 +340,20 @@ public:
        `rebuild_all` sweeps every cell and discards the saved point list, a
        zero value samples a sparse checkerboard plus the stored points. */
     void BuildRegionLinks(bool rebuild_all); /* 0x004314C0 */
-    bool SaveRegionLinks(char* path);
+    bool SaveRegionLinks(const char* path);
     unsigned char ValidateRegionMeshLinks();
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
     std::vector<w8_ulong> polygonsNearPoint(const glm::vec3& center, float radius,
-                                             float height); /* 0x00438780 */
+                                            float height); /* 0x00438780 */
     int CountBadRegionMeshLinks(W8OctSpatialState* spatial);
     void ToggleUpdateSuspension(W8World* world);
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
     std::vector<stModelInstance*> modelsNearPoint(const glm::vec3& center, float radius,
-                                                  unsigned int flags, bool only_accumulated); /* 0x0042F9A0 */
+                                                  unsigned int flags,
+                                                  bool only_accumulated); /* 0x0042F9A0 */
     OctreeCellCoordinates cellCoordinates(const glm::vec3& location) const;
     OctreeCellCoordinates projectRegionsAt(const glm::vec3& location);
     void CollectVisibleCells();
@@ -359,38 +365,30 @@ public:
     short ProjectLinkedRegionsForLocation(srVector3T<float>* location,
                                           unsigned short* region_list); /* 0x00431050 */
 
-    bool HasLoadError() const
-    {
-        return (m_spatial.flags & 0x80000000) != 0;
-    }
-    w8_ulong GetMeshCount() const
-    {
-        return m_spatial.submesh_count;
-    }
+    bool HasLoadError() const { return (m_spatial.flags & 0x80000000) != 0; }
+    w8_ulong GetMeshCount() const { return m_spatial.submesh_count; }
 
 public:
-    /* Same proven 0x9c value used by the level build tree.  Construction and
-       teardown operate on the offset-zero subobject, but current evidence does
-       not distinguish first-member composition from inheritance, so the
-       declaration makes the narrower composition claim. */
+    // Shared spatial queries borrow region volumes owned by this tree.
     W8OctSpatialState m_spatial;
-    W8OctPreTreeBranch* m_branches;
-    W8OctPreTreeLeaf* m_leaves;
+    std::vector<W8OctRegionVolume> m_region_volumes; // Owns the spatial state's borrowed view.
+    std::vector<W8OctPreTreeBranch> m_branches;
+    std::vector<W8OctPreTreeLeaf> m_leaves;
     srVector3T<w8_ulong> m_leaf_grid_dimensions;
-    w8_ulong* m_leaf_lookup;
+    std::vector<w8_ulong> m_leaf_lookup;
     w8_ulong m_branch_count;
     w8_ulong m_leaf_count;
     W8OctreeObjectRegistry* object_registry;
-    char* m_owned_0c0;
+    std::string m_path_stem;
     bool m_fAccumulating;
     unsigned char m_padding_0c5[3];
     w8_ulong m_vertex_count;
     w8_ulong m_leaf_polygon_stream_len;
-    w8_ulong* m_polygon_index_stream;
+    std::vector<w8_ulong> m_polygon_index_stream;
     /* ReadOctFile's allocation assertion calls this the "Poly Lookup table":
        polygon index to (kind<<16)|id object key. */
-    w8_ulong* m_aulPolyLookup;
-    W8OctSubmesh* m_pSubmeshes;
+    std::vector<w8_ulong> m_aulPolyLookup;
+    std::vector<W8OctSubmesh> m_pSubmeshes;
     /* Retail m_pAlphaBits; empty without a mesh count. Link tables retain
        unsigned-short disk records but use native owned containers. */
     std::vector<bool> m_alpha_bits;
@@ -401,19 +399,17 @@ public:
     std::vector<bool> m_visible_particles;
     std::vector<bool> m_linked_props;
     std::vector<bool> m_visible_props;
-    W8Prop** m_papProps;
-    stParticle** m_papParticles;
-    unsigned short m_usNumPropsLoaded;
-    unsigned short m_usNumParticlesLoaded;
+    std::vector<W8Prop*> m_props;
+    std::vector<stParticle*> m_particles;
     /* Registered prop id the last prop trace or test_props snap hit; -1 when
        the ground resolve touched only static geometry. */
     int current_prop;
     w8_ulong m_gd_surface_stream_len;
     w8_ulong m_trigger_count;
-    w8_ulong* m_gd_surface_index_stream;
+    std::vector<w8_ulong> m_gd_surface_index_stream;
     /* Trigger list: serialized as 2-byte elements (ReadOctFile allocates
        count * 2 + 4) even though WriteOctFile emits them four bytes wide. */
-    unsigned short* m_trigger_indices;
+    std::vector<unsigned short> m_trigger_indices;
     w8_ulong m_trace_skip_flag;
     w8_ulong m_region_list_len;
     w8_ulong m_unknown_13c;
@@ -422,8 +418,7 @@ public:
        byte of each (mask<<24 | x<<16 | y<<8 | z) key. */
     w8_ulong m_region_mask;
     w8_ulong m_depth_mask;
-    unsigned short* m_region_index_stream;
-    unsigned char* m_pfRegsVisited;
+    std::vector<unsigned short> m_region_index_stream;
     std::unordered_multimap<unsigned int, unsigned short>* m_pRegionLinks;
     std::vector<bool> m_projected_regions;
     std::vector<bool> m_current_regions;
@@ -438,7 +433,7 @@ public:
     bool m_points_dirty;
     unsigned char m_padding_16e[2];
     w8_ulong m_point_count;
-    srVector3T<float>* m_sample_points;
+    std::vector<srVector3T<float>> m_sample_points;
     /* Region-link sample cell size read from .oct offset 0xac; the link
        builder strides the x/z grid by it (times three for a sparse pass). */
     float m_region_cell;
@@ -457,7 +452,7 @@ public:
     w8_ulong m_alpha_polygon_count;
     w8_ulong m_meshCount;
     w8_ulong m_gd_result_count;
-    w8_ulong* m_aulGDObjs; /* 0x1bc */
+    std::array<w8_ulong, 10000> m_aulGDObjs;
     W8OctreeView view;
     w8_ulong m_unknown_27c[6];
     bool m_visibility_suspended;
@@ -528,13 +523,16 @@ public:
     unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile& level,
                                  unsigned int min_component_percent);
     char PathNodeObstructed(const srVector3T<float>* node_position);
-    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
-                                         unsigned int cell, unsigned int node, std::span<const W8PreProp> preprops);
+    unsigned char
+    InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
+                           unsigned int cell, unsigned int node,
+                           std::span<const W8PreProp> preprops);
     /* Tests the bounds box against static surfaces and registered props;
        0 clear, 1 blocked, 3 clear but prop ids were recorded in m_lBlocks. */
     char TestPathPropBounds(const srBoundingBox& bounds);
     int CreatePathProps(const W8LevelFile& level, W8PreProp** preprops);
-    char PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first, unsigned short last);
+    char PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first,
+                          unsigned short last);
 };
 
 extern W8Octree* g_octree;
@@ -546,7 +544,6 @@ extern bool g_octree_disabled;
 
 bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
-extern unsigned int* g_octree_storage_;
 extern w8_ulong* g_octree_state;
 extern stModelInstance* g_octree_trace_node;
 extern const float g_octree_cell_scale;
@@ -565,5 +562,5 @@ extern bool g_render_untextured;
 
 int CheckLevelAssetSet(const char* level_path);
 
-w8_ulong* __fastcall PackColourToLong(w8_ulong* color, double alpha, double red,
-                                           double green, double blue);
+w8_ulong* __fastcall PackColourToLong(w8_ulong* color, double alpha, double red, double green,
+                                      double blue);

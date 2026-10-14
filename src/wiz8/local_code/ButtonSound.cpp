@@ -1,11 +1,12 @@
+#include "wiz8/local_code/ButtonSound.h"
+
 #include <cstdint>
 
+#include "compat/native.h"
 #include "soundman.h"
-#include "wiz8/local_code/ButtonSound.h"
+#include "timer.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/sr_api.h"
-#include "timer.h"
-#include "compat/native.h"
 
 // GLOBAL: WIZ8 0x0062A458
 const char* g_button_sound_paths[4][4] = {{0, 0, 0, 0},

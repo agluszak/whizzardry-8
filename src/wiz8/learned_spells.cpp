@@ -1,9 +1,9 @@
 #include "wiz8/learned_spells.h"
 
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "layouts/learned_spells.h"
 #include "spell_ids.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/gameplay_databases.h"
 
 /* Original translation unit is not established by the ItemManager/Magic source anchors. */
 // FUNCTION: WIZ8 0x004F9600

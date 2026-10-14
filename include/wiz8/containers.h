@@ -7,7 +7,7 @@
 namespace wiz8 {
 
 // Some game APIs use integer indices with -1 for a missing entry.
-template <class T, class U, class Projection = std::identity>
+template<class T, class U, class Projection = std::identity>
 int index_of(const std::vector<T>& values, const U& value, Projection projection = {})
 {
     const auto found = std::ranges::find(values, value, projection);
@@ -15,18 +15,17 @@ int index_of(const std::vector<T>& values, const U& value, Projection projection
 }
 
 // Unlike std::erase, remove only the first occurrence. Lists may contain duplicates.
-template <class T, class U>
+template<class T, class U>
 bool erase_first(std::vector<T>& values, const U& value)
 {
     const auto found = std::ranges::find(values, value);
-    if (found == values.end())
-        return false;
+    if (found == values.end()) return false;
     values.erase(found);
     return true;
 }
 
 // Unlink before deletion: destructors can remove and destroy other list entries.
-template <class T>
+template<class T>
 void remove_all_and_delete(std::vector<T*>& values)
 {
     while (!values.empty()) {
@@ -37,7 +36,7 @@ void remove_all_and_delete(std::vector<T*>& values)
 }
 
 // Drain in order, unlinking before calling code that may mutate the collection.
-template <class T, class Dispose>
+template<class T, class Dispose>
 void clear_and_dispose(std::vector<T>& values, Dispose dispose)
 {
     while (!values.empty()) {
@@ -48,7 +47,7 @@ void clear_and_dispose(std::vector<T>& values, Dispose dispose)
 }
 
 // Use where destruction order is observable (for example, queued events).
-template <class T>
+template<class T>
 void remove_all_and_delete_in_order(std::vector<T*>& values)
 {
     clear_and_dispose(values, [](T* value) { delete value; });

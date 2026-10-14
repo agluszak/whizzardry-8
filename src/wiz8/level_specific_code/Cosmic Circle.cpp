@@ -1,18 +1,18 @@
-#include "wiz8/level_specific_code/CosmicCircle.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Monster.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/level_specific_code/CosmicCircle.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/sr_api.h"
-#include "surrender/srMath.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 
@@ -72,7 +72,6 @@ void CosmicCircleSetup(void)
     W8MonsterGroup* group;
     Trigger* pTrigger;
     int uiMonsterID;
-    unsigned int index;
 
     if (!g_status.world_suspended && !g_status.cc_arena_spawned) {
         if (FindEntityByName("NP_ALTHEIDESARENA", &positionAltheides, 0, 0)) {

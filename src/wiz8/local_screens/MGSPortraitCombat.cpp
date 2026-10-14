@@ -1,27 +1,25 @@
-#include "wiz8/button_interaction.h"
-
 #include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/ui_input.h"
 
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/GameplayTime.h"
+#include "layouts/main_game_screen.h"
+#include "surrender/srMath.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_code/Search.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "layouts/main_game_screen.h"
-#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x0064C238
 char g_submenu_icons_path[] = "Data\\Main Interface\\icons_standard.sti";
@@ -99,41 +97,33 @@ void CreateSubMenuButtons()
     g_main_game_state->hud_buttons.submenu[0].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c),
         {.on_click = SubMenuButtonPendingScreen, .tooltip = 0x42});
-
     g_main_game_state->hud_buttons.submenu[1].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x3, 0x0, 0x1, 0x2, 0x4),
         {.on_click = SubMenuButtonSurprise, .tooltip = 0x43});
-
     g_main_game_state->hud_buttons.submenu[2].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x8, 0x5, 0x6, 0x7, 0x9),
         {.on_click = SubMenuButtonToggleFlag,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x44});
-
     g_main_game_state->hud_buttons.submenu[3].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18),
         {.on_click = SubMenuButtonUseItem,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x45});
-
     g_main_game_state->hud_buttons.submenu[4].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x1c, 0x19, 0x1a, 0x1b, 0x1d),
         {.on_click = SubMenuButtonSpellView,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x46});
-
     g_main_game_state->hud_buttons.submenu[5].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x12, 0xf, 0x10, 0x11, 0x13),
         {.on_click = SubMenuButtonOpenMenu1, .tooltip = 0x4a});
-
     g_main_game_state->hud_buttons.submenu[6].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0xd, 0xa, 0xb, 0xc, 0xe),
         {.on_click = SubMenuButtonOpenMenu0, .tooltip = 0x49});
-
     g_main_game_state->hud_buttons.submenu[7].Configure(
         ButtonGraphics::Load(g_submenu_combat_icons_path, 0x3, 0x0, 0x1, 0x2, 0x2),
         {.on_click = SubMenuButtonToggleCombat, .tooltip = 0x47});
-
     g_main_game_state->hud_buttons.submenu[8].Configure(
         ButtonGraphics::Load(g_submenu_combat_icons_path, 0x7, 0x4, 0x5, 0x6, 0x6),
         {.on_click = SubMenuButtonToggleCombat, .tooltip = 0x48});

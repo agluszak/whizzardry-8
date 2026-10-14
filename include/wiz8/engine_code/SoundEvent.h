@@ -1,12 +1,11 @@
 #pragma once
 
-#include "wiz8/audio_resources.h"
-
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "surrender/srMath.h"
+#include "wiz8/audio_resources.h"
 
 /* Engine Code\SoundEvent.cpp. The unit's assertion-backed interval starts at
    the factory below. */
@@ -27,8 +26,8 @@ enum W8SoundEventKind {
 class W8SoundEvent {
 public:
     W8SoundEvent() = default;
-    W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
-                 std::string wave_name, bool looping);
+    W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle, std::string wave_name,
+                 bool looping);
     W8SoundEvent(const W8SoundEvent&) = delete;
     W8SoundEvent& operator=(const W8SoundEvent&) = delete;
     ~W8SoundEvent();
@@ -52,10 +51,9 @@ public:
     int footstep_combat_volume = 30;
 };
 
-
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
-                       const srVector3T<float>& position, unsigned int event_mask,
-                       int cycle, int frame, int subcycle);
+                       const srVector3T<float>& position, unsigned int event_mask, int cycle,
+                       int frame, int subcycle);
 
 /* Reports the ground height, surface and material at one position through the
    level's game data: settles a probe with settleToGround and reads the hit

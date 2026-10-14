@@ -1,14 +1,14 @@
-#include "surrender/stream_scope.h"
-#include <ostream>
-#include <utility>
 #include <memory>
+#include <ostream>
 #include <string>
+#include <utility>
 
-#include "surrender/srTextureFile.h"
-#include "surrender/srImageIO.h"
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srTexture.h"
+#include "surrender/srTextureFile.h"
+#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x1005F8E0
 srTextureFile::srTextureFile(std::string file_name, int cached)

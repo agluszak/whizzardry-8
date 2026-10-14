@@ -1,41 +1,42 @@
-#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/local_screens/MGSFormation.h"
+
 #include <array>
-#include <memory>
-
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_surface.h>
-
-#include "sprite.h"
-#include "wiz8/surface_storage.h"
-#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
-#include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/button_interaction.h"
-#include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/cursor.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/xstatus.h"
-#include "timer.h"
-#include "wiz8/local_screens/MGSTextBox.h"
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "local_code/ControlsRect.h"
+#include "sprite.h"
 #include "surrender/srMath.h"
+#include "timer.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSRadarMap.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/surface_storage.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 /* On-board (left, top) of each of the fifteen cell markers,
    relative to the board anchor. */
@@ -88,7 +89,10 @@ void EnableFormationInput()
     if (formation) formation->input.setEnabled(true);
 }
 
-void DestroyFormationPanel() { formation.reset(); }
+void DestroyFormationPanel()
+{
+    formation.reset();
+}
 
 static void UpdateFormationCells(void);
 
@@ -178,7 +182,8 @@ void CreateFormationBoardOverlay(void)
         bounds.top = 0x166;
         bounds.right = 0x269;
         bounds.bottom = 0x1c2;
-        g_level_block->formation_overlay_sprite = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
+        g_level_block->formation_overlay_sprite =
+            CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
         Position2DNodeUnsnapped(g_level_block->formation_overlay_sprite, 0x200, 0x166);
         SetModelInstance2DDisplayState(g_level_block->formation_overlay_sprite, 4);
     }
@@ -187,9 +192,11 @@ void CreateFormationBoardOverlay(void)
 UiResult HandleFormationBoard(const UiPointerEvent& event)
 {
     if (event.action == UiPointerAction::Up && event.inside &&
-        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) && !gXStatus.fReviewCharacterMode)
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
+        !gXStatus.fReviewCharacterMode)
         AfterUiDispatch(OpenFormationPanel);
-    if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter && event.action != UiPointerAction::Leave)
+    if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter &&
+        event.action != UiPointerAction::Leave)
         return UiResult::Handled;
     int slot;
     int hit;
@@ -245,19 +252,19 @@ static void CreateFormationPanel()
         {0xd6 + 0xa7, 0x3c + 0xcb, 0x1b, 0x1b},
         {0xd6 + 0xf, 0x3c + 0xcd, 0x1a, 0x1a},
     }};
-    static constexpr std::array actions{AcceptFormationChanges, CloseFormationPanel, ResetFormationPanel};
+    static constexpr std::array actions{AcceptFormationChanges, CloseFormationPanel,
+                                        ResetFormationPanel};
     for (int action = 0; action < 3; ++action) {
         const auto artwork = CatalogArtwork::Load(action == 2 ? 0x8f : 0x8e, 0);
         const int frame = artwork.imageOffset() + (action == 1 ? 4 : 0);
         auto& button = formation->actions[action];
         button = std::make_unique<W8ButtonWidget>(formation->input);
-
         button->Configure(
             ButtonGraphics::Load(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2),
             {.on_click = [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
              .tooltip = 1981 + action,
-             .priority = 0,
+             .priority = UI_PRIORITY_LOWEST,
              .menu_artwork = true});
         button->SetPosition(bounds[action].x, bounds[action].y);
         button->Resize(bounds[action].w, bounds[action].h);
@@ -281,9 +288,13 @@ void RefreshFormationPanel(bool force)
         const auto position = g_formation_cell_positions[cell];
         const bool disabled = !CanHoldFormationPlace(slot);
         const int arrow = gXStatus.edited_formation.positions[slot].facing * 3 +
-                          (disabled ? 2 : formation->cells[cell].pressed ? 1 : 0);
+                          (disabled                         ? 2
+                           : formation->cells[cell].pressed ? 1
+                                                            : 0);
         const int chip = g_status.buffers.XChar[slot].party_order_index * 3 +
-                         (disabled ? 2 : formation->highlighted[cell] ? 1 : 0);
+                         (disabled                       ? 2
+                          : formation->highlighted[cell] ? 1
+                                                         : 0);
         arrows.draw(target, arrow, 0xd6 + position.x, 0x3c + position.y);
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
@@ -385,7 +396,8 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
     if (g_formation_cell_slots[id] == -1) {
         PushButtonSoundScheme(0, true);
         if (event.action != UiPointerAction::Up || event.button != UiPointerButton::Left ||
-            g_formation_drag_cell == -1) return UiResult::Handled;
+            g_formation_drag_cell == -1)
+            return UiResult::Handled;
     }
     if (event.button == UiPointerButton::Left) {
         switch (event.action) {
@@ -415,7 +427,8 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
             }
             if (g_formation_drag_cell != -1) DropFormationSlot(id);
             return UiResult::Handled;
-        default: break;
+        default:
+            break;
         }
     }
     if (event.action == UiPointerAction::Leave) {
@@ -453,8 +466,9 @@ static UiResult HandleFormationBackground(const UiPointerEvent& event)
     }
     if ((event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
          event.action == UiPointerAction::Leave) &&
-        (event.position.x < 234 || event.position.x > 406 ||
-         event.position.y < 80 || event.position.y > 252) && g_formation_drag_cell != -1)
+        (event.position.x < 234 || event.position.x > 406 || event.position.y < 80 ||
+         event.position.y > 252) &&
+        g_formation_drag_cell != -1)
         DropFormationSlot(-1);
     return UiResult::Pass;
 }
@@ -483,9 +497,9 @@ static void BeginFormationDrag()
     region = artwork.imageOffset() + static_cast<short>(sprite);
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), region, 0x10, 0x10);
     const auto overlay_artwork = CatalogArtwork::Load(0xa0);
-    const auto overlay =
-        static_cast<std::uint16_t>(overlay_artwork.imageOffset() +
-                                   g_status.buffers.XChar[g_formation_drag_slot].party_order_index * 3 + 1);
+    const auto overlay = static_cast<std::uint16_t>(
+        overlay_artwork.imageOffset() +
+        g_status.buffers.XChar[g_formation_drag_slot].party_order_index * 3 + 1);
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
@@ -526,7 +540,8 @@ void SelectFormationSlotCell(int party_slot)
 {
     for (int cell = 0; cell < 15; ++cell) {
         auto& state = formation->cells[cell];
-        state.pressed = state.selected = party_slot != -1 && g_formation_cell_slots[cell] == party_slot;
+        state.pressed = state.selected =
+            party_slot != -1 && g_formation_cell_slots[cell] == party_slot;
     }
     formation->dirty = true;
 }
@@ -538,7 +553,6 @@ void CloseFormationPanel(void)
     gXStatus.fReviewCharacterMode = false;
     UpdateHeldItemCursor();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    ClearSurfaceRect(0xd6, 0x3c, 0x1ab, 0x12f);
-    InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f);
+    EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
     ResumeMainGameWorld();
 }

@@ -26,23 +26,27 @@ live layers and maintains hover, capture, modal scopes and the tooltip timer.
 - Modal layers block underlying targets and restore valid capture on dismissal.
   Controls receive their owner's layer explicitly; there is no global dialog stack
   used to infer ownership.
+- Screens own their layers. A suspended screen keeps its layers, so the game loop
+  disables all input before entering any screen and the entering screen enables
+  its own. Within the main game, a UI mode change does the same and
+  `SyncMainGameModeRegions` re-enables the layers that mode uses, including the
+  fixed interface buttons in `MainGameButtons`.
 - `UiResult::Pass` delegates to screen policy, not to lower targets.
-- `AfterUiDispatch` commits target removal, owner destruction and screen transitions
-  after the outermost dispatch transaction. The pump then yields, preserving queued
-  events for the next owner. Removing a target or layer from inside a dispatch is
-  also safe on its own: the target and its handler are retired and freed when the
-  outermost dispatch ends. Button callbacks may destroy their button; the button
-  touches no members afterwards.
-- Button callbacks can reconfigure controls, but owner destruction must be
-  requested through `AfterUiDispatch`. Buttons assert that they are not destroyed
-  while handling a pointer callback; there is no per-button liveness allocation or
-  shared liveness flag. Callback copies keep reconfiguration safe.
+- A `UiTransaction` spans one input step: a pointer dispatch, a `PumpUiInput`
+  drain with its screen policy, or a modal's `ProcessInput()`. Transactions nest.
+  When the outermost one ends, the actions queued with `AfterUiDispatch` run, then
+  the objects retired with `DestroyAfterUiDispatch` are destroyed. This is the
+  only deferral mechanism: owner destruction and screen transitions are actions,
+  and removed hit targets and replaced modals are retired, so no object is freed
+  while its own callback is on the stack. The pump yields once an action is
+  queued, preserving the remaining events for the next owner. A button asserts
+  that no callback destroys it directly.
 - The dispatcher owns hover, press and release sounds. Buttons only silence them
   (`PushButtonSoundScheme(0, true)`) or play the repeat release, which has no
   dispatcher event.
-- `OpenModal` is safe from inside the current modal's `ProcessInput()`; the
-  replaced modal is destroyed after that call returns, and `ProcessModalOwner()`
-  closes only the modal it ran, never its replacement.
+- `ProcessModalOwner()` runs the modal's input step as one transaction, so
+  `OpenModal` from inside the current modal retires it until `ProcessInput()`
+  returns; only the modal that ran is closed, never its replacement.
 - Tooltip providers read current state when delayed help is displayed.
 
 The numeric region registry, templates, IDs, slot recycling, binding generations,
@@ -53,20 +57,13 @@ controllers, separate from modal UI ownership.
 
 ## Controls and painting
 
+`ButtonInputRule` names the matching-press and primary-pressed-state contracts;
+menu artwork is independent of these interaction rules.
+
 `ButtonInteraction` supplies press, selection, arming and repeat state.
-`W8ButtonWidget` is an ordinary layer-backed button with the shared artwork painter;
+`W8ButtonWidget` is an ordinary button on its owner's layer with the shared artwork painter;
 its historical name does not imply widget inheritance. Policies preserve press and
-release toggles and latches. The named `ButtonInputRule` preserves two contracts:
-
-| Rule | Release/repeat eligibility | Pressed artwork | Repeat suppression |
-| --- | --- | --- | --- |
-| `MatchingPress` | Each pointer button needs its own matching press. | Depressed while any button remains armed. | Each button suppresses only its own release after repeating. |
-| `PrimaryPressedState` | Left requires pressed state; right may be driven by a controller without a matching press. | Only left press depresses artwork; selected state survives leaving. | Repeating either button suppresses the next eligible release of either button. |
-
-Press toggles activate immediately and do not repeat; release toggles and stay-latched
-controls retain their selected state. Pointer capture still rejects stray mouse
-releases before they reach a button. Menu artwork is an independent visual choice.
- Screen-specific animated art
+release toggles, latches and controller activation. Screen-specific animated art
 and readouts are painted by their owners.
 
 `TextFieldGroup` supplies UTF-8 editing, selection, capacity, tab order and nested
@@ -99,13 +96,15 @@ Callbacks capture the actual owner or action without a generic dialog-owner or
 numeric payload route. The stored setup is the single source of interaction policy
 and artwork mode; runtime policy changes use `Policy()`.
 
+
 Buttons, text buffers, editors, scrollbars and dialog text controls paint into an
 explicit `SDL_Surface&`, including the complete dialog painting path. Scroll
 callbacks request redraw instead of painting the framebuffer directly. Screens choose draw order and recomposition, including
 restoring backing artwork before repainting changed controls. Ordinary dialog
 controllers retain shared backdrop and sizing behavior; they are not a generic
 visual parent/child system. NPC replies demonstrate modal content without
-`W8DialogBase` inheritance.
+`W8DialogBase` inheritance. A closing overlay calls `EraseRegion` on the area it
+painted, which clears that area and schedules its upload.
 
 Main menu, formation, journal, options, party selection, character creation, camp,
 NPC dialogue, combat actions, locks, traps, spell selection and gameplay overlays

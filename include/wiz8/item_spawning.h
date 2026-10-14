@@ -1,12 +1,13 @@
 #pragma once
 
-#include <vector>
 #include <algorithm>
+#include <vector>
+
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/xstatus.h"
-#include "surrender/srMath.h"
 
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
 enum {

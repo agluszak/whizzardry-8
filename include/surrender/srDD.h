@@ -1,11 +1,12 @@
 #pragma once
 
+#include <span>
+
 #include "srFlags.h"
 #include "srMath.h"
 #include "srPixelConvert.h"
 #include "srRendererDefs.h"
 #include "srShader.h"
-#include <span>
 
 class srARGB;
 class srDD;
@@ -258,8 +259,8 @@ public:
     virtual void bindTexture(w8_ulong stage, Texture& texture) = 0;
     virtual void deleteTexture(Texture& texture) = 0;
     virtual void texImage(Texture& texture, w8_ulong level) = 0;
-    virtual void texSubImage(Texture& texture, w8_ulong a, w8_ulong b, w8_ulong c,
-                             w8_ulong d, w8_ulong e) = 0;
+    virtual void texSubImage(Texture& texture, w8_ulong a, w8_ulong b, w8_ulong c, w8_ulong d,
+                             w8_ulong e) = 0;
     virtual void setGlobalPalette(w8_ulong* palette, w8_ulong count) = 0;
     virtual void bindPalette(Palette& palette) = 0;
     virtual void deletePalette(Palette& palette) = 0;

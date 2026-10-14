@@ -2,13 +2,14 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 
-#include "surrender/srMath.h"
-#include "surrender/srBoundingBox.h"
-#include "glm/ext/vector_float3.hpp"
 #include <span>
-#include "wiz8/geometry.h"
+
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/geometry.h"
 
 struct W8OctBuildNode;
 struct W8GDSurface;
@@ -91,7 +92,7 @@ struct W8OctSpatialState {
     /* Auto-region id allocator bound: each new region takes this value and
        bumps it; m_region_count mirrors it during the build. */
     unsigned short m_region_id_bound;
-    W8OctRegionVolume* m_region_volumes;
+    W8OctRegionVolume* m_region_volumes; // Borrowed from the root runtime or build tree.
     /* Maximum vertex distance from its region's center across the
        auto-regions. */
     float m_max_region_radius;

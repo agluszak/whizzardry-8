@@ -1,25 +1,27 @@
 #pragma once
 
-#include "wiz8/audio_resources.h"
-#include "wiz8/ground_probe.h"
-#include "wiz8/camera_motion.h"
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <vector>
 
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/camera_motion.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/IntervalGate.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/ground_probe.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Current-level movement state. Contact is refreshed by walkable-surface
    response; movement can stop at its distance limit or through a reset.
@@ -328,10 +330,11 @@ struct W8GameData {
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
        into hit_limit. */
-    bool TestGeometryTrace(std::span<W8GDSurface> surfaces, std::span<const srVector3T<float>> vertices,
-                           int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
-    bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
-                         char skip_flag, int mode); /* 0x0041C330 */
+    bool TestGeometryTrace(std::span<W8GDSurface> surfaces,
+                           std::span<const srVector3T<float>> vertices, int count,
+                           w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
+    bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
+                         int mode); /* 0x0041C330 */
 };
 
 extern W8LevelDataRecord* g_level_data;
@@ -387,8 +390,7 @@ void CameraSnapToTarget(const srVector3T<float>* target); /* 0x00420FB0 */
 void TurnCameraToDegrees(float degrees);
 void SetCameraYawDegrees(float degrees);
 void ApplyCameraRotation(glm::mat3* rotation);
-void SetCameraOrientation(void* angle, void* pitch,
-                          glm::mat3* rotation);
+void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation);
 /* 0x00420F40: camera yaw in whole degrees plus an optional yaw-rotation
    matrix copy. */
 int GetCameraYawAndRotation(glm::mat3* rotation);
@@ -398,8 +400,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 /* 0x00421570: restore a saved yaw/pitch into the game camera, reading the
    world camera node's current rotation first and fetching the updated matrix
    (both into the same dead local in retail). */
-void RestoreWorldCameraOrientation(void* angle, void* pitch,
-                                   W8World* world);
+void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World* world);
 glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no

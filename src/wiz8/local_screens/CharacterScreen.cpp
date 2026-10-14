@@ -1,57 +1,59 @@
-#include "wiz8/button_interaction.h"
-#include <SDL3/SDL_surface.h>
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/ui_layer.h"
-#include <functional>
-#include <array>
+#include "wiz8/local_screens/CharacterScreen.h"
+
 #include <algorithm>
-#include <memory>
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <SDL3/SDL_filesystem.h>
-#include <string_view>
+#include <array>
 #include <cstring>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
+#include "Font.h"
+#include "dialog_code/DialogBase.h"
+#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "soundman.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/dialog_code/CharacterSummaryDialog.h"
-#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Strings.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/CharGeneration.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/fonts.h"
-#include "wiz8/catalog_artwork.h"
-#include "input.h"
-#include "Font.h"
-#include "wiz8/filesystem.h"
-#include "dialog_code/DialogBase.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x0061e3a4
 unsigned short g_character_description_first_ids[22] = {
@@ -146,14 +148,14 @@ void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
-
         result->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(),
                                                frame + 3, frame, frame + 1, frame + 2, frame + 2),
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
                            .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
                            .tooltip = help,
-                           .priority = 0,
+                           .priority = UI_PRIORITY_LOWEST,
                            .menu_artwork = true});
+
         result->SetPosition(x, 0x1c2);
         return result;
     };
@@ -165,8 +167,10 @@ void W8CharacterScreen::BuildControls()
     });
     m_exit = button(0x1fc, 0x14, 0xde, [this] { m_pages[m_page_index]->Accept(); });
     m_accept = button(0x1d0, 4, 0xdf, [this] {
-        if (m_mode == 1 && !m_exit->IsEnabled()) RequestScreenTransition();
-        else ShowMessage(g_localized_strings[0xd3], 1, 2);
+        if (m_mode == 1 && !m_exit->IsEnabled())
+            RequestScreenTransition();
+        else
+            ShowMessage(g_localized_strings[0xd3], 1, 2);
     });
     m_reset = button(0, 0x1d, 0xe1, [this] {
         std::ranges::fill(m_page_enabled, true);
@@ -303,7 +307,8 @@ void W8CharacterScreen::ShowSkillInfo(W8Skill value)
 
 void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
 {
-    const std::array buttons{m_previous.get(), m_next.get(), m_exit.get(), m_accept.get(), m_reset.get()};
+    const std::array buttons{m_previous.get(), m_next.get(), m_exit.get(), m_accept.get(),
+                             m_reset.get()};
     for (const auto* button : buttons) m_navigation_dirty |= button->m_dirty;
     if (!m_navigation_dirty) return;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(target, 4, 0, 0x1c2);
@@ -423,15 +428,13 @@ void W8CharacterScreen::SelectPage(int index)
     page->SetActive(true);
 
     int previous = index - 1;
-    while (previous >= 0 && !m_page_enabled[previous])
-        --previous;
+    while (previous >= 0 && !m_page_enabled[previous]) --previous;
     m_previous->SetVisible(previous != -1);
     int next = index + 1;
-    while (next < 4 && !m_page_enabled[next])
-        ++next;
+    while (next < 4 && !m_page_enabled[next]) ++next;
     const int frame = next == 4 ? 0x10 : 8;
-    m_next->SetImage(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(),
-        frame + 3, frame, frame + 1, frame + 2, frame + 2));
+    m_next->SetImage(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3,
+                                          frame, frame + 1, frame + 2, frame + 2));
     m_next->SetTooltipIndex(next == 4 ? 0xe0 : 0xdc);
     m_navigation_dirty = true;
     page->Prepare();
@@ -442,8 +445,7 @@ void W8CharacterScreen::SelectPage(int index)
 // FUNCTION: WIZ8 0x005b0f30
 void W8CharacterScreen::SyncCharacterForPage(int index)
 {
-    if (m_page_index > index)
-        return;
+    if (m_page_index > index) return;
     if (index == 0) {
         if (m_mode == 0)
             InitializeCharacterCreation(&m_character, &m_creation_state);
@@ -452,10 +454,8 @@ void W8CharacterScreen::SyncCharacterForPage(int index)
     } else if (index == 1) {
         CountRemainingSpellPoints(&m_character, &m_creation_state);
     } else if (index == 3) {
-        if (m_character.personality < 0)
-            DeriveCharacterPersonality(&m_character);
-        if (m_character.portrait_index < 0)
-            CalcCharacterTableValue(&m_character);
+        if (m_character.personality < 0) DeriveCharacterPersonality(&m_character);
+        if (m_character.portrait_index < 0) CalcCharacterTableValue(&m_character);
     }
 }
 
@@ -496,9 +496,9 @@ void W8CharacterScreen::DrawHeader()
                         g_localized_strings[g_race_name_message_ids[m_character.iRace]]),
             g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
-        text.RenderString(&bounds,
-                          g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
-                          g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(
+            &bounds, g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
+            g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(
@@ -514,8 +514,7 @@ void W8CharacterScreen::DrawHeader()
 // FUNCTION: WIZ8 0x005b0fd0
 bool W8CharacterScreen::CommitCharacter()
 {
-    if (!ValidateName())
-        return false;
+    if (!ValidateName()) return false;
 
     int mode = m_mode;
     W8Character backup;
@@ -530,7 +529,7 @@ bool W8CharacterScreen::CommitCharacter()
             wiz8::remove_file(path);
         }
         m_character.fInParty = false;
-        if (!SaveCharacter(&m_character, -1, false, 0)) {
+        if (!SaveCharacter(&m_character, -1)) {
             m_character = backup;
             ShowMessage(g_localized_strings[0xd4], 0, 0);
             return false;
@@ -540,8 +539,7 @@ bool W8CharacterScreen::CommitCharacter()
     if (m_original != 0) {
         bool was_in_party = m_original->fInParty;
         *m_original = m_character;
-        if (was_in_party)
-            m_original->fInParty = true;
+        if (was_in_party) m_original->fInParty = true;
         if (m_original->iProfession == W8_PROFESSION_GADGETEER)
             UpgradeProfessionClassItem(m_original);
         UnequipUnusableItems(m_original);
@@ -646,7 +644,10 @@ bool W8CharacterScreen::ValidateName()
     if (!g_status.game_started && !g_status.skip_loose_character_check) {
         std::string path;
         path = BuildCharacterPath(m_character.name, -1);
-        if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        if ([&]() {
+                const auto status = wiz8::file_status(path);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
             ShowMessage(g_localized_strings[0xd5], 0, 0);
             return false;
         }
@@ -683,9 +684,8 @@ unsigned char ScreenLifecycleSuccess(void)
 // FUNCTION: WIZ8 0x005b1750
 unsigned char CharacterScreenEnter(void)
 {
-    SetViewport(0, 0, 0x280, 0x1e0);
+    SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
@@ -703,8 +703,6 @@ unsigned char CharacterScreenEnter(void)
 unsigned char CharacterScreenLeave(int leaving)
 {
     if (leaving) g_character_screen.reset();
-    NoOp();
-    ResetUiInput();
     return 1;
 }
 
@@ -713,39 +711,38 @@ void CharacterScreenFrame(void)
 {
     g_character_screen->UpdateDialog();
     W8CharacterScreen* screen = g_character_screen.get();
-    if (!screen->m_dialog) PumpUiInput({
-        .before = [screen](const InputEvent& input) {
-            screen->m_pages[screen->m_page_index]->HandleInput(&input);
-            return InputRoute::Pass;
-        },
-        .unhandled = [screen](const InputEvent& input) {
-        if (input.type == InputEventType::KeyDown) {
-            if (input.key == VK_RETURN || input.key == VK_RIGHT || input.key == 0x4e) {
-                screen->AdvancePage(true);
-            } else if (input.key == VK_ESCAPE) {
-                if (screen->m_mode == 1 && !screen->m_exit->IsEnabled()) {
-                    RequestScreenTransition();
-                } else {
-                    screen->ShowMessage(g_localized_strings[0xd3], 1, 2);
-                }
-            } else if ((input.key == VK_LEFT || input.key == 0x42) &&
-                       screen->m_page_index != 3) {
-                int index = screen->m_page_index - 1;
-                while (index >= 0 && !screen->m_page_enabled[index])
-                    --index;
-                if (index != -1)
-                    screen->SelectPage(index);
-            }
-        }
-        return InputRoute::Handled;
-        },
-    });
-    if (screen->m_header_dirty)
-        screen->DrawHeader();
+    if (!screen->m_dialog)
+        PumpUiInput({
+            .before =
+                [screen](const InputEvent& input) {
+                    screen->m_pages[screen->m_page_index]->HandleInput(&input);
+                    return InputRoute::Pass;
+                },
+            .unhandled =
+                [screen](const InputEvent& input) {
+                    if (input.type == InputEventType::KeyDown) {
+                        if (input.key == VK_RETURN || input.key == VK_RIGHT || input.key == 0x4e) {
+                            screen->AdvancePage(true);
+                        } else if (input.key == VK_ESCAPE) {
+                            if (screen->m_mode == 1 && !screen->m_exit->IsEnabled()) {
+                                RequestScreenTransition();
+                            } else {
+                                screen->ShowMessage(g_localized_strings[0xd3], 1, 2);
+                            }
+                        } else if ((input.key == VK_LEFT || input.key == 0x42) &&
+                                   screen->m_page_index != 3) {
+                            int index = screen->m_page_index - 1;
+                            while (index >= 0 && !screen->m_page_enabled[index]) --index;
+                            if (index != -1) screen->SelectPage(index);
+                        }
+                    }
+                    return InputRoute::Handled;
+                },
+        });
+    if (screen->m_header_dirty) screen->DrawHeader();
     screen->m_pages[screen->m_page_index]->Redraw(GetFrameBufferSurface(), false);
     screen->DrawNavigation(GetFrameBufferSurface());
-    if (screen->m_dialog != 0)
-        screen->m_dialog->Draw(GetFrameBufferSurface());
+    if (screen->m_dialog != 0) screen->m_dialog->Draw(GetFrameBufferSurface());
     RenderFrame();
 }
 

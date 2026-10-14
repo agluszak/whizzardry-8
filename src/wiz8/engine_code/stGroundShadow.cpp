@@ -1,35 +1,36 @@
-#include <glm/ext/vector_float3.hpp>
-#include <cstddef>
 #include <algorithm>
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
 
-#include "wiz8/engine_code/materials.h"
+#include <glm/ext/vector_float3.hpp>
+
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "surrender/mesh_submission.h"
+#include "surrender/srCore.h"
+#include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srTexture.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexPipe.h"
+#include "surrender/srVertexProcessor.h"
 #include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/Configuration.h"
-#include "surrender/srCore.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srStatisticsManager.h"
-#include "surrender/srTexture.h"
-#include "surrender/srVertexPipe.h"
-#include "compat/compiler.h"
-#include "glm/ext/vector_float2.hpp"
-#include "surrender/srGERD.h"
-#include "surrender/mesh_submission.h"
-#include <optional>
-#include "surrender/srMeshModel.h"
-#include "surrender/srNode.h"
-#include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/srVertexProcessor.h"
 
 /* The SR.DLL registry string is the original runtime class identity. */
 
@@ -55,10 +56,7 @@ class W8GroundShadowMapper : public srVertexProcessor {
 public:
     /* Retail ICF folds this onto W8NormalTexcoordMapper::isActive at
        0x004D6190. */
-    virtual int isActive(srVertexPipe&) override
-    {
-        return 1;
-    }
+    virtual int isActive(srVertexPipe&) override { return 1; }
     virtual void process(srVertexPipe& pipe) override;
 
     std::optional<GroundShadowProjection> projection;
@@ -183,8 +181,8 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
         mesh.poly_shaders[0] = nullptr;
         mesh.shaders[0] = g_ground_shadow_shader;
         mesh.poly_uv[0] = nullptr;
-        g_ground_shadow_material_parameters.vertices = {model.getVertexLoc(),
-            static_cast<std::size_t>(mesh.vertex_count)};
+        g_ground_shadow_material_parameters.vertices = {
+            model.getVertexLoc(), static_cast<std::size_t>(mesh.vertex_count)};
         model.RenderTriMeshWithEquations(renderer, mesh, {});
     }
 }

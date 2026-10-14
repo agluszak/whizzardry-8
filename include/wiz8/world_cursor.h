@@ -1,7 +1,6 @@
 #pragma once
 
 #include "glm/ext/vector_int3.hpp"
-
 #include "surrender/srMath.h"
 
 class W8Monster;

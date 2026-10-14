@@ -1,18 +1,19 @@
-#include <catch2/catch_test_macros.hpp>
 #include <cstdio>
 #include <filesystem>
-#include <string>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
-#include "wiz8/asset_paths.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/stScript.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/CombatSound.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "temporary_directory.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/stScript.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/sr_api.h"
 
 static void write_text(std::string_view path, std::string_view text)
 {
@@ -28,8 +29,8 @@ TEST_CASE("resource_text_test")
     w8_native::configure_paths({(root / "assets").string(), (root / "user").string(), {}});
     wiz8::create_directory("Data/Databases");
     const std::string long_line = "SOUND " + std::string(600, 'x') + "é";
-    write_text("Data/script.txt", "* comment\r\n\r\nStart:\r\n  " + long_line +
-               "\r\nSTART:\r\nend");
+    write_text("Data/script.txt",
+               "* comment\r\n\r\nStart:\r\n  " + long_line + "\r\nSTART:\r\nend");
     stScript script;
     REQUIRE((script.Load("Data/script.txt")));
     REQUIRE((script.lines.size() == 2 && script.labels.size() == 1));
@@ -61,8 +62,8 @@ TEST_CASE("resource_text_test")
     std::string attacks;
     for (int i = 0; i < 38; ++i) attacks += "attack * comment\r\n";
     const std::string impact = "impact_" + std::string(300, 'x') + "é";
-    write_text("Data/Databases/HitSounds.txt", attacks + "# metal\r\n" + impact +
-               " * comment\r\nsecond\r\n# wood\r\nwood");
+    write_text("Data/Databases/HitSounds.txt",
+               attacks + "# metal\r\n" + impact + " * comment\r\nsecond\r\n# wood\r\nwood");
     REQUIRE((LoadHitSoundDatabase()));
     REQUIRE((GetMaterialImpactSound(0, 0) == impact));
     REQUIRE((GetMaterialImpactSound(1, 0) == "second"));

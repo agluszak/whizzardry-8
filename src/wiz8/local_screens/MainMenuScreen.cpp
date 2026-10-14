@@ -1,41 +1,42 @@
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
-#include <string_view>
-#include <string>
+#include "wiz8/local_screens/MainMenuScreen.h"
+
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <string>
+#include <string_view>
 
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/cursor.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/fonts.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/utility.h"
-#include "wiz8/version.h"
-#include "input.h"
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
 #include "himage.h"
 #include "image.h"
-
+#include "input.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/music_playlist.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/utility.h"
+#include "wiz8/version.h"
+#include "wiz8/xstatus.h"
 
 /* The screen's own state. */
 // GLOBAL: WIZ8 0x0069c4ba
@@ -54,8 +55,12 @@ static std::unique_ptr<W8MessageDialogBase> main_menu_dialog;
 namespace {
 // Retail right/bottom edges are inclusive; SDL extents include that last pixel.
 constexpr std::array<SDL_Rect, 6> main_menu_item_bounds = {{
-    {174, 138, 294, 45}, {140, 187, 362, 45}, {204, 235, 233, 45},
-    {239, 284, 165, 45}, {234, 335, 175, 45}, {279, 423, 86, 45},
+    {174, 138, 294, 45},
+    {140, 187, 362, 45},
+    {204, 235, 233, 45},
+    {239, 284, 165, 45},
+    {234, 335, 175, 45},
+    {279, 423, 86, 45},
 }};
 constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
 }
@@ -70,7 +75,8 @@ unsigned char DrawMainMenuItem(short item, short state)
 
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
-        CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
+        CatalogArtwork::Load(main_menu_sprite_objects[state], 0)
+            .draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
     InvalidateRegion(0x98, bounds.y, 0x1f2, bounds.y + bounds.h - 1);
     return 1;
 }
@@ -87,7 +93,6 @@ static void SelectMainMenuItem(short item)
     g_main_menu_selected_item = item;
     DrawMainMenuItem(item, 1);
 }
-
 
 // The screen owns its input registrations; artwork stays in this file.
 namespace {
@@ -138,7 +143,8 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
         break;
     case UiPointerAction::Up:
         if (!available || event.button != UiPointerButton::Left ||
-            !(event.captured_buttons & SDL_BUTTON_LMASK)) break;
+            !(event.captured_buttons & SDL_BUTTON_LMASK))
+            break;
         DrawMainMenuItem(g_main_menu_selected_item, event.inside ? 1 : 0);
         if (event.inside) {
             AfterUiDispatch([item] { ActivateMainMenuItem(item); });
@@ -146,7 +152,8 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
             g_main_menu_selected_item = -1;
         }
         break;
-    default: break;
+    default:
+        break;
     }
     return UiResult::Handled;
 }
@@ -181,7 +188,7 @@ unsigned char MainMenuScreenEnter(void)
     colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
     const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
-    SetViewport(0, 0, 0x280, 0x1e0);
+    SetViewport({0, 0, 0x281, 0x1e1});
     g_main_menu_selected_item = 0;
     CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
 
@@ -194,12 +201,11 @@ unsigned char MainMenuScreenEnter(void)
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, wide);
     g_wiz_text_font_secondary.resetPalette();
     main_menu_input.reset();
-    ResetUiInput();
     CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
-        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE",
-                     __FILE__, 0x87, 0);
+        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE", __FILE__, 0x87,
+                     0);
     }
     if (g_previous_screen_id != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
@@ -253,8 +259,6 @@ void MainMenuScreenFrame()
             CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
             DrawMainMenuItems();
         }
-    } else if (IsMessageBoxActive()) {
-        ProcessMessageBoxInput();
     } else {
         PumpUiInput({.unhandled = [&](const InputEvent& input) {
             if (input.type == InputEventType::KeyDown) {
@@ -315,12 +319,10 @@ void MainMenuScreenFrame()
         }});
     }
 
-    NoOp();
-    if (g_main_menu_redraw || IsMessageBoxActive() || main_menu_dialog != nullptr) {
+    if (g_main_menu_redraw || main_menu_dialog != nullptr) {
         if (main_menu_dialog != nullptr) {
             main_menu_dialog->Draw(GetFrameBufferSurface());
         }
-        RenderMessageBox();
         ResetTransientRenderScenes();
         g_main_menu_redraw = false;
     }
@@ -332,7 +334,6 @@ unsigned char MainMenuScreenLeave(int)
     main_menu_dialog.reset();
     main_menu_input.reset();
     ReleaseCatalogArtwork();
-    ResetUiInput();
     return 1;
 }
 

@@ -32,6 +32,9 @@ struct srVertexArray {
 // VTABLE: SURRENDER 0x10076c74 srVertexProcessor
 class srVertexProcessor {
 public:
+    srVertexProcessor() = default;
+    srVertexProcessor(const srVertexProcessor&) = default;
+    srVertexProcessor& operator=(const srVertexProcessor&) = default;
     virtual ~srVertexProcessor() {}
     struct MaterialInfo {
         // FUNCTION: WIZ8 0x00424A80
@@ -68,10 +71,7 @@ protected:
 public:
     // The provider's base vtable contains these bodies, not _purecall.
     // FUNCTION: SURRENDER 0x10035470
-    virtual int isActive(srVertexPipe& pipe)
-    {
-        return 1;
-    }
+    virtual int isActive(srVertexPipe& pipe) { return 1; }
     // FUNCTION: SURRENDER 0x10035480
     virtual void process(srVertexPipe& pipe) {}
 
@@ -79,4 +79,3 @@ public:
 };
 
 #pragma pack(pop)
-

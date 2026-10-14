@@ -1,9 +1,10 @@
 #pragma once
 
 #include <span>
-#include "glm/matrix.hpp"
+
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/matrix.hpp"
 
 namespace srTriangleProjection {
 template<class T, glm::qualifier Q>
@@ -19,7 +20,9 @@ inline bool containsClosed(std::span<const glm::vec2, 3> vertices, const glm::ve
         const auto& first = vertices[(opposite + 1) % vertices.size()];
         const auto& second = vertices[(opposite + 2) % vertices.size()];
         if (!(orientedArea(first, second, point) *
-              orientedArea(first, second, vertices[opposite]) >= 0)) return false;
+                  orientedArea(first, second, vertices[opposite]) >=
+              0))
+            return false;
     }
     return true;
 }
@@ -32,8 +35,8 @@ inline glm::vec2 coordinates(const glm::vec3& point, unsigned axis)
 // Visibility uses strict vertical crossings and includes the ray intersection.
 // Collision includes the lower vertical endpoint and excludes the intersection.
 enum class Boundary { visibility, collision };
-inline bool contains(std::span<const glm::vec3, 3> vertices, unsigned axis,
-                      const glm::vec3& point, Boundary boundary)
+inline bool contains(std::span<const glm::vec3, 3> vertices, unsigned axis, const glm::vec3& point,
+                     Boundary boundary)
 {
     const auto query = coordinates(point, axis);
     bool inside = false;
@@ -41,17 +44,16 @@ inline bool contains(std::span<const glm::vec3, 3> vertices, unsigned axis,
         const auto first = coordinates(vertices[edge], axis);
         const auto second = coordinates(vertices[(edge + 1) % vertices.size()], axis);
         const bool first_crosses = boundary == Boundary::visibility
-            ? first.y < query.y && query.y < second.y
-            : first.y <= query.y && query.y < second.y;
+                                       ? first.y < query.y && query.y < second.y
+                                       : first.y <= query.y && query.y < second.y;
         const bool second_crosses = boundary == Boundary::visibility
-            ? second.y < query.y && query.y < first.y
-            : second.y <= query.y && query.y < first.y;
+                                        ? second.y < query.y && query.y < first.y
+                                        : second.y <= query.y && query.y < first.y;
         if (!first_crosses && !second_crosses) continue;
         const auto area = orientedArea(first, second, query);
         const bool upward = second.y > first.y;
-        const bool crosses = boundary == Boundary::visibility
-            ? (upward ? area >= 0 : area <= 0)
-            : (upward ? area > 0 : area < 0);
+        const bool crosses = boundary == Boundary::visibility ? (upward ? area >= 0 : area <= 0)
+                                                              : (upward ? area > 0 : area < 0);
         if (crosses) inside = !inside;
     }
     return inside;

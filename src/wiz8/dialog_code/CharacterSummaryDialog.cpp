@@ -1,26 +1,28 @@
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/CharacterSummaryDialog.h"
+
 #include <cctype>
 #include <cstring>
 
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/CharacterSummaryDialog.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/xstatus.h"
-#include "input.h"
+#include <SDL3/SDL_surface.h>
+
 #include "character_event_queue.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
+#include "input.h"
 #include "layouts/character.h"
 #include "layouts/combat_state.h"
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_code/character_events.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/xstatus.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its
@@ -33,8 +35,8 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0),
-      m_taken(0), m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
+    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0), m_taken(0),
+      m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
       m_portrait_clock_started(0)
 {
     SetExtent(0x171, 0x60);
@@ -130,7 +132,8 @@ void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 // FUNCTION: WIZ8 0x005e0830
 void W8CharacterSummaryDialog::DrawPortraitAnimationFrame(SDL_Surface& target)
 {
-    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0, false);
+    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0,
+                               false);
 }
 
 // FUNCTION: WIZ8 0x005e0860

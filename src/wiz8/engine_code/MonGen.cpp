@@ -1,5 +1,5 @@
-#include <fmt/format.h>
-#include <vector>
+#include "wiz8/engine_code/MonGen.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -8,31 +8,10 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "wiz8/containers.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/local_code/MonsterGenerator.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/monster_generators.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/utility.h"
-#include "random.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/application.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/MonGen.h"
-#include "wiz8/engine_code/GameData.h"
+#include <fmt/format.h>
+
 #include "IntervalGate.h"
 #include "Monster.h"
 #include "Octree.h"
@@ -45,7 +24,30 @@
 #include "layouts/screen_state.h"
 #include "layouts/world.h"
 #include "local_code/Factions.h"
+#include "random.h"
 #include "surrender/srMath.h"
+#include "wiz8/application.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/MonsterGenerator.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/mipe.h"
+#include "wiz8/monster_generators.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* These are recovered in their owning Local Code units. Retail MonGen calls
    them out of line, so keep the cross-TU seams rather than cloning their logic. */
@@ -113,8 +115,7 @@ int g_encounter_tables_level = -1;
 
 // FUNCTION: WIZ8 0x0048a7a0
 unsigned int InitializeEncounterTables(void)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\EncounterTables.dbs");
     UnloadEncounterTables();
     std::vector<std::string> names;
@@ -153,8 +154,9 @@ try
     g_encounter_tables = std::move(tables);
     g_encounter_tables_level = g_status.current_level;
     return 1;
+} catch (const std::exception&) {
+    return 0;
 }
-catch (const std::exception&) { return 0; }
 
 // STRING: WIZ8 0x0060A6E0
 #define MON_GEN_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp"
@@ -591,7 +593,10 @@ void CullExpiredEncounters(void)
 
 /* How many monster generators the loaded world carries. */
 // FUNCTION: WIZ8 0x0048bd80
-int GetMonsterGeneratorCount(void) { return static_cast<int>(g_world->monster_generators.size()); }
+int GetMonsterGeneratorCount(void)
+{
+    return static_cast<int>(g_world->monster_generators.size());
+}
 
 /* One of them by index. Out of range answers null, which is why the bounds test
    appears twice: once here, rejecting the index outright, and once inside the
@@ -620,7 +625,10 @@ W8EncounterTableRuntime* GetEncounterTable(int index)
 
 /* Register a monster generator with the world. */
 // FUNCTION: WIZ8 0x0048be30
-void AddMonsterGenerator(MonGen* generator) { g_world->monster_generators.push_back(generator); }
+void AddMonsterGenerator(MonGen* generator)
+{
+    g_world->monster_generators.push_back(generator);
+}
 
 /* Destroy every generator and empty the list. */
 // FUNCTION: WIZ8 0x0048bf70
@@ -635,8 +643,7 @@ void DestroyMonsterGenerators(void)
    and the culling span is finally reset from that level's database row. */
 // FUNCTION: WIZ8 0x0048c110
 unsigned char MonGen::LoadAll(wiz8::File& save_handle)
-try
-{
+try {
     W8LevelDatabaseRecord* level;
     unsigned char success;
     int version;
@@ -846,8 +853,7 @@ void MonGen::Save(wiz8::File& handle)
    always cleared on the way out so a loaded generator starts disarmed. */
 // FUNCTION: WIZ8 0x0048b5e0
 unsigned char MonGen::Load(wiz8::File& handle)
-try
-{
+try {
     unsigned char version;
     unsigned char ok;
     bool loaded;
@@ -857,11 +863,14 @@ try
         ok = ok && (handle.read(name, 0x20).bytes == static_cast<std::size_t>(0x20));
         ok = ok && (handle.read(&generation_enabled, 1).bytes == static_cast<std::size_t>(1));
     }
-    loaded =
-        ok && (handle.read(&flags, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&custom_spawn_chance, 1).bytes == static_cast<std::size_t>(1)) &&
-        (handle.read(&custom_interval_seconds, 2).bytes == static_cast<std::size_t>(2)) && (handle.read(&unknown_08, 2).bytes == static_cast<std::size_t>(2)) &&
-        (handle.read(&spawn_position.x, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&spawn_position.y, 4).bytes == static_cast<std::size_t>(4)) &&
-        (handle.read(&spawn_position.z, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
+    loaded = ok && (handle.read(&flags, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&custom_spawn_chance, 1).bytes == static_cast<std::size_t>(1)) &&
+             (handle.read(&custom_interval_seconds, 2).bytes == static_cast<std::size_t>(2)) &&
+             (handle.read(&unknown_08, 2).bytes == static_cast<std::size_t>(2)) &&
+             (handle.read(&spawn_position.x, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&spawn_position.y, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&spawn_position.z, 4).bytes == static_cast<std::size_t>(4)) &&
+             (handle.read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
     Reset();
     if (static_cast<signed char>(version) > 1) {
         m_pTimer->Load(handle);

@@ -1,8 +1,11 @@
 #pragma once
 
+#include <functional>
+
+#include "Types.h"
+#include "compat/compiler.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include <functional>
 
 class W8DialogScrollBar {
 public:
@@ -19,7 +22,6 @@ public:
     void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height,
                    int view_height);
     void UpdateThumb();
-    // Auxiliary draws always paint and preserve pending framebuffer updates.
     void Draw(SDL_Surface& target, bool force);
     void ScrollUp();
     void ScrollBy(int delta);
@@ -38,6 +40,7 @@ private:
     int m_entry_height;
     int m_view_height;
     W8ControlsRect m_track_bounds; /* left, top, right, bottom */
+private:
     W8ButtonWidget m_up_button;
     W8ButtonWidget m_down_button;
     W8ButtonWidget m_thumb_button;

@@ -1,9 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <span>
-#include <cstddef>
-
 #include <string>
 
 class srPalette;

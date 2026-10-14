@@ -1,5 +1,5 @@
-#include "glm/ext/vector_int3.hpp"
-#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -9,29 +9,30 @@
 #include <string>
 #include <vector>
 
-#include "glm/ext/vector_float4.hpp"
-#include "surrender/srModel.h"
-#include "surrender/srTypeRegistry.h"
-#include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/stTextureAnim.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "surrender/srGERD.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srNode.h"
-#include "surrender/srTriMeshPipeline.h"
-#include "surrender/mesh_submission.h"
-#include "surrender/model_view_scope.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Video2.h"
-#include "surrender/srMath.h"
 #include "AnimRep.hpp"
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "surrender/mesh_submission.h"
+#include "surrender/model_view_scope.h"
+#include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
+#include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
+#include "surrender/srTriMeshPipeline.h"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stTextureAnim.h"
+#include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/float_constants.h"
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 
@@ -138,8 +139,9 @@ int stModelInstance::AddExistingDamageStage(const char* name)
 }
 
 // FUNCTION: WIZ8 0x004807b0
-unsigned char stModelInstance::ReplaceDamageStageTexture(
-    int stage, const char* old_name, const std::shared_ptr<srTextureIFace>& replacement)
+unsigned char
+stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
+                                           const std::shared_ptr<srTextureIFace>& replacement)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     bool replaced = false;
@@ -149,7 +151,8 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(
     }
 
     for (; mesh != 0; mesh = mesh->Next()) {
-        std::shared_ptr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
+        std::shared_ptr<srTextureIFace>* textures =
+            mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
         }
@@ -265,8 +268,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
                      g_camera_angle_period)));
         float base_weight = g_float_one - glow_weight;
         /* Each weighted colour is rounded to float before the sum. */
-        glm::vec4 emissive =
-            *glow_color_base * base_weight + *glow_color_peak * glow_weight;
+        glm::vec4 emissive = *glow_color_base * base_weight + *glow_color_peak * glow_weight;
         emissive.w = g_float_one;
         glow_material->setEmissive(emissive);
         mesh.materials[0][0] = glow_material;
@@ -325,7 +327,8 @@ void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& s
 
 // FUNCTION: WIZ8 0x0047EC80
 stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
-    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(nullptr), ownership)
+    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(nullptr),
+                                                                ownership)
 {
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;
@@ -421,9 +424,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
 
     glm::vec4 light;
     if (!model->vertex_lighting_ready) {
-        light = glm::vec4((ambient_color * light_scale + g_environment_offset) *
-                              g_monster_light_scale,
-                          1);
+        light = glm::vec4(
+            (ambient_color * light_scale + g_environment_offset) * g_monster_light_scale, 1);
     } else {
         light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
@@ -546,7 +548,9 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
 
                     double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
                     float expand = static_cast<float>(
-                        (bounds.sphere.radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
+                        (bounds.sphere.radius * getScale().y * g_double_one_thousandth +
+                         g_double_one) *
+                        factor);
                     if (expand == 0) {
                         std::copy_n(mesh.positions, mesh.vertex_count, g_vertex_scratch.begin());
                     } else {
@@ -570,9 +574,9 @@ const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
    a dedicated material so the extruded shadow pass submits through the
    ordinary TriMesh pipeline. */
 static const glm::ivec3 g_shadow_triangles[2] = {{0, 1, 2}, {3, 4, 5}};
-static const glm::vec3 g_shadow_positions[6] = {
-    {-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f}, {250.0f, 250.0f, 0.0f},
-    {0.0f, 250.0f, -250.0f}, {0.0f, -250.0f, 0.0f}, {0.0f, 250.0f, 250.0f}};
+static const glm::vec3 g_shadow_positions[6] = {{-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f},
+                                                {250.0f, 250.0f, 0.0f},  {0.0f, 250.0f, -250.0f},
+                                                {0.0f, -250.0f, 0.0f},   {0.0f, 250.0f, 250.0f}};
 
 static stMaterial& ShadowMaterial()
 {

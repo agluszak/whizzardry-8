@@ -1,45 +1,48 @@
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include <SDL3/SDL_surface.h>
-#include "himage.h"
-#include "image.h"
-#include <memory>
+#include "wiz8/local_screens/JournalScreen.h"
+
 #include <array>
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
-#include <fmt/format.h>
-#include <SDL3/SDL_rect.h>
-#include <string_view>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "Font.h"
+#include "difficulty.h"
+#include "himage.h"
+#include "image.h"
+#include "input.h"
+#include "message_box.h"
+#include "soundman.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/cursor.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/fonts.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/catalog_artwork.h"
-#include "Font.h"
-#include "soundman.h"
-#include "wiz8/filesystem.h"
-#include "input.h"
-#include "difficulty.h"
-#include "message_box.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/xstatus.h"
 
 namespace {
 enum JournalAction { Previous, Next, Mode, Close };
@@ -140,7 +143,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     if (gXStatus.fNpcDialogueMode) {
-        QueueNpcAction(W8NpcCommand::journal_quote);
+        g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
     int range = GetTextBoxScrollRange();
@@ -180,7 +183,8 @@ void LoadJournalEntries(wiz8::File& file)
 }
 
 // FUNCTION: WIZ8 0x005bdd00
-void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette, bool centered)
+void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette,
+                     bool centered)
 {
     int left;
     int right;
@@ -217,14 +221,15 @@ void JournalScreen::Refresh()
     if (!m_alternate_mode) {
         const int last_page = (static_cast<int>(g_journal_entries.size()) - 1) / 12;
         const int page_count = last_page + 1;
-        if (page_count != g_journal_page_count || g_journal_page < 0 || g_journal_page >= page_count) {
+        if (page_count != g_journal_page_count || g_journal_page < 0 ||
+            g_journal_page >= page_count) {
             g_journal_page_count = page_count;
             g_journal_page = last_page;
         }
         m_buttons[Next]->SetEnabled(g_journal_page < last_page);
         m_buttons[Previous]->SetEnabled(g_journal_page > 0);
         m_page_text->SetText(fmt::format("{:d} / {:d}", g_journal_page + 1, page_count),
-                            g_options_detail_font);
+                             g_options_detail_font);
     } else {
         m_buttons[Next]->SetEnabled(false);
         m_buttons[Previous]->SetEnabled(false);
@@ -292,8 +297,8 @@ void JournalScreen::DrawContent(SDL_Surface& target)
                 if (!disposition_name.empty()) {
                     DrawJournalLine(target, disposition_name, 0, y, 0, true);
                 }
-                DrawJournalLine(target, g_localized_strings[g_journal_faction_name_indices[index]], 1, y, 0,
-                                false);
+                DrawJournalLine(target, g_localized_strings[g_journal_faction_name_indices[index]],
+                                1, y, 0, false);
                 y += 0x1e;
             }
         }
@@ -310,7 +315,9 @@ JournalScreen::JournalScreen()
         const SDL_Rect bounds{origin.x, origin.y, size.x, size.y};
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
-        const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
+        const auto frame = [&](int index) {
+            return index < 0 ? -1 : index + artwork.imageOffset();
+        };
         button->Configure(ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]),
                                                frame(frames[0]), frame(frames[2]), frame(frames[1]),
                                                frame(frames[3])),
@@ -320,7 +327,7 @@ JournalScreen::JournalScreen()
                                },
                            .policy = {.primary_toggle = toggle,
                                       .input_rule = ButtonInputRule::PrimaryPressedState},
-                           .priority = 0,
+                           .priority = UI_PRIORITY_LOWEST,
                            .menu_artwork = true});
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
@@ -333,15 +340,15 @@ JournalScreen::JournalScreen()
     m_buttons[Close]->SetTooltipIndex(0x6ed);
     const auto size = m_bar.size(0);
     const W8ControlsRect bounds{0x66, 0x1bb, 0x66 + size.x, 0x1bb + size.y};
-    m_page_text = std::make_unique<W8TextBuffer>(&bounds, "", g_options_detail_font,
-        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    m_page_text =
+        std::make_unique<W8TextBuffer>(&bounds, "", g_options_detail_font,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 }
 
 void JournalScreen::Draw(SDL_Surface& target)
 {
     bool redraw_buttons = m_dirty;
-    for (auto& button : m_buttons)
-        redraw_buttons = button->m_dirty || redraw_buttons;
+    for (auto& button : m_buttons) redraw_buttons = button->m_dirty || redraw_buttons;
     if (m_dirty) DrawContent(target);
     if (redraw_buttons) {
         CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(target, 1, 0, 0x1b4);
@@ -358,7 +365,10 @@ void JournalScreen::Activate(JournalAction action)
 {
     switch (action) {
     case Previous:
-        if (g_journal_page > 0) { --g_journal_page; Refresh(); }
+        if (g_journal_page > 0) {
+            --g_journal_page;
+            Refresh();
+        }
         break;
     case Next:
         if (g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
@@ -366,7 +376,9 @@ void JournalScreen::Activate(JournalAction action)
             Refresh();
         }
         break;
-    case Close: RequestScreenTransition(); break;
+    case Close:
+        RequestScreenTransition();
+        break;
     case Mode:
         m_alternate_mode = m_buttons[Mode]->IsPressed();
         m_buttons[Mode]->SetTooltipIndex(m_alternate_mode ? 0x6ec : 0x6eb);
@@ -384,8 +396,7 @@ void JournalScreen::Activate(JournalAction action)
 // FUNCTION: WIZ8 0x005bddd0
 unsigned char JournalScreenInitialize(void)
 {
-    if (!g_journal_font.load("Data\\Journal\\journal_font.sti"))
-        return 0;
+    if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) return 0;
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
     return 1;
 }
@@ -403,9 +414,8 @@ unsigned char JournalScreenEnter(void)
 {
     int maximum_visibility;
 
-    SetViewport(0, 0, 0x280, 0x1e0);
+    SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_journal_panel = std::make_unique<JournalScreen>();
 
@@ -426,7 +436,8 @@ unsigned char JournalScreenEnter(void)
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
         std::string description =
             entry.alternate_text ? fact->alternate_description : fact->description;
-        if ((g_journal_show_all || fact->visibility <= maximum_visibility) && !description.empty()) {
+        if ((g_journal_show_all || fact->visibility <= maximum_visibility) &&
+            !description.empty()) {
             g_journal_entries.push_back(entry);
         }
     }
@@ -437,7 +448,6 @@ unsigned char JournalScreenEnter(void)
 // FUNCTION: WIZ8 0x005be0b0
 unsigned char JournalScreenLeave(int)
 {
-    ResetUiInput();
     g_journal_panel.reset();
     g_journal_entries.clear();
     if (gXStatus.fCampMode) {

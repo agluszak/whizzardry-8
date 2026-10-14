@@ -1,44 +1,46 @@
-#include "wiz8/engine_code/geometry_repack.h"
-#include <ranges>
-#include <unordered_set>
-#include <limits>
-#include <stdexcept>
-#include <utility>
-#include "wiz8/engine_code/mesh_links.h"
-#include <array>
-#include <optional>
-#include <variant>
-#include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_double3.hpp"
-#include "glm/geometric.hpp"
-#include "surrender/srMath.h"
-#include "glm/ext/vector_int3.hpp"
-#include <unordered_map>
-#include <span>
+#include "wiz8/engine_code/OctBuildPreTree.h"
+
 #include <algorithm>
-#include <wiz8/filesystem.h>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <limits>
 #include <memory>
+#include <optional>
+#include <ranges>
+#include <span>
+#include <stdexcept>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <variant>
 #include <vector>
 
-#include "wiz8/engine_code/OctBuildPreTree.h"
-#include "compat/compiler.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/LevelFile.h"
-#include "wiz8/float_constants.h"
+#include <wiz8/filesystem.h>
+
 #include "OctBuildTree.h"
-#include "wiz8/engine_code/oct_build_traversal.h"
 #include "OctPreTree.h"
 #include "ReadMesh.h"
+#include "compat/compiler.h"
 #include "compat/native.h"
 #include "geometry.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/geometric.hpp"
 #include "index_algorithms.h"
+#include "surrender/srMath.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/geometry_repack.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/mesh_links.h"
+#include "wiz8/engine_code/oct_build_traversal.h"
+#include "wiz8/float_constants.h"
 
 // GLOBAL: WIZ8 0x0065be60
 int g_build_node_instances;
@@ -126,11 +128,14 @@ std::vector<void*> collectBuildSurfaces(const W8OctBuildNode& root, Stop stop, A
     return result;
 }
 
-struct PackedSurfaceRun { w8_ulong offset; w8_ulong end; };
+struct PackedSurfaceRun {
+    w8_ulong offset;
+    w8_ulong end;
+};
 
 template<class SurfaceIndex>
 PackedSurfaceRun packLeafSurfaces(W8OctBuildNode& node, short mode, w8_ulong* stream,
-                       w8_ulong cursor, SurfaceIndex index)
+                                  w8_ulong cursor, SurfaceIndex index)
 {
     const auto surfaces = node.storedSurfaces(mode);
     const w8_ulong offset = surfaces.empty() ? 0 : cursor;
@@ -146,10 +151,11 @@ PackedSurfaceRun packLeafSurfaces(W8OctBuildNode& node, short mode, w8_ulong* st
 
 // FUNCTION: WIZ8 0x004af8f0
 std::vector<void*> W8OctBuildNode::linkedSurfaces(short current_depth, short target_depth,
-                                                 short mode) const
+                                                  short mode) const
 {
     if (mode < 2 || mode > 3 || current_depth > target_depth) return {};
-    return collectBuildSurfaces(*this,
+    return collectBuildSurfaces(
+        *this,
         [remaining = target_depth - current_depth](const W8OctBuildNode&, unsigned depth) {
             return depth == static_cast<unsigned>(remaining);
         },
@@ -162,7 +168,8 @@ std::vector<void*> W8OctBuildNode::linkedSurfaces(short current_depth, short tar
 std::vector<void*> W8OctBuildNode::storedSurfaces(short mode) const
 {
     if (mode < 2 || mode > 3) return {};
-    return collectBuildSurfaces(*this,
+    return collectBuildSurfaces(
+        *this,
         [](const W8OctBuildNode& node, unsigned) {
             return node.leaf_kind != 0 && node.provisional_region == 0;
         },
@@ -184,16 +191,14 @@ w8_ulong W8OctBuildNode::ConvertToOctPreTree(unsigned short depth, OctPreTree* t
     if (depth == tree->m_spatial.m_depth) {
         node_index = tree->m_leaf_count++;
 
-        const auto polygons = packLeafSurfaces(*this, 2, tree->m_polygon_index_stream,
-                                               tree->polygon_cursor, [](void* surface) {
-            return static_cast<W8OctRegionPolygon*>(surface)->ordinal;
-        });
+        const auto polygons = packLeafSurfaces(
+            *this, 2, tree->m_polygon_index_stream.data(), tree->polygon_cursor,
+            [](void* surface) { return static_cast<W8OctRegionPolygon*>(surface)->ordinal; });
         tree->m_leaves[node_index].polygon_offset = polygons.offset;
         tree->polygon_cursor = polygons.end;
-        const auto terrain = packLeafSurfaces(*this, 3, tree->m_gd_surface_index_stream,
-                                              tree->m_gd_surface_stream_len, [](void* surface) {
-            return static_cast<W8GDSurface*>(surface)->index;
-        });
+        const auto terrain = packLeafSurfaces(
+            *this, 3, tree->m_gd_surface_index_stream.data(), tree->m_gd_surface_stream_len,
+            [](void* surface) { return static_cast<W8GDSurface*>(surface)->index; });
         tree->m_leaves[node_index].gd_polygon_offset = terrain.offset;
         tree->m_gd_surface_stream_len = terrain.end;
 
@@ -228,8 +233,9 @@ w8_ulong W8OctBuildNode::ConvertToOctPreTree(unsigned short depth, OctPreTree* t
 /* Extend the surface build tree with the storage consumed by the destructive
    pre-tree conversion pass. */
 // FUNCTION: WIZ8 0x004afda0
-OctBuildPreTree::OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit,
-                                 w8_ulong path_capacity, short extent_mode)
+OctBuildPreTree::OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds,
+                                 unsigned short item_limit, w8_ulong path_capacity,
+                                 short extent_mode)
     : W8OctBuildTree(leaf_size, bounds, item_limit, extent_mode)
 {
     mesh_linking = true;
@@ -285,15 +291,19 @@ bool W8OctPreTreeGeometry::compact()
     for (auto& vertex : std::span(prepared).subspan(1)) {
         vertex.m_normal = normalizedOrZero(vertex.m_normal);
         if (!(vertex.flags & W8OctPreTreeVertex::EXCLUDED)) {
-            if (!vertex.m_normal_count) vertex.flags |= W8OctPreTreeVertex::EXCLUDED;
-            else vertex.m_vertex_index = next++;
+            if (!vertex.m_normal_count)
+                vertex.flags |= W8OctPreTreeVertex::EXCLUDED;
+            else
+                vertex.m_vertex_index = next++;
         } else {
             // Weld redirects are resolved in original source order.
             vertex.m_vertex_index = prepared[vertex.m_vertex_index].m_vertex_index;
         }
     }
-    const auto vertex_records = geometryRepack::compactTable<W8OctPreTreeVertex>(prepared,
-        [](const auto& vertex) { return !(vertex.flags & W8OctPreTreeVertex::EXCLUDED); });
+    const auto vertex_records =
+        geometryRepack::compactTable<W8OctPreTreeVertex>(prepared, [](const auto& vertex) {
+            return !(vertex.flags & W8OctPreTreeVertex::EXCLUDED);
+        });
     auto polygon_records = geometryRepack::compactTable<W8OctRegionPolygon>(
         {m_polygons, m_polygon_count}, [](const auto& polygon) { return !polygon.degenerate; });
     std::vector<geometryRepack::CornerIndices> corners(polygon_records.size());
@@ -309,7 +319,8 @@ bool W8OctPreTreeGeometry::compact()
     auto vertices = geometryRepack::copyTable<W8OctPreTreeVertex>(vertex_records);
     auto polygons = geometryRepack::copyTable<W8OctRegionPolygon>(polygon_records);
     if (!vertices || !polygons) return false;
-    geometryRepack::repointCorners({polygons.get(), polygon_records.size()}, corners, vertices.get());
+    geometryRepack::repointCorners({polygons.get(), polygon_records.size()}, corners,
+                                   vertices.get());
     std::free(m_vertices);
     std::free(m_polygons);
     m_vertices = vertices.release();
@@ -349,8 +360,7 @@ unsigned char OctBuildPreTree::InsertSurface(W8OctRegionPolygon* polygon, w8_ulo
    the hard floor and returns failure. */
 // FUNCTION: WIZ8 0x004b03e0
 unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working,
-                                                      W8OctRegionPolygon* polygon,
-                                                      w8_ulong mode)
+                                                      W8OctRegionPolygon* polygon, w8_ulong mode)
 {
     W8OctSpatialState child(working);
     bool inserted = false;
@@ -363,8 +373,8 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
             inserted = InsertBuildSurfaceChildren(
                 working, child, child.m_extent,
                 [&](W8OctSpatialState& candidate) {
-                    return triangleIntersectsBox(candidate.bounds(),
-                                                 vertices, polygon->plane.normal.glmValue());
+                    return triangleIntersectsBox(candidate.bounds(), vertices,
+                                                 polygon->plane.normal.glmValue());
                 },
                 [&]() {
                     ++level_counts[working->m_depth];
@@ -413,7 +423,7 @@ bool OctBuildPreTree::updateRegionForGeometry(const RegionGeometry& geometry, sh
 
 // FUNCTION: WIZ8 0x004b07e0
 bool OctBuildPreTree::updateRegionMap(const W8OctSpatialState& state,
-                                    const RegionGeometry& geometry, short value)
+                                      const RegionGeometry& geometry, short value)
 {
     if (state.m_depth >= 16) return false;
     bool changed = false;
@@ -430,7 +440,7 @@ bool OctBuildPreTree::updateRegionMap(const W8OctSpatialState& state,
         visitBuildChildren(state, child, [&](W8OctSpatialState& candidate, unsigned) {
             const auto box = candidate.bounds();
             const bool intersects = point ? box.containsHalfOpen(*point)
-                                         : box.overlapsStrict(std::get<srBoundingBox>(geometry));
+                                          : box.overlapsStrict(std::get<srBoundingBox>(geometry));
             if (!intersects) return;
             updateRegion(candidate.m_root->region);
             if (updateRegionMap(candidate, geometry, value)) changed = true;
@@ -463,21 +473,26 @@ static_assert(sizeof(W8CubRegionRecord) == 0x6a, "W8CubRegionRecord_must_be_0x6a
 // FUNCTION: WIZ8 0x004b0c90
 unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
 {
-    spatial.m_region_volumes = 0;
+    spatial.m_region_volumes = nullptr;
+    m_region_volumes.clear();
     spatial.m_region_count = 0;
     spatial.m_region_id_bound = 0;
     char path[1024];
     sprintf(path, "%s.cub", stem);
     std::unique_ptr<wiz8::File> file;
-    try { file = wiz8::open_file(path); }
-    catch (const std::exception&) {
+    try {
+        file = wiz8::open_file(path);
+    } catch (const std::exception&) {
         ReportBuildStatus(6, "\nWARNING: Could not find and\\or open region file.\n\n");
         return 0;
     }
     ReportBuildStatus(6, "\nReading Region File...\n");
     auto read = [&](void* data, std::size_t bytes) {
-        try { return file->read(data, bytes).bytes == bytes; }
-        catch (const std::exception&) { return false; }
+        try {
+            return file->read(data, bytes).bytes == bytes;
+        } catch (const std::exception&) {
+            return false;
+        }
     };
     int count;
     bool ok = read(&count, 4);
@@ -498,19 +513,14 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
         return 0;
     }
     const auto bound = static_cast<unsigned short>(count + 1);
-    std::unique_ptr<W8OctRegionVolume, decltype(&free)> volumes(
-        static_cast<W8OctRegionVolume*>(calloc(bound + 1, sizeof(W8OctRegionVolume))), &free);
-    if (!volumes) {
-        ReportBuildStatus(7, "ReadRegions: Could not allocate region list.\n");
-        return 0;
-    }
+    std::vector<W8OctRegionVolume> volumes(bound + 1);
     for (unsigned short region = 1; region < bound; ++region) {
         W8CubRegionRecord record;
         ok = read(&record, sizeof(record));
         if (ok == 0) {
             return 0;
         }
-        W8OctRegionVolume* volume = volumes.get() + region;
+        W8OctRegionVolume* volume = volumes.data() + region;
         volume->value_10 = record.value_00;
         volume->m_polygon_count = 0;
         volume->m_region = region;
@@ -532,7 +542,8 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
     if (file) file->close();
     file.reset();
     ReportBuildStatus(6, path);
-    spatial.m_region_volumes = volumes.release();
+    m_region_volumes = std::move(volumes);
+    spatial.m_region_volumes = m_region_volumes.data();
     spatial.m_region_id_bound = bound;
     spatial.m_region_count = bound;
     return spatial.m_region_id_bound;
@@ -655,7 +666,8 @@ unsigned char OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geomet
             if (vertex->face_count == 65535 ||
                 (vertex->face_count % 5 == 0 &&
                  !geometry->CheckArrayLength(&vertex->face_indices, vertex->face_count, 5))) {
-                ReportBuildStatus(7, "AssignPolygonRegions: Face run too long or allocation failed.\n");
+                ReportBuildStatus(
+                    7, "AssignPolygonRegions: Face run too long or allocation failed.\n");
                 return 0;
             }
             vertex->face_indices[vertex->face_count] = polygon;
@@ -668,8 +680,7 @@ unsigned char OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geomet
             W8OctPreTreeVertex* vert = &geometry->m_vertices[vertex];
             unsigned short hits = 0;
             for (unsigned short region = 1; region < spatial.m_region_id_bound; ++region) {
-                if (PointInsideFrustum(vert->position,
-                                       spatial.m_region_volumes[region].m_planes)) {
+                if (PointInsideFrustum(vert->position, spatial.m_region_volumes[region].m_planes)) {
                     ++hits;
                     vert->m_region = region;
                 }
@@ -699,8 +710,10 @@ unsigned char OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geomet
             do {
                 if (spatial.m_region_volumes[slot].m_polygon_count == 0) {
                     if (region_remap == 0) {
-                        region_remap = static_cast<unsigned short*>(malloc(bound * sizeof(*region_remap) + sizeof(*region_remap)));
-                        memset(region_remap, 0, bound * sizeof(*region_remap) + sizeof(*region_remap));
+                        region_remap = static_cast<unsigned short*>(
+                            malloc(bound * sizeof(*region_remap) + sizeof(*region_remap)));
+                        memset(region_remap, 0,
+                               bound * sizeof(*region_remap) + sizeof(*region_remap));
                         for (unsigned short id = 0; id < spatial.m_region_count; ++id) {
                             region_remap[id] = id;
                         }
@@ -985,8 +998,7 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
                 auto* polygon = static_cast<W8OctRegionPolygon*>(surface);
                 if (polygon->region == this->spatial.m_region_id_bound) {
                     for (int vertex_index = 0; vertex_index != 3; ++vertex_index) {
-                        const glm::vec3& position =
-                            polygon->vertices[vertex_index]->position;
+                        const glm::vec3& position = polygon->vertices[vertex_index]->position;
                         float distance = glm::distance(center, position);
                         if (this->spatial.m_max_region_radius < distance) {
                             this->spatial.m_max_region_radius = distance;
@@ -995,7 +1007,8 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
                 }
             }
 
-            InsertIndexValue(region_path_map, this->spatial.m_region_id_bound, arg_spatial->m_node_index);
+            InsertIndexValue(region_path_map, this->spatial.m_region_id_bound,
+                             arg_spatial->m_node_index);
             node->region = this->spatial.m_region_id_bound;
             node->provisional_region = node->region;
             ++this->spatial.m_region_id_bound;
@@ -1066,8 +1079,8 @@ unsigned char OctBuildPreTree::MergeAdjacentRegion(W8OctBuildNode* node, unsigne
             ++cell[axis];
         }
         ++cell[axis];
-        if ((cell[axis] & (1 << (spatial.m_leaf_level + 1))) == 0 &&
-            MergeRegion(node, cell) != 0) return 1;
+        if ((cell[axis] & (1 << (spatial.m_leaf_level + 1))) == 0 && MergeRegion(node, cell) != 0)
+            return 1;
         if (axis != 3) --cell[axis];
     }
     return 0;
@@ -1102,7 +1115,8 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
 
     w8_ulong neighbor_count = 0;
     auto position = region_path_map.end();
-    while ((position = NextIndexValue(region_path_map, neighbor_region, position)) != region_path_map.end()) {
+    while ((position = NextIndexValue(region_path_map, neighbor_region, position)) !=
+           region_path_map.end()) {
         ++neighbor_count;
         W8OctBuildNode* member = FindNode(position->second);
         member->leaf_kind = combined_count;
@@ -1123,8 +1137,8 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
     // Keep float rounding after each weighted term and the sum.
     const auto weighted = glm::vec3(glm::dvec3(node_center) * double(moved_count)) +
                           glm::vec3(glm::dvec3(neighbor_center) * double(neighbor_count));
-    neighbor_center = glm::vec3(glm::dvec3(weighted) *
-                               (1.0 / double(moved_count + neighbor_count)));
+    neighbor_center =
+        glm::vec3(glm::dvec3(weighted) * (1.0 / double(moved_count + neighbor_count)));
     return 1;
 }
 
@@ -1150,11 +1164,10 @@ void OctBuildPreTree::FinalizeRegionMapping()
     }
 
     unsigned short final_region_count = next_region;
-    std::vector<srBoundingBox> region_bounds(final_region_count,
-        srBoundingBox{glm::vec3(1000000.0f), glm::vec3(-1000000.0f)});
+    std::vector<srBoundingBox> region_bounds(
+        final_region_count, srBoundingBox{glm::vec3(1000000.0f), glm::vec3(-1000000.0f)});
 
-    for (w8_ulong polygon_index = 1; polygon_index < game_data->m_polygon_count;
-         ++polygon_index) {
+    for (w8_ulong polygon_index = 1; polygon_index < game_data->m_polygon_count; ++polygon_index) {
         W8OctRegionPolygon& polygon = game_data->m_polygons[polygon_index];
         unsigned short region = polygon.region;
         if (region >= spatial.m_region_count) {
@@ -1173,8 +1186,7 @@ void OctBuildPreTree::FinalizeRegionMapping()
             ReportBuildStatus(6, message);
         }
 
-        for (const auto* vertex : polygon.vertices)
-            region_bounds[region].include(vertex->position);
+        for (const auto* vertex : polygon.vertices) region_bounds[region].include(vertex->position);
     }
 
     for (const auto path : region_paths) {
@@ -1259,8 +1271,7 @@ void OctBuildPreTree::ValidatePolygonRegions()
         active_levels |= 1 << (depth + 24);
     }
 
-    for (w8_ulong polygon_index = 1; polygon_index < game_data->m_polygon_count;
-         ++polygon_index) {
+    for (w8_ulong polygon_index = 1; polygon_index < game_data->m_polygon_count; ++polygon_index) {
         W8OctRegionPolygon& polygon = game_data->m_polygons[polygon_index];
         if (polygon.region < spatial.m_region_count) {
             continue;
@@ -1284,9 +1295,9 @@ void OctBuildPreTree::ValidatePolygonRegions()
         for (int x_offset = 0; x_offset < count[0]; ++x_offset) {
             for (int y_offset = 0; y_offset < count[1]; ++y_offset) {
                 for (int z_offset = 0; z_offset < count[2]; ++z_offset) {
-                    w8_ulong path =
-                        active_levels +
-                        (((cell[0] + x_offset) * 0x100 + (cell[1] + y_offset)) * 0x100 + (cell[2] + z_offset));
+                    w8_ulong path = active_levels +
+                                    (((cell[0] + x_offset) * 0x100 + (cell[1] + y_offset)) * 0x100 +
+                                     (cell[2] + z_offset));
                     W8OctBuildNode* node = FindNode(path);
                     if (node->region == polygon.region) {
                         found = true;
@@ -1375,7 +1386,8 @@ bool OctBuildPreTree::assignPointToVolumes(const glm::vec3& point, short object,
    regions lead the compact list, followed by one null-terminated list per
    region; the lookup table stores each region's offset into that list. */
 // FUNCTION: WIZ8 0x004b3820
-unsigned char OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles)
+unsigned char
+OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles)
 {
     particle_count = static_cast<int>(particles.size());
     particle_regions.clear();
@@ -1414,7 +1426,8 @@ unsigned char OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileP
                 const srBoundingBox bounds{position - extent, position + extent};
                 for (unsigned index = 0; index < 8; ++index) {
                     const auto corner = bounds.corner(index);
-                    const bool in_volume = assignPointToVolumes(corner, particle_value, particle_regions);
+                    const bool in_volume =
+                        assignPointToVolumes(corner, particle_value, particle_regions);
                     if (in_volume || updateRegionForGeometry(corner, particle_value)) mapped = true;
                 }
             }
@@ -1480,39 +1493,11 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
         return 0;
     }
 
-    tree->m_branches = static_cast<W8OctPreTreeBranch*>(
-        malloc((g_build_node_instances  + 2) * sizeof(*tree->m_branches)));
-    if (tree->m_branches == 0) {
-        return 0;
-    }
-    memset(tree->m_branches, 0, (g_build_node_instances  + 2) * sizeof(*tree->m_branches));
-
-    tree->m_leaves =
-        static_cast<W8OctPreTreeLeaf*>(malloc((leaf_count + 2) * sizeof(W8OctPreTreeLeaf)));
-    if (tree->m_leaves == 0) {
-        return 0;
-    }
-    memset(tree->m_leaves, 0, (leaf_count + 2) * sizeof(W8OctPreTreeLeaf));
-
-    tree->m_polygon_index_stream =
-        static_cast<w8_ulong*>(malloc(leaf_polygon_count * 2 * sizeof(w8_ulong)));
-    if (tree->m_polygon_index_stream == 0) {
-        return 0;
-    }
-    memset(tree->m_polygon_index_stream, 0, leaf_polygon_count * 2 * sizeof(w8_ulong));
-
-    tree->m_region_index_stream = static_cast<unsigned short*>(malloc(leaf_count * (40 * sizeof(*tree->m_region_index_stream))));
-    if (tree->m_region_index_stream == 0) {
-        return 0;
-    }
-    memset(tree->m_region_index_stream, 0, leaf_count * (40 * sizeof(*tree->m_region_index_stream)));
-
-    tree->m_gd_surface_index_stream =
-        static_cast<w8_ulong*>(malloc(gd_surface_count * 2 * sizeof(w8_ulong)));
-    if (tree->m_gd_surface_index_stream == 0) {
-        return 0;
-    }
-    memset(tree->m_gd_surface_index_stream, 0, gd_surface_count * 2 * sizeof(w8_ulong));
+    tree->m_branches.resize(g_build_node_instances + 2);
+    tree->m_leaves.resize(leaf_count + 2);
+    tree->m_polygon_index_stream.resize(leaf_polygon_count * 2);
+    tree->m_region_index_stream.resize(leaf_count * 40);
+    tree->m_gd_surface_index_stream.resize(gd_surface_count * 2);
 
     tree->m_spatial.m_region_count = spatial.m_region_count;
     tree->m_spatial.m_leaf_level = spatial.m_leaf_level;
@@ -1537,7 +1522,9 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
 
     tree->m_spatial.m_extent = spatial.m_extent;
     tree->m_spatial.m_cell_size = spatial.m_cell_size;
-    tree->m_spatial.m_region_volumes = spatial.m_region_volumes;
+    tree->m_region_volumes = std::move(m_region_volumes);
+    tree->m_spatial.m_region_volumes = tree->m_region_volumes.data();
+    spatial.m_region_volumes = nullptr;
     tree->game_data = game_data;
     tree->unknown_3a8 = unknown_138;
     tree->unknown_3ac = unknown_13c;
@@ -1575,9 +1562,8 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
                              tree->m_spatial.m_node_extent) +
             1;
     }
-    tree->m_leaf_lookup = static_cast<w8_ulong*>(
-        malloc(tree->m_leaf_grid_dimensions.z * tree->m_leaf_grid_dimensions.x *
-               tree->m_leaf_grid_dimensions.y * sizeof(w8_ulong)));
+    tree->m_leaf_lookup.resize(tree->m_leaf_grid_dimensions.z * tree->m_leaf_grid_dimensions.x *
+                               tree->m_leaf_grid_dimensions.y);
     w8_ulong cell_index = 0;
     glm::ivec3 point;
     for (point.x = 0; point.x < static_cast<int>(tree->m_leaf_grid_dimensions.x); ++point.x) {

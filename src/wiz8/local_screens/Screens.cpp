@@ -1,36 +1,37 @@
-#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
-#include <string_view>
+#include "wiz8/local_screens/Screens.h"
+
 #include <cstring>
 #include <memory>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/RCSCommon.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/cursor.h"
-#include "wiz8/item_video_object_vector.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/fonts.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "Font.h"
 #include "compat/native.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
+#include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/PartySelectionScreen.h"
+#include "wiz8/local_screens/RCSCommon.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */
 bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
@@ -229,8 +230,7 @@ void UpdateHeldItemCursor(void)
 void ApplyCurrentCursor(void)
 {
     if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
-        srAssertFail("gXStatus.iCurrentCursor != -1",
-                     __FILE__, 0x18d, 0);
+        srAssertFail("gXStatus.iCurrentCursor != -1", __FILE__, 0x18d, 0);
     }
     if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
         ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
@@ -291,7 +291,8 @@ void SetItemCursor(int overlay_video_object)
 }
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
-void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
+void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
+                    bool cancel)
 {
     switch (g_current_screen_state.id) {
     case W8_SCREEN_CAMP:
@@ -318,7 +319,6 @@ void InitializeMainGameLevelBlock(void)
     }
     g_level_block->transition_pending = false;
     g_level_block->camera_mode = 7;
-    g_level_block->message_box_pending = IsMessageBoxActive();
     g_level_block->portrait_strip_dirty = false;
     g_level_block->flag3 = false;
     g_level_block->value_194 = -1;
@@ -340,7 +340,8 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->enchantment_orb_party_slot = -1;
     g_level_block->condition_highlight_party_slot = -1;
     g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
-    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
+    g_level_block->dialogue_content_region =
+        CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;

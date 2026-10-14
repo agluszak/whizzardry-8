@@ -1,26 +1,25 @@
 #include <cstring>
 
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/utility.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
-
+#include "wiz8/character_skills.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/GameplayTime.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into
@@ -427,8 +426,8 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                 W8MonsterInfo* bound;
                 if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
                         g_status.current_level &&
-                    (bound = FindMonster(character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) !=
-                        0) {
+                    (bound = FindMonster(
+                         character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
                     W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
                     target->health_regen_adjustment += -1 - (monster->effective_level >> 1);
                 } else {

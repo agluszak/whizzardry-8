@@ -1,23 +1,25 @@
 #include <deque>
+
 #include "Font.h"
 #pragma once
 
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_pixels.h>
-#include <vector>
 #include <array>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+
+#include "Types.h"
+#include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "input.h"
 #include "wiz8/text_input.h"
-#include "Types.h"
-#include "compat/compiler.h"
 
 struct W8WorldItem;
 struct W8ItemInstance;
@@ -85,8 +87,12 @@ private:
 
     /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
-    void TextAreaButtonCallback(W8ButtonWidget* button);
-    void SliderTrackButtonCallback(W8ButtonWidget* button);
+    void OnTextAreaClick();
+    void OnUp();
+    void OnDown();
+    void OnOk();
+    void OnCancel();
+    void OnSliderTrackClick();
 
 public:
     std::vector<std::string> m_lines;
@@ -144,9 +150,8 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure. */
-    void SplitAccept();
-    void SplitCancel();
-    void SplitActivateField(W8ButtonWidget* button);
+    void Finish(W8SplitDialogResult result);
+    void ActivateField();
 
 private:
     std::array<std::unique_ptr<W8ButtonWidget>, 6> m_buttons;
@@ -190,7 +195,9 @@ private:
     bool IsItemSelected(int index);
     void SetItemSelected(int index, bool selected);
     void ToggleItem(int index, W8ButtonWidget* button);
+    void ToggleAllItems();
     void ShowVisibleItemInfo(int row);
+    void ScrollItemsToMouse();
     /* Move every flagged item to the destination: -1 copies it into the shared
        party pool, any other value gives it to that party slot's character.
        Each successful transfer unlinks the item and its flag; a failure plays
@@ -198,15 +205,6 @@ private:
     void TransferSelectedItems(int destination);
     /* Handle one event the picker owns: keyboard list navigation and clicks. */
     bool HandleInputEvent(const InputEvent* input);
-
-    /* Per-button callbacks stored through W8ButtonWidget::Configure.
-       Their configuration captures the owning picker directly. */
-    void ToggleAllItems();
-
-private:
-    void ScrollItemsUp();
-    void ScrollItemsDown();
-    void ScrollItemsToMouse(W8ButtonWidget* button);
 
 public:
     std::vector<W8WorldItem*> items;
@@ -251,13 +249,9 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure. */
-    void OnSplitDecrement();
-    void OnSplitIncrement();
-    void OnSplitDecrementMany();
-    void OnSplitIncrementMany();
-    void OnAccept();
-    void OnCancel();
-    void OnCountFieldClick(W8ButtonWidget* button);
+    void StepSplit(int count);
+    void Finish(W8SplitDialogResult result);
+    void OnCountFieldClick();
 
 public:
     std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */

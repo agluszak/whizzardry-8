@@ -4,13 +4,13 @@
 #include <optional>
 #include <string_view>
 
+#include "compat/compiler.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "compat/compiler.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 enum { W8_DIALOG_ATTRIBUTE_COUNT = 7 };
 
@@ -49,8 +49,8 @@ protected:
 private:
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
-    void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width, int height,
-                      std::string_view text, Font& font);
+    void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width,
+                      int height, std::string_view text, Font& font);
 
 protected:
     std::optional<CatalogArtwork> m_uiArtwork;

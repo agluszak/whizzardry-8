@@ -1,25 +1,26 @@
-#include <vector>
+#include "wiz8/local_code/GameplayDatabase.h"
+
 #include <algorithm>
 #include <array>
-#include <iterator>
-#include <memory>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <iterator>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "wiz8/retail_text_records.h"
-#include "wiz8/containers.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/filesystem.h"
 #include "layouts/item_tables.h"
 #include "retail_records.h"
+#include "wiz8/containers.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/xstatus.h"
 
 /* 0x0054B300 resets one of eight slots. */
 /* The gStatus object owned by GameplayDatabase.cpp. */
@@ -62,8 +63,7 @@ std::vector<W8ItemTableRecord> item_tables;
 
 // FUNCTION: WIZ8 0x0054a400
 bool InitializeItemDatabase(void)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\Items.DBS", wiz8::OpenMode::read);
     unsigned int count;
     auto records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle, count);
@@ -71,15 +71,15 @@ try
     g_item_records = item_records.get();
     gXStatus.uiItemsInDatabase = count;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* ItemTables.DBS carries fixed 0x100-byte category names, then table records.
    The exported views borrow contiguous storage owned here. */
 // FUNCTION: WIZ8 0x0054a510
 bool InitializeItemTables(void)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\ItemTables.DBS", wiz8::OpenMode::read);
     unsigned int category_count;
     handle->read_exact(&category_count, sizeof(category_count));
@@ -117,28 +117,30 @@ try
     gXStatus.uiItemTableCategories = category_count;
     gXStatus.uiItemTablesInDatabase = table_count;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Seeks straight to one record and strips the four name suffixes. */
 // FUNCTION: WIZ8 0x0054a8a0
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
-try
-{
+try {
     if (!(uiMonsterIndex < gXStatus.uiMonstersInDatabase)) {
         srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140,
                      0);
     }
     auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
-    handle->seek(std::int64_t(uiMonsterIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4, wiz8::SeekOrigin::begin);
+    handle->seek(std::int64_t(uiMonsterIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4,
+                 wiz8::SeekOrigin::begin);
     W8MonsterRecord loaded;
     wiz8::retail::read_exact(*handle, loaded);
     for (auto* name : {&loaded.name0, &loaded.name1, &loaded.name2, &loaded.name3})
         StripMonsterNameSuffix(*name);
     *record = loaded;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0054a4f0
 void DestroyItemDatabase(void)
@@ -172,13 +174,13 @@ void DestroyItemTables(void)
    out-parameter. InitializeGame calls it with null just to publish the count. */
 // FUNCTION: WIZ8 0x0054a760
 bool LoadMonsterDatabase(W8MonsterRecord** records)
-try
-{
+try {
     auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
     if (count > std::size(gXStatus.monster_record_cache) ||
-        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
+        count >
+            (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
         return false;
     }
     if (records) {
@@ -188,15 +190,15 @@ try
     }
     gXStatus.uiMonstersInDatabase = count;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The range sibling of LoadMonsterDatabaseRecord reads an inclusive span. */
 // FUNCTION: WIZ8 0x0054a9a0
 bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
                               W8MonsterRecord* records)
-try
-{
+try {
     if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
         srAssertFail("uiEndIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x17a, 0);
     }
@@ -204,7 +206,8 @@ try
         srAssertFail("uiStartIndex <= uiEndIndex", GAMEPLAY_DATABASE_CPP, 0x17b, 0);
     }
     auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
-    handle->seek(std::int64_t(uiStartIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4, wiz8::SeekOrigin::begin);
+    handle->seek(std::int64_t(uiStartIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4,
+                 wiz8::SeekOrigin::begin);
     const auto count = std::size_t(uiEndIndex) - uiStartIndex + 1;
     const auto remaining = handle->size() - handle->tell();
     if (remaining < 0 || count > std::uint64_t(remaining) / wiz8::retail::kMonsterRecordBytes) {
@@ -214,8 +217,9 @@ try
     for (auto& record : loaded) wiz8::retail::read_exact(*handle, record);
     std::copy(loaded.begin(), loaded.end(), records);
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0054ac90
 void DestroyNpcDatabase(void)
