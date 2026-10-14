@@ -264,10 +264,7 @@ TEST_CASE("Engagement propagates to the original leader's direct allies", "[grou
 {
     struct RestoreGroups {
         std::vector<W8MonsterGroup*> saved = std::exchange(gXStatus.monster_groups, {});
-        ~RestoreGroups()
-        {
-            gXStatus.monster_groups = std::move(saved);
-        }
+        ~RestoreGroups() { gXStatus.monster_groups = std::move(saved); }
     } restore;
     W8MonsterGroup leader{}, first{}, second{}, unrelated{};
     leader.group_id = 1;
