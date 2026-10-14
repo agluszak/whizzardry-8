@@ -140,11 +140,7 @@ void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
     }
     m_text_area.Draw(target, false);
     m_scroll_bar.Draw(target, false);
-    if (m_button.m_dirty) {
-        m_button.Draw(target);
-        InvalidateRegion(m_button.Bounds());
-        m_button.m_dirty = false;
-    }
+    m_button.DrawAndInvalidate(target);
 }
 
 // FUNCTION: WIZ8 0x005DEEE0

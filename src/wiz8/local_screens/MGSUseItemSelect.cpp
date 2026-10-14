@@ -339,9 +339,7 @@ void UpdateUseItemSelect(bool active)
         if (panel == 0) {
             use_item->caption.RenderToTarget(0, true, target);
             for (auto& button : use_item->pools) {
-                button->Draw(target);
-                InvalidateRegion(button->Bounds());
-                button->m_dirty = false;
+                button->DrawAndInvalidate(target, true);
             }
         } else if (panel == 1) RedrawTextBoxScrollChrome();
         else {
@@ -351,16 +349,8 @@ void UpdateUseItemSelect(bool active)
                 actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17, 0x16c + (index / 3) * 17);
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
             use_item->filter->m_dirty = use_item->close->m_dirty = true;
-            if (use_item->filter->m_dirty) {
-                use_item->filter->Draw(target);
-                InvalidateRegion(use_item->filter->Bounds());
-                use_item->filter->m_dirty = false;
-            }
-            if (use_item->close->m_dirty) {
-                use_item->close->Draw(target);
-                InvalidateRegion(use_item->close->Bounds());
-                use_item->close->m_dirty = false;
-            }
+            use_item->filter->DrawAndInvalidate(target);
+            use_item->close->DrawAndInvalidate(target);
             if (use_item->item_image) DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
             use_item->quantity.RenderToTarget(0, true, target);
         }

@@ -547,9 +547,7 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
     if (!full_redraw && !button.m_dirty) {
         return;
     }
-    button.Draw(target);
-    InvalidateRegion(button.Bounds());
-    button.m_dirty = false;
+    button.DrawAndInvalidate(target, true);
     if (!button.IsEnabled() || m_save == 0) {
         return;
     }
@@ -1294,19 +1292,13 @@ void W8OptionsScreen::Redraw()
         if (button.m_dirty && item == m_selected_panel)
             CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(GetFrameBufferSurface(),
                 g_options_menu_rows[item].item_id, 12, 15);
-        if (button.m_dirty) {
-            button.Draw(GetFrameBufferSurface());
-            InvalidateRegion(button.Bounds());
-            button.m_dirty = false;
-        }
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
     if (m_navigation_visible && (m_navigation_dirty || m_navigation[0]->m_dirty || m_navigation[1]->m_dirty)) {
         auto& target = GetFrameBufferSurface();
         CatalogArtwork::Load(0xf3, 0).drawAndInvalidate(target, 0, 0x11b, m_navigation_y);
         for (auto& button : m_navigation) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
+            button->DrawAndInvalidate(target, true);
         }
         m_page_text->RenderToTarget(0, true, target);
         m_navigation_dirty = false;
@@ -1601,11 +1593,7 @@ void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
     }
     for (auto& button : m_buttons) {
         button->m_dirty |= repaint;
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
     for (auto& slider : m_owned_sliders) slider->Redraw(target, repaint);
     m_dirty = false;

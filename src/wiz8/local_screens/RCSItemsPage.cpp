@@ -1082,11 +1082,7 @@ void RefreshCampActionPanel(bool invalidate)
 {
     for (const auto& button : item_controls->actions) {
         button->m_dirty |= invalidate;
-        if (button->m_dirty) {
-            button->Draw(GetFrameBufferSurface());
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1155,11 +1151,7 @@ void RefreshItemsTabPanel(bool invalidate)
 {
     for (const auto& button : item_controls->filters) {
         button->m_dirty |= invalidate;
-        if (button->m_dirty) {
-            button->Draw(GetFrameBufferSurface());
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1209,11 +1201,7 @@ void RefreshCampSecondaryPanel(bool invalidate)
         for (const auto& tab : item_controls->tabs) {
             tab->m_dirty = true;
             {
-                if (tab->m_dirty) {
-                    tab->Draw(GetFrameBufferSurface());
-                    InvalidateRegion(tab->Bounds());
-                    tab->m_dirty = false;
-                }
+                tab->DrawAndInvalidate(GetFrameBufferSurface());
             }
         }
         item_controls->dirty = false;

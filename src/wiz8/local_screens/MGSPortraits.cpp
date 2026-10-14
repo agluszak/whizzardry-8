@@ -1125,11 +1125,7 @@ void UpdatePortraitAdvanceButtons()
         auto& button = *portrait_buttons->buttons[slot];
         button.SetVisible(IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
                           g_status.buffers.XChar[slot].portrait_advance);
-        if (button.m_dirty) {
-            button.Draw(GetFrameBufferSurface());
-            InvalidateRegion(button.Bounds());
-            button.m_dirty = false;
-        }
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 

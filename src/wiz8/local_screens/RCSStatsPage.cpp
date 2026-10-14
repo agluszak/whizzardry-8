@@ -141,11 +141,7 @@ void W8CampStatsControls::Redraw(SDL_Surface& target, bool force)
     for (const auto& button : m_buttons) {
         button->m_dirty |= force;
         {
-            if (button->m_dirty) {
-                button->Draw(target);
-                InvalidateRegion(button->Bounds());
-                button->m_dirty = false;
-            }
+            button->DrawAndInvalidate(target);
         }
     }
 }
@@ -1004,11 +1000,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     W8CharacterPage::Redraw(target, full_redraw);
     for (auto& button : m_buttons) {
         button->m_dirty |= redraw || full_redraw;
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
     if (redraw || full_redraw || m_choices_dirty) {
         for (int index = 0; index < 11; ++index) {

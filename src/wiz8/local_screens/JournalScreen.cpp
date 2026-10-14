@@ -346,9 +346,7 @@ void JournalScreen::Draw(SDL_Surface& target)
         CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(target, 1, 0, 0x1b4);
         m_bar.drawAndInvalidate(target, 0, 0x66, 0x1bb);
         for (auto& button : m_buttons) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
+            button->DrawAndInvalidate(target, true);
         }
         m_page_text->RenderToTarget(0, true, target);
     }

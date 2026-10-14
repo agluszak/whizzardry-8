@@ -41,9 +41,7 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
     unsigned int index;
 
     W8DialogBase::Draw(target);
-    m_message_button.Draw(target);
-    InvalidateRegion(m_message_button.Bounds());
-    m_message_button.m_dirty = false;
+    m_message_button.DrawAndInvalidate(target, true);
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
@@ -67,13 +65,9 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
         }
     }
     if (m_show_confirm) {
-        m_confirm_button.Draw(target);
-        InvalidateRegion(m_confirm_button.Bounds());
-        m_confirm_button.m_dirty = false;
+        m_confirm_button.DrawAndInvalidate(target, true);
         if (allow_cancel) {
-            m_cancel_button.Draw(target);
-            InvalidateRegion(m_cancel_button.Bounds());
-            m_cancel_button.m_dirty = false;
+            m_cancel_button.DrawAndInvalidate(target, true);
         }
     }
 }

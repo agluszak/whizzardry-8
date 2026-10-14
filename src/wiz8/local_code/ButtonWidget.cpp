@@ -5,6 +5,7 @@
 #include "wiz8/button_interaction.h"
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
@@ -27,6 +28,22 @@ void W8ButtonWidget::Draw(SDL_Surface& target) const
                                        .menu_artwork = menu_artwork};
         DrawButtonAppearance(target, m_appearance, Bounds(), visual);
     }
+}
+
+void W8ButtonWidget::DrawAndInvalidate(SDL_Surface& target, bool force)
+{
+    if (&target != &GetFrameBufferSurface()) {
+        Draw(target);
+        return;
+    }
+    if (!m_dirty && !force) {
+        return;
+    }
+    if (m_target && m_visible) {
+        Draw(target);
+        InvalidateRegion(Bounds());
+    }
+    m_dirty = false;
 }
 
 void W8ButtonWidget::SetBounds(SDL_Rect bounds)

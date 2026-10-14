@@ -208,11 +208,7 @@ void W8NpcDialog::DrawModal(SDL_Surface& target)
     }
     for (index = 0; index < 3; ++index) {
         if (m_buttons[index] != 0) {
-            if (m_buttons[index]->m_dirty) {
-                m_buttons[index]->Draw(target);
-                InvalidateRegion(m_buttons[index]->Bounds());
-                m_buttons[index]->m_dirty = false;
-            }
+            m_buttons[index]->DrawAndInvalidate(target);
         }
     }
     for (index = 0; index < 2; ++index) {

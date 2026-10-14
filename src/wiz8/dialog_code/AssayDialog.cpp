@@ -570,11 +570,7 @@ void W8AssayDialog::Draw(SDL_Surface& target)
     }
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
         if (m_buttons[index].IsConfigured()) {
-            if (m_buttons[index].m_dirty) {
-                m_buttons[index].Draw(target);
-                InvalidateRegion(m_buttons[index].Bounds());
-                m_buttons[index].m_dirty = false;
-            }
+            m_buttons[index].DrawAndInvalidate(target);
         }
     }
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {

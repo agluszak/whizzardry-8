@@ -418,11 +418,7 @@ void UpdateRcsLevelUpPanel(void)
         header_buttons->level_up->SetVisible(true);
         RedrawRcsLevelUpPanel();
     }
-    if (header_buttons->level_up->m_dirty) {
-        header_buttons->level_up->Draw(GetFrameBufferSurface());
-        InvalidateRegion(header_buttons->level_up->Bounds());
-        header_buttons->level_up->m_dirty = false;
-    }
+    header_buttons->level_up->DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005b6950
@@ -478,11 +474,7 @@ void UpdateRcsDismissPanel(void)
     } else if (header_buttons->dismiss->IsVisible()) {
         header_buttons->dismiss->SetVisible(false);
     }
-    if (header_buttons->dismiss->m_dirty) {
-        header_buttons->dismiss->Draw(GetFrameBufferSurface());
-        InvalidateRegion(header_buttons->dismiss->Bounds());
-        header_buttons->dismiss->m_dirty = false;
-    }
+    header_buttons->dismiss->DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 /* Release the formation board, compass and overlay sprites. */
@@ -1008,21 +1000,13 @@ void RefreshCampItemActions(bool invalidate)
         for (const auto& button : camp_buttons->pages) {
             button->m_dirty = true;
             {
-                if (button->m_dirty) {
-                    button->Draw(target);
-                    InvalidateRegion(button->Bounds());
-                    button->m_dirty = false;
-                }
+                button->DrawAndInvalidate(target);
             }
         }
         for (const auto& button : camp_buttons->actions) {
             button->m_dirty = true;
             {
-                if (button->m_dirty) {
-                    button->Draw(target);
-                    InvalidateRegion(button->Bounds());
-                    button->m_dirty = false;
-                }
+                button->DrawAndInvalidate(target);
             }
         }
         camp_buttons->dirty = false;

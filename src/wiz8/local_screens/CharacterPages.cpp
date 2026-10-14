@@ -175,16 +175,8 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         m_label.RenderToTarget(0, true, target);
         m_dirty = false;
     }
-    if (m_increment->m_dirty) {
-        m_increment->Draw(target);
-        InvalidateRegion(m_increment->Bounds());
-        m_increment->m_dirty = false;
-    }
-    if (m_decrement->m_dirty) {
-        m_decrement->Draw(target);
-        InvalidateRegion(m_decrement->Bounds());
-        m_decrement->m_dirty = false;
-    }
+    m_increment->DrawAndInvalidate(target);
+    m_decrement->DrawAndInvalidate(target);
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 

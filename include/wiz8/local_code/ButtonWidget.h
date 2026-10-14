@@ -29,9 +29,12 @@ public:
     ~W8ButtonWidget();
     W8ButtonWidget(const W8ButtonWidget&) = delete;
     W8ButtonWidget& operator=(const W8ButtonWidget&) = delete;
-    // Paint only. The screen owner restores backing, clears dirtiness and
-    // invalidates the framebuffer when it commits an on-screen update.
+    // Paint only, including clean buttons. Never commits an on-screen update.
     void Draw(SDL_Surface& target) const;
+    // Commit a dirty (or forced) framebuffer update. Auxiliary targets are
+    // painted unconditionally without invalidation or changing screen dirtiness.
+    // The owner restores backing artwork before requesting a forced repaint.
+    void DrawAndInvalidate(SDL_Surface& target, bool force = false);
     void Reset();
     bool IsConfigured() const { return m_target != nullptr; }
     const SDL_Rect& Bounds() const { return m_bounds; }

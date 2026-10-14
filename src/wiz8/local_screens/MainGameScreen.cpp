@@ -1231,11 +1231,7 @@ void W8LockInteraction::DrawActions(SDL_Surface& target)
         actions_dirty = false;
     }
     for (auto& button : buttons) {
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
 }
 
@@ -1630,11 +1626,7 @@ void W8MainGameScreen::DrawActions(SDL_Surface& target)
         actions_dirty = false;
     }
     for (auto& button : m_action_controls) {
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
 }
 

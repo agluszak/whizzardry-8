@@ -307,9 +307,7 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
     if (!m_navigation_dirty) return;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(target, 4, 0, 0x1c2);
     for (auto* button : buttons) {
-        button->Draw(target);
-        InvalidateRegion(button->Bounds());
-        button->m_dirty = false;
+        button->DrawAndInvalidate(target, true);
         button->m_dirty = false;
     }
     m_navigation_dirty = false;

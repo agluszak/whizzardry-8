@@ -626,6 +626,28 @@ void generic_button_images()
         REQUIRE_FALSE(button.m_dirty);
         REQUIRE(TakeUiUpload().w == 0);
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
+        // The commit helper must also keep auxiliary painting independent.
+        button.m_dirty = true;
+        button.DrawAndInvalidate(target);
+        REQUIRE(button.m_dirty);
+        REQUIRE(TakeUiUpload().w == 0);
+        auto& framebuffer = GetFrameBufferSurface();
+        button.DrawAndInvalidate(framebuffer);
+        REQUIRE_FALSE(button.m_dirty);
+        const auto committed = TakeUiUpload();
+        REQUIRE(SDL_RectsEqual(&committed, &button.Bounds()));
+        REQUIRE(surface_pixel(framebuffer, 2, 3) == frame_colors[2]);
+        REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0));
+        button.DrawAndInvalidate(framebuffer);
+        REQUIRE(surface_pixel(framebuffer, 2, 3) == 0);
+        REQUIRE(TakeUiUpload().w == 0);
+        button.DrawAndInvalidate(framebuffer, true);
+        REQUIRE(surface_pixel(framebuffer, 2, 3) == frame_colors[2]);
+        REQUIRE(TakeUiUpload().w == button.Bounds().w);
+        button.SetVisible(false);
+        button.DrawAndInvalidate(framebuffer);
+        REQUIRE_FALSE(button.m_dirty);
+        REQUIRE(TakeUiUpload().w == 0);
         if (previous_upload.w > 0) {
             InvalidateRegion(previous_upload);
         }
@@ -1562,6 +1584,26 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             [&positions](int position) { positions.push_back(position); }};
         REQUIRE(bar.CreateControls(&resources));
         bar.SetLayout(100, 20, 20, 5, 10, 30);
+        auto auxiliary = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_RGB565);
+        REQUIRE(auxiliary);
+        TakeUiUpload();
+        InvalidateRegion(4, 4, 5, 5);
+        bar.Draw(*auxiliary, false);
+        REQUIRE(bar.m_dirty);
+        const auto pending = TakeUiUpload();
+        REQUIRE((pending.x == 4 && pending.y == 4 && pending.w == 1 && pending.h == 1));
+        bar.Draw(GetFrameBufferSurface(), false);
+        REQUIRE_FALSE(bar.m_dirty);
+        const auto uploaded = TakeUiUpload();
+        REQUIRE((uploaded.x == 100 && uploaded.y == 20 && uploaded.w == 5 && uploaded.h == 100));
+        // A fresh auxiliary canvas still needs the clean scrollbar's artwork.
+        REQUIRE(SDL_FillSurfaceRect(auxiliary.get(), nullptr, 0x07e0));
+        bar.Draw(*auxiliary, false);
+        REQUIRE(surface_pixel(*auxiliary, 100, 20) != 0x07e0);
+        REQUIRE_FALSE(bar.m_dirty);
+        REQUIRE(TakeUiUpload().w == 0);
+        bar.Draw(GetFrameBufferSurface(), false);
+        REQUIRE(TakeUiUpload().w == 0);
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, 101, 116, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 101, 116);

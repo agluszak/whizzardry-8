@@ -226,16 +226,8 @@ void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
     }
     m_decrement->m_dirty |= force;
     m_increment->m_dirty |= force;
-    if (m_decrement->m_dirty) {
-        m_decrement->Draw(target);
-        InvalidateRegion(m_decrement->Bounds());
-        m_decrement->m_dirty = false;
-    }
-    if (m_increment->m_dirty) {
-        m_increment->Draw(target);
-        InvalidateRegion(m_increment->Bounds());
-        m_increment->m_dirty = false;
-    }
+    m_decrement->DrawAndInvalidate(target);
+    m_increment->DrawAndInvalidate(target);
     if (!m_choices) m_dirty = false;
 }
 

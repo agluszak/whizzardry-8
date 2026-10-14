@@ -144,11 +144,7 @@ void RefreshSubMenuPanel(bool invalidate)
         submenu->dirty = false;
     }
     for (auto& button : submenu->buttons) {
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
 }
 
@@ -370,11 +366,7 @@ void RedrawOptionsDiskButton(void)
         enabled = false;
     }
     g_hud_buttons.options_disk.SetEnabled(enabled);
-    if (g_hud_buttons.options_disk.m_dirty) {
-        g_hud_buttons.options_disk.Draw(GetFrameBufferSurface());
-        InvalidateRegion(g_hud_buttons.options_disk.Bounds());
-        g_hud_buttons.options_disk.m_dirty = false;
-    }
+    g_hud_buttons.options_disk.DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
@@ -412,11 +404,7 @@ void UpdateCombatStanceButtons(void)
         enabled = false;
     }
     g_hud_buttons.combat_stance[stance].SetEnabled(enabled);
-    if (g_hud_buttons.combat_stance[stance].m_dirty) {
-        g_hud_buttons.combat_stance[stance].Draw(GetFrameBufferSurface());
-        InvalidateRegion(g_hud_buttons.combat_stance[stance].Bounds());
-        g_hud_buttons.combat_stance[stance].m_dirty = false;
-    }
+    g_hud_buttons.combat_stance[stance].DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
@@ -585,11 +573,7 @@ void UpdateRoofButtons(void)
     g_hud_buttons.roof[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
     for (auto& button : g_hud_buttons.roof) {
-        if (button.m_dirty) {
-            button.Draw(GetFrameBufferSurface());
-            InvalidateRegion(button.Bounds());
-            button.m_dirty = false;
-        }
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -747,11 +731,7 @@ void RedrawLayoutArrowButtons(void)
         g_hud_buttons.layout_arrows[3].SetVisible(false);
         draw_button = &g_hud_buttons.layout_arrows[0];
     }
-    if (draw_button->m_dirty) {
-        draw_button->Draw(GetFrameBufferSurface());
-        InvalidateRegion(draw_button->Bounds());
-        draw_button->m_dirty = false;
-    }
+    draw_button->DrawAndInvalidate(GetFrameBufferSurface());
 
     if (g_level_block->action_panel_visible == 0) {
         g_hud_buttons.layout_arrows[4].SetVisible(true);
@@ -762,29 +742,17 @@ void RedrawLayoutArrowButtons(void)
         g_hud_buttons.layout_arrows[4].SetVisible(false);
         draw_button = &g_hud_buttons.layout_arrows[1];
     }
-    if (draw_button->m_dirty) {
-        draw_button->Draw(GetFrameBufferSurface());
-        InvalidateRegion(draw_button->Bounds());
-        draw_button->m_dirty = false;
-    }
+    draw_button->DrawAndInvalidate(GetFrameBufferSurface());
 
     if (g_level_block->formation_board_visible) {
         g_hud_buttons.layout_arrows[2].SetVisible(true);
         g_hud_buttons.layout_arrows[5].SetVisible(false);
-        if (g_hud_buttons.layout_arrows[2].m_dirty) {
-            g_hud_buttons.layout_arrows[2].Draw(GetFrameBufferSurface());
-            InvalidateRegion(g_hud_buttons.layout_arrows[2].Bounds());
-            g_hud_buttons.layout_arrows[2].m_dirty = false;
-        }
+        g_hud_buttons.layout_arrows[2].DrawAndInvalidate(GetFrameBufferSurface());
         return;
     }
     g_hud_buttons.layout_arrows[5].SetVisible(true);
     g_hud_buttons.layout_arrows[2].SetVisible(false);
-    if (g_hud_buttons.layout_arrows[5].m_dirty) {
-        g_hud_buttons.layout_arrows[5].Draw(GetFrameBufferSurface());
-        InvalidateRegion(g_hud_buttons.layout_arrows[5].Bounds());
-        g_hud_buttons.layout_arrows[5].m_dirty = false;
-    }
+    g_hud_buttons.layout_arrows[5].DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005982D0
@@ -1033,11 +1001,7 @@ void UpdateSubMenuPanelButtons(void)
     }
 
     for (auto& button : g_hud_buttons.submenu_panel) {
-        if (button.m_dirty) {
-            button.Draw(GetFrameBufferSurface());
-            InvalidateRegion(button.Bounds());
-            button.m_dirty = false;
-        }
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1055,11 +1019,7 @@ static void UpdateSubMenuScrollButtons()
         }
     }
     for (auto& button : g_hud_buttons.submenu_scroll) {
-        if (button.m_dirty) {
-            button.Draw(GetFrameBufferSurface());
-            InvalidateRegion(button.Bounds());
-            button.m_dirty = false;
-        }
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1081,11 +1041,7 @@ void RedrawSubMenuButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
-        if (button.m_dirty) {
-            button.Draw(GetFrameBufferSurface());
-            InvalidateRegion(button.Bounds());
-            button.m_dirty = false;
-        }
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
@@ -1207,11 +1163,7 @@ void UpdateMainGameButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
-        if (button.m_dirty) {
-            button.Draw(GetFrameBufferSurface());
-            InvalidateRegion(button.Bounds());
-            button.m_dirty = false;
-        }
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
@@ -1219,11 +1171,7 @@ void UpdateMainGameButtons(void)
               !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
               !gXStatus.fTrapInteract;
     g_hud_buttons.options_disk.SetEnabled(enabled);
-    if (g_hud_buttons.options_disk.m_dirty) {
-        g_hud_buttons.options_disk.Draw(GetFrameBufferSurface());
-        InvalidateRegion(g_hud_buttons.options_disk.Bounds());
-        g_hud_buttons.options_disk.m_dirty = false;
-    }
+    g_hud_buttons.options_disk.DrawAndInvalidate(GetFrameBufferSurface());
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
 }

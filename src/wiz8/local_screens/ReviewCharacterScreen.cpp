@@ -886,16 +886,8 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
     if (redraw) CatalogArtwork::Load(0x122, 0).drawAndInvalidate(target, m_backgroundImage, 0x136, 0);
     m_stats_tab->m_dirty |= redraw;
     m_combat_tab->m_dirty |= redraw;
-    if (m_stats_tab->m_dirty) {
-        m_stats_tab->Draw(target);
-        InvalidateRegion(m_stats_tab->Bounds());
-        m_stats_tab->m_dirty = false;
-    }
-    if (m_combat_tab->m_dirty) {
-        m_combat_tab->Draw(target);
-        InvalidateRegion(m_combat_tab->Bounds());
-        m_combat_tab->m_dirty = false;
-    }
+    m_stats_tab->DrawAndInvalidate(target);
+    m_combat_tab->DrawAndInvalidate(target);
     if (!redraw) return;
     m_dirty = false;
     InvalidateCampPanel();

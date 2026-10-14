@@ -510,12 +510,8 @@ void AutomapZoomOutButton(void)
                 if (!g_automap_buttons.empty()) {
                     g_automap_buttons[0]->SetEnabled(true);
                     g_automap_buttons[1]->SetEnabled(true);
-                    g_automap_buttons[0]->Draw(GetFrameBufferSurface());
-                    InvalidateRegion(g_automap_buttons[0]->Bounds());
-                    g_automap_buttons[0]->m_dirty = false;
-                    g_automap_buttons[1]->Draw(GetFrameBufferSurface());
-                    InvalidateRegion(g_automap_buttons[1]->Bounds());
-                    g_automap_buttons[1]->m_dirty = false;
+                    g_automap_buttons[0]->DrawAndInvalidate(GetFrameBufferSurface(), true);
+                    g_automap_buttons[1]->DrawAndInvalidate(GetFrameBufferSurface(), true);
                 }
                 g_automap_zoom = g_automap_position.y - ground_y;
                 g_automap_zoom_mode = 1;
@@ -696,9 +692,7 @@ unsigned char AutomapScreenEnter(void)
     UpdateAutomapPageButtons();
     for (int button = 0; button < 16; ++button) {
         if (g_automap_buttons[button]) {
-            g_automap_buttons[button]->Draw(GetFrameBufferSurface());
-            InvalidateRegion(g_automap_buttons[button]->Bounds());
-            g_automap_buttons[button]->m_dirty = false;
+            g_automap_buttons[button]->DrawAndInvalidate(GetFrameBufferSurface(), true);
         }
     }
     ResetTransientRenderScenes();
@@ -1018,12 +1012,8 @@ void SetAutomapButtonMode(int update)
         g_automap_buttons[0]->SetEnabled(false);
         g_automap_buttons[1]->SetEnabled(true);
     }
-    g_automap_buttons[0]->Draw(GetFrameBufferSurface());
-    InvalidateRegion(g_automap_buttons[0]->Bounds());
-    g_automap_buttons[0]->m_dirty = false;
-    g_automap_buttons[1]->Draw(GetFrameBufferSurface());
-    InvalidateRegion(g_automap_buttons[1]->Bounds());
-    g_automap_buttons[1]->m_dirty = false;
+    g_automap_buttons[0]->DrawAndInvalidate(GetFrameBufferSurface(), true);
+    g_automap_buttons[1]->DrawAndInvalidate(GetFrameBufferSurface(), true);
     g_automap_zoom_mode = update;
 }
 
@@ -1338,11 +1328,7 @@ void RenderAutomapFrame(void)
     }
     for (int button = 0; button < 16; ++button) {
         if (g_automap_buttons[button] != 0) {
-            if (g_automap_buttons[button]->m_dirty) {
-                g_automap_buttons[button]->Draw(GetFrameBufferSurface());
-                InvalidateRegion(g_automap_buttons[button]->Bounds());
-                g_automap_buttons[button]->m_dirty = false;
-            }
+            g_automap_buttons[button]->DrawAndInvalidate(GetFrameBufferSurface());
         }
     }
     RenderFrame();
@@ -1353,9 +1339,7 @@ void UpdateAutomapPageButtons(void)
     g_automap_buttons[5]->SetVisible(g_automap_page == 0);
     g_automap_buttons[6]->SetVisible(g_automap_page == 1);
     g_automap_buttons[7]->SetVisible(g_automap_page == 2);
-    g_automap_buttons[g_automap_page + 5]->Draw(GetFrameBufferSurface());
-    InvalidateRegion(g_automap_buttons[g_automap_page + 5]->Bounds());
-    g_automap_buttons[g_automap_page + 5]->m_dirty = false;
+    g_automap_buttons[g_automap_page + 5]->DrawAndInvalidate(GetFrameBufferSurface(), true);
 }
 
 /* Blit the saved automap surface back over a screen rect to erase whatever

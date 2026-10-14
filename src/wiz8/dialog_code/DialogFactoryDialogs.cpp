@@ -327,16 +327,8 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) return;
     W8DialogBase::Draw(target);
     m_text_button.m_dirty = m_second_text_button.m_dirty = true;
-    if (m_text_button.m_dirty) {
-        m_text_button.Draw(target);
-        InvalidateRegion(m_text_button.Bounds());
-        m_text_button.m_dirty = false;
-    }
-    if (m_second_text_button.m_dirty) {
-        m_second_text_button.Draw(target);
-        InvalidateRegion(m_second_text_button.Bounds());
-        m_second_text_button.m_dirty = false;
-    }
+    m_text_button.DrawAndInvalidate(target);
+    m_second_text_button.DrawAndInvalidate(target);
     int dx = m_text_button.Bounds().x - m_x;
     int dy = m_text_button.Bounds().y + m_text_button.Bounds().h + 4 - m_y;
     int width = m_text_button.Bounds().w;
@@ -360,11 +352,7 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
         }
     }
     m_area_button.Resize(width, height);
-    if (m_area_button.m_dirty) {
-        m_area_button.Draw(target);
-        InvalidateRegion(m_area_button.Bounds());
-        m_area_button.m_dirty = false;
-    }
+    m_area_button.DrawAndInvalidate(target);
     m_up_button.SetVisible(m_scrollable);
     m_down_button.SetVisible(m_scrollable);
     m_slider_button.SetVisible(m_scrollable);
@@ -386,30 +374,16 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
         SDL_FillSurfaceRect(&target, &fill, Get16BPPColor(m_fill_colour));
         m_third_text_button.SetPosition(m_x + dx + width, m_y + dy);
         m_third_text_button.Resize(m_up_button.Bounds().w + 7, height);
-        if (m_third_text_button.m_dirty) {
-            m_third_text_button.Draw(target);
-            InvalidateRegion(m_third_text_button.Bounds());
-            m_third_text_button.m_dirty = false;
-        }
-        m_up_button.Draw(target);
-        InvalidateRegion(m_up_button.Bounds());
-        m_up_button.m_dirty = false;
-        m_down_button.Draw(target);
-        InvalidateRegion(m_down_button.Bounds());
-        m_down_button.m_dirty = false;
-        m_slider_button.Draw(target);
-        InvalidateRegion(m_slider_button.Bounds());
-        m_slider_button.m_dirty = false;
+        m_third_text_button.DrawAndInvalidate(target);
+        m_up_button.DrawAndInvalidate(target, true);
+        m_down_button.DrawAndInvalidate(target, true);
+        m_slider_button.DrawAndInvalidate(target, true);
     }
     if (m_ok_button.IsEnabled()) {
-        m_ok_button.Draw(target);
-        InvalidateRegion(m_ok_button.Bounds());
-        m_ok_button.m_dirty = false;
+        m_ok_button.DrawAndInvalidate(target, true);
     }
     if (m_cancel_button.IsEnabled()) {
-        m_cancel_button.Draw(target);
-        InvalidateRegion(m_cancel_button.Bounds());
-        m_cancel_button.m_dirty = false;
+        m_cancel_button.DrawAndInvalidate(target, true);
     }
     if (!m_scrollable)
         m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty =
@@ -650,11 +624,7 @@ void W8SplitAmountDialog::Draw(SDL_Surface& target)
     }
     for (index = 0; index < 6; ++index) {
         if (m_buttons[index] != 0) {
-            if (m_buttons[index]->m_dirty) {
-                m_buttons[index]->Draw(target);
-                InvalidateRegion(m_buttons[index]->Bounds());
-                m_buttons[index]->m_dirty = false;
-            }
+            m_buttons[index]->DrawAndInvalidate(target);
         }
     }
     for (index = 0; index < 3; ++index) {
@@ -1301,25 +1271,13 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         }
 
         m_buttons[12]->SetPosition(m_x + m_width - m_buttons[12]->Bounds().w - 9, m_y + 7);
-        if (m_buttons[12]->m_dirty) {
-            m_buttons[12]->Draw(target);
-            InvalidateRegion(m_buttons[12]->Bounds());
-            m_buttons[12]->m_dirty = false;
-        }
+        m_buttons[12]->DrawAndInvalidate(target);
         m_buttons[9]->SetPosition(m_buttons[12]->Bounds().x + 4, m_buttons[12]->Bounds().y + 3);
-        if (m_buttons[9]->m_dirty) {
-            m_buttons[9]->Draw(target);
-            InvalidateRegion(m_buttons[9]->Bounds());
-            m_buttons[9]->m_dirty = false;
-        }
+        m_buttons[9]->DrawAndInvalidate(target);
         m_buttons[10]->SetPosition(m_buttons[9]->Bounds().x, m_buttons[12]->Bounds().y +
                                                              m_buttons[12]->Bounds().h - 4 -
                                                              m_buttons[10]->Bounds().h);
-        if (m_buttons[10]->m_dirty) {
-            m_buttons[10]->Draw(target);
-            InvalidateRegion(m_buttons[10]->Bounds());
-            m_buttons[10]->m_dirty = false;
-        }
+        m_buttons[10]->DrawAndInvalidate(target);
 
         int progress = 0;
         if (m_first_item != 0) {
@@ -1333,11 +1291,7 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         m_buttons[11]->SetPosition(m_buttons[9]->Bounds().x,
                                    m_buttons[9]->Bounds().h + m_buttons[12]->Bounds().y +
                                        travel * progress / static_cast<int>(items.size()) + 1);
-        if (m_buttons[11]->m_dirty) {
-            m_buttons[11]->Draw(target);
-            InvalidateRegion(m_buttons[11]->Bounds());
-            m_buttons[11]->m_dirty = false;
-        }
+        m_buttons[11]->DrawAndInvalidate(target);
     } else {
         m_buttons[12]->SetVisible(false);
         m_buttons[9]->SetVisible(false);
@@ -1346,40 +1300,20 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
     }
 
     m_buttons[4]->SetPosition(m_x + 7, m_y + m_height - m_buttons[4]->Bounds().h - 5);
-    if (m_buttons[4]->m_dirty) {
-        m_buttons[4]->Draw(target);
-        InvalidateRegion(m_buttons[4]->Bounds());
-        m_buttons[4]->m_dirty = false;
-    }
+    m_buttons[4]->DrawAndInvalidate(target);
     m_buttons[3]->SetPosition(m_buttons[4]->Bounds().x - m_buttons[3]->Bounds().w +
                                   m_buttons[4]->Bounds().w - 1,
                               m_buttons[4]->Bounds().y);
-    if (m_buttons[3]->m_dirty) {
-        m_buttons[3]->Draw(target);
-        InvalidateRegion(m_buttons[3]->Bounds());
-        m_buttons[3]->m_dirty = false;
-    }
+    m_buttons[3]->DrawAndInvalidate(target);
     m_buttons[2]->SetPosition(m_buttons[3]->Bounds().x - m_buttons[2]->Bounds().w,
                               m_buttons[4]->Bounds().y);
-    if (m_buttons[2]->m_dirty) {
-        m_buttons[2]->Draw(target);
-        InvalidateRegion(m_buttons[2]->Bounds());
-        m_buttons[2]->m_dirty = false;
-    }
+    m_buttons[2]->DrawAndInvalidate(target);
     m_buttons[1]->SetPosition(m_buttons[2]->Bounds().x - m_buttons[1]->Bounds().w,
                               m_buttons[4]->Bounds().y);
-    if (m_buttons[1]->m_dirty) {
-        m_buttons[1]->Draw(target);
-        InvalidateRegion(m_buttons[1]->Bounds());
-        m_buttons[1]->m_dirty = false;
-    }
+    m_buttons[1]->DrawAndInvalidate(target);
     m_buttons[0]->SetPosition(m_buttons[1]->Bounds().x - m_buttons[0]->Bounds().w,
                               m_buttons[4]->Bounds().y);
-    if (m_buttons[0]->m_dirty) {
-        m_buttons[0]->Draw(target);
-        InvalidateRegion(m_buttons[0]->Bounds());
-        m_buttons[0]->m_dirty = false;
-    }
+    m_buttons[0]->DrawAndInvalidate(target);
     RefreshScrollButtons();
 
     for (int row = 0; row < visible_rows; ++row) {
@@ -1390,11 +1324,7 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         if (!button->m_dirty) {
             continue;
         }
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
         if (items.empty()) {
             continue;
         }

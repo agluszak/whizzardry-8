@@ -19,6 +19,7 @@ public:
     void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height,
                    int view_height);
     void UpdateThumb();
+    // Auxiliary draws always paint and preserve pending framebuffer updates.
     void Draw(SDL_Surface& target, bool force);
     void ScrollUp();
     void ScrollBy(int delta);

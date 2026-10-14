@@ -628,24 +628,12 @@ void RenderMessageBox(void)
             : message_box.font == &g_wiz_text_font ? g_wiz_text_font
             : g_wiz_text_font_secondary;
         shade_font.setShade(message_box.shade);
-        if (message_box.background.m_dirty) {
-            message_box.background.Draw(GetFrameBufferSurface());
-            InvalidateRegion(message_box.background.Bounds());
-            message_box.background.m_dirty = false;
-        }
+        message_box.background.DrawAndInvalidate(GetFrameBufferSurface());
         if (message_box.has_accept) {
-            if (message_box.accept.m_dirty) {
-                message_box.accept.Draw(GetFrameBufferSurface());
-                InvalidateRegion(message_box.accept.Bounds());
-                message_box.accept.m_dirty = false;
-            }
+            message_box.accept.DrawAndInvalidate(GetFrameBufferSurface());
         }
         if (message_box.has_cancel) {
-            if (message_box.cancel.m_dirty) {
-                message_box.cancel.Draw(GetFrameBufferSurface());
-                InvalidateRegion(message_box.cancel.Bounds());
-                message_box.cancel.m_dirty = false;
-            }
+            message_box.cancel.DrawAndInvalidate(GetFrameBufferSurface());
         }
     } else if (message_box.state == 3) {
         const bool accepted = message_box.accepted;

@@ -107,24 +107,20 @@ void W8DialogScrollBar::UpdateThumb()
 // FUNCTION: WIZ8 0x005e10b0
 void W8DialogScrollBar::Draw(SDL_Surface& target, bool force)
 {
-    if (m_initialized && m_visible &&
-        (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
-         m_track_button.m_dirty || m_thumb_button.m_dirty)) {
-        m_track_button.Draw(target);
-        InvalidateRegion(m_track_button.Bounds());
-        m_track_button.m_dirty = false;
-        m_up_button.Draw(target);
-        InvalidateRegion(m_up_button.Bounds());
-        m_up_button.m_dirty = false;
-        m_down_button.Draw(target);
-        InvalidateRegion(m_down_button.Bounds());
-        m_down_button.m_dirty = false;
-        m_thumb_button.Draw(target);
-        InvalidateRegion(m_thumb_button.Bounds());
-        m_thumb_button.m_dirty = false;
-        InvalidateRegion(m_track_button.Bounds().x, m_track_button.Bounds().y,
-                         m_track_button.Bounds().x + m_track_button.Bounds().w,
-                         m_track_button.Bounds().y + m_track_button.Bounds().h);
+    const bool framebuffer = &target == &GetFrameBufferSurface();
+    if (!m_initialized || !m_visible) {
+        return;
+    }
+    if (framebuffer && !force && !m_dirty && !m_up_button.m_dirty && !m_down_button.m_dirty &&
+        !m_track_button.m_dirty && !m_thumb_button.m_dirty) {
+        return;
+    }
+    // Recompose the entire track before the thumb so its old position is erased.
+    m_track_button.DrawAndInvalidate(target, true);
+    m_up_button.DrawAndInvalidate(target, true);
+    m_down_button.DrawAndInvalidate(target, true);
+    m_thumb_button.DrawAndInvalidate(target, true);
+    if (framebuffer) {
         m_dirty = false;
     }
 }

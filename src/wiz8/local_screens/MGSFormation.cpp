@@ -286,9 +286,7 @@ void RefreshFormationPanel(bool force)
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
     for (auto& button : formation->actions) {
-        button->Draw(target);
-        InvalidateRegion(button->Bounds());
-        button->m_dirty = false;
+        button->DrawAndInvalidate(target, true);
     }
     formation->dirty = false;
 }

@@ -525,22 +525,10 @@ void W8PartySelectionController::DrawOptions(SDL_Surface& target)
         }
     }
     for (auto& button : difficulty_buttons) {
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
-    if (npc_toggle->m_dirty) {
-        npc_toggle->Draw(target);
-        InvalidateRegion(npc_toggle->Bounds());
-        npc_toggle->m_dirty = false;
-    }
-    if (ironman_toggle->m_dirty) {
-        ironman_toggle->Draw(target);
-        InvalidateRegion(ironman_toggle->Bounds());
-        ironman_toggle->m_dirty = false;
-    }
+    npc_toggle->DrawAndInvalidate(target);
+    ironman_toggle->DrawAndInvalidate(target);
 }
 
 bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
@@ -1065,19 +1053,11 @@ void W8PartySelectionController::DrawPartySelectionComposition()
     DrawCharacters(target);
     DrawSlots(target);
     for (auto& button : advance) {
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
     DrawImportList(target);
     for (auto& button : actions) {
-        if (button->m_dirty) {
-            button->Draw(target);
-            InvalidateRegion(button->Bounds());
-            button->m_dirty = false;
-        }
+        button->DrawAndInvalidate(target);
     }
     title.RenderToTarget(0, false, target);
     if (m_dialog) m_dialog->Draw(target);

@@ -113,11 +113,7 @@ void W8SpellInfoDialog::Draw(SDL_Surface& target)
     }
     m_text_area.Draw(target, false);
     m_scroll_bar.Draw(target, false);
-    if (m_button.m_dirty) {
-        m_button.Draw(target);
-        InvalidateRegion(m_button.Bounds());
-        m_button.m_dirty = false;
-    }
+    m_button.DrawAndInvalidate(target);
     steps = static_cast<int>(m_timer.GetProgress());
     if (steps > 0) {
         realm = g_spell_records[m_spell].realm;
