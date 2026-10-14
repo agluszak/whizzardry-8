@@ -6,11 +6,11 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_code/npc_story_events.h"
-#include "wiz8/npc_speech.h"
 
 // GLOBAL: WIZ8 0x0068C430
-W8NpcScriptingState g_npc_scripting;
+W8NpcDialogue g_npc_dialogue;
 
 /* NPC interaction availability and its party-slot eligibility query. Live
    query: 0x00524A10 is a gap between Local Code\Conditions & Enchantments.cpp
@@ -45,7 +45,7 @@ bool IsPartySlotEligible(int slot)
 void ClearNpcMessageQueue(void)
 {
 
-    StopNpcVoice(g_npc_scripting.speech);
-    g_npc_scripting = {};
+    ResetNpcPresentation();
+    g_npc_dialogue.Reset();
     ResetSedexusScene();
 }

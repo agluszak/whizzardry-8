@@ -277,16 +277,16 @@ static bool answerAletheides(Trigger* pTrigger, const char* active_var, int reli
     if (GetLocationVarValueByName(active_var) != 0) {
         return false;
     }
-    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
-    QueueNpcAction(W8NpcPortraitString{0x71e});
+    g_npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
+    g_npc_dialogue.Queue(W8NpcPortraitString{0x71e});
     if (!FindItemOnParty(relic_item, 0, 0, 2, 0)) {
-        QueueNpcAction(W8NpcPortraitString{0x71f});
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x71f});
     } else {
         SetTriggerVariableByName(active_var, 1);
-        QueueNpcAction(W8NpcPortraitString{0x720});
-        QueueNpcAction(spawn);
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x720});
+        g_npc_dialogue.Queue(spawn);
     }
-    QueueNpcAction(W8NpcCommand::clear_target_state);
+    g_npc_dialogue.Queue(W8NpcCommand::clear_target_state);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     return true;
 }

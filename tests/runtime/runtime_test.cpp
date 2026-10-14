@@ -106,6 +106,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -1435,8 +1436,8 @@ void LoadGameScenario(const fs::path& fixture)
 bool DialogueAwaitingPlayer()
 {
     return gXStatus.fNpcDialogueMode && !IsNpcScriptSessionActive() &&
-           IsMessageBoxLineQueueEmpty() && g_npc_scripting.reply == W8NpcReplyState::none &&
-           g_modal_owner == nullptr;
+           !g_npc_dialogue.has_queued_actions() &&
+           g_npc_dialogue.reply() == W8NpcReplyState::none && g_modal_owner == nullptr;
 }
 
 /* A voiced line ends only when its stream drains, which the offscreen run
@@ -1445,7 +1446,9 @@ void WaitDialogue(Game& game, const char* step, const std::function<bool()>& rea
 {
     game.wait(step, [&] {
         if (ready()) return true;
-        if (g_npc_scripting.speech.voice_playing && g_modal_owner == nullptr) game.key(SDLK_ESCAPE);
+        if (IsNpcVoicePlaying() && g_modal_owner == nullptr) {
+            game.key(SDLK_ESCAPE);
+        }
         return false;
     });
 }
@@ -1493,10 +1496,10 @@ void ChooseFirstReply(Game& game, const char* step)
 void BuyAnswer(Game& game, const char* step, W8FactId fact)
 {
     WaitDialogue(game, step, [] {
-        return g_modal_owner != nullptr && g_npc_scripting.price_check.has_value();
+        return g_modal_owner != nullptr && g_npc_dialogue.price_check().has_value();
     });
     const unsigned gold = g_status.party_gold;
-    const int price = g_npc_scripting.price_check->price;
+    const int price = g_npc_dialogue.price_check()->price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
@@ -1517,7 +1520,7 @@ void SayFarewell(Game& game, const char* step)
         return false;
     });
     WaitMainGame(game, step);
-    REQUIRE(IsMessageBoxLineQueueEmpty());
+    REQUIRE(!g_npc_dialogue.has_queued_actions());
 }
 
 /* A conversation with Burz, the merchant beside the starting area: the
