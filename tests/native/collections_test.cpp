@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -257,4 +258,38 @@ TEST_CASE("collections_test")
     REQUIRE(keyboardBindingReplacement());
     REQUIRE(journalSerialization());
     REQUIRE(visibilityRecordLifetime());
+}
+
+TEST_CASE("Engagement propagates to the original leader's direct allies", "[groups]")
+{
+    struct RestoreGroups {
+        std::vector<W8MonsterGroup*> saved = std::exchange(gXStatus.monster_groups, {});
+        ~RestoreGroups()
+        {
+            gXStatus.monster_groups = std::move(saved);
+        }
+    } restore;
+    W8MonsterGroup leader{}, first{}, second{}, unrelated{};
+    leader.group_id = 1;
+    first.group_id = 2;
+    second.group_id = 3;
+    unrelated.group_id = 4;
+    leader.allied_group_ids[0] = first.group_id;
+    leader.allied_group_ids[2] = second.group_id;
+    first.allied_group_ids[2] = unrelated.group_id;
+    gXStatus.monster_groups = {&leader, &first, &second, &unrelated};
+
+    SetMonsterGroupEngagementState(leader.group_id, true);
+    for (const auto* group : {&leader, &first, &second}) {
+        REQUIRE(group->engagement);
+        REQUIRE(group->engagement_ticks == 1);
+    }
+    REQUIRE_FALSE(unrelated.engagement);
+    SetMonsterGroupEngagementState(leader.group_id, true);
+    REQUIRE(second.engagement_ticks == 2);
+    SetMonsterGroupEngagementState(leader.group_id, false);
+    for (const auto* group : {&leader, &first, &second}) {
+        REQUIRE_FALSE(group->engagement);
+        REQUIRE(group->engagement_ticks == 0);
+    }
 }
