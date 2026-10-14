@@ -12,8 +12,7 @@ Checks: >-
   bugprone-undefined-memory-manipulation,
   bugprone-unused-raii,
   bugprone-use-after-move,
-  misc-uniqueptr-reset-release,
-  modernize-deprecated-headers
+  misc-uniqueptr-reset-release
 WarningsAsErrors: >-
   readability-redundant-smartptr-get,
   performance-noexcept-move-constructor,
@@ -27,8 +26,7 @@ WarningsAsErrors: >-
   bugprone-undefined-memory-manipulation,
   bugprone-unused-raii,
   bugprone-use-after-move,
-  misc-uniqueptr-reset-release,
-  modernize-deprecated-headers
+  misc-uniqueptr-reset-release
 HeaderFilterRegex: '(^|/)(include|src|tests)/'
 ExcludeHeaderFilterRegex: '(^|/)(build[^/]*|vendor)/'
 SystemHeaders: false
