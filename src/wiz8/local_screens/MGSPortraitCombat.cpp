@@ -92,7 +92,7 @@ static void SubMenuButtonOpenMenu1(W8ButtonWidget* button);
 static void SubMenuButtonToggleCombat(W8ButtonWidget* button);
 
 // FUNCTION: WIZ8 0x00594AF0
-unsigned char CreateSubMenuButtons(void)
+void CreateSubMenuButtons()
 {
     int index;
 
@@ -141,7 +141,6 @@ unsigned char CreateSubMenuButtons(void)
         g_main_game_state->hud_buttons.submenu[index].SetPosition(
             g_submenu_button_positions[index].x, g_submenu_button_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00594D20

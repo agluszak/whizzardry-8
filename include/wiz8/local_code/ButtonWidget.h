@@ -6,7 +6,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/ui_input.h"
 
-#include <memory>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <functional>
@@ -15,7 +14,6 @@
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
 
-class UiLayer;
 class W8ButtonWidget;
 
 /* Callbacks stored through Configure and dispatched with the button as the subject. */
@@ -41,6 +39,7 @@ struct ButtonSetup {
 class W8ButtonWidget {
 public:
     explicit W8ButtonWidget(UiLayer& layer);
+    // Owners destroy buttons through AfterUiDispatch, never inside a callback.
     ~W8ButtonWidget();
     W8ButtonWidget(const W8ButtonWidget&) = delete;
     W8ButtonWidget& operator=(const W8ButtonWidget&) = delete;
@@ -104,7 +103,7 @@ private:
     ButtonInteraction m_interaction;
     void ConfigureInput(ButtonSetup setup);
     ButtonSetup m_setup;
-    std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+    int m_handling_pointer = 0;
 
 public:
     ButtonPolicy& Policy()

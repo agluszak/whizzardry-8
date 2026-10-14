@@ -270,11 +270,11 @@ static void CreateSubMenuScrollButtons()
 
     g_main_game_state->hud_buttons.submenu_scroll[0].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1, 2, 2),
-        {.on_click = SubMenuScrollArrowUp, .tooltip = 0x4b});
+        {.on_click = [](auto*) { ScrollSubMenuCharacter(0); }, .tooltip = 0x4b});
 
     g_main_game_state->hud_buttons.submenu_scroll[1].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5, 6, 6),
-        {.on_click = SubMenuScrollArrowDown, .tooltip = 0x4c});
+        {.on_click = [](auto*) { ScrollSubMenuCharacter(1); }, .tooltip = 0x4c});
     for (i = 0; i < 2; ++i) {
         g_main_game_state->hud_buttons.submenu_scroll[i].SetPosition(
             g_scroll_button_positions[i].x, g_scroll_button_positions[i].y);
@@ -1026,18 +1026,6 @@ void RedrawSubMenuButtons(void)
     UpdateSubMenuScrollButtons();
 }
 
-// FUNCTION: WIZ8 0x00597550
-void SubMenuScrollArrowUp(W8ButtonWidget* button)
-{
-    ScrollSubMenuCharacter(0);
-}
-
-// FUNCTION: WIZ8 0x00597560
-void SubMenuScrollArrowDown(W8ButtonWidget* button)
-{
-    ScrollSubMenuCharacter(1);
-}
-
 /* The eligible-slot scan runs in two halves per direction: from the current
    slot to the edge, then wrapping from the far edge back to the current slot.
    The `slot != current` check inside the first half is unreachable for valid
@@ -1221,8 +1209,9 @@ bool BuildSubMenuPanel(short notification)
     submenu->input.add(
         submenu->bounds,
         [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
                 AfterUiDispatch(DestroySubMenuControls);
+            }
             return UiResult::Handled;
         },
         -1);

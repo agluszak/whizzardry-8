@@ -33,6 +33,10 @@ live layers and maintains hover, capture, modal scopes and the tooltip timer.
   also safe on its own: the target and its handler are retired and freed when the
   outermost dispatch ends. Button callbacks may destroy their button; the button
   touches no members afterwards.
+- Button callbacks can reconfigure controls, but owner destruction must be
+  requested through `AfterUiDispatch`. Buttons assert that they are not destroyed
+  while handling a pointer callback; there is no per-button liveness allocation or
+  shared liveness flag. Callback copies keep reconfiguration safe.
 - The dispatcher owns hover, press and release sounds. Buttons only silence them
   (`PushButtonSoundScheme(0, true)`) or play the repeat release, which has no
   dispatcher event.
@@ -82,6 +86,9 @@ layer, including the HUD banks and automap chrome; there is no per-button layer.
 `MainGameScreenState` owns its HUD button bank and input layer as value members.
 Suspension disables input while retaining that state; full game exit destroys the
 buttons and layer together. Entry and mode changes explicitly enable the HUD layer.
+The active submenu is also owned by this state, with its layer and rows destroyed
+as one panel. Available entries are local construction data; button count and panel
+bounds replace global row bookkeeping, and an optional deadline owns auto-close.
 
 Configuration uses existing image/appearance values plus a named `ButtonSetup`
 containing callbacks, interaction policy, tooltip, priority and menu artwork.
@@ -89,7 +96,8 @@ Successful `Configure` replaces the entire setup, including secondary, movement,
 double-click and hover callbacks, and resets visibility, enabled and pressed state.
 Failed image configuration leaves the previous setup and input target untouched.
 Callbacks capture the actual owner or action without a generic dialog-owner or
-numeric payload route.
+numeric payload route. The stored setup is the single source of interaction policy
+and artwork mode; runtime policy changes use `Policy()`.
 
 Buttons, text buffers, editors, scrollbars and dialog text controls paint into an
 explicit `SDL_Surface&`, including the complete dialog painting path. Scroll

@@ -1,3 +1,4 @@
+#include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include <SDL3/SDL_pixels.h>
@@ -1583,6 +1584,17 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
+    // Hover callbacks obey the same owner lifetime as click callbacks.
+    closing = std::make_unique<W8ButtonWidget>(layer);
+    REQUIRE(
+        closing->Configure(ButtonAppearance{}, {10, 10, 40, 20}, {.on_hover = [&](bool entered) {
+                               if (entered) {
+                                   AfterUiDispatch([&] { closing.reset(); });
+                               }
+                           }}));
+    UpdateUiPointer(80, 80);
+    UpdateUiPointer(15, 15);
+    REQUIRE_FALSE(closing);
 }
 
 TEST_CASE("Main-game screen state owns HUD input through suspension and teardown",
@@ -1609,9 +1621,13 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
         dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
         REQUIRE(clicks == 1);
-        dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
+        screen.submenu = std::make_unique<MainGameSubMenu>();
+        auto& panel = *screen.submenu;
+        panel.buttons.push_back(std::make_unique<W8ButtonWidget>(panel.input));
+        REQUIRE(panel.buttons.back()->Configure(ButtonAppearance{}, {200, 200, 20, 20}));
+        dispatch_mouse(InputEventType::LeftButtonDown, 205, 205, true);
         REQUIRE(g_ui.captured != nullptr);
-        // State destruction must remove the captured target and the HUD layer.
+        // State destruction must remove captured submenu rows as well as HUD input.
     }
     REQUIRE(g_ui.captured == nullptr);
     REQUIRE(g_ui.hover == nullptr);
@@ -1867,6 +1883,19 @@ TEST_CASE("assert-plain", "[.death]")
 {
     Assert(false);
     FAIL("Assert did not abort");
+}
+
+TEST_CASE("assert-button-self-destroy", "[.death]")
+{
+    ResetUiInput();
+    PushButtonSoundScheme(0, true);
+    UiLayer layer;
+    auto button = std::make_unique<W8ButtonWidget>(layer);
+    REQUIRE(button->Configure(ButtonAppearance{}, {10, 10, 20, 20},
+                              {.on_click = [&](auto*) { button.reset(); },
+                               .policy = {.activation = ButtonActivation::Press}}));
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    FAIL("A button callback destroyed its owner without deferring");
 }
 
 namespace {

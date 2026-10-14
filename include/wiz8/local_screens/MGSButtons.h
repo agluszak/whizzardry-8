@@ -95,11 +95,6 @@ void UpdateMainGameButtons(void);
    run a 500 ms countdown, then tear the panel and rows down. */
 void UpdateSubMenuAutoClose(void);
 
-/* The scroll-arrow callbacks are one-argument thunks over the shared handler:
-   up steps toward lower slots, down toward higher, both wrapping and skipping
-   ineligible slots. */
-void SubMenuScrollArrowUp(W8ButtonWidget* button);
-void SubMenuScrollArrowDown(W8ButtonWidget* button);
 /* Move selected_character to the next eligible party slot (0 steps toward
    slot 0, 1 toward slot 7), wrapping, and raise the portrait redraw masks. */
 void ScrollSubMenuCharacter(char direction);
