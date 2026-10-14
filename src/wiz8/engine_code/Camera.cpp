@@ -94,8 +94,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     SetEnvironmentLoadFlag(g_saved_environment_flag);
     if (g_status.current_level == 1) {
         if (_stricmp(path->name0, "Camera01") == 0) {
-            QueueNpcAction(W8NpcPortraitString{0x721});
-            QueueNpcAction(W8NpcStoryAction::path2_trigger);
+            g_npc_dialogue.Queue(W8NpcPortraitString{0x721});
+            g_npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
             return;
         }
         if (_stricmp(path->name0, "Camera02") == 0) {
