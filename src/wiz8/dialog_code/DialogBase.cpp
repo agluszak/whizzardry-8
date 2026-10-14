@@ -17,7 +17,7 @@ void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
     button.Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2),
-        [this](W8ButtonWidget*) { m_keep_open = false; }, UI_PRIORITY_HIGHEST);
+        {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }});
     button.SetPosition(m_x + left, m_y + top);
 }
 

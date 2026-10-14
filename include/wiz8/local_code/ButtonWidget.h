@@ -4,6 +4,7 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/ui_input.h"
 
 #include <memory>
 #include <SDL3/SDL_mouse.h>
@@ -19,6 +20,20 @@ class W8ButtonWidget;
 
 /* Callbacks stored through Configure and dispatched with the button as the subject. */
 using W8ButtonCallback = std::function<void(W8ButtonWidget*)>;
+
+// A complete configuration. Reconfiguration replaces every callback (including
+// hover), policy, tooltip and artwork mode; failed image loads leave it unchanged.
+struct ButtonSetup {
+    W8ButtonCallback on_click = {};
+    W8ButtonCallback on_right_click = {};
+    W8ButtonCallback on_move = {};
+    W8ButtonCallback on_double_click = {};
+    std::function<void(bool)> on_hover = {};
+    ButtonPolicy policy{};
+    int tooltip = W8_DIALOG_BUTTON_NO_TOOLTIP;
+    int priority = UI_PRIORITY_HIGHEST;
+    bool menu_artwork = false;
+};
 
 /* Ordinary sprite or generic-frame button. Its layer owns input registration;
    this control owns behavior and appearance without a visual parent tree. */
@@ -67,13 +82,11 @@ public:
     void SetImage(ButtonImage image);
     void SetCircularHitArea(SDL_Point center, int radius);
     void SetTooltip(std::function<std::string()> text);
-    std::function<void(bool)> on_hover;
     /* Installs the tooltip string on the input target (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
-    bool Configure(ButtonImage image, W8ButtonCallback action = {}, int priority = 127);
-    bool Configure(ButtonAppearance appearance, SDL_Rect bounds, W8ButtonCallback action = {},
-                   int priority = 127);
+    bool Configure(ButtonImage image, ButtonSetup setup = {});
+    bool Configure(ButtonAppearance appearance, SDL_Rect bounds, ButtonSetup setup = {});
 
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the input target. */
@@ -90,14 +103,10 @@ private:
     ButtonAppearance m_appearance;
     ButtonInteraction m_interaction;
     void ConfigureInput(int priority);
-    int m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP; /* g_localized_strings index, or -1 */
-    W8ButtonCallback m_left_callback;
+    ButtonSetup m_setup;
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
 public:
     ButtonPolicy policy;
     bool menu_artwork = false;
-    W8ButtonCallback on_right_click;
-    W8ButtonCallback on_move;
-    W8ButtonCallback on_double_click;
 };

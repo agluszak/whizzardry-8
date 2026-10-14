@@ -178,48 +178,50 @@ bool W8SplitItemDialog::CreateButtons()
     } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 10;
     }
-    m_buttons[0].on_right_click = [this](W8ButtonWidget*) { OnSplitDecrementMany(); };
+
     m_buttons[0].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb),
-        [this](W8ButtonWidget*) { OnSplitDecrement(); }, UI_PRIORITY_HIGHEST);
-    m_buttons[1].on_right_click = [this](W8ButtonWidget*) { OnSplitIncrementMany(); };
+        {.on_click = [this](W8ButtonWidget*) { OnSplitDecrement(); },
+         .on_right_click = [this](W8ButtonWidget*) { OnSplitDecrementMany(); },
+         .policy = {.repeat = true}});
+
     m_buttons[1].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6),
-        [this](W8ButtonWidget*) { OnSplitIncrement(); }, UI_PRIORITY_HIGHEST);
+        {.on_click = [this](W8ButtonWidget*) { OnSplitIncrement(); },
+         .on_right_click = [this](W8ButtonWidget*) { OnSplitIncrementMany(); },
+         .policy = {.repeat = true}});
     m_buttons[2].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                 BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                 BUTTON_NO_IMAGE),
-                           {}, UI_PRIORITY_LOWEST);
+                           {.priority = UI_PRIORITY_LOWEST});
     m_buttons[3].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
                              BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
-        [this](W8ButtonWidget* button) { OnCountFieldClick(button); }, UI_PRIORITY_HIGHEST);
+        {.on_click = [this](W8ButtonWidget* button) { OnCountFieldClick(button); }});
     m_buttons[4].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                 BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                 BUTTON_NO_IMAGE),
-                           {}, UI_PRIORITY_LOWEST);
+                           {.priority = UI_PRIORITY_LOWEST});
     m_buttons[5].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                 BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                 BUTTON_NO_IMAGE),
-                           {}, UI_PRIORITY_LOWEST);
+                           {.priority = UI_PRIORITY_LOWEST});
     m_buttons[6].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2),
-        [this](W8ButtonWidget*) { OnAccept(); }, UI_PRIORITY_HIGHEST);
+        {.on_click = [this](W8ButtonWidget*) { OnAccept(); }});
     m_buttons[7].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7),
-        [this](W8ButtonWidget*) { OnCancel(); }, UI_PRIORITY_HIGHEST);
+        {.on_click = [this](W8ButtonWidget*) { OnCancel(); }});
     if (m_mode == W8_ITEM_SPLIT_SELL || m_mode == W8_ITEM_SPLIT_BUY) {
         m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                     BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                     BUTTON_NO_IMAGE),
-                               {}, UI_PRIORITY_LOWEST);
+                               {.priority = UI_PRIORITY_LOWEST});
         m_buttons[9].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                     BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                     BUTTON_NO_IMAGE),
-                               {}, UI_PRIORITY_LOWEST);
+                               {.priority = UI_PRIORITY_LOWEST});
     }
-    m_buttons[0].policy.repeat = true;
-    m_buttons[1].policy.repeat = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index].SetPosition(g_split_button_offsets[index].x + m_x,
                                      g_split_button_offsets[index].y + m_y);

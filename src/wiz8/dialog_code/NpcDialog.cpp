@@ -109,10 +109,10 @@ int W8NpcDialog::CreateControls()
                                  .sShadowColor = 5},
                 {static_cast<short>(m_bounds.x + x), static_cast<short>(m_bounds.y + 0x23),
                  m_text_width, 0x14},
-                [this, index](W8ButtonWidget*) {
+                {.on_click = [this, index](W8ButtonWidget*) {
                     m_selected_option = index;
                     AfterUiDispatch([this] { m_keep_open = false; });
-                });
+                }});
             x += m_text_width + 10;
         }
         bounds.left = m_bounds.x + 10;
@@ -133,10 +133,10 @@ int W8NpcDialog::CreateControls()
                                                  .sShadowColor = 5},
                                 {static_cast<short>(m_bounds.x + x),
                                  static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14},
-                                [this](W8ButtonWidget*) {
+                                {.on_click = [this](W8ButtonWidget*) {
                                     m_selected_option = 0;
                                     AfterUiDispatch([this] { m_keep_open = false; });
-                                });
+                                }});
         m_buttons[1] = std::make_unique<W8ButtonWidget>(m_input);
         m_buttons[1]->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
                                                  .string = std::string(g_localized_strings[0x7e0]),
@@ -145,10 +145,10 @@ int W8NpcDialog::CreateControls()
                                                  .sShadowColor = 5},
                                 {static_cast<short>(m_bounds.x + x + m_text_width + 10),
                                  static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14},
-                                [this](W8ButtonWidget*) {
+                                {.on_click = [this](W8ButtonWidget*) {
                                     m_selected_option = 1;
                                     AfterUiDispatch([this] { m_keep_open = false; });
-                                });
+                                }});
         line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_scripting.price_check->price);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 10;

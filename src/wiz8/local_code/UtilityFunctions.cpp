@@ -541,7 +541,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
                              .sForeColor = 0xff,
                              .sShadowColor = 0},
             {(0x280 - width) / 2, y, width, height},
-            [](W8ButtonWidget*) { SetMessageBoxResult(true); }, UI_PRIORITY_BACKGROUND)) {
+            {.on_click = [](W8ButtonWidget*) { SetMessageBoxResult(true); },
+             .priority = UI_PRIORITY_BACKGROUND})) {
         return fail_creation();
     }
     message_box.background.SetMultiColor(true);
@@ -551,7 +552,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_accept) {
         if (!message_box.accept.Configure(
                 ButtonGraphics::Load("Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4),
-                [](W8ButtonWidget*) { SetMessageBoxResult(true); }, UI_PRIORITY_HIGHEST - 1)) {
+                {.on_click = [](W8ButtonWidget*) { SetMessageBoxResult(true); },
+                 .priority = UI_PRIORITY_HIGHEST - 1})) {
             return fail_creation();
         }
         message_box.accept.SetPosition(0x131 - (has_cancel ? 0x1e : 0), y + 0x46);
@@ -559,7 +561,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_cancel) {
         if (!message_box.cancel.Configure(
                 ButtonGraphics::Load("Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4),
-                [](W8ButtonWidget*) { SetMessageBoxResult(false); }, UI_PRIORITY_HIGHEST - 1)) {
+                {.on_click = [](W8ButtonWidget*) { SetMessageBoxResult(false); },
+                 .priority = UI_PRIORITY_HIGHEST - 1})) {
             return fail_creation();
         }
         message_box.cancel.SetPosition(0x131 + (has_accept ? 0x1e : 0), y + 0x46);

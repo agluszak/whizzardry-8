@@ -311,18 +311,19 @@ JournalScreen::JournalScreen()
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
         const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
-        button->Configure(
-            ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]),
-                                 frame(frames[2]), frame(frames[1]), frame(frames[3])),
-            [this, action](W8ButtonWidget*) {
-                AfterUiDispatch([this, action] { Activate(action); });
-            },
-            0);
+        button->Configure(ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]),
+                                               frame(frames[0]), frame(frames[2]), frame(frames[1]),
+                                               frame(frames[3])),
+                          {.on_click =
+                               [this, action](W8ButtonWidget*) {
+                                   AfterUiDispatch([this, action] { Activate(action); });
+                               },
+                           .policy = {.primary_toggle = toggle,
+                                      .input_rule = ButtonInputRule::PrimaryPressedState},
+                           .priority = 0,
+                           .menu_artwork = true});
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
-        button->policy = {.primary_toggle = toggle,
-                          .input_rule = ButtonInputRule::PrimaryPressedState};
-        button->menu_artwork = true;
     };
     add(Previous, 0xf4, {0x69, 0x1be}, {0, 2, 1, -1, 3});
     add(Next, 0xf4, {0x185, 0x1be}, {4, 6, 5, -1, 7});

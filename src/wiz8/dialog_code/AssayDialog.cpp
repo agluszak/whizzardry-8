@@ -633,28 +633,30 @@ bool W8AssayDialog::PopulateRequirements()
     int tooltip_index;
 
     m_buttons[0].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1), {},
-        UI_PRIORITY_LOWEST);
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1),
+        {.priority = UI_PRIORITY_LOWEST});
     m_buttons[1].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2), {},
-        UI_PRIORITY_LOWEST);
-    m_buttons[2].policy.primary_toggle = ButtonToggle::Press;
-    m_buttons[2].SetTooltipIndex(0x115);
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2),
+        {.priority = UI_PRIORITY_LOWEST});
+
     m_buttons[2].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2),
-        [this](W8ButtonWidget*) { ShowPrimaryTab(); }, UI_PRIORITY_HIGHEST);
-    m_buttons[3].policy.primary_toggle = ButtonToggle::Press;
-    m_buttons[3].SetTooltipIndex(0x116);
+        {.on_click = [this](W8ButtonWidget*) { ShowPrimaryTab(); },
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x115});
+
     m_buttons[3].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7),
-        [this](W8ButtonWidget*) { ShowSecondaryTab(); }, UI_PRIORITY_HIGHEST);
+        {.on_click = [this](W8ButtonWidget*) { ShowSecondaryTab(); },
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x116});
     m_buttons[4].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3), {},
-        UI_PRIORITY_LOWEST);
-    m_buttons[5].SetTooltipIndex(0x12);
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3),
+        {.priority = UI_PRIORITY_LOWEST});
+
     m_buttons[5].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2),
-        [this](W8ButtonWidget*) { m_keep_open = false; }, UI_PRIORITY_HIGHEST);
+        {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x12});
     const auto configure_icons = [this](int first, std::string_view image,
                                         std::span<const int> help) {
         for (std::size_t icon = 0; icon < help.size(); ++icon) {
@@ -662,8 +664,7 @@ bool W8AssayDialog::PopulateRequirements()
             const int frame = static_cast<int>(icon) * 2;
             button.Configure(ButtonGraphics::Load(image, frame + 1, frame, BUTTON_NO_IMAGE, frame,
                                                   BUTTON_NO_IMAGE),
-                             {}, UI_PRIORITY_HIGHEST);
-            button.SetTooltipIndex(help[icon]);
+                             {.tooltip = help[icon]});
         }
     };
     constexpr int professions_help[]{0x2ad, 0x2a7, 0x2b0, 0x2ac, 0x2a6, 0x2a4, 0x2aa, 0x2b1,
@@ -724,11 +725,11 @@ bool W8AssayDialog::PopulateRequirements()
             tooltip_index = 0x284;
             break;
         }
-        m_buttons[button_index].SetTooltipIndex(tooltip_index);
+
         m_buttons[button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti",
                                                                frame + 1, frame, BUTTON_NO_IMAGE,
                                                                frame, BUTTON_NO_IMAGE),
-                                          {}, UI_PRIORITY_HIGHEST);
+                                          {.tooltip = tooltip_index});
         m_buttons[button_index].SetVisible(false);
     }
 

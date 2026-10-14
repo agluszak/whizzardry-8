@@ -279,14 +279,13 @@ unsigned char CreateSubMenuScrollButtons(void)
 {
     int i;
 
-    g_hud_buttons.submenu_scroll[0].SetTooltipIndex(0x4b);
     g_hud_buttons.submenu_scroll[0].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1, 2, 2),
-        SubMenuScrollArrowUp, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.submenu_scroll[1].SetTooltipIndex(0x4c);
+        {.on_click = SubMenuScrollArrowUp, .tooltip = 0x4b});
+
     g_hud_buttons.submenu_scroll[1].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5, 6, 6),
-        SubMenuScrollArrowDown, UI_PRIORITY_HIGHEST);
+        {.on_click = SubMenuScrollArrowDown, .tooltip = 0x4c});
     for (i = 0; i < 2; ++i) {
         g_hud_buttons.submenu_scroll[i].SetPosition(g_scroll_button_positions[i].x,
                                                     g_scroll_button_positions[i].y);
@@ -315,15 +314,15 @@ unsigned char CreateSubMenuPanelButtons(void)
 {
     int index;
 
-    g_hud_buttons.submenu_panel[0].SetTooltipIndex(0x4d);
     g_hud_buttons.submenu_panel[0].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22),
-        SubMenuPanelCloseButton, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.submenu_panel[1].policy.primary_toggle = ButtonToggle::Press;
-    g_hud_buttons.submenu_panel[1].SetTooltipIndex(0x4e);
+        {.on_click = SubMenuPanelCloseButton, .tooltip = 0x4d});
+
     g_hud_buttons.submenu_panel[1].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27),
-        SubMenuPanelFormationButton, UI_PRIORITY_HIGHEST);
+        {.on_click = SubMenuPanelFormationButton,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x4e});
     for (index = 0; index < 2; ++index) {
         g_hud_buttons.submenu_panel[index].SetPosition(g_submenu_panel_button_positions[index].x,
                                                        g_submenu_panel_button_positions[index].y);
@@ -343,9 +342,9 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 // FUNCTION: WIZ8 0x00597A30
 unsigned char CreateOptionsDiskButton(void)
 {
-    g_hud_buttons.options_disk.SetTooltipIndex(0x41);
+
     g_hud_buttons.options_disk.Configure(ButtonGraphics::Load(g_options_disk_path, 3, 0, 1, 2, 2),
-                                         MainGameOptionsDiskButton, UI_PRIORITY_HIGHEST);
+                                         {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
     g_hud_buttons.options_disk.SetPosition(g_options_disk_position.x, g_options_disk_position.y);
     return 1;
 }
@@ -451,30 +450,34 @@ unsigned char CreateCombatStanceButtons(void)
 {
     int index;
 
-    g_hud_buttons.combat_stance[0].on_right_click = MainGameCombatStanceSecondary;
-    g_hud_buttons.combat_stance[0].SetTooltipIndex(0x4f);
     g_hud_buttons.combat_stance[0].Configure(
-        ButtonGraphics::Load(g_attack_confirm_path, 3, 0, 1, 2, 2), MainGameCombatConfirmButton,
-        UI_PRIORITY_HIGHEST);
-    g_hud_buttons.combat_stance[1].on_right_click = MainGameCombatStanceSecondary;
-    g_hud_buttons.combat_stance[1].SetTooltipIndex(0x50);
+        ButtonGraphics::Load(g_attack_confirm_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x4f});
+
     g_hud_buttons.combat_stance[1].Configure(
-        ButtonGraphics::Load(g_combat_stop_path, 3, 0, 1, 2, 2), MainGameCombatConfirmButton,
-        UI_PRIORITY_HIGHEST);
-    g_hud_buttons.combat_stance[2].on_right_click = MainGameCombatStanceSecondary;
-    g_hud_buttons.combat_stance[2].SetTooltipIndex(0x4f);
+        ButtonGraphics::Load(g_combat_stop_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x50});
+
     g_hud_buttons.combat_stance[2].Configure(ButtonGraphics::Load(g_cont_start_path, 3, 0, 1, 2, 2),
-                                             MainGameCombatConfirmButton, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.combat_stance[3].on_right_click = MainGameCombatStanceSecondary;
-    g_hud_buttons.combat_stance[3].SetTooltipIndex(0x51);
+                                             {.on_click = MainGameCombatConfirmButton,
+                                              .on_right_click = MainGameCombatStanceSecondary,
+                                              .tooltip = 0x4f});
+
     g_hud_buttons.combat_stance[3].Configure(
-        ButtonGraphics::Load(g_cont_toggle_path, 3, 0, 1, 2, 2), MainGameCombatConfirmButton,
-        UI_PRIORITY_HIGHEST);
-    g_hud_buttons.combat_stance[4].on_right_click = MainGameCombatStanceSecondary;
-    g_hud_buttons.combat_stance[4].SetTooltipIndex(0x50);
+        ButtonGraphics::Load(g_cont_toggle_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x51});
+
     g_hud_buttons.combat_stance[4].Configure(
-        ButtonGraphics::Load(g_cont_pending_path, 3, 0, 1, 2, 2), MainGameCombatConfirmButton,
-        UI_PRIORITY_HIGHEST);
+        ButtonGraphics::Load(g_cont_pending_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x50});
     for (index = 0; index < 5; ++index) {
         g_hud_buttons.combat_stance[index].SetPosition(g_combat_stance_positions[index].x,
                                                        g_combat_stance_positions[index].y);
@@ -508,18 +511,20 @@ unsigned char CreateRoofButtons(void)
 {
     int index;
 
-    g_hud_buttons.roof[0].policy.primary_toggle = ButtonToggle::Press;
-    g_hud_buttons.roof[0].SetTooltipIndex(0x38);
     g_hud_buttons.roof[0].Configure(ButtonGraphics::Load(g_roof_buttons_path, 9, 0, 6, 3, 6),
-                                    MainGameRoofButton0, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.roof[1].policy.primary_toggle = ButtonToggle::Press;
-    g_hud_buttons.roof[1].SetTooltipIndex(0x39);
+                                    {.on_click = MainGameRoofButton0,
+                                     .policy = {.primary_toggle = ButtonToggle::Press},
+                                     .tooltip = 0x38});
+
     g_hud_buttons.roof[1].Configure(ButtonGraphics::Load(g_roof_buttons_path, 10, 1, 7, 4, 7),
-                                    MainGameRoofButton1, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.roof[2].policy.primary_toggle = ButtonToggle::Press;
-    g_hud_buttons.roof[2].SetTooltipIndex(0x3a);
+                                    {.on_click = MainGameRoofButton1,
+                                     .policy = {.primary_toggle = ButtonToggle::Press},
+                                     .tooltip = 0x39});
+
     g_hud_buttons.roof[2].Configure(ButtonGraphics::Load(g_roof_buttons_path, 0xb, 2, 8, 5, 8),
-                                    MainGameRoofButton2, UI_PRIORITY_HIGHEST);
+                                    {.on_click = MainGameRoofButton2,
+                                     .policy = {.primary_toggle = ButtonToggle::Press},
+                                     .tooltip = 0x3a});
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         g_hud_buttons.roof[0].SetPressed(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
@@ -760,30 +765,29 @@ unsigned char CreateLayoutArrowButtons(void)
 {
     int index;
 
-    g_hud_buttons.layout_arrows[0].SetTooltipIndex(0x3e);
     g_hud_buttons.layout_arrows[0].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2),
-        MainGameLayoutRadarButton, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.layout_arrows[1].SetTooltipIndex(0x3f);
+        {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
+
     g_hud_buttons.layout_arrows[1].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10),
-        MainGameLayoutActionPanelButton, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.layout_arrows[2].SetTooltipIndex(0x40);
+        {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
+
     g_hud_buttons.layout_arrows[2].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12),
-        MainGameLayoutFormationButton, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.layout_arrows[3].SetTooltipIndex(0x3b);
+        {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
+
     g_hud_buttons.layout_arrows[3].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5),
-        MainGameLayoutRadarButton, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.layout_arrows[4].SetTooltipIndex(0x3c);
+        {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
+
     g_hud_buttons.layout_arrows[4].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd),
-        MainGameLayoutActionPanelButton, UI_PRIORITY_HIGHEST);
-    g_hud_buttons.layout_arrows[5].SetTooltipIndex(0x3d);
+        {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
+
     g_hud_buttons.layout_arrows[5].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15),
-        MainGameLayoutFormationButton, UI_PRIORITY_HIGHEST);
+        {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
     for (index = 0; index < 6; ++index) {
         g_hud_buttons.layout_arrows[index].SetPosition(g_layout_arrow_positions[index].x,
                                                        g_layout_arrow_positions[index].y);
@@ -1351,18 +1355,25 @@ unsigned char BuildSubMenuPanel(short notification)
             break;
         }
         auto button = std::make_unique<W8ButtonWidget>(submenu->input);
-        button->on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); };
-        button->SetTooltipIndex(g_submenu_entry_help_ids[menu * 5 + entry]);
+
         button->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, message,
                                  message + icon_delta, message, message + icon_delta),
-            [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); }, 0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
+            {.on_click = [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); },
+             .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
+             .on_hover =
+                 [menu, entry](bool hovered) {
+                     if (menu == W8_SUBMENU_ITEMS && entry == 2 && hovered) {
+                         SetUiHelpForced(true);
+                     }
+                 },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = g_submenu_entry_help_ids[menu * 5 + entry],
+             .priority = 0,
+             .menu_artwork = true});
         button->SetPosition(left + index * 19 + 5, 0x1c8);
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
-            button->on_hover = [](bool hovered) { if (hovered) SetUiHelpForced(true); };
             button->SetTooltip([] {
                 const int slot = g_status.selected_character;
                 if (!CanPartySlotUseRecordedItem(slot)) return std::string(g_localized_strings[0x5d]);
@@ -1374,14 +1385,15 @@ unsigned char BuildSubMenuPanel(short notification)
         submenu->buttons.push_back(std::move(button));
     }
     auto cancel = std::make_unique<W8ButtonWidget>(submenu->input);
-    cancel->on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); };
-    cancel->SetTooltipIndex(0x11);
-    cancel->Configure(
-        ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd,
-                             0xbf),
-        [](auto*) { AfterUiDispatch(DestroySubMenuControls); }, 0);
-    cancel->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-    cancel->menu_artwork = true;
+
+    cancel->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd,
+                                           0xbf, 0xbd, 0xbf),
+                      {.on_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
+                       .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
+                       .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                       .tooltip = 0x11,
+                       .priority = 0,
+                       .menu_artwork = true});
     cancel->SetPosition(left + built * 19 - 14, 0x1c8);
     cancel->Resize(18, 18);
     submenu->buttons.push_back(std::move(cancel));

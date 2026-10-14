@@ -468,10 +468,11 @@ void CreateAutomapButtons(void)
         const auto action = g_automap_button_callbacks[index];
         W8ButtonCallback callback;
         if (action) callback = [action](W8ButtonWidget*) { action(); };
-        button->SetTooltipIndex(g_automap_button_tooltips[index]);
-        if (button->Configure(ButtonGraphics::Load(std::move(sprites), base_frame + 3, base_frame,
-                                                   base_frame + 1, base_frame + 2, base_frame + 2),
-                              callback, UI_PRIORITY_HIGHEST)) {
+
+        if (button->Configure(
+                ButtonGraphics::Load(std::move(sprites), base_frame + 3, base_frame, base_frame + 1,
+                                     base_frame + 2, base_frame + 2),
+                {.on_click = callback, .tooltip = g_automap_button_tooltips[index]})) {
             button->SetPosition(g_automap_button_positions[index].x,
                                 g_automap_button_positions[index].y);
         }

@@ -992,14 +992,16 @@ void CreateCampItemControls()
     const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds,
                            int help, bool toggle, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(layer);
-        result->SetTooltipIndex(help);
+
         result->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), f[0], f[1], f[2], f[3],
                                  f[4]),
-            [action](auto*) { AfterUiDispatch(action); }, 0);
-        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        result->menu_artwork = true;
-        result->policy.primary_toggle = toggle ? ButtonToggle::Release : ButtonToggle::None;
+            {.on_click = [action](auto*) { AfterUiDispatch(action); },
+             .policy = {.primary_toggle = toggle ? ButtonToggle::Release : ButtonToggle::None,
+                        .input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = help,
+             .priority = 0,
+             .menu_artwork = true});
         result->SetPosition(bounds.x, bounds.y);
         result->Resize(bounds.w, bounds.h);
         return result;

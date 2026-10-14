@@ -608,8 +608,8 @@ void generic_button_images()
         UiLayer layer;
         W8ButtonWidget button(layer);
         REQUIRE(button.Configure(
-            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE), {},
-            UI_PRIORITY_NORMAL));
+            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+            {.priority = UI_PRIORITY_NORMAL}));
         button.SetPosition(2, 3);
         const auto previous_upload = TakeUiUpload();
         InvalidateRegion(4, 4, 5, 5);
@@ -684,12 +684,12 @@ void generic_button_images()
     {
         auto dialog = std::make_unique<W8ButtonWidget>(layer);
         REQUIRE(dialog->Configure(
-            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE), {},
-            UI_PRIORITY_NORMAL));
+            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+            {.priority = UI_PRIORITY_NORMAL}));
         dialog->SetPosition(12, 13);
         REQUIRE(!dialog->Configure(
-            ButtonGraphics::Load("missing.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE), {},
-            UI_PRIORITY_NORMAL));
+            ButtonGraphics::Load("missing.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+            {.priority = UI_PRIORITY_NORMAL}));
         REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
         REQUIRE(UiTargetAt({12, 13}) != nullptr);
         REQUIRE(LiveUiTargetCount() == widget_count + 1);
@@ -700,8 +700,8 @@ void generic_button_images()
     auto closing_dialog = std::make_unique<W8ButtonWidget>(layer);
     REQUIRE(closing_dialog->Configure(
         ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4),
-        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); },
-        UI_PRIORITY_NORMAL));
+        {.on_click = [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); },
+         .priority = UI_PRIORITY_NORMAL}));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
     {
@@ -1482,7 +1482,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
                                                   .sForeColor = 0,
                                                   .sShadowColor = 0},
                                  {10, 10, 40, 20},
-                                 [&](W8ButtonWidget* control) { ++activations; }));
+                                 {.on_click = [&](W8ButtonWidget* control) { ++activations; }}));
         button.SetTooltipIndex(0);
         button.SetTooltipEnabled(true);
         REQUIRE(UiTargetAt({15, 15}) != nullptr);
@@ -1535,11 +1535,41 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE(activations == 5);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 5);
+        // Reconfiguration replaces the entire behavior, including callbacks
+        // that the old button used for secondary actions and hover.
+        int stale_callbacks = 0;
+        const auto stale = [&](W8ButtonWidget*) { ++stale_callbacks; };
+        REQUIRE(button.Configure(ButtonAppearance{}, {10, 10, 40, 20},
+                                 {.on_click = stale,
+                                  .on_right_click = stale,
+                                  .on_move = stale,
+                                  .on_double_click = stale,
+                                  .on_hover = [&](bool) { ++stale_callbacks; },
+                                  .policy = {.activation = ButtonActivation::Press},
+                                  .tooltip = 0,
+                                  .menu_artwork = true}));
+        REQUIRE_FALSE(button.Configure(ButtonImage{}));
+        dispatch_mouse(InputEventType::RightButtonDown, 15, 15, false, true);
+        dispatch_mouse(InputEventType::RightButtonUp, 15, 15);
+        REQUIRE(stale_callbacks > 0); // Failed loads keep the previous setup.
+        REQUIRE(button.Configure(ButtonAppearance{}, {10, 10, 40, 20},
+                                 {.on_click = [&](W8ButtonWidget*) { ++activations; }}));
+        const int stale_count = stale_callbacks;
+        dispatch_mouse(InputEventType::MouseMove, 80, 80);
+        dispatch_mouse(InputEventType::MouseMove, 15, 15);
+        dispatch_mouse(InputEventType::RightButtonDown, 15, 15, false, true);
+        dispatch_mouse(InputEventType::RightButtonUp, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 2);
+        REQUIRE(activations == 5); // Default activation is on release again.
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE(activations == 6);
+        REQUIRE(stale_callbacks == stale_count);
+        REQUIRE_FALSE(button.menu_artwork);
         button.Reset();
         REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.Bounds().w == 0));
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
-        REQUIRE(activations == 5);
+        REQUIRE(activations == 6);
     }
 
     auto closing = std::make_unique<W8ButtonWidget>(layer);
@@ -1548,8 +1578,9 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
                                         .usFont = &(font),
                                         .sForeColor = 0,
                                         .sShadowColor = 0},
-                       {10, 10, 40, 20},
-                       [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); });
+                       {10, 10, 40, 20}, {.on_click = [&](W8ButtonWidget*) {
+                           AfterUiDispatch([&] { closing.reset(); });
+                       }});
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
@@ -1667,7 +1698,10 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(picker.CreateControls() == 0);
         for (int row = 0; row < 4; ++row) {
             auto& button = *picker.m_buttons[5 + row];
-            button.on_right_click(&button);
+            button.SetPosition(20, 20);
+            dispatch_mouse(InputEventType::RightButtonDown, 20, 20, false, true);
+            dispatch_mouse(InputEventType::RightButtonUp, 20, 20);
+            button.SetVisible(false);
             REQUIRE_FALSE(g_modal_owner);
         }
     }

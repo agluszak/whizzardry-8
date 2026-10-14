@@ -67,13 +67,17 @@ unsigned char CreatePartyMovementPanel(void)
     for (int index = 0; index < 2; ++index) {
         auto& button = movement->buttons[index];
         button = std::make_unique<W8ButtonWidget>(movement->input);
-        button->SetTooltipIndex(37 + index);
-        button->Configure(
-            ButtonGraphics::Load(art.spriteSheet(), 7, 4, 5, 6, 6),
-            [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); },
-            0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
+
+        button->Configure(ButtonGraphics::Load(art.spriteSheet(), 7, 4, 5, 6, 6),
+                          {.on_click =
+                               [index](auto*) {
+                                   AfterUiDispatch(index ? CancelPartyMovement
+                                                         : BeginFreeTurnPhase);
+                               },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = 37 + index,
+                           .priority = 0,
+                           .menu_artwork = true});
         button->SetPosition(0x1bb, 0x13f);
         button->Resize(20, 20);
         button->SetVisible(index == 1);

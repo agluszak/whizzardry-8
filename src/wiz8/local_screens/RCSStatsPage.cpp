@@ -111,15 +111,18 @@ W8CampStatsControls::W8CampStatsControls()
         const int frame = index * 5;
         auto& button = m_buttons[index];
         button = std::make_unique<W8ButtonWidget>(input);
-        button->SetTooltipIndex(0x954 + index);
+
         button->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3, frame,
                                  frame + 2, index == 2 ? 15 : frame + 1,
                                  index == 2 ? 17 : frame + 4),
-            [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); }, 0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
-        button->policy.primary_toggle = ButtonToggle::Release;
+            {.on_click =
+                 [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); },
+             .policy = {.primary_toggle = ButtonToggle::Release,
+                        .input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = 0x954 + index,
+             .priority = 0,
+             .menu_artwork = true});
         button->SetPosition(0x13c, y[index]);
     }
     m_buttons[2]->SetPressed(g_camp_screen->effect_items_only);
@@ -846,14 +849,17 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         const int frame = action == 4 ? 20 : action % 2 ? 15 : 10;
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(input);
-        button->SetTooltipIndex(action == 4 ? 0xf5 : -1);
-        button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
-                                 frame + 1, frame + 2, frame + 4),
-            [this, action](auto*) { AfterUiDispatch([this, action] { ChangePortrait(action); }); },
-            0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
+
+        button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(),
+                                               frame + 3, frame, frame + 1, frame + 2, frame + 4),
+                          {.on_click =
+                               [this, action](auto*) {
+                                   AfterUiDispatch([this, action] { ChangePortrait(action); });
+                               },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = action == 4 ? 0xf5 : -1,
+                           .priority = 0,
+                           .menu_artwork = true});
         button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);
     }
     character->voice = std::clamp(int(character->voice), 0, 1);

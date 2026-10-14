@@ -136,9 +136,9 @@ void W8ButtonWidget::SetTooltipEnabled(bool enabled)
 {
     if (!m_target) return;
     const bool show_tooltip =
-        enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
+        enabled && m_setup.tooltip != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
     if (show_tooltip)
-        m_target->setTooltip([index = m_tooltip_index] { return g_localized_strings[index]; });
+        m_target->setTooltip([index = m_setup.tooltip] { return g_localized_strings[index]; });
     else
         m_target->setTooltip({});
 }
@@ -146,7 +146,7 @@ void W8ButtonWidget::SetTooltipEnabled(bool enabled)
 // FUNCTION: WIZ8 0x005dbac0
 void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
 {
-    m_tooltip_index = tooltip_index;
+    m_setup.tooltip = tooltip_index;
     SetTooltipEnabled(true);
 }
 
@@ -167,9 +167,8 @@ void W8ButtonWidget::Reset()
     SetBounds({});
     m_enabled = true;
     m_interaction = {};
-    m_left_callback = on_right_click = on_move = on_double_click = nullptr;
+    m_setup = {};
     policy = {};
-    m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP;
     menu_artwork = false;
     m_dirty = true;
 }
@@ -186,7 +185,7 @@ void W8ButtonWidget::ConfigureInput(int priority)
     SetTooltipEnabled(true);
 }
 
-bool W8ButtonWidget::Configure(ButtonImage image, W8ButtonCallback action, int priority)
+bool W8ButtonWidget::Configure(ButtonImage image, ButtonSetup setup)
 {
     if (!image) {
         return false;
@@ -195,26 +194,30 @@ bool W8ButtonWidget::Configure(ButtonImage image, W8ButtonCallback action, int p
                           static_cast<int>(image->MaxHeight)};
     m_appearance = ButtonAppearance{.quick_image = std::move(image)};
     SetBounds(bounds);
-    m_left_callback = std::move(action);
-    ConfigureInput(priority);
+    policy = setup.policy;
+    menu_artwork = setup.menu_artwork;
+    m_setup = std::move(setup);
+    ConfigureInput(m_setup.priority);
     return true;
 }
 
-bool W8ButtonWidget::Configure(ButtonAppearance appearance, SDL_Rect bounds,
-                               W8ButtonCallback action, int priority)
+bool W8ButtonWidget::Configure(ButtonAppearance appearance, SDL_Rect bounds, ButtonSetup setup)
 {
     m_appearance = std::move(appearance);
     bounds.w = std::max(bounds.w, 4);
     bounds.h = std::max(bounds.h, 3);
     SetBounds(bounds);
-    m_left_callback = std::move(action);
-    ConfigureInput(priority);
+    policy = setup.policy;
+    menu_artwork = setup.menu_artwork;
+    m_setup = std::move(setup);
+    ConfigureInput(m_setup.priority);
     return true;
 }
 
 UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
 {
-    if (!m_left_callback && !on_right_click && !on_move && !on_double_click) {
+    if (!m_setup.on_click && !m_setup.on_right_click && !m_setup.on_move &&
+        !m_setup.on_double_click && !m_setup.on_hover) {
         return UiResult::Handled;
     }
     // Callbacks may destroy this button. Members are not touched afterwards.
@@ -233,16 +236,19 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
             PushButtonSoundScheme(0, true);
         }
         m_dirty = true;
-        if (on_hover) on_hover(false);
+        if (const auto hover = m_setup.on_hover) {
+            hover(false);
+        }
         return UiResult::Handled;
     }
-    if (event.action == UiPointerAction::Enter && on_hover) {
-        on_hover(true);
+    if (const auto hover = m_setup.on_hover; event.action == UiPointerAction::Enter && hover) {
+        hover(true);
         if (!*alive) return UiResult::Handled;
     }
     if (!m_enabled) return UiResult::Handled;
     const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-    const auto callback = event.button == UiPointerButton::Right ? on_right_click : m_left_callback;
+    const auto callback =
+        event.button == UiPointerButton::Right ? m_setup.on_right_click : m_setup.on_click;
     ButtonResponse response;
     const bool was_pressed = m_interaction.pressed;
     switch (event.action) {
@@ -250,7 +256,7 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         m_dirty = true;
         return UiResult::Handled;
     case UiPointerAction::Move:
-        if (const auto move = on_move) {
+        if (const auto move = m_setup.on_move) {
             move(this);
         }
         return UiResult::Handled;
@@ -280,7 +286,7 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     const bool double_click = event.action == UiPointerAction::Down &&
         event.button == UiPointerButton::Left && event.clicks >= 2 &&
         (policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
-    const auto double_click_callback = double_click ? on_double_click : W8ButtonCallback{};
+    const auto double_click_callback = double_click ? m_setup.on_double_click : W8ButtonCallback{};
     // Only repeats are silent in the dispatcher.
     if (response.activate && event.action == UiPointerAction::Repeat) PlayButtonSound(3);
     if (response.activate && callback) callback(this);

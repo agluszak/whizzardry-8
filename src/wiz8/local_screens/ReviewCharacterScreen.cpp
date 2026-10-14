@@ -816,14 +816,16 @@ W8CampCharacterInfo::W8CampCharacterInfo()
 {
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
-        result->SetTooltipIndex(help);
+
         result->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3, frame,
                                  frame + 2, frame + 1, frame + 4),
-            [this, combat](auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
-            0);
-        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        result->menu_artwork = true;
+            {.on_click = [this, combat](
+                             auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = help,
+             .priority = 0,
+             .menu_artwork = true});
         result->SetPosition(0x13e, 0x8b);
         return result;
     };

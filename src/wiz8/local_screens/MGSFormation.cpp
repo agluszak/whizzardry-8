@@ -251,14 +251,16 @@ static void CreateFormationPanel()
         const int frame = artwork.imageOffset() + (action == 1 ? 4 : 0);
         auto& button = formation->actions[action];
         button = std::make_unique<W8ButtonWidget>(formation->input);
-        button->SetTooltipIndex(1981 + action);
+
         button->Configure(
             ButtonGraphics::Load(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2),
-            [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); }, 0);
+            {.on_click = [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = 1981 + action,
+             .priority = 0,
+             .menu_artwork = true});
         button->SetPosition(bounds[action].x, bounds[action].y);
         button->Resize(bounds[action].w, bounds[action].h);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
     }
     formation->input.add(SDL_Rect{214, 60, 214, 244}, HandleFormationBackground);
 }

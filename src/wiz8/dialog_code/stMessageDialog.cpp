@@ -180,15 +180,15 @@ int W8MessageDialogBase::CreateControls()
                                                 .usFont = &(*g_dialog_interface_font),
                                                 .sForeColor = g_dialog_font_foreground,
                                                 .sShadowColor = g_dialog_font_background},
-                               {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12}, nullptr,
-                               UI_PRIORITY_HIGHEST - 1);
+                               {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12},
+                               {.priority = UI_PRIORITY_HIGHEST - 1});
 
     if (m_confirm_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { Confirm(); }, UI_PRIORITY_HIGHEST) &&
+            {.on_click = [this](W8ButtonWidget*) { Confirm(); }}) &&
         m_cancel_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6),
-            [this](W8ButtonWidget*) { Cancel(); }, UI_PRIORITY_HIGHEST)) {
+            {.on_click = [this](W8ButtonWidget*) { Cancel(); }})) {
         const int button_width = m_confirm_button.Bounds().w;
         const int button_y = m_y + m_height - m_confirm_button.Bounds().h - 0xf;
         const int button_x = m_x + (m_width - button_width * (allow_cancel ? 3 : 1)) / 2;

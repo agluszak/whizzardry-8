@@ -21,21 +21,25 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
     if (m_initialized) return true;
     const bool configured =
         // FUNCTION: WIZ8 0x005e1280
-        m_up_button.Configure(
-            ButtonGraphics::Load(resources->arrows_path, 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { ScrollUp(); }, UI_PRIORITY_HIGHEST - 1) &&
+        m_up_button.Configure(ButtonGraphics::Load(resources->arrows_path, 3, 0, 1, 2, 2),
+                              {.on_click = [this](W8ButtonWidget*) { ScrollUp(); },
+                               .policy = {.activation = ButtonActivation::Press, .repeat = true},
+                               .priority = UI_PRIORITY_HIGHEST - 1}) &&
         // FUNCTION: WIZ8 0x005e1320
-        m_down_button.Configure(
-            ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10),
-            [this](W8ButtonWidget*) { ScrollDown(); }, UI_PRIORITY_HIGHEST - 1) &&
+        m_down_button.Configure(ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10),
+                                {.on_click = [this](W8ButtonWidget*) { ScrollDown(); },
+                                 .policy = {.activation = ButtonActivation::Press, .repeat = true},
+                                 .priority = UI_PRIORITY_HIGHEST - 1}) &&
         m_thumb_button.Configure(ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6),
-                                 nullptr, UI_PRIORITY_HIGHEST - 2) &&
+                                 {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         // FUNCTION: WIZ8 0x005e13d0
         m_track_button.Configure(
             ButtonGraphics::Load(resources->track_path, BUTTON_NO_IMAGE, resources->track_frame,
                                  BUTTON_NO_IMAGE, resources->track_frame, BUTTON_NO_IMAGE),
-            [this](W8ButtonWidget* button) { ScrollToMouse(button->GetMousePosition().y); },
-            UI_PRIORITY_HIGHEST - 2);
+            {.on_click =
+                 [this](W8ButtonWidget* button) { ScrollToMouse(button->GetMousePosition().y); },
+             .policy = {.activation = ButtonActivation::Press, .repeat = true},
+             .priority = UI_PRIORITY_HIGHEST - 2});
     if (!configured) {
         m_up_button.Reset();
         m_down_button.Reset();
@@ -43,9 +47,6 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         m_track_button.Reset();
         return false;
     }
-    m_up_button.policy.activation = m_down_button.policy.activation = m_track_button.policy.activation =
-        ButtonActivation::Press;
-    m_up_button.policy.repeat = m_down_button.policy.repeat = m_track_button.policy.repeat = true;
     m_on_scroll = resources->on_scroll;
     m_initialized = true;
     m_visible = false;

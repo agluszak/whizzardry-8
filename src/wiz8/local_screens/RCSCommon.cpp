@@ -384,13 +384,14 @@ void CreateCampHeaderButtons()
     header_buttons = std::make_unique<CampHeaderButtons>();
     const auto button = [](int art, SDL_Rect bounds, int pressed_hover, int help, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(header_buttons->input);
-        result->SetTooltipIndex(help);
-        result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), 3, 0, 1, 2,
-                                 pressed_hover),
-            [action](auto*) { AfterUiDispatch(action); }, 0);
-        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        result->menu_artwork = true;
+
+        result->Configure(ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), 3, 0, 1,
+                                               2, pressed_hover),
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = help,
+                           .priority = 0,
+                           .menu_artwork = true});
         result->SetPosition(bounds.x, bounds.y);
         result->Resize(bounds.w, bounds.h);
         result->SetVisible(false);
@@ -846,15 +847,17 @@ int CreateCampButtonPanel(void)
     const auto button = [](int artwork, int frame, int x, int help, bool page,
                            std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(camp_buttons->input);
-        result->SetTooltipIndex(help);
-        result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frame + 3, frame,
-                                 frame + 1, page ? frame + 4 : frame + 2,
-                                 page ? frame + 2 : frame + 4),
-            [action](auto*) { AfterUiDispatch(action); }, 0);
-        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        result->menu_artwork = true;
-        result->policy.primary_toggle = ButtonToggle::Release;
+
+        result->Configure(ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(),
+                                               frame + 3, frame, frame + 1,
+                                               page ? frame + 4 : frame + 2,
+                                               page ? frame + 2 : frame + 4),
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .policy = {.primary_toggle = ButtonToggle::Release,
+                                      .input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = help,
+                           .priority = 0,
+                           .menu_artwork = true});
         result->SetPosition(x, 0x1c2);
         result->Resize(44, 30);
         return result;

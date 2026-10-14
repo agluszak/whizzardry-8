@@ -105,17 +105,21 @@ void ShowSpellCastingError(int spell_id);
 // FUNCTION: WIZ8 0x0059E1F0
 static void CreateSpellCastingViewControls(void)
 {
-    const auto make_button = [](int artwork, const std::array<int, 5>& frames,
-                                SDL_Rect bounds, int help, std::function<void()> action) {
+    const auto make_button = [](int artwork, const std::array<int, 5>& frames, SDL_Rect bounds,
+                                int help, std::function<void()> action,
+                                std::function<void(bool)> on_hover = {}) {
         auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
-        button->SetTooltipIndex(help);
-        button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frames[0],
-                                 frames[1], frames[2], frames[3], frames[4]),
-            [action](auto*) { AfterUiDispatch(action); }, 0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
-        button->policy.primary_toggle = ButtonToggle::Release;
+
+        button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(),
+                                               frames[0], frames[1], frames[2], frames[3],
+                                               frames[4]),
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .on_hover = std::move(on_hover),
+                           .policy = {.primary_toggle = ButtonToggle::Release,
+                                      .input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = help,
+                           .priority = 0,
+                           .menu_artwork = true});
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
         return button;
@@ -127,9 +131,11 @@ static void CreateSpellCastingViewControls(void)
         const int frame = (realm % 2) * 4;
         const auto pos = realm_positions[realm];
         auto& button = gpSCSV->realm_buttons[realm];
-        button = make_button(0x191, {frame + 2, frame, frame + 1, frame + 3, frame + 3},
+        button = make_button(
+            0x191, {frame + 2, frame, frame + 1, frame + 3, frame + 3},
             {0x17 + pos.x, 0x166 + pos.y, 75, 22}, -1,
-            [realm] { SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm)); });
+            [realm] { SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm)); },
+            [](bool) { gpSCSV->dirty[0] = true; });
         const auto tooltip = [realm] {
             const auto& name = g_localized_strings[g_spell_realm_help_string_ids[realm]];
             if (!gpSCSV->realm_buttons[realm]->IsEnabled()) return std::string(name);
@@ -138,9 +144,6 @@ static void CreateSpellCastingViewControls(void)
                     .skills[W8_SKILL_FIRE_MAGIC + realm].level);
         };
         button->SetTooltip(tooltip);
-        button->on_hover = [tooltip](bool entered) {
-            gpSCSV->dirty[0] = true;
-        };
         auto& text = gpSCSV->realm_text[realm];
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
         text.SetLayoutBounds(0x17 + text_left[realm], 0x166 + pos.y,
@@ -157,18 +160,25 @@ static void CreateSpellCastingViewControls(void)
         if (pip == 8) { frames[3] = base; frames[4] = base + 1; }
         const int radius = 7 + std::min(pip, 7);
         auto& button = gpSCSV->power_controls[pip];
-        button = make_button(0x192, frames,
-            {0x1a4 + pip_positions[pip].x, 0x166 + pip_positions[pip].y,
-             radius * 2 + 1, radius * 2 + 1}, 46 + pip, [pip] {
-                if (pip == 7) SelectSpellPowerPip7();
-                else if (pip == 8) SelectSpellPowerPip8();
-                else {
+        button = make_button(
+            0x192, frames,
+            {0x1a4 + pip_positions[pip].x, 0x166 + pip_positions[pip].y, radius * 2 + 1,
+             radius * 2 + 1},
+            46 + pip,
+            [pip] {
+                if (pip == 7) {
+                    SelectSpellPowerPip7();
+                } else if (pip == 8) {
+                    SelectSpellPowerPip8();
+                } else {
                     SelectSpellPowerLevel(pip);
-                    if (!gpSCSV->power_controls[pip]->IsPressed()) PreviewSpellPowerPipHover(pip);
+                    if (!gpSCSV->power_controls[pip]->IsPressed()) {
+                        PreviewSpellPowerPipHover(pip);
+                    }
                 }
-            });
+            },
+            [pip](bool entered) { PreviewSpellPowerPipHover(entered ? pip : -1); });
         button->SetCircularHitArea({0x1a4 + pip_centers[pip].x, 0x166 + pip_centers[pip].y}, radius);
-        button->on_hover = [pip](bool entered) { PreviewSpellPowerPipHover(entered ? pip : -1); };
     }
     gpSCSV->spell_name.SetLayoutBounds(0x1b2, 0x170, 0x1d4, 0x17e);
     gpSCSV->spell_name.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);

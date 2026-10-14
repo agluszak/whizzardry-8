@@ -190,8 +190,8 @@ int W8ListBoxDialog::CreateControls()
                          .usFont = &(*g_dialog_interface_font),
                          .sForeColor = g_dialog_font_foreground,
                          .sShadowColor = g_dialog_font_background},
-        {m_x + 9, m_y + 9, m_width - 0x12, g_dialog_interface_font->height() * 0x96 / 100}, nullptr,
-        UI_PRIORITY_HIGHEST - 1);
+        {m_x + 9, m_y + 9, m_width - 0x12, g_dialog_interface_font->height() * 0x96 / 100},
+        {.priority = UI_PRIORITY_HIGHEST - 1});
     if (!m_text.empty()) {
         SetText(m_text);
     }
@@ -210,42 +210,41 @@ int W8ListBoxDialog::CreateControls()
                          .sShadowColor = g_dialog_font_background},
         {m_text_button.Bounds().x, m_text_button.Bounds().y + m_text_button.Bounds().h + 4,
          m_text_button.Bounds().w, 0x14},
-        [this](W8ButtonWidget* button) { TextAreaButtonCallback(button); },
-        UI_PRIORITY_HIGHEST - 1);
-    m_area_button.policy.activation = ButtonActivation::Press;
+        {.on_click = [this](W8ButtonWidget* button) { TextAreaButtonCallback(button); },
+         .policy = {.activation = ButtonActivation::Press},
+         .priority = UI_PRIORITY_HIGHEST - 1});
     const bool configured =
         m_up_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { SetCurrentLine(m_selected_line - 1); },
-            UI_PRIORITY_HIGHEST - 1) &&
+            {.on_click = [this](W8ButtonWidget*) { SetCurrentLine(m_selected_line - 1); },
+             .policy = {.activation = ButtonActivation::Press, .repeat = true},
+             .priority = UI_PRIORITY_HIGHEST - 1}) &&
         m_down_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { SetCurrentLine(m_selected_line + 1); },
-            UI_PRIORITY_HIGHEST - 1) &&
+            {.on_click = [this](W8ButtonWidget*) { SetCurrentLine(m_selected_line + 1); },
+             .policy = {.activation = ButtonActivation::Press, .repeat = true},
+             .priority = UI_PRIORITY_HIGHEST - 1}) &&
         m_slider_button.Configure(ButtonGraphics::Load("Data\\Dialogs\\DialogSlideBar.STI",
                                                        BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE, 0,
                                                        BUTTON_NO_IMAGE),
-                                  {}, UI_PRIORITY_HIGHEST - 2) &&
+                                  {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         m_ok_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) {
-                m_keep_open = false;
-                m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-            },
-            UI_PRIORITY_HIGHEST) &&
+            {.on_click =
+                 [this](W8ButtonWidget*) {
+                     m_keep_open = false;
+                     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+                 }}) &&
         m_cancel_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6),
-            [this](W8ButtonWidget*) {
+            {.on_click = [this](W8ButtonWidget*) {
                 m_keep_open = false;
                 SetCurrentLine(-1);
                 m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-            },
-            UI_PRIORITY_HIGHEST);
+            }});
     if (!configured) {
         DestroyControls();
     } else {
-        m_up_button.policy.activation = m_down_button.policy.activation = ButtonActivation::Press;
-        m_up_button.policy.repeat = m_down_button.policy.repeat = true;
         third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay) {
             m_third_text_button.Configure(
@@ -254,11 +253,11 @@ int W8ListBoxDialog::CreateControls()
                                  .usFont = &(*g_dialog_interface_font),
                                  .sForeColor = g_dialog_font_foreground,
                                  .sShadowColor = g_dialog_font_background},
-                {0, 0, 1, 1}, [this](W8ButtonWidget* button) { SliderTrackButtonCallback(button); },
-                UI_PRIORITY_HIGHEST - 2);
+                {0, 0, 1, 1},
+                {.on_click = [this](W8ButtonWidget* button) { SliderTrackButtonCallback(button); },
+                 .policy = {.activation = ButtonActivation::Press, .repeat = true},
+                 .priority = UI_PRIORITY_HIGHEST - 2});
             if (m_third_text_button.IsConfigured()) {
-                m_third_text_button.policy.activation = ButtonActivation::Press;
-                m_third_text_button.policy.repeat = true;
                 m_second_text_button.Configure(
                     ButtonAppearance{.generic_image = edge_inlay,
                                      .string = {},
@@ -267,7 +266,7 @@ int W8ListBoxDialog::CreateControls()
                                      .sShadowColor = g_dialog_font_background},
                     {m_x + 9, m_y + m_height - m_ok_button.Bounds().h * 0x96 / 100 - 9,
                      m_width - 0x12, m_ok_button.Bounds().h * 0x96 / 100},
-                    nullptr, UI_PRIORITY_HIGHEST - 1);
+                    {.priority = UI_PRIORITY_HIGHEST - 1});
                 m_cancel_button.SetPosition(
                     m_second_text_button.Bounds().x - m_cancel_button.Bounds().w +
                         m_second_text_button.Bounds().w,
@@ -521,42 +520,44 @@ bool W8SplitAmountDialog::CreateButtons()
     int index;
 
     for (auto& button : m_buttons) button = std::make_unique<W8ButtonWidget>(InputLayer());
-    m_buttons[0]->on_right_click = [this](W8ButtonWidget*) { DecreaseAmount(5); };
+
     if (!m_buttons[0]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb),
-            [this](W8ButtonWidget*) { DecreaseAmount(1); }, UI_PRIORITY_HIGHEST)) {
+            {.on_click = [this](W8ButtonWidget*) { DecreaseAmount(1); },
+             .on_right_click = [this](W8ButtonWidget*) { DecreaseAmount(5); },
+             .policy = {.repeat = true}})) {
         return false;
     }
-    m_buttons[1]->on_right_click = [this](W8ButtonWidget*) { IncreaseAmount(5); };
+
     if (!m_buttons[1]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6),
-            [this](W8ButtonWidget*) { IncreaseAmount(1); }, UI_PRIORITY_HIGHEST)) {
+            {.on_click = [this](W8ButtonWidget*) { IncreaseAmount(1); },
+             .on_right_click = [this](W8ButtonWidget*) { IncreaseAmount(5); },
+             .policy = {.repeat = true}})) {
         return false;
     }
     if (!m_buttons[2]->Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
                                                       BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
                                                       BUTTON_NO_IMAGE),
-                                 {}, UI_PRIORITY_LOWEST)) {
+                                 {.priority = UI_PRIORITY_LOWEST})) {
         return false;
     }
     if (!m_buttons[3]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
                                  BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE),
-            [this](W8ButtonWidget* button) { SplitActivateField(button); }, UI_PRIORITY_HIGHEST)) {
+            {.on_click = [this](W8ButtonWidget* button) { SplitActivateField(button); }})) {
         return false;
     }
     if (!m_buttons[4]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2),
-            [this](W8ButtonWidget*) { SplitAccept(); }, UI_PRIORITY_HIGHEST)) {
+            {.on_click = [this](W8ButtonWidget*) { SplitAccept(); }})) {
         return false;
     }
     if (!m_buttons[5]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7),
-            [this](W8ButtonWidget*) { SplitCancel(); }, UI_PRIORITY_HIGHEST)) {
+            {.on_click = [this](W8ButtonWidget*) { SplitCancel(); }})) {
         return false;
     }
-    m_buttons[0]->policy.repeat = true;
-    m_buttons[1]->policy.repeat = true;
     for (index = 0; index < 6; ++index) {
         m_buttons[index]->SetPosition(g_split_amount_button_offsets[index].x + m_x,
                                       g_split_amount_button_offsets[index].y + m_y);
@@ -803,70 +804,75 @@ bool W8TriggerItemPickerDialog::CreateButtons()
         button = std::make_unique<W8ButtonWidget>(InputLayer());
     }
     bool configured = true;
-    m_buttons[0]->SetTooltipIndex(0x15);
+
     configured =
         m_buttons[0]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\popup_chest_selectionbuttons.sti", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { ToggleAllItems(); }, UI_PRIORITY_HIGHEST) &&
+            {.on_click = [this](W8ButtonWidget*) { ToggleAllItems(); }, .tooltip = 0x15}) &&
         configured;
-    m_buttons[1]->SetTooltipIndex(0x13);
-    configured = m_buttons[1]->Configure(
-                     ButtonGraphics::Load("Data\\Dialogs\\chest_confirmationbuttons.sti", 0xd, 10,
-                                          0xb, 0xc, 0xc),
-                     [this](W8ButtonWidget*) { TransferSelectedItems(-1); }, UI_PRIORITY_HIGHEST) &&
-                 configured;
-    m_buttons[2]->SetTooltipIndex(0x14);
+
+    configured =
+        m_buttons[1]->Configure(ButtonGraphics::Load("Data\\Dialogs\\chest_confirmationbuttons.sti",
+                                                     0xd, 10, 0xb, 0xc, 0xc),
+                                {.on_click = [this](W8ButtonWidget*) { TransferSelectedItems(-1); },
+                                 .tooltip = 0x13}) &&
+        configured;
+
     configured =
         m_buttons[2]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\chest_confirmationbuttons.sti", 3, 0, 1, 2, 2),
-            [this](W8ButtonWidget*) { TransferSelectedItems(g_status.selected_character); },
-            UI_PRIORITY_HIGHEST) &&
+            {.on_click =
+                 [this](W8ButtonWidget*) { TransferSelectedItems(g_status.selected_character); },
+             .tooltip = 0x14}) &&
         configured;
-    m_buttons[3]->SetTooltipIndex(0x16);
+
     configured =
         m_buttons[3]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\chest_confirmationbuttons.sti", 8, 5, 6, 7, 7),
-            [this](W8ButtonWidget*) { m_keep_open = false; }, UI_PRIORITY_HIGHEST) &&
+            {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x16}) &&
         configured;
     configured = m_buttons[4]->Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti",
                                                               BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE,
                                                               BUTTON_NO_IMAGE, BUTTON_NO_IMAGE),
-                                         {}, UI_PRIORITY_LOWEST) &&
+                                         {.priority = UI_PRIORITY_LOWEST}) &&
                  configured;
     for (int row = 0; row < 4; ++row) {
         auto& button = *m_buttons[5 + row];
-        button.on_right_click = [this, row](W8ButtonWidget*) { ShowVisibleItemInfo(row); };
-        button.policy.primary_toggle = ButtonToggle::Press;
+
         configured =
             button.Configure(
                 ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1,
                                      BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
-                [this, row](W8ButtonWidget* control) { ToggleItem(m_first_item + row, control); },
-                UI_PRIORITY_HIGHEST - 1) &&
+                {.on_click =
+                     [this, row](W8ButtonWidget* control) {
+                         ToggleItem(m_first_item + row, control);
+                     },
+                 .on_right_click = [this, row](W8ButtonWidget*) { ShowVisibleItemInfo(row); },
+                 .policy = {.primary_toggle = ButtonToggle::Press,
+                            .secondary_toggle = ButtonToggle::Press},
+                 .priority = UI_PRIORITY_HIGHEST - 1}) &&
             configured;
     }
     configured = m_buttons[9]->Configure(
                      ButtonGraphics::Load("Data\\Dialogs\\maininterface_scroll.STI", 3, 0, 1, 2, 2),
-                     [this](W8ButtonWidget*) { ScrollItemsUp(); }, UI_PRIORITY_HIGHEST) &&
+                     {.on_click = [this](W8ButtonWidget*) { ScrollItemsUp(); }}) &&
                  configured;
     configured =
         m_buttons[10]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\maininterface_scroll.STI", 0xb, 8, 9, 10, 10),
-            [this](W8ButtonWidget*) { ScrollItemsDown(); }, UI_PRIORITY_HIGHEST) &&
+            {.on_click = [this](W8ButtonWidget*) { ScrollItemsDown(); }}) &&
         configured;
     configured = m_buttons[11]->Configure(
                      ButtonGraphics::Load("Data\\Dialogs\\maininterface_scroll.STI", 7, 4, 5, 6, 6),
-                     {}, UI_PRIORITY_LOWEST) &&
+                     {.priority = UI_PRIORITY_LOWEST}) &&
                  configured;
-    m_buttons[12]->on_move = [this](W8ButtonWidget* button) { ScrollItemsToMouse(button); };
-    configured = m_buttons[12]->Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti",
-                                                               BUTTON_NO_IMAGE, 3, 3, 3, 3),
-                                          {}, UI_PRIORITY_HIGHEST - 1) &&
-                 configured;
-    m_buttons[5]->policy.secondary_toggle = ButtonToggle::Press;
-    m_buttons[6]->policy.secondary_toggle = ButtonToggle::Press;
-    m_buttons[7]->policy.secondary_toggle = ButtonToggle::Press;
-    m_buttons[8]->policy.secondary_toggle = ButtonToggle::Press;
+
+    configured =
+        m_buttons[12]->Configure(
+            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3),
+            {.on_move = [this](W8ButtonWidget* button) { ScrollItemsToMouse(button); },
+             .priority = UI_PRIORITY_HIGHEST - 1}) &&
+        configured;
     if (!configured) {
         for (auto& button : m_buttons) {
             button.reset();

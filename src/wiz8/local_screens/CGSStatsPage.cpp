@@ -107,14 +107,16 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
 {
     const auto arrow = [this](int x, int frame, int help, int direction) {
         auto button = std::make_unique<W8ButtonWidget>(m_owner.input);
-        button->SetTooltipIndex(help);
+
         button->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
                                  frame + 1, frame + 2, frame + 4),
-            [this, direction](auto*) { AfterUiDispatch([this, direction] { Step(direction); }); },
-            0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
+            {.on_click = [this, direction](
+                             auto*) { AfterUiDispatch([this, direction] { Step(direction); }); },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = help,
+             .priority = 0,
+             .menu_artwork = true});
         button->SetPosition(x, m_y + 4);
         return button;
     };

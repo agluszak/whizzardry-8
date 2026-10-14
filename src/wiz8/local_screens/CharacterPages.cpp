@@ -82,14 +82,15 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
             UpdateButtons();
             MarkDirty();
         };
-        result->on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); };
+
         result->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
                                  frame + 1, frame + 2, frame + 4),
-            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); }, 0);
-        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        result->menu_artwork = true;
-        result->policy.repeat = true;
+            {.on_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); },
+             .on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); },
+             .policy = {.repeat = true, .input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = 0,
+             .menu_artwork = true});
         result->SetPosition(x, m_y + 1);
         result->SetVisible(false);
         return result;

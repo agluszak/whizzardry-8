@@ -800,14 +800,19 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     const int help[]{0x7cb, 0x7cd, 0x7cc, -1};
     for (int i = 0; i < 4; ++i) {
         auto& button = buttons[i] = std::make_unique<W8ButtonWidget>(input);
-        button->SetTooltipIndex(help[i]);
+
         button->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(i == 3 ? 0x8e : 0x1b0, 0).spriteSheet(),
                                  normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2,
                                  normal[i] + 2),
-            [this](auto* control) { AfterUiDispatch([this, control] { OnPrimary(control); }); }, 0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
+            {.on_click =
+                 [this](auto* control) {
+                     AfterUiDispatch([this, control] { OnPrimary(control); });
+                 },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = help[i],
+             .priority = 0,
+             .menu_artwork = true});
         button->SetPosition(positions[i].x, positions[i].y);
     }
     m_spell_button = buttons[0].get(); m_force_button = buttons[1].get();
@@ -1601,14 +1606,16 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     const int help[]{-1, 0x7ce, 0x7cf, 0x7cc, 0x7d0};
     for (int i = 0; i < 5; ++i) {
         auto& button = m_action_controls[i] = std::make_unique<W8ButtonWidget>(input);
-        button->SetTooltipIndex(help[i]);
+
         button->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
                                  normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2,
                                  normal[i] + 2),
-            [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); }, 0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
+            {.on_click = [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = help[i],
+             .priority = 0,
+             .menu_artwork = true});
         button->SetPosition(positions[i].x, positions[i].y);
     }
     for (int i = 0; i < 8; ++i) {

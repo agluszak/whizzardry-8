@@ -1134,19 +1134,21 @@ void CreateLevelButtons()
     portrait_buttons = std::make_unique<PortraitButtons>();
     for (int slot = 0; slot < 8; ++slot) {
         auto& button = portrait_buttons->buttons[slot] = std::make_unique<W8ButtonWidget>(portrait_buttons->input);
-        button->SetTooltipIndex(1984);
+
         button->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(0xa7, 0).spriteSheet(), 3, 0, 1, 2, 4),
-            [slot](auto*) {
-                AfterUiDispatch([slot] {
-                    g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
-                    g_pending_screen_state.mode = 2;
-                    SetPendingScreenState(W8_SCREEN_CHARACTER);
-                });
-            },
-            0);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
+            {.on_click =
+                 [slot](auto*) {
+                     AfterUiDispatch([slot] {
+                         g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
+                         g_pending_screen_state.mode = 2;
+                         SetPendingScreenState(W8_SCREEN_CHARACTER);
+                     });
+                 },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = 1984,
+             .priority = 0,
+             .menu_artwork = true});
         button->SetPosition(((slot & 1) ? 0x23b : 0) + 0x19, (slot / 2) * 0x55 + 0x46);
         button->Resize(0x12, 0x12);
         button->SetVisible(false);

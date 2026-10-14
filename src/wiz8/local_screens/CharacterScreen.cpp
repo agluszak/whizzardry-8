@@ -146,13 +146,14 @@ void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
-        result->SetTooltipIndex(help);
-        result->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3, frame,
-                                 frame + 1, frame + 2, frame + 2),
-            [action](auto*) { AfterUiDispatch(action); }, 0);
-        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        result->menu_artwork = true;
+
+        result->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(),
+                                               frame + 3, frame, frame + 1, frame + 2, frame + 2),
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = help,
+                           .priority = 0,
+                           .menu_artwork = true});
         result->SetPosition(x, 0x1c2);
         return result;
     };
