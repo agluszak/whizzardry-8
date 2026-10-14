@@ -32,7 +32,7 @@
 #include "soundman.h"
 #include "temporary_directory.h"
 #include "wiz8/audio_resources.h"
-#include "wiz8/character_event_queue.h"
+#include "wiz8/voice_line.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/slf.h"
 
@@ -667,6 +667,8 @@ TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before r
 TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred callback",
                  "[audio][ownership]")
 {
+    // Character events complete when their voice ends; a voice line destroyed
+    // with its completion still pending must not call back into the dead event.
     startOfflineAudio();
     auto callback_data = std::make_unique<unsigned>(0);
     auto sound = wiz8::sound::stream("tone.wav", {.on_finished = [data = callback_data.get()] {
@@ -686,29 +688,19 @@ TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred 
     REQUIRE(callbacks == 1);
 }
 
-TEST_CASE_METHOD(AudioFixture,
-                 "Character event destruction cancels its own deferred voice callback",
+TEST_CASE_METHOD(AudioFixture, "Destroying a voice line cancels its deferred completion",
                  "[audio][ownership]")
 {
     startOfflineAudio();
-    auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 0, 127);
+    auto line = std::make_unique<W8VoiceLine>();
     unsigned calls = 0;
-    bool completed = false;
-    event->voice_playback =
-        wiz8::sound::stream("tone.wav", {.on_finished = [&, entry = event.get()] {
-                                ++calls;
-                                completed = entry->sound_end_handled;
-                            }});
-    REQUIRE(event->voice_playback);
+    REQUIRE(line->Play("tone.wav", 127, [&] { ++calls; }));
     mix(8192);
-    REQUIRE_FALSE(wiz8::sound::is_playing(event->voice_playback));
-    REQUIRE(calls == 0);
-    event.reset();
-    REQUIRE(calls == 1);
-    REQUIRE(completed);
+    REQUIRE_FALSE(wiz8::sound::is_playing(line->playback()));
+    line.reset();
     wiz8::sound::service();
     wiz8::sound::release_cache();
-    REQUIRE(calls == 1);
+    REQUIRE(calls == 0);
 }
 
 TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until service or next play",
