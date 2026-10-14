@@ -62,11 +62,11 @@ static void ClearPotionExplosionSoundFlag()
     ClearScriptedSceneActive();
 }
 
-/* Camera-shake completion callback stored on W8CameraShakeEffect::completion_callback. */
+/* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
 // FUNCTION: WIZ8 0x005092d0
 static void ReplayEarthquakeShake(void)
 {
-    CreateCameraShakeEffect(3.0f, false, 1.0f, 0, 0);
+    CameraShakes().Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
     BeginEndgameSequence();
 }
 
@@ -80,7 +80,6 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     Trigger* trigger;
     stParticle* particle;
     W8MonsterInfo* monster_info;
-    W8CameraShakeEffect* shake;
     srVector3T<float> position;
     unsigned char fact_value;
     unsigned int added;
@@ -819,9 +818,12 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             monster_info->p3D->SetScript("MoveSavantBoffo.msf", true);
         }
         wiz8::sound::stream("Data\\Sound\\Misc\\Earthquake End.wav");
-        shake = CreateCameraShakeEffect(6.0f, false, 1.0f, 0, 0);
-        shake->flags.fade_in = true;
-        shake->completion_callback = ReplayEarthquakeShake;
+        {
+            ShakeDefinition shake(6.0f, false, 1.0f, 0, nullptr);
+            shake.fade_in = true;
+            shake.completion_callback = ReplayEarthquakeShake;
+            CameraShakes().Start(shake);
+        }
         return;
     default:
         return;

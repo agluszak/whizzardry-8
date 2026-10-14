@@ -3039,7 +3039,6 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
 // FUNCTION: WIZ8 0x0054ba00
 void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 {
-    W8CameraShakeEffect* shake;
     W8WorldCameraState* camera_state;
     W8World* world;
     srVector3T<float> point;
@@ -3387,11 +3386,14 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
     case W8_SPELL_EARTHQUAKE:
         point = effect->Source.point;
         level = effect->definition.duration_scale;
-        shake = CreateCameraShakeEffect(
-            level * g_navigator_vertical_phase_step + g_float_half, true,
-            level * g_navigator_snap_angle + g_camera_shake_intensity_base, 50000.0f, &point);
-        shake->flags.quadratic_falloff = false;
-        shake->flags.fade_out = false;
+        {
+            ShakeDefinition shake(level * g_navigator_vertical_phase_step + g_float_half, true,
+                                  level * g_navigator_snap_angle + g_camera_shake_intensity_base,
+                                  50000.0f, &point);
+            shake.quadratic_falloff = false;
+            shake.fade_out = false;
+            CameraShakes().Start(shake);
+        }
         sound_name = g_spell_records[spell_id].sound_name;
         if (sound_name[0] != 0) {
             path = fmt::format("Data\\Spells\\Sounds\\{}.wav", sound_name);

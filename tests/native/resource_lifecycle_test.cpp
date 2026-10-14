@@ -1,3 +1,6 @@
+#include "wiz8/layouts/world.h"
+#include <cstddef>
+#include "wiz8/engine_code/emitter_resources.h"
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
@@ -26,6 +29,12 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/emitter_cycles.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/World.h"
@@ -206,7 +215,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
     W8SpellVisual named, generic;
     named.mode = generic.mode = W8_SPELL_VISUAL_EXPLOSION;
     const int first_cycle = W8_SPELL_VISUAL_EXPLOSION * 7;
-    generic.host->emitters[first_cycle + 1] = new W8AnimObj;
+    generic.host->resources.cycles[first_cycle + 1].animation = std::make_unique<W8AnimObj>();
     RegisterGrCycle("Named", &named);
     RegisterGrCycle("Generic", &generic);
     const srVector3T<float> position{11, 22, 33};
@@ -227,7 +236,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
     REQUIRE(FindFirstGrCycleByName("Named") == &named);
 
     // A supported named cycle takes precedence over the fallback.
-    named.host->emitters[first_cycle + 2] = new W8AnimObj;
+    named.host->resources.cycles[first_cycle + 2].animation = std::make_unique<W8AnimObj>();
     std::unique_ptr<W8SpellVisual> visual(SpawnSpellEffect(&position, "Named", 4, 31, 47));
     REQUIRE(visual);
     REQUIRE(visual->host->pending_cycle == first_cycle + 2);
@@ -252,22 +261,24 @@ static void CheckEmitterCloneLifetime()
     auto source = std::make_unique<Host>();
     source->value_0ac = 11;
     source->value_0b0 = 22;
-    const int cycle = static_cast<int>(std::size(source->emitters)) - 1;
-    source->emitters[cycle] = new W8AnimObj;
-    source->emitters[cycle]->playback_scale = 3.5f;
-    source->emitter_playback_scales[cycle] = 7.25f;
-    source->light_lists[cycle].push_back(nullptr);
-    source->light_lists[cycle].push_back(new std::vector<stLight*>);
+    const int cycle = static_cast<int>(source->resources.cycles.size()) - 1;
+    source->resources.cycles[cycle].animation = std::make_unique<W8AnimObj>();
+    source->resources.cycles[cycle].animation->playback_scale = 3.5f;
+    auto* light = CreateWorldLight(nullptr, "EmitterClone");
+    light->setLocation(11, 22, 33);
+    light->m_position = {11, 22, 33};
+    source->resources.cycles[cycle].lights.lights.push_back(light);
     auto copy = std::make_unique<Host>(*source);
-    REQUIRE(copy->emitters[cycle] != source->emitters[cycle]);
-    REQUIRE(copy->light_lists[cycle][1] != source->light_lists[cycle][1]);
+    REQUIRE(copy->resources.cycles[cycle].animation != source->resources.cycles[cycle].animation);
+    REQUIRE(copy->resources.cycles[cycle].lights.lights.front() != light);
     source.reset();
-    REQUIRE(copy->emitters[cycle]->playback_scale == 3.5f);
-    REQUIRE(copy->emitter_playback_scales[cycle] == 7.25f);
+    REQUIRE(copy->resources.cycles[cycle].animation->playback_scale == 3.5f);
     REQUIRE(copy->value_0ac == 11);
     REQUIRE(copy->value_0b0 == 22);
-    REQUIRE(copy->light_lists[cycle][0] == nullptr);
-    REQUIRE(copy->light_lists[cycle][1]->empty());
+    REQUIRE(copy->resources.cycles[cycle].lights.lights.front()->positionalX() == 11);
+    REQUIRE(g_world->transient_lights.size() == 1);
+    copy.reset();
+    REQUIRE(g_world->transient_lights.empty());
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[resources][spell]")
@@ -294,4 +305,126 @@ TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and o
     REQUIRE(FindFirstGrCycleByName("mixedcase") == nullptr);
     REQUIRE(first.GetRegisteredName() == nullptr);
     REQUIRE(FindFirstGrCycleByName("anothername") == &other);
+}
+
+// Valid retail animation header and light; optionally truncate after the light
+// to exercise cleanup after resources have actually been acquired.
+static void WriteEmitterFixture(unsigned char cycle, bool truncate)
+{
+    auto file = wiz8::open_file("emitter.dat", wiz8::OpenMode::replace);
+    const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
+    file->write(header, sizeof(header));
+    const float speed = 15, chance = 1;
+    file->write(&speed, sizeof(speed));
+    const unsigned char frames[] = {0, 0, 0};
+    file->write(frames, sizeof(frames));
+    file->write(&chance, sizeof(chance));
+    const unsigned char reserved[50]{};
+    file->write(reserved, sizeof(reserved));
+    const unsigned char counts[] = {0, 1, 3}; // bounds, lights, light version
+    file->write(counts, sizeof(counts));
+    const float light[] = {0, 0, 0, 1, 1, 1, 1, 10}; // position, color, intensity, range
+    file->write(light, sizeof(light));
+    const unsigned char zero = 0;
+    file->write(&zero, 1); // No definition.
+    if (!truncate) {
+        file->write(&zero, 1); // No standalone path.
+        file->write(&zero, 1); // Reserved byte.
+    }
+}
+
+TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
+                 "[resources][spell]")
+{
+    W8SpellVisual visual;
+    auto& host = *visual.host;
+    host.current_cycle = 2;
+    host.resources.cycles[2].animation = std::make_unique<W8AnimObj>();
+    auto* original = host.resources.cycles[2].animation.get();
+    const auto original_timer = host.timer;
+    for (const auto [cycle, truncate] : {std::pair<unsigned char, bool>{2, true}, {255, false}}) {
+        WriteEmitterFixture(cycle, truncate);
+        auto file = wiz8::open_file("emitter.dat");
+        W8ReadLevelInfo info{};
+        info.hFile = file.get();
+        REQUIRE_FALSE(ReadEmitterCycle(host, host.resources.cycles, &info, visual, -1, false));
+        REQUIRE(host.current_cycle == 2);
+        REQUIRE(host.timer == original_timer);
+        REQUIRE(host.resources.cycles[2].animation.get() == original);
+        REQUIRE(visual.m_plsLights == nullptr);
+        REQUIRE(g_world->transient_lights.empty());
+        REQUIRE(g_world->lights_to_update.empty());
+    }
+    WriteEmitterFixture(2, false);
+    for (int i = 0; i < 2; ++i) {
+        auto file = wiz8::open_file("emitter.dat");
+        W8ReadLevelInfo info{};
+        info.hFile = file.get();
+        REQUIRE(ReadEmitterCycle(host, host.resources.cycles, &info, visual, -1, false));
+        REQUIRE(visual.m_plsLights == host.resources.cycles[2].lightView());
+        REQUIRE(visual.m_plsLights->size() == 1);
+    }
+}
+
+static ShakeSystem* callback_system;
+static const ShakeDefinition* callback_key;
+static int shake_callbacks;
+static void RestartShakeFromCompletion()
+{
+    ++shake_callbacks;
+    REQUIRE_FALSE(callback_system->IsActive(*callback_key));
+    ShakeDefinition next(10, false, 1, 0, nullptr);
+    callback_system->Start(next, callback_key);
+}
+
+TEST_CASE("Shake instances retire before reentrant completion and can restart",
+          "[resources][shake]")
+{
+    ShakeSystem system;
+    ShakeDefinition definition(0, false, 1, 0, nullptr);
+    definition.completion_callback = RestartShakeFromCompletion;
+    callback_system = &system;
+    callback_key = &definition;
+    shake_callbacks = 0;
+    system.Start(definition, &definition);
+    system.Start(definition, &definition); // A restart cannot duplicate the keyed instance.
+    REQUIRE(system.IsActive(definition));
+    REQUIRE(system.Update({0, 0, 0}) == 0);
+    REQUIRE(shake_callbacks == 1);
+    REQUIRE(system.IsActive(definition));
+    REQUIRE(system.Update({0, 0, 0}) == 1);
+    system.Stop(definition);
+    REQUIRE_FALSE(system.IsActive(definition));
+    REQUIRE(system.Update({0, 0, 0}) == 0);
+    REQUIRE(shake_callbacks == 1);
+}
+
+TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights",
+                 "[resources][spell]")
+{
+    struct ObservedInstance : stModelInstance {
+        explicit ObservedInstance(std::vector<std::size_t>& observations)
+            : stModelInstance(nullptr), observations(observations)
+        {
+        }
+        ~ObservedInstance() override
+        {
+            observations.push_back(g_world->transient_lights.size());
+        }
+        std::vector<std::size_t>& observations;
+    };
+    std::vector<std::size_t> observations;
+    observations.reserve(2);
+    {
+        EmitterResources<2> resources;
+        for (auto& cycle : resources.cycles) {
+            cycle.lights.lights.push_back(CreateWorldLight(&world, "TeardownOrder"));
+            cycle.animation = std::make_unique<W8AnimObj>();
+            auto mesh = std::make_unique<W8AniMesh>();
+            mesh->meshes.push_back(std::make_unique<ObservedInstance>(observations));
+            cycle.animation->entries[0] = std::move(mesh);
+        }
+    }
+    REQUIRE(observations == std::vector<std::size_t>{2, 2});
+    REQUIRE(world.transient_lights.empty());
 }

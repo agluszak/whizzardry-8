@@ -80,8 +80,8 @@ try
         success = success && (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
     }
     success = success && (handle->read(discarded, sizeof(discarded)).bytes == static_cast<std::size_t>(sizeof(discarded)));
-    if (!success) {
-        srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x117, 0);
+    if (!success || animation->group_count > std::size(animation->entries)) {
+        return false;
     }
     for (index = 0; index < static_cast<signed char>(animation->group_count); ++index) {
         success = success && (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
@@ -111,7 +111,7 @@ try
             srVector3T<float> position;
             float range;
             float intensity;
-            stLightDefinition* definition = 0;
+            std::unique_ptr<stLightDefinition> definition;
 
             handle->read_exact(&light_version, 1);
             handle->read_exact(&position, sizeof(position));
@@ -126,7 +126,7 @@ try
             }
 
             if (definition_kind == 1) {
-                stParametricLightDefinition* typed = new stParametricLightDefinition;
+                auto typed = std::make_unique<stParametricLightDefinition>();
                 handle->read_exact(&typed->flags, 4);
                 handle->read_exact(&typed->flicker_chance, 4);
                 handle->read_exact(&typed->color, 12);
@@ -140,9 +140,9 @@ try
                 handle->read_exact(&typed->path_speed, 4);
                 handle->read_exact(&typed->subcycle_min, 4);
                 handle->read_exact(&typed->subcycle_max, 4);
-                definition = typed;
+                definition = std::move(typed);
             } else if (definition_kind == 2) {
-                stKeyframedLightDefinition* typed = new stKeyframedLightDefinition;
+                auto typed = std::make_unique<stKeyframedLightDefinition>();
                 int previous = 0;
                 int key;
 
@@ -173,23 +173,24 @@ try
                         typed->frame_sums.push_back(typed->frame_sums.back() + frame);
                     }
                 }
-                definition = typed;
+                definition = std::move(typed);
             }
 
             if (light_list == 0) {
                 srAssertFail("0", ANIM_OBJ_CPP, 0x1b2,
                              "AnimObjReadFromFile: Where is the light list?");
             } else {
-                stLight* light = CreateWorldLight(0, "MonsterLight");
+                std::unique_ptr<stLight> light(CreateWorldLight(0, "MonsterLight"));
                 light->diffuse = color.glmValue();
                 light->specular = glm::vec3(0);
-                ConfigureWorldLight(light, range * g_world_scale);
+                ConfigureWorldLight(light.get(), range * g_world_scale);
                 light->intensity = intensity;
                 light->setLocation(position.x, position.y, position.z);
                 light->m_position = position;
-                light->m_definition = definition;
+                light->m_definition = definition.release();
                 light->setGroupMask(2);
-                light_list->push_back(light);
+                light_list->push_back(light.get());
+                light.release();
             }
         }
     }
@@ -223,9 +224,13 @@ try
             signed char channel = 0;
 
             success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
+            if (!success || channel < 0 ||
+                channel >= static_cast<int>(std::size(animation->entries))) {
+                return false;
+            }
             mesh->list_index = channel;
             if (!LoadAniMeshFromInfo(info, mesh.get(), load_all)) {
-                animation->entries[channel] = 0;
+                return false;
             } else {
                 animation->entries[channel] = std::move(mesh);
             }
@@ -245,8 +250,11 @@ try
                 signed char channel;
                 const char* saved_filename;
 
-                if (!(handle->read(&channel, 1).bytes == static_cast<std::size_t>(1))) {
-                    srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x208, 0);
+                if (handle->read(&channel, 1).bytes != 1) {
+                    return false;
+                }
+                if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) {
+                    return false;
                 }
                 mesh->list_index = channel;
                 saved_filename = info->mesh_filename;
