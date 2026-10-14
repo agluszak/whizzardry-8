@@ -58,16 +58,6 @@ extern short g_submenu_entry_states[5];
 void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);
-/* Create and lay out the two scroll-arrow buttons. */
-unsigned char CreateSubMenuScrollButtons(void);
-/* Create the close/formation panel buttons. */
-unsigned char CreateSubMenuPanelButtons(void);
-/* Create the options-disk button. */
-unsigned char CreateOptionsDiskButton(void);
-/* Create the five combat-stance buttons. */
-unsigned char CreateCombatStanceButtons(void);
-/* Create the three roof/viewpoint buttons. */
-unsigned char CreateRoofButtons(void);
 /* Draw roof chrome, mark the three buttons dirty, sync state, and request the
    0x100000 redraw bit. */
 void RedrawRoofButtons(void);
@@ -78,8 +68,6 @@ void SyncRoofButtonPressedState(void);
 /* Draw layout-arrow chrome and sync the six raise/lower arrows against the
    live action-panel / formation-board / radar-map visibility flags. */
 void RedrawLayoutArrowButtons(void);
-/* Create the six layout-arrow buttons. */
-unsigned char CreateLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
 void ConfigureMainGameHudButtons(void);

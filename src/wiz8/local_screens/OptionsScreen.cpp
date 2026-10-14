@@ -1171,11 +1171,11 @@ void W8OptionsScreen::CreateControls()
                          UpdateNavigation();
                      });
                  },
-             .priority = 0});
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = 0,
+             .menu_artwork = true});
         const auto size = arrows.size(direction * 4);
         button->Resize(size.x, size.y);
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
     }
     const auto size = CatalogArtwork::Load(0xf3, 0).size(0);
     const W8ControlsRect bounds{0x11b, m_navigation_y, 0x11b + size.x, m_navigation_y + size.y};
@@ -1548,7 +1548,7 @@ void W8OptionsPanel::AddCheckbox(int label, int* value)
     AddOptionsLabel(*this, label);
     auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, -1,
         [value](auto* button) { *value = button->IsPressed() ? 2 : 0; });
-    checkbox->policy.primary_toggle = ButtonToggle::Release;
+    checkbox->Policy().primary_toggle = ButtonToggle::Release;
     checkbox->SetPressed(*value != 0);
     m_content_top += 44;
 }
@@ -1560,7 +1560,7 @@ W8ButtonWidget* W8OptionsPanel::AddChoiceButton(int label, W8ButtonCallback call
     m_text_buffers.emplace_back(std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[label],
         g_options_detail_font, g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4));
     auto* button = AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, -1, std::move(callback));
-    button->policy.primary_toggle = ButtonToggle::Release;
+    button->Policy().primary_toggle = ButtonToggle::Release;
     m_content_top += 22;
     return button;
 }
@@ -1584,7 +1584,7 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
             *value = index;
             for (int i = 0; i < count; ++i) m_buttons[first + i]->SetPressed(i == index);
         });
-        button->policy.primary_toggle = ButtonToggle::StayLatched;
+        button->Policy().primary_toggle = ButtonToggle::StayLatched;
         button->SetPressed(index == *value);
     }
     m_content_top += 22;

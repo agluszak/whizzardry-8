@@ -48,11 +48,16 @@ W8DialogBase::W8DialogBase()
 W8DialogBase::~W8DialogBase()
 {
     EndModalInput();
+    NotifyDestroyed();
+    DestroyControls();
+}
+
+void W8DialogBase::NotifyDestroyed()
+{
     if (const auto callback = std::exchange(m_destroy_callback, {})) {
         callback(this);
         m_destroy_callback = {};
     }
-    DestroyControls();
 }
 
 // FUNCTION: WIZ8 0x005dc890

@@ -93,7 +93,7 @@ public:
     void SetTooltipIndex(int tooltip_index);
 
 private:
-    UiLayer* m_layer;
+    UiLayer& m_layer;
     HitTarget* m_target = nullptr;
     SDL_Rect m_bounds{};
     bool m_enabled = true;
@@ -102,11 +102,10 @@ private:
     UiResult HandlePointer(const UiPointerEvent& event);
     ButtonAppearance m_appearance;
     ButtonInteraction m_interaction;
-    void ConfigureInput(int priority);
+    void ConfigureInput(ButtonSetup setup);
     ButtonSetup m_setup;
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
 public:
-    ButtonPolicy policy;
-    bool menu_artwork = false;
+    ButtonPolicy& Policy() { return m_setup.policy; }
 };

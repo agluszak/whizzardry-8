@@ -191,7 +191,7 @@ static void CreateSpellCastingViewControls(void)
     }
     gpSCSV->cancel = make_button(0x8e, {7, 4, 5, -1, 6},
         {0x23a, 0x16c, 27, 27}, 17, ResetSpellCastingSelection);
-    gpSCSV->cancel->policy.primary_toggle = ButtonToggle::None;
+    gpSCSV->cancel->Policy().primary_toggle = ButtonToggle::None;
     gpSCSV->dirty.fill(true);
 
     if (gXStatus.fCampMode) {

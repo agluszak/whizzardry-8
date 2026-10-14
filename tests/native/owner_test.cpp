@@ -1522,15 +1522,15 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE(activations == 2);
         button.SetPosition(10, 10);
         button.Resize(40, 20);
-        button.policy.repeat = true;
+        button.Policy().repeat = true;
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
         REQUIRE(activations == 4);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE((!button.IsPressed() && activations == 4));
-        button.policy.repeat = false;
-        button.policy.activation = ButtonActivation::Press;
+        button.Policy().repeat = false;
+        button.Policy().activation = ButtonActivation::Press;
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         REQUIRE(activations == 5);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
@@ -1564,7 +1564,6 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 6);
         REQUIRE(stale_callbacks == stale_count);
-        REQUIRE_FALSE(button.menu_artwork);
         button.Reset();
         REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.Bounds().w == 0));
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);

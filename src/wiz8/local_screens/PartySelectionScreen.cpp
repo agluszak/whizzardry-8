@@ -723,12 +723,12 @@ void W8PartySelectionController::Setup()
                                            .sShadowColor = -1},
                           {x, y, size.x, size.y}, {.on_click = [this](auto* control) {
                               AfterUiDispatch([this, control] { OnPrimary(control); });
-                          }});
+                          },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = index < 4 ? -1 : index == 4 ? 0x6cc : index == 5 ? 0x6cb : 0x6ca,
+             .menu_artwork = true});
         button->SetImage(ButtonGraphics::Load(art.spriteSheet(), normal + 3, normal, normal + 1, normal + 2,
                                              index == 4 ? 28 : normal + 2));
-        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
-        button->menu_artwork = true;
-        if (index >= 4) button->SetTooltipIndex(index == 4 ? 0x6cc : (index == 5 ? 0x6cb : 0x6ca));
     }
     m_create_button = actions[0].get(); m_add_remove_button = actions[1].get();
     m_delete_button = actions[2].get(); m_review_button = actions[3].get();
@@ -736,7 +736,7 @@ void W8PartySelectionController::Setup()
     m_create_button->SetText(g_localized_strings[0x6c5]);
     m_delete_button->SetText(g_localized_strings[0x6c8]);
     m_review_button->SetText(g_localized_strings[0x6c9]);
-    m_reset_button->policy.primary_toggle = ButtonToggle::Release;
+    m_reset_button->Policy().primary_toggle = ButtonToggle::Release;
     for (int index = 0; index < 3; ++index) {
         auto& button = difficulty_buttons[index] = std::make_unique<W8ButtonWidget>(input);
         button->Configure(

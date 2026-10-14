@@ -56,6 +56,7 @@ public:
     unsigned int m_dirty_flags;
 
 protected:
+    void NotifyDestroyed();
     void BeginModalInput();
     void EndModalInput();
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);

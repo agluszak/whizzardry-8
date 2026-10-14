@@ -58,10 +58,7 @@ W8ListBoxDialog::W8ListBoxDialog()
 // FUNCTION: WIZ8 0x005cbce0
 W8ListBoxDialog::~W8ListBoxDialog()
 {
-    if (const auto callback = std::exchange(m_destroy_callback, {})) {
-        callback(this);
-        m_destroy_callback = {};
-    }
+    NotifyDestroyed();
     DestroyControls();
 }
 
@@ -789,10 +786,7 @@ W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 // FUNCTION: WIZ8 0x005cd820
 W8TriggerItemPickerDialog::~W8TriggerItemPickerDialog()
 {
-    if (const auto callback = std::exchange(m_destroy_callback, {})) {
-        callback(this);
-        m_destroy_callback = {};
-    }
+    NotifyDestroyed();
 }
 
 /* Configure the thirteen owned buttons. Buttons 5..8 are item rows and

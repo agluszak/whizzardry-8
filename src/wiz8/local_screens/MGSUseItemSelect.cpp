@@ -149,11 +149,11 @@ static void CreateUseItemSelectControls(void)
         use_item->pools[index] = make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
             {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
             index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
-        use_item->pools[index]->policy.primary_toggle = ButtonToggle::Release;
+        use_item->pools[index]->Policy().primary_toggle = ButtonToggle::Release;
     }
     use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13,
         {0x234, 0x16c, 14, 14}, 99, UseItemSelectFilterToggle);
-    use_item->filter->policy.primary_toggle = ButtonToggle::Release;
+    use_item->filter->Policy().primary_toggle = ButtonToggle::Release;
     use_item->filter->SetEnabled(false);
     use_item->close = make_button(0x8e, 4, -1, 5, 6, 7,
         {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);

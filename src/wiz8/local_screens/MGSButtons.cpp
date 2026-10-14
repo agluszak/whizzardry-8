@@ -273,7 +273,7 @@ void ResetSubMenuPanel(void)
 }
 
 // FUNCTION: WIZ8 0x00596EC0
-unsigned char CreateSubMenuScrollButtons(void)
+static void CreateSubMenuScrollButtons()
 {
     int i;
 
@@ -288,7 +288,6 @@ unsigned char CreateSubMenuScrollButtons(void)
         g_main_game_state->hud_buttons.submenu_scroll[i].SetPosition(
             g_scroll_button_positions[i].x, g_scroll_button_positions[i].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x005978D0
@@ -308,7 +307,7 @@ static void SubMenuPanelFormationButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597670
-unsigned char CreateSubMenuPanelButtons(void)
+static void CreateSubMenuPanelButtons()
 {
     int index;
 
@@ -325,7 +324,6 @@ unsigned char CreateSubMenuPanelButtons(void)
         g_main_game_state->hud_buttons.submenu_panel[index].SetPosition(
             g_submenu_panel_button_positions[index].x, g_submenu_panel_button_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00597B70
@@ -338,7 +336,7 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597A30
-unsigned char CreateOptionsDiskButton(void)
+static void CreateOptionsDiskButton()
 {
 
     g_main_game_state->hud_buttons.options_disk.Configure(
@@ -346,7 +344,6 @@ unsigned char CreateOptionsDiskButton(void)
         {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
     g_main_game_state->hud_buttons.options_disk.SetPosition(g_options_disk_position.x,
                                                             g_options_disk_position.y);
-    return 1;
 }
 
 /* Redraw the options-disk chrome and button; disabled under dialogue / lock /
@@ -446,7 +443,7 @@ static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597B90
-unsigned char CreateCombatStanceButtons(void)
+static void CreateCombatStanceButtons()
 {
     int index;
 
@@ -483,7 +480,6 @@ unsigned char CreateCombatStanceButtons(void)
         g_main_game_state->hud_buttons.combat_stance[index].SetPosition(
             g_combat_stance_positions[index].x, g_combat_stance_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00598270
@@ -508,7 +504,7 @@ static void MainGameRoofButton2(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597EE0
-unsigned char CreateRoofButtons(void)
+static void CreateRoofButtons()
 {
     int index;
 
@@ -540,7 +536,6 @@ unsigned char CreateRoofButtons(void)
         g_main_game_state->hud_buttons.roof[index].SetPosition(g_roof_button_positions[index].x,
                                                                g_roof_button_positions[index].y);
     }
-    return 1;
 }
 
 /* Draw the roof chrome strip, mark each roof button dirty, sync enable/press
@@ -765,7 +760,7 @@ void RedrawLayoutArrowButtons(void)
 }
 
 // FUNCTION: WIZ8 0x005982D0
-unsigned char CreateLayoutArrowButtons(void)
+static void CreateLayoutArrowButtons()
 {
     int index;
 
@@ -796,7 +791,6 @@ unsigned char CreateLayoutArrowButtons(void)
         g_main_game_state->hud_buttons.layout_arrows[index].SetPosition(
             g_layout_arrow_positions[index].x, g_layout_arrow_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00598AB0
@@ -1114,19 +1108,16 @@ done:
 // FUNCTION: WIZ8 0x005990F0
 void SetSubMenuButtonTooltips(int enabled)
 {
-    g_main_game_state->hud_buttons.submenu[0].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[1].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[2].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[3].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[4].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[5].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[6].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[7].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu[8].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu_scroll[0].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu_scroll[1].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu_panel[0].SetTooltipEnabled(enabled);
-    g_main_game_state->hud_buttons.submenu_panel[1].SetTooltipEnabled(enabled);
+    auto& hud = g_main_game_state->hud_buttons;
+    for (auto& button : hud.submenu) {
+        button.SetTooltipEnabled(enabled);
+    }
+    for (auto& button : hud.submenu_scroll) {
+        button.SetTooltipEnabled(enabled);
+    }
+    for (auto& button : hud.submenu_panel) {
+        button.SetTooltipEnabled(enabled);
+    }
 }
 
 /* Per-frame button refresh from DrawMainGameScreen: restate and draw the nine

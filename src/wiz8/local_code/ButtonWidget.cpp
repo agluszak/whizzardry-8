@@ -25,7 +25,7 @@ void W8ButtonWidget::Draw(SDL_Surface& target) const
         const ButtonVisualState visual{.enabled = m_enabled,
                                        .pressed = m_interaction.pressed,
                                        .hovered = m_target->hovered(),
-                                       .menu_artwork = menu_artwork};
+                                       .menu_artwork = m_setup.menu_artwork};
         DrawButtonAppearance(target, m_appearance, Bounds(), visual);
     }
 }
@@ -87,7 +87,7 @@ void W8ButtonWidget::SetEnabled(bool enabled)
     if (m_enabled == enabled) return;
     m_enabled = enabled;
     if (!enabled) {
-        m_interaction.cancel(policy.primary_toggle != ButtonToggle::None || policy.secondary_toggle != ButtonToggle::None);
+        m_interaction.cancel(m_setup.policy.primary_toggle != ButtonToggle::None || m_setup.policy.secondary_toggle != ButtonToggle::None);
     }
     m_dirty = true;
 }
@@ -95,8 +95,8 @@ void W8ButtonWidget::SetEnabled(bool enabled)
 // FUNCTION: WIZ8 0x005db950
 void W8ButtonWidget::SetPressed(bool pressed)
 {
-    if (policy.primary_toggle == ButtonToggle::Release ||
-        policy.primary_toggle == ButtonToggle::StayLatched) m_interaction.selected = pressed;
+    if (m_setup.policy.primary_toggle == ButtonToggle::Release ||
+        m_setup.policy.primary_toggle == ButtonToggle::StayLatched) m_interaction.selected = pressed;
     if (m_interaction.pressed != pressed) {
         m_interaction.pressed = pressed;
         m_dirty = true;
@@ -109,7 +109,7 @@ void W8ButtonWidget::SetVisible(bool visible)
     if (!m_target || m_visible == visible) return;
     m_visible = visible;
     m_target->setEnabled(visible);
-    if (!visible) m_interaction.cancel(policy.primary_toggle != ButtonToggle::None || policy.secondary_toggle != ButtonToggle::None);
+    if (!visible) m_interaction.cancel(m_setup.policy.primary_toggle != ButtonToggle::None || m_setup.policy.secondary_toggle != ButtonToggle::None);
     m_dirty = true;
     const auto mouse = UiPointerPosition();
     UpdateUiPointer(mouse.x, mouse.y);
@@ -151,33 +151,32 @@ void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
 }
 
 // FUNCTION: WIZ8 0x005db1b0
-W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(&layer) {}
+W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(layer) {}
 
 W8ButtonWidget::~W8ButtonWidget()
 {
     *m_alive = false;
-    if (m_target) m_layer->remove(*m_target);
+    if (m_target) m_layer.remove(*m_target);
 }
 
 void W8ButtonWidget::Reset()
 {
-    if (m_target) m_layer->remove(*m_target);
+    if (m_target) m_layer.remove(*m_target);
     m_target = nullptr;
     m_appearance = {};
     SetBounds({});
     m_enabled = true;
     m_interaction = {};
     m_setup = {};
-    policy = {};
-    menu_artwork = false;
     m_dirty = true;
 }
 
-void W8ButtonWidget::ConfigureInput(int priority)
+void W8ButtonWidget::ConfigureInput(ButtonSetup setup)
 {
-    if (m_target) m_layer->remove(*m_target);
-    m_target = &m_layer->add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
-        [this](const UiPointerEvent& event) { return HandlePointer(event); }, priority);
+    if (m_target) m_layer.remove(*m_target);
+    m_setup = std::move(setup);
+    m_target = &m_layer.add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
+        [this](const UiPointerEvent& event) { return HandlePointer(event); }, m_setup.priority);
     m_visible = true;
     m_enabled = true;
     m_interaction = {};
@@ -194,10 +193,7 @@ bool W8ButtonWidget::Configure(ButtonImage image, ButtonSetup setup)
                           static_cast<int>(image->MaxHeight)};
     m_appearance = ButtonAppearance{.quick_image = std::move(image)};
     SetBounds(bounds);
-    policy = setup.policy;
-    menu_artwork = setup.menu_artwork;
-    m_setup = std::move(setup);
-    ConfigureInput(m_setup.priority);
+    ConfigureInput(std::move(setup));
     return true;
 }
 
@@ -207,10 +203,7 @@ bool W8ButtonWidget::Configure(ButtonAppearance appearance, SDL_Rect bounds, But
     bounds.w = std::max(bounds.w, 4);
     bounds.h = std::max(bounds.h, 3);
     SetBounds(bounds);
-    policy = setup.policy;
-    menu_artwork = setup.menu_artwork;
-    m_setup = std::move(setup);
-    ConfigureInput(m_setup.priority);
+    ConfigureInput(std::move(setup));
     return true;
 }
 
@@ -227,12 +220,12 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     const bool backend_sound = event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave || event.action == UiPointerAction::Down ||
         (event.action == UiPointerAction::Up && event.captured_buttons != 0);
-    if (policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled && backend_sound) {
+    if (m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled && backend_sound) {
         PushButtonSoundScheme(0, true);
     }
     if (event.action == UiPointerAction::Leave) {
-        if (m_interaction.leave(policy) &&
-            policy.input_rule == ButtonInputRule::PrimaryPressedState && policy.repeat) {
+        if (m_interaction.leave(m_setup.policy) &&
+            m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState && m_setup.policy.repeat) {
             PushButtonSoundScheme(0, true);
         }
         m_dirty = true;
@@ -261,31 +254,31 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         }
         return UiResult::Handled;
     case UiPointerAction::Down:
-        response = m_interaction.press(mask, policy);
+        response = m_interaction.press(mask, m_setup.policy);
         break;
     case UiPointerAction::Up:
         if (!event.inside) {
-            m_interaction.leave(policy);
+            m_interaction.leave(m_setup.policy);
             m_dirty = true;
             return UiResult::Handled;
         }
         if (!(event.captured_buttons & mask)) return UiResult::Handled;
-        response = m_interaction.release(mask, policy);
+        response = m_interaction.release(mask, m_setup.policy);
         if (response.repeated_release &&
-            policy.input_rule == ButtonInputRule::PrimaryPressedState) {
+            m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState) {
             PushButtonSoundScheme(0, true);
         }
         break;
     case UiPointerAction::Repeat:
         if (!(event.captured_buttons & mask)) return UiResult::Handled;
-        response = m_interaction.repeat(mask, policy);
+        response = m_interaction.repeat(mask, m_setup.policy);
         break;
     default: return UiResult::Handled;
     }
     if (was_pressed != m_interaction.pressed) m_dirty = true;
     const bool double_click = event.action == UiPointerAction::Down &&
         event.button == UiPointerButton::Left && event.clicks >= 2 &&
-        (policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
+        (m_setup.policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
     const auto double_click_callback = double_click ? m_setup.on_double_click : W8ButtonCallback{};
     // Only repeats are silent in the dispatcher.
     if (response.activate && event.action == UiPointerAction::Repeat) PlayButtonSound(3);
