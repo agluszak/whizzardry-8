@@ -80,6 +80,7 @@ struct OctRegionObjectLinks {
    "OctBuildPreTree::m_ppPolyList too long.", "m_pulRegPaths" and
    "m_psrvRegCenters" in Engine Code\OctBuildPreTree.cpp. */
 struct OctBuildPreTree : W8OctBuildTree {
+    std::vector<W8OctRegionVolume> m_region_volumes;
     OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds,
                     unsigned short item_limit, w8_ulong path_capacity, short extent_mode);
     OctPreTree* BuildOctPreTree();

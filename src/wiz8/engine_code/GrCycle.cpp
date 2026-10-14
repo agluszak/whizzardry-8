@@ -1,3 +1,4 @@
+#include <list>
 #include <optional>
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
@@ -1300,11 +1301,13 @@ void W8GrCycle::SubmitTargetValue()
     GetAnimationRadius(&target->animation_radius);
 }
 
-/* Parallel registries: each name has one growable vector of cycle objects. */
-// GLOBAL: WIZ8 0x0065bdf0
-static std::vector<char*> g_grcycle_names;
-// GLOBAL: WIZ8 0x0065be00
-static std::vector<std::vector<W8GrCycle*>*> g_grcycles_by_name;
+struct RegisteredCycles {
+    std::string name;
+    std::vector<W8GrCycle*> cycles; // Borrowed; each cycle unregisters on destruction.
+};
+
+// Stable records keep borrowed name strings valid while other names are registered.
+static std::list<RegisteredCycles> g_registered_cycles;
 
 // FUNCTION: WIZ8 0x004a8430
 void W8GrCycle::SetSubCycle(unsigned char subcycle)
@@ -1385,105 +1388,59 @@ void W8GrCycle::AddShakeEffect(W8CameraShakeEffect* effect)
     m_plsShakeEvents->push_back(effect);
 }
 
-/* Index of the registered name whose cycle list holds this cycle, or -1. An empty
-   list is a retail assert, reported at assert_line. */
-static int FindRegisteredNameIndex(const W8GrCycle* cycle, int assert_line)
+static const RegisteredCycles* FindRegistration(const W8GrCycle* cycle)
 {
-    for (int name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size());
-         ++name_index) {
-        std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-        if (cycles->empty()) {
-            srAssertFail("plsCyclesOfAName->Length()",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", assert_line, 0);
-        }
-        if (std::ranges::contains(*cycles, const_cast<W8GrCycle*>(cycle))) {
-            return name_index;
-        }
-    }
-    return -1;
+    const auto entry = std::ranges::find_if(g_registered_cycles, [cycle](const auto& entry) {
+        return std::ranges::contains(entry.cycles, cycle);
+    });
+    return entry == g_registered_cycles.end() ? nullptr : &*entry;
 }
 
-// FUNCTION: WIZ8 0x004a8650
 const char* W8GrCycle::GetRegisteredName() const
 {
-    const int name_index = FindRegisteredNameIndex(this, 0x6c4);
-    return name_index < 0 ? 0 : g_grcycle_names[name_index];
+    const auto* entry = FindRegistration(this);
+    return entry ? entry->name.c_str() : nullptr;
 }
 
-// FUNCTION: WIZ8 0x004a8700
 bool W8GrCycle::IsSoleRegisteredCycleForName() const
 {
-    const int name_index = FindRegisteredNameIndex(this, 0x6e6);
-    return name_index < 0 || static_cast<int>(g_grcycles_by_name[name_index]->size()) == 1;
+    const auto* entry = FindRegistration(this);
+    return !entry || entry->cycles.size() == 1;
 }
 
-// FUNCTION: WIZ8 0x004a87a0
 W8GrCycle* FindFirstGrCycleByName(std::string_view name)
 {
-    int name_index;
-
-    for (name_index = 0; name_index < static_cast<int>(g_grcycle_names.size()); ++name_index) {
-        if (CompareTextIgnoreAsciiCase(name, g_grcycle_names[name_index]) == 0) {
-            std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-            if (static_cast<int>(cycles->size()) == 0) {
-                srAssertFail("plsCyclesOfThisName->Length()",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x709, 0);
-            }
-            return (*cycles)[0];
-        }
-    }
-    return 0;
+    const auto entry = std::ranges::find_if(g_registered_cycles, [name](const auto& entry) {
+        return CompareTextIgnoreAsciiCase(name, entry.name) == 0;
+    });
+    return entry == g_registered_cycles.end() ? nullptr : entry->cycles.front();
 }
 
-// FUNCTION: WIZ8 0x004a8830
 unsigned char UnregisterGrCycle(W8GrCycle* cycle)
 {
-    int name_index;
-
-    for (name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size()); ++name_index) {
-        std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-        if (cycles->empty()) {
-            srAssertFail("plsCyclesOfAName->Length()",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x726, 0);
+    for (auto entry = g_registered_cycles.begin(); entry != g_registered_cycles.end(); ++entry) {
+        if (!wiz8::erase_first(entry->cycles, cycle)) {
+            continue;
         }
-        if (wiz8::erase_first(*cycles, cycle)) {
-            if (!cycles->empty()) {
-                return 0;
-            }
-            g_grcycles_by_name.erase(g_grcycles_by_name.begin() + name_index);
-            delete cycles;
-            char* name = g_grcycle_names[name_index];
-            g_grcycle_names.erase(g_grcycle_names.begin() + name_index);
-            delete[] name;
-            return 1;
+        if (!entry->cycles.empty()) {
+            return false;
         }
+        g_registered_cycles.erase(entry);
+        return true;
     }
-    return 0;
+    return false;
 }
 
-// FUNCTION: WIZ8 0x004a89a0
 void RegisterGrCycle(const char* name, W8GrCycle* cycle)
 {
-    int name_index;
-
-    for (name_index = 0; name_index < static_cast<int>(g_grcycle_names.size()); ++name_index) {
-        if (CompareTextIgnoreAsciiCase(name, g_grcycle_names[name_index]) == 0) {
-            std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-            if (static_cast<int>(cycles->size()) == 0) {
-                srAssertFail("plsCyclesOfThisName->Length()",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x763, 0);
-            }
-            cycles->push_back(cycle);
-            return;
-        }
+    const auto entry = std::ranges::find_if(g_registered_cycles, [name](const auto& entry) {
+        return CompareTextIgnoreAsciiCase(name, entry.name) == 0;
+    });
+    if (entry != g_registered_cycles.end()) {
+        entry->cycles.push_back(cycle);
+    } else {
+        g_registered_cycles.push_back({name, {cycle}});
     }
-
-    char* owned_name = new char[strlen(name) + 1];
-    strcpy(owned_name, name);
-    std::vector<W8GrCycle*>* cycles = new std::vector<W8GrCycle*>();
-    cycles->push_back(cycle);
-    g_grcycle_names.push_back(owned_name);
-    g_grcycles_by_name.push_back(cycles);
 }
 
 // FUNCTION: WIZ8 0x004a8c50

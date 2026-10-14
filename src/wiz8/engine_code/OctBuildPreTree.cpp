@@ -184,16 +184,14 @@ w8_ulong W8OctBuildNode::ConvertToOctPreTree(unsigned short depth, OctPreTree* t
     if (depth == tree->m_spatial.m_depth) {
         node_index = tree->m_leaf_count++;
 
-        const auto polygons = packLeafSurfaces(*this, 2, tree->m_polygon_index_stream,
-                                               tree->polygon_cursor, [](void* surface) {
-            return static_cast<W8OctRegionPolygon*>(surface)->ordinal;
-        });
+        const auto polygons = packLeafSurfaces(
+            *this, 2, tree->m_polygon_index_stream.data(), tree->polygon_cursor,
+            [](void* surface) { return static_cast<W8OctRegionPolygon*>(surface)->ordinal; });
         tree->m_leaves[node_index].polygon_offset = polygons.offset;
         tree->polygon_cursor = polygons.end;
-        const auto terrain = packLeafSurfaces(*this, 3, tree->m_gd_surface_index_stream,
-                                              tree->m_gd_surface_stream_len, [](void* surface) {
-            return static_cast<W8GDSurface*>(surface)->index;
-        });
+        const auto terrain = packLeafSurfaces(
+            *this, 3, tree->m_gd_surface_index_stream.data(), tree->m_gd_surface_stream_len,
+            [](void* surface) { return static_cast<W8GDSurface*>(surface)->index; });
         tree->m_leaves[node_index].gd_polygon_offset = terrain.offset;
         tree->m_gd_surface_stream_len = terrain.end;
 
@@ -463,7 +461,8 @@ static_assert(sizeof(W8CubRegionRecord) == 0x6a, "W8CubRegionRecord_must_be_0x6a
 // FUNCTION: WIZ8 0x004b0c90
 unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
 {
-    spatial.m_region_volumes = 0;
+    spatial.m_region_volumes = nullptr;
+    m_region_volumes.clear();
     spatial.m_region_count = 0;
     spatial.m_region_id_bound = 0;
     char path[1024];
@@ -498,19 +497,14 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
         return 0;
     }
     const auto bound = static_cast<unsigned short>(count + 1);
-    std::unique_ptr<W8OctRegionVolume, decltype(&free)> volumes(
-        static_cast<W8OctRegionVolume*>(calloc(bound + 1, sizeof(W8OctRegionVolume))), &free);
-    if (!volumes) {
-        ReportBuildStatus(7, "ReadRegions: Could not allocate region list.\n");
-        return 0;
-    }
+    std::vector<W8OctRegionVolume> volumes(bound + 1);
     for (unsigned short region = 1; region < bound; ++region) {
         W8CubRegionRecord record;
         ok = read(&record, sizeof(record));
         if (ok == 0) {
             return 0;
         }
-        W8OctRegionVolume* volume = volumes.get() + region;
+        W8OctRegionVolume* volume = volumes.data() + region;
         volume->value_10 = record.value_00;
         volume->m_polygon_count = 0;
         volume->m_region = region;
@@ -532,7 +526,8 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
     if (file) file->close();
     file.reset();
     ReportBuildStatus(6, path);
-    spatial.m_region_volumes = volumes.release();
+    m_region_volumes = std::move(volumes);
+    spatial.m_region_volumes = m_region_volumes.data();
     spatial.m_region_id_bound = bound;
     spatial.m_region_count = bound;
     return spatial.m_region_id_bound;
@@ -1480,39 +1475,11 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
         return 0;
     }
 
-    tree->m_branches = static_cast<W8OctPreTreeBranch*>(
-        malloc((g_build_node_instances  + 2) * sizeof(*tree->m_branches)));
-    if (tree->m_branches == 0) {
-        return 0;
-    }
-    memset(tree->m_branches, 0, (g_build_node_instances  + 2) * sizeof(*tree->m_branches));
-
-    tree->m_leaves =
-        static_cast<W8OctPreTreeLeaf*>(malloc((leaf_count + 2) * sizeof(W8OctPreTreeLeaf)));
-    if (tree->m_leaves == 0) {
-        return 0;
-    }
-    memset(tree->m_leaves, 0, (leaf_count + 2) * sizeof(W8OctPreTreeLeaf));
-
-    tree->m_polygon_index_stream =
-        static_cast<w8_ulong*>(malloc(leaf_polygon_count * 2 * sizeof(w8_ulong)));
-    if (tree->m_polygon_index_stream == 0) {
-        return 0;
-    }
-    memset(tree->m_polygon_index_stream, 0, leaf_polygon_count * 2 * sizeof(w8_ulong));
-
-    tree->m_region_index_stream = static_cast<unsigned short*>(malloc(leaf_count * (40 * sizeof(*tree->m_region_index_stream))));
-    if (tree->m_region_index_stream == 0) {
-        return 0;
-    }
-    memset(tree->m_region_index_stream, 0, leaf_count * (40 * sizeof(*tree->m_region_index_stream)));
-
-    tree->m_gd_surface_index_stream =
-        static_cast<w8_ulong*>(malloc(gd_surface_count * 2 * sizeof(w8_ulong)));
-    if (tree->m_gd_surface_index_stream == 0) {
-        return 0;
-    }
-    memset(tree->m_gd_surface_index_stream, 0, gd_surface_count * 2 * sizeof(w8_ulong));
+    tree->m_branches.resize(g_build_node_instances + 2);
+    tree->m_leaves.resize(leaf_count + 2);
+    tree->m_polygon_index_stream.resize(leaf_polygon_count * 2);
+    tree->m_region_index_stream.resize(leaf_count * 40);
+    tree->m_gd_surface_index_stream.resize(gd_surface_count * 2);
 
     tree->m_spatial.m_region_count = spatial.m_region_count;
     tree->m_spatial.m_leaf_level = spatial.m_leaf_level;
@@ -1537,7 +1504,9 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
 
     tree->m_spatial.m_extent = spatial.m_extent;
     tree->m_spatial.m_cell_size = spatial.m_cell_size;
-    tree->m_spatial.m_region_volumes = spatial.m_region_volumes;
+    tree->m_region_volumes = std::move(m_region_volumes);
+    tree->m_spatial.m_region_volumes = tree->m_region_volumes.data();
+    spatial.m_region_volumes = nullptr;
     tree->game_data = game_data;
     tree->unknown_3a8 = unknown_138;
     tree->unknown_3ac = unknown_13c;
@@ -1575,9 +1544,8 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
                              tree->m_spatial.m_node_extent) +
             1;
     }
-    tree->m_leaf_lookup = static_cast<w8_ulong*>(
-        malloc(tree->m_leaf_grid_dimensions.z * tree->m_leaf_grid_dimensions.x *
-               tree->m_leaf_grid_dimensions.y * sizeof(w8_ulong)));
+    tree->m_leaf_lookup.resize(tree->m_leaf_grid_dimensions.z * tree->m_leaf_grid_dimensions.x *
+                               tree->m_leaf_grid_dimensions.y);
     w8_ulong cell_index = 0;
     glm::ivec3 point;
     for (point.x = 0; point.x < static_cast<int>(tree->m_leaf_grid_dimensions.x); ++point.x) {
