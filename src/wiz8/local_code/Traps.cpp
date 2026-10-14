@@ -69,9 +69,10 @@ int g_table2[] = {10,  25, 35, 40, 50, 60, 70, 80,  90,  100, 110, 121, 122,
                   123, 24, 47, 36, 37, 60, 70, 124, 125, 126, 86,  127, 91};
 // GLOBAL: WIZ8 0x00650434
 static unsigned char g_table1[15][8] = {
-    {0, 1, 0, 0, 0, 1, 0, 0}, {0, 1, 0, 1, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 1, 0, 0}, {0, 0, 0, 0, 1, 1, 0, 0},
-    {0, 0, 1, 1, 0, 0, 0, 1}, {1, 1, 0, 0, 1, 0, 0, 0}, {0, 0, 1, 0, 1, 0, 1, 0}, {1, 0, 0, 1, 0, 1, 0, 0},
-    {0, 0, 1, 1, 1, 0, 0, 0}, {1, 0, 0, 0, 0, 1, 0, 1}, {0, 1, 1, 0, 0, 0, 0, 1}, {0, 0, 1, 1, 0, 0, 1, 0},
+    {0, 1, 0, 0, 0, 1, 0, 0}, {0, 1, 0, 1, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 1, 0, 0},
+    {0, 0, 0, 0, 1, 1, 0, 0}, {0, 0, 1, 1, 0, 0, 0, 1}, {1, 1, 0, 0, 1, 0, 0, 0},
+    {0, 0, 1, 0, 1, 0, 1, 0}, {1, 0, 0, 1, 0, 1, 0, 0}, {0, 0, 1, 1, 1, 0, 0, 0},
+    {1, 0, 0, 0, 0, 1, 0, 1}, {0, 1, 1, 0, 0, 0, 0, 1}, {0, 0, 1, 1, 0, 0, 1, 0},
     {0, 1, 0, 0, 1, 0, 1, 0}, {0, 1, 0, 0, 0, 1, 1, 0}, {1, 0, 0, 0, 0, 1, 1, 0},
 };
 
@@ -97,13 +98,14 @@ void WriteRecordModeEntry(void)
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         state = cameraState(*GetWorld());
         // GetCameraOrientation zeroes every angle-record slot after the first.
-        line = fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
+        line =
+            fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
         file->write(line.data(), line.size());
-        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1], state.pitch[2],
-                           state.pitch[3], state.pitch[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1],
+                           state.pitch[2], state.pitch[3], state.pitch[4], 0);
         file->write(line.data(), line.size());
-        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1], state.yaw[2], state.yaw[3],
-                           state.yaw[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
+                           state.yaw[2], state.yaw[3], state.yaw[4], 0);
         file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
@@ -265,13 +267,15 @@ void CompleteTrapDisarm(Trigger* trigger)
     if (Random(100) < 40) {
         ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0, g_character_event_no_flags);
     }
-    text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]], g_localized_strings[0x7b2]);
+    text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]],
+                       g_localized_strings[0x7b2]);
     ShowString(text);
     trigger->Run(-1);
 }
 
 // FUNCTION: WIZ8 0x005E3800
-static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned int power_level, int num_targets)
+static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned int power_level,
+                               int num_targets)
 {
     int index;
     int eligible;
@@ -309,7 +313,8 @@ static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned i
                 targets.erase(targets.begin() + index);
             }
         }
-        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, &targets, 0);
+        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, &targets,
+                            0);
     }
 }
 

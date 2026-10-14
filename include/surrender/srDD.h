@@ -199,7 +199,12 @@ public:
     /* Frame state handed to update(): dirty bits, gamma, a constant 1.0f, swap interval, antialias
        mode and enable bit 0. */
     struct Update {
-        enum { UPDATE_ENABLE = 0x01u, UPDATE_SWAP_INTERVAL = 0x02u, UPDATE_GAMMA = 0x04u, UPDATE_ANTIALIAS = 0x08u };
+        enum {
+            UPDATE_ENABLE = 0x01u,
+            UPDATE_SWAP_INTERVAL = 0x02u,
+            UPDATE_GAMMA = 0x04u,
+            UPDATE_ANTIALIAS = 0x08u
+        };
         w8_ulong flags;
         srVector3T<float> gamma;
         float value_10;
@@ -253,7 +258,8 @@ public:
     virtual void bindTexture(w8_ulong stage, Texture& texture) = 0;
     virtual void deleteTexture(Texture& texture) = 0;
     virtual void texImage(Texture& texture, w8_ulong level) = 0;
-    virtual void texSubImage(Texture& texture, w8_ulong a, w8_ulong b, w8_ulong c, w8_ulong d, w8_ulong e) = 0;
+    virtual void texSubImage(Texture& texture, w8_ulong a, w8_ulong b, w8_ulong c, w8_ulong d,
+                             w8_ulong e) = 0;
     virtual void setGlobalPalette(w8_ulong* palette, w8_ulong count) = 0;
     virtual void bindPalette(Palette& palette) = 0;
     virtual void deletePalette(Palette& palette) = 0;
@@ -265,11 +271,13 @@ public:
     virtual void preBindTexture(w8_ulong stage, Texture& texture) = 0;
     virtual void setPolygonMode(e_polygonMode mode) = 0;
     virtual void setCullMode(e_cullMode mode) = 0;
-    virtual void setProjectionMatrix(const glm::mat4& matrix, srRendererDefs::e_matrixType type) = 0;
+    virtual void setProjectionMatrix(const glm::mat4& matrix,
+                                     srRendererDefs::e_matrixType type) = 0;
     virtual void setVertexArrayInfo(const srRendererDefs::VertexArrayInfo* info) = 0;
-    virtual void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count, srRendererDefs::e_indexType type,
-                              const void* indices) = 0;
-    virtual void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count) = 0;
+    virtual void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
+                              srRendererDefs::e_indexType type, const void* indices) = 0;
+    virtual void drawArrays(srRendererDefs::e_primitive primitive, w8_long first,
+                            w8_ulong count) = 0;
     virtual void setPolygonOffset(w8_long offset) = 0;
 };
 

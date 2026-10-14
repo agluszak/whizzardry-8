@@ -24,18 +24,21 @@ struct srBoundingBox {
 
     bool contains(const glm::vec3& point) const
     {
-        return glm::all(glm::greaterThanEqual(point, minimum)) && glm::all(glm::lessThanEqual(point, maximum));
+        return glm::all(glm::greaterThanEqual(point, minimum)) &&
+               glm::all(glm::lessThanEqual(point, maximum));
     }
 
     // Octree point ownership excludes the maximum face.
     bool containsHalfOpen(const glm::vec3& point) const
     {
-        return glm::all(glm::greaterThanEqual(point, minimum)) && glm::all(glm::lessThan(point, maximum));
+        return glm::all(glm::greaterThanEqual(point, minimum)) &&
+               glm::all(glm::lessThan(point, maximum));
     }
 
     bool overlapsStrict(const srBoundingBox& box) const
     {
-        return glm::all(glm::greaterThan(maximum, box.minimum)) && glm::all(glm::greaterThan(box.maximum, minimum));
+        return glm::all(glm::greaterThan(maximum, box.minimum)) &&
+               glm::all(glm::greaterThan(box.maximum, minimum));
     }
 
     bool overlaps(const srBoundingBox& box) const
@@ -66,7 +69,8 @@ struct srBoundingBox {
     // Visibility probes test the midpoint first, then these ordered corners.
     std::array<glm::vec3, 9> visibilitySamples() const
     {
-        return {center(), corner(7), corner(0), corner(3), corner(2), corner(6), corner(5), corner(1), corner(4)};
+        return {center(),  corner(7), corner(0), corner(3), corner(2),
+                corner(6), corner(5), corner(1), corner(4)};
     }
 
     template<class TransformPoint> srBoundingBox transformedBy(TransformPoint transform) const
@@ -81,7 +85,8 @@ struct srBoundingBox {
 
     srBoundingBox transformed(const glm::mat4& matrix) const
     {
-        return transformedBy([&](const glm::vec3& point) { return glm::vec3(matrix * glm::vec4(point, 1)); });
+        return transformedBy(
+            [&](const glm::vec3& point) { return glm::vec3(matrix * glm::vec4(point, 1)); });
     }
 };
 
@@ -90,7 +95,9 @@ template<class Point> inline srBoundingBox boundingBox(std::span<const Point> po
     if (points.empty()) {
         return {};
     }
-    const auto coordinates = [](const Point& point) { return glm::vec3(point.x, point.y, point.z); };
+    const auto coordinates = [](const Point& point) {
+        return glm::vec3(point.x, point.y, point.z);
+    };
     const auto first = coordinates(points.front());
     srBoundingBox result{first, first};
     for (const auto& point : points.subspan(1)) {

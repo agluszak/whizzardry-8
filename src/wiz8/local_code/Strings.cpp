@@ -77,7 +77,8 @@ static std::string ImportLocalizedPattern(std::string text)
         R"(%%|%([-+ #0]*[0-9]*(?:\.[0-9]+)?)(?:[hl])?S|%([-+ #0]*[0-9]*(?:\.[0-9]+)?)I64([diuoxX]))");
     std::string result;
     std::size_t position = 0;
-    for (auto it = std::sregex_iterator(text.begin(), text.end(), specifier); it != std::sregex_iterator(); ++it) {
+    for (auto it = std::sregex_iterator(text.begin(), text.end(), specifier);
+         it != std::sregex_iterator(); ++it) {
         const auto& match = *it;
         result.append(text, position, match.position() - position);
         if (match.str() == "%%") {

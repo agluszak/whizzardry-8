@@ -31,8 +31,9 @@ inline void StartEmitterCycle(W8EmitterHost& host, const W8AnimObj& animation, s
     host.subcycle = 0;
 }
 
-inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResources> cycles, W8ReadLevelInfo* info,
-                             W8GrCycle& visual, int cycle_index, bool select_lod)
+inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResources> cycles,
+                             W8ReadLevelInfo* info, W8GrCycle& visual, int cycle_index,
+                             bool select_lod)
 {
     if (cycle_index < -1 || cycle_index >= static_cast<int>(cycles.size())) {
         return false;
@@ -43,8 +44,8 @@ inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResource
         return false;
     }
     const int emitter = cycle_index == -1 ? loaded.animation->cycle : cycle_index;
-    if (emitter < 0 || emitter >= static_cast<int>(cycles.size()) || !std::isfinite(loaded.animation->playback_scale) ||
-        loaded.animation->playback_scale <= 0) {
+    if (emitter < 0 || emitter >= static_cast<int>(cycles.size()) ||
+        !std::isfinite(loaded.animation->playback_scale) || loaded.animation->playback_scale <= 0) {
         return false;
     }
 

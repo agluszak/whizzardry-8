@@ -165,7 +165,9 @@ void ControlLiftGate(int command)
             if (value > 0) {
                 g_lift_gate->SetProgress(value * g_movement_speed_step);
             }
-            position.y = (LIFT_TOP_Y - LIFT_BOTTOM_Y) * (g_float_one - value * g_movement_speed_step) + LIFT_BOTTOM_Y;
+            position.y =
+                (LIFT_TOP_Y - LIFT_BOTTOM_Y) * (g_float_one - value * g_movement_speed_step) +
+                LIFT_BOTTOM_Y;
         } else {
             if (value == 100) {
                 position.y = LIFT_BOTTOM_Y;
@@ -242,8 +244,8 @@ void ControlCampAlarm(int command)
             command = 0x1e;
         }
         ReleaseRendererObject(g_mt_gigas_outer_alarm_sound);
-        g_mt_gigas_outer_alarm_sound =
-            CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Alarm1.wav", position, 1.0f, 75.0f, true);
+        g_mt_gigas_outer_alarm_sound = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Alarm1.wav",
+                                                              position, 1.0f, 75.0f, true);
         if (g_mt_gigas_outer_alarm_gate != 0) {
             delete g_mt_gigas_outer_alarm_gate;
             g_mt_gigas_outer_alarm_gate = 0;

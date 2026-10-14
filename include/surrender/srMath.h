@@ -125,7 +125,8 @@ template<class T> void srVector3T<T>::SetZero()
     z = (T)0;
 }
 
-template<class T> srVector3T<T>* srVector3T<T>::Set(double source_0, double source_1, double source_2)
+template<class T>
+srVector3T<T>* srVector3T<T>::Set(double source_0, double source_1, double source_2)
 {
     x = (T)source_0;
     y = (T)source_1;
@@ -262,21 +263,25 @@ template<class T> srVector3T<T>& srVector3T<T>::Transform(const glm::mat<3, 3, T
 }
 template<class T> srVector3T<T>* srVector3T<T>::RotateAboutX(double sine, double cosine)
 {
-    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(1, 0, 0)) * glm::dvec3(glmValue()));
+    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(1, 0, 0)) *
+                           glm::dvec3(glmValue()));
     return this;
 }
 template<class T> srVector3T<T>* srVector3T<T>::RotateAboutY(double sine, double cosine)
 {
-    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 1, 0)) * glm::dvec3(glmValue()));
+    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 1, 0)) *
+                           glm::dvec3(glmValue()));
     return this;
 }
 template<class T> srVector3T<T>* srVector3T<T>::RotateAboutZ(double sine, double cosine)
 {
-    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 0, 1)) * glm::dvec3(glmValue()));
+    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 0, 1)) *
+                           glm::dvec3(glmValue()));
     return this;
 }
 
-template<glm::length_t N, class T, glm::qualifier Q> glm::vec<N, T, Q> normalizedOrZero(const glm::vec<N, T, Q>& value)
+template<glm::length_t N, class T, glm::qualifier Q>
+glm::vec<N, T, Q> normalizedOrZero(const glm::vec<N, T, Q>& value)
 {
     return glm::dot(value, value) == T(0) ? value : glm::normalize(value);
 }

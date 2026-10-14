@@ -70,8 +70,8 @@ void PushButtonSoundScheme(int scheme, bool replace_current)
         return;
     }
     if (g_button_sound_scheme_stack_top >= 32) {
-        srAssertFail("giSchemeStackTop < SCHEME_STACK_SIZE", "C:\\Projects\\Wizardry 8\\Local Code\\ButtonSound.cpp",
-                     0x5d, 0);
+        srAssertFail("giSchemeStackTop < SCHEME_STACK_SIZE",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\ButtonSound.cpp", 0x5d, 0);
     }
     ++g_button_sound_scheme_stack_top;
     g_button_sound_scheme_stack[g_button_sound_scheme_stack_top] = scheme;

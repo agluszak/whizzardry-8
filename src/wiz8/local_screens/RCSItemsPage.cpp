@@ -123,7 +123,8 @@ void SetCampInfoPageMode(char mode)
 
     switch (mode) {
     default:
-        srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x544, "Info toggle error");
+        srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x544,
+                     "Info toggle error");
         break;
     case W8_CAMP_INFO_PAGE_CHARACTER:
         item_controls->tabs[0]->SetPressed(false);
@@ -159,7 +160,8 @@ void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_ca
 {
     W8DialogBase* dialog;
 
-    if (!IsItemWornByCharacter(g_review_character, item) && !IsItemCarriedByCharacter(g_review_character, item)) {
+    if (!IsItemWornByCharacter(g_review_character, item) &&
+        !IsItemCarriedByCharacter(g_review_character, item)) {
         dialog = new W8AssayDialog(item, 0);
     } else {
         dialog = new W8AssayDialog(item, g_review_character);
@@ -370,15 +372,16 @@ void UseHeldItemOnItem(W8ItemInstance* item)
     W8CombatSlot target;
 
     if (giCasterCharSlot < 0) {
-        srAssertFail("giCasterCharSlot >= 0", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x668, 0);
+        srAssertFail("giCasterCharSlot >= 0",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x668, 0);
     }
     if (giCasterCharSlot > 7) {
-        srAssertFail("giCasterCharSlot < MAX_CHARS", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x669,
-                     0);
+        srAssertFail("giCasterCharSlot < MAX_CHARS",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x669, 0);
     }
     if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp",
-                     0x66a, 0);
+        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x66a, 0);
     }
     if (item->iItemNo != -1) {
         if (CanItemLeaveItsSlot(item)) {
@@ -387,8 +390,9 @@ void UseHeldItemOnItem(W8ItemInstance* item)
             if (CommitPartySlotSpell(giCasterCharSlot, W8_SPELL_IDENTIFY_ITEM, 8, &target) == 1) {
                 OpenItemInfoDialog(item, 0);
                 if (!item->identified) {
-                    QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, g_character_event_kind2, 0,
-                                        g_character_event_no_flags, g_character_event_full_volume);
+                    QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot,
+                                        g_character_event_kind2, 0, g_character_event_no_flags,
+                                        g_character_event_full_volume);
                 }
             }
             RebuildCampItemList();
@@ -408,22 +412,24 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
     W8CombatSlot target;
 
     if (uiTargetChar > 7) {
-        srAssertFail("uiTargetChar < MAX_CHARS", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x692, 0);
+        srAssertFail("uiTargetChar < MAX_CHARS",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x692, 0);
     }
     if (!g_status.buffers.XChar[uiTargetChar].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiTargetChar)", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x693,
-                     0);
+        srAssertFail("fCHAR_OCCUPIED(uiTargetChar)",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x693, 0);
     }
     if (giCasterCharSlot < 0) {
-        srAssertFail("giCasterCharSlot >= 0", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x694, 0);
+        srAssertFail("giCasterCharSlot >= 0",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x694, 0);
     }
     if (giCasterCharSlot > 7) {
-        srAssertFail("giCasterCharSlot < MAX_CHARS", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x695,
-                     0);
+        srAssertFail("giCasterCharSlot < MAX_CHARS",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x695, 0);
     }
     if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp",
-                     0x696, 0);
+        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x696, 0);
     }
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_CHARACTER;
@@ -438,7 +444,8 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
 // FUNCTION: WIZ8 0x005BAA10
 int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 {
-    if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) || IsUsableItemClass(item)) {
+    if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
+        IsUsableItemClass(item)) {
         return 1;
     }
     return 0;
@@ -484,21 +491,27 @@ void SplitStackDialogResult(W8DialogBase* dialog)
            party pool, and as a last resort stays in hand. */
         destination = 0;
         character = 0;
-        if (gXStatus.held_item_source != -1 && (gXStatus.held_item_origin == W8_ITEM_ORIGIN_BACKPACK ||
-                                                gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED)) {
+        if (gXStatus.held_item_source != -1 &&
+            (gXStatus.held_item_origin == W8_ITEM_ORIGIN_BACKPACK ||
+             gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED)) {
             character = g_status.buffers.Char + gXStatus.held_item_source;
             if (gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED) {
-                if (character->EquippedItem[static_cast<short>(gXStatus.held_item_slot)].iItemNo == -1 &&
+                if (character->EquippedItem[static_cast<short>(gXStatus.held_item_slot)].iItemNo ==
+                        -1 &&
                     CanEquipItemInSlot(character, g_status.item_in_hand.iItemNo,
-                                       static_cast<unsigned char>(gXStatus.held_item_slot), false) &&
+                                       static_cast<unsigned char>(gXStatus.held_item_slot),
+                                       false) &&
                     CanCharacterUseItem(character, g_status.item_in_hand.iItemNo)) {
-                    destination = character->EquippedItem + static_cast<short>(gXStatus.held_item_slot);
+                    destination =
+                        character->EquippedItem + static_cast<short>(gXStatus.held_item_slot);
                 }
-            } else if (character->backpack[static_cast<short>(gXStatus.held_item_slot)].iItemNo == -1) {
+            } else if (character->backpack[static_cast<short>(gXStatus.held_item_slot)].iItemNo ==
+                       -1) {
                 destination = character->backpack + static_cast<short>(gXStatus.held_item_slot);
             }
         }
-        if (destination == 0 && (character == 0 || !AddItemToCharacter(character, &split, false, false, false)) &&
+        if (destination == 0 &&
+            (character == 0 || !AddItemToCharacter(character, &split, false, false, false)) &&
             !AddItemToParty(&split, false, false)) {
             ShowCampNoticeLine(g_localized_strings[0x915], 0, true, false);
             g_status.item_in_hand.stack_count = remaining;
@@ -520,8 +533,8 @@ void SplitStackDialogResult(W8DialogBase* dialog)
             g_split_item_source->stack_count = remaining;
             CopyItemInstance(&g_status.item_in_hand, &split, 0, true);
             gXStatus.held_item_source = giReviewCharSlot;
-            GetOriginOfCharacterItem(giReviewCharSlot, g_split_item_source, &gXStatus.held_item_origin,
-                                     &gXStatus.held_item_slot);
+            GetOriginOfCharacterItem(giReviewCharSlot, g_split_item_source,
+                                     &gXStatus.held_item_origin, &gXStatus.held_item_slot);
             carried = g_status.item_in_hand.stack_count;
         }
     }
@@ -559,7 +572,8 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
         return;
     case W8_TARGET_NEED_ITEM:
         if (item == 0) {
-            srAssertFail("pItem", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x763, 0);
+            srAssertFail("pItem", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp",
+                         0x763, 0);
         }
         if (item->iItemNo == -1) {
             return;
@@ -577,7 +591,8 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
         }
         if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
             const W8ItemDatabaseRecord* record = g_item_records + item->iItemNo;
-            if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0 || record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
+            if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0 ||
+                record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
                 return;
             }
             if (gXStatus.fCombatMode && !IsEquippableItemClass(item) &&
@@ -589,8 +604,8 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
             return;
         }
         if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE) {
-            if (CanCharacterActivateItem(g_review_character, item) || CanCastFromItem(g_review_character, item) ||
-                IsUsableItemClass(item)) {
+            if (CanCharacterActivateItem(g_review_character, item) ||
+                CanCastFromItem(g_review_character, item) || IsUsableItemClass(item)) {
                 SetTargetCursor(GetTargetingCursorForState(flag));
             }
             return;
@@ -811,10 +826,11 @@ static std::pair<W8ItemInstance*, int> CampItemAt(int slot, int origin)
         return {g_review_character->EquippedItem + slot, slot};
     }
     const auto visible = g_camp_screen->item_scroll + slot;
-    const int index = visible < g_camp_screen->item_list_count &&
-                              g_status.party_item_pool[g_camp_screen->item_list[visible]].iItemNo != -1
-                          ? g_camp_screen->item_list[visible]
-                          : g_status.party_item_count;
+    const int index =
+        visible < g_camp_screen->item_list_count &&
+                g_status.party_item_pool[g_camp_screen->item_list[visible]].iItemNo != -1
+            ? g_camp_screen->item_list[visible]
+            : g_status.party_item_count;
     return {g_status.party_item_pool + index, index};
 }
 
@@ -829,7 +845,8 @@ static std::string CampItemTooltip(int slot, int origin)
     if (item->iItemNo != -1) {
         const auto& record = g_item_records[item->iItemNo];
         if (record.category == W8_ITEM_CATEGORY_SPELL_SOURCE && record.spell_id != W8_SPELL_NONE &&
-            g_review_character->spell_learned[record.spell_id] && (item->identified || item->spell_hint)) {
+            g_review_character->spell_learned[record.spell_id] &&
+            (item->identified || item->spell_hint)) {
             text += fmt::format(" ({})", g_localized_strings[0x930]);
         }
     }
@@ -841,8 +858,8 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
     const auto [item, index] = CampItemAt(slot, origin);
     const bool equipped = origin == W8_ITEM_ORIGIN_EQUIPPED;
     const bool pool = origin == W8_ITEM_ORIGIN_PARTY_POOL;
-    auto& target =
-        *(pool ? g_camp_screen->pool_targets[slot] : g_camp_screen->inventory_targets[slot + (equipped ? 8 : 0)]);
+    auto& target = *(pool ? g_camp_screen->pool_targets[slot]
+                          : g_camp_screen->inventory_targets[slot + (equipped ? 8 : 0)]);
     if (item->iItemNo == -1 &&
         (!g_status.item_in_cursor ||
          (equipped && (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
@@ -853,10 +870,11 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
     }
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
         if (item->iItemNo != -1 || g_status.item_in_cursor) {
-            g_camp_screen->item_redraw_flags |= (pool       ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
-                                                 : equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
-                                                            : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST)
-                                                << slot;
+            g_camp_screen->item_redraw_flags |=
+                (pool       ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
+                 : equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
+                            : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST)
+                << slot;
         }
         UpdateItemCursorForState(event.action == UiPointerAction::Enter, item, 0);
     }
@@ -870,8 +888,9 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
     }
     if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
-            AfterUiDispatch(
-                [item, index, origin] { HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin)); });
+            AfterUiDispatch([item, index, origin] {
+                HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin));
+            });
         }
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
             item->iItemNo != -1 && g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
@@ -905,7 +924,8 @@ void DrawCampItemIcons(void)
     for (index = 0; index < 8; ++index) {
         item = &character->backpack[index];
         if (item->iItemNo != -1) {
-            DrawCampItemLabel(item, (index & 1) * 0x31 + 0xd, (index >> 1) * 0x39 + 0xc2 + (index & 1) * 0x10, 0);
+            DrawCampItemLabel(item, (index & 1) * 0x31 + 0xd,
+                              (index >> 1) * 0x39 + 0xc2 + (index & 1) * 0x10, 0);
         }
     }
     index = 0;
@@ -929,7 +949,8 @@ void DrawCampItemIcons(void)
     for (index = 0; index < 12; ++index) {
         item = &character->EquippedItem[index];
         if (item->iItemNo != -1) {
-            DrawCampItemLabel(item, region->label_x, region->label_y, static_cast<char>(region->label_flag));
+            DrawCampItemLabel(item, region->label_x, region->label_y,
+                              static_cast<char>(region->label_flag));
         }
         ++region;
     }
@@ -989,10 +1010,11 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
 void CreateCampItemControls()
 {
     item_controls = std::make_unique<CampItemControls>();
-    const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds, int help, bool toggle,
-                           void (*action)()) {
+    const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds, int help,
+                           bool toggle, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(layer);
-        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(), {f[0], f[1], f[2], f[3], f[4]},
+        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(),
+                          {f[0], f[1], f[2], f[3], f[4]},
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
                            .priority = UI_PRIORITY_LOWEST,
                            .tooltip = help});
@@ -1002,10 +1024,10 @@ void CreateCampItemControls()
         result->Resize(bounds.w, bounds.h);
         return result;
     };
-    item_controls->actions[0] =
-        button(item_controls->input, 0x11e, {3, 0, 1, 2, 2}, {0x7d, 0x19c, 28, 24}, 2385, false, UnequipBothHands);
-    item_controls->actions[1] =
-        button(item_controls->input, 0x11e, {11, 8, 9, 4, 5}, {0x9e, 0x19c, 28, 24}, 2386, true, TogglePartyRowFlag);
+    item_controls->actions[0] = button(item_controls->input, 0x11e, {3, 0, 1, 2, 2},
+                                       {0x7d, 0x19c, 28, 24}, 2385, false, UnequipBothHands);
+    item_controls->actions[1] = button(item_controls->input, 0x11e, {11, 8, 9, 4, 5},
+                                       {0x9e, 0x19c, 28, 24}, 2386, true, TogglePartyRowFlag);
     constexpr int frames[] = {0, 15, 20, 5, 10, 40, 30};
     constexpr int y[] = {0, 25, 75, 50, 108, 142, 176};
     const std::array actions{ToggleCampHandItemFilter,  ToggleCampBodyItemFilter,
@@ -1015,22 +1037,23 @@ void CreateCampItemControls()
     for (int index = 0; index < 7; ++index) {
         const int f = frames[index];
         item_controls->filters[index] =
-            button(item_controls->input, 0x11f, {f + 3, f, f + 1, f + 2, f + 4}, {0x1e5, 0xc1 + y[index], 24, 24},
-                   2378 + index, index < 6, actions[index]);
+            button(item_controls->input, 0x11f, {f + 3, f, f + 1, f + 2, f + 4},
+                   {0x1e5, 0xc1 + y[index], 24, 24}, 2378 + index, index < 6, actions[index]);
     }
     for (int index = 0; index < 2; ++index) {
         const int f = index * 5;
         item_controls->tabs[index] =
-            button(item_controls->secondary, 0x121, {f + 3, f, f + 1, f + 2, f + 4}, {0x13e, 9 + index * 21, 20, 20},
-                   0x95d + index, true, index ? ShowCampCharacterPage : ShowCampItemsPage);
+            button(item_controls->secondary, 0x121, {f + 3, f, f + 1, f + 2, f + 4},
+                   {0x13e, 9 + index * 21, 20, 20}, 0x95d + index, true,
+                   index ? ShowCampCharacterPage : ShowCampItemsPage);
     }
     const auto label = [](SDL_Rect bounds, std::function<void()> action, int help) {
         auto& target = item_controls->secondary.add(bounds, [action](const UiPointerEvent& event) {
             if (event.button != UiPointerButton::Right) {
                 PushButtonSoundScheme(0, true);
             }
-            if (event.action == UiPointerAction::Up && event.inside && event.button == UiPointerButton::Right &&
-                event.captured_buttons) {
+            if (event.action == UiPointerAction::Up && event.inside &&
+                event.button == UiPointerButton::Right && event.captured_buttons) {
                 AfterUiDispatch(action);
             }
             return UiResult::Handled;
@@ -1042,14 +1065,14 @@ void CreateCampItemControls()
     };
     for (int index = 0; index < 7; ++index) {
         item_controls->stats[index] = label(
-            {0x1c2, 0x3a + index * 14, 77, 13}, [index] { OpenAttributeInfoDialog(static_cast<W8Attribute>(index)); },
-            0x958);
+            {0x1c2, 0x3a + index * 14, 77, 13},
+            [index] { OpenAttributeInfoDialog(static_cast<W8Attribute>(index)); }, 0x958);
     }
     constexpr int info_y[] = {0x3a, 0x48, 0x80, 0x8e};
     for (int index = 0; index < 4; ++index) {
         item_controls->info[index] = label(
-            {0x144, info_y[index], 118, 13}, [index] { OpenSecondaryAttributeInfoDialog(index < 2 ? index : 3); },
-            0x958);
+            {0x144, info_y[index], 118, 13},
+            [index] { OpenSecondaryAttributeInfoDialog(index < 2 ? index : 3); }, 0x958);
     }
     item_controls->help = label({0x141, 0x54, 120, 13}, OpenSecondaryAttributeInfoDialog4, -1);
     item_controls->help->setTooltip([] { return item_controls->help_text; });

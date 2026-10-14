@@ -152,7 +152,8 @@ void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 int ItemInfoGetNumInGroup(W8WorldItem* item)
 {
     if (item == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1115, "Bad ITEM_STRUCT in ItemInfoGetNumInGroup");
+        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1115,
+                     "Bad ITEM_STRUCT in ItemInfoGetNumInGroup");
     }
     item = item->next;
     int count = 1;
@@ -216,15 +217,18 @@ static W8WorldItem* CreateTableItem(int item_id, const srVector3T<float>* positi
         ReplaceOrCreateItem(&item, item_id, false, false, false);
         item_pointer = &item;
     }
-    result = CreateWorldItem(item_pointer, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
+    result = CreateWorldItem(item_pointer, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE,
+                             false);
     if (result == 0) {
-        srAssertFail("pItemInfo", "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp", 0x18e, 0);
+        srAssertFail("pItemInfo", "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp", 0x18e,
+                     0);
     }
     return result;
 }
 
 // FUNCTION: WIZ8 0x004f88f0
-int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int table_id, unsigned int maximum_items)
+int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int table_id,
+                           unsigned int maximum_items)
 {
     unsigned int party_level = GetAveragePartyLevel();
     srVector3T<float> position;
@@ -246,14 +250,16 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
         if (table->entries[entry_index].selector != 0) {
             item_record = &g_item_records[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items.push_back(
-                    CreateTableItem(g_item_tables[table_id].entries[entry_index].item_id, &position));
+                output_items.push_back(CreateTableItem(
+                    g_item_tables[table_id].entries[entry_index].item_id, &position));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
                 item_value = item_record->value;
-                for (range = g_item_level_scale_ranges; range < g_item_level_scale_ranges + 7; ++range) {
-                    if (range->minimum_party_level <= party_level && range->minimum_item_value <= item_value &&
+                for (range = g_item_level_scale_ranges; range < g_item_level_scale_ranges + 7;
+                     ++range) {
+                    if (range->minimum_party_level <= party_level &&
+                        range->minimum_item_value <= item_value &&
                         item_value < range->maximum_item_value) {
                         candidates.push_back(entry_index);
                         break;
@@ -365,7 +371,8 @@ W8WorldItem* ItemInfoRemoveFromGroup(W8WorldItem* head, W8WorldItem* item)
     W8WorldItem* scan;
 
     if (head == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1142, "Bad ITEM_STRUCT in ItemInfoRemoveFromGroup");
+        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1142,
+                     "Bad ITEM_STRUCT in ItemInfoRemoveFromGroup");
     }
 
     if (head == item) {
@@ -400,7 +407,8 @@ W8WorldItem* ItemInfoRemoveFromGroup(W8WorldItem* head, W8WorldItem* item)
 W8WorldItem* ItemInfoGroupGetNext(W8WorldItem* item)
 {
     if (item == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1178, "Bad ITEM_STRUCT in ItemInfoGroupGetNext");
+        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1178,
+                     "Bad ITEM_STRUCT in ItemInfoGroupGetNext");
     }
     return item->next;
 }
@@ -444,13 +452,14 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
     W8WorldItem* item;
 
     if (item_list_index >= gXStatus.world_items.size()) {
-        srAssertFail("uiItemListIndex < (UINT32) gXStatus.world_items.size()", ITEM_MANAGER_CPP, 961, 0);
+        srAssertFail("uiItemListIndex < (UINT32) gXStatus.world_items.size()", ITEM_MANAGER_CPP,
+                     961, 0);
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 965,
-                     fmt::format("ItemInfo: ERROR - missing entry, index {:d}, pList {}", item_list_index,
-                                 static_cast<const void*>(&gXStatus.world_items)));
+                     fmt::format("ItemInfo: ERROR - missing entry, index {:d}, pList {}",
+                                 item_list_index, static_cast<const void*>(&gXStatus.world_items)));
     }
     return item;
 }
@@ -465,7 +474,8 @@ unsigned int ItemIndex(int runtime_id)
             return index;
         }
     }
-    srAssertFail("FALSE", ITEM_MANAGER_CPP, 992, fmt::format("ItemIndex: ERROR - ItemID {:d} not found", runtime_id));
+    srAssertFail("FALSE", ITEM_MANAGER_CPP, 992,
+                 fmt::format("ItemIndex: ERROR - ItemID {:d} not found", runtime_id));
     return 0;
 }
 
@@ -478,7 +488,8 @@ int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out)
     W8WorldItem* next;
 
     if (item == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1185, "Bad ITEM_STRUCT in ItemInfoMakeGroupList");
+        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1185,
+                     "Bad ITEM_STRUCT in ItemInfoMakeGroupList");
     }
 
     out.push_back(item);
@@ -666,7 +677,8 @@ void ActivateItem(W8WorldItem* item)
 
     name = g_item_records[item->item.iItemNo].internal_name;
     if (name.empty()) {
-        name = g_item_model_fallback_names[g_item_records[item->item.iItemNo].unidentified_name_index];
+        name =
+            g_item_model_fallback_names[g_item_records[item->item.iItemNo].unidentified_name_index];
     }
     zItemName = name;
     if (zItemName.find(".ITM") != std::string::npos) {
@@ -684,11 +696,11 @@ void ActivateItem(W8WorldItem* item)
                 const auto status = wiz8::file_status(zItemFullPath);
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
-            srAssertFail(
-                "[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
-                "status && status->info.type == SDL_PATHTYPE_FILE; }()",
-                ITEM_MANAGER_CPP, 0x1ed,
-                fmt::format("ActivateItem: ERROR - missing ITM file {}, item {:d}", zItemFullPath, item->item.iItemNo));
+            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
+                         "status && status->info.type == SDL_PATHTYPE_FILE; }()",
+                         ITEM_MANAGER_CPP, 0x1ed,
+                         fmt::format("ActivateItem: ERROR - missing ITM file {}, item {:d}",
+                                     zItemFullPath, item->item.iItemNo));
         }
     }
 
@@ -704,7 +716,8 @@ void ActivateItem(W8WorldItem* item)
     }
     position = item->position;
     item->p3D->SetLocation(&position);
-    item->p3D->SetYaw(static_cast<float>(Random(0x168) * 2 * g_camera_pi * g_inverse_full_turn_degrees));
+    item->p3D->SetYaw(
+        static_cast<float>(Random(0x168) * 2 * g_camera_pi * g_inverse_full_turn_degrees));
     static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags |= item->entity_flags;
     item->p3D->AttachMesh(GetWorld());
     AddItemToWorld(GetWorld(), item->p3D);
@@ -890,10 +903,11 @@ void DropHeldItem(int)
     delta.SetLength(glm::max(delta.Length() - g_float_one_hundred_twenty_five, g_float_zero));
 
     srVector3T<float> position = camera + delta;
-    position.y = g_octree->settleToGround(position.glmValue(), true, 250).position.y + g_float_one_hundred_twenty_five;
+    position.y = g_octree->settleToGround(position.glmValue(), true, 250).position.y +
+                 g_float_one_hundred_twenty_five;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
-        W8WorldItem* item =
-            CreateWorldItem(&g_status.item_in_hand, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
+        W8WorldItem* item = CreateWorldItem(&g_status.item_in_hand, &position,
+                                            W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
         if (item == 0) {
             // Retail passes the NULL item pointer as the assert message.
             // reinterpret-ok: pointer-valued assert message argument.
@@ -1198,8 +1212,8 @@ void RebuildAllWorldItemInstances(void)
 }
 
 // FUNCTION: WIZ8 0x004f6b90
-W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position, int entity_flags,
-                             bool add_to_world)
+W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position,
+                             int entity_flags, bool add_to_world)
 {
     W8WorldItem* result = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));
 
@@ -1227,7 +1241,8 @@ W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* posi
 }
 
 // FUNCTION: WIZ8 0x004f6c50
-W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entity_flags, bool add_to_world)
+W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entity_flags,
+                       bool add_to_world)
 {
     W8ItemInstance local_item;
     W8ItemInstance* item;
@@ -1242,7 +1257,8 @@ W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entit
 
     result = CreateWorldItem(item, position, entity_flags, add_to_world);
     if (result == 0) {
-        srAssertFail("pItemInfo", "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp", 0x18e, 0);
+        srAssertFail("pItemInfo", "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp", 0x18e,
+                     0);
     }
     return result;
 }
@@ -1280,8 +1296,8 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     int rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {
                         if (entry->type == 0) {
-                            item = SpawnItem(entry->item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE,
-                                             false);
+                            item = SpawnItem(entry->item_id, &position,
+                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
                             if (item != 0) {
                                 items.push_back(item);
                             }
@@ -1295,13 +1311,14 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         } else {
             W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, true);
             if (npc == 0) {
-                srAssertFail("pNPC", ITEM_MANAGER_CPP, 1459,
-                             fmt::format("Monster {} marked as NPC with no NPC data", record->name0));
+                srAssertFail(
+                    "pNPC", ITEM_MANAGER_CPP, 1459,
+                    fmt::format("Monster {} marked as NPC with no NPC data", record->name0));
             }
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {
-                    item =
-                        SpawnItem(npc->item_ids[index], &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
+                    item = SpawnItem(npc->item_ids[index], &position,
+                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
                     if (item != 0) {
                         items.push_back(item);
                     }
@@ -1331,8 +1348,8 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     if (npc->item_ids[pick] != -1 &&
                         static_cast<short>(Random(total_weight)) <=
                             static_cast<short>(static_cast<signed char>(npc->item_weights[pick]))) {
-                        item = SpawnItem(npc->item_ids[pick], &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE,
-                                         false);
+                        item = SpawnItem(npc->item_ids[pick], &position,
+                                         W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
                         if (item != 0) {
                             items.push_back(item);
                         }
@@ -1356,7 +1373,8 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             if (value == -1) {
                 container = SpawnItem(0x23c, &position, W8_ITEM_ENTITY_ROTATE, true);
             } else {
-                container = SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
+                container =
+                    SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
             }
             for (item_index = 0; item_index < static_cast<int>(items.size()); ++item_index) {
                 ItemInfoAddToGroup(container, items[item_index]);

@@ -34,7 +34,8 @@ void UpdatePortraitAdvanceButtons(void);
 void UpdateConditionButtons(void);
 /* Stage the casting icon on a monster-manager entry; the spell's
    realm picks the icon catalog base and the flag picks the dim variant. */
-void StageMonsterCastIcon(unsigned int monster_index, W8SpellRealm spell_realm, bool flag, int spell_id);
+void StageMonsterCastIcon(unsigned int monster_index, W8SpellRealm spell_realm, bool flag,
+                          int spell_id);
 /* Hide or show the condition-button region set for
    the current layout. SyncMainGameModeRegions picks between them. */
 void DisableConditionButtons(void);
@@ -45,13 +46,14 @@ void EnableConditionButtons(void);
 
 /* Main-game portrait overlay helpers used when a party slot refreshes. */
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int flags, unsigned int top);
-void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready, bool slot_enabled);
+void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
+                                bool slot_enabled);
 
 /* The slot's menu/portrait anchor table - the keyboard-menu
    panel's origin, the portrait band's two x edges, the grid row and the
    column pixel; the adjust flag applies the compact-display shift. */
-void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge, int* band_portrait_edge,
-                            int* grid_row, int* column_x, int adjust);
+void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
+                            int* band_portrait_edge, int* grid_row, int* column_x, int adjust);
 void TickPartyPortraitOverlayClocks(void);
 
 /* Shade the depleted tail of a vitals bar - two scanlines tall

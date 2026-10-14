@@ -28,7 +28,8 @@ TEST_CASE("resource_text_test")
     w8_native::configure_paths({(root / "assets").string(), (root / "user").string(), {}});
     wiz8::create_directory("Data/Databases");
     const std::string long_line = "SOUND " + std::string(600, 'x') + "é";
-    write_text("Data/script.txt", "* comment\r\n\r\nStart:\r\n  " + long_line + "\r\nSTART:\r\nend");
+    write_text("Data/script.txt",
+               "* comment\r\n\r\nStart:\r\n  " + long_line + "\r\nSTART:\r\nend");
     stScript script;
     REQUIRE((script.Load("Data/script.txt")));
     REQUIRE((script.lines.size() == 2 && script.labels.size() == 1));

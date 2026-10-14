@@ -148,7 +148,8 @@ void SyncPartyPortraitVitalsBars(void)
                     left = SumCharacterSpellPointsLeft(character);
                 }
                 total = SumCharacterSpellPoints(character);
-                spell_bar = (static_cast<unsigned int>(left) * 0x2d) / static_cast<unsigned int>(total);
+                spell_bar =
+                    (static_cast<unsigned int>(left) * 0x2d) / static_cast<unsigned int>(total);
                 if (spell_bar == 0 && SumCharacterSpellPointsLeft(character) != 0) {
                     spell_bar = 1;
                 }
@@ -157,7 +158,8 @@ void SyncPartyPortraitVitalsBars(void)
             if (hp_bar != static_cast<unsigned int>(entry->cached_hp_bar) ||
                 stamina_bar != static_cast<unsigned int>(entry->cached_stamina_bar) ||
                 spell_bar != static_cast<unsigned int>(entry->cached_spell_bar) ||
-                (g_settings.numeric_hit_points != 0 && static_cast<int>(character->hp_current) != entry->cached_hp)) {
+                (g_settings.numeric_hit_points != 0 &&
+                 static_cast<int>(character->hp_current) != entry->cached_hp)) {
                 entry->portrait_stats_dirty = true;
                 RequestRedraw(W8_MAIN_REDRAW_FRAME);
             }
@@ -210,7 +212,8 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
     } else {
         entry->damage_splat_amount += amount;
         entry->damage_splat_frame = 0;
-        if (g_status.buffers.Char[party_slot].hp_current == 0 && !entry->damage_splat_death_variant) {
+        if (g_status.buffers.Char[party_slot].hp_current == 0 &&
+            !entry->damage_splat_death_variant) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
         }
@@ -253,8 +256,10 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
             top = 0x111;
             break;
         }
-        unsigned int object = !entry->damage_splat_death_variant ? entry->damage_splat_catalog : 0x92;
-        CatalogArtwork::Load(object, 0).draw(GetFrameBufferSurface(), static_cast<short>(frame), left, top);
+        unsigned int object =
+            !entry->damage_splat_death_variant ? entry->damage_splat_catalog : 0x92;
+        CatalogArtwork::Load(object, 0).draw(GetFrameBufferSurface(), static_cast<short>(frame),
+                                             left, top);
         if (entry->damage_splat_frame < 6) {
             W8ControlsRect bounds;
             bounds.left = left;
@@ -262,8 +267,8 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
             bounds.right = left + 0x52;
             bounds.bottom = top + 0x4c;
             W8TextBuffer splat_text(&bounds, {}, g_wiz_text_bold_font, 0, 4);
-            splat_text.RenderString(fmt::format("{:d}", entry->damage_splat_amount), g_wiz_text_bold_font, false,
-                                    GetFrameBufferSurface());
+            splat_text.RenderString(fmt::format("{:d}", entry->damage_splat_amount),
+                                    g_wiz_text_bold_font, false, GetFrameBufferSurface());
         }
         if (gXStatus.fCombatMode) {
             entry->combat_portrait_dirty = true;
@@ -296,8 +301,10 @@ void DrawPortraitEffectIcon(unsigned int party_slot)
         }
         if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
-            CatalogArtwork::Load(gXStatus.monster_manager_entries[party_slot].effect_icon_catalog, 0)
-                .drawAndInvalidate(GetFrameBufferSurface(), image, (party_slot & 1) << 9 | 0x17, top);
+            CatalogArtwork::Load(gXStatus.monster_manager_entries[party_slot].effect_icon_catalog,
+                                 0)
+                .drawAndInvalidate(GetFrameBufferSurface(), image, (party_slot & 1) << 9 | 0x17,
+                                   top);
         }
     }
 }
@@ -394,8 +401,8 @@ void RedrawCombatPortraits(void)
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
         W8CombatCharacterRow* combat_row = &g_combat_state->characters[slot];
 
-        if (!CanPartySlotParticipate(slot) || combat_row->portrait_image == -1 || !entry->combat_portrait_dirty ||
-            slot == g_level_block->combat_slot) {
+        if (!CanPartySlotParticipate(slot) || combat_row->portrait_image == -1 ||
+            !entry->combat_portrait_dirty || slot == g_level_block->combat_slot) {
             continue;
         }
         if ((slot & 1) == 0) {
@@ -416,13 +423,15 @@ void RedrawCombatPortraits(void)
         } else {
             portrait_image = combat_row->portrait_image_alternate;
         }
-        CatalogArtwork::Load(0x8a, 0).drawAndInvalidate(GetFrameBufferSurface(), portrait_image, portrait_x,
-                                                        row_y + 0x44);
+        CatalogArtwork::Load(0x8a, 0).drawAndInvalidate(GetFrameBufferSurface(), portrait_image,
+                                                        portrait_x, row_y + 0x44);
         if (!CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
-            CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x, row_y + 0x37);
+            CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x,
+                                                            row_y + 0x37);
         } else if (party_row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
             CatalogArtwork::Load(0x8c, 0).drawAndInvalidate(
-                GetFrameBufferSurface(), g_status.buffers.XChar[party_row->target_in_combat.iChar].party_order_index,
+                GetFrameBufferSurface(),
+                g_status.buffers.XChar[party_row->target_in_combat.iChar].party_order_index,
                 badge_x, row_y + 0x38);
         }
         entry->combat_portrait_dirty = false;
@@ -445,8 +454,8 @@ void ToggleNumericHitPoints(void)
    the grid row and the column pixel. 'adjust' applies the compact-display
    shift used when the party display is a single column. */
 // FUNCTION: WIZ8 0x0059AA60
-void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge, int* band_portrait_edge,
-                            int* grid_row, int* column_x, int adjust)
+void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
+                            int* band_portrait_edge, int* grid_row, int* column_x, int adjust)
 {
     switch (party_slot) {
     case 0:
@@ -517,7 +526,8 @@ void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_
         break;
     }
     if (adjust != 0 && g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
-        static_cast<unsigned int>(g_settings.main_ui_mode) <= static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
+        static_cast<unsigned int>(g_settings.main_ui_mode) <=
+            static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
         if ((party_slot & 1) == 0) {
             *menu_x -= 0x69;
             *band_menu_edge = -1;
@@ -557,8 +567,8 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
     unsigned int numeric_hp_mode;
 
     if (character->hp_current != 0) {
-        GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge, &grid_row, &column_x,
-                               slot_enabled);
+        GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
+                               &grid_row, &column_x, slot_enabled);
         if (g_settings.numeric_hit_points != 0) {
             bar_y = 0x11;
             hp_bar_x = 3;
@@ -580,7 +590,8 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
 
         CatalogArtwork::Load(hp_catalog, 0)
             .draw(GetFrameBufferSurface(), 0, band_portrait_edge + hp_bar_x, bar_y + menu_y);
-        ShadeStatusBarGap(0x2d - entry->cached_hp_bar, hp_bar_x + band_portrait_edge, bar_y - numeric_hp_mode + menu_y);
+        ShadeStatusBarGap(0x2d - entry->cached_hp_bar, hp_bar_x + band_portrait_edge,
+                          bar_y - numeric_hp_mode + menu_y);
 
         CatalogArtwork::Load(stamina_catalog, 0)
             .draw(GetFrameBufferSurface(), 0, band_portrait_edge + stamina_bar_x, bar_y + menu_y);
@@ -594,7 +605,8 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
                               bar_y - numeric_hp_mode + menu_y);
         }
 
-        InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18, bar_y + menu_y + 0x2d);
+        InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
+                         bar_y + menu_y + 0x2d);
         if (g_settings.numeric_hit_points != 0) {
             W8TextBuffer text;
             W8ControlsRect bounds;
@@ -653,9 +665,10 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
     entry->effect_icon_catalog = catalog;
     entry->effect_icon_end_frame =
         static_cast<unsigned short>(CatalogArtwork::Load(catalog).spriteSheet()->frames.size());
-    std::string sound = spell_id != W8_SPELL_NONE && g_spell_records[spell_id].sound_name[0] != 0
-                            ? fmt::format("Data\\Spells\\Sounds\\{}.wav", g_spell_records[spell_id].sound_name)
-                            : s_general_magic_sound;
+    std::string sound =
+        spell_id != W8_SPELL_NONE && g_spell_records[spell_id].sound_name[0] != 0
+            ? fmt::format("Data\\Spells\\Sounds\\{}.wav", g_spell_records[spell_id].sound_name)
+            : s_general_magic_sound;
     wiz8::sound::play(sound);
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[party_slot] == 0) {
@@ -676,11 +689,13 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
 // FUNCTION: WIZ8 0x005993A0
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, unsigned int top)
 {
-    if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 && IsPortraitObscuredByNpcDialogue(party_slot)) {
+    if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
+        IsPortraitObscuredByNpcDialogue(party_slot)) {
         return false;
     }
     if ((g_level_block == 0 ||
-         (g_settings.main_ui_mode != W8_MAIN_UI_MODE_FORMATION && g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) ||
+         (g_settings.main_ui_mode != W8_MAIN_UI_MODE_FORMATION &&
+          g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) ||
          g_level_block->portrait_refresh_pending[party_slot] != 0) &&
         g_status.buffers.XChar[party_slot].fOccupied) {
         W8Character* character = &g_status.buffers.Char[party_slot];
@@ -691,8 +706,10 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
                 (g_portrait_descriptors[portrait].render_mode == 2 && (party_slot & 1) != 0)) {
                 draw.mirror = true;
             }
-            if (BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw, party_slot, false) &&
-                ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) || gXStatus.fSurprisePossible ||
+            if (BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw,
+                                           party_slot, false) &&
+                ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
+                 gXStatus.fSurprisePossible ||
                  character->highest_condition == W8_CONDITION_MISSING)) {
                 return true;
             }
@@ -705,7 +722,8 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
    hands, HP/stamina chrome, labels, condition/enchantment icons, and any
    active overlay callees for that slot. */
 // FUNCTION: WIZ8 0x005994C0
-void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready, bool slot_enabled)
+void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
+                                bool slot_enabled)
 {
     int menu_x;
     int menu_y;
@@ -734,8 +752,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
         IsPortraitObscuredByNpcDialogue(party_slot);
     }
 
-    GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge, &grid_row, &column_x,
-                           slot_enabled);
+    GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
+                           &grid_row, &column_x, slot_enabled);
 
     party_row = &g_status.buffers.XChar[party_slot];
     character = &g_status.buffers.Char[party_slot];
@@ -761,14 +779,17 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
         } else {
             portrait_catalog = character->portrait_index;
             portrait_draw = {};
-            if ((g_portrait_descriptors[portrait_catalog].render_mode == 1 && (party_slot & 1) == 0) ||
-                (g_portrait_descriptors[portrait_catalog].render_mode == 2 && (party_slot & 1) != 0)) {
+            if ((g_portrait_descriptors[portrait_catalog].render_mode == 1 &&
+                 (party_slot & 1) == 0) ||
+                (g_portrait_descriptors[portrait_catalog].render_mode == 2 &&
+                 (party_slot & 1) != 0)) {
                 portrait_draw.mirror = true;
             }
-            RenderPartyPortrait(GetFrameBufferSurface(), portrait_catalog, menu_x + 0x14, menu_y, portrait_draw, 1,
-                                party_slot);
+            RenderPartyPortrait(GetFrameBufferSurface(), portrait_catalog, menu_x + 0x14, menu_y,
+                                portrait_draw, 1, party_slot);
         }
-        CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), static_cast<short>(grid_row), column_x, menu_y);
+        CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), static_cast<short>(grid_row),
+                                           column_x, menu_y);
     }
 
     CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), 0x10, menu_x + 0x17, menu_y);
@@ -786,50 +807,62 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                     show_off_hand_row = true;
                     hp_bar_frame = 2;
                 }
-                CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(), static_cast<short>(hp_bar_frame),
-                                                   band_menu_edge, menu_y);
+                CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(),
+                                                   static_cast<short>(hp_bar_frame), band_menu_edge,
+                                                   menu_y);
 
                 if (main_hand_item_id == -1) {
-                    CatalogArtwork::Load(g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF], 0)
+                    CatalogArtwork::Load(g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF],
+                                         0)
                         .draw(GetFrameBufferSurface(), 0, band_menu_edge + 4, menu_y + 0x17);
                 } else {
-                    DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(main_hand_item_id), 2,
+                    DrawSprite(GetFrameBufferSurface(),
+                               g_item_video_objects.Sprites(main_hand_item_id), 2,
                                band_menu_edge + 3, menu_y + 0x17);
                     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
                         text = fmt::format(
                             "{:d}",
-                            static_cast<int>(character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count));
+                            static_cast<int>(
+                                character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count));
                         g_smfnt_font.resetPalette();
                         text_width = g_smfnt_font.textWidth(text);
                         DrawText(GetFrameBufferSurface(), g_smfnt_font,
-                                 {(band_menu_edge - (text_width + 1) / 2) + 8, menu_y + 0x26}, text);
+                                 {(band_menu_edge - (text_width + 1) / 2) + 8, menu_y + 0x26},
+                                 text);
                     }
                 }
 
                 if (!show_off_hand_row) {
-                    off_hand_item_id = character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo;
+                    off_hand_item_id =
+                        character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo;
                     if (off_hand_item_id == -1) {
-                        CatalogArtwork::Load(g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF + 1], 0)
+                        CatalogArtwork::Load(
+                            g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF + 1], 0)
                             .draw(GetFrameBufferSurface(), 0, band_menu_edge + 4, menu_y + 0x2f);
                     } else {
-                        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(off_hand_item_id), 2,
+                        DrawSprite(GetFrameBufferSurface(),
+                                   g_item_video_objects.Sprites(off_hand_item_id), 2,
                                    band_menu_edge + 3, menu_y + 0x2f);
-                        if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count != 0) {
+                        if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
+                            0) {
                             text = fmt::format(
-                                "{:d}",
-                                static_cast<int>(character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count));
+                                "{:d}", static_cast<int>(
+                                            character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]
+                                                .stack_count));
                             g_smfnt_font.resetPalette();
                             text_width = g_smfnt_font.textWidth(text);
                             DrawText(GetFrameBufferSurface(), g_smfnt_font,
-                                     {(band_menu_edge - (text_width + 1) / 2) + 0xb, menu_y + 0x3e}, text);
+                                     {(band_menu_edge - (text_width + 1) / 2) + 0xb, menu_y + 0x3e},
+                                     text);
                         }
                     }
                 }
             }
 
             hp_bar_frame = g_settings.numeric_hit_points == 0 ? 1 : 3;
-            CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(), static_cast<short>(hp_bar_frame),
-                                               band_portrait_edge, menu_y);
+            CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(),
+                                               static_cast<short>(hp_bar_frame), band_portrait_edge,
+                                               menu_y);
             RedrawPartyPortraitBars(party_slot, slot_enabled);
 
             if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
@@ -838,7 +871,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                     Palette16 palette = g_smfnt_font.glyphs->colors;
                     if (character->load_category != 0) {
-                        palette = g_font_state_palettes[g_load_category_palettes[character->load_category]];
+                        palette = g_font_state_palettes
+                            [g_load_category_palettes[character->load_category]];
                     }
                     g_smfnt_font.setPalette(palette);
                 }
@@ -856,8 +890,10 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                      {(0x12 - text_width) / 2 + 2 + band_portrait_edge, menu_y + 3}, text);
 
             if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME ||
-                (g_wiz_text_font_secondary.resetPalette(), g_current_screen_state.id != W8_SCREEN_MAIN_GAME) ||
-                (text_shade = 1, g_level_block->name_hover_party_slot != static_cast<int>(party_slot))) {
+                (g_wiz_text_font_secondary.resetPalette(),
+                 g_current_screen_state.id != W8_SCREEN_MAIN_GAME) ||
+                (text_shade = 1,
+                 g_level_block->name_hover_party_slot != static_cast<int>(party_slot))) {
                 text_shade = 4;
             }
             g_wiz_text_font_secondary.setShade(text_shade);
@@ -892,7 +928,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 highlight_catalog = 0x5e;
                 highlight_y = menu_y + 2;
             }
-            CatalogArtwork::Load(highlight_catalog, 0).draw(GetFrameBufferSurface(), 0, highlight_x, highlight_y);
+            CatalogArtwork::Load(highlight_catalog, 0)
+                .draw(GetFrameBufferSurface(), 0, highlight_x, highlight_y);
         } else {
             int highlight_x;
             int highlight_y;
@@ -900,7 +937,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
 
             highlight_y = menu_y;
             if (!highlighted || (IsLeftButtonHeld() && !gXStatus.fReviewCharacterMode) ||
-                (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block->portrait_flash != 0)) {
+                (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
+                 g_level_block->portrait_flash != 0)) {
                 if (g_status.selected_character != static_cast<int>(party_slot)) {
                     goto draw_condition_icons;
                 }
@@ -910,7 +948,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 highlight_x = menu_x + 0x17;
                 highlight_catalog = 0x32;
             }
-            CatalogArtwork::Load(highlight_catalog, 0).draw(GetFrameBufferSurface(), 0, highlight_x, highlight_y);
+            CatalogArtwork::Load(highlight_catalog, 0)
+                .draw(GetFrameBufferSurface(), 0, highlight_x, highlight_y);
         }
     }
 
@@ -930,30 +969,37 @@ draw_condition_icons:
     if (character->highest_condition != W8_CONDITION_NONE) {
         condition_frame = static_cast<int>(character->highest_condition) + 0xb6;
     }
-    CatalogArtwork::Load(condition_frame, 0).draw(GetFrameBufferSurface(), 0, left_condition_x, menu_y + 3);
+    CatalogArtwork::Load(condition_frame, 0)
+        .draw(GetFrameBufferSurface(), 0, left_condition_x, menu_y + 3);
 
     if (character->enchantment_top != W8_ENCHANTMENT_NONE) {
         enchantment_frame = character->enchantment_top + 0xc9;
     }
-    CatalogArtwork::Load(enchantment_frame, 0).draw(GetFrameBufferSurface(), 0, right_condition_x, menu_y + 3);
+    CatalogArtwork::Load(enchantment_frame, 0)
+        .draw(GetFrameBufferSurface(), 0, right_condition_x, menu_y + 3);
 
     if (party_row->fOccupied && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
         if (g_level_block->condition_hover_party_slot == static_cast<int>(party_slot)) {
-            CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1, menu_y + 2);
+            CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1,
+                                               menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
-            CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1, menu_y + 2);
+            CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1,
+                                               menu_y + 2);
         }
 
         if (g_level_block->enchantment_hover_party_slot == static_cast<int>(party_slot)) {
-            CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1, menu_y + 2);
+            CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1,
+                                               menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
-            CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1, menu_y + 2);
+            CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1,
+                                               menu_y + 2);
         }
 
         if (g_level_block->name_hover_party_slot == static_cast<int>(party_slot) &&
             (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0)) {
-            CatalogArtwork::Load(0x62, 0).draw(GetFrameBufferSurface(), 0, menu_x + 0x13, menu_y + 0x48);
+            CatalogArtwork::Load(0x62, 0).draw(GetFrameBufferSurface(), 0, menu_x + 0x13,
+                                               menu_y + 0x48);
         }
 
         if ((g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
@@ -974,7 +1020,8 @@ draw_condition_icons:
             } else {
                 goto portrait_fx;
             }
-            CatalogArtwork::Load(assay_catalog, 0).draw(GetFrameBufferSurface(), 0, band_menu_edge + 1, assay_y);
+            CatalogArtwork::Load(assay_catalog, 0)
+                .draw(GetFrameBufferSurface(), 0, band_menu_edge + 1, assay_y);
         }
     }
 
@@ -1000,7 +1047,8 @@ portrait_fx:
             hp_overlay_catalog = 0x65;
             hp_overlay_x = band_portrait_edge;
         }
-        CatalogArtwork::Load(hp_overlay_catalog, 0).draw(GetFrameBufferSurface(), 0, hp_overlay_x, hp_overlay_y);
+        CatalogArtwork::Load(hp_overlay_catalog, 0)
+            .draw(GetFrameBufferSurface(), 0, hp_overlay_x, hp_overlay_y);
     }
 
     if (!gXStatus.fCombatMode && party_slot < 8 && party_row->fOccupied) {
@@ -1022,15 +1070,17 @@ portrait_fx:
 
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[party_slot] != 0 &&
-        (g_level_block->condition_highlight_party_slot != -1 || g_level_block->portrait_overlay_party_slot != -1)) {
+        (g_level_block->condition_highlight_party_slot != -1 ||
+         g_level_block->portrait_overlay_party_slot != -1)) {
         RefreshTrackedPortraitOverlay();
     }
 
     if (overlay_ready && gXStatus.fNpcDialogueMode &&
         g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
-        !g_npc_interaction_state->scripted_dialogue && !g_npc_interaction_state->dialogue_panel_hidden &&
-        g_npc_scripting.reply == W8NpcReplyState::none && g_npc_interaction_state->dialogue_hidden == 0 &&
-        !gXStatus.scripted_scene) {
+        !g_npc_interaction_state->scripted_dialogue &&
+        !g_npc_interaction_state->dialogue_panel_hidden &&
+        g_npc_scripting.reply == W8NpcReplyState::none &&
+        g_npc_interaction_state->dialogue_hidden == 0 && !gXStatus.scripted_scene) {
         SetNpcDialoguePanelVisible(1);
     }
 }
@@ -1131,12 +1181,14 @@ void CreateLevelButtons()
 {
     portrait_buttons = std::make_unique<PortraitButtons>();
     for (int slot = 0; slot < 8; ++slot) {
-        auto& button = portrait_buttons->buttons[slot] = std::make_unique<W8ButtonWidget>(portrait_buttons->input);
+        auto& button = portrait_buttons->buttons[slot] =
+            std::make_unique<W8ButtonWidget>(portrait_buttons->input);
         button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), {3, 0, 1, 2, 4},
                           {.on_click =
                                [slot](auto*) {
                                    AfterUiDispatch([slot] {
-                                       g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
+                                       g_pending_screen_state.parameter_3 =
+                                           &g_status.buffers.Char[slot];
                                        g_pending_screen_state.mode = 2;
                                        SetPendingScreenState(W8_SCREEN_CHARACTER);
                                    });
@@ -1157,14 +1209,17 @@ void CreateConditionButtons()
         auto& icon = condition_icons->icons[slot];
         icon.position = {((slot & 1) ? 0x23f : 0) + 0x17, (slot / 2) * 0x55 + 0x13};
         icon.target = &condition_icons->input.add(
-            SDL_Rect{icon.position.x, icon.position.y, 20, 20}, [slot](const UiPointerEvent& event) {
+            SDL_Rect{icon.position.x, icon.position.y, 20, 20},
+            [slot](const UiPointerEvent& event) {
                 condition_icons->icons[slot].dirty = true;
                 if (event.action == UiPointerAction::Leave ||
-                    (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left)) {
+                    (event.action == UiPointerAction::Up &&
+                     event.button == UiPointerButton::Left)) {
                     if (g_level_block->condition_highlight_party_slot != -1) {
                         ClearConditionHighlight();
                     }
-                } else if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left) {
+                } else if (event.action == UiPointerAction::Down &&
+                           event.button == UiPointerButton::Left) {
                     g_level_block->condition_highlight_party_slot = slot;
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                 }
@@ -1181,8 +1236,8 @@ void UpdateConditionButtons()
         auto& icon = condition_icons->icons[slot];
         const auto& entry = gXStatus.monster_manager_entries[slot];
         int catalog = 0;
-        if (g_status.buffers.XChar[slot].fOccupied && g_level_block->portrait_refresh_pending[slot] == 0 &&
-            !entry.keyboard_menu_open) {
+        if (g_status.buffers.XChar[slot].fOccupied &&
+            g_level_block->portrait_refresh_pending[slot] == 0 && !entry.keyboard_menu_open) {
             const auto& character = g_status.buffers.Char[slot];
             if (character.highest_condition) {
                 catalog = character.highest_condition + 0xb6;
@@ -1194,7 +1249,8 @@ void UpdateConditionButtons()
             icon.dirty = true;
             if (!catalog) {
                 if (!g_level_block->portrait_refresh_pending[slot] && !entry.keyboard_menu_open) {
-                    ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19, icon.position.y + 19);
+                    ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19,
+                                     icon.position.y + 19);
                 }
                 if (g_level_block->condition_highlight_party_slot == slot) {
                     ClearConditionHighlight();
@@ -1205,9 +1261,10 @@ void UpdateConditionButtons()
         icon.target->setEnabled(catalog != 0);
         if (condition_icons->active && catalog && icon.dirty) {
             auto& target = GetFrameBufferSurface();
-            CatalogArtwork::Load(0xa8, 0).drawAndInvalidate(target, icon.target->hovered() ? 1 : 0, icon.position.x,
-                                                            icon.position.y);
-            CatalogArtwork::Load(catalog, 0).drawAndInvalidate(target, 0, icon.position.x + 2, icon.position.y + 2);
+            CatalogArtwork::Load(0xa8, 0).drawAndInvalidate(target, icon.target->hovered() ? 1 : 0,
+                                                            icon.position.x, icon.position.y);
+            CatalogArtwork::Load(catalog, 0)
+                .drawAndInvalidate(target, 0, icon.position.x + 2, icon.position.y + 2);
             icon.dirty = false;
         }
     }

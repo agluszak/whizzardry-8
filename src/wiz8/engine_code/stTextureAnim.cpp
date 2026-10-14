@@ -25,9 +25,9 @@ stTextureAnim::stTextureAnim() : frame_tick(w8_get_ticks()) {}
 /* Copies share the frame textures but restart playback. */
 // FUNCTION: WIZ8 0x00485070
 stTextureAnim::stTextureAnim(const stTextureAnim& other)
-    : textures(other.textures), animation_mode(other.animation_mode), initial_frame(other.initial_frame),
-      frame_rate(other.frame_rate), frame_tick(w8_get_ticks()), trigger_mode(other.trigger_mode),
-      probability(other.probability), running(other.running)
+    : textures(other.textures), animation_mode(other.animation_mode),
+      initial_frame(other.initial_frame), frame_rate(other.frame_rate), frame_tick(w8_get_ticks()),
+      trigger_mode(other.trigger_mode), probability(other.probability), running(other.running)
 {
 }
 
@@ -75,7 +75,8 @@ void stTextureAnim::UpdateFrame()
         return;
     }
 
-    const int elapsed_frames = static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
+    const int elapsed_frames =
+        static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
     if (animation_mode == W8_TEXTURE_ANIM_LOOP) {
         int next = (direction * elapsed_frames) % count;
         if (next < frame) {
@@ -109,7 +110,8 @@ void stTextureAnim::UpdateFrame()
 // FUNCTION: WIZ8 0x00485730
 int stTextureAnim::IsFinished() const
 {
-    return animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE && frame == std::max(static_cast<int>(textures.size()) - 1, 0);
+    return animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE &&
+           frame == std::max(static_cast<int>(textures.size()) - 1, 0);
 }
 
 // FUNCTION: WIZ8 0x004856F0

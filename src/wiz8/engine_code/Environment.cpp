@@ -202,7 +202,8 @@ static void AdvanceEnvironmentClock(void)
         w8_ulong now = w8_get_ticks();
         w8_ulong elapsed = now - g_tick;
         if (elapsed != 0) {
-            AdvanceEnvironmentTime(static_cast<int>(static_cast<double>(elapsed) * g_view_distance));
+            AdvanceEnvironmentTime(
+                static_cast<int>(static_cast<double>(elapsed) * g_view_distance));
         }
     }
 }
@@ -527,7 +528,8 @@ void BeginWorldLightingFade(float duration)
     if (duration < g_float_zero) {
         g_world->environment_base_intensity = g_world->environment_intensity;
         if (g_secondary_world != 0) {
-            g_secondary_world->environment_base_intensity = g_secondary_world->environment_intensity;
+            g_secondary_world->environment_base_intensity =
+                g_secondary_world->environment_intensity;
         }
     }
 }
@@ -622,8 +624,10 @@ void RefreshFogRanges(void)
 {
     if (g_environment_object0 != 0 && g_world != 0) {
         g_environment_object0->fog_end = WorldGetFarClip(g_world) * g_world->environment_range_end;
-        g_environment_object0->fog_start = WorldGetFarClip(g_world) * g_world->environment_range_start;
-        g_environment_object1->fog_start = WorldGetFarClip(g_world) * g_world->environment_range_start;
+        g_environment_object0->fog_start =
+            WorldGetFarClip(g_world) * g_world->environment_range_start;
+        g_environment_object1->fog_start =
+            WorldGetFarClip(g_world) * g_world->environment_range_start;
         g_environment_object1->fog_end = WorldGetFarClip(g_world) * g_world->environment_range_end;
     }
 }
@@ -764,13 +768,15 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentCo
     }
     {
         if (auto material = g_materials.find("AnimatedCloudMaterial")) {
-            double brightness = g_double_one - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
+            double brightness =
+                g_double_one - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
 
             material->parms.ambient.x = static_cast<float>(brightness);
             material->parms.ambient.y = static_cast<float>(brightness);
             material->parms.ambient.z = static_cast<float>(brightness);
             material->parms.ambient.w = static_cast<float>(brightness);
-            material->parms.diffuse.w = static_cast<float>(brightness * g_double_three_quarters + g_double_quarter);
+            material->parms.diffuse.w =
+                static_cast<float>(brightness * g_double_three_quarters + g_double_quarter);
 
             material->dirty = 1;
         }

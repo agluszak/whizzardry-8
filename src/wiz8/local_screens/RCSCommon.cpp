@@ -193,8 +193,8 @@ void TryGiveHeldItemToCampPortrait(int slot)
 bool CanSelectRcsPartySlot(int ui_slot)
 {
     if (!g_status.buffers.XChar[ui_slot].fOccupied) {
-        srAssertFail("gStatus.XChar[uiSlot].fOccupied", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x9ac,
-                     0);
+        srAssertFail("gStatus.XChar[uiSlot].fOccupied",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x9ac, 0);
     }
 
     W8Character* character = &g_status.buffers.Char[ui_slot];
@@ -250,7 +250,8 @@ void DrawTallRcsText(std::string_view text, int left, int top, int width, unsign
    masks shift the start by the measured string length and the baseline is
    centered on the caller-provided height. */
 // FUNCTION: WIZ8 0x005b6fd0
-void DrawRcsTextJustified(std::string_view text, int left, int top, int width, int height, unsigned int layout_mode)
+void DrawRcsTextJustified(std::string_view text, int left, int top, int width, int height,
+                          unsigned int layout_mode)
 {
     if (layout_mode == (g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter)) {
         left += (width - g_wiz_text_font_secondary.textWidth(text)) / 2;
@@ -265,8 +266,8 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 static void OpenLevelUpCharacterScreen(void)
 {
     if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
-                     0x888, 0);
+        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x888, 0);
     }
     g_current_screen_state.parameter_2 = giReviewCharSlot;
     g_current_screen_state.parameter_3 = g_review_character;
@@ -281,8 +282,8 @@ UiResult HandleCampDismissPortrait(const UiPointerEvent& event)
         g_camp_screen->portrait_hovered[0] = event.action == UiPointerAction::Enter;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
     }
-    if (event.action == UiPointerAction::Up && event.inside && event.button == UiPointerButton::Left &&
-        (event.captured_buttons & SDL_BUTTON_LMASK)) {
+    if (event.action == UiPointerAction::Up && event.inside &&
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
         AfterUiDispatch(DismissSelectedPartyCharacter);
     }
     return UiResult::Handled;
@@ -313,8 +314,9 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                     (g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_CAST_SPELL &&
                      g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)) {
                     if (!CanPartySlotParticipate(target_slot)) {
-                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot], g_character_event_kind2, 0,
-                                            g_character_event_no_flags, g_character_event_full_volume);
+                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
+                                            g_character_event_kind2, 0, g_character_event_no_flags,
+                                            g_character_event_full_volume);
                         return;
                     }
                     AimAtCharacter(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
@@ -332,11 +334,13 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
             } else {
                 if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT) {
                     if (!IsDeadCharacterTargetable(target_slot)) {
-                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot], g_character_event_kind2, 0,
-                                            g_character_event_no_flags, g_character_event_full_volume);
+                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
+                                            g_character_event_kind2, 0, g_character_event_no_flags,
+                                            g_character_event_full_volume);
                         return;
                     }
-                    AimAtCharacterIndirect(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
+                    AimAtCharacterIndirect(giReviewCharSlot, target_slot,
+                                           W8_TARGETING_CONTEXT_CURRENT);
                     StartBreathCycle(giReviewCharSlot, false);
                     return;
                 }
@@ -355,8 +359,8 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
         g_camp_screen->redraw_flags |= 0x200;
     }
-    if (event.action == UiPointerAction::Up && event.inside && event.button == UiPointerButton::Left &&
-        (event.captured_buttons & SDL_BUTTON_LMASK)) {
+    if (event.action == UiPointerAction::Up && event.inside &&
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
         AfterUiDispatch([] {
             g_current_screen_state.parameter_3 = g_review_character;
             g_current_screen_state.parameter_2 = giReviewCharSlot;
@@ -376,7 +380,8 @@ UiResult HandleCampProfessionHistory(const UiPointerEvent& event)
     if (event.button == UiPointerButton::Left) {
         if (event.action == UiPointerAction::Down) {
             SetCampHeaderMode(W8_CAMP_HEADER_PROFESSION_HISTORY);
-        } else if (event.action == UiPointerAction::Up && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+        } else if (event.action == UiPointerAction::Up &&
+                   (event.captured_buttons & SDL_BUTTON_LMASK)) {
             SetCampHeaderMode(W8_CAMP_HEADER_SUMMARY);
         }
         g_camp_screen->redraw_flags |= 0x7ff;
@@ -387,7 +392,8 @@ UiResult HandleCampProfessionHistory(const UiPointerEvent& event)
 void CreateCampHeaderButtons()
 {
     header_buttons = std::make_unique<CampHeaderButtons>();
-    const auto button = [](int art, SDL_Rect bounds, int pressed_hover, int help, void (*action)()) {
+    const auto button = [](int art, SDL_Rect bounds, int pressed_hover, int help,
+                           void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(header_buttons->input);
         result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(), {3, 0, 1, 2, pressed_hover},
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
@@ -399,8 +405,10 @@ void CreateCampHeaderButtons()
         result->SetVisible(false);
         return result;
     };
-    header_buttons->level_up = button(0xa7, {0xe9, 0x3f, 18, 18}, 4, 1984, OpenLevelUpCharacterScreen);
-    header_buttons->dismiss = button(0x113, {0xa7, 0x41, 23, 16}, 2, 2387, ShowDismissCharacterDialog);
+    header_buttons->level_up =
+        button(0xa7, {0xe9, 0x3f, 18, 18}, 4, 1984, OpenLevelUpCharacterScreen);
+    header_buttons->dismiss =
+        button(0x113, {0xa7, 0x41, 23, 16}, 2, 2387, ShowDismissCharacterDialog);
 }
 
 void DestroyCampHeaderButtons()
@@ -421,7 +429,8 @@ void UpdateRcsLevelUpPanel(void)
 {
     bool enabled = IsCharacterReadyToAdvance(giReviewCharSlot);
     if (!enabled || gXStatus.fCombatMode ||
-        (!g_status.buffers.XChar[giReviewCharSlot].portrait_advance && g_status.game_started) || gXStatus.fCampMode) {
+        (!g_status.buffers.XChar[giReviewCharSlot].portrait_advance && g_status.game_started) ||
+        gXStatus.fCampMode) {
         if (header_buttons->level_up->IsVisible()) {
             header_buttons->level_up->SetVisible(false);
         }
@@ -436,8 +445,8 @@ void UpdateRcsLevelUpPanel(void)
 static void ShowDismissCharacterDialog(void)
 {
     if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
-                     0x90a, 0);
+        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x90a, 0);
     }
 
     W8MessageDialogBase* dialog = CreateMessageDialog();
@@ -454,7 +463,8 @@ static void ShowDismissCharacterDialog(void)
     } else {
         format = g_localized_strings[0x92f];
     }
-    dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0, 0x15e);
+    dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
+                       0x15e);
     dialog->m_destroy_callback = OnDismissCharacterDialogClosed;
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
@@ -474,7 +484,8 @@ static void OnDismissCharacterDialogClosed(W8DialogBase* base)
 // FUNCTION: WIZ8 0x005b68e0
 void UpdateRcsDismissPanel(void)
 {
-    if ((giReviewCharSlot == 0 || giReviewCharSlot == 1) && !gXStatus.fCombatMode && !gXStatus.fCampMode) {
+    if ((giReviewCharSlot == 0 || giReviewCharSlot == 1) && !gXStatus.fCombatMode &&
+        !gXStatus.fCampMode) {
         if (!header_buttons->dismiss->IsVisible()) {
             header_buttons->dismiss->SetVisible(true);
             RedrawRcsDismissPanel();
@@ -535,7 +546,8 @@ void DrawCampHeader(void)
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             row = 0;
             for (profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
-                if (character->profession_levels[profession] != 0 || character->iProfession == profession) {
+                if (character->profession_levels[profession] != 0 ||
+                    character->iProfession == profession) {
                     if ((row & ~7u) == 0) {
                         name_x = 0xf;
                         level_x = 0x78;
@@ -544,9 +556,11 @@ void DrawCampHeader(void)
                         level_x = 0x10a;
                     }
                     y = (row & 7) * 0xe + 0x24;
-                    DrawRcsText(g_localized_strings[g_profession_name_message_ids[profession]], name_x, y, 0x68,
+                    DrawRcsText(g_localized_strings[g_profession_name_message_ids[profession]],
+                                name_x, y, 0x68,
                                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-                    state->text_buffer = fmt::format("{:d}", character->profession_levels[profession]);
+                    state->text_buffer =
+                        fmt::format("{:d}", character->profession_levels[profession]);
                     DrawRcsText(state->text_buffer, level_x, y, 0x20,
                                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
                     ++row;
@@ -567,7 +581,8 @@ void DrawCampHeader(void)
             CatalogArtwork::Load(g_dead_portrait_catalog_ids[character->iRace][1], 0)
                 .draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
         } else {
-            RenderPartyPortrait(GetFrameBufferSurface(), character->portrait_index, 0xa4, 0xc, {}, 1, giReviewCharSlot);
+            RenderPartyPortrait(GetFrameBufferSurface(), character->portrait_index, 0xa4, 0xc, {},
+                                1, giReviewCharSlot);
         }
         CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), 9, 0xa4, 0xc);
         if (state->portrait_hovered[0] != 0) {
@@ -580,13 +595,15 @@ void DrawCampHeader(void)
         if (character->highest_condition == W8_CONDITION_NONE) {
             CatalogArtwork::Load(0x2f, 0).draw(GetFrameBufferSurface(), 0, 0xa5, 0xe);
         } else {
-            CatalogArtwork::Load(character->highest_condition + 0xb6, 0).draw(GetFrameBufferSurface(), 0, 0xa5, 0xe);
+            CatalogArtwork::Load(character->highest_condition + 0xb6, 0)
+                .draw(GetFrameBufferSurface(), 0, 0xa5, 0xe);
             CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, 0xa4, 0xd);
         }
         if (character->enchantment_top == W8_ENCHANTMENT_NONE) {
             CatalogArtwork::Load(0x30, 0).draw(GetFrameBufferSurface(), 0, 0xee, 0xe);
         } else {
-            CatalogArtwork::Load(character->enchantment_top + 0xc9, 0).draw(GetFrameBufferSurface(), 0, 0xee, 0xe);
+            CatalogArtwork::Load(character->enchantment_top + 0xc9, 0)
+                .draw(GetFrameBufferSurface(), 0, 0xee, 0xe);
             CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, 0xed, 0xd);
         }
         InvalidateRegion(0xa4, 0xc, 0xfe, 0x54);
@@ -599,32 +616,38 @@ void DrawCampHeader(void)
             g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = character->name;
-        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_bold_font,
-                              {(0xba - g_wiz_text_bold_font.textWidth(state->text_buffer)) / 2 + 0x74, 0x60},
-                              state->text_buffer);
+        DrawTextAndInvalidate(
+            GetFrameBufferSurface(), g_wiz_text_bold_font,
+            {(0xba - g_wiz_text_bold_font.textWidth(state->text_buffer)) / 2 + 0x74, 0x60},
+            state->text_buffer);
         g_wiz_text_bold_font.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         state->text_buffer = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
         state->text_buffer += " ";
         state->text_buffer += g_localized_strings[g_race_name_message_ids[character->iRace]];
-        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                              {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x6f},
-                              state->text_buffer);
+        DrawTextAndInvalidate(
+            GetFrameBufferSurface(), g_wiz_text_font_secondary,
+            {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x6f},
+            state->text_buffer);
         if (state->main_targets[10]->hovered()) {
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
-        state->text_buffer = g_localized_strings[g_profession_name_message_ids[character->iProfession]];
-        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                              {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x7c},
-                              state->text_buffer);
+        state->text_buffer =
+            g_localized_strings[g_profession_name_message_ids[character->iProfession]];
+        DrawTextAndInvalidate(
+            GetFrameBufferSurface(), g_wiz_text_font_secondary,
+            {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x7c},
+            state->text_buffer);
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         state->text_buffer = fmt::format(
             "{} {:d} ({})", g_localized_strings[0x91a], character->uiExpLevel,
-            g_localized_strings[g_profession_level_name_message_ids[character->iProfession][character->level_band]]);
-        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                              {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x89},
-                              state->text_buffer);
+            g_localized_strings[g_profession_level_name_message_ids[character->iProfession]
+                                                                   [character->level_band]]);
+        DrawTextAndInvalidate(
+            GetFrameBufferSurface(), g_wiz_text_font_secondary,
+            {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x89},
+            state->text_buffer);
     }
     for (slot = 0; slot < 8; ++slot) {
         if ((state->redraw_flags & (1 << (slot & 0x1f))) != 0) {
@@ -633,7 +656,8 @@ void DrawCampHeader(void)
             left = band_x + 6;
             top = band_y + 5;
             if (giReviewCharSlot == -1 || !g_status.buffers.XChar[slot].fOccupied) {
-                CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5, band_y + 4);
+                CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5,
+                                                    band_y + 4);
             } else {
                 W8Character* member = &g_status.buffers.Char[slot];
                 if (member->hp_current == 0) {
@@ -645,7 +669,8 @@ void DrawCampHeader(void)
                 }
                 CatalogArtwork::Load(image, sub_image).draw(GetFrameBufferSurface(), 0, left, top);
                 if (!CanSelectRcsPartySlot(slot)) {
-                    const SDL_Rect bounds{left, top, band_x + 0x32 - left + 1, band_y + 0x28 - top + 1};
+                    const SDL_Rect bounds{left, top, band_x + 0x32 - left + 1,
+                                          band_y + 0x28 - top + 1};
                     ShadowRect(GetFrameBufferSurface(), bounds);
                     ShadowRect(GetFrameBufferSurface(), bounds);
                 }
@@ -714,14 +739,16 @@ void DrawCampVitals(void)
         spell_frame = 0x54;
     }
     if (g_review_character->uiHPMax == 0) {
-        srAssertFail("gpReviewPC->uiHPMax", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x373, 0);
+        srAssertFail("gpReviewPC->uiHPMax",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x373, 0);
     }
     hp_fill = g_review_character->hp_current * 0x2d / g_review_character->uiHPMax;
     if (g_review_character->uiStaminaMax == 0) {
-        srAssertFail("gpReviewPC->uiStaminaMax", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x377, 0);
+        srAssertFail("gpReviewPC->uiStaminaMax",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x377, 0);
     }
-    stamina_fill =
-        (g_review_character->stamina < 0 ? 0 : g_review_character->stamina) * 0x2d / g_review_character->uiStaminaMax;
+    stamina_fill = (g_review_character->stamina < 0 ? 0 : g_review_character->stamina) * 0x2d /
+                   g_review_character->uiStaminaMax;
     if (SumCharacterSpellPoints(g_review_character) == 0) {
         spell_fill = 0;
     } else {
@@ -739,13 +766,15 @@ void DrawCampVitals(void)
     if (gap != 0) {
         ShadeStatusBarGap(gap, hp_row + 0x10c, frame_column - numeric + 0xb);
     }
-    CatalogArtwork::Load(stamina_frame, 0).draw(GetFrameBufferSurface(), 0, stamina_row + 0x10c, bar_top);
+    CatalogArtwork::Load(stamina_frame, 0)
+        .draw(GetFrameBufferSurface(), 0, stamina_row + 0x10c, bar_top);
     gap = 0x2d - stamina_fill;
     if (gap != 0) {
         ShadeStatusBarGap(gap, stamina_row + 0x10c, frame_column - numeric + 0xb);
     }
     if (SumCharacterSpellPoints(g_review_character) != 0) {
-        CatalogArtwork::Load(spell_frame, 0).draw(GetFrameBufferSurface(), 0, spell_column + 0x10c, bar_top);
+        CatalogArtwork::Load(spell_frame, 0)
+            .draw(GetFrameBufferSurface(), 0, spell_column + 0x10c, bar_top);
         gap = 0x2d - spell_fill;
         if (gap != 0) {
             ShadeStatusBarGap(gap, spell_column + 0x10c, frame_column - numeric + 0xb);
@@ -762,8 +791,9 @@ void DrawCampVitals(void)
     } else {
         text.SetFontStateIndex(g_status.buffers.XChar[giReviewCharSlot].party_order_index);
     }
-    text.RenderString(g_localized_strings[g_profession_name_message_ids[g_review_character->iProfession + 0x10]],
-                      g_smfnt_font, false, GetFrameBufferSurface());
+    text.RenderString(
+        g_localized_strings[g_profession_name_message_ids[g_review_character->iProfession + 0x10]],
+        g_smfnt_font, false, GetFrameBufferSurface());
     if (g_settings.numeric_hit_points != 0) {
         bounds.left = 0x10e;
         bounds.right = 0x120;
@@ -783,7 +813,8 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
 {
     int item_id = g_review_character->EquippedItem[slot].iItemNo;
     if (item_id == -1) {
-        CatalogArtwork::Load(g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0)
+        CatalogArtwork::Load(
+            g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0)
             .draw(GetFrameBufferSurface(), 0, 0x85, top);
     } else {
         DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 2, 0x84, top);
@@ -827,10 +858,12 @@ void DrawCampHands(void)
     text = fmt::format("{:d}", g_review_character->armor_class_average);
     palette = g_smfnt_font.glyphs->colors;
     if (g_review_character->load_category != 0) {
-        palette = g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]];
+        palette =
+            g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]];
     }
     g_smfnt_font.setPalette(palette);
-    DrawText(GetFrameBufferSurface(), g_smfnt_font, {(0xd - g_smfnt_font.textWidth(text)) / 2 + 0x84, 0xe}, text);
+    DrawText(GetFrameBufferSurface(), g_smfnt_font,
+             {(0xd - g_smfnt_font.textWidth(text)) / 2 + 0x84, 0xe}, text);
     InvalidateRegion(0x81, 0xb, 0x95, 0x53);
 }
 
@@ -841,10 +874,12 @@ void DrawCampHands(void)
 int CreateCampButtonPanel(void)
 {
     camp_buttons = std::make_unique<CampButtons>();
-    const auto button = [](int artwork, int frame, int x, int help, bool page, std::function<void()> action) {
+    const auto button = [](int artwork, int frame, int x, int help, bool page,
+                           std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(camp_buttons->input);
         result->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
-                          {frame + 3, frame, frame + 1, page ? frame + 4 : frame + 2, page ? frame + 2 : frame + 4},
+                          {frame + 3, frame, frame + 1, page ? frame + 4 : frame + 2,
+                           page ? frame + 2 : frame + 4},
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
                            .priority = UI_PRIORITY_LOWEST,
                            .tooltip = help});
@@ -854,24 +889,28 @@ int CreateCampButtonPanel(void)
         result->Resize(44, 30);
         return result;
     };
-    constexpr W8CampPage pages[] = {W8_CAMP_PAGE_ITEMS, W8_CAMP_PAGE_SPELLS, W8_CAMP_PAGE_SKILLS, W8_CAMP_PAGE_STATS};
+    constexpr W8CampPage pages[] = {W8_CAMP_PAGE_ITEMS, W8_CAMP_PAGE_SPELLS, W8_CAMP_PAGE_SKILLS,
+                                    W8_CAMP_PAGE_STATS};
     constexpr int frames[] = {0, 10, 15, 5};
     constexpr int help[] = {2364, 2367, 2366, 2365};
     for (int index = 0; index < 4; ++index) {
-        camp_buttons->pages[index] = button(0x111, frames[index], 0x1a4 + index * 44, help[index], true,
-                                            [index, page = pages[index]] { SelectCampPageButton(index, page); });
+        camp_buttons->pages[index] =
+            button(0x111, frames[index], 0x1a4 + index * 44, help[index], true,
+                   [index, page = pages[index]] { SelectCampPageButton(index, page); });
     }
     auto& exit = camp_buttons->pages[4];
     exit = button(0x106, 16, 0x254, 2368, false, DismissSelectedPartyCharacter);
     exit->policy.primary_toggle = ButtonToggle::None;
-    exit->SetImage(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), 19, 16, 17, -1, 18));
+    exit->SetImage(
+        ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), 19, 16, 17, -1, 18));
     constexpr int action_frames[] = {0, 10, 5, 15, 20, 25, 30, 35};
     constexpr int action_x[] = {0, 44, 88, 132, 176, 308, 220, 264};
-    const std::array actions{OnCampIdentifyItem, OnCampMoveItem,  OnCampSplitStack,    OnCampUseItem,
-                             OnCampDropItem,     OnCampCastSpell, OnCampUseItemOnItem, OnCampUseItemOnCharacter};
+    const std::array actions{OnCampIdentifyItem,  OnCampMoveItem,          OnCampSplitStack,
+                             OnCampUseItem,       OnCampDropItem,          OnCampCastSpell,
+                             OnCampUseItemOnItem, OnCampUseItemOnCharacter};
     for (int index = 0; index < W8_CAMP_ACTION_BUTTON_COUNT; ++index) {
-        camp_buttons->actions[index] =
-            button(0x112, action_frames[index], action_x[index], 2369 + index, false, actions[index]);
+        camp_buttons->actions[index] = button(0x112, action_frames[index], action_x[index],
+                                              2369 + index, false, actions[index]);
     }
     camp_buttons->pages[0]->SetPressed(true);
     return 1;
@@ -947,8 +986,9 @@ void RefreshCampItemActions(bool invalidate)
                 control->SetEnabled(true);
                 continue;
             case W8_CAMP_ACTION_BUTTON_CAST_SPELL:
-                control->SetEnabled(IsPartySlotEligible(giReviewCharSlot) &&
-                                    CharacterHasTrait(g_review_character, W8_TRAIT_REMOVE_CURSED_ITEMS));
+                control->SetEnabled(
+                    IsPartySlotEligible(giReviewCharSlot) &&
+                    CharacterHasTrait(g_review_character, W8_TRAIT_REMOVE_CURSED_ITEMS));
                 continue;
             case W8_CAMP_ACTION_BUTTON_USE_ON_ITEM:
                 if (g_review_character->spell_learned[0x17] != 1) {
@@ -1065,7 +1105,8 @@ void SetCampItemActionMode(char mode)
     if (mode == W8_CAMP_ITEM_ACTION_NONE && g_status.item_in_cursor) {
         SetItemCursor(0);
     }
-    if (selected != W8_CAMP_ACTION_BUTTON_NONE && camp_buttons->actions[selected]->IsPressed() == 0) {
+    if (selected != W8_CAMP_ACTION_BUTTON_NONE &&
+        camp_buttons->actions[selected]->IsPressed() == 0) {
         camp_buttons->actions[selected]->SetPressed(true);
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;

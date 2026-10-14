@@ -24,7 +24,8 @@ void UpdateCampFatigue(int ticks);
 void UpdatePartyStamina(int ticks);
 /* Per-character stamina regen/fatigue tick. */
 void RegenCharacterStamina(int party_slot, unsigned int elapsed);
-void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes, unsigned char full_health_regeneration);
+void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
+                     unsigned char full_health_regeneration);
 /* Rebuild the per-realm stamina and spell regeneration rates from
    the pool ceilings and the three regeneration-boost flags. */
 void RebuildCharacterRegenRates(W8Character* character);

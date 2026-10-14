@@ -187,8 +187,9 @@ bool IsUppercaseCharacter(std::uint32_t character)
 bool IsLowercaseCharacter(std::uint32_t character)
 {
     const auto category = utf8proc_category(character);
-    return category == UTF8PROC_CATEGORY_LL || category == UTF8PROC_CATEGORY_LO || category == UTF8PROC_CATEGORY_LT ||
-           category == UTF8PROC_CATEGORY_LM || category == UTF8PROC_CATEGORY_MN || category == UTF8PROC_CATEGORY_MC ||
+    return category == UTF8PROC_CATEGORY_LL || category == UTF8PROC_CATEGORY_LO ||
+           category == UTF8PROC_CATEGORY_LT || category == UTF8PROC_CATEGORY_LM ||
+           category == UTF8PROC_CATEGORY_MN || category == UTF8PROC_CATEGORY_MC ||
            category == UTF8PROC_CATEGORY_ME;
 }
 
@@ -196,7 +197,8 @@ bool IsLowercaseCharacter(std::uint32_t character)
 bool IsPunctuationCharacter(std::uint32_t character)
 {
     const auto category = utf8proc_category(character);
-    return (category >= UTF8PROC_CATEGORY_PC && category <= UTF8PROC_CATEGORY_SO) || category == UTF8PROC_CATEGORY_CF;
+    return (category >= UTF8PROC_CATEGORY_PC && category <= UTF8PROC_CATEGORY_SO) ||
+           category == UTF8PROC_CATEGORY_CF;
 }
 
 // FUNCTION: WIZ8 0x00402880

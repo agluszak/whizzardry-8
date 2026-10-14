@@ -533,7 +533,8 @@ unsigned char OpenUseItemSelectView(int slot);
 unsigned char MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
 unsigned char MainGameScreenLeave(int leaving);
-void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation, bool cancel);
+void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
+                            bool confirmation, bool cancel);
 
 unsigned char HandleWorldResumeInput(const InputEvent* event);
 void SetWorldResumeInput(bool enabled);

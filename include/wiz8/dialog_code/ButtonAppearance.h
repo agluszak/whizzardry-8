@@ -46,9 +46,11 @@ struct ButtonVisualState {
 
 struct ButtonGraphics {
     static ButtonImage Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
-                            std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite);
-    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed, std::int32_t off_normal,
-                            std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite);
+                            std::int32_t off_hilite, std::int32_t on_normal,
+                            std::int32_t on_hilite);
+    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
+                            std::int32_t off_normal, std::int32_t off_hilite,
+                            std::int32_t on_normal, std::int32_t on_hilite);
 
     const SpriteSheet& object() const
     {
@@ -76,12 +78,13 @@ struct GenericButtonImages {
     std::int16_t offset_y = 0;
 };
 
-void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance, const SDL_Rect& bounds,
-                          const ButtonVisualState& state);
+void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
+                          const SDL_Rect& bounds, const ButtonVisualState& state);
 GenericButtonImage DefaultGenericButtonImage();
 bool InitializeButtonImageManager();
 void ShutdownButtonImageManager();
 GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_view off_normal,
                                            std::string_view off_hilite, std::string_view on_normal,
-                                           std::string_view on_hilite, std::string_view background, std::int16_t index,
-                                           std::int16_t offset_x, std::int16_t offset_y);
+                                           std::string_view on_hilite, std::string_view background,
+                                           std::int16_t index, std::int16_t offset_x,
+                                           std::int16_t offset_y);

@@ -115,14 +115,15 @@ struct W8MonsterGroup {
     unsigned char unknown_d4[0x57];
 };
 
-unsigned int GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
-                                      std::source_location caller = std::source_location::current());
+unsigned int
+GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
+                         std::source_location caller = std::source_location::current());
 W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());
 bool GetMonsterGroupEngagementState(int group_id);
-unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const srVector3T<float>* position,
-                                        bool follow_leader);
+unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
+                                        const srVector3T<float>* position, bool follow_leader);
 /* Whether the group is loaded, in combat, and still has members; hostile
    groups are live on that alone, others also need CombatAllowsLiveGroups. */
 bool IsMonsterGroupLive(W8MonsterGroup* monster_group);
@@ -138,7 +139,8 @@ bool MonsterGroupHasRenderableMember(W8MonsterGroup* monster_group, bool require
    it. The record kinds the special encounter ids carry ignore a set. */
 void SetMonsterGroupEngagementState(int group_id, bool state);
 bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* position, float yaw,
-                                bool proximity_check, bool include_allies, bool flatten_y, bool alternate_radius);
+                                bool proximity_check, bool include_allies, bool flatten_y,
+                                bool alternate_radius);
 /* Place a monster group relative to the party camera: with flag clear the
    group moves straight to the camera position, and with flag set it picks a
    point at the requested distance on a random angle around the camera yaw,
@@ -152,8 +154,9 @@ void GetMonsterGroupCentre(W8MonsterGroup* monster_group, srVector3T<float>* cen
 W8MonsterGroup* FindFirstMonsterByID(int monster_id);
 W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous);
 unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group);
-W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const srVector3T<float>* position,
-                            bool use_alternate_name, bool announce_spawn, bool place_on_ground);
+W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
+                            const srVector3T<float>* position, bool use_alternate_name,
+                            bool announce_spawn, bool place_on_ground);
 
 void ResetMonsterGroupTurnState(void);
 void RebindMonsterGroupScripts(void);
@@ -191,7 +194,8 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
 /* Marks every live member of the group and of its allied groups for removal. */
 void MarkMonsterGroupForRemoval(int group_id);
 /* Write the control state onto every live member of the group. */
-void SetMonsterGroupControlState(W8MonsterGroup* monster_group, W8MonsterControlState control_state);
+void SetMonsterGroupControlState(W8MonsterGroup* monster_group,
+                                 W8MonsterControlState control_state);
 /* Nonzero when the group - or one of its allied groups - has a member whose
    highest condition is in the 0x0d..0x11 incapacitated band. */
 bool MonsterGroupHasIncapacitatedMember(int group_id);

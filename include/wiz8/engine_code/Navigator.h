@@ -70,7 +70,8 @@ struct W8NavigatorAttachment {
     /* The from/to form 0x004604B0 constructs on the stack: both endpoints of
        the segment are seeded as recorded positions and path_length holds the
        straight-line distance. */
-    W8NavigatorAttachment(const srVector3T<float>* from, const srVector3T<float>* to); /* 0x00456280 */
+    W8NavigatorAttachment(const srVector3T<float>* from,
+                          const srVector3T<float>* to); /* 0x00456280 */
     /* Lazily sums the stored segment lengths into path_length, skipping
        entries whose preceding path value carries bit 0x2. */
     float MeasurePathLength(); /* 0x00456B00 */
@@ -112,7 +113,8 @@ struct W8NavigatorAttachment {
     /* Move `position` toward the route's next waypoint by up to `distance`,
        spilling into the following segment; returns nonzero once `distance`
        exceeded the remainder of the live segment. */
-    bool AdvancePositionTowardWaypoint(srVector3T<float>* position, float distance); /* 0x00456F60 */
+    bool AdvancePositionTowardWaypoint(srVector3T<float>* position,
+                                       float distance); /* 0x00456F60 */
     /* Trims the recorded route to end at the sphere of `radius` around
        `target`: walks stored positions while they stay inside, interpolates
        the boundary point into path_destination and the route slot, moves the end
@@ -252,7 +254,8 @@ public:
     /* Copies this navigator's movement state into a scratch probe, asks the
        octree to route toward `target`, and returns the measured path length or
        -1 when no route inside `max_range` exists. */
-    double MeasurePathDistance(const srVector3T<float>* target, float max_range, int location_id); /* 0x00453300 */
+    double MeasurePathDistance(const srVector3T<float>* target, float max_range,
+                               int location_id); /* 0x00453300 */
     /* Find the navigator occupying `to`; the move collides when both sides'
        OnCollision accept it. */
     bool CheckNavigatorCollision(const srVector3T<float>* from, const srVector3T<float>* to);
@@ -289,7 +292,8 @@ public:
     unsigned char ConfigureMovementToPosition(const srVector3T<float>* position); /* 0x00452630 */
     /* Point the movement target at another navigator's position and enter the
        moving mode; the result is nonzero once the target was accepted. */
-    unsigned short SetMovementTargetToNavigator(W8Navigator* target, double separation); /* 0x004526C0 */
+    unsigned short SetMovementTargetToNavigator(W8Navigator* target,
+                                                double separation); /* 0x004526C0 */
     void LinkGroupNavigator(W8Navigator* target, double separation, int value);
     /* Whether `other` belongs to this navigator's link group: either side may
        nominate the shared linked navigator directly. */
@@ -298,8 +302,9 @@ public:
        the linked movement stopped or re-sync the collected group. */
     void ResetMovementAndGroupState();               /* 0x00452C90 */
     void SetPitchRollEnabled(bool pitch, bool roll); /* 0x00453CA0 */
-    unsigned short ConfigureMovementToNavigator(W8Navigator* target, float separation, float maximum_distance,
-                                                srVector3T<float> position, int trace_mode, float facing,
+    unsigned short ConfigureMovementToNavigator(W8Navigator* target, float separation,
+                                                float maximum_distance, srVector3T<float> position,
+                                                int trace_mode, float facing,
                                                 unsigned char* probe_result); /* 0x004529A0 */
     void AddPathPoint(const srVector3T<float>* position);                     /* 0x00453690 */
     void SetPositionInternal(const srVector3T<float>* position);
@@ -307,7 +312,8 @@ public:
     unsigned char LinkToNavigator(W8Navigator* target, double separation); /* 0x004527A0 */
     void SetFacingToward(const srVector3T<float>* position);               /* 0x00454040 */
     void AimAtPosition(const srVector3T<float>* position);                 /* 0x00453F30 */
-    bool StartPatrol(const srVector3T<float>* home, float distance, float variation); /* 0x00453CC0 */
+    bool StartPatrol(const srVector3T<float>* home, float distance,
+                     float variation); /* 0x00453CC0 */
     /* Stores each non-negative bound as the minimum and maximum height. */
     void SetHeightRange(float minimum, float maximum); /* 0x00453EF0 */
     void SetHalted(bool value);                        /* 0x004531F0 */
@@ -322,7 +328,8 @@ public:
     void PropagateGroupPosition();                        /* 0x00454C80 */
     void UpdateAngles();                                  /* 0x00453990 */
     bool ConfigureMovement(float minimum, float maximum); /* 0x00453D20 */
-    unsigned char SetMovementTarget(const srVector3T<float>* target, bool propagate); /* 0x00454170 */
+    unsigned char SetMovementTarget(const srVector3T<float>* target,
+                                    bool propagate); /* 0x00454170 */
     srVector3T<float>* AdjustPosition(srVector3T<float>* result, const srVector3T<float>* current,
                                       const srVector3T<float>* previous); /* 0x00454440 */
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */

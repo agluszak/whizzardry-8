@@ -11,4 +11,5 @@ void UpdateWorldMeshFromQuads(W8World* world);
 void UpdateWorldOctree(W8World* world);
 
 std::vector<glm::ivec2> visibleQuadCells(const W8World& world);
-std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions, std::array<glm::ivec2, 3> points);
+std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions,
+                                              std::array<glm::ivec2, 3> points);

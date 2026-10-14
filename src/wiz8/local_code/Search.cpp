@@ -176,7 +176,8 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
             *position = world_item->p3D->GetSearchPosition();
             return;
         }
-        position->Set(world_item->position.x, world_item->position.y + g_octree_cell_scale, world_item->position.z);
+        position->Set(world_item->position.x, world_item->position.y + g_octree_cell_scale,
+                      world_item->position.z);
         return;
     }
     if (cursor_node != 0) {
@@ -211,11 +212,13 @@ void RunSearchPulse(void)
 {
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
         g_search_pulse_clock = w8_get_ticks() + (500);
-        if (GetEnvironmentFlag() != 0 && !gXStatus.world_update_blocked && !gXStatus.fSurprisePossible &&
-            !gXStatus.fLockInteractMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteractMode &&
-            !gXStatus.fTrapInteract) {
-            if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 && g_status.search_mode != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+        if (GetEnvironmentFlag() != 0 && !gXStatus.world_update_blocked &&
+            !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fLockInteract &&
+            !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
+            if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 &&
+                g_status.search_mode != 0) {
+                ShowNotice(W8_FONT_PALETTE_BEIGE,
+                           g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
             W8SearchableView* view = CollectSearchablesInView();
             bool found = false;
@@ -251,7 +254,8 @@ void RunSearchPulse(void)
                                     std::string path;
                                     path = fmt::format("Data\\Messages\\{}.msg", folder);
                                     std::string text;
-                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0)).empty()) != 0) {
+                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
+                                              .empty()) != 0) {
                                         ShowString(text);
                                     }
                                 }
@@ -263,7 +267,8 @@ void RunSearchPulse(void)
                                 event_type = g_search_found_item_event_alt;
                             }
                             auto event = std::make_unique<W8CharacterEvent>(
-                                character, event_type, 0, g_effect_argument0, g_character_event_full_volume);
+                                character, event_type, 0, g_effect_argument0,
+                                g_character_event_full_volume);
                             if (searchable->world_item != 0) {
                                 event->item = searchable->world_item->item;
                             }
@@ -277,7 +282,8 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode == 0 || (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
+            if (g_status.search_mode == 0 ||
+                (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -289,9 +295,11 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode != 0 && (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0 && !found &&
+            if (g_status.search_mode != 0 &&
+                (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0 && !found &&
                 Random(100) == 0) {
-                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0, g_character_event_no_flags);
+                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0,
+                                                 g_character_event_no_flags);
             }
         }
     }
@@ -321,7 +329,8 @@ int W8Searchable::PickBestSearcher()
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (g_status.search_mode != 0 && (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0)) {
+            if (base != 0 || (g_status.search_mode != 0 &&
+                              (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0)) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;

@@ -89,7 +89,8 @@ int W8ListBoxDialog::GetVisibleLineCount()
     if (!m_area_button.IsConfigured()) {
         return 0;
     }
-    return m_area_button.Bounds().h / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
+    return m_area_button.Bounds().h /
+           static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
 }
 
 /* Both selection directions clamp the requested top row independently of
@@ -130,7 +131,8 @@ void W8ListBoxDialog::SetCurrentLine(int line)
     int visible = GetVisibleLineCount();
     if (target < m_first_visible_line) {
         SetFirstVisibleLine(target);
-    } else if (target < static_cast<int>(m_lines.size()) && m_first_visible_line - 1 + visible < target) {
+    } else if (target < static_cast<int>(m_lines.size()) &&
+               m_first_visible_line - 1 + visible < target) {
         SetFirstVisibleLine(target - visible + 1);
     }
     m_selected_line = target;
@@ -187,8 +189,9 @@ int W8ListBoxDialog::CreateControls()
     if (W8DialogBase::CreateControls() != 0) {
         return m_error;
     }
-    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {},
-                                         m_background_path, static_cast<short>(m_background_flags), 0, 0);
+    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {},
+                                         "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path,
+                                         static_cast<short>(m_background_flags), 0, 0);
     if (!edge_inlay) {
         return m_error = 4;
     }
@@ -200,7 +203,8 @@ int W8ListBoxDialog::CreateControls()
         SetText(m_text);
     }
     m_text_button.SetMultiColor(g_dialog_font_enabled);
-    area_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {},
+    area_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {},
+                                         "Data\\Dialogs\\DialogInlay.STI", {},
                                          "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
     if (!area_inlay) {
         m_error = 4;
@@ -208,16 +212,19 @@ int W8ListBoxDialog::CreateControls()
     }
     m_area_button.ConfigureTextButton(
         {}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
-        {m_text_button.Bounds().x, m_text_button.Bounds().y + m_text_button.Bounds().h + 4, m_text_button.Bounds().w,
-         0x14},
-        {.on_click = [this](W8ButtonWidget*) { OnTextAreaClick(); }, .priority = UI_PRIORITY_HIGHEST - 1}, area_inlay);
+        {m_text_button.Bounds().x, m_text_button.Bounds().y + m_text_button.Bounds().h + 4,
+         m_text_button.Bounds().w, 0x14},
+        {.on_click = [this](W8ButtonWidget*) { OnTextAreaClick(); },
+         .priority = UI_PRIORITY_HIGHEST - 1},
+        area_inlay);
     m_area_button.policy.activation = ButtonActivation::Press;
     const bool configured =
         m_up_button.Configure("Data\\Dialogs\\DialogUpArrow.STI", {3, 0, 1, 2, 2},
-                              {.on_click = [this](W8ButtonWidget*) { OnUp(); }, .priority = UI_PRIORITY_HIGHEST - 1}) &&
-        m_down_button.Configure(
-            "Data\\Dialogs\\DialogDownArrow.STI", {3, 0, 1, 2, 2},
-            {.on_click = [this](W8ButtonWidget*) { OnDown(); }, .priority = UI_PRIORITY_HIGHEST - 1}) &&
+                              {.on_click = [this](W8ButtonWidget*) { OnUp(); },
+                               .priority = UI_PRIORITY_HIGHEST - 1}) &&
+        m_down_button.Configure("Data\\Dialogs\\DialogDownArrow.STI", {3, 0, 1, 2, 2},
+                                {.on_click = [this](W8ButtonWidget*) { OnDown(); },
+                                 .priority = UI_PRIORITY_HIGHEST - 1}) &&
         m_slider_button.ConfigureIcon("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
                                       {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         m_ok_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", {3, 0, 1, 2, 2},
@@ -229,28 +236,32 @@ int W8ListBoxDialog::CreateControls()
     } else {
         m_up_button.policy.activation = m_down_button.policy.activation = ButtonActivation::Press;
         m_up_button.policy.repeat = m_down_button.policy.repeat = true;
-        third_btn_inlay =
-            LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {},
-                                    "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
+        third_btn_inlay = LoadGenericButtonImages(
+            {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {},
+            "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay) {
             m_third_text_button.ConfigureTextButton(
-                {}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, {0, 0, 1, 1},
-                {.on_click = [this](W8ButtonWidget*) { OnSliderTrackClick(); }, .priority = UI_PRIORITY_HIGHEST - 2},
+                {}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
+                {0, 0, 1, 1},
+                {.on_click = [this](W8ButtonWidget*) { OnSliderTrackClick(); },
+                 .priority = UI_PRIORITY_HIGHEST - 2},
                 third_btn_inlay);
             if (m_third_text_button.IsConfigured()) {
                 m_third_text_button.policy.activation = ButtonActivation::Press;
                 m_third_text_button.policy.repeat = true;
                 m_second_text_button.ConfigureTextButton(
-                    {}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
-                    {m_x + 9, m_y + m_height - m_ok_button.Bounds().h * 0x96 / 100 - 9, m_width - 0x12,
-                     m_ok_button.Bounds().h * 0x96 / 100},
+                    {}, *g_dialog_interface_font, g_dialog_font_foreground,
+                    g_dialog_font_background,
+                    {m_x + 9, m_y + m_height - m_ok_button.Bounds().h * 0x96 / 100 - 9,
+                     m_width - 0x12, m_ok_button.Bounds().h * 0x96 / 100},
                     {.priority = UI_PRIORITY_HIGHEST - 1}, edge_inlay);
-                m_cancel_button.SetPosition(m_second_text_button.Bounds().x - m_cancel_button.Bounds().w +
-                                                m_second_text_button.Bounds().w,
-                                            m_second_text_button.Bounds().h / 2 - m_cancel_button.Bounds().h / 2 +
-                                                m_second_text_button.Bounds().y);
-                m_ok_button.SetPosition(m_cancel_button.Bounds().x - m_cancel_button.Bounds().w / 2 -
-                                            m_ok_button.Bounds().w,
+                m_cancel_button.SetPosition(
+                    m_second_text_button.Bounds().x - m_cancel_button.Bounds().w +
+                        m_second_text_button.Bounds().w,
+                    m_second_text_button.Bounds().h / 2 - m_cancel_button.Bounds().h / 2 +
+                        m_second_text_button.Bounds().y);
+                m_ok_button.SetPosition(m_cancel_button.Bounds().x -
+                                            m_cancel_button.Bounds().w / 2 - m_ok_button.Bounds().w,
                                         m_cancel_button.Bounds().y);
                 m_area_button.Resize(m_text_button.Bounds().w, -6 - m_text_button.Bounds().y -
                                                                    m_text_button.Bounds().h +
@@ -294,8 +305,9 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     int index;
     int line;
 
-    if (m_area_button.m_dirty || m_third_text_button.m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
-        m_slider_button.m_dirty || m_ok_button.m_dirty || m_cancel_button.m_dirty) {
+    if (m_area_button.m_dirty || m_third_text_button.m_dirty || m_up_button.m_dirty ||
+        m_down_button.m_dirty || m_slider_button.m_dirty || m_ok_button.m_dirty ||
+        m_cancel_button.m_dirty) {
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     }
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) {
@@ -308,14 +320,16 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     int dx = m_text_button.Bounds().x - m_x;
     int dy = m_text_button.Bounds().y + m_text_button.Bounds().h + 4 - m_y;
     int width = m_text_button.Bounds().w;
-    int height = -6 - m_text_button.Bounds().y - m_text_button.Bounds().h + m_second_text_button.Bounds().y;
+    int height =
+        -6 - m_text_button.Bounds().y - m_text_button.Bounds().h + m_second_text_button.Bounds().y;
     unsigned int visible_lines;
     if (static_cast<int>(m_lines.size()) <
         height / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()))) {
         m_scrollable = false;
         visible_lines = static_cast<int>(m_lines.size());
     } else {
-        int rows = height / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
+        int rows =
+            height / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
         if (static_cast<int>(m_lines.size()) > rows) {
             width = width + (-7 - m_up_button.Bounds().w);
             m_scrollable = true;
@@ -333,13 +347,14 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     m_third_text_button.SetVisible(m_scrollable);
     if (m_scrollable) {
         m_up_button.SetPosition(m_x + dx + 4 + width, m_y + 4 + dy);
-        m_down_button.SetPosition(m_x + dx + 4 + width, m_y + dy + height - m_down_button.Bounds().h - 4);
-        m_slider_button.SetPosition(
-            m_x + dx + 4 + width,
-            m_area_button.Bounds().h +
-                ((height - m_up_button.Bounds().h - m_down_button.Bounds().h - 7) * m_selected_line) /
-                    static_cast<int>(m_lines.size()) +
-                m_y + 3 + dy);
+        m_down_button.SetPosition(m_x + dx + 4 + width,
+                                  m_y + dy + height - m_down_button.Bounds().h - 4);
+        m_slider_button.SetPosition(m_x + dx + 4 + width, m_area_button.Bounds().h +
+                                                              ((height - m_up_button.Bounds().h -
+                                                                m_down_button.Bounds().h - 7) *
+                                                               m_selected_line) /
+                                                                  static_cast<int>(m_lines.size()) +
+                                                              m_y + 3 + dy);
         const int fill_left = m_x + width + dx;
         const int fill_top = m_y + dy + m_up_button.Bounds().h;
         const SDL_Rect fill{fill_left, fill_top, m_up_button.Bounds().w,
@@ -364,13 +379,15 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
         m_cancel_button.Draw(target);
     }
     if (!m_scrollable) {
-        m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty = m_third_text_button.m_dirty = false;
+        m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty =
+            m_third_text_button.m_dirty = false;
     }
     rect = m_area_button.Bounds();
     {
         SDL_Rect text_clip{rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6};
         ScopedClipRect clipping(target, text_clip);
-        if (static_cast<int>(m_lines.size()) <= static_cast<int>(visible_lines + m_first_visible_line)) {
+        if (static_cast<int>(m_lines.size()) <=
+            static_cast<int>(visible_lines + m_first_visible_line)) {
             visible_lines = static_cast<int>(m_lines.size()) - m_first_visible_line;
         }
         for (index = 0; index < static_cast<int>(visible_lines); ++index) {
@@ -378,11 +395,14 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
             const std::string& text = m_lines[line];
             if (line == m_selected_line) {
                 const int top = m_y + g_dialog_interface_font->height() * index + 2 + dy;
-                const SDL_Rect selection{m_x + 3 + dx, top, width - 6, g_dialog_interface_font->height() - 2};
+                const SDL_Rect selection{m_x + 3 + dx, top, width - 6,
+                                         g_dialog_interface_font->height() - 2};
                 SDL_FillSurfaceRect(&target, &selection, Get16BPPColor(m_fill_colour));
             }
             DrawText(target, *g_dialog_interface_font,
-                     {m_x + 3 + dx, static_cast<int>(g_dialog_interface_font->height()) * index + m_y + 2 + dy}, text);
+                     {m_x + 3 + dx,
+                      static_cast<int>(g_dialog_interface_font->height()) * index + m_y + 2 + dy},
+                     text);
         }
     }
 }
@@ -440,7 +460,8 @@ W8SplitAmountDialog::W8SplitAmountDialog() : W8SplitAmountDialog(0) {}
 
 // FUNCTION: WIZ8 0x005d9890
 W8SplitAmountDialog::W8SplitAmountDialog(int total)
-    : m_active_field(nullptr), m_remaining(total), m_taken(0), m_total(total), m_result(W8_SPLIT_RESULT_PENDING)
+    : m_active_field(nullptr), m_remaining(total), m_taken(0), m_total(total),
+      m_result(W8_SPLIT_RESULT_PENDING)
 {
     SetExtent(322, 111);
     SetBackground("Data\\Dialogs\\popup_splititem.sti", 2);
@@ -500,14 +521,16 @@ bool W8SplitAmountDialog::CreateButtons()
     for (auto& button : m_buttons) {
         button = std::make_unique<W8ButtonWidget>(InputLayer());
     }
-    if (!m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", {0xc, 9, 10, 0xd, 0xb},
-                                 {.on_click = [this](W8ButtonWidget*) { DecreaseAmount(1); },
-                                  .on_right_click = [this](W8ButtonWidget*) { DecreaseAmount(5); }})) {
+    if (!m_buttons[0]->Configure(
+            "Data\\Dialogs\\popup_splititem.sti", {0xc, 9, 10, 0xd, 0xb},
+            {.on_click = [this](W8ButtonWidget*) { DecreaseAmount(1); },
+             .on_right_click = [this](W8ButtonWidget*) { DecreaseAmount(5); }})) {
         return false;
     }
-    if (!m_buttons[1]->Configure("Data\\Dialogs\\popup_splititem.sti", {7, 4, 5, 8, 6},
-                                 {.on_click = [this](W8ButtonWidget*) { IncreaseAmount(1); },
-                                  .on_right_click = [this](W8ButtonWidget*) { IncreaseAmount(5); }})) {
+    if (!m_buttons[1]->Configure(
+            "Data\\Dialogs\\popup_splititem.sti", {7, 4, 5, 8, 6},
+            {.on_click = [this](W8ButtonWidget*) { IncreaseAmount(1); },
+             .on_right_click = [this](W8ButtonWidget*) { IncreaseAmount(5); }})) {
         return false;
     }
     if (!m_buttons[2]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
@@ -519,12 +542,14 @@ bool W8SplitAmountDialog::CreateButtons()
                                  {.on_click = [this](W8ButtonWidget*) { ActivateField(); }})) {
         return false;
     }
-    if (!m_buttons[4]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 0, 1, 4, 2},
-                                 {.on_click = [this](W8ButtonWidget*) { Finish(W8_SPLIT_RESULT_CONFIRMED); }})) {
+    if (!m_buttons[4]->Configure(
+            "Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 0, 1, 4, 2},
+            {.on_click = [this](W8ButtonWidget*) { Finish(W8_SPLIT_RESULT_CONFIRMED); }})) {
         return false;
     }
-    if (!m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 5, 6, 9, 7},
-                                 {.on_click = [this](W8ButtonWidget*) { Finish(W8_SPLIT_RESULT_CANCELLED); }})) {
+    if (!m_buttons[5]->Configure(
+            "Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 5, 6, 9, 7},
+            {.on_click = [this](W8ButtonWidget*) { Finish(W8_SPLIT_RESULT_CANCELLED); }})) {
         return false;
     }
     m_buttons[0]->policy.repeat = true;
@@ -548,8 +573,8 @@ bool W8SplitAmountDialog::CreateTextBuffers()
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
         m_text_buffers[index] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
-            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
+            &bounds, g_localized_strings[g_split_amount_string_ids[index]],
+            g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
     }
     return true;
 }
@@ -564,8 +589,8 @@ bool W8SplitAmountDialog::CreateNumericInput()
     bounds.top = g_split_amount_field_bounds.top + m_y;
     bounds.right = g_split_amount_field_bounds.right + m_x;
     bounds.bottom = g_split_amount_field_bounds.bottom + m_y;
-    m_split_input = std::make_unique<W8DialogNumericInput>(0, &bounds, m_taken, g_wiz_text_font_secondary, this,
-                                                           m_buttons[3].get());
+    m_split_input = std::make_unique<W8DialogNumericInput>(
+        0, &bounds, m_taken, g_wiz_text_font_secondary, this, m_buttons[3].get());
     m_split_input->m_maximum = 1000000;
     return true;
 }
@@ -768,69 +793,86 @@ bool W8TriggerItemPickerDialog::CreateButtons()
     }
     bool configured = true;
     configured =
-        m_buttons[0]->Configure("Data\\Dialogs\\popup_chest_selectionbuttons.sti", {3, 0, 1, 2, 2},
-                                {.on_click = [this](W8ButtonWidget*) { ToggleAllItems(); }, .tooltip = 0x15}) &&
+        m_buttons[0]->Configure(
+            "Data\\Dialogs\\popup_chest_selectionbuttons.sti", {3, 0, 1, 2, 2},
+            {.on_click = [this](W8ButtonWidget*) { ToggleAllItems(); }, .tooltip = 0x15}) &&
         configured;
     configured = m_buttons[1]->Configure(
                      "Data\\Dialogs\\chest_confirmationbuttons.sti", {0xd, 10, 0xb, 0xc, 0xc},
-                     {.on_click = [this](W8ButtonWidget*) { TransferSelectedItems(-1); }, .tooltip = 0x13}) &&
-                 configured;
-    configured = m_buttons[2]->Configure(
-                     "Data\\Dialogs\\chest_confirmationbuttons.sti", {3, 0, 1, 2, 2},
-                     {.on_click = [this](W8ButtonWidget*) { TransferSelectedItems(g_status.selected_character); },
-                      .tooltip = 0x14}) &&
+                     {.on_click = [this](W8ButtonWidget*) { TransferSelectedItems(-1); },
+                      .tooltip = 0x13}) &&
                  configured;
     configured =
-        m_buttons[3]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", {8, 5, 6, 7, 7},
-                                {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x16}) &&
-        configured;
-    configured = m_buttons[4]->Configure("Data\\Dialogs\\popup_chest2.sti",
-                                         {BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE},
-                                         {.priority = UI_PRIORITY_LOWEST}) &&
-                 configured;
-    configured = m_buttons[5]->Configure(
-                     "Data\\Dialogs\\popup_chest2.sti", {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
-                     {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 0, button); },
-                      .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(0); },
-                      .toggles = true,
-                      .priority = UI_PRIORITY_HIGHEST - 1}) &&
-                 configured;
-    configured = m_buttons[6]->Configure(
-                     "Data\\Dialogs\\popup_chest2.sti", {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
-                     {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 1, button); },
-                      .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(1); },
-                      .toggles = true,
-                      .priority = UI_PRIORITY_HIGHEST - 1}) &&
-                 configured;
-    configured = m_buttons[7]->Configure(
-                     "Data\\Dialogs\\popup_chest2.sti", {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
-                     {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 2, button); },
-                      .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(2); },
-                      .toggles = true,
-                      .priority = UI_PRIORITY_HIGHEST - 1}) &&
-                 configured;
-    configured = m_buttons[8]->Configure(
-                     "Data\\Dialogs\\popup_chest2.sti", {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
-                     {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 3, button); },
-                      .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(3); },
-                      .toggles = true,
-                      .priority = UI_PRIORITY_HIGHEST - 1}) &&
-                 configured;
-    configured =
-        m_buttons[9]->Configure("Data\\Dialogs\\maininterface_scroll.STI", {3, 0, 1, 2, 2},
-                                {.on_click = [this](W8ButtonWidget*) { SetFirstVisible(m_first_item - 1); }}) &&
+        m_buttons[2]->Configure(
+            "Data\\Dialogs\\chest_confirmationbuttons.sti", {3, 0, 1, 2, 2},
+            {.on_click =
+                 [this](W8ButtonWidget*) { TransferSelectedItems(g_status.selected_character); },
+             .tooltip = 0x14}) &&
         configured;
     configured =
-        m_buttons[10]->Configure("Data\\Dialogs\\maininterface_scroll.STI", {0xb, 8, 9, 10, 10},
-                                 {.on_click = [this](W8ButtonWidget*) { SetFirstVisible(m_first_item + 1); }}) &&
+        m_buttons[3]->Configure(
+            "Data\\Dialogs\\chest_confirmationbuttons.sti", {8, 5, 6, 7, 7},
+            {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x16}) &&
         configured;
-    configured = m_buttons[11]->Configure("Data\\Dialogs\\maininterface_scroll.STI", {7, 4, 5, 6, 6},
-                                          {.priority = UI_PRIORITY_LOWEST}) &&
+    configured = m_buttons[4]->Configure(
+                     "Data\\Dialogs\\popup_chest2.sti",
+                     {BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE},
+                     {.priority = UI_PRIORITY_LOWEST}) &&
                  configured;
-    configured = m_buttons[12]->Configure("Data\\Dialogs\\popup_chest2.sti", {BUTTON_NO_IMAGE, 3, 3, 3, 3},
-                                          {.on_move = [this](W8ButtonWidget*) { ScrollItemsToMouse(); },
-                                           .priority = UI_PRIORITY_HIGHEST - 1}) &&
+    configured =
+        m_buttons[5]->Configure(
+            "Data\\Dialogs\\popup_chest2.sti",
+            {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
+            {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 0, button); },
+             .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(0); },
+             .toggles = true,
+             .priority = UI_PRIORITY_HIGHEST - 1}) &&
+        configured;
+    configured =
+        m_buttons[6]->Configure(
+            "Data\\Dialogs\\popup_chest2.sti",
+            {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
+            {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 1, button); },
+             .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(1); },
+             .toggles = true,
+             .priority = UI_PRIORITY_HIGHEST - 1}) &&
+        configured;
+    configured =
+        m_buttons[7]->Configure(
+            "Data\\Dialogs\\popup_chest2.sti",
+            {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
+            {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 2, button); },
+             .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(2); },
+             .toggles = true,
+             .priority = UI_PRIORITY_HIGHEST - 1}) &&
+        configured;
+    configured =
+        m_buttons[8]->Configure(
+            "Data\\Dialogs\\popup_chest2.sti",
+            {BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE},
+            {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 3, button); },
+             .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(3); },
+             .toggles = true,
+             .priority = UI_PRIORITY_HIGHEST - 1}) &&
+        configured;
+    configured =
+        m_buttons[9]->Configure(
+            "Data\\Dialogs\\maininterface_scroll.STI", {3, 0, 1, 2, 2},
+            {.on_click = [this](W8ButtonWidget*) { SetFirstVisible(m_first_item - 1); }}) &&
+        configured;
+    configured =
+        m_buttons[10]->Configure(
+            "Data\\Dialogs\\maininterface_scroll.STI", {0xb, 8, 9, 10, 10},
+            {.on_click = [this](W8ButtonWidget*) { SetFirstVisible(m_first_item + 1); }}) &&
+        configured;
+    configured = m_buttons[11]->Configure("Data\\Dialogs\\maininterface_scroll.STI",
+                                          {7, 4, 5, 6, 6}, {.priority = UI_PRIORITY_LOWEST}) &&
                  configured;
+    configured =
+        m_buttons[12]->Configure("Data\\Dialogs\\popup_chest2.sti", {BUTTON_NO_IMAGE, 3, 3, 3, 3},
+                                 {.on_move = [this](W8ButtonWidget*) { ScrollItemsToMouse(); },
+                                  .priority = UI_PRIORITY_HIGHEST - 1}) &&
+        configured;
     m_buttons[5]->policy.secondary_toggle = ButtonToggle::Press;
     m_buttons[6]->policy.secondary_toggle = ButtonToggle::Press;
     m_buttons[7]->policy.secondary_toggle = ButtonToggle::Press;
@@ -924,7 +966,8 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
             if (destination == -1) {
                 added = AddItemToParty(&instance, true, false);
             } else {
-                added = AddItemToCharacter(&g_status.buffers.Char[destination], &instance, false, true, false);
+                added = AddItemToCharacter(&g_status.buffers.Char[destination], &instance, false,
+                                           true, false);
             }
             if (added) {
                 FreeWorldItemGroup(items[index]);
@@ -954,8 +997,8 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 // FUNCTION: WIZ8 0x005ce5f0
 void W8TriggerItemPickerDialog::ToggleAllItems()
 {
-    const bool all_selected =
-        std::ranges::all_of(flags.begin(), flags.begin() + items.size(), [](auto flag) { return flag != 0; });
+    const bool all_selected = std::ranges::all_of(flags.begin(), flags.begin() + items.size(),
+                                                  [](auto flag) { return flag != 0; });
     for (int index = 0; index < static_cast<int>(items.size()); ++index) {
         SetItemSelected(index, !all_selected);
     }
@@ -986,8 +1029,8 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse()
     }
     SDL_Point point = UiPointerPosition();
     const int bottom = thumb.Bounds().y + 2 * m_buttons[9]->Bounds().h;
-    const int top = thumb.Bounds().y + m_buttons[9]->Bounds().h + thumb.Bounds().h - 2 * m_buttons[10]->Bounds().h -
-                    m_buttons[11]->Bounds().h;
+    const int top = thumb.Bounds().y + m_buttons[9]->Bounds().h + thumb.Bounds().h -
+                    2 * m_buttons[10]->Bounds().h - m_buttons[11]->Bounds().h;
     if (top <= bottom) {
         return;
     }
@@ -1107,12 +1150,14 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
         }
         if (index < static_cast<int>(items.size())) {
             W8WorldItem* other = items[index];
-            while (index < static_cast<int>(items.size()) && !ItemsShareUnidentifiedName(instance, &other->item)) {
+            while (index < static_cast<int>(items.size()) &&
+                   !ItemsShareUnidentifiedName(instance, &other->item)) {
                 other = items[index];
                 ++index;
             }
             if (index < static_cast<int>(items.size())) {
-                while (index < static_cast<int>(items.size()) && other->item.iItemNo != instance->iItemNo) {
+                while (index < static_cast<int>(items.size()) &&
+                       other->item.iItemNo != instance->iItemNo) {
                     other = items[index];
                     ++index;
                 }
@@ -1141,9 +1186,10 @@ bool W8TriggerItemPickerDialog::ProcessInput()
     PumpUiInput({
         .before =
             [](const InputEvent& input) {
-                const bool button_down =
-                    input.type == InputEventType::LeftButtonDown || input.type == InputEventType::RightButtonDown;
-                return button_down && ProcessPendingEvent() ? InputRoute::Handled : InputRoute::Pass;
+                const bool button_down = input.type == InputEventType::LeftButtonDown ||
+                                         input.type == InputEventType::RightButtonDown;
+                return button_down && ProcessPendingEvent() ? InputRoute::Handled
+                                                            : InputRoute::Pass;
             },
         .consumed = [&](const InputEvent&) { return route(); },
         .unhandled =
@@ -1210,7 +1256,8 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         m_buttons[12]->Draw(target);
         m_buttons[9]->SetPosition(m_buttons[12]->Bounds().x + 4, m_buttons[12]->Bounds().y + 3);
         m_buttons[9]->Draw(target);
-        m_buttons[10]->SetPosition(m_buttons[9]->Bounds().x, m_buttons[12]->Bounds().y + m_buttons[12]->Bounds().h - 4 -
+        m_buttons[10]->SetPosition(m_buttons[9]->Bounds().x, m_buttons[12]->Bounds().y +
+                                                                 m_buttons[12]->Bounds().h - 4 -
                                                                  m_buttons[10]->Bounds().h);
         m_buttons[10]->Draw(target);
 
@@ -1221,11 +1268,11 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
                 progress = m_first_item + 2;
             }
         }
-        int travel = m_buttons[12]->Bounds().h - m_buttons[9]->Bounds().h - m_buttons[10]->Bounds().h -
-                     m_buttons[11]->Bounds().h;
-        m_buttons[11]->SetPosition(m_buttons[9]->Bounds().x, m_buttons[9]->Bounds().h + m_buttons[12]->Bounds().y +
-                                                                 travel * progress / static_cast<int>(items.size()) +
-                                                                 1);
+        int travel = m_buttons[12]->Bounds().h - m_buttons[9]->Bounds().h -
+                     m_buttons[10]->Bounds().h - m_buttons[11]->Bounds().h;
+        m_buttons[11]->SetPosition(m_buttons[9]->Bounds().x,
+                                   m_buttons[9]->Bounds().h + m_buttons[12]->Bounds().y +
+                                       travel * progress / static_cast<int>(items.size()) + 1);
         m_buttons[11]->Draw(target);
     } else {
         m_buttons[12]->SetVisible(false);
@@ -1236,14 +1283,18 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
 
     m_buttons[4]->SetPosition(m_x + 7, m_y + m_height - m_buttons[4]->Bounds().h - 5);
     m_buttons[4]->Draw(target);
-    m_buttons[3]->SetPosition(m_buttons[4]->Bounds().x - m_buttons[3]->Bounds().w + m_buttons[4]->Bounds().w - 1,
+    m_buttons[3]->SetPosition(m_buttons[4]->Bounds().x - m_buttons[3]->Bounds().w +
+                                  m_buttons[4]->Bounds().w - 1,
                               m_buttons[4]->Bounds().y);
     m_buttons[3]->Draw(target);
-    m_buttons[2]->SetPosition(m_buttons[3]->Bounds().x - m_buttons[2]->Bounds().w, m_buttons[4]->Bounds().y);
+    m_buttons[2]->SetPosition(m_buttons[3]->Bounds().x - m_buttons[2]->Bounds().w,
+                              m_buttons[4]->Bounds().y);
     m_buttons[2]->Draw(target);
-    m_buttons[1]->SetPosition(m_buttons[2]->Bounds().x - m_buttons[1]->Bounds().w, m_buttons[4]->Bounds().y);
+    m_buttons[1]->SetPosition(m_buttons[2]->Bounds().x - m_buttons[1]->Bounds().w,
+                              m_buttons[4]->Bounds().y);
     m_buttons[1]->Draw(target);
-    m_buttons[0]->SetPosition(m_buttons[1]->Bounds().x - m_buttons[0]->Bounds().w, m_buttons[4]->Bounds().y);
+    m_buttons[0]->SetPosition(m_buttons[1]->Bounds().x - m_buttons[0]->Bounds().w,
+                              m_buttons[4]->Bounds().y);
     m_buttons[0]->Draw(target);
     RefreshScrollButtons();
 
@@ -1273,7 +1324,8 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
                      fmt::format("{}({:d})", name, item->stack_count));
         } else {
             auto name = GetItemDisplayName(item);
-            DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6}, name);
+            DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
+                     name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
         DrawText(target, g_wiz_text_font,

@@ -153,19 +153,24 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             continue;
         }
         auto* vertex_materials = mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
-        auto* base_material = static_cast<srMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
-        const glm::vec3 base_color = base_material ? glm::vec3(base_material->parms.diffuse) : glm::vec3(1);
-        const auto* vertices =
-            (mesh->flags & W8_MESH_HAS_FRAME_STORAGE) ? mesh->GetVertexLocations(0, true, 0.0f) : mesh->getVertexLoc();
-        const auto* normals =
-            (mesh->flags & W8_MESH_HAS_FRAME_STORAGE) ? mesh->GetVertexNormals(0, true) : mesh->getVertexNormal();
+        auto* base_material =
+            static_cast<srMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+        const glm::vec3 base_color =
+            base_material ? glm::vec3(base_material->parms.diffuse) : glm::vec3(1);
+        const auto* vertices = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
+                                   ? mesh->GetVertexLocations(0, true, 0.0f)
+                                   : mesh->getVertexLoc();
+        const auto* normals = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
+                                  ? mesh->GetVertexNormals(0, true)
+                                  : mesh->getVertexNormal();
         world_vertices.resize(count);
         world_normals.resize(count);
         material_colors.resize(count);
         for (int i = 0; i < count; ++i) {
             world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i], 1));
             world_normals[i] = normalizedOrZero(normal_matrix * normals[i]);
-            auto* material = vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
+            auto* material =
+                vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
         const auto box = mesh->getBounds().box.transformed(world);
@@ -174,9 +179,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             if (!light || _strnicmp(node->getName().c_str(), "Sun", 3) == 0) {
                 continue;
             }
-            const float range =
-                static_cast<float>(g_light_range_attenuation_numerator /
-                                   (light->opengl_attenuation.y * g_light_range_attenuation_denominator));
+            const float range = static_cast<float>(
+                g_light_range_attenuation_numerator /
+                (light->opengl_attenuation.y * g_light_range_attenuation_denominator));
             const auto position = glm::vec3(light->getWorldSpaceLocation());
             if (!box.overlaps({position - range, position + range})) {
                 continue;
@@ -191,7 +196,8 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
                 if (facing < 0) {
                     const float contribution = -facing * light->intensity * (1 - distance / range);
-                    vertex_lights[i] = vertex_lights[i] + material_colors[i] * light->diffuse * contribution;
+                    vertex_lights[i] =
+                        vertex_lights[i] + material_colors[i] * light->diffuse * contribution;
                 }
             }
         }
@@ -238,8 +244,8 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
 void SetWorldMeshVertexLightTable(W8World* world, int table)
 {
     if (world->octree == 0) {
-        for (stMeshModel* model :
-             stMeshModel::Meshes(static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
+        for (stMeshModel* model : stMeshModel::Meshes(
+                 static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
@@ -247,7 +253,8 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
         for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
             srModelInstance* instance = world->psrMeshes[mesh];
             if (instance != 0) {
-                for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+                for (stMeshModel* model :
+                     stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     model->vertex_light_table = table;
                     model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
                 }
@@ -514,7 +521,8 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
         if (auto* instance = sr_cast<stModelInstance>(node)) {
-            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+            for (stMeshModel* mesh :
+                 stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 srShader* polygon_shader = mesh->getPolyShader(0, 0);
                 bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
 
@@ -551,7 +559,8 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
         if (auto* instance = sr_cast<stModelInstance>(node)) {
-            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+            for (stMeshModel* mesh :
+                 stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }
@@ -685,9 +694,11 @@ bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> plan
    coordinate toggles the inside flag when its interpolation crosses the
    first. */
 // FUNCTION: WIZ8 0x0046d530
-bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis, const glm::vec3& point)
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
+                         const glm::vec3& point)
 {
-    return srTriangleProjection::contains(vertices, axis, point, srTriangleProjection::Boundary::visibility);
+    return srTriangleProjection::contains(vertices, axis, point,
+                                          srTriangleProjection::Boundary::visibility);
 }
 
 // FUNCTION: WIZ8 0x0046d7e0

@@ -68,7 +68,8 @@ static void focus(Uint32 kind)
     event.window.windowID = id;
     push(event);
 }
-static void key(Uint32 kind, SDL_Keycode code, SDL_Keymod modifiers = SDL_KMOD_NONE, bool repeat = false)
+static void key(Uint32 kind, SDL_Keycode code, SDL_Keymod modifiers = SDL_KMOD_NONE,
+                bool repeat = false)
 {
     SDL_Event event{};
     event.type = kind;
@@ -121,7 +122,8 @@ static std::vector<InputEvent> input()
     }
     return result;
 }
-static void expect(const InputEvent& atom, InputEventType kind, std::uint16_t parameter, std::uint16_t state = 0)
+static void expect(const InputEvent& atom, InputEventType kind, std::uint16_t parameter,
+                   std::uint16_t state = 0)
 {
     REQUIRE((atom.type == kind && atom.key == parameter && atom.modifiers == state));
 }
@@ -340,8 +342,8 @@ TEST_CASE("events_test")
     focus(SDL_EVENT_WINDOW_FOCUS_LOST);
     key(SDL_EVENT_KEY_DOWN, SDLK_D);
     drain_events();
-    REQUIRE((!IsKeyHeld('C') && !IsKeyHeld('D') && !(GetInputState().modifiers & ALT_DOWN) && !IsRightButtonHeld() &&
-             !GetInputState().right_repeat_at));
+    REQUIRE((!IsKeyHeld('C') && !IsKeyHeld('D') && !(GetInputState().modifiers & ALT_DOWN) &&
+             !IsRightButtonHeld() && !GetInputState().right_repeat_at));
     REQUIRE(input().size() == 2);
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();

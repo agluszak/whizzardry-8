@@ -59,13 +59,14 @@ static W8Condition g_special_attack_condition_table[32][2] = {
    realm drain. */
 // GLOBAL: WIZ8 0x0061F0FC
 static W8SpellRealm g_special_attack_realm_table[32] = {
-    W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_WATER,  W8_SPELL_REALM_WATER,  W8_SPELL_REALM_DIVINE, W8_SPELL_REALM_WATER,
-    W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_DIVINE, W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,
-    W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_DIVINE, W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_EARTH,  W8_SPELL_REALM_AIR,
-    W8_SPELL_REALM_EARTH,  W8_SPELL_REALM_AIR,    W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_EARTH,  W8_SPELL_REALM_WATER,
-    W8_SPELL_REALM_WATER,  W8_SPELL_REALM_AIR,    W8_SPELL_REALM_WATER,  W8_SPELL_REALM_EARTH,  W8_SPELL_REALM_FIRE,
-    W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,
-    W8_SPELL_REALM_WATER,  W8_SPELL_REALM_FIRE,
+    W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_WATER,  W8_SPELL_REALM_WATER,  W8_SPELL_REALM_DIVINE,
+    W8_SPELL_REALM_WATER,  W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_DIVINE, W8_SPELL_REALM_MENTAL,
+    W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_DIVINE,
+    W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_EARTH,  W8_SPELL_REALM_AIR,    W8_SPELL_REALM_EARTH,
+    W8_SPELL_REALM_AIR,    W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_EARTH,  W8_SPELL_REALM_WATER,
+    W8_SPELL_REALM_WATER,  W8_SPELL_REALM_AIR,    W8_SPELL_REALM_WATER,  W8_SPELL_REALM_EARTH,
+    W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,
+    W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_WATER,  W8_SPELL_REALM_FIRE,
 };
 
 /* Whether a special attack kind still fires while the attacker's spellcasting
@@ -100,8 +101,9 @@ static unsigned int RollSpecialAttackSum(unsigned int bound)
    monster source off its missile value and current runtime stat - and a kind
    five table doubles it. Kind six delegates to the summon. */
 // FUNCTION: WIZ8 0x005560A0
-void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource, W8CombatSlot* pAttackerSlot,
-                               std::vector<int> char_targets, std::vector<int> monster_targets)
+void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
+                               W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
+                               std::vector<int> monster_targets)
 {
     bool announce;
     int iTarget;
@@ -156,12 +158,14 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         } else {
             value = 0xf;
         }
-        uiMinRoll = (static_cast<unsigned int>(monster_info->stamina) * (record->effective_level + value)) /
-                    static_cast<unsigned int>(monster_info->stamina_max);
+        uiMinRoll =
+            (static_cast<unsigned int>(monster_info->stamina) * (record->effective_level + value)) /
+            static_cast<unsigned int>(monster_info->stamina_max);
         if (uiMinRoll == 0) {
             uiMinRoll = 1;
         }
-        uiBounds[0] = (static_cast<unsigned int>(monster_info->stamina) * (record->effective_level + value + 5)) /
+        uiBounds[0] = (static_cast<unsigned int>(monster_info->stamina) *
+                       (record->effective_level + value + 5)) /
                       static_cast<unsigned int>(monster_info->stamina_max);
         if (uiBounds[0] == 0) {
             uiBounds[0] = 1;
@@ -206,10 +210,10 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     } else {
                         extra = 0;
                     }
-                    resolved = ResolveAttackOnTarget(pSource, &target,
-                                                     g_special_attack_condition_table[special_attack_kind][i],
-                                                     g_special_attack_realm_table[special_attack_kind], uiMinRoll,
-                                                     extra, uiDamage, announce, announce, 0);
+                    resolved = ResolveAttackOnTarget(
+                        pSource, &target, g_special_attack_condition_table[special_attack_kind][i],
+                        g_special_attack_realm_table[special_attack_kind], uiMinRoll, extra,
+                        uiDamage, announce, announce, 0);
                     if (!resolved && !announce) {
                         ++uiHits[i];
                     }
@@ -217,7 +221,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 case 2:
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound) / 3 + 1;
-                    ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                    ApplyEffectAndAnnounce(&uiDamage, &target,
+                                           g_special_attack_realm_table[special_attack_kind],
                                            uiMinRoll);
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
@@ -232,14 +237,16 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 case 3:
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound) / 3 + 1;
-                    ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                    ApplyEffectAndAnnounce(&uiDamage, &target,
+                                           g_special_attack_realm_table[special_attack_kind],
                                            uiMinRoll);
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
                         for (drain = 0; drain < 6; ++drain) {
-                            DrainCharacterRealmSpellPoints(iChar, g_special_attack_realm_table[special_attack_kind],
-                                                           uiDamage, true);
+                            DrainCharacterRealmSpellPoints(
+                                iChar, g_special_attack_realm_table[special_attack_kind], uiDamage,
+                                true);
                         }
                         if (!announce) {
                             uiTotals[i] += uiDamage;
@@ -250,7 +257,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 case 4:
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound) + 1;
-                    ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                    ApplyEffectAndAnnounce(&uiDamage, &target,
+                                           g_special_attack_realm_table[special_attack_kind],
                                            uiMinRoll);
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
@@ -266,7 +274,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound) / 3 + 1;
                     if (special_attack_kind != 10) {
-                        ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                        ApplyEffectAndAnnounce(&uiDamage, &target,
+                                               g_special_attack_realm_table[special_attack_kind],
                                                uiMinRoll);
                     }
                     if (uiDamage == 0) {
@@ -310,10 +319,10 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     } else {
                         extra = 0;
                     }
-                    resolved = ResolveAttackOnTarget(pSource, &target,
-                                                     g_special_attack_condition_table[special_attack_kind][i],
-                                                     g_special_attack_realm_table[special_attack_kind], uiMinRoll,
-                                                     extra, uiBound, announce, announce, 0);
+                    resolved = ResolveAttackOnTarget(
+                        pSource, &target, g_special_attack_condition_table[special_attack_kind][i],
+                        g_special_attack_realm_table[special_attack_kind], uiMinRoll, extra,
+                        uiBound, announce, announce, 0);
                     if (!resolved && !announce) {
                         ++uiHits[i];
                     }
@@ -321,12 +330,14 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 case 2:
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound) / 3 + 1;
-                    ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                    ApplyEffectAndAnnounce(&uiDamage, &target,
+                                           g_special_attack_realm_table[special_attack_kind],
                                            uiMinRoll);
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, 1, 0, 0, false);
+                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, 1, 0, 0,
+                                             false);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -336,7 +347,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 case 3:
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound) / 6 + 1;
-                    ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                    ApplyEffectAndAnnounce(&uiDamage, &target,
+                                           g_special_attack_realm_table[special_attack_kind],
                                            uiMinRoll);
                     if (uiDamage != 0) {
                         monster_info->spell_points = monster_info->spell_points - (uiDamage >> 1);
@@ -351,7 +363,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 case 4:
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound);
-                    ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                    ApplyEffectAndAnnounce(&uiDamage, &target,
+                                           g_special_attack_realm_table[special_attack_kind],
                                            uiMinRoll);
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
@@ -367,13 +380,15 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     uiBound = uiBounds[i];
                     uiDamage = RollSpecialAttackSum(uiBound) / 3 + 1;
                     if (special_attack_kind != 10) {
-                        ApplyEffectAndAnnounce(&uiDamage, &target, g_special_attack_realm_table[special_attack_kind],
+                        ApplyEffectAndAnnounce(&uiDamage, &target,
+                                               g_special_attack_realm_table[special_attack_kind],
                                                uiMinRoll);
                     }
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, announce, 0, 0, false);
+                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, announce, 0, 0,
+                                             false);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -398,20 +413,25 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     case 1:
                         text = fmt::format(
                             "{:d} {}", uiHits[i],
-                            g_localized_strings
-                                [g_condition_notices[g_special_attack_condition_table[special_attack_kind][i]].plural]);
+                            g_localized_strings[g_condition_notices[g_special_attack_condition_table
+                                                                        [special_attack_kind][i]]
+                                                    .plural]);
                         break;
                     case 2:
-                        text = fmt::sprintf(g_localized_strings[0x1c1], uiHits[i], uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c1], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 3:
-                        text = fmt::sprintf(g_localized_strings[0x1c2], uiHits[i], uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c2], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 4:
-                        text = fmt::sprintf(g_localized_strings[0x1c3], uiHits[i], uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c3], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 5:
-                        text = fmt::sprintf(g_localized_strings[0x199], uiHits[i], uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x199], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
                         SetTextBoxMode(1, -1);
@@ -432,7 +452,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
    Kinds 0x18..0x1d and 0x1f map to fixed species; anything else keeps the
    kind id. */
 // FUNCTION: WIZ8 0x00556B10
-void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource, W8CombatSlot* pAttackerSlot)
+void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
+                               W8CombatSlot* pAttackerSlot)
 {
     W8MonsterRecord* record;
     int count;

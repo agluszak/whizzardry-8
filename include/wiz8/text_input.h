@@ -47,8 +47,8 @@ public:
     /* The innermost live group; it receives typed text. */
     static TextFieldGroup* Focused();
 
-    int Add(int left, int top, int width, int height, int priority, std::string_view text, std::size_t capacity,
-            short input_type, bool use_inactive_color);
+    int Add(int left, int top, int width, int height, int priority, std::string_view text,
+            std::size_t capacity, short input_type, bool use_inactive_color);
     void Remove(int id);
     void SetScheme(int scheme);
 

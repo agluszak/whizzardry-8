@@ -40,8 +40,8 @@ void RestoreCombatFormation(void);
 void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot);
 /* Move one party position into a formation row and column,
    updating both rows' occupant lists. */
-void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row, signed char new_column,
-                          bool announce, bool detach, bool update_facing);
+void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row,
+                          signed char new_column, bool announce, bool detach, bool update_facing);
 /* Re-place the positions left in a row after one moved out: a
    single occupant goes to column 0, two pack toward column 2. */
 void CompactFormationRow(W8PartyFormationState* formation, unsigned char row);

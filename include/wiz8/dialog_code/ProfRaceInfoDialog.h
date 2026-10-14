@@ -49,8 +49,8 @@ protected:
 private:
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
-    void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width, int height,
-                      std::string_view text, Font& font);
+    void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width,
+                      int height, std::string_view text, Font& font);
 
 protected:
     std::optional<CatalogArtwork> m_uiArtwork;

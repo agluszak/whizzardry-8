@@ -147,7 +147,8 @@ public:
 
 public:
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x0049C7A0 */
-    virtual void process(const srNode::ProcessInfo& info, srNode::e_processType type) override; /* 0x0049C8D0 */
+    virtual void process(const srNode::ProcessInfo& info,
+                         srNode::e_processType type) override; /* 0x0049C8D0 */
     void Reset();                                              /* 0x0049D070 */
     void SetDefinitionTime(float time);                        /* 0x0049C940 */
     void Update();                                             /* 0x0049C960 */
@@ -207,14 +208,16 @@ void LoadLightStates(wiz8::File& handle);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world before adding it to the owned list. */
-inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source, const char* file, int list_line,
+inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source,
+                                                      const char* file, int list_line,
                                                       int light_line)
 {
     std::vector<stLight*>* copy = 0;
     if (source != 0) {
         copy = new std::vector<stLight*>;
         if (copy == 0) {
-            srAssertFail("plsNewLights", file, list_line, "Out of memory creating monster light list");
+            srAssertFail("plsNewLights", file, list_line,
+                         "Out of memory creating monster light list");
         }
         for (int index = 0; index < static_cast<int>(source->size()); ++index) {
             stLight* light = (*source)[index];
@@ -226,7 +229,8 @@ inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* sou
                 *copied_light = *light;
             }
             if (copied_light == 0) {
-                srAssertFail("pstNewLight", file, light_line, "Out of memory creating monster light");
+                srAssertFail("pstNewLight", file, light_line,
+                             "Out of memory creating monster light");
             }
             copied_light->ConfigureMonsterCopy();
             copied_light->setLocation(x, y, z);

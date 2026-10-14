@@ -46,8 +46,8 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
 {
     const std::array<int, 7> header{0, 3, 3, 1, predecessor, -1, 0};
     Write(file, header);
-    const std::array<srVector3T<float>, 3> locations{srVector3T<float>(0, 0, 0), srVector3T<float>(1, 0, 0),
-                                                     srVector3T<float>(0, 1, 0)};
+    const std::array<srVector3T<float>, 3> locations{
+        srVector3T<float>(0, 0, 0), srVector3T<float>(1, 0, 0), srVector3T<float>(0, 1, 0)};
     Write(file, locations);
     const std::array<glm::vec2, 3> uv{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(0, 1)};
     Write(file, uv);
@@ -55,8 +55,8 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
     Write(file, triangle); // UV indices.
     Write(file, triangle); // Vertex indices.
     Write(file, texture_index); // Texture index.
-    const std::array<srVector3T<float>, 3> normals{srVector3T<float>(0, 0, 1), srVector3T<float>(0, 0, 1),
-                                                   srVector3T<float>(0, 0, 1)};
+    const std::array<srVector3T<float>, 3> normals{
+        srVector3T<float>(0, 0, 1), srVector3T<float>(0, 0, 1), srVector3T<float>(0, 0, 1)};
     Write(file, normals);
     Write(file, locations); // Static vertex lighting.
     const glm::vec4 equation(0, 0, 1, 0);
@@ -64,7 +64,8 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
     Write(file, -1);
 }
 
-void WriteFixture(const std::filesystem::path& path, bool duplicate_successor, bool invalid_texture = false)
+void WriteFixture(const std::filesystem::path& path, bool duplicate_successor,
+                  bool invalid_texture = false)
 {
     auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
     Write(*file, 4u); // Two roots and two successors.
@@ -88,7 +89,8 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
     Write(*file, 3); // Format with flags and transform.
     Write(*file, 3); // Vertices.
     Write(*file, 1); // Faces.
-    Write(*file, static_cast<unsigned char>(W8_LEVEL_MESH_LOD_VERTICES | W8_LEVEL_MESH_SHORT_LOD_VERTICES));
+    Write(*file, static_cast<unsigned char>(W8_LEVEL_MESH_LOD_VERTICES |
+                                            W8_LEVEL_MESH_SHORT_LOD_VERTICES));
     const std::array<float, 10> transform{0, 0, 0, 0, 0, 1, 0, 1, 1, 1};
     Write(*file, transform);
     Write(*file, static_cast<unsigned char>(2));
@@ -174,7 +176,8 @@ bool LoadCycles(const std::filesystem::path& path)
         }
         ReleaseReadMeshScratch();
         // Released meshes drop their references; only the default snapshot may remain.
-        REQUIRE((cycle == 2 ? !g_oct_mesh_default.material : g_oct_mesh_default.material.use_count() == 1));
+        REQUIRE((cycle == 2 ? !g_oct_mesh_default.material
+                            : g_oct_mesh_default.material.use_count() == 1));
     }
     return true;
 }
@@ -238,7 +241,10 @@ TEST_CASE("serialized_mesh_test")
         // A failed reload must leave no dangling pointers to the old scene roots.
         struct TrackedInstance : srModelInstance {
             int& destroyed;
-            TrackedInstance(srNode* parent, int& destroyed) : srModelInstance(parent), destroyed(destroyed) {}
+            TrackedInstance(srNode* parent, int& destroyed)
+                : srModelInstance(parent), destroyed(destroyed)
+            {
+            }
             ~TrackedInstance() override
             {
                 ++destroyed;
@@ -249,7 +255,8 @@ TEST_CASE("serialized_mesh_test")
         W8World world{};
         world.static_scene = &scene;
         world.update_mesh_source = new TrackedInstance(&scene, destroyed);
-        world.psrMeshes = {new TrackedInstance(&scene, destroyed), new TrackedInstance(&scene, destroyed), nullptr};
+        world.psrMeshes = {new TrackedInstance(&scene, destroyed),
+                           new TrackedInstance(&scene, destroyed), nullptr};
         const auto empty = directory / "empty.lvl";
         wiz8::open_host_file(empty, wiz8::OpenMode::replace)->close();
         auto file = wiz8::open_host_file(empty);
@@ -265,7 +272,8 @@ TEST_CASE("serialized_mesh_test")
     ReleaseOctMeshDefaults();
     srExit();
     REQUIRE(ok);
-    std::puts("ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
+    std::puts(
+        "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
 }
 
 TEST_CASE("Animation frame streams retain morph and transform formats")
@@ -280,7 +288,8 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
         for (bool lod : {false, true}) {
             {
                 auto file = wiz8::open_host_file(input, wiz8::OpenMode::replace);
-                Write(*file, std::array<unsigned char, 7>{1, 1, 1, 1, 0, 0, static_cast<unsigned char>(transform)});
+                Write(*file, std::array<unsigned char, 7>{1, 1, 1, 1, 0, 0,
+                                                          static_cast<unsigned char>(transform)});
                 Write(*file, std::array<char, 50>{});
                 Write(*file, char{1}); // Group count.
                 if (transform) {
@@ -288,7 +297,8 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                 }
                 Write(*file, char{0}); // Channel.
                 Write(*file, char{2}); // Frame count, including frames inside the LOD mesh.
-                const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0), srVector3(0, 1, 0)};
+                const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
+                                                        srVector3(0, 1, 0)};
                 const int serialized_frames = !transform && lod ? 1 : 2;
                 for (int frame = 0; frame < serialized_frames; ++frame) {
                     Write(*file, static_cast<unsigned char>(frame));
@@ -347,16 +357,17 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
     ScopedTemporaryDirectory directory{"wiz8-octmesh-writer"};
     const auto expected_path = directory.path / "expected.bin";
     const auto output_path = directory.path / "output.bin";
-    const std::array<srVector3T<float>, 3> locations{srVector3T<float>(1, 2, 3), srVector3T<float>(4, 5, 6),
-                                                     srVector3T<float>(7, 8, 9)};
+    const std::array<srVector3T<float>, 3> locations{
+        srVector3T<float>(1, 2, 3), srVector3T<float>(4, 5, 6), srVector3T<float>(7, 8, 9)};
     const std::array<glm::vec2, 3> uv{glm::vec2(1, 2), glm::vec2(3, 4), glm::vec2(5, 6)};
     const std::array<int, 3> materials{2, 3, 5};
     const std::array<glm::ivec3, 1> uv_indices{glm::ivec3(0, 2, 1)};
     const std::array<glm::ivec3, 1> vertices{glm::ivec3(2, 1, 0)};
     const std::array<int, 1> textures{7};
-    const std::array<srVector3T<float>, 3> normals{srVector3T<float>(0, 0, 1), srVector3T<float>(0, 1, 0),
-                                                   srVector3T<float>(1, 0, 0)};
-    const std::array<srVector3T<float>, 3> lights{srVector3T<float>(.1f, .2f, .3f), srVector3T<float>(.4f, .5f, .6f),
+    const std::array<srVector3T<float>, 3> normals{
+        srVector3T<float>(0, 0, 1), srVector3T<float>(0, 1, 0), srVector3T<float>(1, 0, 0)};
+    const std::array<srVector3T<float>, 3> lights{srVector3T<float>(.1f, .2f, .3f),
+                                                  srVector3T<float>(.4f, .5f, .6f),
                                                   srVector3T<float>(.7f, .8f, .9f)};
     const std::array<glm::vec4, 1> equations{glm::vec4(1, 2, 3, 4)};
     const std::array<float, 3> sun{.25f, .5f, .75f};

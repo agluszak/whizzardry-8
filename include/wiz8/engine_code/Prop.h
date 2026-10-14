@@ -43,8 +43,9 @@ class W8PropRepresentation : public W8AnimRep {
 public:
     /* Default construction is inlined at Prop::Prop. */
     W8PropRepresentation()
-        : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0), play_chance(0.5f),
-          saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff), footstep_material(0xff)
+        : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
+          play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
+          footstep_material(0xff)
     {
     }
     W8PropRepresentation(const W8PropRepresentation& other);

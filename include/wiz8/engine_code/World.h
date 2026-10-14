@@ -18,8 +18,8 @@ void MarkRendererReady(void);
 
 W8World* CreateWorld();
 W8World* ForwardCreateWorld(void);
-unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder, const char* asset_folder,
-                        bool use_octree);
+unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
+                        const char* asset_folder, bool use_octree);
 unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char* level_folder,
                                const char* asset_folder, bool use_octree);
 void ForwardDestroyWorld(W8World* world);
@@ -37,10 +37,12 @@ glm::vec3 cameraLocation(const W8World& world);
 glm::vec3 cameraLocationOrZero(const W8World& world);
 void SetWorldScenePosition(W8World* world, const srVector3T<float>* position);
 stParticle* FindParticleByName(W8World* world, const char* name);
-bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle, srVector3T<float>* direction);
-unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position, bool check_items,
-                                           bool check_monsters);
-unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items, bool check_monsters);
+bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,
+                      srVector3T<float>* direction);
+unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
+                                           bool check_items, bool check_monsters);
+unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
+                                     bool check_monsters);
 
 void SetSecondaryWorld(W8World* world);
 

@@ -116,7 +116,8 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
         RefreshPartySelectionPortrait(party_slot);
         break;
     case W8_SCREEN_CAMP:
-        if (giReviewCharSlot == static_cast<int>(party_slot) && g_camp_screen->header_mode == W8_CAMP_HEADER_SUMMARY) {
+        if (giReviewCharSlot == static_cast<int>(party_slot) &&
+            g_camp_screen->header_mode == W8_CAMP_HEADER_SUMMARY) {
             if (g_camp_screen->portrait_hovered[0] != 0) {
                 g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
                 return;
@@ -151,10 +152,12 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
                 top = party_slot;
                 break;
             }
-            overlay_ready = PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
+            overlay_ready =
+                PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
             highlighted = false;
             if (party_slot == static_cast<unsigned int>(g_level_block->highlight_override) ||
-                party_slot == static_cast<unsigned int>(g_level_block->formation_highlight_party_slot) ||
+                party_slot ==
+                    static_cast<unsigned int>(g_level_block->formation_highlight_party_slot) ||
                 party_slot == static_cast<unsigned int>(g_level_block->held_item_display)) {
                 highlighted = true;
             }
@@ -196,7 +199,8 @@ void SetTargetCursor(int cursor)
 
 void UpdateHeldItemCursor(void)
 {
-    if ((g_current_screen_state.id == W8_SCREEN_MAIN_GAME || g_current_screen_state.id == W8_SCREEN_CAMP) &&
+    if ((g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
+         g_current_screen_state.id == W8_SCREEN_CAMP) &&
         g_status.item_in_cursor) {
         if (g_status.item_in_hand.iItemNo != -1) {
             g_status.item_in_cursor = true;
@@ -231,7 +235,8 @@ void ApplyCurrentCursor(void)
         ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
                                  g_main_game_resource_slots[gXStatus.iCurrentCursor].size_y);
         SetMouseCursorTexture(g_main_game_resource_slots[gXStatus.iCurrentCursor].object);
-        g_main_game_resource_slots[gXStatus.iCurrentCursor].object->SetFrame(gXStatus.current_cursor_frame);
+        g_main_game_resource_slots[gXStatus.iCurrentCursor].object->SetFrame(
+            gXStatus.current_cursor_frame);
         SetMouseCursorHotspot(g_main_game_resource_slots[gXStatus.iCurrentCursor].hotspot_x,
                               g_main_game_resource_slots[gXStatus.iCurrentCursor].hotspot_y);
     }
@@ -285,7 +290,8 @@ void SetItemCursor(int overlay_video_object)
 }
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
-void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
+void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
+                    bool cancel)
 {
     switch (g_current_screen_state.id) {
     case W8_SCREEN_CAMP:
@@ -333,7 +339,8 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->enchantment_orb_party_slot = -1;
     g_level_block->condition_highlight_party_slot = -1;
     g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
-    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
+    g_level_block->dialogue_content_region =
+        CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;

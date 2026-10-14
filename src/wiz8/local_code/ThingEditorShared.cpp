@@ -9,7 +9,8 @@
 // FUNCTION: WIZ8 0x00556000
 unsigned char EstimateCombatThreatLevel(unsigned int experience)
 {
-    signed char level = static_cast<signed char>((pow(static_cast<double>(experience), 0.29f) - 3.5) * 0.5);
+    signed char level =
+        static_cast<signed char>((pow(static_cast<double>(experience), 0.29f) - 3.5) * 0.5);
     if (level < 0) {
         return 0;
     }

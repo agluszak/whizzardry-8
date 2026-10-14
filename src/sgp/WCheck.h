@@ -3,42 +3,42 @@
 #ifndef __WCHECK_
 #define __WCHECK_
 
-#define CHECKF(exp)                                                                                                    \
-    if (!(exp)) {                                                                                                      \
-        return (false);                                                                                                \
+#define CHECKF(exp)                                                                                \
+    if (!(exp)) {                                                                                  \
+        return (false);                                                                            \
     }
-#define CHECKV(exp)                                                                                                    \
-    if (!(exp)) {                                                                                                      \
-        return;                                                                                                        \
+#define CHECKV(exp)                                                                                \
+    if (!(exp)) {                                                                                  \
+        return;                                                                                    \
     }
-#define CHECKN(exp)                                                                                                    \
-    if (!(exp)) {                                                                                                      \
-        return (nullptr);                                                                                              \
+#define CHECKN(exp)                                                                                \
+    if (!(exp)) {                                                                                  \
+        return (nullptr);                                                                          \
     }
-#define CHECKBI(exp)                                                                                                   \
-    if (!(exp)) {                                                                                                      \
-        return (-1);                                                                                                   \
+#define CHECKBI(exp)                                                                               \
+    if (!(exp)) {                                                                                  \
+        return (-1);                                                                               \
     }
 
-#define CHECKASSERTF(exp)                                                                                              \
-    if (!(exp)) {                                                                                                      \
-        ASSERT(0);                                                                                                     \
-        return (false);                                                                                                \
+#define CHECKASSERTF(exp)                                                                          \
+    if (!(exp)) {                                                                                  \
+        ASSERT(0);                                                                                 \
+        return (false);                                                                            \
     }
-#define CHECKASSERTV(exp)                                                                                              \
-    if (!(exp)) {                                                                                                      \
-        ASSERT(0);                                                                                                     \
-        return;                                                                                                        \
+#define CHECKASSERTV(exp)                                                                          \
+    if (!(exp)) {                                                                                  \
+        ASSERT(0);                                                                                 \
+        return;                                                                                    \
     }
-#define CHECKASSERTN(exp)                                                                                              \
-    if (!(exp)) {                                                                                                      \
-        ASSERT(0);                                                                                                     \
-        return (nullptr);                                                                                              \
+#define CHECKASSERTN(exp)                                                                          \
+    if (!(exp)) {                                                                                  \
+        ASSERT(0);                                                                                 \
+        return (nullptr);                                                                          \
     }
-#define CHECKASSERTBI(exp)                                                                                             \
-    if (!(exp)) {                                                                                                      \
-        ASSERT(0);                                                                                                     \
-        return (-1);                                                                                                   \
+#define CHECKASSERTBI(exp)                                                                         \
+    if (!(exp)) {                                                                                  \
+        ASSERT(0);                                                                                 \
+        return (-1);                                                                               \
     }
 
 #endif

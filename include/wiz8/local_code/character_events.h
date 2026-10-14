@@ -20,21 +20,22 @@ extern int g_special_event13;
 extern int g_special_event14;
 extern int g_special_event17;
 int UpdateCharacterEventState(void);
-W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags, int queue_mode,
-                                      unsigned int volume);
+W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
+                                      int queue_mode, unsigned int volume);
 
 /* Format one character quote for the given event type into the
    shared wide text buffer. Returns zero and empties it when the type has no
    quote. */
-bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type, unsigned int* metadata);
+bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
+                              unsigned int* metadata);
 /* First entry of a -1-terminated event-id table. */
 extern const int g_fact_check_event;
 
 /* True when no occupied party slot has an active portrait/voice record. */
 unsigned char PartyPortraitEventsIdle(void);
 int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
-W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot, unsigned int flags,
-                                                   int queue_mode);
+W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
+                                                   unsigned int flags, int queue_mode);
 void MaybeStartIncapacitationEvent(unsigned int party_slot);
 void QueueDamageReactionEvents(W8Character* character);
 /* After a character dies, pick one other party member and queue
@@ -63,12 +64,12 @@ void RedrawPortraitQuoteBubbles(void);
 /* Queue the character's breath/idle event unless a spell or item
    is being aimed; `force` queues it regardless. */
 void StartBreathCycle(int party_slot, bool force);
-void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, unsigned char value,
-                         int party_slot);
+void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
+                         unsigned char value, int party_slot);
 /* Blit one animated portrait frame and its transition, returning
    whether a frame was drawn. */
-bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
-                                int party_slot, bool animate);
+bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
+                                SpriteDraw options, int party_slot, bool animate);
 
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                 std::string_view quote_text, int show_quote);

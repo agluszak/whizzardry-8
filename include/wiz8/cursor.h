@@ -17,9 +17,10 @@ unsigned char InitializeMouseCursorScene(void);
 
 class srTextureIFace;
 
-bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region, std::int16_t offset_x,
-                                   std::int16_t offset_y);
-void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x, std::uint16_t y);
+bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
+                                   std::int16_t offset_x, std::int16_t offset_y);
+void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
+                       std::uint16_t y);
 void RefreshMouseCursorTexture(void);
 bool ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */

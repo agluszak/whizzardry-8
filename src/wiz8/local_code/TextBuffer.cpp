@@ -66,8 +66,8 @@ void W8TextBuffer::SetText(std::string_view text, Font& font)
 }
 
 // FUNCTION: WIZ8 0x004f33a0
-W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font, unsigned int layout_mode,
-                           int render_mode)
+W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
+                           unsigned int layout_mode, int render_mode)
 {
     m_buffer.clear();
     m_font = 0;
@@ -98,7 +98,8 @@ void W8TextBuffer::SetLayoutMode(unsigned int layout_mode)
 }
 
 // FUNCTION: WIZ8 0x004f3540
-void W8TextBuffer::SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending, bool update_layout)
+void W8TextBuffer::SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending,
+                                   bool update_layout)
 {
     m_layoutBounds = *bounds;
     if (copy_pending) {
@@ -129,23 +130,28 @@ void W8TextBuffer::UpdateLayout()
             const char separator = *break_at;
             *break_at = '\0';
             short word_width = m_font->textWidth(line);
-            if (static_cast<unsigned int>(static_cast<int>(word_width) + accumulated_width) < available_width) {
-                accumulated_width += static_cast<int>(separator_width) + static_cast<int>(word_width);
+            if (static_cast<unsigned int>(static_cast<int>(word_width) + accumulated_width) <
+                available_width) {
+                accumulated_width +=
+                    static_cast<int>(separator_width) + static_cast<int>(word_width);
                 previous_break = break_at;
             } else {
                 if (previous_break != 0) {
                     *previous_break = '\n';
                 }
-                unsigned int completed_width = accumulated_width - static_cast<int>(separator_width);
+                unsigned int completed_width =
+                    accumulated_width - static_cast<int>(separator_width);
                 if (m_maxLineWidth < completed_width) {
                     m_maxLineWidth = completed_width;
                 }
-                accumulated_width = static_cast<int>(separator_width) + static_cast<int>(word_width);
+                accumulated_width =
+                    static_cast<int>(separator_width) + static_cast<int>(word_width);
                 previous_break = 0;
                 ++m_lineCount;
             }
             if (separator == '\n') {
-                unsigned int completed_width = accumulated_width - static_cast<int>(separator_width);
+                unsigned int completed_width =
+                    accumulated_width - static_cast<int>(separator_width);
                 if (m_maxLineWidth < completed_width) {
                     m_maxLineWidth = completed_width;
                 }
@@ -243,10 +249,12 @@ void W8TextBuffer::SetLineHeight(unsigned int height)
 // FUNCTION: WIZ8 0x004f3d50
 void W8TextBuffer::FillBounds(SDL_Surface& target, int colour)
 {
-    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right - m_layoutBounds.left,
+    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top,
+                        m_layoutBounds.right - m_layoutBounds.left,
                         m_layoutBounds.bottom - m_layoutBounds.top};
     SDL_FillSurfaceRect(&target, &area, colour);
-    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right, m_layoutBounds.bottom);
+    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
+                     m_layoutBounds.bottom);
 }
 
 /* Draw each newline-delimited view without modifying the owned text. */
@@ -264,7 +272,8 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
         m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
     }
     {
-        SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top, m_pendingBounds.right - m_pendingBounds.left,
+        SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
+                      m_pendingBounds.right - m_pendingBounds.left,
                       m_pendingBounds.bottom - m_pendingBounds.top};
         ScopedClipRect clipping(target, clip);
 
@@ -274,7 +283,8 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
             const auto line = remaining.substr(0, end);
 
             const int x = GetHorizontalPosition(m_font->textWidth(line));
-            DrawText(target, *m_font, {x + x_offset, y + y_offset}, line, {.mono = m_alternateRenderer != 0});
+            DrawText(target, *m_font, {x + x_offset, y + y_offset}, line,
+                     {.mono = m_alternateRenderer != 0});
 
             if (end == std::string_view::npos) {
                 break;
@@ -300,7 +310,8 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
     }
 
     m_font->setShade(m_renderMode);
-    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top, m_pendingBounds.right - m_pendingBounds.left,
+    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
+                  m_pendingBounds.right - m_pendingBounds.left,
                   m_pendingBounds.bottom - m_pendingBounds.top};
     ScopedClipRect clipping(target, clip);
     const auto previous_state = m_font->palette();
@@ -330,7 +341,8 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
     }
 
     m_font->setPalette(previous_state);
-    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right, m_layoutBounds.bottom);
+    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
+                     m_layoutBounds.bottom);
     m_geometryDirty = false;
 }
 

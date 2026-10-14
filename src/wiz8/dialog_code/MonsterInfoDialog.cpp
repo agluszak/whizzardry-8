@@ -72,11 +72,13 @@ int W8MonsterInfoDialog::CreateControls()
     resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
     resources.track_path = g_info_dialog_background;
     resources.track_frame = 1;
-    resources.on_scroll = [this](int first_visible_entry) { ScrollTextArea(m_text_area, first_visible_entry); };
+    resources.on_scroll = [this](int first_visible_entry) {
+        ScrollTextArea(m_text_area, first_visible_entry);
+    };
     m_scroll_bar.CreateControls(&resources);
     int x = m_x;
-    m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x26, m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
-                           0xb9);
+    m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x26, m_text_area.GetTotalLineCount(), 0,
+                           m_text_area.GetLineHeight(), 0xb9);
 
     CreateCloseButton(m_button, 0x11a, 0xe6);
     return 0;
@@ -136,7 +138,8 @@ bool W8MonsterInfoDialog::PopulateText()
     record = GetMonsterDataForInfo(monster_info);
     average_level = GetAveragePartyMemberLevel();
     monster_level = record->display_level;
-    if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE && (record->flags & W8_MONSTER_FLAG_NPC) != 0 &&
+    if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE &&
+        (record->flags & W8_MONSTER_FLAG_NPC) != 0 &&
         (npc = GetNpcStateByKind(record->npc_kind)) != 0 && npc->record->has_group != 0) {
         is_npc = true;
     }
@@ -145,7 +148,8 @@ bool W8MonsterInfoDialog::PopulateText()
     } else {
         knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
         if (static_cast<int>(average_level) < monster_level) {
-            float adjusted_knowledge = knowledge - (monster_level - average_level) * g_float_three + g_float_half;
+            float adjusted_knowledge =
+                knowledge - (monster_level - average_level) * g_float_three + g_float_half;
             if (adjusted_knowledge < g_float_zero) {
                 adjusted_knowledge = g_float_zero;
             }
@@ -169,8 +173,9 @@ bool W8MonsterInfoDialog::PopulateText()
             leader_group_id = monster_info->monster_group_id;
         }
         m_text_area.AddEntry("ID/Group (Leader)",
-                             fmt::format("{:d}/{:d} ({:d}/{:d}) {}", m_location_id, monster_info->monster_group_id,
-                                         leader_location_id, leader_group_id,
+                             fmt::format("{:d}/{:d} ({:d}/{:d}) {}", m_location_id,
+                                         monster_info->monster_group_id, leader_location_id,
+                                         leader_group_id,
                                          group->encounter_registered ? "random" : "placed"),
                              5, 0xf, 0);
     }
@@ -179,10 +184,11 @@ bool W8MonsterInfoDialog::PopulateText()
         prefix = g_localized_strings[0x13b];
         entry_text = g_localized_strings[0x13a];
     } else {
-        int level_class = static_cast<int>(monster_level / average_level * g_float_five - g_float_one_and_a_half);
+        int level_class =
+            static_cast<int>(monster_level / average_level * g_float_five - g_float_one_and_a_half);
         ClampInteger(&level_class, 0, 6);
-        entry_text =
-            fmt::format("{:d} ({})", monster_level, g_localized_strings[g_monster_level_name_ids[level_class]]);
+        entry_text = fmt::format("{:d} ({})", monster_level,
+                                 g_localized_strings[g_monster_level_name_ids[level_class]]);
         prefix = g_localized_strings[0x13b];
     }
     m_text_area.AddEntry(prefix, entry_text, 10, 0xf, 0);
@@ -245,7 +251,8 @@ bool W8MonsterInfoDialog::PopulateText()
                 if (count > 0) {
                     text += g_comma_space;
                 }
-                text += g_spell_records[monster_info->pCombat->combat_effects[index].effect_id].display_name;
+                text += g_spell_records[monster_info->pCombat->combat_effects[index].effect_id]
+                            .display_name;
                 ++count;
             }
         }
@@ -301,7 +308,8 @@ bool W8MonsterInfoDialog::PopulateText()
                 if (count > 0) {
                     text += g_comma_space;
                 }
-                text += g_spell_records[monster_info->pCombat->combat_effects_2[index].effect_id].display_name;
+                text += g_spell_records[monster_info->pCombat->combat_effects_2[index].effect_id]
+                            .display_name;
                 ++count;
             }
         }
@@ -324,14 +332,16 @@ bool W8MonsterInfoDialog::PopulateText()
     if (0x13 < knowledge) {
         W8RangeCategory best_range = GetMonsterBestRangeCategory(monster_info, true, &sight);
         if (best_range != W8_RANGE_NONE) {
-            m_text_area.AddEntry(g_localized_strings[0x141], g_localized_strings[g_spell_range_name_ids[best_range]],
-                                 10, 0xf, 0);
+            m_text_area.AddEntry(g_localized_strings[0x141],
+                                 g_localized_strings[g_spell_range_name_ids[best_range]], 10, 0xf,
+                                 0);
         }
     }
     if (0x31 < knowledge && record->special_attack_kind != 0) {
-        m_text_area.AddEntry(g_localized_strings[0x142],
-                             g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]], 10,
-                             0xf, 0);
+        m_text_area.AddEntry(
+            g_localized_strings[0x142],
+            g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]], 10,
+            0xf, 0);
     }
 
     if (9 < knowledge) {
@@ -353,8 +363,9 @@ bool W8MonsterInfoDialog::PopulateText()
         for (index = 0; index < 0x10; ++index) {
             unsigned char value = max_values[index];
             if (value != 0) {
-                if (value < 0x4b && (knowledge < 0x1e || value < 0x32) && (knowledge < 0x3c || value < 0x19) &&
-                    (knowledge < 0x50 || value < 10) && (knowledge < 0x5a || value < 5) && knowledge < 100) {
+                if (value < 0x4b && (knowledge < 0x1e || value < 0x32) &&
+                    (knowledge < 0x3c || value < 0x19) && (knowledge < 0x50 || value < 10) &&
+                    (knowledge < 0x5a || value < 5) && knowledge < 100) {
                     has_unknown = true;
                 } else {
                     if (count > 0) {
@@ -388,7 +399,8 @@ bool W8MonsterInfoDialog::PopulateText()
                     if (count > 0) {
                         text += g_comma_space;
                     }
-                    text += g_localized_strings[g_condition_notices[immunity->conditions[slot]].noun];
+                    text +=
+                        g_localized_strings[g_condition_notices[immunity->conditions[slot]].noun];
                     ++count;
                 }
                 if (immunity->immune_all != 0) {
@@ -414,16 +426,20 @@ bool W8MonsterInfoDialog::PopulateText()
     }
 
     if (g_dev_mode) {
-        m_text_area.AddEntry("Range (Combat/Ground)",
-                             fmt::format("{:5.2f} / {:5.2f} M", combat_range * g_float_one_five_hundredth,
-                                         (monster_info->p3D->GetPosition() - g_startup_world->GetPosition()).Length() *
-                                             g_world_cursor_scale),
-                             5, 0xf, 0);
+        m_text_area.AddEntry(
+            "Range (Combat/Ground)",
+            fmt::format(
+                "{:5.2f} / {:5.2f} M", combat_range * g_float_one_five_hundredth,
+                (monster_info->p3D->GetPosition() - g_startup_world->GetPosition()).Length() *
+                    g_world_cursor_scale),
+            5, 0xf, 0);
         leader_info = FindMonster(leader_location_id);
         script = leader_info->p3D->script.get();
         m_text_area.AddEntry("Leader's Current Script",
-                             fmt::format("<{}>", script != 0 ? script->getName().c_str() : ""), 5, 0xf, 0);
-        m_text_area.AddEntry("Leader's AI Mode", fmt::format("{:d}", leader_info->ai_mode), 5, 0xf, 0);
+                             fmt::format("<{}>", script != 0 ? script->getName().c_str() : ""), 5,
+                             0xf, 0);
+        m_text_area.AddEntry("Leader's AI Mode", fmt::format("{:d}", leader_info->ai_mode), 5, 0xf,
+                             0);
         const char* strategy = "Close";
         if (record->prefer_ranged_actions != 0) {
             strategy = "Ranged";
@@ -462,7 +478,8 @@ void W8MonsterInfoDialog::Draw(SDL_Surface& target)
         W8MonsterInfo* monster_info = FindMonster(m_location_id);
         auto name = GetMonsterName(monster_info, 0, 0);
         std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
-        DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, name);
+        DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
+                 name);
     }
     m_text_area.Draw(target, false);
     m_scroll_bar.Draw(target, false);

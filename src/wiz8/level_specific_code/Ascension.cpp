@@ -109,7 +109,8 @@ unsigned char AscensionPeakInit(void)
             if (FindEntityByName("NP_Savants01", &position, 0, 0)) {
                 SpawnMonsters(0x1a0, 6, &position, 1, true, false, false);
             }
-            if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 || GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
+            if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
+                GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                 RunNamedTrigger("Bodies", -1);
             }
             CreateLocationVar("AP_All3Items", 1);
@@ -267,7 +268,8 @@ static bool armAletheidesPartner(const char* partner, const char* active_var)
 /* The A-side callbacks are inert while the flag is set. Otherwise Aletheides
    answers, and the party carrying the relic gets the exchange and the Alfie
    spawn. */
-static bool answerAletheides(Trigger* pTrigger, const char* active_var, int relic_item, W8NpcStoryAction spawn)
+static bool answerAletheides(Trigger* pTrigger, const char* active_var, int relic_item,
+                             W8NpcStoryAction spawn)
 {
     if (GetLocationVarIDByName(active_var) == -1) {
         CreateLocationVar(active_var, 0);
@@ -305,7 +307,8 @@ bool AscensionChaosBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DFFF0
 bool AscensionChaosATrigger(Trigger* pTrigger)
 {
-    return answerAletheides(pTrigger, "AlethidiesChaosActive", 0x244, W8NpcStoryAction::spawn_alfie_chaos);
+    return answerAletheides(pTrigger, "AlethidiesChaosActive", 0x244,
+                            W8NpcStoryAction::spawn_alfie_chaos);
 }
 
 /* The LifeBTrigger activation callback: arm LifeATrigger, and once
@@ -323,7 +326,8 @@ bool AscensionLifeBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0110
 bool AscensionLifeATrigger(Trigger* pTrigger)
 {
-    return answerAletheides(pTrigger, "AlethidiesLifeActive", 0x242, W8NpcStoryAction::spawn_alfie_life);
+    return answerAletheides(pTrigger, "AlethidiesLifeActive", 0x242,
+                            W8NpcStoryAction::spawn_alfie_life);
 }
 
 /* The KnowBTrigger activation callback: arm KnowATrigger, and once
@@ -341,7 +345,8 @@ bool AscensionKnowBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0230
 bool AscensionKnowATrigger(Trigger* pTrigger)
 {
-    return answerAletheides(pTrigger, "AlethidiesKnowActive", 0x243, W8NpcStoryAction::spawn_alfie_know);
+    return answerAletheides(pTrigger, "AlethidiesKnowActive", 0x243,
+                            W8NpcStoryAction::spawn_alfie_know);
 }
 
 /* The second RampUp activation callback: spawn the Dark Savant (0xc2) and

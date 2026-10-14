@@ -21,9 +21,10 @@ public:
     struct MappingInfo {
         // FUNCTION: SURRENDER 0x10037BD0
         // RECOMP: ??0MappingInfo@srModeler@@QAE@W4e_axis@1@0MMMM@Z
-        MappingInfo(e_axis axis_u = AXIS_X, e_axis axis_v = AXIS_Y, float u_scale = 1.0f, float v_scale = 1.0f,
-                    float u_offset = 0.0f, float v_offset = 0.0f)
-            : axis_u(axis_u), axis_v(axis_v), u_scale(u_scale), v_scale(v_scale), u_offset(u_offset), v_offset(v_offset)
+        MappingInfo(e_axis axis_u = AXIS_X, e_axis axis_v = AXIS_Y, float u_scale = 1.0f,
+                    float v_scale = 1.0f, float u_offset = 0.0f, float v_offset = 0.0f)
+            : axis_u(axis_u), axis_v(axis_v), u_scale(u_scale), v_scale(v_scale),
+              u_offset(u_offset), v_offset(v_offset)
         {
         }
 
@@ -135,7 +136,8 @@ public:
     void cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapping);
     void removeMapping(w8_long pass, w8_long layer);
 
-    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, srMeshModel::e_side side);
+    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass,
+                     srMeshModel::e_side side);
     void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer);
     void setShader(srShader shader, w8_long pass);
     /* A nonzero remove_degenerate disables and drops triangles with

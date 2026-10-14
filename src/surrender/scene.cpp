@@ -139,7 +139,8 @@ void srScene::dump(std::ostream& stream)
     const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Ambient light: ";
-    stream << '{' << ambient_light.x << ',' << ambient_light.y << ',' << ambient_light.z << '}' << '\n';
+    stream << '{' << ambient_light.x << ',' << ambient_light.y << ',' << ambient_light.z << '}'
+           << '\n';
     stream.width(0x20);
     stream << "  Fog color: ";
     stream << '{' << fog_color.x << ',' << fog_color.y << ',' << fog_color.z << '}' << '\n';

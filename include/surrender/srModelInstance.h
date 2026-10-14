@@ -16,7 +16,8 @@
 class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100> {
 public:
     SR_DLL_IMPORT virtual ~srModelInstance() override;
-    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
+    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr,
+                                  Ownership ownership = Ownership::parent);
 
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
 

@@ -15,7 +15,8 @@ inline std::optional<SDL_Rect> axisLineRectangle(int fixed, int begin, int end, 
         return std::nullopt;
     }
     const int variable_limit = vertical ? dimensions.y : dimensions.x;
-    const auto interval = glm::clamp(glm::ivec2(std::min(begin, end), std::max(begin, end)), 0, variable_limit);
+    const auto interval =
+        glm::clamp(glm::ivec2(std::min(begin, end), std::max(begin, end)), 0, variable_limit);
     if (interval.x >= interval.y) {
         return std::nullopt;
     }

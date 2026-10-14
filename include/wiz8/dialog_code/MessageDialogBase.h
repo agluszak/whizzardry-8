@@ -22,8 +22,9 @@ public:
 
     /* Called on this object from outside the class by the Please Wait screen,
        which is what puts it here rather than under protected. */
-    void SetMessage(std::string_view message, int line_count, unsigned short characters_per_line, bool confirmation,
-                    bool cancel, bool size_to_message, bool wrap_message, int maximum_width, int maximum_height);
+    void SetMessage(std::string_view message, int line_count, unsigned short characters_per_line,
+                    bool confirmation, bool cancel, bool size_to_message, bool wrap_message,
+                    int maximum_width, int maximum_height);
     /* The party-selection screen calls this centering helper on a freshly
        allocated base dialog, so it is part of the public surface rather than
        a derived-only helper. */

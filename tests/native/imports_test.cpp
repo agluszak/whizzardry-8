@@ -120,13 +120,15 @@ static int surface_storage()
         REQUIRE(assigned.getDataPtr() != pixels.data());
         REQUIRE(samePixels(assigned, pixels.data()));
         REQUIRE(palette.use_count() == references + 3);
-        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2, assigned.getPitch());
+        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2,
+                            assigned.getPitch());
         assigned = view;
         REQUIRE(samePixels(assigned, pixels.data()));
         REQUIRE(palette.use_count() == references + 2);
         REQUIRE(assigned.resize(7, 5));
         auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
-        REQUIRE(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
+        REQUIRE(std::all_of(begin, begin + assigned.getDataSize(),
+                            [](auto value) { return value == 0; }));
         assigned.fill(0xff336699);
         REQUIRE(assigned.rescale(3, 2));
         for (int y = 0; y < 2; ++y) {
@@ -226,7 +228,8 @@ TEST_CASE("imports_test")
         srModeler::Triangle triangle;
         for (int row = 0; row < 2; ++row) {
             for (int vertex = 0; vertex < 3; ++vertex) {
-                triangle.vertices[vertex].position = glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
+                triangle.vertices[vertex].position =
+                    glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
             }
             modeler.addTriangle(triangle);
         }
@@ -262,11 +265,17 @@ TEST_CASE("imports_test")
             w8_long retail;
             unsigned short saved_control, status;
             asm volatile("fnstcw %0" : "=m"(saved_control));
-            const unsigned rounding = mode == FE_DOWNWARD ? 1 : mode == FE_UPWARD ? 2 : mode == FE_TOWARDZERO ? 3 : 0;
+            const unsigned rounding = mode == FE_DOWNWARD     ? 1
+                                      : mode == FE_UPWARD     ? 2
+                                      : mode == FE_TOWARDZERO ? 3
+                                                              : 0;
             const unsigned short control = (saved_control & ~0x0c00u) | (rounding << 10);
             // The Windows x64 CRT controls SSE, not the oracle's x87 state.
             asm volatile("fldcw %0; fnclex" : : "m"(control));
-            asm volatile("fldl %2; fistpl %0; fnstsw %1" : "=m"(retail), "=m"(status) : "m"(input) : "st");
+            asm volatile("fldl %2; fistpl %0; fnstsw %1"
+                         : "=m"(retail), "=m"(status)
+                         : "m"(input)
+                         : "st");
             asm volatile("fnclex; fldcw %0" : : "m"(saved_control));
             REQUIRE((actual == retail && invalid == bool(status & 1)));
 #else
@@ -326,7 +335,8 @@ TEST_CASE("imports_test")
             assert(std::size(vectors.values) != 0);
             auto lower = vectors.values[0].glmValue();
             auto upper = lower;
-            for (std::size_t point_index = 1; point_index < std::size(vectors.values); ++point_index) {
+            for (std::size_t point_index = 1; point_index < std::size(vectors.values);
+                 ++point_index) {
                 const auto& point = vectors.values[point_index];
                 const auto v = point.glmValue();
                 // Keep the comparison order for NaNs in recovered bounds.
@@ -359,8 +369,8 @@ TEST_CASE("imports_test")
         copy = source;
         const auto before = source.getViewPlane();
         const auto after = copy.getViewPlane();
-        REQUIRE((before.rectangle.left == after.rectangle.left && before.rectangle.top == after.rectangle.top &&
-                 before.distance == after.distance));
+        REQUIRE((before.rectangle.left == after.rectangle.left &&
+                 before.rectangle.top == after.rectangle.top && before.distance == after.distance));
         const auto normalized = copy.getNormalizedViewPlane();
         REQUIRE((normalized.left == after.rectangle.left / after.distance &&
                  normalized.bottom == after.rectangle.bottom / after.distance &&
@@ -405,7 +415,8 @@ TEST_CASE("imports_test")
         REQUIRE(clone->getParent() != parent);
         clone->setParent(parent, 0);
         delete original;
-        REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent && sibling->getParent() == parent));
+        REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent &&
+                 sibling->getParent() == parent));
         delete parent; // Recursively releases the sibling and copied light.
         srHuffman::Sampler sampler;
         sampler.insert(10);
@@ -432,17 +443,18 @@ TEST_CASE("imports_test")
             bits.flush();
         }
         // Captured from main's pre-consolidation stream/Huffman implementation.
-        const unsigned char golden[] = {0x06, 0x00, 0x00, 0x00, 0x60, 0x02, 0x00, 0x00, 0x00, 0x2e, 0x00, 0x00, 0x00,
-                                        0x64, 0x00, 0x00, 0x00, 0xd0, 0x01, 0x00, 0x00, 0xe0, 0xff, 0xff, 0xff, 0xbf,
-                                        0x0d, 0x00, 0x00, 0x00, 0x15, 0x00, 0x00, 0x00, 0x1e, 0xec, 0x64};
+        const unsigned char golden[] = {0x06, 0x00, 0x00, 0x00, 0x60, 0x02, 0x00, 0x00, 0x00, 0x2e,
+                                        0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0xd0, 0x01, 0x00,
+                                        0x00, 0xe0, 0xff, 0xff, 0xff, 0xbf, 0x0d, 0x00, 0x00, 0x00,
+                                        0x15, 0x00, 0x00, 0x00, 0x1e, 0xec, 0x64};
         REQUIRE(SDL_GetIOSize(encoded.get()) == sizeof(golden));
         REQUIRE(memcmp(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
                                               SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
                        golden, sizeof(golden)) == 0);
-        auto input =
-            srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
-                                                                SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
-                                         SDL_GetIOSize(encoded.get())));
+        auto input = srIO::own(SDL_IOFromConstMem(
+            SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
+                                   SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
+            SDL_GetIOSize(encoded.get())));
         srHuffman::BitIStream bits(input.get());
         srHuffman::Decompressor decoder(bits);
         REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));

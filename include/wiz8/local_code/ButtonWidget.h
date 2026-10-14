@@ -99,16 +99,21 @@ public:
     void SetTooltipEnabled(bool enabled);
     /* Load the frame images and configure the input target. */
     bool Configure(const char* image_path, ButtonFrames frames, ButtonSetup setup = {});
-    bool Configure(std::shared_ptr<const SpriteSheet> sprites, ButtonFrames frames, ButtonSetup setup = {});
+    bool Configure(std::shared_ptr<const SpriteSheet> sprites, ButtonFrames frames,
+                   ButtonSetup setup = {});
     /* A button with only disabled and normal artwork. */
-    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, ButtonSetup setup = {})
+    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame,
+                       ButtonSetup setup = {})
     {
-        return Configure(image_path, {disabled_frame, normal_frame, BUTTON_NO_IMAGE, normal_frame, BUTTON_NO_IMAGE},
-                         std::move(setup));
+        return Configure(
+            image_path,
+            {disabled_frame, normal_frame, BUTTON_NO_IMAGE, normal_frame, BUTTON_NO_IMAGE},
+            std::move(setup));
     }
     /* A generic-frame button showing `text`. It never toggles. */
-    bool ConfigureTextButton(std::string_view text, Font& font, short fore_color, short shadow_color, SDL_Rect bounds,
-                             ButtonSetup setup = {}, GenericButtonImage image = {});
+    bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
+                             short shadow_color, SDL_Rect bounds, ButtonSetup setup = {},
+                             GenericButtonImage image = {});
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the input target. */
     void SetTooltipIndex(int tooltip_index);

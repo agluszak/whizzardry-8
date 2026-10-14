@@ -112,7 +112,8 @@ public:
         srRegistry::ClassNode* node = registry->getClassNode(ClassID);
 
         if (node == 0) {
-            node = registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID);
+            node =
+                registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID);
         }
         return node;
     }
@@ -162,7 +163,8 @@ public:
     }
 
     template<class A0, class A1, class A2, class A3, class A4>
-    srClassSupport(A0 first_argument, A1 second_argument, A2 third_argument, A3 fourth_argument, A4 fifth_argument)
+    srClassSupport(A0 first_argument, A1 second_argument, A2 third_argument, A3 fourth_argument,
+                   A4 fifth_argument)
         : Base(first_argument, second_argument, third_argument, fourth_argument, fifth_argument)
     {
         sGetClassNode();
@@ -175,7 +177,8 @@ public:
 /* Exact-class downcast by format class ID; the engine builds without RTTI. */
 template<class T, class U> T* sr_cast(U* object)
 {
-    return object != nullptr && object->getClassID() == T::CLASS_ID ? static_cast<T*>(object) : nullptr;
+    return object != nullptr && object->getClassID() == T::CLASS_ID ? static_cast<T*>(object)
+                                                                    : nullptr;
 }
 
 template<class T, class U> T* sr_cast(const std::shared_ptr<U>& object)

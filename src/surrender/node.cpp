@@ -275,11 +275,13 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         }
         parent->first_child_ = this;
         if (preserve_world_transform != 0) {
-            const auto [parent_rotation, parent_location, parent_scale] = parent->getWorldSpaceCoordinates();
+            const auto [parent_rotation, parent_location, parent_scale] =
+                parent->getWorldSpaceCoordinates();
             rotation = glm::transpose(parent_rotation) * rotation;
             orthonormalizeRotation(rotation);
             const auto inverse_scale = 1.0 / parent_scale;
-            location = glm::transpose(parent_rotation) * ((location - parent_location) * inverse_scale);
+            location =
+                glm::transpose(parent_rotation) * ((location - parent_location) * inverse_scale);
             scale *= inverse_scale;
         }
     }
@@ -372,21 +374,25 @@ void srNode::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Child count: " << getChildCount() << '\n';
     stream.width(0x20);
-    stream << "  Local matrix: " << '{' << glm::row(rotation, 0) << ',' << glm::row(rotation, 1) << ','
-           << glm::row(rotation, 2) << '}' << '\n';
+    stream << "  Local matrix: " << '{' << glm::row(rotation, 0) << ',' << glm::row(rotation, 1)
+           << ',' << glm::row(rotation, 2) << '}' << '\n';
     stream.width(0x20);
     const auto location = getLocation();
-    stream << "  Local translation: " << '{' << location.x << ',' << location.y << ',' << location.z << '}' << '\n';
+    stream << "  Local translation: " << '{' << location.x << ',' << location.y << ',' << location.z
+           << '}' << '\n';
     stream.width(0x20);
     const auto scale = getScale();
-    stream << "  Local scale: " << '{' << scale.x << ',' << scale.y << ',' << scale.z << '}' << '\n';
+    stream << "  Local scale: " << '{' << scale.x << ',' << scale.y << ',' << scale.z << '}'
+           << '\n';
     stream.width(0x20);
-    stream << "  WS matrix: " << '{' << glm::row(ws_rotation, 0) << ',' << glm::row(ws_rotation, 1) << ','
-           << glm::row(ws_rotation, 2) << '}' << '\n';
+    stream << "  WS matrix: " << '{' << glm::row(ws_rotation, 0) << ',' << glm::row(ws_rotation, 1)
+           << ',' << glm::row(ws_rotation, 2) << '}' << '\n';
     stream.width(0x20);
-    stream << "  WS location: " << '{' << ws_location.x << ',' << ws_location.y << ',' << ws_location.z << '}' << '\n';
+    stream << "  WS location: " << '{' << ws_location.x << ',' << ws_location.y << ','
+           << ws_location.z << '}' << '\n';
     stream.width(0x20);
-    stream << "  WS scale: " << '{' << ws_scale.x << ',' << ws_scale.y << ',' << ws_scale.z << '}' << '\n';
+    stream << "  WS scale: " << '{' << ws_scale.x << ',' << ws_scale.y << ',' << ws_scale.z << '}'
+           << '\n';
     stream.width(0x20);
     stream << "  Flags: ";
     srDumpFlags(stream, this->flags.value, s_flag_names1);
@@ -493,7 +499,8 @@ void srNode::setRotation(const glm::mat3& rotation)
 // FUNCTION: SURRENDER 0x10053740
 void srNode::setRotation(double x, double y, double z)
 {
-    rotation = glm::mat3_cast(glm::angleAxis(x, glm::dvec3(1, 0, 0)) * glm::angleAxis(y, glm::dvec3(0, 1, 0)) *
+    rotation = glm::mat3_cast(glm::angleAxis(x, glm::dvec3(1, 0, 0)) *
+                              glm::angleAxis(y, glm::dvec3(0, 1, 0)) *
                               glm::angleAxis(z, glm::dvec3(0, 0, 1)));
     setWSDirty();
 }
@@ -502,7 +509,8 @@ void srNode::setRotation(double x, double y, double z)
 void srNode::setRotation(double amount, const glm::dvec3& direction)
 {
     const glm::dvec3 axis = normalizedOrZero(direction);
-    rotation = glm::dot(axis, axis) == 0 ? glm::dmat3(1) : glm::mat3_cast(glm::angleAxis(amount, axis));
+    rotation =
+        glm::dot(axis, axis) == 0 ? glm::dmat3(1) : glm::mat3_cast(glm::angleAxis(amount, axis));
     setWSDirty();
 }
 
@@ -511,7 +519,8 @@ void srNode::setRotation(const glm::dvec3& direction, double amount)
 {
     const double yaw = std::atan2(direction.x, direction.z);
     const double pitch = -std::atan2(direction.y, std::hypot(direction.x, direction.z));
-    rotation = glm::mat3_cast(glm::angleAxis(yaw, glm::dvec3(0, 1, 0)) * glm::angleAxis(pitch, glm::dvec3(1, 0, 0)) *
+    rotation = glm::mat3_cast(glm::angleAxis(yaw, glm::dvec3(0, 1, 0)) *
+                              glm::angleAxis(pitch, glm::dvec3(1, 0, 0)) *
                               glm::angleAxis(amount, glm::dvec3(0, 0, 1)));
     setWSDirty();
 }
@@ -635,7 +644,8 @@ glm::dvec3 srNode::getWorldSpaceDOF() const
 glm::dvec3 srNode::getWorldSpaceScale() const
 {
     checkTransformation();
-    return {glm::length(world_transform0[0]), glm::length(world_transform0[1]), glm::length(world_transform0[2])};
+    return {glm::length(world_transform0[0]), glm::length(world_transform0[1]),
+            glm::length(world_transform0[2])};
 }
 
 // FUNCTION: SURRENDER 0x10054920
@@ -704,7 +714,8 @@ void srNode::dumpHierarchy(std::ostream& stream, w8_long indent) const
 {
     const srNode* node = this;
     do {
-        srStreamPrintf(stream, "%*c%s (%s)\n", indent, 0x20, node->getName().c_str(), node->getClassName());
+        srStreamPrintf(stream, "%*c%s (%s)\n", indent, 0x20, node->getName().c_str(),
+                       node->getClassName());
         if (node->first_child_ != 0) {
             node->first_child_->dumpHierarchy(stream, indent + 2);
         }
@@ -928,7 +939,8 @@ void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
     }
     location = glm::dvec3(local[3]);
     rotation = glm::dmat3(local);
-    scale = glm::dvec3(glm::length(rotation[0]), glm::length(rotation[1]), glm::length(rotation[2]));
+    scale =
+        glm::dvec3(glm::length(rotation[0]), glm::length(rotation[1]), glm::length(rotation[2]));
     for (int column = 0; column < 3; ++column) {
         rotation[column] /= scale[column];
     }
@@ -940,7 +952,8 @@ void srNode::turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction
     auto basis = getWorldSpaceRotation();
     const unsigned numerator = axis == 0 ? 1 : 0;
     const unsigned denominator = axis == 2 ? 1 : 2;
-    const double turn = std::atan2(glm::dot(basis[numerator], direction), glm::dot(basis[denominator], direction));
+    const double turn =
+        std::atan2(glm::dot(basis[numerator], direction), glm::dot(basis[denominator], direction));
     const double angle = (axis == 1 ? turn : -turn) * amount;
     glm::dvec3 rotation_axis(0);
     rotation_axis[axis] = 1;

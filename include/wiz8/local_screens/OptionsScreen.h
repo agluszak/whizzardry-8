@@ -141,7 +141,8 @@ protected:
     bool m_dirty = true;
     SDL_Rect m_bounds;
     W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed, int hover = -1,
-                              int pressed_hover = -1, int disabled = -1, W8ButtonCallback callback = {});
+                              int pressed_hover = -1, int disabled = -1,
+                              W8ButtonCallback callback = {});
 
 public:
     W8OptionsPanel();

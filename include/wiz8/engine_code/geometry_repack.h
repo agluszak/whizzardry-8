@@ -26,7 +26,8 @@ template<class Record> auto copyTable(std::span<const Record> records)
     return table;
 }
 
-template<class Record, class Keep> std::vector<Record> compactTable(std::span<const Record> records, Keep keep)
+template<class Record, class Keep>
+std::vector<Record> compactTable(std::span<const Record> records, Keep keep)
 {
     std::vector<Record> result(1);
     for (const auto& record : records | std::views::drop(1)) {
@@ -37,8 +38,8 @@ template<class Record, class Keep> std::vector<Record> compactTable(std::span<co
     return result;
 }
 
-inline void repointCorners(std::span<W8OctRegionPolygon> polygons, std::span<const CornerIndices> indices,
-                           W8OctPreTreeVertex* vertices)
+inline void repointCorners(std::span<W8OctRegionPolygon> polygons,
+                           std::span<const CornerIndices> indices, W8OctPreTreeVertex* vertices)
 {
     for (std::size_t face = 1; face < polygons.size(); ++face) {
         for (unsigned corner = 0; corner < 3; ++corner) {

@@ -21,8 +21,8 @@ void require_sdl(bool result)
 }
 } // namespace
 
-void ConvertCpuPixels(void* destination, const void* source, size_t count, SDL_PixelFormat source_format,
-                      SDL_PixelFormat destination_format)
+void ConvertCpuPixels(void* destination, const void* source, size_t count,
+                      SDL_PixelFormat source_format, SDL_PixelFormat destination_format)
 {
     if (count == 0) {
         return;
@@ -47,11 +47,12 @@ void ConvertCpuPixels(void* destination, const void* source, size_t count, SDL_P
         snapshot.assign(bytes, bytes + source_pitch);
         source = snapshot.data();
     }
-    require_sdl(SDL_ConvertPixels(int(count), 1, source_format, source, source_pitch, destination_format, destination,
-                                  destination_pitch));
+    require_sdl(SDL_ConvertPixels(int(count), 1, source_format, source, source_pitch,
+                                  destination_format, destination, destination_pitch));
 }
 
-SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format, void* pixels, int pitch)
+SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format, void* pixels,
+                                 int pitch)
 {
     SDLSurfaceOwner result{pitch >= 0 ? SDL_CreateSurfaceFrom(width, height, format, pixels, pitch)
                                       : SDL_CreateSurface(width, height, format),
@@ -68,7 +69,8 @@ SDLSurfaceOwner CopyCpuStorage(SDL_Surface& source)
 {
     auto result = CreateCpuStorage(source.w, source.h, source.format);
     if (auto* palette = SDL_GetSurfacePalette(&source)) {
-        require_sdl(SDL_SetPaletteColors(SDL_GetSurfacePalette(result.get()), palette->colors, 0, palette->ncolors));
+        require_sdl(SDL_SetPaletteColors(SDL_GetSurfacePalette(result.get()), palette->colors, 0,
+                                         palette->ncolors));
     }
     require_sdl(SDL_BlitSurface(&source, nullptr, result.get(), nullptr));
     return result;
@@ -89,5 +91,6 @@ bool ClipCpuBlit(SDL_Rect& destination, SDL_Rect& source, const SDL_Rect& destin
         rect = intersection;
         return true;
     };
-    return clip(source, destination, source_bounds) && clip(destination, source, destination_bounds);
+    return clip(source, destination, source_bounds) &&
+           clip(destination, source, destination_bounds);
 }

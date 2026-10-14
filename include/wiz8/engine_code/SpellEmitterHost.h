@@ -19,10 +19,12 @@ public:
     W8SpellEmitterHost(const W8SpellEmitterHost& other);
     virtual ~W8SpellEmitterHost() override;
     virtual W8AnimRepBase* Clone() override;
-    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame, signed char lod) override;
+    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
+                                              signed char lod) override;
     virtual unsigned int ApplyEmitterSetting(signed char emitter) override;
     virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
-    unsigned char ReadCycleData(W8ReadLevelInfo* info, W8SpellVisual* visual, int, int emitter_index);
+    unsigned char ReadCycleData(W8ReadLevelInfo* info, W8SpellVisual* visual, int,
+                                int emitter_index);
 
     unsigned int value_0ac;
     unsigned int value_0b0;

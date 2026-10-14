@@ -27,26 +27,27 @@ void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCateg
    resolved action's range category (less the rows between in combat), the
    info's aim flag for the action's ranged-ness, and the band distance. A miss
    queues the slot's complaint event when `notify_failure` asks. */
-bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster_info, W8TargetingContext context,
-                                bool notify_failure);
+bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster_info,
+                                W8TargetingContext context, bool notify_failure);
 /* Whether the front rank stands between two formation positions. */
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position);
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
    or the monster `target`, given what it can see and how far away they stand. */
-bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord* record, unsigned int attack,
-                                   int party_slot);
-bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* record, unsigned int attack,
-                                 W8MonsterInfo* target);
+bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+                                   unsigned int attack, int party_slot);
+bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+                                 unsigned int attack, W8MonsterInfo* target);
 /* Whether the monster's attack reaches friendly or hostile targets. Berserk
    monsters always use friendly targets. */
-bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack, bool friendly_targets);
+bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack,
+                                bool friendly_targets);
 /* The base missile speed a range category grants `source`, in world units. */
 float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source);
 /* The sight-condition slot a range band needs the observer's sight flags
    checked under: zero inside long range, the current condition beyond it. */
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category);
-bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record, unsigned int attack,
-                                W8CombatSlot* target);
+bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+                                unsigned int attack, W8CombatSlot* target);
 /* The location id of the nearest live, in-combat group member the monster can
    see under check `kind`, or -1 when none qualify. */
 int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind);
@@ -54,7 +55,8 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
    castable spells. `skip_capability_checks` (callers pass 1 for reach/info)
    bypasses prefer-ranged/flee/usability gates; otherwise those gates apply.
    `out_sight` receives the sight-condition slot the band's target needs. */
-W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info, bool skip_capability_checks, int* out_sight);
+W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
+                                            bool skip_capability_checks, int* out_sight);
 /* The range category the weapon in `hand` attacks at; `hand` of 2
    asks for the better of the two. */
 W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand);
@@ -72,8 +74,8 @@ float CalcRangeDistance(W8RangeCategory range_category);
    movement collision_radius (camera/party radius offset used by the world cursor). */
 float CalcRangeDistanceFromParty(W8RangeCategory range_category);
 /* The range category one monster action works at. */
-W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                              unsigned int attack);
+W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
+                                              const W8MonsterRecord* record, unsigned int attack);
 /* The furthest range category any of the character's hands can
    reach at. */
 W8RangeCategory GetBestHandRangeCategory(const W8Character* character);
@@ -84,7 +86,8 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character);
 bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext context);
 /* The slot-vs-slot form the target-list builder uses: whether the
    slot's chosen action in `context` can strike `target_slot`. */
-bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot, W8TargetingContext context);
+bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
+                                W8TargetingContext context);
 /* Collect the party slots the slot could reach and strike under
    `relationship`, and pick one at random; -1 when none qualify. */
 int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);

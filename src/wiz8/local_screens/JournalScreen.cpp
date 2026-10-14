@@ -133,7 +133,8 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     if (record->visibility > visibility) {
         return;
     }
-    std::string description = GetFact(fact_id) ? record->alternate_description : record->description;
+    std::string description =
+        GetFact(fact_id) ? record->alternate_description : record->description;
     if (description.empty() || g_level_block == 0) {
         return;
     }
@@ -178,7 +179,8 @@ void LoadJournalEntries(wiz8::File& file)
 }
 
 // FUNCTION: WIZ8 0x005bdd00
-void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette, bool centered)
+void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette,
+                     bool centered)
 {
     int left;
     int right;
@@ -215,13 +217,15 @@ void JournalScreen::Refresh()
     if (!m_alternate_mode) {
         const int last_page = (static_cast<int>(g_journal_entries.size()) - 1) / 12;
         const int page_count = last_page + 1;
-        if (page_count != g_journal_page_count || g_journal_page < 0 || g_journal_page >= page_count) {
+        if (page_count != g_journal_page_count || g_journal_page < 0 ||
+            g_journal_page >= page_count) {
             g_journal_page_count = page_count;
             g_journal_page = last_page;
         }
         m_buttons[Next]->SetEnabled(g_journal_page < last_page);
         m_buttons[Previous]->SetEnabled(g_journal_page > 0);
-        m_page_text->SetText(fmt::format("{:d} / {:d}", g_journal_page + 1, page_count), g_options_detail_font);
+        m_page_text->SetText(fmt::format("{:d} / {:d}", g_journal_page + 1, page_count),
+                             g_options_detail_font);
     } else {
         m_buttons[Next]->SetEnabled(false);
         m_buttons[Previous]->SetEnabled(false);
@@ -248,7 +252,8 @@ void JournalScreen::DrawContent(SDL_Surface& target)
             const W8JournalEntry* entry = &g_journal_entries[index];
             const W8FactDatabaseRecord* fact = &g_fact_records[entry->fact];
             int active = fact->highlight_when_true && GetFact(entry->fact);
-            std::string description = entry->alternate_text ? fact->alternate_description : fact->description;
+            std::string description =
+                entry->alternate_text ? fact->alternate_description : fact->description;
             std::string level_name;
             if (entry->level == 0x38) {
                 level_name = g_default_level;
@@ -288,7 +293,8 @@ void JournalScreen::DrawContent(SDL_Surface& target)
                 if (!disposition_name.empty()) {
                     DrawJournalLine(target, disposition_name, 0, y, 0, true);
                 }
-                DrawJournalLine(target, g_localized_strings[g_journal_faction_name_indices[index]], 1, y, 0, false);
+                DrawJournalLine(target, g_localized_strings[g_journal_faction_name_indices[index]],
+                                1, y, 0, false);
                 y += 0x1e;
             }
         }
@@ -298,19 +304,24 @@ void JournalScreen::DrawContent(SDL_Surface& target)
 
 JournalScreen::JournalScreen()
 {
-    auto add = [&](JournalAction action, int artwork_id, SDL_Point origin, std::array<int, 5> frames,
-                   ButtonToggle toggle = ButtonToggle::None) {
+    auto add = [&](JournalAction action, int artwork_id, SDL_Point origin,
+                   std::array<int, 5> frames, ButtonToggle toggle = ButtonToggle::None) {
         auto artwork = CatalogArtwork::Load(artwork_id, 0);
         const auto size = artwork.size(frames[0]);
         const SDL_Rect bounds{origin.x, origin.y, size.x, size.y};
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
-        const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
-        button->Configure(
-            artwork.spriteSheet(),
-            {frame(frames[4]), frame(frames[0]), frame(frames[2]), frame(frames[1]), frame(frames[3])},
-            {.on_click = [this, action](W8ButtonWidget*) { AfterUiDispatch([this, action] { Activate(action); }); },
-             .priority = UI_PRIORITY_LOWEST});
+        const auto frame = [&](int index) {
+            return index < 0 ? -1 : index + artwork.imageOffset();
+        };
+        button->Configure(artwork.spriteSheet(),
+                          {frame(frames[4]), frame(frames[0]), frame(frames[2]), frame(frames[1]),
+                           frame(frames[3])},
+                          {.on_click =
+                               [this, action](W8ButtonWidget*) {
+                                   AfterUiDispatch([this, action] { Activate(action); });
+                               },
+                           .priority = UI_PRIORITY_LOWEST});
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
         button->policy = {.primary_toggle = toggle, .controller_activation = true};
@@ -323,8 +334,9 @@ JournalScreen::JournalScreen()
     m_buttons[Close]->SetTooltipIndex(0x6ed);
     const auto size = m_bar.size(0);
     const W8ControlsRect bounds{0x66, 0x1bb, 0x66 + size.x, 0x1bb + size.y};
-    m_page_text = std::make_unique<W8TextBuffer>(&bounds, "", g_options_detail_font,
-                                                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    m_page_text =
+        std::make_unique<W8TextBuffer>(&bounds, "", g_options_detail_font,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 }
 
 void JournalScreen::Draw(SDL_Surface& target)
@@ -423,8 +435,10 @@ unsigned char JournalScreenEnter(void)
     g_journal_entries.clear();
     for (const auto& entry : g_fact_journal_entries) {
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
-        std::string description = entry.alternate_text ? fact->alternate_description : fact->description;
-        if ((g_journal_show_all || fact->visibility <= maximum_visibility) && !description.empty()) {
+        std::string description =
+            entry.alternate_text ? fact->alternate_description : fact->description;
+        if ((g_journal_show_all || fact->visibility <= maximum_visibility) &&
+            !description.empty()) {
             g_journal_entries.push_back(entry);
         }
     }

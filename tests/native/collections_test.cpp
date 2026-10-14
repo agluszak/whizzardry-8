@@ -173,8 +173,9 @@ static bool journalSerialization()
     ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}}};
     const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
-    const std::array<W8JournalEntry, count> expected{
-        {{1, static_cast<W8FactId>(10), 0}, {5, static_cast<W8FactId>(20), 7}, {9, static_cast<W8FactId>(30), -1}}};
+    const std::array<W8JournalEntry, count> expected{{{1, static_cast<W8FactId>(10), 0},
+                                                      {5, static_cast<W8FactId>(20), 7},
+                                                      {9, static_cast<W8FactId>(30), -1}}};
     static_assert(sizeof(W8JournalEntry) == 12);
     {
         auto file = wiz8::open_host_file(input_path, wiz8::OpenMode::replace);
@@ -197,8 +198,10 @@ static bool journalSerialization()
         SaveFactJournal(*file);
     }
     std::ifstream input(input_path, std::ios::binary), output(output_path, std::ios::binary);
-    const std::vector<char> original{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>{}};
-    const std::vector<char> roundtrip{std::istreambuf_iterator<char>(output), std::istreambuf_iterator<char>{}};
+    const std::vector<char> original{std::istreambuf_iterator<char>(input),
+                                     std::istreambuf_iterator<char>{}};
+    const std::vector<char> roundtrip{std::istreambuf_iterator<char>(output),
+                                      std::istreambuf_iterator<char>{}};
     REQUIRE((original == roundtrip && original.size() == 8 + 3 * 12));
     // Reusing the journal with an empty chunk must shrink its live extent.
     {

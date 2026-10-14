@@ -58,22 +58,32 @@ std::vector<W8ScreenStateRuntime> g_screen_return_stack;
 
 // GLOBAL: WIZ8 0x00647bc8
 W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
-    {ScreenLifecycleSuccess, IntroScreenEnter, IntroScreenFrame, IntroScreenLeave, ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, MainMenuScreenEnter, MainMenuScreenFrame, MainMenuScreenLeave, ScreenLifecycleSuccess},
+    {ScreenLifecycleSuccess, IntroScreenEnter, IntroScreenFrame, IntroScreenLeave,
+     ScreenLifecycleSuccess},
+    {ScreenLifecycleSuccess, MainMenuScreenEnter, MainMenuScreenFrame, MainMenuScreenLeave,
+     ScreenLifecycleSuccess},
     {ScreenLifecycleSuccess, ScreenLifecycleSuccess, GameStartRouterFrame, GameStartRouterLeave,
      ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, CharacterScreenEnter, CharacterScreenFrame, CharacterScreenLeave, ScreenLifecycleSuccess},
-    {PleaseWaitScreenInitialize, PleaseWaitScreenEnter, PleaseWaitScreenFrame, PleaseWaitScreenLeave,
+    {ScreenLifecycleSuccess, CharacterScreenEnter, CharacterScreenFrame, CharacterScreenLeave,
      ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, PartySelectionScreenEnter, PartySelectionScreenFrame, PartySelectionScreenLeave,
+    {PleaseWaitScreenInitialize, PleaseWaitScreenEnter, PleaseWaitScreenFrame,
+     PleaseWaitScreenLeave, ScreenLifecycleSuccess},
+    {ScreenLifecycleSuccess, PartySelectionScreenEnter, PartySelectionScreenFrame,
+     PartySelectionScreenLeave, ScreenLifecycleSuccess},
+    {ScreenLifecycleSuccess, CampScreenEnter, CampScreenFrame, CampScreenLeave,
      ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, CampScreenEnter, CampScreenFrame, CampScreenLeave, ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, MainGameScreenEnter, MainGameScreenFrame, MainGameScreenLeave, ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, AutomapScreenEnter, AutomapScreenFrame, AutomapScreenLeave, AutomapScreenFinalize},
-    {ScreenLifecycleSuccess, CreditsScreenEnter, CreditsScreenFrame, CreditsScreenLeave, ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, OptionsScreenEnter, OptionsScreenFrame, OptionsScreenLeave, ScreenLifecycleSuccess},
-    {JournalScreenInitialize, JournalScreenEnter, JournalScreenFrame, JournalScreenLeave, JournalScreenFinalize},
-    {ScreenLifecycleSuccess, ExitScreenEnter, ExitScreenFrame, MainMenuScreenLeave, ScreenLifecycleSuccess}};
+    {ScreenLifecycleSuccess, MainGameScreenEnter, MainGameScreenFrame, MainGameScreenLeave,
+     ScreenLifecycleSuccess},
+    {ScreenLifecycleSuccess, AutomapScreenEnter, AutomapScreenFrame, AutomapScreenLeave,
+     AutomapScreenFinalize},
+    {ScreenLifecycleSuccess, CreditsScreenEnter, CreditsScreenFrame, CreditsScreenLeave,
+     ScreenLifecycleSuccess},
+    {ScreenLifecycleSuccess, OptionsScreenEnter, OptionsScreenFrame, OptionsScreenLeave,
+     ScreenLifecycleSuccess},
+    {JournalScreenInitialize, JournalScreenEnter, JournalScreenFrame, JournalScreenLeave,
+     JournalScreenFinalize},
+    {ScreenLifecycleSuccess, ExitScreenEnter, ExitScreenFrame, MainMenuScreenLeave,
+     ScreenLifecycleSuccess}};
 // GLOBAL: WIZ8 0x00647bc0
 W8ScreenId g_previous_screen_id = W8_SCREEN_NONE;
 // GLOBAL: WIZ8 0x00647bc4
@@ -157,7 +167,8 @@ void GameLoop(void)
     }
     if (g_pending_screen_state.id != W8_SCREEN_NONE && g_pending_screen_state.id != state) {
         /* Retail tests only the low byte of the count. */
-        if (static_cast<unsigned char>(static_cast<int>(gXStatus.character_event_queue->active_events.size())) != 0) {
+        if (static_cast<unsigned char>(
+                static_cast<int>(gXStatus.character_event_queue->active_events.size())) != 0) {
             gXStatus.character_event_queue->CompleteFirstActiveEvent();
             state = g_current_screen_state.id;
         }

@@ -29,7 +29,11 @@ enum W8MeshFrameData {
     W8_MESH_FRAME_POLYGON_NORMALS = 4
 };
 
-enum W8MeshModelFlag { W8_MESH_SORTED_RENDERING = 1, W8_MESH_VERTEX_LIGHTING_DIRTY = 2, W8_MESH_HAS_FRAME_STORAGE = 4 };
+enum W8MeshModelFlag {
+    W8_MESH_SORTED_RENDERING = 1,
+    W8_MESH_VERTEX_LIGHTING_DIRTY = 2,
+    W8_MESH_HAS_FRAME_STORAGE = 4
+};
 
 // VTABLE: WIZ8 0x005ec454 stMeshModel
 // VTABLE: WIZ8 0x005ec4b0 srClassSupport<stMeshModel, srMeshModel, 65539>
@@ -50,14 +54,17 @@ public:
     void CalculateLinkedBounds();                 /* 0x00471e10 */
     void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
     virtual TriMesh getTriMesh() override; /* 0x00472270 */
-    virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh) override; /* 0x00470360 */
+    virtual void renderTriMesh(class srGERD& renderer,
+                               const TriMesh& mesh) override; /* 0x00470360 */
     /* Shared Wizardry-extended tri-mesh submit. An empty `poly_normals` span skips
        the software backface pass; other callers supply counted polygon normals used
        to select the active polygons for this submission. */
     void RenderTriMeshWithEquations(class srGERD& renderer, const TriMesh& mesh,
                                     std::span<const glm::vec3> poly_normals); /* 0x00470380 */
-    static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh, std::span<const glm::vec3> normals,
-                                                const glm::vec3& eye, bool positive_winding, float threshold);
+    static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh,
+                                                std::span<const glm::vec3> normals,
+                                                const glm::vec3& eye, bool positive_winding,
+                                                float threshold);
 
     int FindMappedIndex(short key); /* 0x004712D0 */
     void SetMappedVertex(short vertex, short key);
@@ -86,16 +93,17 @@ public:
     void ClearVertexLights();
     void SetAmbientColor(const glm::vec3& color);
     unsigned char AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
-    std::span<glm::vec3> GetVertexLights(bool initialize, int table);                /* 0x00472100 */
-    std::span<float> GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
+    std::span<glm::vec3> GetVertexLights(bool initialize, int table); /* 0x00472100 */
+    std::span<float> GetVertexSunlight(bool initialize); /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
-    int ReleaseDecompressedFrames();         /* 0x004739E0 */
+    int ReleaseDecompressedFrames(); /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
     /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
        is not resident. Invalid frames and empty meshes return zero bounds. */
     srBoundingBox GetFrameBounds(int frame);
-    unsigned char DecompressFrame(int frame, unsigned char flags, std::span<glm::vec3> destination); /* 0x00471930 */
-    void ComputeFrameNormals(int frame);                           /* 0x004729F0 */
+    unsigned char DecompressFrame(int frame, unsigned char flags,
+                                  std::span<glm::vec3> destination); /* 0x00471930 */
+    void ComputeFrameNormals(int frame); /* 0x004729F0 */
     void ClearAutomapPolygonFilter();
     void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
 
@@ -195,4 +203,5 @@ int __fastcall IsZeroVector(const srVector3T<float>* vector);
 /* Release least-recently-used decompressed frame caches until `needed` bytes
    have been freed; 0 when the registry cannot supply them. A requesting model
    is retained because its renderer may already hold borrowed frame pointers. */
-unsigned char ReclaimDecompressedBytes(unsigned int needed, const stMeshModel* retained_model = nullptr);
+unsigned char ReclaimDecompressedBytes(unsigned int needed,
+                                       const stMeshModel* retained_model = nullptr);

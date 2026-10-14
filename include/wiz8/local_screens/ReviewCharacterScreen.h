@@ -23,7 +23,10 @@
 struct W8Character;
 struct W8CombatSlot;
 
-enum CampMainRegionOffset { kCampPartyPortraitRegionOffset = 1, kCampCharacterHeaderRegionOffset = 9 };
+enum CampMainRegionOffset {
+    kCampPartyPortraitRegionOffset = 1,
+    kCampCharacterHeaderRegionOffset = 9
+};
 
 enum CampInventoryRegionOffset { kCampEquipmentRegionOffset = 8 };
 
@@ -266,8 +269,8 @@ bool IsEquippableItemClass(W8ItemInstance* item);
 
 /* Begin the timed screen fade and run `callback` when it
    finishes; `fade_to_black` selects the alpha ramp. */
-void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void), bool fullscreen_scene_last,
-                     char render_each_tick);
+void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
+                     bool fullscreen_scene_last, char render_each_tick);
 unsigned char UpdateScreenFade(void);
 void BeginPartyDeath(void);
 void PumpReviewTransition(void);
@@ -277,5 +280,6 @@ void EndReviewTransition(void);
 void ShowEndingScreen(void);
 void BeginEndgameSequence(void);
 /* Camp and main-game notice dialogs ShowNoticeLine forwards into. */
-void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation, bool cancel);
+void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
+                        bool cancel);
 void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin);

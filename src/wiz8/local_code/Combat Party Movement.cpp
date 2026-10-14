@@ -56,7 +56,8 @@ void RoundPhaseToStep(unsigned int* phase, unsigned int base)
         ClampUnsignedInteger(phase, base, W8_PHASES_PER_ROUND);
     }
     if (*phase == 0 || *phase > W8_PHASES_PER_ROUND) {
-        srAssertFail("( *puiPhase > 0 ) && ( *puiPhase <= PHASES_PER_ROUND )", COMBAT_MOVEMENT_CPP, 410, 0);
+        srAssertFail("( *puiPhase > 0 ) && ( *puiPhase <= PHASES_PER_ROUND )", COMBAT_MOVEMENT_CPP,
+                     410, 0);
     }
 }
 
@@ -71,7 +72,8 @@ void UpdateActivePartyMovement(void)
 
     if (HandlePartyMovement(&real_elapsed, &frame_elapsed) != 0) {
         gXStatus.party_move_distance += real_elapsed + frame_elapsed;
-    } else if (g_settings.continuous_combat != 0 && TimeUntilDeadline(g_combat_state->party_movement_clock) == 0) {
+    } else if (g_settings.continuous_combat != 0 &&
+               TimeUntilDeadline(g_combat_state->party_movement_clock) == 0) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
         ClampUnsignedInteger(&step_count, 10, 60);
         gXStatus.party_move_distance += gXStatus.flPartyMoveDistLimit / step_count;
@@ -83,7 +85,8 @@ void UpdateActivePartyMovement(void)
         srAssertFail("gXStatus.flPartyMoveDistLimit > 0.0f", COMBAT_MOVEMENT_CPP, 359, 0);
     }
     g_level_block->move_percent = static_cast<int>(
-        100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit + g_double_half);
+        100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit +
+        g_double_half);
     ClampInteger(&g_level_block->move_percent, 0, 100);
     if (g_level_block->move_percent != g_level_block->move_percent_shown) {
         InvalidatePartyMovementPanel();
@@ -115,7 +118,8 @@ void SetPendingMoveKind(W8ActionKind kind)
     if (!gXStatus.fCombatMode) {
         srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 435, 0);
     }
-    g_combat_state->uiNextPartyAction = kind == W8_ACTION_WALK ? W8_PARTY_ACTION_WALK : W8_PARTY_ACTION_RUN;
+    g_combat_state->uiNextPartyAction =
+        kind == W8_ACTION_WALK ? W8_PARTY_ACTION_WALK : W8_PARTY_ACTION_RUN;
 }
 
 /* Drop a queued party move and rebuild every other switchable character's
@@ -131,7 +135,8 @@ void ClearPendingPartyMovement(int excluded_party_slot)
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         if (party_slot != excluded_party_slot &&
             CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
-            RefreshCombatTargetHighlights(party_slot, &g_status.buffers.XChar[party_slot].target_in_combat);
+            RefreshCombatTargetHighlights(party_slot,
+                                          &g_status.buffers.XChar[party_slot].target_in_combat);
         }
     }
     UpdatePartyMovementControl();
@@ -166,7 +171,8 @@ bool CanPartyMove(void)
         srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 613, 0);
     }
     status = g_combat_state->uiCurrentPartyActionStatus;
-    if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE || status == W8_PARTY_ACTION_FINISHED) {
+    if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
+        status == W8_PARTY_ACTION_FINISHED) {
         if (g_combat_state->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
             return true;
         }
@@ -203,7 +209,8 @@ std::optional<unsigned int> GetPartyHasteSteps()
         if (character->enchantments[W8_ENCHANTMENT_HASTE].turns == 0) {
             return std::nullopt;
         }
-        steps = static_cast<unsigned char>(character->enchantments[W8_ENCHANTMENT_HASTE].power * 10);
+        steps =
+            static_cast<unsigned char>(character->enchantments[W8_ENCHANTMENT_HASTE].power * 10);
         AdjustIntegerByPercent(&steps, character->enchantments[W8_ENCHANTMENT_HASTE].percent);
         total += steps;
         ++count;
@@ -261,9 +268,10 @@ void CompletePartyMovementTurns(void)
         combat_row->phase = 0;
         party_row->pending_event_type = static_cast<unsigned int>(-1);
     }
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 | W8_MAIN_REDRAW_PORTRAIT_2 |
-                  W8_MAIN_REDRAW_PORTRAIT_3 | W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
-                  W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 | W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    RequestRedraw(
+        W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 | W8_MAIN_REDRAW_PORTRAIT_2 |
+        W8_MAIN_REDRAW_PORTRAIT_3 | W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
+        W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 | W8_MAIN_REDRAW_COMBAT_PROGRESS);
 }
 
 /* Choose the party's phase from the best living character initiative, with
@@ -290,7 +298,8 @@ void InitializePartyMovementPhase(void)
         g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         RoundPhaseToStep(&g_combat_state->uiPartyActionPhase, 10);
     }
-    if (g_combat_state->uiPartyActionPhase == 0 || g_combat_state->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
+    if (g_combat_state->uiPartyActionPhase == 0 ||
+        g_combat_state->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
         srAssertFail("( gpCombat->uiPartyActionPhase > 0 ) && "
                      "( gpCombat->uiPartyActionPhase <= PHASES_PER_ROUND )",
                      COMBAT_MOVEMENT_CPP, 186, 0);
@@ -312,7 +321,8 @@ void AlignCombatantsToPartyMovementPhase(void)
     unsigned int monster_count = gXStatus.monsters.size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-        if (monster_info->fInCombat && monster_info->pCombat->phase >= g_combat_state->round_counter &&
+        if (monster_info->fInCombat &&
+            monster_info->pCombat->phase >= g_combat_state->round_counter &&
             !monster_info->pCombat->active) {
             RoundPhaseToStep(&monster_info->pCombat->phase, g_combat_state->round_counter);
         }
@@ -441,7 +451,8 @@ void FinishPartyMovementAction(void)
         g_combat_state->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;
         return;
     }
-    if (IsLevelMovementStopped() && g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
+    if (IsLevelMovementStopped() &&
+        g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21d]);
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav");
@@ -475,8 +486,8 @@ void BeginPartyMovementPhase(void)
 bool PartyMovementReachedPhaseLimit(void)
 {
     if (g_combat_state->uiCurrentPartyActionStatus != W8_PARTY_ACTION_IN_PROGRESS) {
-        srAssertFail("gpCombat->uiCurrentPartyActionStatus == ACTION_STATUS_IN_PROGRESS", COMBAT_MOVEMENT_CPP, 0x112,
-                     0);
+        srAssertFail("gpCombat->uiCurrentPartyActionStatus == ACTION_STATUS_IN_PROGRESS",
+                     COMBAT_MOVEMENT_CPP, 0x112, 0);
     }
     if (!gXStatus.fPartyMovementMode) {
         srAssertFail("gXStatus.fPartyMovementMode", COMBAT_MOVEMENT_CPP, 0x113, 0);
@@ -489,7 +500,8 @@ bool PartyMovementReachedPhaseLimit(void)
     if (remaining_phases == 0) {
         srAssertFail("uiTotalMovementPhases > 0", COMBAT_MOVEMENT_CPP, 0x120, 0);
     }
-    unsigned int elapsed_phases = g_combat_state->round_counter - g_combat_state->uiPartyActionPhase +
-                                  (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 9 : 0) + 2;
+    unsigned int elapsed_phases =
+        g_combat_state->round_counter - g_combat_state->uiPartyActionPhase +
+        (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 9 : 0) + 2;
     return static_cast<float>(elapsed_phases) / remaining_phases <= moved_fraction;
 }

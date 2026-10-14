@@ -10,8 +10,9 @@ struct W8MonsterRecord;
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
-void ChooseCombatAction(int party_slot, W8TargetingContext context, W8ActionKind* out_kind, int* out_action,
-                        W8CombatSlot** out_target, W8ActionDetailBlock** out_detail);
+void ChooseCombatAction(int party_slot, W8TargetingContext context, W8ActionKind* out_kind,
+                        int* out_action, W8CombatSlot** out_target,
+                        W8ActionDetailBlock** out_detail);
 void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int action_detail,
                               const W8ActionDetailBlock* data, int notify);
 void EndCombat(bool forced_cleanup);
@@ -72,8 +73,8 @@ bool CreateCharacterBreathEffect(int party_slot);
 /* The character's committed breath attack against the marker
    lists plus every hostile monster; returns the action outcome code. */
 int ExecuteCharacterSpecialAttack(int party_slot);
-void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
-                            int notify);
+void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
+                            const W8ActionDetailBlock* data, int notify);
 int IsPartyEngaged(void);
 W8PartyAction GetEffectivePartyAction(void);
 void RecordCharacterDeath(int party_slot);

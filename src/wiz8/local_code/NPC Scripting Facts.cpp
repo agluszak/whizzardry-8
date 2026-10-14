@@ -150,11 +150,13 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_CROCK_KIDNAPPED_PLAYER:
         if (value != 0 && FindEntityByName("NP_BlueFlowers", &position, 0, 0)) {
-            world_item = SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
+            world_item =
+                SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
             if (world_item != 0) {
                 ActivateItem(world_item);
             }
-            world_item = SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
+            world_item =
+                SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
             if (world_item != 0) {
                 ActivateItem(world_item);
             }
@@ -167,7 +169,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         return;
     case W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY:
-        if (value != 0 && g_status.buffers.Char[g_status.party_slot].uiCondition[W8_CONDITION_MISSING] != 0) {
+        if (value != 0 &&
+            g_status.buffers.Char[g_status.party_slot].uiCondition[W8_CONDITION_MISSING] != 0) {
             RemoveCharacterCondition(g_status.party_slot, W8_CONDITION_MISSING, true);
         }
         return;
@@ -186,7 +189,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                     return;
                 }
                 character = GetNpcGroupCharacter(npc);
-                QueueCharacterEvent(character, 0, 0, g_character_event_no_flags, g_character_event_full_volume);
+                QueueCharacterEvent(character, 0, 0, g_character_event_no_flags,
+                                    g_character_event_full_volume);
             }
         }
         return;
@@ -202,7 +206,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value != 0) {
             for (slot = 0; slot < 8; ++slot) {
                 character = &g_status.buffers.Char[slot];
-                if (g_status.buffers.XChar[slot].fOccupied && character->highest_condition < W8_CONDITION_DEAD &&
+                if (g_status.buffers.XChar[slot].fOccupied &&
+                    character->highest_condition < W8_CONDITION_DEAD &&
                     g_profession_skill_availability[7][character->iProfession] != 0 &&
                     character->skills[W8_SKILL_MODERN_WEAPONS].points < 10) {
                     character->skills[W8_SKILL_MODERN_WEAPONS].points = 10;
@@ -663,7 +668,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         RunNamedTrigger("greenLightEwaxx03", -1);
         location_id = GetLocationVarIDByName("ObstacleDoors");
         if (location_id != -1) {
-            SetTriggerVariableByName("ObstacleDoors", GetLocationVarValueByName("ObstacleDoors") | 2);
+            SetTriggerVariableByName("ObstacleDoors",
+                                     GetLocationVarValueByName("ObstacleDoors") | 2);
             return;
         }
         CreateLocationVar("ObstacleDoors", 2);
@@ -677,7 +683,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         RunNamedTrigger("greenLightEwaxx01", -1);
         location_id = GetLocationVarIDByName("ObstacleDoors");
         if (location_id != -1) {
-            SetTriggerVariableByName("ObstacleDoors", GetLocationVarValueByName("ObstacleDoors") | 1);
+            SetTriggerVariableByName("ObstacleDoors",
+                                     GetLocationVarValueByName("ObstacleDoors") | 1);
             return;
         }
         CreateLocationVar("ObstacleDoors", 1);
@@ -882,25 +889,28 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         do {
             pick = Random(eligible_count);
         } while (eligible_slots[pick] == lead_index);
-        QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[pick]], g_effect24, g_character_event_no_npc_defer,
-                            g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[pick]], g_effect24,
+                            g_character_event_no_npc_defer, g_character_event_no_flags,
+                            g_character_event_full_volume);
     }
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
         if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
-            QueueCharacterEvent(character, g_effect28, g_character_event_no_npc_defer, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(character, g_effect28, g_character_event_no_npc_defer,
+                                g_character_event_no_flags, g_character_event_full_volume);
         }
     }
-    if (g_status.endgame2_queued != 0 || (g_status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG) != 0)) {
+    if (g_status.endgame2_queued != 0 ||
+        (g_status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG) != 0)) {
         QueueNpcAction(W8NpcStoryAction::turn_to_book);
     } else if (g_status.endgame3_queued != 0) {
         QueueNpcAction(W8NpcStoryAction::phoonzang_notice);
     }
     for (unsigned int entry_index = 0; entry_index < gXStatus.monsters.size(); ++entry_index) {
         W8MonsterInfo* entry = MonsterGetScriptPartByLocationIndex(entry_index);
-        if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE && !entry->p3D->IsDying()) {
+        if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
+            !entry->p3D->IsDying()) {
             TintHighlightedMonster(entry->p3D, W8_TARGET_HIGHLIGHT_NONE);
             MonsterStartsDying(entry, true);
         }
@@ -940,11 +950,13 @@ void MonsterKilled(int record_id, int killer_party_slot)
                 SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0, false);
             }
             if (g_status.rpc_active) {
-                if (g_status.buffers.Char[g_status.sedexus_party_slot].uiCondition[W8_CONDITION_INFATUATED] > 0) {
-                    RemoveCharacterCondition(g_status.sedexus_party_slot, W8_CONDITION_INFATUATED, false);
+                if (g_status.buffers.Char[g_status.sedexus_party_slot]
+                        .uiCondition[W8_CONDITION_INFATUATED] > 0) {
+                    RemoveCharacterCondition(g_status.sedexus_party_slot, W8_CONDITION_INFATUATED,
+                                             false);
                 }
-                QueueCharacterEvent(&g_status.buffers.Char[g_status.sedexus_party_slot], g_effect37, 0,
-                                    g_character_event_no_flags, g_character_event_full_volume);
+                QueueCharacterEvent(&g_status.buffers.Char[g_status.sedexus_party_slot], g_effect37,
+                                    0, g_character_event_no_flags, g_character_event_full_volume);
             }
             SetFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1, false);
             return;
@@ -983,7 +995,8 @@ unsigned char GetFact(W8FactId fact_id)
             display_value = "FALSE";
         }
         ShowNotice(W8_FONT_PALETTE_YELLOW,
-                   fmt::format("Checking fact {} which is {}", g_fact_records[fact_id].symbolic_name, display_value));
+                   fmt::format("Checking fact {} which is {}",
+                               g_fact_records[fact_id].symbolic_name, display_value));
     }
     return value;
 }
@@ -1021,8 +1034,9 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
             } else {
                 display_value = "FALSE";
             }
-            ShowNotice(W8_FONT_PALETTE_YELLOW,
-                       fmt::format("{} set to {}", g_fact_records[fact_id].symbolic_name, display_value));
+            ShowNotice(
+                W8_FONT_PALETTE_YELLOW,
+                fmt::format("{} set to {}", g_fact_records[fact_id].symbolic_name, display_value));
         }
     }
 }

@@ -30,8 +30,10 @@ std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const srVector
     for (int polygon = 0; polygon < model->polygon_count; ++polygon) {
         const glm::ivec3& corners = polygon_vertices[polygon];
         srVector3T<float> center = vertices[corners.x] + vertices[corners.y] + vertices[corners.z];
-        unsigned int row = static_cast<unsigned int>(fabs((center.x * 0.33333334f - minimum.x) / g_quad_cell_size));
-        unsigned int column = static_cast<unsigned int>(fabs((center.z * 0.33333334f - minimum.z) / g_quad_cell_size));
+        unsigned int row = static_cast<unsigned int>(
+            fabs((center.x * 0.33333334f - minimum.x) / g_quad_cell_size));
+        unsigned int column = static_cast<unsigned int>(
+            fabs((center.z * 0.33333334f - minimum.z) / g_quad_cell_size));
         if (row < quad->row_count && column < quad->column_count) {
             quad->Cell(row, column).push_back(polygon);
         }

@@ -151,13 +151,15 @@ static void exercise_movie(const char* retail_movie)
             } catch (const std::exception&) {
                 failed = true;
             }
-            REQUIRE((failed && reusable.decoded_frames() == 0 && reusable.decoded_audio_frames() == 0));
+            REQUIRE(
+                (failed && reusable.decoded_frames() == 0 && reusable.decoded_audio_frames() == 0));
         }
         reusable.open("Data\\Packed.mkv");
         REQUIRE(reusable.update(0) == W8NativeVideo::FrameReady);
         REQUIRE(matchesFrame(reusable.frame().pixels, golden.data()));
     }
-    SDLSurfaceOwner target{SDL_CreateSurface(640, 480, SDL_PIXELFORMAT_XRGB1555), SDL_DestroySurface};
+    SDLSurfaceOwner target{SDL_CreateSurface(640, 480, SDL_PIXELFORMAT_XRGB1555),
+                           SDL_DestroySurface};
     REQUIRE(target);
     const auto& description = *target;
     {
@@ -166,8 +168,9 @@ static void exercise_movie(const char* retail_movie)
         REQUIRE(movie.Open("Movie.mkv", 0));
         REQUIRE(!movie.UpdateFrame());
         for (int y = 0; y < 24; ++y) {
-            REQUIRE(std::memcmp(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
-                                first_frame.data() + y * 32, 64) == 0);
+            REQUIRE(
+                std::memcmp(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
+                            first_frame.data() + y * 32, 64) == 0);
         }
         REQUIRE(movie.Open("Data\\Packed.mkv",
                            0)); // Reopen stops the preceding PCM voice.

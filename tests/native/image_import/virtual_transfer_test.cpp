@@ -83,7 +83,8 @@ static void checkGray(srColorSurfaceIFace* surface)
 {
     REQUIRE((surface && surface->getWidth() == 3 && surface->getHeight() == 2));
     for (unsigned y = 0; y < 2; ++y) {
-        const auto* row = static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch();
+        const auto* row =
+            static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch();
         for (unsigned x = 0; x < 3; ++x) {
             REQUIRE(abs(int(row[x]) - int(20 + (y * 3 + x) * 9)) <= 1);
         }
@@ -103,24 +104,26 @@ static void checkTga(const char* name, bool succeeds)
     auto surface = LoadSurface(handle.get(), nullptr);
     REQUIRE(bool(surface) == succeeds);
     if (surface) {
-        const unsigned char expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
+        const unsigned char expected[] = {0,    0, 0x03, 0xfc, 0xe0, 0x03,
+                                          0x1f, 0, 0,    0x7c, 0xff, 0xff};
         REQUIRE((surface->getWidth() == 3 && surface->getHeight() == 2));
         for (unsigned y = 0; y < 2; ++y) {
-            REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch(),
+            REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) +
+                               y * surface->getPitch(),
                            expected + y * 6, 6) == 0);
         }
     }
     REQUIRE((handle->size() > 0 && (handle->seek(0, wiz8::SeekOrigin::begin), true)));
     unsigned char signature = 255;
     unsigned int count = 0;
-    REQUIRE(
-        (((count = handle->read(&signature, 1).bytes) == static_cast<std::size_t>(1)) && count == 1 && signature == 0));
+    REQUIRE((((count = handle->read(&signature, 1).bytes) == static_cast<std::size_t>(1)) &&
+             count == 1 && signature == 0));
     handle.reset();
 }
 static void runtimeImages()
 {
-    for (const char* name : {"C:/DATA/loose.jpeg", "Data/archive.jpg", "Data/zażółć-雪.jpeg", "D:/Data/disc.jpg",
-                             "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
+    for (const char* name : {"C:/DATA/loose.jpeg", "Data/archive.jpg", "Data/zażółć-雪.jpeg",
+                             "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
         auto surface = srImage::load(name);
         checkGray(surface.get());
         srColorSurfaceIFace::SurfaceDesc desc;
@@ -133,14 +136,17 @@ static void runtimeImages()
         srColorSurfaceIFace::SurfaceDesc desc;
         srImage::describe(desc, name);
         REQUIRE((desc.width == 3 && desc.height == 2));
-        const unsigned char expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
+        const unsigned char expected[] = {0,    0, 0x03, 0xfc, 0xe0, 0x03,
+                                          0x1f, 0, 0,    0x7c, 0xff, 0xff};
         for (unsigned y = 0; y < 2; ++y) {
-            REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch(),
+            REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) +
+                               y * surface->getPitch(),
                            expected + y * 6, 6) == 0);
         }
     }
-    for (const char* name : {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg", "jpg://Data/archive.jpg",
-                             "tga://Data/archive.tga", "file://Data/archive.jpg"}) {
+    for (const char* name :
+         {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg", "jpg://Data/archive.jpg",
+          "tga://Data/archive.tga", "file://Data/archive.jpg"}) {
         bool rejected = false;
         try {
             auto surface = srImage::load(name);
@@ -200,7 +206,8 @@ TEST_CASE("virtual_transfer_test")
     write(assets / "data" / "Loose.TGA", tga);
     write(disc / "data" / "Disc.JPG", jpeg);
     fs::create_directories(user);
-    w8_native::configure_paths({assets.string(), user.string(), {disc.string(), disc.string(), disc.string()}});
+    w8_native::configure_paths(
+        {assets.string(), user.string(), {disc.string(), disc.string(), disc.string()}});
     wiz8::mount_slf("Data\\Data.slf");
     checkUninitialized();
     REQUIRE(srInit());
@@ -211,7 +218,8 @@ TEST_CASE("virtual_transfer_test")
         REQUIRE(srInit());
     }
     {
-        for (const char* name : {"C:/DATA/loose.jpeg", "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
+        for (const char* name :
+             {"C:/DATA/loose.jpeg", "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
             auto stream = wiz8::open_file(name);
             auto surface = srImage::load(name, *stream);
             checkGray(surface.get());
@@ -220,7 +228,8 @@ TEST_CASE("virtual_transfer_test")
             stream->read_exact(&byte, 1);
             REQUIRE((stream->is_open() && byte == 0xff));
         }
-        auto first = wiz8::open_file("C:/DATA/archive.jpg"), second = wiz8::open_file("Data\\ARCHIVE.JPG");
+        auto first = wiz8::open_file("C:/DATA/archive.jpg"),
+             second = wiz8::open_file("Data\\ARCHIVE.JPG");
         first->seek(9, wiz8::SeekOrigin::begin);
         srColorSurfaceIFace::SurfaceDesc desc;
         REQUIRE((srImage::describe(desc, "archive.jpg", *first) && first->tell() == 9));
@@ -237,9 +246,11 @@ TEST_CASE("virtual_transfer_test")
             REQUIRE(SDL_SeekIO(io, -1, SDL_IO_SEEK_END) == Sint64(jpeg.size() - 1));
             unsigned char bytes[8];
             REQUIRE((SDL_ReadIO(io, bytes, sizeof(bytes)) == 1 && bytes[0] == 0xd9));
-            REQUIRE((SDL_ReadIO(io, bytes, sizeof(bytes)) == 0 && SDL_GetIOStatus(io) == SDL_IO_STATUS_EOF));
+            REQUIRE((SDL_ReadIO(io, bytes, sizeof(bytes)) == 0 &&
+                     SDL_GetIOStatus(io) == SDL_IO_STATUS_EOF));
         }
-        for (const auto offset : {std::numeric_limits<Sint64>::min(), std::numeric_limits<Sint64>::max()}) {
+        for (const auto offset :
+             {std::numeric_limits<Sint64>::min(), std::numeric_limits<Sint64>::max()}) {
             first->seek(9, wiz8::SeekOrigin::begin);
             auto* io = first->io();
             REQUIRE(SDL_SeekIO(io, offset, SDL_IO_SEEK_CUR) == -1);
@@ -292,6 +303,6 @@ TEST_CASE("virtual_transfer_test")
     wiz8::clear_asset_archives();
     (void)0;
     fs::remove_all(root);
-    puts("Virtual image streams: direct load/save, reinit, C-F, retail case folding, overlays, SLF bounds, independent "
-         "cursors and borrowed handles passed");
+    puts("Virtual image streams: direct load/save, reinit, C-F, retail case folding, overlays, SLF "
+         "bounds, independent cursors and borrowed handles passed");
 }

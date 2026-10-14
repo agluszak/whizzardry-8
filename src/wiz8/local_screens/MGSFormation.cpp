@@ -41,15 +41,17 @@
    relative to the board anchor. */
 // GLOBAL: WIZ8 0x0064daf4
 static srVector2i g_formation_marker_offsets[15] = {
-    {0x26, 0x9},  {0x19, 0xd}, {0x33, 0xd}, {0x43, 0x26}, {0x3f, 0x19}, {0x3f, 0x33}, {0x26, 0x43}, {0x33, 0x3f},
-    {0x19, 0x3f}, {0x9, 0x26}, {0xd, 0x33}, {0xd, 0x19},  {0x26, 0x1e}, {0x1e, 0x2a}, {0x2e, 0x2a},
+    {0x26, 0x9},  {0x19, 0xd},  {0x33, 0xd},  {0x43, 0x26}, {0x3f, 0x19},
+    {0x3f, 0x33}, {0x26, 0x43}, {0x33, 0x3f}, {0x19, 0x3f}, {0x9, 0x26},
+    {0xd, 0x33},  {0xd, 0x19},  {0x26, 0x1e}, {0x1e, 0x2a}, {0x2e, 0x2a},
 };
 
 /* Screen (left, top) of the fifteen cell controls. */
 // GLOBAL: WIZ8 0x0064db6c
 static srVector2i g_formation_cell_positions[15] = {
-    {0x5a, 0x1c}, {0x3d, 0x25}, {0x77, 0x25}, {0x98, 0x5a}, {0x8f, 0x3d}, {0x8f, 0x77}, {0x5a, 0x98}, {0x77, 0x8f},
-    {0x3d, 0x8f}, {0x1c, 0x5a}, {0x25, 0x77}, {0x25, 0x3d}, {0x5a, 0x48}, {0x48, 0x61}, {0x6c, 0x61},
+    {0x5a, 0x1c}, {0x3d, 0x25}, {0x77, 0x25}, {0x98, 0x5a}, {0x8f, 0x3d},
+    {0x8f, 0x77}, {0x5a, 0x98}, {0x77, 0x8f}, {0x3d, 0x8f}, {0x1c, 0x5a},
+    {0x25, 0x77}, {0x25, 0x3d}, {0x5a, 0x48}, {0x48, 0x61}, {0x6c, 0x61},
 };
 
 // GLOBAL: WIZ8 0x0069c2f0
@@ -74,7 +76,8 @@ struct FormationPanel {
     bool dirty = true;
 };
 std::unique_ptr<FormationPanel> formation;
-constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release, .controller_activation = true};
+constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
+                                   .controller_activation = true};
 } // namespace
 
 static UiResult HandleFormationCell(const UiPointerEvent& event, int cell);
@@ -140,7 +143,8 @@ void RefreshFormationBoard(void)
         return;
     }
     ReleaseFormationBoard();
-    const auto board_artwork = CatalogArtwork::Load(g_level_block->formation_board_alternate ? 0x9a : 0x99);
+    const auto board_artwork =
+        CatalogArtwork::Load(g_level_block->formation_board_alternate ? 0x9a : 0x99);
     board_image = RenderSpriteToImage(*board_artwork.spriteSheet(), 0);
     if (!board_image) {
         return;
@@ -177,12 +181,14 @@ void CreateFormationBoardOverlay(void)
 {
     W8ControlsRect bounds;
 
-    if (g_level_block->formation_overlay_sprite == 0 && g_level_block->formation_board_sprite != 0) {
+    if (g_level_block->formation_overlay_sprite == 0 &&
+        g_level_block->formation_board_sprite != 0) {
         bounds.left = 0x200;
         bounds.top = 0x166;
         bounds.right = 0x269;
         bounds.bottom = 0x1c2;
-        g_level_block->formation_overlay_sprite = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
+        g_level_block->formation_overlay_sprite =
+            CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
         Position2DNodeUnsnapped(g_level_block->formation_overlay_sprite, 0x200, 0x166);
         SetModelInstance2DDisplayState(g_level_block->formation_overlay_sprite, 4);
     }
@@ -190,8 +196,9 @@ void CreateFormationBoardOverlay(void)
 
 UiResult HandleFormationBoard(const UiPointerEvent& event)
 {
-    if (event.action == UiPointerAction::Up && event.inside && event.button == UiPointerButton::Left &&
-        (event.captured_buttons & SDL_BUTTON_LMASK) && !gXStatus.fReviewCharacterMode) {
+    if (event.action == UiPointerAction::Up && event.inside &&
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
+        !gXStatus.fReviewCharacterMode) {
         AfterUiDispatch(OpenFormationPanel);
     }
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter &&
@@ -211,7 +218,8 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
             continue;
         }
         cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-        if (IsCursorInRectangle(g_formation_marker_offsets[cell].x + 0x207, g_formation_marker_offsets[cell].y + 0x167,
+        if (IsCursorInRectangle(g_formation_marker_offsets[cell].x + 0x207,
+                                g_formation_marker_offsets[cell].y + 0x167,
                                 g_formation_marker_offsets[cell].x + 0x211,
                                 g_formation_marker_offsets[cell].y + 0x171)) {
             hit = slot;
@@ -242,25 +250,27 @@ static void CreateFormationPanel()
     formation = std::make_unique<FormationPanel>();
     for (int cell = 0; cell < 15; ++cell) {
         const auto position = g_formation_cell_positions[cell];
-        formation->targets[cell] =
-            &formation->input.add(SDL_Rect{0xd6 + position.x, 0x3c + position.y, 0x21, 0x21},
-                                  [cell](const UiPointerEvent& event) { return HandleFormationCell(event, cell); });
+        formation->targets[cell] = &formation->input.add(
+            SDL_Rect{0xd6 + position.x, 0x3c + position.y, 0x21, 0x21},
+            [cell](const UiPointerEvent& event) { return HandleFormationCell(event, cell); });
     }
     constexpr std::array<SDL_Rect, 3> bounds{{
         {0xd6 + 0x85, 0x3c + 0xcb, 0x1b, 0x1b},
         {0xd6 + 0xa7, 0x3c + 0xcb, 0x1b, 0x1b},
         {0xd6 + 0xf, 0x3c + 0xcd, 0x1a, 0x1a},
     }};
-    static constexpr std::array actions{AcceptFormationChanges, CloseFormationPanel, ResetFormationPanel};
+    static constexpr std::array actions{AcceptFormationChanges, CloseFormationPanel,
+                                        ResetFormationPanel};
     for (int action = 0; action < 3; ++action) {
         const auto artwork = CatalogArtwork::Load(action == 2 ? 0x8f : 0x8e, 0);
         const int frame = artwork.imageOffset() + (action == 1 ? 4 : 0);
         auto& button = formation->actions[action];
         button = std::make_unique<W8ButtonWidget>(formation->input);
-        button->Configure(artwork.spriteSheet(), {frame + 3, frame, frame + 1, -1, frame + 2},
-                          {.on_click = [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
-                           .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = 1981 + action});
+        button->Configure(
+            artwork.spriteSheet(), {frame + 3, frame, frame + 1, -1, frame + 2},
+            {.on_click = [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = 1981 + action});
         button->SetPosition(bounds[action].x, bounds[action].y);
         button->Resize(bounds[action].w, bounds[action].h);
         button->policy.controller_activation = true;
@@ -291,12 +301,14 @@ void RefreshFormationPanel(bool force)
         }
         const auto position = g_formation_cell_positions[cell];
         const bool disabled = !CanHoldFormationPlace(slot);
-        const int arrow = gXStatus.edited_formation.positions[slot].facing * 3 + (disabled                         ? 2
-                                                                                  : formation->cells[cell].pressed ? 1
-                                                                                                                   : 0);
-        const int chip = g_status.buffers.XChar[slot].party_order_index * 3 + (disabled                       ? 2
-                                                                               : formation->highlighted[cell] ? 1
-                                                                                                              : 0);
+        const int arrow = gXStatus.edited_formation.positions[slot].facing * 3 +
+                          (disabled                         ? 2
+                           : formation->cells[cell].pressed ? 1
+                                                            : 0);
+        const int chip = g_status.buffers.XChar[slot].party_order_index * 3 +
+                         (disabled                       ? 2
+                          : formation->highlighted[cell] ? 1
+                                                         : 0);
         arrows.draw(target, arrow, 0xd6 + position.x, 0x3c + position.y);
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
@@ -364,13 +376,15 @@ static void AcceptFormationChanges(void)
 
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied && CanHoldFormationPlace(slot) &&
-            gXStatus.edited_formation.positions[slot].bQuadrant != g_status.formation.positions[slot].bQuadrant) {
+            gXStatus.edited_formation.positions[slot].bQuadrant !=
+                g_status.formation.positions[slot].bQuadrant) {
             StartBreathCycle(slot, false);
         }
     }
     if (!gXStatus.fCombatMode) {
         ReconcilePartyFormation(&gXStatus.edited_formation, &g_status.formation);
-    } else if (memcmp(&g_status.formation, &gXStatus.edited_formation, sizeof(W8PartyFormationState)) != 0) {
+    } else if (memcmp(&g_status.formation, &gXStatus.edited_formation,
+                      sizeof(W8PartyFormationState)) != 0) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x7d9]);
     }
     RefreshFormationBoard();
@@ -409,8 +423,9 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
     if (event.button == UiPointerButton::Left) {
         switch (event.action) {
         case UiPointerAction::Repeat:
-            if ((event.captured_buttons & SDL_BUTTON_LMASK) && TimeUntilDeadline(g_formation_drag_clock) == 0 &&
-                g_formation_drag_cell == -1 && g_formation_active_cell != -1) {
+            if ((event.captured_buttons & SDL_BUTTON_LMASK) &&
+                TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
+                g_formation_active_cell != -1) {
                 if (!CanHoldFormationPlace(g_formation_cell_slots[id])) {
                     formation->targets[id]->releaseCapture();
                     return UiResult::Handled;
@@ -479,7 +494,8 @@ static UiResult HandleFormationBackground(const UiPointerEvent& event)
     }
     if ((event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
          event.action == UiPointerAction::Leave) &&
-        (event.position.x < 234 || event.position.x > 406 || event.position.y < 80 || event.position.y > 252) &&
+        (event.position.x < 234 || event.position.x > 406 || event.position.y < 80 ||
+         event.position.y > 252) &&
         g_formation_drag_cell != -1) {
         DropFormationSlot(-1);
     }
@@ -511,7 +527,8 @@ static void BeginFormationDrag()
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), region, 0x10, 0x10);
     const auto overlay_artwork = CatalogArtwork::Load(0xa0);
     const auto overlay = static_cast<std::uint16_t>(
-        overlay_artwork.imageOffset() + g_status.buffers.XChar[g_formation_drag_slot].party_order_index * 3 + 1);
+        overlay_artwork.imageOffset() +
+        g_status.buffers.XChar[g_formation_drag_slot].party_order_index * 3 + 1);
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
@@ -526,12 +543,14 @@ static void DropFormationSlot(int cell)
 {
     if (cell != -1 && cell != g_formation_drag_cell) {
         if (g_formation_cell_slots[cell] == -1) {
-            SetFormationPosition(&gXStatus.edited_formation, g_formation_drag_slot, -1, -1, false, true, true);
+            SetFormationPosition(&gXStatus.edited_formation, g_formation_drag_slot, -1, -1, false,
+                                 true, true);
             SeatFormationSlotInRow(&gXStatus.edited_formation, g_formation_drag_slot, cell / 3);
         } else if (!CanHoldFormationPlace(g_formation_cell_slots[cell])) {
             cell = -1;
         } else {
-            SwapFormationSlots(&gXStatus.edited_formation, g_formation_drag_slot, g_formation_cell_slots[cell]);
+            SwapFormationSlots(&gXStatus.edited_formation, g_formation_drag_slot,
+                               g_formation_cell_slots[cell]);
         }
     }
     UpdateHeldItemCursor();
@@ -550,7 +569,8 @@ void SelectFormationSlotCell(int party_slot)
 {
     for (int cell = 0; cell < 15; ++cell) {
         auto& state = formation->cells[cell];
-        state.pressed = state.selected = party_slot != -1 && g_formation_cell_slots[cell] == party_slot;
+        state.pressed = state.selected =
+            party_slot != -1 && g_formation_cell_slots[cell] == party_slot;
     }
     formation->dirty = true;
 }

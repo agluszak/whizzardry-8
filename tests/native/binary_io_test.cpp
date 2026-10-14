@@ -37,8 +37,8 @@ TEST_CASE("binary_io_test")
     srIO::check(SDL_WriteU16BE(output.get(), 0x3412));
     srIO::check(SDL_WriteU32LE(output.get(), 0x9abc5678));
     REQUIRE(SDL_GetIOSize(output.get()) == Sint64(golden.size()));
-    const auto* bytes =
-        SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr);
+    const auto* bytes = SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
+                                               SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr);
     REQUIRE(memcmp(bytes, golden.data(), golden.size()) == 0);
     auto input = srIO::own(SDL_IOFromConstMem(golden.data(), golden.size()));
     Sint8 byte;
@@ -54,7 +54,8 @@ TEST_CASE("binary_io_test")
     REQUIRE(srSerialization::readDoubleBE(input.get()) == std::numeric_limits<double>::infinity());
     REQUIRE((SDL_ReadU16BE(input.get(), &unsigned_word) && unsigned_word == 0x3412));
     REQUIRE((SDL_ReadU32LE(input.get(), &dword) && dword == 0x9abc5678));
-    REQUIRE((!SDL_ReadU32LE(input.get(), &dword) && SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_EOF));
+    REQUIRE(
+        (!SDL_ReadU32LE(input.get(), &dword) && SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_EOF));
     REQUIRE(SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET) == 0);
     REQUIRE((SDL_ReadS8(input.get(), &byte) && byte == -128));
     REQUIRE(!SDL_WriteU32LE(input.get(), 1));
@@ -73,8 +74,8 @@ TEST_CASE("binary_io_test")
     srSerialization::writeFloatBE(formats_output.get(), nan);
     srSerialization::writeDoubleLE(formats_output.get(), negative_zero);
     srSerialization::writeQuadWordLE(formats_output.get(), little_quad);
-    bytes = SDL_GetPointerProperty(SDL_GetIOProperties(formats_output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER,
-                                   nullptr);
+    bytes = SDL_GetPointerProperty(SDL_GetIOProperties(formats_output.get()),
+                                   SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr);
     REQUIRE(SDL_GetIOSize(formats_output.get()) == sizeof(formats));
     REQUIRE(memcmp(bytes, formats, sizeof(formats)) == 0);
     bool rejected = false;
@@ -92,8 +93,8 @@ TEST_CASE("binary_io_test")
     }
     REQUIRE(rejected);
     REQUIRE(bits.peekByte() == 0); // Padding is for lookahead, not consumption.
-    for (const auto rewind :
-         {w8_long(-1), std::numeric_limits<w8_long>::min(), w8_long(17), std::numeric_limits<w8_long>::max()}) {
+    for (const auto rewind : {w8_long(-1), std::numeric_limits<w8_long>::min(), w8_long(17),
+                              std::numeric_limits<w8_long>::max()}) {
         rejected = false;
         try {
             bits.rewind(rewind);
@@ -150,13 +151,16 @@ TEST_CASE("binary_io_test")
     interface.size = [](void* cookie) -> Sint64 { return static_cast<SparseInput*>(cookie)->size; };
     interface.seek = [](void* cookie, Sint64 offset, SDL_IOWhence whence) -> Sint64 {
         auto& self = *static_cast<SparseInput*>(cookie);
-        const auto base = whence == SDL_IO_SEEK_SET ? 0 : whence == SDL_IO_SEEK_CUR ? self.position : self.size;
+        const auto base = whence == SDL_IO_SEEK_SET   ? 0
+                          : whence == SDL_IO_SEEK_CUR ? self.position
+                                                      : self.size;
         if (offset < -base || offset > self.size - base) {
             return -1;
         }
         return self.position = base + offset;
     };
-    interface.read = [](void* cookie, void* data, size_t requested, SDL_IOStatus* status) -> size_t {
+    interface.read = [](void* cookie, void* data, size_t requested,
+                        SDL_IOStatus* status) -> size_t {
         auto& self = *static_cast<SparseInput*>(cookie);
         const auto count = std::min(requested, size_t(self.size - self.position));
         std::fill_n(static_cast<Uint8*>(data), count, Uint8(0xa5));

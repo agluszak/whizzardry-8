@@ -381,7 +381,8 @@ void ApplyWorldCursorInput(void)
             if (gp3DCursor->position.y < saved_y) {
                 gp3DCursor->position.y = saved_y;
             }
-            gp3DCursor->position = g_octree->settleToGround(gp3DCursor->position.glmValue(), true, 500).position;
+            gp3DCursor->position =
+                g_octree->settleToGround(gp3DCursor->position.glmValue(), true, 500).position;
         }
     } else {
         camera = cameraLocation();
@@ -427,7 +428,8 @@ void ApplyWorldCursorInput(void)
         }
         if (gp3DCursor->dragged_info != 0) {
             gp3DCursor->dragged_info->p3D->SetPositionInternal(&gp3DCursor->position);
-            g_octree->UpdateMonsterLocation(gp3DCursor->dragged_info->location_id, &gp3DCursor->position);
+            g_octree->UpdateMonsterLocation(gp3DCursor->dragged_info->location_id,
+                                            &gp3DCursor->position);
             if (IsKeyHeld(VK_SHIFT)) {
                 MonsterForwardReferencePosition(gp3DCursor->dragged_info->p3D, 1);
             }
@@ -481,7 +483,8 @@ void BindCursorMonsterToGroup(void)
                 monster_group = FindMonsterGroup(monster_group->leader_group_id);
             }
             monster_info = FindMonster(monster_group->leader_location_id);
-            if (monster_info != 0 && monster_info->p3D != 0 && !monster_info->p3D->SetScript("Test.msf", true)) {
+            if (monster_info != 0 && monster_info->p3D != 0 &&
+                !monster_info->p3D->SetScript("Test.msf", true)) {
                 ApplyToMonsterGroupLeader(monster_group, &position, true);
             }
         }
@@ -607,7 +610,8 @@ void UpdateWorldCursor(void)
                 g_octree->TraceLineOfSight(&camera, &resolved, true, -3, -3, true, 0) == 0) {
                 box_min = resolved + gp3DCursor->extent_min;
                 box_max = resolved + gp3DCursor->extent_max;
-                if (!gp3DCursor->footprint_mode || g_octree->TestBoxOccupied(&box_min, &box_max) == 0) {
+                if (!gp3DCursor->footprint_mode ||
+                    g_octree->TestBoxOccupied(&box_min, &box_max) == 0) {
                     AimAtPlace(g_status.selected_character);
                     ToggleWorldCursor();
                     return;
@@ -734,7 +738,8 @@ void UpdateWorldCursorPlacement(void)
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
-    target = camera.glmValue() + glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), g_gd_camera->m_yaw);
+    target = camera.glmValue() +
+             glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), g_gd_camera->m_yaw);
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {
@@ -807,7 +812,8 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
             best = ground.position.y;
         }
     }
-    if (cursor->footprint_mode && static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
+    if (cursor->footprint_mode &&
+        static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
         position->y = best + g_float_one_thousand;
         return 0;
     }

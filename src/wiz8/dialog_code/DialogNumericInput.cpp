@@ -17,10 +17,11 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "local_code/ControlsRect.h"
 
-W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font,
-                                           W8DialogBase* dialog, W8ButtonWidget* button)
-    : m_editor_input(dialog->InputLayer()), m_bounds(*bounds), m_font(&font), m_value(value), m_dirty(false),
-      m_active(false), m_maximum(-1), m_dialog(dialog), m_button(button), m_control_id(control_id)
+W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
+                                           Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
+    : m_editor_input(dialog->InputLayer()), m_bounds(*bounds), m_font(&font), m_value(value),
+      m_dirty(false), m_active(false), m_maximum(-1), m_dialog(dialog), m_button(button),
+      m_control_id(control_id)
 {
     // The backing button activates editing; caret input shares the modal layer.
 }
@@ -53,8 +54,8 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     }
     const auto text = std::to_string(m_value);
     m_editor = std::make_unique<TextFieldGroup>(m_editor_input, *m_font);
-    m_editor->Add(m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left, m_bounds.bottom - m_bounds.top, 0, text,
-                  10, 1, false);
+    m_editor->Add(m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
+                  m_bounds.bottom - m_bounds.top, 0, text, 10, 1, false);
     m_editor->Focus(0);
     m_editor->SetText(0, text); // Clear the editor's initial select-all.
     std::size_t cursor = text.size();
@@ -73,13 +74,15 @@ void W8DialogNumericInput::Draw(SDL_Surface& target, bool force)
     }
     const auto text = std::to_string(m_value);
     m_font->setShade(Font::kNormalShade);
-    const SDL_Rect clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left, m_bounds.bottom - m_bounds.top};
+    const SDL_Rect clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
+                        m_bounds.bottom - m_bounds.top};
     ScopedClipRect clipping(target, clip);
     const int top = m_bounds.top + std::max(0, (clip.h - m_font->height()) / 2);
     const int left = std::max(m_bounds.left, m_bounds.right - m_font->textWidth(text));
     DrawTextAndInvalidate(target, *m_font, {left, top}, text);
     if (m_editor) {
-        const int x = m_bounds.right - m_font->textWidth(std::string_view(text).substr(m_editor->Cursor())) - 1;
+        const int x = m_bounds.right -
+                      m_font->textWidth(std::string_view(text).substr(m_editor->Cursor())) - 1;
         const SDL_Rect caret{x, top, 1, std::min(m_bounds.bottom - top, int(m_font->height())) + 1};
         SDL_FillSurfaceRect(&target, &caret, 0xffff);
     }
@@ -108,7 +111,8 @@ bool W8DialogNumericInput::HandleInput(const InputEvent* input)
     const auto text = m_editor->Text(0);
     unsigned int value = 0;
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
-    if ((!text.empty() && (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size())) || value > m_maximum) {
+    if ((!text.empty() && (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size())) ||
+        value > m_maximum) {
         m_editor->SetText(0, previous);
         m_editor->SetCursor(previous_cursor);
     } else if (text != previous) {

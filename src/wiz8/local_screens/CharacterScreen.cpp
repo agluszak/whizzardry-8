@@ -59,12 +59,14 @@ unsigned short g_character_description_first_ids[22] = {
 };
 // GLOBAL: WIZ8 0x0061e3d0
 unsigned short g_race_name_message_ids[W8_RACE_COUNT] = {
-    0x284, 0x285, 0x286, 0x287, 0x288, 0x289, 0x28a, 0x28b, 0x28c, 0x28d, 0x28e, 0x28f, 0x290, 0x291, 0x292, 0x293,
+    0x284, 0x285, 0x286, 0x287, 0x288, 0x289, 0x28a, 0x28b,
+    0x28c, 0x28d, 0x28e, 0x28f, 0x290, 0x291, 0x292, 0x293,
 };
 // GLOBAL: WIZ8 0x0061e3f0
 unsigned short g_profession_name_message_ids[32] = {
-    0x2a4, 0x2a5, 0x2a6, 0x2a7, 0x2a8, 0x2a9, 0x2aa, 0x2ab, 0x2ac, 0x2ad, 0x2ae, 0x2af, 0x2b0, 0x2b1, 0x2b2, 0,
-    0x2c2, 0x2c3, 0x2c4, 0x2c5, 0x2c6, 0x2c7, 0x2c8, 0x2c9, 0x2ca, 0x2cb, 0x2cc, 0x2cd, 0x2ce, 0x2cf, 0x2d0, 0,
+    0x2a4, 0x2a5, 0x2a6, 0x2a7, 0x2a8, 0x2a9, 0x2aa, 0x2ab, 0x2ac, 0x2ad, 0x2ae,
+    0x2af, 0x2b0, 0x2b1, 0x2b2, 0,     0x2c2, 0x2c3, 0x2c4, 0x2c5, 0x2c6, 0x2c7,
+    0x2c8, 0x2c9, 0x2ca, 0x2cb, 0x2cc, 0x2cd, 0x2ce, 0x2cf, 0x2d0, 0,
 };
 // GLOBAL: WIZ8 0x0061e430
 unsigned short g_gender_name_message_rows[4][4] = {
@@ -75,12 +77,13 @@ unsigned short g_gender_name_message_rows[4][4] = {
 };
 // GLOBAL: WIZ8 0x0061e454
 unsigned short g_character_skill_name_ids[84] = {
-    0x2e2, 0x2e3, 0x2e4, 0x2e5, 0x2e6, 0x2e7, 0x2e8, 0x2e9, 0x2ea, 0x2eb, 0x2ec, 0x2ed, 0x2ee, 0x2ef,
-    0x2f0, 0x2f1, 0x2f2, 0x2f3, 0x2f4, 0x2f5, 0x2f6, 0x2f7, 0x2f8, 0x2f9, 0x2fa, 0x2fb, 0x2fc, 0x2fd,
-    0x2fe, 0x2ff, 0x300, 0x301, 0x302, 0x303, 0x304, 0x305, 0x306, 0x307, 0x308, 0x309, 0x30a, 0,
-    0x677, 0x678, 0x679, 0x67a, 0x67b, 0x67c, 0x67d, 0x67e, 0x67f, 0x680, 0x682, 0x683, 0x684, 0x685,
-    0x681, 0x686, 0x687, 0x688, 0x689, 0x68a, 0x68b, 0x68c, 0x68d, 0x68e, 0x68f, 0x690, 0x691, 0x692,
-    0x693, 0x694, 0x695, 0x696, 0x697, 0x698, 0x699, 0x69a, 0x69b, 0x69c, 0x69d, 0x69e, 0x69f, 0,
+    0x2e2, 0x2e3, 0x2e4, 0x2e5, 0x2e6, 0x2e7, 0x2e8, 0x2e9, 0x2ea, 0x2eb, 0x2ec, 0x2ed,
+    0x2ee, 0x2ef, 0x2f0, 0x2f1, 0x2f2, 0x2f3, 0x2f4, 0x2f5, 0x2f6, 0x2f7, 0x2f8, 0x2f9,
+    0x2fa, 0x2fb, 0x2fc, 0x2fd, 0x2fe, 0x2ff, 0x300, 0x301, 0x302, 0x303, 0x304, 0x305,
+    0x306, 0x307, 0x308, 0x309, 0x30a, 0,     0x677, 0x678, 0x679, 0x67a, 0x67b, 0x67c,
+    0x67d, 0x67e, 0x67f, 0x680, 0x682, 0x683, 0x684, 0x685, 0x681, 0x686, 0x687, 0x688,
+    0x689, 0x68a, 0x68b, 0x68c, 0x68d, 0x68e, 0x68f, 0x690, 0x691, 0x692, 0x693, 0x694,
+    0x695, 0x696, 0x697, 0x698, 0x699, 0x69a, 0x69b, 0x69c, 0x69d, 0x69e, 0x69f, 0,
 };
 // GLOBAL: WIZ8 0x0061e674
 unsigned short g_personality_message_ids[10] = {
@@ -114,8 +117,8 @@ std::unique_ptr<W8CharacterScreen> g_character_screen;
 
 // FUNCTION: WIZ8 0x005b0040
 W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
-    : m_mode(mode), m_original(character), m_block_advance(0), m_confirm_profession(0), m_force_transition(0),
-      m_dialog(0), m_capture_dialog_result(0)
+    : m_mode(mode), m_original(character), m_block_advance(0), m_confirm_profession(0),
+      m_force_transition(0), m_dialog(0), m_capture_dialog_result(0)
 {
     if (character != 0) {
         m_character = *character;
@@ -144,9 +147,11 @@ void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
-        result->Configure(
-            CatalogArtwork::Load(0x106, 0).spriteSheet(), {frame + 3, frame, frame + 1, frame + 2, frame + 2},
-            {.on_click = [action](auto*) { AfterUiDispatch(action); }, .priority = UI_PRIORITY_LOWEST, .tooltip = help});
+        result->Configure(CatalogArtwork::Load(0x106, 0).spriteSheet(),
+                          {frame + 3, frame, frame + 1, frame + 2, frame + 2},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         result->policy.controller_activation = true;
         result->SetPosition(x, 0x1c2);
         return result;
@@ -200,7 +205,8 @@ void W8CharacterScreen::UpdateDialog()
     if (m_dialog != 0) {
         if (m_dialog_response == 1) {
             gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
-            if (UpdateCharacterEventState() == 0 && static_cast<W8MessageDialogBase*>(m_dialog)->accepted) {
+            if (UpdateCharacterEventState() == 0 &&
+                static_cast<W8MessageDialogBase*>(m_dialog)->accepted) {
                 m_dialog->m_keep_open = false;
             }
         }
@@ -209,7 +215,7 @@ void W8CharacterScreen::UpdateDialog()
             m_pages[m_page_index]->Prepare();
             m_header_dirty = true;
 #pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                                       \
+#pragma clang diagnostic ignored                                                                   \
     "-Wsometimes-uninitialized" // uninit-ok: uncaptured response can use a stale stack byte as acceptance
             unsigned char accepted;
             if (m_capture_dialog_result) {
@@ -303,7 +309,8 @@ void W8CharacterScreen::ShowSkillInfo(W8Skill value)
 
 void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
 {
-    const std::array buttons{m_previous.get(), m_next.get(), m_exit.get(), m_accept.get(), m_reset.get()};
+    const std::array buttons{m_previous.get(), m_next.get(), m_exit.get(), m_accept.get(),
+                             m_reset.get()};
     for (const auto* button : buttons) {
         m_navigation_dirty |= button->m_dirty;
     }
@@ -322,8 +329,10 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
 // FUNCTION: WIZ8 0x005b09b0
 void W8CharacterScreen::ShowDescription(int first, int second)
 {
-    ShowMessage(fmt::sprintf(g_localized_strings[0x1d6], g_localized_strings[g_character_description_first_ids[first]],
-                             m_character.name, g_localized_strings[g_character_skill_name_ids[second]]),
+    ShowMessage(fmt::sprintf(g_localized_strings[0x1d6],
+                             g_localized_strings[g_character_description_first_ids[first]],
+                             m_character.name,
+                             g_localized_strings[g_character_skill_name_ids[second]]),
                 0, 0);
 }
 
@@ -345,19 +354,25 @@ void W8CharacterScreen::AdvancePage(bool forward)
             return;
         }
         if (index == 0) {
-            if (m_mode == 2 && m_character.iProfession != m_original->iProfession && !m_confirm_profession) {
+            if (m_mode == 2 && m_character.iProfession != m_original->iProfession &&
+                !m_confirm_profession) {
                 int value = ComputeRealmSkillDebt(m_original, &m_character);
                 if (value > 0) {
-                    ShowMessage(fmt::sprintf(
-                                    g_localized_strings[0xdb],
-                                    g_localized_strings[g_profession_name_message_ids[m_original->iProfession]],
-                                    g_localized_strings[g_profession_name_message_ids[m_character.iProfession]], value),
-                                1, 4);
+                    ShowMessage(
+                        fmt::sprintf(g_localized_strings[0xdb],
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_original->iProfession]],
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_character.iProfession]],
+                                     value),
+                        1, 4);
                 } else {
                     ShowMessage(
                         fmt::sprintf(g_localized_strings[0xda],
-                                     g_localized_strings[g_profession_name_message_ids[m_original->iProfession]],
-                                     g_localized_strings[g_profession_name_message_ids[m_character.iProfession]]),
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_original->iProfession]],
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_character.iProfession]]),
                         1, 4);
                 }
                 return;
@@ -429,8 +444,8 @@ void W8CharacterScreen::SelectPage(int index)
         ++next;
     }
     const int frame = next == 4 ? 0x10 : 8;
-    m_next->SetImage(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3, frame, frame + 1,
-                                          frame + 2, frame + 2));
+    m_next->SetImage(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3,
+                                          frame, frame + 1, frame + 2, frame + 2));
     m_next->SetTooltipIndex(next == 4 ? 0xe0 : 0xdc);
     m_navigation_dirty = true;
     page->Prepare();
@@ -468,8 +483,8 @@ void W8CharacterScreen::DrawHeader()
     W8TextBuffer text;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xc3, 0);
     W8ControlsRect bounds = {0xc3, 0, 0x285, 0x2c};
-    text.RenderString(&bounds, g_localized_strings[g_character_page_title_ids[m_page_index]], g_options_detail_font,
-                      true, GetFrameBufferSurface());
+    text.RenderString(&bounds, g_localized_strings[g_character_page_title_ids[m_page_index]],
+                      g_options_detail_font, true, GetFrameBufferSurface());
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0);
 
     if (m_mode == 0) {
@@ -488,22 +503,28 @@ void W8CharacterScreen::DrawHeader()
         bounds.bottom = 0xdf;
         text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter);
         if (m_mode != 0) {
-            text.RenderString(&bounds, m_character.name, g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+            text.RenderString(&bounds, m_character.name, g_wiz_text_font_secondary, true,
+                              GetFrameBufferSurface());
         }
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
-        text.RenderString(fmt::format("{} {}", g_localized_strings[g_gender_name_message_rows[m_character.gender][0]],
-                                      g_localized_strings[g_race_name_message_ids[m_character.iRace]]),
-                          g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(
+            fmt::format("{} {}",
+                        g_localized_strings[g_gender_name_message_rows[m_character.gender][0]],
+                        g_localized_strings[g_race_name_message_ids[m_character.iRace]]),
+            g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
-        text.RenderString(&bounds, g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
-                          g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(
+            &bounds, g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
+            g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
-        text.RenderString(fmt::format("{} {:d} ({})", g_localized_strings[0x6b9], m_character.uiExpLevel,
-                                      g_localized_strings[g_profession_level_name_message_ids[m_character.iProfession]
-                                                                                             [m_character.level_band]]),
-                          g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(
+            fmt::format(
+                "{} {:d} ({})", g_localized_strings[0x6b9], m_character.uiExpLevel,
+                g_localized_strings[g_profession_level_name_message_ids[m_character.iProfession]
+                                                                       [m_character.level_band]]),
+            g_wiz_text_font_secondary, true, GetFrameBufferSurface());
     }
     m_header_dirty = false;
 }
@@ -582,8 +603,8 @@ void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int
         m_dialog->SetOrigin(0xa0, 100);
         m_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
         static_cast<W8MessageDialogBase*>(m_dialog)->SetClientExtent(0xfa, 200);
-        static_cast<W8MessageDialogBase*>(m_dialog)->SetMessage(text, 1, 0x32, true, confirmation, true, true, 0,
-                                                                0x15e);
+        static_cast<W8MessageDialogBase*>(m_dialog)->SetMessage(text, 1, 0x32, true, confirmation,
+                                                                true, true, 0, 0x15e);
         m_dialog->InputLayer().setModal(true);
         m_capture_dialog_result = true;
     }
@@ -694,7 +715,8 @@ unsigned char CharacterScreenEnter(void)
     g_character_screen = std::make_unique<W8CharacterScreen>(
         g_current_screen_state.mode, static_cast<W8Character*>(g_current_screen_state.parameter_3));
     g_character_screen->BuildControls();
-    if (!g_status.game_started && (g_current_screen_state.mode == 0 || g_current_screen_state.mode == 2)) {
+    if (!g_status.game_started &&
+        (g_current_screen_state.mode == 0 || g_current_screen_state.mode == 2)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
     return 1;
@@ -732,7 +754,8 @@ void CharacterScreenFrame(void)
                             } else {
                                 screen->ShowMessage(g_localized_strings[0xd3], 1, 2);
                             }
-                        } else if ((input.key == VK_LEFT || input.key == 0x42) && screen->m_page_index != 3) {
+                        } else if ((input.key == VK_LEFT || input.key == 0x42) &&
+                                   screen->m_page_index != 3) {
                             int index = screen->m_page_index - 1;
                             while (index >= 0 && !screen->m_page_enabled[index]) {
                                 --index;

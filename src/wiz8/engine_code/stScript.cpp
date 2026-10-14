@@ -84,14 +84,17 @@ try {
             continue;
         }
         const auto stop = text.find_first_of(" \t", start);
-        std::string_view token(text.data() + start, (stop == text.npos ? text.size() : stop) - start);
+        std::string_view token(text.data() + start,
+                               (stop == text.npos ? text.size() : stop) - start);
         if (token.ends_with(':')) {
             token.remove_suffix(1);
             if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1) {
-                pending.labels.push_back({std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
+                pending.labels.push_back(
+                    {std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
             }
         } else {
-            if (lines.size() + pending.lines.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+            if (lines.size() + pending.lines.size() >=
+                static_cast<std::size_t>(std::numeric_limits<int>::max())) {
                 return false;
             }
             pending.lines.push_back({std::move(text), source_line});
@@ -124,5 +127,6 @@ int stScript::FindLabelLine(std::string_view label) const
 // FUNCTION: WIZ8 0x004CF790
 int stScript::GetSourceLine(int line) const
 {
-    return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line : -1;
+    return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line
+                                                                      : -1;
 }

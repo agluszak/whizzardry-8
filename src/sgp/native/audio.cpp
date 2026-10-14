@@ -35,7 +35,8 @@ bool initialize_audio()
         return false;
     }
     const SDL_AudioSpec spec{SDL_AUDIO_F32, 2, 44100};
-    auto* created = offline ? MIX_CreateMixer(&spec) : MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec);
+    auto* created = offline ? MIX_CreateMixer(&spec)
+                            : MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec);
     if (!created) {
         MIX_Quit();
         return false;
@@ -114,7 +115,10 @@ struct MovieAudio::State {
         }
     }
 };
-MovieAudio::MovieAudio(unsigned rate, unsigned channels) : state(std::make_unique<State>(rate, channels)) {}
+MovieAudio::MovieAudio(unsigned rate, unsigned channels)
+    : state(std::make_unique<State>(rate, channels))
+{
+}
 MovieAudio::~MovieAudio() = default;
 void MovieAudio::append(const float* samples, size_t frames)
 {
@@ -123,7 +127,8 @@ void MovieAudio::append(const float* samples, size_t frames)
         uint64_t(queued) / (state->channels * sizeof(float)) + frames > state->rate * 2) {
         throw std::runtime_error("Movie audio exceeded two seconds of lookahead or finished");
     }
-    if (!SDL_PutAudioStreamData(state->stream.get(), samples, int(frames * state->channels * sizeof(float)))) {
+    if (!SDL_PutAudioStreamData(state->stream.get(), samples,
+                                int(frames * state->channels * sizeof(float)))) {
         throw std::runtime_error(SDL_GetError());
     }
 }
@@ -133,8 +138,9 @@ void MovieAudio::start()
     if (!options) {
         throw std::runtime_error(SDL_GetError());
     }
-    const bool ok = SDL_SetBooleanProperty(options, MIX_PROP_PLAY_HALT_WHEN_EXHAUSTED_BOOLEAN, false) &&
-                    MIX_PlayTrack(state->track.get(), options);
+    const bool ok =
+        SDL_SetBooleanProperty(options, MIX_PROP_PLAY_HALT_WHEN_EXHAUSTED_BOOLEAN, false) &&
+        MIX_PlayTrack(state->track.get(), options);
     SDL_DestroyProperties(options);
     if (!ok) {
         throw std::runtime_error(SDL_GetError());

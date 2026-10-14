@@ -31,7 +31,8 @@ class W8CharacterPageEntry {
 public:
     W8CharacterPageEntry(UiLayer& input, int x, int y, bool compact);
     ~W8CharacterPageEntry();
-    void SetContent(unsigned int id, std::string_view label, unsigned int* first, int* second, int* third, int help_id);
+    void SetContent(unsigned int id, std::string_view label, unsigned int* first, int* second,
+                    int* third, int help_id);
     void SetEnabled(bool enabled);
     void SetIncrementAllowed(bool allowed);
     void Redraw(SDL_Surface& target);
@@ -74,7 +75,8 @@ public:
     virtual ~W8CharacterPage();
     virtual void InvalidateAll();
     virtual void Redraw(SDL_Surface& target, bool full_redraw);
-    virtual void SetCharacter(W8Character* character, W8CharacterCreationState* creation_state, int mode);
+    virtual void SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
+                              int mode);
     virtual void Activate() = 0;
     virtual void Deactivate() = 0;
     virtual void Accept() = 0;
@@ -114,8 +116,10 @@ class W8CharacterStatsPage;
 
 class W8CharacterStatsRow {
 public:
-    W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int y, int count, const W8CharacterStatsRecord* table,
-                        const W8CharacterStatsRecord* default_record, int help_first, int help_second, int help_value);
+    W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int y, int count,
+                        const W8CharacterStatsRecord* table,
+                        const W8CharacterStatsRecord* default_record, int help_first,
+                        int help_second, int help_value);
     ~W8CharacterStatsRow();
     void Collapse();
     void CollapseIfNotHovered();

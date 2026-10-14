@@ -21,7 +21,12 @@ enum W8SpellVisualMode {
    Spells.cpp's own assertions: four groups of SPELL_CYCLES_PER_GROUP rows
    indexed by g_spell_cycle_names. The cast's power level picks the row
    within the group. */
-enum { SPELL_CYCLE_FIRST = 0, SPELL_CYCLE_LAST = 27, SPELL_NUM_CYCLES = 28, SPELL_CYCLES_PER_GROUP = 7 };
+enum {
+    SPELL_CYCLE_FIRST = 0,
+    SPELL_CYCLE_LAST = 27,
+    SPELL_NUM_CYCLES = 28,
+    SPELL_CYCLES_PER_GROUP = 7
+};
 
 /* Engine Code\Spells.cpp's 0x1f8-byte GrCycle specialization.  Construction
    installs the primary 0x005ECF40 table and the ordinary W8Navigator secondary

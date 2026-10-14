@@ -77,7 +77,8 @@ unsigned char DrawMainMenuItem(short item, short state)
 
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size()) {
-        CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
+        CatalogArtwork::Load(main_menu_sprite_objects[state], 0)
+            .draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
     }
     InvalidateRegion(0x98, bounds.y, 0x1f2, bounds.y + bounds.h - 1);
     return 1;
@@ -149,7 +150,8 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
         }
         break;
     case UiPointerAction::Up:
-        if (!available || event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK)) {
+        if (!available || event.button != UiPointerButton::Left ||
+            !(event.captured_buttons & SDL_BUTTON_LMASK)) {
             break;
         }
         DrawMainMenuItem(g_main_menu_selected_item, event.inside ? 1 : 0);
@@ -171,8 +173,9 @@ void CreateMainMenuInput()
 {
     main_menu_input = std::make_unique<UiLayer>();
     for (short item = 0; item < static_cast<short>(main_menu_item_bounds.size()); ++item) {
-        main_menu_input->add(main_menu_item_bounds[item],
-                             [item](const UiPointerEvent& event) { return HandleMainMenuItem(item, event); });
+        main_menu_input->add(main_menu_item_bounds[item], [item](const UiPointerEvent& event) {
+            return HandleMainMenuItem(item, event);
+        });
     }
 }
 } // namespace
@@ -210,7 +213,8 @@ unsigned char MainMenuScreenEnter(void)
     CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
-        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE", __FILE__, 0x87, 0);
+        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE", __FILE__, 0x87,
+                     0);
     }
     if (g_previous_screen_id != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
@@ -270,8 +274,8 @@ void MainMenuScreenFrame()
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
                         g_wiz_text_font_secondary.resetPalette();
-                        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {5, 5},
-                                              "Developer mode enabled.");
+                        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                                              {5, 5}, "Developer mode enabled.");
                     }
                 } else {
                     switch (input.key) {

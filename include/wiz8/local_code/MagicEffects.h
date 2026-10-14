@@ -26,13 +26,16 @@ bool IsScreenBusy(void);
 
 /* Shrink a rolled magnitude by the share of it the target's
    resistance in the realm turns aside; a permanent magnitude is left alone. */
-void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, W8SpellRealm realm, int power_level);
+void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, W8SpellRealm realm,
+                                 int power_level);
 void AnnounceEffectResisted(W8CombatSlot* target);
 void ClearMonsterCharm(W8MonsterInfo* monster_info);
-void ApplyEffectAndAnnounce(unsigned int* result, W8CombatSlot* target, W8SpellRealm realm, int power_level);
-bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target, W8Condition condition_id,
-                           W8SpellRealm realm, unsigned int power_level, int argument, int magnitude,
-                           bool announce_resistance, bool announce_condition, int duration);
+void ApplyEffectAndAnnounce(unsigned int* result, W8CombatSlot* target, W8SpellRealm realm,
+                            int power_level);
+bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
+                           W8Condition condition_id, W8SpellRealm realm, unsigned int power_level,
+                           int argument, int magnitude, bool announce_resistance,
+                           bool announce_condition, int duration);
 /* The saving throw against a condition. A dead target is beyond
    reach and counts as resisting. */
 bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned int power_level,
@@ -40,8 +43,8 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
 /* Land a condition whose saving throw failed. `source_character`
    is part of the call but nothing in the body reads it. */
 char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8SpellRealm realm,
-                              unsigned int power_level, int argument, unsigned int magnitude, int source_character,
-                              int duration, bool announce);
+                              unsigned int power_level, int argument, unsigned int magnitude,
+                              int source_character, int duration, bool announce);
 /* Each scales the value by seven fifths or three fifths on the easy and hard settings and leaves
    it alone on normal; which way round depends on the character's condition
    thirteen or the monster's allegiance flag. */
@@ -59,14 +62,17 @@ void DrainTargetsLife(W8SpellEffectEntry* effect);
 char HealTargets(W8SpellEffectEntry* effect);
 char RestoreTargetsStamina(W8SpellEffectEntry* effect);
 void FatigueTargets(W8SpellEffectEntry* effect);
-void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, int chance, int argument);
+void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, int chance,
+                            int argument);
 /* The target's own turns left on a condition; condition seven
    also hands its argument back through `argument`. */
-unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition condition, int* argument);
+unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition condition,
+                                     int* argument);
 /* Heading from a world point toward the nearest live monster, or
    the camera-facing yaw for a hostile disposition - also the fallback when
    no monster is near. */
-float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposition, int exclusion);
+float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposition,
+                                  int exclusion);
 
 /* Eight bytes per effect id; the leading dword names the HUD
    effect icon and the second the monster visual resource, -1 means none. */
@@ -90,6 +96,7 @@ void RecalculateCharacterResistances(W8Character* character);
    reduction, applies it, and feeds the running combat totals and the pending
    damage-report queue inside g_combat_state. */
 void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchantment* enchantment);
-void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source, W8Enchantment* enchantment);
+void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source,
+                              W8Enchantment* enchantment);
 void ApplyDirectDamageToCharacter(int party_slot, W8TargetSource* source, int damage);
 void ApplyDirectDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source, int damage);

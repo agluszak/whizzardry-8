@@ -57,14 +57,15 @@ struct W8CountedOctBuildNode : W8OctBuildNode {
    the vtables emitted near this TU belong to vector/template material, not to
    this type. */
 struct W8OctBuildTree {
-    W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit, short extent_mode);
+    W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit,
+                   short extent_mode);
     ~W8OctBuildTree();
 
     unsigned char InsertSurface(W8GDSurface* surface, w8_ulong mode);
-    unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface, const glm::vec3& planeNormal,
-                                         w8_ulong mode);
-    std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta, float extent,
-                                                unsigned short kind);
+    unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
+                                         const glm::vec3& planeNormal, w8_ulong mode);
+    std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
+                                                float extent, unsigned short kind);
     /* Append `payload` to the node's `kind` link list, growing the tail and
        raising the leaf counter plus the tree's deepest-list watermark. */
     void AppendLink(W8OctBuildNode* node, void* payload, short kind);
@@ -85,7 +86,8 @@ private:
     struct SurfaceCollector;
     void collectRecursive(const W8OctSpatialState& state, const srBoundingBox& bounds, short kind,
                           SurfaceCollector& collector) const;
-    void collectLeaf(W8OctBuildNode* node, short depth, short kind, SurfaceCollector& collector) const;
+    void collectLeaf(W8OctBuildNode* node, short depth, short kind,
+                     SurfaceCollector& collector) const;
 };
 
 extern const float g_octree_cell_extent_scale;

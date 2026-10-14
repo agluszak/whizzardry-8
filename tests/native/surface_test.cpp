@@ -48,7 +48,8 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
         BlitImage(*destination, 0, 0, *source, nullptr, {.color_key = 0, .mirror = true});
         SDL_Rect active{};
         REQUIRE(SDL_GetSurfaceClipRect(destination.get(), &active));
-        REQUIRE((active.x == clip.x && active.y == clip.y && active.w == clip.w && active.h == clip.h));
+        REQUIRE(
+            (active.x == clip.x && active.y == clip.y && active.w == clip.w && active.h == clip.h));
     }
     SDL_Rect restored{};
     REQUIRE(SDL_GetSurfaceClipRect(destination.get(), &restored));

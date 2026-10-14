@@ -33,9 +33,10 @@ W8SoundEvent::~W8SoundEvent()
 /* The wave name is copied into storage the event owns and its destructor
    releases. */
 // FUNCTION: WIZ8 0x004d57a0
-W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle, std::string wave_name,
-                           bool looping)
-    : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle), wave_name(std::move(wave_name)), looping(looping)
+W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
+                           std::string wave_name, bool looping)
+    : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle), wave_name(std::move(wave_name)),
+      looping(looping)
 {
 }
 
@@ -49,8 +50,9 @@ static int g_previous_footstep_variant;
    own classification matches, then play one of them at random without
    repeating the previous choice for as long as a second candidate exists. */
 // FUNCTION: WIZ8 0x004d5890
-void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events, const srVector3T<float>& position,
-                       unsigned int event_mask, int cycle, int frame, int subcycle)
+void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
+                       const srVector3T<float>& position, unsigned int event_mask, int cycle,
+                       int frame, int subcycle)
 {
     std::vector<W8SoundEvent*> candidates;
     for (unsigned int bit = 1; bit != 0; bit <<= 1) {
@@ -105,7 +107,8 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
     srVector3T<float> camera_position = cameraLocation();
     srVector3T<float> camera_offset = camera_position - position;
     if (camera_offset.Length() < falloff) {
-        if (kind == W8_SOUND_EVENT_FOOTSTEP || wave_name.contains("step") || (location_id != 0 && cycle == 4)) {
+        if (kind == W8_SOUND_EVENT_FOOTSTEP || wave_name.contains("step") ||
+            (location_id != 0 && cycle == 4)) {
             base_volume = footstep_volume;
             track_sound = true;
             if (location_id != 0) {
@@ -119,7 +122,8 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 base_volume = 0x87;
             }
         } else {
-            base_volume = static_cast<unsigned int>(Random(volume_max - volume_min + 1)) + volume_min;
+            base_volume =
+                static_cast<unsigned int>(Random(volume_max - volume_min + 1)) + volume_min;
         }
 
         glm::mat3 rotation;
@@ -129,8 +133,8 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
 
         srVector3T<float> offset = position - camera_position;
         srVector3T<float> transformed = rotation * offset.glmValue();
-        unsigned int event_volume =
-            static_cast<unsigned int>((g_float_one - camera_offset.Length() / falloff) * base_volume);
+        unsigned int event_volume = static_cast<unsigned int>(
+            (g_float_one - camera_offset.Length() / falloff) * base_volume);
         event_volume = (GetSoundEffectsVolume() * event_volume) / 0x7f;
         if (event_volume != 0) {
 
@@ -150,14 +154,15 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 const auto ground = groundSurfaceInfo(position.glmValue());
                 /* Retail hardcodes the surface to OutdoorsFlat here: the query
                    result that matters for the path is the material. */
-                BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, ground.material, W8_FOOTSTEP_KIND_STEP,
-                                  variant);
+                BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, ground.material,
+                                  W8_FOOTSTEP_KIND_STEP, variant);
                 wave_name = path;
             }
-            sound_handle = wiz8::sound::play(wave_name, {.volume = event_volume,
-                                                         .loops = looping ? 0u : 1u,
-                                                         .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
-                                                         .position = transformed.glmValue()});
+            sound_handle = wiz8::sound::play(
+                wave_name, {.volume = event_volume,
+                            .loops = looping ? 0u : 1u,
+                            .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
+                            .position = transformed.glmValue()});
             if (sound_handle == nullptr) {
                 return false;
             }

@@ -44,8 +44,9 @@ struct QuadRowEdges {
     glm::vec2 step;
 };
 
-static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, int last_row, QuadRowEdges edges,
-                                 bool clip_x, bool skip_boundary, std::vector<glm::ivec2>& cells)
+static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, int last_row,
+                                 QuadRowEdges edges, bool clip_x, bool skip_boundary,
+                                 std::vector<glm::ivec2>& cells)
 {
     if (first_row < 0) {
         edges.position -= float(first_row) * edges.step;
@@ -89,8 +90,9 @@ static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, in
 }
 
 // Scan either a flat edge converging to its tip or a tip fanning out to the edge.
-static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left, glm::ivec2 right, const glm::ivec2& tip,
-                                 bool flat_top, bool skip_boundary, std::vector<glm::ivec2>& cells)
+static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left, glm::ivec2 right,
+                                 const glm::ivec2& tip, bool flat_top, bool skip_boundary,
+                                 std::vector<glm::ivec2>& cells)
 {
     if (right.x < left.x) {
         std::swap(left, right);
@@ -100,17 +102,20 @@ static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left, 
     const glm::ivec2 start = flat_top ? glm::ivec2(left.x, right.x) : glm::ivec2(tip.x);
     const glm::ivec2 end = flat_top ? glm::ivec2(tip.x) : glm::ivec2(left.x, right.x);
     const float height = static_cast<float>(last_row - first_row);
-    const bool clip_x = left.x < 0 || left.x >= dimensions.x || right.x < 0 || right.x >= dimensions.x || tip.x < 0 ||
-                        tip.x >= dimensions.x;
-    return ScanQuadTriangleRows(dimensions, first_row, last_row,
-                                {glm::vec2(start) + glm::vec2(0, 0.5f), glm::vec2(end - start) / height}, clip_x,
-                                skip_boundary, cells);
+    const bool clip_x = left.x < 0 || left.x >= dimensions.x || right.x < 0 ||
+                        right.x >= dimensions.x || tip.x < 0 || tip.x >= dimensions.x;
+    return ScanQuadTriangleRows(
+        dimensions, first_row, last_row,
+        {glm::vec2(start) + glm::vec2(0, 0.5f), glm::vec2(end - start) / height}, clip_x,
+        skip_boundary, cells);
 }
 
-std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions, std::array<glm::ivec2, 3> points)
+std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions,
+                                              std::array<glm::ivec2, 3> points)
 {
     auto& [first, middle, last] = points;
-    if ((first.x == middle.x && middle.x == last.x) || (first.y == middle.y && middle.y == last.y)) {
+    if ((first.x == middle.x && middle.x == last.x) ||
+        (first.y == middle.y && middle.y == last.y)) {
         return {};
     }
     if (middle.y < first.y) {
@@ -128,10 +133,11 @@ std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions, std:
     } else if (middle.y == last.y) {
         ScanQuadTriangleHalf(dimensions, middle, last, first, false, false, cells);
     } else {
-        const int split =
-            static_cast<int>(static_cast<float>(last.x - first.x) * (middle.y - first.y) / (last.y - first.y));
+        const int split = static_cast<int>(static_cast<float>(last.x - first.x) *
+                                           (middle.y - first.y) / (last.y - first.y));
         const glm::ivec2 edge(first.x + split, middle.y);
-        const bool emitted = ScanQuadTriangleHalf(dimensions, edge, middle, first, false, false, cells);
+        const bool emitted =
+            ScanQuadTriangleHalf(dimensions, edge, middle, first, false, false, cells);
         ScanQuadTriangleHalf(dimensions, middle, edge, last, true, emitted, cells);
     }
     return cells;
@@ -143,14 +149,16 @@ std::vector<glm::ivec2> visibleQuadCells(const W8World& world)
 {
     const W8Quad& quad = *world.quads;
     const float cell_size = quad.cell_size;
-    const glm::ivec2 camera_cell(static_cast<int>((world.camera->getLocationX() - quad.origin.x) / cell_size),
-                                 static_cast<int>((world.camera->getLocationZ() - quad.origin.y) / cell_size));
+    const glm::ivec2 camera_cell(
+        static_cast<int>((world.camera->getLocationX() - quad.origin.x) / cell_size),
+        static_cast<int>((world.camera->getLocationZ() - quad.origin.y) / cell_size));
     const auto rotation = world.camera->getRotation<glm::mat3>();
     const auto edge = [&](float angle) {
-        const auto direction =
-            rotation * glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0))) * glm::vec3(0, 0, world.render_range);
-        return camera_cell +
-               glm::ivec2(static_cast<int>(direction.x / cell_size), static_cast<int>(direction.z / cell_size));
+        const auto direction = rotation *
+                               glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0))) *
+                               glm::vec3(0, 0, world.render_range);
+        return camera_cell + glm::ivec2(static_cast<int>(direction.x / cell_size),
+                                        static_cast<int>(direction.z / cell_size));
     };
     const auto left = edge(-g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians);
     const auto right = edge(g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians);
@@ -164,7 +172,8 @@ void UpdateWorldMeshFromQuads(W8World* world)
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x21f, 0);
     }
     if (world->quads == 0) {
-        srAssertFail("pWorld->Tree.pQuads", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x220, 0);
+        srAssertFail("pWorld->Tree.pQuads", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp",
+                     0x220, 0);
     }
     srMeshModel* mesh = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
     W8Quad& quad = *world->quads;

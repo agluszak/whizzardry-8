@@ -102,7 +102,8 @@ srModelViewScope srModelInstance::scopedRenderTransform(srGERD& renderer) const
     }
 }
 
-srModelInstance::RenderScope::RenderScope(const srModelInstance& instance, srGERD& renderer, bool apply_exclusion)
+srModelInstance::RenderScope::RenderScope(const srModelInstance& instance, srGERD& renderer,
+                                          bool apply_exclusion)
     : renderer(renderer), transform(instance.scopedRenderTransform(renderer))
 {
     restore_mask = apply_exclusion && instance.exclusion_mask != 0;
@@ -119,7 +120,8 @@ srModelInstance::RenderScope::~RenderScope()
     }
 }
 
-srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer, bool apply_exclusion) const
+srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer,
+                                                           bool apply_exclusion) const
 {
     return RenderScope(*this, renderer, apply_exclusion);
 }

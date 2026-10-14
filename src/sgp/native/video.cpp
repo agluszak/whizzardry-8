@@ -22,8 +22,8 @@
 
 SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
 {
-    SDL_Window* window =
-        SDL_CreateWindow("Whizzardry 8", std::max(width, 640), std::max(height, 480), SDL_WINDOW_RESIZABLE);
+    SDL_Window* window = SDL_CreateWindow("Whizzardry 8", std::max(width, 640),
+                                          std::max(height, 480), SDL_WINDOW_RESIZABLE);
     if (!window) {
         return nullptr;
     }
@@ -97,7 +97,8 @@ bool W8HasEnoughSaveSpace()
         return false;
     }
     const auto space = std::filesystem::space(root, error);
-    return !error && space.available != static_cast<std::uintmax_t>(-1) && space.available >= 0x10000000;
+    return !error && space.available != static_cast<std::uintmax_t>(-1) &&
+           space.available >= 0x10000000;
 }
 
 int W8ReadProfileInt(const char* path, const char* section, const char* key, int fallback)

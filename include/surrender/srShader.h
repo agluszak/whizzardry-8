@@ -37,7 +37,12 @@ public:
     };
     enum e_fog { FOG_DISABLE = 0, FOG_ENABLE = 1, FOG_SCALE_FRAGMENT = 2, FOG_WHITE = 3 };
     enum e_gradient { GRADIENT_DISABLE = 0, GRADIENT_MODULATE = 1, GRADIENT_ADD = 2 };
-    enum e_srcBlend { SRCBLEND_ZERO = 0, SRCBLEND_ONE = 1, SRCBLEND_SRC_ALPHA = 2, SRCBLEND_ONE_MINUS_SRC_ALPHA = 3 };
+    enum e_srcBlend {
+        SRCBLEND_ZERO = 0,
+        SRCBLEND_ONE = 1,
+        SRCBLEND_SRC_ALPHA = 2,
+        SRCBLEND_ONE_MINUS_SRC_ALPHA = 3
+    };
     enum e_detailColor {
         DETAILCOLOR_DISABLE = 0,
         DETAILCOLOR_DETAIL = 1,
@@ -98,16 +103,19 @@ public:
     /* Packed-field range test. */
     int isValid() const
     {
-        return !(
-            (value & PASS_MASK) > PASS_ALWAYS || (value >> DEPTH_WRITE_SHIFT & 0x1) > 1 ||
-            (value >> COLOR_WRITE_SHIFT & 0x1) > 1 || (value >> DSTBLEND_SHIFT & 0x7) > DSTBLEND_ONE_MINUS_SRC_ALPHA ||
-            (value >> FOG_SHIFT & 0x3) > FOG_WHITE || (value >> GRADIENT_SHIFT & 0x3) > GRADIENT_ADD ||
-            (value >> SECONDARY_GRADIENT_SHIFT & 0x1) > 1 ||
-            (value >> SRCBLEND_SHIFT & 0x3) > SRCBLEND_ONE_MINUS_SRC_ALPHA || (value >> TEXTURING_SHIFT & 0x1) > 1 ||
-            (value >> DETAILCOLOR0_SHIFT & 0xf) > DETAILCOLOR_DETAILBLEND ||
-            (value >> DETAILALPHA0_SHIFT & 0x7) > DETAILALPHA_INVSCALE || (value >> ALPHATEST_SHIFT & 0x1) > 1 ||
-            (value >> DITHER_SHIFT & 0x1) > 1 || (value >> DETAILCOLOR1_SHIFT & 0xf) > DETAILCOLOR_DETAILBLEND ||
-            (value >> DETAILALPHA1_SHIFT & 0x7) > DETAILALPHA_INVSCALE);
+        return !((value & PASS_MASK) > PASS_ALWAYS || (value >> DEPTH_WRITE_SHIFT & 0x1) > 1 ||
+                 (value >> COLOR_WRITE_SHIFT & 0x1) > 1 ||
+                 (value >> DSTBLEND_SHIFT & 0x7) > DSTBLEND_ONE_MINUS_SRC_ALPHA ||
+                 (value >> FOG_SHIFT & 0x3) > FOG_WHITE ||
+                 (value >> GRADIENT_SHIFT & 0x3) > GRADIENT_ADD ||
+                 (value >> SECONDARY_GRADIENT_SHIFT & 0x1) > 1 ||
+                 (value >> SRCBLEND_SHIFT & 0x3) > SRCBLEND_ONE_MINUS_SRC_ALPHA ||
+                 (value >> TEXTURING_SHIFT & 0x1) > 1 ||
+                 (value >> DETAILCOLOR0_SHIFT & 0xf) > DETAILCOLOR_DETAILBLEND ||
+                 (value >> DETAILALPHA0_SHIFT & 0x7) > DETAILALPHA_INVSCALE ||
+                 (value >> ALPHATEST_SHIFT & 0x1) > 1 || (value >> DITHER_SHIFT & 0x1) > 1 ||
+                 (value >> DETAILCOLOR1_SHIFT & 0xf) > DETAILCOLOR_DETAILBLEND ||
+                 (value >> DETAILALPHA1_SHIFT & 0x7) > DETAILALPHA_INVSCALE);
     }
 
     w8_ulong value;

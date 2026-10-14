@@ -33,7 +33,8 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
         return;
     }
     srVector3T<float> noise_position = *position;
-    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
+         ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         W8MonsterInfo* info = FindMonster(group->leader_location_id);
         if (info->p3D->deaf) {
@@ -52,7 +53,8 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
         if (remaining <= 0) {
             continue;
         }
-        if (Random(100) >= remaining * g_float_one_thousandth + record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
+        if (Random(100) >= remaining * g_float_one_thousandth +
+                               record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
             continue;
         }
         if (group->leader_group_id != 0) {
@@ -65,7 +67,8 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
         if (flag == 1 && gXStatus.fCombatMode) {
             float range = static_cast<float>(radius);
             int hops;
-            if (g_octree->TestNoiseLineOfSight(&monster_position, &noise_position, &range, &hops) == 0) {
+            if (g_octree->TestNoiseLineOfSight(&monster_position, &noise_position, &range, &hops) ==
+                0) {
                 continue;
             }
             // Truncate the float move-range to int before scaling, matching retail.

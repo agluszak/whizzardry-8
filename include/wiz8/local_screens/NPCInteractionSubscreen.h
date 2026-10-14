@@ -257,7 +257,8 @@ struct W8NpcInteractionState {
 extern W8NpcInteractionState* g_npc_interaction_state;
 
 void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress);
-void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress, unsigned char arg);
+void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
+                          unsigned char arg);
 void FlushPendingNoticeLines(void);
 /* Zero W8NpcInteractionState, write its reset values, and reload the
    keyword lists through the loader below. */
@@ -282,10 +283,11 @@ void ClearKeywordLists(void);
 void SyncDialogueNpcState(void);
 /* Store a transcript keyword, inferring its category when category is -1. */
 void AddDialogueTranscriptKeyword(std::string_view name, signed char category);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote, int quote_id,
-                              unsigned int font_palette);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote, int quote_id,
-                              unsigned int font_palette, W8QuoteNotice notice, int npc_kind);
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+                              int quote_id, unsigned int font_palette);
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
+                              int npc_kind);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);
@@ -301,7 +303,8 @@ void SyncDialogueNpcStateAndMarkPending(void);
 extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(int party_slot);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
-void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags, unsigned char force);
+void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
+                      unsigned char force);
 void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags);
 void InvalidateMainGameActionPanelRect(const W8ControlsRect* rect);
 void CloseNpcDialogueOptionLayout(void);

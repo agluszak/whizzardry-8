@@ -28,7 +28,8 @@ enum W8GDSurfaceFlags {
     W8_GD_SURFACE_QUERY_VISITED = 0x00002000u,
     W8_GD_SURFACE_SKIP_FILTERED_TRACE = 0x00008000u,
     W8_GD_SURFACE_CROSSING_MASK = W8_GD_SURFACE_CROSSING | W8_GD_SURFACE_ENVIRONMENT,
-    W8_GD_SURFACE_INACTIVE_MASK = W8_GD_SURFACE_COLLISION_PROCESSED | W8_GD_SURFACE_CONDITIONAL_DISABLED
+    W8_GD_SURFACE_INACTIVE_MASK =
+        W8_GD_SURFACE_COLLISION_PROCESSED | W8_GD_SURFACE_CONDITIONAL_DISABLED
 };
 
 /* Axis-aligned minimum/maximum box used by Wizardry's runtime/build geometry.
@@ -84,12 +85,13 @@ struct W8GDSurface {
     std::optional<PlaneContact> segmentContact(const glm::vec3& from, const glm::vec3& direction,
                                                std::span<const glm::vec3, 3> vertices);
     /* Shrink the limit against the nearest edge, if it improves the contact. */
-    std::optional<float> edgeContactLimit(const glm::vec3& point, std::span<const glm::vec3, 3> vertices,
+    std::optional<float> edgeContactLimit(const glm::vec3& point,
+                                          std::span<const glm::vec3, 3> vertices,
                                           float limit) const;
     /* 0x0041DC10: collision response for a hit surface; `origin` is advanced
        to `hit_point` and `direction` is bent along the contact plane. */
-    bool ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point, srVector3T<float>* direction,
-                          int collision_index);
+    bool ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point,
+                          srVector3T<float>* direction, int collision_index);
     /* 0x0041E8E0: whether moving `from` to `to` pushes this surface's
        centroid away from surface `surface_index`'s centroid. */
     bool CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to);
@@ -109,12 +111,14 @@ inline RuntimeTriangle runtimeTriangle(std::span<const srVector3, 3> vertices)
 template<class Indices>
 inline RuntimeTriangle indexedTriangle(std::span<const srVector3> vertices, const Indices& indices)
 {
-    return {vertices[indices[0]].glmValue(), vertices[indices[1]].glmValue(), vertices[indices[2]].glmValue()};
+    return {vertices[indices[0]].glmValue(), vertices[indices[1]].glmValue(),
+            vertices[indices[2]].glmValue()};
 }
 
 /* Unit plane through three vertices. The result is also the plane record
    stored in level geometry; degenerate triangles have a zero normal. */
-inline W8Plane trianglePlane(const glm::vec3& first, const glm::vec3& second, const glm::vec3& third)
+inline W8Plane trianglePlane(const glm::vec3& first, const glm::vec3& second,
+                             const glm::vec3& third)
 {
     const auto plane = srPlaneMath::triangle(first, second, third);
     return {glm::vec3(plane), plane.w};
@@ -189,7 +193,7 @@ inline float SignedPlaneDistance(const W8Plane& plane, const glm::vec3& point)
 
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
 /* Segment intersection projected onto the plane perpendicular to axis. */
-bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end, const glm::vec3& edge_a,
-                        const glm::vec3& edge_b, unsigned int axis);
+bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
+                        const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis);
 
 #endif

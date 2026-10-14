@@ -26,13 +26,15 @@ struct VideoSession {
 using Device = std::unique_ptr<SDL_GPUDevice, decltype(&SDL_DestroyGPUDevice)>;
 Device CreateDevice()
 {
-    Device device{SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, nullptr), SDL_DestroyGPUDevice};
+    Device device{SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, nullptr),
+                  SDL_DestroyGPUDevice};
     INFO(SDL_GetError());
     REQUIRE(device);
     const auto properties = SDL_GetGPUDeviceProperties(device.get());
-    std::printf("GPU device: %s; driver: %s\n",
-                SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown"),
-                SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "unknown"));
+    std::printf(
+        "GPU device: %s; driver: %s\n",
+        SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown"),
+        SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "unknown"));
     return device;
 }
 } // namespace

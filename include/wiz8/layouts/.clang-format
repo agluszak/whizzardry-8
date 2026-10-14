@@ -1,0 +1,5 @@
+# Layout headers annotate each field with a long trailing retail-offset comment.
+# At the project's 100 columns clang-format splits such declarations before the
+# name or array bound; a wider limit keeps each declaration on one line.
+BasedOnStyle: InheritParentConfig
+ColumnLimit: 120

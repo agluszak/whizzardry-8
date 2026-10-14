@@ -40,7 +40,8 @@ InputEvent PointerMotion(SDL_Point point)
     return {.type = InputEventType::MouseMove,
             .modifiers = input.modifiers,
             .position = point,
-            .buttons = (input.left_button ? SDL_BUTTON_LMASK : 0u) | (input.right_button ? SDL_BUTTON_RMASK : 0u)};
+            .buttons = (input.left_button ? SDL_BUTTON_LMASK : 0u) |
+                       (input.right_button ? SDL_BUTTON_RMASK : 0u)};
 }
 } // namespace
 
@@ -90,7 +91,8 @@ struct UiState {
                 }
                 HitTarget* best = nullptr;
                 for (const auto& target : layer->targets_) {
-                    if (target->text_cursor_ != text || !target->enabled_ || !contains(*target, point)) {
+                    if (target->text_cursor_ != text || !target->enabled_ ||
+                        !contains(*target, point)) {
                         continue;
                     }
                     if (!best || target->priority_ > best->priority_) {
@@ -331,7 +333,8 @@ void HitTarget::useTextCursor()
 UiLayer::UiLayer(int order) : order_(order)
 {
     auto& layers = State().layers;
-    const auto pos = std::ranges::upper_bound(layers, order, {}, [](auto* layer) { return layer->order_; });
+    const auto pos =
+        std::ranges::upper_bound(layers, order, {}, [](auto* layer) { return layer->order_; });
     layers.insert(pos, this);
 }
 UiLayer::UiLayer(UiLayerMode mode, int order) : UiLayer(order)
@@ -350,7 +353,8 @@ UiLayer::~UiLayer()
 }
 HitTarget& UiLayer::add(HitShape shape, HitTarget::Handler handler, int priority)
 {
-    auto target = std::unique_ptr<HitTarget>(new HitTarget(*this, shape, std::move(handler), priority));
+    auto target =
+        std::unique_ptr<HitTarget>(new HitTarget(*this, shape, std::move(handler), priority));
     auto& result = *target;
     targets_.push_back(std::move(target));
     return result;
@@ -362,7 +366,8 @@ void UiLayer::retire(std::unique_ptr<HitTarget> target)
 }
 void UiLayer::remove(HitTarget& target)
 {
-    const auto entry = std::ranges::find_if(targets_, [&](const auto& t) { return t.get() == &target; });
+    const auto entry =
+        std::ranges::find_if(targets_, [&](const auto& t) { return t.get() == &target; });
     if (entry == targets_.end()) {
         return;
     }
@@ -493,7 +498,8 @@ bool DispatchUiInput(const InputEvent* input)
     g_ui.pointer = input->position;
 #ifdef WIZ8_RUNTIME_TESTS
     RuntimeObserve(RUNTIME_MOUSE_DISPATCH, input->type,
-                   static_cast<w8_ulong>(input->position.x) | (static_cast<w8_ulong>(input->position.y) << 16),
+                   static_cast<w8_ulong>(input->position.x) |
+                       (static_cast<w8_ulong>(input->position.y) << 16),
                    g_current_screen_state.id);
 #endif
     auto* target = state.live(g_ui.captured) ? g_ui.captured : state.at(input->position);
@@ -607,7 +613,8 @@ bool PumpUiInput(const UiInputPolicy& policy)
             const UiTransaction transaction;
             auto route = policy.before ? policy.before(input) : InputRoute::Pass;
             if (route == InputRoute::Pass) {
-                const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) && DispatchUiInput(&input);
+                const bool consumed =
+                    (!policy.ui_accepts || policy.ui_accepts(input)) && DispatchUiInput(&input);
                 const auto& next = consumed ? policy.consumed : policy.unhandled;
                 route = next ? next(input) : InputRoute::Handled;
             }

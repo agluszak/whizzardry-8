@@ -84,13 +84,16 @@ void SetRenderOption(W8RenderOption option, int enabled)
         }
         break;
     case W8_RENDER_OPTION_TEXTURE_MAG_FILTER:
-        g_gerd->setTextureDefaultMagFilter(enabled ? srTextureIFace::FILTER_BEST : srTextureIFace::FILTER_NONE);
+        g_gerd->setTextureDefaultMagFilter(enabled ? srTextureIFace::FILTER_BEST
+                                                   : srTextureIFace::FILTER_NONE);
         break;
     case W8_RENDER_OPTION_TEXTURE_MIN_FILTER:
-        g_gerd->setTextureDefaultMinFilter(enabled ? srTextureIFace::FILTER_BEST : srTextureIFace::FILTER_NONE);
+        g_gerd->setTextureDefaultMinFilter(enabled ? srTextureIFace::FILTER_BEST
+                                                   : srTextureIFace::FILTER_NONE);
         break;
     case W8_RENDER_OPTION_MIP_MAPPING:
-        g_gerd->setTextureDefaultMipmap(enabled ? srTextureIFace::MIPMAP_BEST : srTextureIFace::MIPMAP_NONE);
+        g_gerd->setTextureDefaultMipmap(enabled ? srTextureIFace::MIPMAP_BEST
+                                                : srTextureIFace::MIPMAP_NONE);
         break;
     case W8_RENDER_OPTION_MESH_SKY:
         g_render_mesh_sky = enabled != 0;

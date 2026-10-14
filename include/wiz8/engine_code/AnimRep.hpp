@@ -19,7 +19,11 @@ enum W8AnimationDirection {
 
 /* Proven frame methods. The serialized domain also accepts four; its
    original name remains unknown. */
-enum W8AnimationFrameMethod { W8_ANIMATION_WRAP = 1, W8_ANIMATION_PING_PONG = 2, W8_ANIMATION_RANDOM_FRAME = 3 };
+enum W8AnimationFrameMethod {
+    W8_ANIMATION_WRAP = 1,
+    W8_ANIMATION_PING_PONG = 2,
+    W8_ANIMATION_RANDOM_FRAME = 3
+};
 
 /* AdvanceAnimationFrame clamps PLAY_ONCE at an endpoint and repeats the other
    two modes. MonsterQuery reports an endpoint as complete for REPEAT; the
@@ -106,8 +110,10 @@ public:
     unsigned short pending_subcycle;
     /* Frame-advance timestamp; GrCycle subtracts it from the current time. */
     unsigned int timer;
-    unsigned char active; /* bool-byte-ok: SetActivationState stores and GetActivationState returns the caller's byte. */
-    unsigned char animation_playing; /* bool-byte-ok: copied directly from file-backed W8AnimObj byte. */
+    unsigned char
+        active; /* bool-byte-ok: SetActivationState stores and GetActivationState returns the caller's byte. */
+    unsigned char
+        animation_playing; /* bool-byte-ok: copied directly from file-backed W8AnimObj byte. */
     /* W8AnimationDirection, retained as a byte in the representation. */
     unsigned char frame_direction;
     /* SetFrameMethod checks the retail DIR_FIRST..DIR_LAST range; endpoint

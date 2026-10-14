@@ -20,16 +20,17 @@ bool copy(const W8NativeVideo::Frame& frame, SDL_Surface* target)
         return false;
     }
     const SDL_PixelFormatDetails* format = SDL_GetPixelFormatDetails(target->format);
-    if (!format || target->w < frame.width || target->h < frame.height || SDL_BYTESPERPIXEL(target->format) != 2 ||
-        format->Rmask != 0x7c00 || format->Gmask != 0x3e0 || format->Bmask != 0x1f) {
+    if (!format || target->w < frame.width || target->h < frame.height ||
+        SDL_BYTESPERPIXEL(target->format) != 2 || format->Rmask != 0x7c00 ||
+        format->Gmask != 0x3e0 || format->Bmask != 0x1f) {
         return false;
     }
     if (!target->pixels) {
         return false;
     }
     for (int y = 0; y < frame.height; ++y) {
-        memcpy(static_cast<unsigned char*>(target->pixels) + y * target->pitch, frame.pixels.data() + y * frame.width,
-               frame.width * 2);
+        memcpy(static_cast<unsigned char*>(target->pixels) + y * target->pitch,
+               frame.pixels.data() + y * frame.width, frame.width * 2);
     }
     return true;
 }

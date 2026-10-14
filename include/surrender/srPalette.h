@@ -20,8 +20,8 @@ public:
     public:
         Quantizer();
         // FUNCTION: SURRENDER 0x10004B40
-        Quantizer(srARGB* colors, w8_long color_count, unsigned char* duplicates, unsigned char red_bits,
-                  unsigned char green_bits, unsigned char blue_bits)
+        Quantizer(srARGB* colors, w8_long color_count, unsigned char* duplicates,
+                  unsigned char red_bits, unsigned char green_bits, unsigned char blue_bits)
         {
             setPalette(colors, color_count, duplicates, red_bits, green_bits, blue_bits);
         }
@@ -29,8 +29,8 @@ public:
         Quantizer(const Quantizer& other) = default;
         // Retail destructor: SURRENDER 0x10004B80 (implicit destruction).
 
-        void setPalette(srARGB* colors, w8_long color_count, unsigned char* duplicates, unsigned char red_bits,
-                        unsigned char green_bits, unsigned char blue_bits);
+        void setPalette(srARGB* colors, w8_long color_count, unsigned char* duplicates,
+                        unsigned char red_bits, unsigned char green_bits, unsigned char blue_bits);
         unsigned char quantize(const srARGB& color);
         unsigned char quantize(unsigned char red, unsigned char green, unsigned char blue);
         void quantize(unsigned char* indices, const srARGB* colors, w8_long color_count);
@@ -107,18 +107,18 @@ public:
         void shiftUp(srARGB& color);
         void reallocColors(w8_long capacity);
 
-        w8_long sample_limit;               /* 0x000 */
-        double sample_factor;            /* 0x008 */
-        w8_long sample_bits;                /* 0x010 */
-        w8_long color_count;                /* 0x014 */
-        w8_long sample_count;               /* 0x018 */
-        w8_long capacity;                   /* 0x01c */
-        w8_long output_palette_size;        /* 0x020 */
+        w8_long sample_limit; /* 0x000 */
+        double sample_factor; /* 0x008 */
+        w8_long sample_bits; /* 0x010 */
+        w8_long color_count; /* 0x014 */
+        w8_long sample_count; /* 0x018 */
+        w8_long capacity; /* 0x01c */
+        w8_long output_palette_size; /* 0x020 */
         unsigned char mask_flags[0x100]; /* 0x024 */
-        srARGB mask_colors[0x100];       /* 0x124 */
+        srARGB mask_colors[0x100]; /* 0x124 */
         std::vector<ColorEntry> colors;
         std::vector<w8_long> links;
-        w8_long buckets[0x8000];            /* 0x52c */
+        w8_long buckets[0x8000]; /* 0x52c */
     };
 
     /* Optimal-palette builder; an octree over the sampled 5-5-5 color space. Level arrays hold
@@ -128,11 +128,11 @@ public:
     public:
         struct PaletteInfo {
             const Sampler::ColorEntry* colors; /* 0x00 */
-            w8_long color_count;                  /* 0x04 */
-            w8_long palette_size;                 /* 0x08 */
-            const srARGB* mask_colors;         /* 0x0c */
-            const unsigned char* mask_flags;   /* 0x10 */
-            w8_long mask_count;                   /* 0x14 */
+            w8_long color_count; /* 0x04 */
+            w8_long palette_size; /* 0x08 */
+            const srARGB* mask_colors; /* 0x0c */
+            const unsigned char* mask_flags; /* 0x10 */
+            w8_long mask_count; /* 0x14 */
         };
 
         static std::shared_ptr<srPalette> createOptimalPalette(const PaletteInfo& info);
@@ -151,25 +151,25 @@ public:
         };
 
         struct Node {
-            double err_min;      /* 0x00 */
-            double err_total;    /* 0x08 */
+            double err_min; /* 0x00 */
+            double err_total; /* 0x08 */
             w8_ulong color; /* 0x10 */
-            srARGB bound_lo;     /* 0x14 */
-            srARGB bound_hi;     /* 0x18 */
-            Leaf* leaves;        /* 0x1c */
-            w8_long leaf_count;     /* 0x20 */
-            Node* parent;        /* 0x24 */
-            Node* children[8];   /* 0x28 */
+            srARGB bound_lo; /* 0x14 */
+            srARGB bound_hi; /* 0x18 */
+            Leaf* leaves; /* 0x1c */
+            w8_long leaf_count; /* 0x20 */
+            Node* parent; /* 0x24 */
+            Node* children[8]; /* 0x28 */
         };
 
         struct LUT {
             float dist_r[0x200]; /* 0x0000 (i-256)^2 * 0.299 */
             float dist_g[0x200]; /* 0x0800 (i-256)^2 * 0.587 */
             float dist_b[0x200]; /* 0x1000 (i-256)^2 * 0.114 */
-            float* r;            /* 0x1800 dist_r biased by (0x100 - red) */
-            float* g;            /* 0x1804 */
-            float* b;            /* 0x1808 */
-            srARGB color;        /* 0x180c */
+            float* r; /* 0x1800 dist_r biased by (0x100 - red) */
+            float* g; /* 0x1804 */
+            float* b; /* 0x1808 */
+            srARGB color; /* 0x180c */
         };
 
         static void findOptimalColor(Node* node, const LUT& lut);
@@ -189,10 +189,12 @@ public:
     SR_DLL_IMPORT w8_long getPaletteSize() const;
     SR_DLL_IMPORT int matchPalette(const srARGB* const colors, w8_long color_count) const;
     SR_DLL_IMPORT unsigned char quantize(const srARGB& color);
-    SR_DLL_IMPORT void quantize(unsigned char* const indices, const srARGB* const colors, w8_long color_count);
+    SR_DLL_IMPORT void quantize(unsigned char* const indices, const srARGB* const colors,
+                                w8_long color_count);
     SR_DLL_IMPORT void releaseQuantizer();
     SR_DLL_IMPORT void setColor(w8_long index, const srARGB& color);
-    SR_DLL_IMPORT void setColors(w8_long destination_index, const srARGB* const colors, w8_long color_count);
+    SR_DLL_IMPORT void setColors(w8_long destination_index, const srARGB* const colors,
+                                 w8_long color_count);
     SR_DLL_IMPORT void update();
 
 public:

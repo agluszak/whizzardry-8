@@ -125,7 +125,8 @@ static void bounds()
     REQUIRE((!box.intersectsSphere({0, 5, 0}, 1))); // Close to a face, outside the corner.
     REQUIRE((!box.intersectsSphere({-2, 5, -4}, -1)));
     REQUIRE((!box.intersectsSphere(glm::vec3(std::numeric_limits<float>::quiet_NaN()), 1)));
-    const auto matrix = glm::translate(glm::mat4(1), glm::vec3(10, 20, 30)) * glm::eulerAngleY(glm::half_pi<float>());
+    const auto matrix = glm::translate(glm::mat4(1), glm::vec3(10, 20, 30)) *
+                        glm::eulerAngleY(glm::half_pi<float>());
     const auto rotated = box.transformed(matrix);
     REQUIRE(close(rotated.minimum, {3, 22, 31}));
     REQUIRE(close(rotated.maximum, {9, 28, 34}));
@@ -191,7 +192,8 @@ static void planes_and_segments()
         REQUIRE(planar_projection.point == glm::vec2(expected_fraction * 4, 0));
     }
     const auto degenerate = srSegmentMath::project(glm::vec3(0, 3, 4), segment_from, segment_from);
-    const auto degenerate_planar = srSegmentMath::project(glm::vec2(0, 3), planar_from, planar_from);
+    const auto degenerate_planar =
+        srSegmentMath::project(glm::vec2(0, 3), planar_from, planar_from);
     REQUIRE(degenerate.distance == 5);
     REQUIRE((degenerate.point == segment_from && degenerate.fraction == 0));
     REQUIRE(degenerate_planar.distance == 3);
@@ -279,8 +281,9 @@ static void camera_and_throw()
     REQUIRE((left.x < 0 && right.x > 0));
     REQUIRE((std::abs(left.y - center.y) < 1e-3f && std::abs(right.y - center.y) < 1e-3f));
     REQUIRE((top.y > center.y && bottom.y < center.y));
-    REQUIRE(close(ItemThrowDirection({0.5f, 0.5f}, glm::mat3(glm::eulerAngleY(glm::half_pi<float>()))),
-                  {center.z, center.y, -center.x}, 0.01f));
+    REQUIRE(
+        close(ItemThrowDirection({0.5f, 0.5f}, glm::mat3(glm::eulerAngleY(glm::half_pi<float>()))),
+              {center.z, center.y, -center.x}, 0.01f));
 }
 
 static void linked_mesh_bounds()
@@ -428,11 +431,12 @@ static void procedural_meshes()
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
         triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices) {
-            REQUIRE(
-                (glm::length(vertex.uv[0] - glm::vec2(vertex.position.x + 0.5f, 0.5f - vertex.position.y)) < 1e-5f));
+            REQUIRE((glm::length(vertex.uv[0] - glm::vec2(vertex.position.x + 0.5f,
+                                                          0.5f - vertex.position.y)) < 1e-5f));
         }
-        const auto normal = glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
-                                       triangle.vertices[2].position - triangle.vertices[0].position);
+        const auto normal =
+            glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
+                       triangle.vertices[2].position - triangle.vertices[0].position);
         REQUIRE((normal.z < 0));
     }
     modeler.autoSmooth(0.3, 1);
@@ -461,8 +465,9 @@ static void procedural_meshes()
         for (const auto& vertex : triangle.vertices) {
             REQUIRE((std::abs(glm::length(vertex.position) - 0.5f) < 1e-5f));
         }
-        const auto normal = glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
-                                       triangle.vertices[2].position - triangle.vertices[0].position);
+        const auto normal =
+            glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
+                       triangle.vertices[2].position - triangle.vertices[0].position);
         REQUIRE((glm::dot(normal, triangle.vertices[0].position) >= -1e-7f));
     }
     srMeshModel sphere(0, 0);
@@ -474,7 +479,8 @@ static void procedural_meshes()
         triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices) {
             const float ring = glm::length(glm::vec2(vertex.position)) - 0.5f;
-            REQUIRE((std::abs(ring * ring + vertex.position.z * vertex.position.z - 0.04f) < 1e-5f));
+            REQUIRE(
+                (std::abs(ring * ring + vertex.position.z * vertex.position.z - 0.04f) < 1e-5f));
         }
     }
     srMeshModel torus(0, 0);
@@ -496,12 +502,13 @@ static void procedural_meshes()
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
         triangle = *modeler.getTriangle(i);
         for (int edge = 0; edge < 3; ++edge) {
-            REQUIRE((glm::distance(triangle.vertices[edge].position, triangle.vertices[(edge + 1) % 3].position) <=
-                     1.10001f));
+            REQUIRE((glm::distance(triangle.vertices[edge].position,
+                                   triangle.vertices[(edge + 1) % 3].position) <= 1.10001f));
         }
-        area += glm::length(glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
-                                       triangle.vertices[2].position - triangle.vertices[0].position)) *
-                0.5;
+        area +=
+            glm::length(glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
+                                   triangle.vertices[2].position - triangle.vertices[0].position)) *
+            0.5;
     }
     REQUIRE((std::abs(area - 2) < 1e-5));
     srMeshModel mesh(0, 0);
@@ -538,8 +545,9 @@ static void procedural_meshes()
             area = 0;
             for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
                 triangle = *modeler.getTriangle(i);
-                area += glm::length(glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
-                                               triangle.vertices[2].position - triangle.vertices[0].position)) *
+                area += glm::length(glm::cross(
+                            triangle.vertices[1].position - triangle.vertices[0].position,
+                            triangle.vertices[2].position - triangle.vertices[0].position)) *
                         0.5;
             }
             REQUIRE((std::abs(area - 3) < 1e-5));
@@ -587,7 +595,8 @@ static void renderer_bounds()
     mesh.vertex_location_count = 7;
     REQUIRE(mesh.isVisible(renderer)); // Small meshes bypass box culling.
 
-    renderer.loadMatrix(glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)), glm::vec3(-2, 3, 4)));
+    renderer.loadMatrix(
+        glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)), glm::vec3(-2, 3, 4)));
     const auto sphere = renderer.eyeSpaceBounds({{2, 3, 4}, 2});
     REQUIRE(sphere.center == glm::vec3(-3, 11, 19));
     REQUIRE(sphere.radius == 8);
@@ -753,7 +762,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     REQUIRE(std::abs(linked_model.getBounds().sphere.radius - std::sqrt(56.0f)) < 1e-5f);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate the cache", "[geometry]")
+TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate the cache",
+                 "[geometry]")
 {
     stMaterial material;
     material.setDiffuse(glm::vec4(.2f, .3f, .4f, .8f));
@@ -833,8 +843,10 @@ TEST_CASE("Empty octree build geometry cleanup", "[geometry]")
     W8OctPreTreeGeometry geometry{};
     geometry.vertex_count = 1;
     geometry.m_polygon_count = 1;
-    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(1, sizeof(W8OctPreTreeVertex)));
-    geometry.m_polygons = static_cast<W8OctRegionPolygon*>(std::calloc(1, sizeof(W8OctRegionPolygon)));
+    geometry.m_vertices =
+        static_cast<W8OctPreTreeVertex*>(std::calloc(1, sizeof(W8OctPreTreeVertex)));
+    geometry.m_polygons =
+        static_cast<W8OctRegionPolygon*>(std::calloc(1, sizeof(W8OctRegionPolygon)));
     geometry.owned = std::malloc(8);
     REQUIRE(geometry.m_vertices);
     REQUIRE(geometry.m_polygons);
@@ -879,20 +891,23 @@ TEST_CASE("Inclusive cell boxes retain order clipping and extreme endpoints", "[
     REQUIRE(cells == std::vector<glm::ivec3>{extreme});
 }
 
-TEST_CASE("Ground shadow projection retains rotated scale center and coordinate axis order", "[geometry][rendering]")
+TEST_CASE("Ground shadow projection retains rotated scale center and coordinate axis order",
+          "[geometry][rendering]")
 {
     const glm::vec3 center(10, 0, 20), vertex(12, 4, 25);
     for (float angle : {0.0f, 0.3f, glm::half_pi<float>()}) {
         const GroundShadowProjection projection(center, 4, 2, angle);
         const auto coordinates = projection.coordinates(vertex);
         const float cosine = std::cos(-angle), sine = std::sin(-angle);
-        const glm::vec2 expected(0.125f * (5 * cosine - 2 * sine) + 0.5f, 0.25f * (2 * sine + 5 * cosine) + 0.5f);
+        const glm::vec2 expected(0.125f * (5 * cosine - 2 * sine) + 0.5f,
+                                 0.25f * (2 * sine + 5 * cosine) + 0.5f);
         REQUIRE(glm::distance(coordinates, expected) < 1e-5f);
         REQUIRE(projection.coordinates(center) == glm::vec2(0.5f));
     }
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Ground polygon queries return owned sorted runs beyond thirty faces",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Ground polygon queries return owned sorted runs beyond thirty faces",
                  "[geometry][octree]")
 {
     W8World world{};
@@ -990,12 +1005,14 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     REQUIRE(tree.locationsInBox({{999, 999, 999}, {0, 0, 0}}, 0).size() == 512);
 }
 
-TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rounding", "[geometry][octree]")
+TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rounding",
+          "[geometry][octree]")
 {
     W8Octree tree(nullptr, nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_node_extent = 100;
-    const std::vector<glm::ivec3> diagonal{{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 1}, {2, 1, 1}, {2, 1, 2}, {2, 2, 2}};
+    const std::vector<glm::ivec3> diagonal{{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 1},
+                                           {2, 1, 1}, {2, 1, 2}, {2, 2, 2}};
     for (int signs = 0; signs < 8; ++signs) {
         glm::vec3 from(25), to(225);
         for (int axis = 0; axis < 3; ++axis) {
@@ -1070,7 +1087,8 @@ TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rou
     REQUIRE(visited.front().x == 0);
 }
 
-TEST_CASE("Build-tree queries own uncapped ordered results and independent state", "[geometry][octree]")
+TEST_CASE("Build-tree queries own uncapped ordered results and independent state",
+          "[geometry][octree]")
 {
     W8OctBuildTree tree(1000, std::nullopt, 16, 0);
     REQUIRE(tree.queryAlongSegment({0, 0, 0}, {0, 0, 0}, 1, 3).empty());
@@ -1122,7 +1140,8 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
     REQUIRE((surfaces[0].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
 }
 
-TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets", "[geometry][octree]")
+TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets",
+          "[geometry][octree]")
 {
     W8Octree tree(nullptr, nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
@@ -1161,7 +1180,8 @@ TEST_CASE("Build bounds expand locally and region cells share typed boxes", "[ge
     REQUIRE(child.GetClippedBounds().maximum == tree.spatial.GetClippedBounds().maximum);
 }
 
-TEST_CASE("Spatial bounds are independent snapshots of working and clipped extents", "[geometry][octree]")
+TEST_CASE("Spatial bounds are independent snapshots of working and clipped extents",
+          "[geometry][octree]")
 {
     W8OctSpatialState state;
     const srVector3 minimum(-30, -20, -10), maximum(10, 20, 30);
@@ -1245,7 +1265,8 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
     REQUIRE(glm::length(bounds.maximum - glm::vec2(0.875f)) < 1e-6f);
 }
 
-TEST_CASE("Representation transform queries preserve local and parent coordinates", "[geometry][transform]")
+TEST_CASE("Representation transform queries preserve local and parent coordinates",
+          "[geometry][transform]")
 {
     W8AnimRepBase rep;
     rep.parent_location = {10, 20, 30};
@@ -1268,7 +1289,8 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
     REQUIRE(local_copy == local);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Navigator releases replaced and cleared paths", "[geometry][navigation]")
+TEST_CASE_METHOD(SurRenderTestFixture, "Navigator releases replaced and cleared paths",
+                 "[geometry][navigation]")
 {
     struct TrackedPath : W8PathAI {
         explicit TrackedPath(int& releases) : releases(releases) {}
@@ -1345,7 +1367,8 @@ struct SharedClock {
 };
 } // namespace
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Prop position and delta queries preserve animation stepping",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Prop position and delta queries preserve animation stepping",
                  "[geometry][animation]")
 {
     SharedClock shared_clock;
@@ -1397,7 +1420,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
         mesh->frame_count = 1;
         mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
         mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
-        mesh->meshes.push_back(std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
+        mesh->meshes.push_back(
+            std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*path, srVector3(100, 200, 300));
@@ -1430,7 +1454,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
     }
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds aggregate frames without changing the current frame",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Prop bounds aggregate frames without changing the current frame",
                  "[geometry][animation]")
 {
     SharedClock shared_clock;
@@ -1439,8 +1464,9 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds aggregate frames without cha
     auto& animation = *prop.Rep()->animation;
     animation.path_lists = true;
     animation.frame_count = 3;
-    animation.frame_bounds = {
-        {true, {-4, -2, -8}, {3, 5, 6}}, {true, {-1, -9, -3}, {12, 2, 5}}, {true, {-3, -5, -6}, {4, 8, 9}}};
+    animation.frame_bounds = {{true, {-4, -2, -8}, {3, 5, 6}},
+                              {true, {-1, -9, -3}, {12, 2, 5}},
+                              {true, {-3, -5, -6}, {4, 8, 9}}};
     prop.Rep()->subcycle = 1;
     const auto center = prop.GetCenterPosition();
     REQUIRE(center);
@@ -1459,7 +1485,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds aggregate frames without cha
     REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Monster bounds scale and translate independent optional values",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Monster bounds scale and translate independent optional values",
                  "[geometry][animation]")
 {
     W8AnimObj animation;
@@ -1547,19 +1574,23 @@ TEST_CASE("Software backface selection preserves thresholds and active order", "
     mesh.poly_vertices = triangles.data();
     const auto positive = stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0);
     REQUIRE(positive == std::vector<w8_ulong>{0, 2});
-    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), false, 0) == std::vector<w8_ulong>{0, 1});
-    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 1) == std::vector<w8_ulong>{2});
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), false, 0) ==
+            std::vector<w8_ulong>{0, 1});
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 1) ==
+            std::vector<w8_ulong>{2});
     std::array<w8_ulong, 4> active{2, 1, 0, 2};
     mesh.active_polygons = std::span<const w8_ulong>(active);
-    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0) == std::vector<w8_ulong>{2, 0, 2});
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0) ==
+            std::vector<w8_ulong>{2, 0, 2});
     REQUIRE(positive == std::vector<w8_ulong>{0, 2});
     mesh.active_polygons = std::span<const w8_ulong>{};
     REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Clip plane normalization preserves consumer transform ordering and degenerate planes",
-                 "[geometry][rendering]")
+TEST_CASE_METHOD(
+    SurRenderTestFixture,
+    "Clip plane normalization preserves consumer transform ordering and degenerate planes",
+    "[geometry][rendering]")
 {
     srGERD renderer(srCreateSDLGPUDevice(), "clip plane ordering");
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -1570,12 +1601,15 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(renderer.getClipPlanes().planes[6] == glm::vec4(0.5f, 0, 0, -1));
     renderer.popClipPlane();
     // The CPU culler normalizes after its supplied covector transform.
-    const auto plane = srTriangleCuller::transformClipPlane({2, 0, 0, -2}, glm::transpose(glm::inverse(scale)));
+    const auto plane =
+        srTriangleCuller::transformClipPlane({2, 0, 0, -2}, glm::transpose(glm::inverse(scale)));
     REQUIRE(plane == glm::vec4(1, 0, 0, -2));
-    REQUIRE(srTriangleCuller::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) == glm::vec4(0, 0, 0, 4));
+    REQUIRE(srTriangleCuller::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) ==
+            glm::vec4(0, 0, 0, 4));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission", "[geometry]")
+TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission",
+                 "[geometry]")
 {
     srGERD renderer(srCreateSDLGPUDevice(), "empty software selection");
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
@@ -1594,11 +1628,13 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     model.RenderTriMeshWithEquations(renderer, mesh, normals);
     REQUIRE(pipeline->triangle_count == before);
     mesh.polygon_count = 2;
-    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals), std::invalid_argument);
+    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals),
+                      std::invalid_argument);
     REQUIRE(pipeline->triangle_count == before);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Failed mesh materials release renderer and restore enable flags", "[geometry]")
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Failed mesh materials release renderer and restore enable flags", "[geometry]")
 {
     class FailingMaterial : public srMaterial {
     public:
@@ -1616,7 +1652,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Failed mesh materials release renderer a
     renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
     srMeshModel native(1, 3);
     stMeshModel extended(1, 3);
-    std::array<glm::vec3, 3> positions{{{-0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, 0.5f}, {0, 0.5f, 0.5f}}};
+    std::array<glm::vec3, 3> positions{
+        {{-0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, 0.5f}, {0, 0.5f, 0.5f}}};
     std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     std::array<glm::vec4, 1> equations{{{0, 0, 1, -0.5f}}};
     const std::array<glm::vec3, 1> normals{{{0, 0, -1}}};
@@ -1629,12 +1666,14 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Failed mesh materials release renderer a
     mesh.poly_equations = equations.data();
     mesh.bounds_center = {0, 0, 0.5f};
     mesh.bounds_radius = 1;
-    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) | (1u << srMeshModel::CONTROL_NO_FRONT_CULL) |
+    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) |
+                         (1u << srMeshModel::CONTROL_NO_FRONT_CULL) |
                          (1u << srMeshModel::CONTROL_SORTED_RENDERING);
     mesh.materials[0][0] = std::make_shared<FailingMaterial>();
     for (bool software : {false, true}) {
         if (software) {
-            REQUIRE_THROWS_AS(extended.RenderTriMeshWithEquations(renderer, mesh, normals), std::runtime_error);
+            REQUIRE_THROWS_AS(extended.RenderTriMeshWithEquations(renderer, mesh, normals),
+                              std::runtime_error);
         } else {
             REQUIRE_THROWS_AS(native.renderTriMesh(renderer, mesh), std::runtime_error);
         }
@@ -1721,7 +1760,8 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
     REQUIRE(!surfaceTriangle(indices));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering", "[geometry]")
+TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering",
+                 "[geometry]")
 {
     struct RestoreClock {
         srClock* previous = g_shared_timer_base;
@@ -1778,8 +1818,15 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")
 {
     const srBoundingBox bounds{{1, 2, 3}, {5, 8, 13}};
-    const std::array<glm::vec3, 9> expected{
-        {{3, 5, 8}, {5, 8, 13}, {1, 2, 3}, {1, 8, 13}, {1, 8, 3}, {5, 8, 3}, {5, 2, 13}, {1, 2, 13}, {5, 2, 3}}};
+    const std::array<glm::vec3, 9> expected{{{3, 5, 8},
+                                             {5, 8, 13},
+                                             {1, 2, 3},
+                                             {1, 8, 13},
+                                             {1, 8, 3},
+                                             {5, 8, 3},
+                                             {5, 2, 13},
+                                             {1, 2, 13},
+                                             {5, 2, 3}}};
     REQUIRE(bounds.visibilitySamples() == expected);
     const auto reversed = srBoundingBox{bounds.maximum, bounds.minimum}.visibilitySamples();
     REQUIRE(reversed[0] == expected[0]);
@@ -1829,7 +1876,8 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
     REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and light-bank rules", "[geometry]")
+TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and light-bank rules",
+                 "[geometry]")
 {
     struct RestoreLighting {
         glm::vec3 offset = g_environment_offset;
@@ -1860,8 +1908,9 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and 
     }
     const auto base = mesh.getTriMesh();
     for (unsigned vertex = 0; vertex < 4; ++vertex) {
-        REQUIRE(close(base.dig[0][vertex],
-                      (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + g_environment_offset) * 2.0f));
+        REQUIRE(close(base.dig[0][vertex], (glm::vec3(1, 0.75f, 4) * sunlight[vertex] +
+                                            lights[vertex] + g_environment_offset) *
+                                               2.0f));
     }
 
     auto* materials = mesh.getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
@@ -1874,7 +1923,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and 
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex) {
         REQUIRE(close(mixed.dig[0][vertex],
-                      (ambient[vertex] * sunlight[vertex] + lights[vertex] + g_environment_offset) * 2.0f));
+                      (ambient[vertex] * sunlight[vertex] + lights[vertex] + g_environment_offset) *
+                          2.0f));
     }
 
     mesh.vertex_light_table = 1;
@@ -1892,11 +1942,13 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and 
     REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weighting across shade seams",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Static and frame normals share area weighting across shade seams",
                  "[geometry][mesh]")
 {
     stMeshModel mesh(3, 5);
-    const std::array<glm::vec3, 5> positions{{{0, 0, 0}, {2, 0, 0}, {0, 3, 0}, {0, 0, 4}, {0, 0, 0}}};
+    const std::array<glm::vec3, 5> positions{
+        {{0, 0, 0}, {2, 0, 0}, {0, 3, 0}, {0, 0, 4}, {0, 0, 0}}};
     std::ranges::copy(positions, mesh.getVertexLoc());
     const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {4, 3, 1}, {2, 2, 2}}};
     std::ranges::copy(triangles, mesh.getPolyVertex());
@@ -1939,7 +1991,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weig
     REQUIRE(short_destination[0] == glm::vec3(99));
 }
 
-TEST_CASE("Region geometry preserves octant order and point versus box boundaries", "[geometry][octree]")
+TEST_CASE("Region geometry preserves octant order and point versus box boundaries",
+          "[geometry][octree]")
 {
     OctBuildPreTree tree(1, std::nullopt, 16, 0, 0);
     auto& points = tree.particle_regions.regions;
@@ -1972,13 +2025,14 @@ TEST_CASE("Region geometry preserves octant order and point versus box boundarie
     tree.spatial.m_level_kind = 1;
     W8OctSpatialState child(&tree.spatial);
     std::vector<unsigned> order;
-    visitBuildChildren(tree.spatial, child, [&](const W8OctSpatialState& candidate, unsigned octant) {
-        order.push_back(octant);
-        REQUIRE(candidate.m_root->region == octant + 1);
-        const glm::vec3 minimum(octant >> 2, (octant >> 1) & 1, octant & 1);
-        REQUIRE(candidate.bounds().minimum == minimum);
-        REQUIRE(candidate.bounds().maximum == minimum + 1.0f);
-    });
+    visitBuildChildren(tree.spatial, child,
+                       [&](const W8OctSpatialState& candidate, unsigned octant) {
+                           order.push_back(octant);
+                           REQUIRE(candidate.m_root->region == octant + 1);
+                           const glm::vec3 minimum(octant >> 2, (octant >> 1) & 1, octant & 1);
+                           REQUIRE(candidate.bounds().minimum == minimum);
+                           REQUIRE(candidate.bounds().maximum == minimum + 1.0f);
+                       });
     REQUIRE(order == std::vector<unsigned>{0, 1, 2, 3, 4, 5, 6, 7});
     std::array<W8OctRegionVolume, 3> volumes{};
     volumes[1].m_region = 11;
@@ -2010,7 +2064,8 @@ public:
 };
 } // namespace
 
-TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled descent", "[geometry][rendering]")
+TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled descent",
+          "[geometry][rendering]")
 {
     SurRenderTestFixture runtime;
     const auto check = []<class Effect>() {
@@ -2057,7 +2112,8 @@ TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled
     check.template operator()<srLight>();
 }
 
-TEST_CASE("Wizardry light inactivity and missing definitions have distinct traversal policies", "[geometry][rendering]")
+TEST_CASE("Wizardry light inactivity and missing definitions have distinct traversal policies",
+          "[geometry][rendering]")
 {
     SurRenderTestFixture runtime;
     struct RestoreFlags {
@@ -2099,7 +2155,8 @@ TEST_CASE("Wizardry light inactivity and missing definitions have distinct trave
     REQUIRE(info.entries[2].node == &light);
 }
 
-TEST_CASE("Frustum corner ordering preserves every point and shares point sphere and box tests", "[geometry][frustum]")
+TEST_CASE("Frustum corner ordering preserves every point and shares point sphere and box tests",
+          "[geometry][frustum]")
 {
     const srBoundingBox box{glm::vec3(-1), glm::vec3(1)};
     std::array<glm::vec3, 8> shuffled;
@@ -2161,7 +2218,8 @@ TEST_CASE("Octree mesh links own bounded runs and mark one-based object ids", "[
     REQUIRE_FALSE(visible[0]);
 }
 
-TEST_CASE("Region link builders return independent packed runs and enforce disk limits", "[geometry][octree]")
+TEST_CASE("Region link builders return independent packed runs and enforce disk limits",
+          "[geometry][octree]")
 {
     OctRegionObjectLinks particles, props;
     particles.always_visible = {2};
@@ -2192,7 +2250,8 @@ TEST_CASE("Region link builders return independent packed runs and enforce disk 
     REQUIRE(particles.packedLinks(3).records == std::vector<unsigned short>{0});
 }
 
-TEST_CASE("Build surface collections own results preserve order and exceed old scratch limits", "[geometry][octree]")
+TEST_CASE("Build surface collections own results preserve order and exceed old scratch limits",
+          "[geometry][octree]")
 {
     std::array<int, 3> surfaces{1, 2, 3};
     W8OctBuildNode leaf;
@@ -2214,7 +2273,8 @@ TEST_CASE("Build surface collections own results preserve order and exceed old s
     std::array<void*, 5> stored{&surfaces[2], &surfaces[1], &surfaces[2], &surfaces[0], nullptr};
     leaf.surface_arrays[2] = stored.data();
     REQUIRE(leaf.storedSurfaces(2) == std::vector<void*>{&surfaces[2], &surfaces[1], &surfaces[0]});
-    REQUIRE(collected[0] == &surfaces[0]); // Subsequent collection does not overwrite a prior result.
+    REQUIRE(collected[0] ==
+            &surfaces[0]); // Subsequent collection does not overwrite a prior result.
     leaf.surface_arrays[2] = nullptr;
     std::vector<int> many(11000);
     std::vector<W8OctBuildLink> many_links(many.size());
@@ -2238,7 +2298,8 @@ TEST_CASE("Build surface collections own results preserve order and exceed old s
     root.children[0]->links[2] = root.children[7]->links[2] = nullptr;
 }
 
-TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independent offsets", "[geometry][octree]")
+TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independent offsets",
+          "[geometry][octree]")
 {
     OctPreTree tree;
     tree.m_spatial.m_depth = 0;
@@ -2275,7 +2336,8 @@ TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independ
     REQUIRE(leaf.surface_arrays[3] == nullptr);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds return complete boxes and register inclusive octree cells",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Prop bounds return complete boxes and register inclusive octree cells",
                  "[geometry][octree]")
 {
     GDProp empty;
@@ -2317,7 +2379,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds return complete boxes and re
     REQUIRE(endpoints.maximum.z == 20);
 }
 
-TEST_CASE("Conditional path prop links share matching while retaining blocker flags", "[geometry][octree]")
+TEST_CASE("Conditional path prop links share matching while retaining blocker flags",
+          "[geometry][octree]")
 {
     OctPreTree tree;
     std::array<GDPreProp, 2> meshes;
@@ -2349,8 +2412,9 @@ TEST_CASE("Conditional path prop links share matching while retaining blocker fl
     REQUIRE(links.empty());
 }
 
-TEST_CASE("Conditional prop channels grow independently and path cells return coordinates with keys",
-          "[geometry][octree]")
+TEST_CASE(
+    "Conditional prop channels grow independently and path cells return coordinates with keys",
+    "[geometry][octree]")
 {
     GDProp prop;
     for (unsigned index = 1; index <= 35; ++index) {
@@ -2380,7 +2444,8 @@ TEST_CASE("Conditional prop channels grow independently and path cells return co
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
 }
 
-TEST_CASE("Region merging rekeys every member and weights GLM centers by cell population", "[geometry][octree]")
+TEST_CASE("Region merging rekeys every member and weights GLM centers by cell population",
+          "[geometry][octree]")
 {
     OctBuildPreTree tree(1, std::nullopt, 16, 8, 0);
     tree.spatial.m_root = new W8OctBuildNode;
@@ -2412,7 +2477,8 @@ TEST_CASE("Region merging rekeys every member and weights GLM centers by cell po
     REQUIRE(independent.region_centers.empty());
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Mesh permutations keep GLM channels corners shades and active polygons aligned",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Mesh permutations keep GLM channels corners shades and active polygons aligned",
                  "[geometry][rendering]")
 {
     srMeshModel mesh(2, 3);
@@ -2477,7 +2543,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Mesh permutations keep GLM channels corn
     REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Model-view scopes reject overflow without taking another scope's stack entry",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Model-view scopes reject overflow without taking another scope's stack entry",
                  "[geometry][rendering]")
 {
     srGERD renderer(srCreateSDLGPUDevice(), "matrix scope overflow");
@@ -2497,7 +2564,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model-view scopes reject overflow withou
     }
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Linked main and highlight draws share the instance termination boundary",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Linked main and highlight draws share the instance termination boundary",
                  "[geometry][rendering]")
 {
     struct ProbeMesh : stMeshModel {
@@ -2544,7 +2612,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Linked main and highlight draws share th
     REQUIRE(renderer.getAmbientLight() == ambient);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Failed instance materials restore picking lighting and material overrides",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Failed instance materials restore picking lighting and material overrides",
                  "[geometry][rendering]")
 {
     struct FailingMaterial : srMaterial {
@@ -2591,7 +2660,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Failed instance materials restore pickin
     REQUIRE(pick->triangle_index == 7);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms before returning or traversing children",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Bounds rejection restores transforms before returning or traversing children",
                  "[geometry][rendering]")
 {
     struct Child : srNode {
@@ -2616,9 +2686,10 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms bef
     srNode::TraverseInfo info;
     info.renderer = &renderer;
     const auto view = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
-    const std::array<srNode::BoundInfo, 3> bounds{{{{-3, -1, -1}, {-2, 1, 1}, {-3, 0, 0}, 0.1f, 1}, // Sphere rejection.
-                                                   {{-3, -1, -1}, {-2, 1, 1}, {0, 0, 0}, 4, 1}, // Box rejection.
-                                                   {{0, -1, -1}, {1, 1, 1}, {0.5f, 0, 0}, 1, 1}}};
+    const std::array<srNode::BoundInfo, 3> bounds{
+        {{{-3, -1, -1}, {-2, 1, 1}, {-3, 0, 0}, 0.1f, 1}, // Sphere rejection.
+         {{-3, -1, -1}, {-2, 1, 1}, {0, 0, 0}, 4, 1}, // Box rejection.
+         {{0, -1, -1}, {1, 1, 1}, {0.5f, 0, 0}, 1, 1}}};
     for (std::size_t i = 0; i < bounds.size(); ++i) {
         bounder.setBounds(bounds[i]);
         child.visited = false;
@@ -2632,7 +2703,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms bef
     renderer.popClipPlane();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transforms and exclusions after a failed draw",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Model render scopes restore GLM transforms and exclusions after a failed draw",
                  "[geometry][rendering]")
 {
     struct Probe : srModel {
@@ -2669,7 +2741,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transfor
             model->fail = fail;
             const srNode::ProcessInfo info{&renderer};
             if (fail) {
-                REQUIRE_THROWS_AS(instance.process(info, srNode::PROCESS_RENDER), std::runtime_error);
+                REQUIRE_THROWS_AS(instance.process(info, srNode::PROCESS_RENDER),
+                                  std::runtime_error);
             } else {
                 instance.process(info, srNode::PROCESS_RENDER);
             }
@@ -2682,16 +2755,17 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transfor
     }
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Material vertex splits preserve first-face attributes without a fixed scratch limit",
-                 "[geometry][rendering]")
+TEST_CASE_METHOD(
+    SurRenderTestFixture,
+    "Material vertex splits preserve first-face attributes without a fixed scratch limit",
+    "[geometry][rendering]")
 {
     constexpr unsigned materials = 80;
     constexpr unsigned faces_count = 120;
     W8OctPreTreeGeometry geometry{};
     geometry.vertex_count = 5; // Three used vertices and one unused vertex after the sentinel.
-    geometry.m_vertices =
-        static_cast<W8OctPreTreeVertex*>(std::calloc(geometry.vertex_count, sizeof(W8OctPreTreeVertex)));
+    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(
+        std::calloc(geometry.vertex_count, sizeof(W8OctPreTreeVertex)));
     REQUIRE(geometry.m_vertices);
     struct ReleaseVertices {
         W8OctPreTreeGeometry& geometry;
@@ -2741,7 +2815,8 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     }
 }
 
-TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit state", "[geometry][octree]")
+TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit state",
+          "[geometry][octree]")
 {
     W8OctreeTrace trace;
     REQUIRE(trace.start == glm::vec3(0));
@@ -2761,13 +2836,16 @@ TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit 
     REQUIRE(trace.state == 0);
 }
 
-TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalized attributes", "[geometry][octree]")
+TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalized attributes",
+          "[geometry][octree]")
 {
     W8OctPreTreeGeometry geometry{};
     geometry.vertex_count = 7;
     geometry.m_polygon_count = 4;
-    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(7, sizeof(W8OctPreTreeVertex)));
-    geometry.m_polygons = static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
+    geometry.m_vertices =
+        static_cast<W8OctPreTreeVertex*>(std::calloc(7, sizeof(W8OctPreTreeVertex)));
+    geometry.m_polygons =
+        static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
     struct ReleaseGeometry {
         W8OctPreTreeGeometry& geometry;
         ~ReleaseGeometry()
@@ -2790,7 +2868,8 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
     geometry.m_vertices[3].m_vertex_index = 1;
     geometry.m_vertices[5].flags = W8OctPreTreeVertex::EXCLUDED;
     geometry.m_vertices[5].m_vertex_index = 3;
-    constexpr std::array<std::array<unsigned, 3>, 3> source_corners{{{1, 3, 2}, {2, 4, 2}, {5, 6, 2}}};
+    constexpr std::array<std::array<unsigned, 3>, 3> source_corners{
+        {{1, 3, 2}, {2, 4, 2}, {5, 6, 2}}};
     for (unsigned face = 1; face < 4; ++face) {
         auto& polygon = geometry.m_polygons[face];
         polygon.ordinal = face + 10;
@@ -2824,7 +2903,8 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
     }
 }
 
-TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies", "[geometry]")
+TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",
+          "[geometry]")
 {
     std::array<W8GDSurface, 6> surfaces{};
     for (int index = 0; index < 6; ++index) {
@@ -2903,8 +2983,10 @@ TEST_CASE("Octree build cleanup frees shared runs and retains the reserved recor
 {
     W8OctPreTreeGeometry geometry{};
     geometry.vertex_count = geometry.m_polygon_count = 4;
-    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(4, sizeof(W8OctPreTreeVertex)));
-    geometry.m_polygons = static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
+    geometry.m_vertices =
+        static_cast<W8OctPreTreeVertex*>(std::calloc(4, sizeof(W8OctPreTreeVertex)));
+    geometry.m_polygons =
+        static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
     REQUIRE(geometry.m_vertices);
     REQUIRE(geometry.m_polygons);
     int sentinel = 0;
@@ -2925,7 +3007,8 @@ TEST_CASE("Octree build cleanup frees shared runs and retains the reserved recor
     geometry.Release();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "octree camera snapshots use native basis columns and plane coefficients",
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "octree camera snapshots use native basis columns and plane coefficients",
                  "[geometry]")
 {
     srCamera camera;
@@ -2977,17 +3060,23 @@ TEST_CASE("Projected triangle queries retain visibility and collision boundary r
             return result;
         };
         const std::array triangle{point(0, 0), point(2, 0), point(0, 2)};
-        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::visibility));
-        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::collision));
-        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::visibility));
+        REQUIRE(
+            srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::visibility));
+        REQUIRE(
+            srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::collision));
+        REQUIRE_FALSE(
+            srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::visibility));
         REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::collision));
         REQUIRE(srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::visibility));
-        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::collision));
-        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(3, 3), Boundary::collision));
+        REQUIRE_FALSE(
+            srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::collision));
+        REQUIRE_FALSE(
+            srTriangleProjection::contains(triangle, axis, point(3, 3), Boundary::collision));
     }
 }
 
-TEST_CASE("Surface contacts return positions distances and edge limits without output parameters", "[geometry]")
+TEST_CASE("Surface contacts return positions distances and edge limits without output parameters",
+          "[geometry]")
 {
     const std::array<glm::vec3, 3> triangle{{{0, 0, 0}, {0, 2, 0}, {0, 0, 2}}};
     W8GDSurface surface{};
@@ -3050,16 +3139,19 @@ TEST_CASE("Placement grids rotate candidate cells and retain ground height bands
     REQUIRE_FALSE(grounded({1, 5001, 3}, 0, true));
 }
 
-TEST_CASE("Camera motion inputs retain key ordering vertical gates and total speed limits", "[geometry]")
+TEST_CASE("Camera motion inputs retain key ordering vertical gates and total speed limits",
+          "[geometry]")
 {
-    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_BACKWARD, {0, 0, 10}, 5, 10, true, true) ==
-            glm::vec3(0, 0, 5));
-    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_STRAFE_RIGHT, {-10, 0, 0}, 5, 10, true,
-                              true) == glm::vec3(-5, 0, 0));
-    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_UP, {0, 3, 0}, 5, 10, false, true) == glm::vec3(0, 3, 0));
-    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_DOWN, {0, 3, 0}, 5, 10, true, false) == glm::vec3(0, 3, 0));
-    const auto diagonal =
-        cameraMotionInput(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_STRAFE_RIGHT, {0, 0, 0}, 10, 10, true, true);
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_BACKWARD, {0, 0, 10}, 5,
+                              10, true, true) == glm::vec3(0, 0, 5));
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_STRAFE_RIGHT,
+                              {-10, 0, 0}, 5, 10, true, true) == glm::vec3(-5, 0, 0));
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_UP, {0, 3, 0}, 5, 10, false, true) ==
+            glm::vec3(0, 3, 0));
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_DOWN, {0, 3, 0}, 5, 10, true, false) ==
+            glm::vec3(0, 3, 0));
+    const auto diagonal = cameraMotionInput(
+        W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_STRAFE_RIGHT, {0, 0, 0}, 10, 10, true, true);
     REQUIRE(std::abs(glm::length(diagonal) - 10) < 1e-5f);
     REQUIRE(std::abs(diagonal.x - diagonal.z) < 1e-5f);
 }
@@ -3085,7 +3177,8 @@ TEST_CASE("Camera rotation and movement share the level motion flag policy", "[g
             W8_CAMERA_MOTION_LOOK_UP);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initialized values", "[geometry]")
+TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initialized values",
+                 "[geometry]")
 {
     const struct RestoreRuntime {
         W8EnvironRecord* environ = g_environ;
@@ -3121,5 +3214,6 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initi
     REQUIRE(motion.displacement == glm::vec3(0));
     g_level_motion_resume_pending = true;
     g_game_time_accumulator->m_flags.raw_time = true;
-    REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement == glm::vec3(0));
+    REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
+            glm::vec3(0));
 }

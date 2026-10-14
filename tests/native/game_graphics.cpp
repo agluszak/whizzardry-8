@@ -84,7 +84,8 @@ TEST_CASE("game graphics")
     REQUIRE(pipeline);
     pipeline->Flush();
     const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
-    auto image_object = g_image_assets.sprites(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
+    auto image_object =
+        g_image_assets.sprites(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
     REQUIRE(image_object);
     DrawSprite(GetFrameBufferSurface(), *image_object, 0, 0, 0);
     const auto& framebuffer = GetFrameBufferSurface();
@@ -132,28 +133,31 @@ TEST_CASE("game graphics")
                 ++colored;
                 int r = ((original >> 10) & 31) * 255 / 31, g = ((original >> 5) & 31) * 255 / 31,
                     b = (original & 31) * 255 / 31;
-                if (abs(int((value >> 16) & 255) - r) <= 8 && abs(int((value >> 8) & 255) - g) <= 8 &&
-                    abs(int(value & 255) - b) <= 8) {
+                if (abs(int((value >> 16) & 255) - r) <= 8 &&
+                    abs(int((value >> 8) & 255) - g) <= 8 && abs(int(value & 255) - b) <= 8) {
                     ++matched;
                 }
             }
         }
     }
     if (const char* output_path = SDL_getenv("WIZ8_GRAPHICS_OUTPUT")) {
-        auto output = wiz8::open_host_file(wiz8::path_from_utf8(output_path), wiz8::OpenMode::replace);
+        auto output =
+            wiz8::open_host_file(wiz8::path_from_utf8(output_path), wiz8::OpenMode::replace);
         REQUIRE(output);
         output->write("P6\n640 480\n255\n", 15);
         for (int y = 0; y < 480; ++y) {
             for (int x = 0; x < 640; ++x) {
                 unsigned v = buffer->getPixel(x, y);
-                unsigned char rgb[] = {std::uint8_t(v >> 16), std::uint8_t(v >> 8), std::uint8_t(v)};
+                unsigned char rgb[] = {std::uint8_t(v >> 16), std::uint8_t(v >> 8),
+                                       std::uint8_t(v)};
                 output->write(rgb, 3);
             }
         }
         output->close();
     }
     g_gerd->unlockBuffer();
-    printf("retail STI: %u colored pixels, %u match CPU RGB555 within 8 levels\n", colored, matched);
+    printf("retail STI: %u colored pixels, %u match CPU RGB555 within 8 levels\n", colored,
+           matched);
     REQUIRE((colored > 100 && matched == colored));
     printf("retail cursor: %u GPU pixels\n", cursor_pixels);
     REQUIRE(cursor_pixels > 5);
@@ -172,7 +176,7 @@ TEST_CASE("game graphics")
         movie.SetTarget(BeginVideoPresentation());
         REQUIRE(movie.Open(movie_path, 0));
         REQUIRE(!movie.UpdateFrame());
-            // The actual presentation surface reaches GPU output; the game primary stays intact.
+        // The actual presentation surface reaches GPU output; the game primary stays intact.
         RenderFrame();
         buffer = g_gerd->lockBuffer();
         REQUIRE(buffer);
@@ -183,11 +187,13 @@ TEST_CASE("game graphics")
                 unsigned actual = buffer->getPixel(x, y);
                 int r = ((original >> 10) & 31) * 255 / 31, g = ((original >> 5) & 31) * 255 / 31,
                     b = (original & 31) * 255 / 31;
-                if (abs(int((actual >> 16) & 255) - r) > 8 || abs(int((actual >> 8) & 255) - g) > 8 ||
-                    abs(int(actual & 255) - b) > 8) {
-                    fprintf(stderr, "movie mismatch %d,%d: GPU %08x CPU %04x\n", x, y, actual, original);
+                if (abs(int((actual >> 16) & 255) - r) > 8 ||
+                    abs(int((actual >> 8) & 255) - g) > 8 || abs(int(actual & 255) - b) > 8) {
+                    fprintf(stderr, "movie mismatch %d,%d: GPU %08x CPU %04x\n", x, y, actual,
+                            original);
                 }
-                REQUIRE((abs(int((actual >> 16) & 255) - r) <= 8 && abs(int((actual >> 8) & 255) - g) <= 8 &&
+                REQUIRE((abs(int((actual >> 16) & 255) - r) <= 8 &&
+                         abs(int((actual >> 8) & 255) - g) <= 8 &&
                          abs(int(actual & 255) - b) <= 8));
                 ++movie_matches;
             }
@@ -200,7 +206,8 @@ TEST_CASE("game graphics")
     const auto* restored_pixels = static_cast<const std::uint8_t*>(restored_framebuffer.pixels);
     REQUIRE(restored_pixels);
     for (int y = 0; y < 480; ++y) {
-        REQUIRE(memcmp(restored_pixels + y * restored_framebuffer.pitch, expected.data() + y * 640, 1280) == 0);
+        REQUIRE(memcmp(restored_pixels + y * restored_framebuffer.pitch, expected.data() + y * 640,
+                       1280) == 0);
     }
     PresentMenuOverlayFrame();
 

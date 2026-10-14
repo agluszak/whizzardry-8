@@ -78,7 +78,8 @@ void class_tree()
         std::string name = "owned-class-" + std::to_string(id);
         nodes.push_back(registry.registerClass(name.c_str(), root, id));
         name.assign("changed producer buffer");
-        REQUIRE((std::string(registry.getClassName(nodes.back())) == "owned-class-" + std::to_string(id)));
+        REQUIRE((std::string(registry.getClassName(nodes.back())) ==
+                 "owned-class-" + std::to_string(id)));
         REQUIRE((registry.getClassNode(1) == nodes.front()));
         REQUIRE((registry.registerClass("ignored duplicate ID", root, id) == nodes.back()));
         REQUIRE((root->children.front() == nodes.back()));
@@ -104,7 +105,8 @@ TEST_CASE("registry_ownership_test")
         REQUIRE((srInit()));
         REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == nullptr));
         names();
-        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == Registered::sGetClassNode()));
+        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) ==
+                 Registered::sGetClassNode()));
         REQUIRE((srExit()));
     }
     std::puts("ok: registry class tree, owned names, teardown");

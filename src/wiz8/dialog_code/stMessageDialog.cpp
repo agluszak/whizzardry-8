@@ -55,7 +55,8 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
             for (index = 0; index < m_line_count; ++index) {
                 const auto& line = m_lines[index];
                 short width = g_dialog_interface_font->textWidth(line);
-                DrawText(target, *g_dialog_interface_font, {m_x + (m_width - width) / 2, y}, line, options);
+                DrawText(target, *g_dialog_interface_font, {m_x + (m_width - width) / 2, y}, line,
+                         options);
                 y += g_dialog_interface_font->height();
             }
         }
@@ -71,8 +72,9 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
 }
 
 // FUNCTION: WIZ8 0x005d2800
-void W8MessageDialogBase::SetMessage(std::string_view message, int line_count, unsigned short characters_per_line,
-                                     bool confirmation, bool cancel, bool size_to_message, bool wrap_message,
+void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
+                                     unsigned short characters_per_line, bool confirmation,
+                                     bool cancel, bool size_to_message, bool wrap_message,
                                      int maximum_width, int maximum_height)
 {
     /* 0x005D2950 compares the line counter unsigned; the signed compare in
@@ -173,14 +175,16 @@ int W8MessageDialogBase::CreateControls()
         return error;
     }
     if (!m_edge_image) {
-        m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI",
-                                               {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+        m_edge_image = LoadGenericButtonImages(
+            {}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {},
+            m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (!m_edge_image) {
             return m_error = 3;
         }
     }
     m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
-                                         g_dialog_font_background, {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12},
+                                         g_dialog_font_background,
+                                         {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12},
                                          {.priority = UI_PRIORITY_HIGHEST - 1}, m_edge_image);
 
     if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", {3, 0, 1, 2, 2},

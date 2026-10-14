@@ -64,7 +64,8 @@ try {
     auto handle = wiz8::open_file("Data\\Databases\\NPC.DBS", wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
+    if (count >
+        (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
         return 0;
     }
     auto records = std::make_unique<W8NpcDatabaseRecord[]>(count);
@@ -78,10 +79,11 @@ try {
             unsigned int entry_count;
             handle->read_exact(&entry_count, sizeof(entry_count));
             const auto remaining = handle->size() - handle->tell();
-            const auto following_records =
-                std::int64_t(count - index - 1) * std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
+            const auto following_records = std::int64_t(count - index - 1) *
+                                           std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
             if (remaining < following_records ||
-                entry_count > (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
+                entry_count >
+                    (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
                 entry_count > std::numeric_limits<int>::max()) {
                 return 0;
             }
@@ -118,7 +120,8 @@ unsigned char InitializeFactDatabase(void)
 try {
     auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    auto records = wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
+    auto records =
+        wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
     fact_records = std::move(records);
     g_fact_records = fact_records.get();
     gXStatus.uiFactsInDatabase = count;

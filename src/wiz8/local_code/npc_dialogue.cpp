@@ -67,7 +67,8 @@ static int SelectNpcQuoteResponse(W8NpcQuoteEntry* entry, int quote_index, int e
    scan every quote for a subentry whose text
    matches, reporting the entry and subentry indices through the out-pointers. */
 // FUNCTION: WIZ8 0x00525E80
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index)
+int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
+                                short* sub_entry_index)
 {
     W8NpcScriptFile* script;
     W8NpcScriptQuote* quote;
@@ -130,7 +131,8 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
         }
         response = -1;
         finished = false;
-        if (g_npc_scripting.session.subquote_index == quote->subquote_count - 1 && quote->entry_count != 0) {
+        if (g_npc_scripting.session.subquote_index == quote->subquote_count - 1 &&
+            quote->entry_count != 0) {
             for (entry_index = 0; entry_index < quote->entry_count; entry_index++) {
                 entry = &quote->entries[entry_index];
                 switch (entry->kind) {
@@ -180,8 +182,9 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     if (monster != 0 && entry->operand2 != 4 &&
                         !monster->SetScriptLabel(entry->sub_entries[0].text.c_str())) {
                         std::string script_error;
-                        script_error = fmt::format("Failed to load script (or failed to find {} in script)",
-                                                   entry->sub_entries[0].text);
+                        script_error =
+                            fmt::format("Failed to load script (or failed to find {} in script)",
+                                        entry->sub_entries[0].text);
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_WORLD_ACTION:
@@ -213,7 +216,8 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     if (g_npc_scripting.session.current_quote_index < g_world_action_quote_min ||
                         g_world_action_quote_max < g_npc_scripting.session.current_quote_index) {
                         BeginScriptedWorldAction();
-                        QueueNpcAction(W8NpcDismiss{static_cast<int>(g_npc_scripting.session.npc->group_index)});
+                        QueueNpcAction(W8NpcDismiss{
+                            static_cast<int>(g_npc_scripting.session.npc->group_index)});
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_INTERACTION: {
@@ -231,7 +235,8 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     }
                     break;
                 case W8_NPC_ENTRY_PARTY_SPEAKER_EVENT:
-                    QueueNpcAction(W8NpcPartySpeakerEvent{static_cast<unsigned int>(entry->operand0)});
+                    QueueNpcAction(
+                        W8NpcPartySpeakerEvent{static_cast<unsigned int>(entry->operand0)});
                     break;
                 case W8_NPC_ENTRY_PERSON_KEYWORD:
                 case W8_NPC_ENTRY_ITEM_KEYWORD:
@@ -285,7 +290,8 @@ static void QueueMessageBoxLine(W8MessageBoxLine line, bool prepend)
 // FUNCTION: WIZ8 0x00528830
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
-    QueueMessageBoxLine({SessionNpcKind(), W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
+    QueueMessageBoxLine({SessionNpcKind(), W8NpcQueuedQuote{quote, mark_pending, suppress_entries}},
+                        prepend);
 }
 
 // FUNCTION: WIZ8 0x005289B0
@@ -334,7 +340,8 @@ static int FindNpcReplyQuote(std::string_view text)
                answer. */
             for (index = 0; index < quote->entry_count; ++index) {
                 entry = &quote->entries[index];
-                if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 3 && entry->sub_entry_count != 0) {
+                if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 3 &&
+                    entry->sub_entry_count != 0) {
                     for (sub = 0; sub < entry->sub_entry_count; ++sub) {
                         sub_text = entry->sub_entries[sub].text;
                         if (CompareTextIgnoreAsciiCase(sub_text, text) == 0) {
@@ -381,7 +388,9 @@ std::string GetNpcQuoteText(W8NpcState* npc, int type)
 // FUNCTION: WIZ8 0x00528B50
 void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend)
 {
-    QueueMessageBoxLine({SessionNpcKind(), W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}}, prepend);
+    QueueMessageBoxLine(
+        {SessionNpcKind(), W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}},
+        prepend);
 }
 
 // FUNCTION: WIZ8 0x00529560

@@ -28,7 +28,8 @@ void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
             },
         .unhandled =
             [&](const InputEvent& input) {
-                if (input.type != InputEventType::LeftButtonRepeat && input.type != InputEventType::RightButtonRepeat) {
+                if (input.type != InputEventType::LeftButtonRepeat &&
+                    input.type != InputEventType::RightButtonRepeat) {
                     (dialog->*handle_event)(&input);
                 }
                 return InputRoute::Handled;
@@ -45,7 +46,8 @@ extern Font* g_dialog_interface_font;
 extern bool g_dialog_font_enabled;
 extern unsigned char g_dialog_font_foreground;
 extern unsigned char g_dialog_font_background;
-void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground, unsigned char background);
+void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
+                         unsigned char background);
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character);
 W8MessageDialogBase* CreateMessageDialog();
 bool GetDialogResult(W8DialogBase* dialog);

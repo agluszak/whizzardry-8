@@ -73,7 +73,8 @@ uint64_t g_submenu_clock;
 // GLOBAL: WIZ8 0x0069B8D4
 bool g_submenu_close_pending;
 namespace {
-template<std::size_t... I> std::array<W8ButtonWidget, sizeof...(I)> ButtonsOn(UiLayer& layer, std::index_sequence<I...>)
+template<std::size_t... I>
+std::array<W8ButtonWidget, sizeof...(I)> ButtonsOn(UiLayer& layer, std::index_sequence<I...>)
 {
     return {((void)I, W8ButtonWidget(layer))...};
 }
@@ -84,9 +85,9 @@ template<std::size_t N> std::array<W8ButtonWidget, N> ButtonsOn(UiLayer& layer)
 } // namespace
 
 MainGameButtons::MainGameButtons()
-    : submenu(ButtonsOn<9>(input)), submenu_scroll(ButtonsOn<2>(input)), submenu_panel(ButtonsOn<2>(input)),
-      layout_arrows(ButtonsOn<6>(input)), combat_stance(ButtonsOn<5>(input)), roof(ButtonsOn<3>(input)),
-      options_disk(input)
+    : submenu(ButtonsOn<9>(input)), submenu_scroll(ButtonsOn<2>(input)),
+      submenu_panel(ButtonsOn<2>(input)), layout_arrows(ButtonsOn<6>(input)),
+      combat_stance(ButtonsOn<5>(input)), roof(ButtonsOn<3>(input)), options_disk(input)
 {
 }
 
@@ -169,7 +170,8 @@ void RefreshSubMenuPanel(bool invalidate)
     submenu->dirty |= invalidate;
     auto& target = GetFrameBufferSurface();
     if (submenu->dirty) {
-        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left, 0x1c3);
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left,
+                                                        0x1c3);
         for (auto& button : submenu->buttons) {
             button->m_dirty = true;
         }
@@ -311,10 +313,12 @@ unsigned char CreateSubMenuScrollButtons(void)
 {
     int i;
 
-    g_main_game_buttons.submenu_scroll[0].Configure("Data\\Main Interface\\main_scroll_arrows.sti", {3, 0, 1, 2, 2},
-                                                    {.on_click = SubMenuScrollArrowUp, .tooltip = 0x4b});
-    g_main_game_buttons.submenu_scroll[1].Configure("Data\\Main Interface\\main_scroll_arrows.sti", {7, 4, 5, 6, 6},
-                                                    {.on_click = SubMenuScrollArrowDown, .tooltip = 0x4c});
+    g_main_game_buttons.submenu_scroll[0].Configure(
+        "Data\\Main Interface\\main_scroll_arrows.sti", {3, 0, 1, 2, 2},
+        {.on_click = SubMenuScrollArrowUp, .tooltip = 0x4b});
+    g_main_game_buttons.submenu_scroll[1].Configure(
+        "Data\\Main Interface\\main_scroll_arrows.sti", {7, 4, 5, 6, 6},
+        {.on_click = SubMenuScrollArrowDown, .tooltip = 0x4c});
     for (i = 0; i < 2; ++i) {
         g_main_game_buttons.submenu_scroll[i].SetPosition(g_scroll_button_positions[i].x,
                                                           g_scroll_button_positions[i].y);
@@ -343,14 +347,15 @@ unsigned char CreateSubMenuPanelButtons(void)
 {
     int index;
 
-    g_main_game_buttons.submenu_panel[0].Configure(g_submenu_icons_path, {0x21, 0x1e, 0x1f, 0x20, 0x22},
-                                                   {.on_click = SubMenuPanelCloseButton, .tooltip = 0x4d});
+    g_main_game_buttons.submenu_panel[0].Configure(
+        g_submenu_icons_path, {0x21, 0x1e, 0x1f, 0x20, 0x22},
+        {.on_click = SubMenuPanelCloseButton, .tooltip = 0x4d});
     g_main_game_buttons.submenu_panel[1].Configure(
         g_submenu_icons_path, {0x26, 0x23, 0x24, 0x25, 0x27},
         {.on_click = SubMenuPanelFormationButton, .toggles = true, .tooltip = 0x4e});
     for (index = 0; index < 2; ++index) {
-        g_main_game_buttons.submenu_panel[index].SetPosition(g_submenu_panel_button_positions[index].x,
-                                                             g_submenu_panel_button_positions[index].y);
+        g_main_game_buttons.submenu_panel[index].SetPosition(
+            g_submenu_panel_button_positions[index].x, g_submenu_panel_button_positions[index].y);
     }
     return 1;
 }
@@ -367,9 +372,11 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 // FUNCTION: WIZ8 0x00597A30
 unsigned char CreateOptionsDiskButton(void)
 {
-    g_main_game_buttons.options_disk.Configure(g_options_disk_path, {3, 0, 1, 2, 2},
-                                               {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
-    g_main_game_buttons.options_disk.SetPosition(g_options_disk_position.x, g_options_disk_position.y);
+    g_main_game_buttons.options_disk.Configure(
+        g_options_disk_path, {3, 0, 1, 2, 2},
+        {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
+    g_main_game_buttons.options_disk.SetPosition(g_options_disk_position.x,
+                                                 g_options_disk_position.y);
     return 1;
 }
 
@@ -410,7 +417,8 @@ void UpdateCombatStanceButtons(void)
 
     if (g_settings.continuous_combat == 0) {
         stance = g_combat_state->execution_active != 0 ? 3U : 0U;
-    } else if ((TimeUntilDeadline(g_combat_state->combat_ui_timer) == 0 && CombatMayAdvanceContinuously()) ||
+    } else if ((TimeUntilDeadline(g_combat_state->combat_ui_timer) == 0 &&
+                CombatMayAdvanceContinuously()) ||
                g_combat_state->party_surprised) {
         stance = g_combat_state->round_active ? 1U : 4U;
     } else {
@@ -473,21 +481,26 @@ unsigned char CreateCombatStanceButtons(void)
 {
     int index;
 
-    g_main_game_buttons.combat_stance[0].Configure(
-        g_attack_confirm_path, {3, 0, 1, 2, 2},
-        {.on_click = MainGameCombatConfirmButton, .on_right_click = MainGameCombatStanceSecondary, .tooltip = 0x4f});
-    g_main_game_buttons.combat_stance[1].Configure(
-        g_combat_stop_path, {3, 0, 1, 2, 2},
-        {.on_click = MainGameCombatConfirmButton, .on_right_click = MainGameCombatStanceSecondary, .tooltip = 0x50});
-    g_main_game_buttons.combat_stance[2].Configure(
-        g_cont_start_path, {3, 0, 1, 2, 2},
-        {.on_click = MainGameCombatConfirmButton, .on_right_click = MainGameCombatStanceSecondary, .tooltip = 0x4f});
-    g_main_game_buttons.combat_stance[3].Configure(
-        g_cont_toggle_path, {3, 0, 1, 2, 2},
-        {.on_click = MainGameCombatConfirmButton, .on_right_click = MainGameCombatStanceSecondary, .tooltip = 0x51});
-    g_main_game_buttons.combat_stance[4].Configure(
-        g_cont_pending_path, {3, 0, 1, 2, 2},
-        {.on_click = MainGameCombatConfirmButton, .on_right_click = MainGameCombatStanceSecondary, .tooltip = 0x50});
+    g_main_game_buttons.combat_stance[0].Configure(g_attack_confirm_path, {3, 0, 1, 2, 2},
+                                                   {.on_click = MainGameCombatConfirmButton,
+                                                    .on_right_click = MainGameCombatStanceSecondary,
+                                                    .tooltip = 0x4f});
+    g_main_game_buttons.combat_stance[1].Configure(g_combat_stop_path, {3, 0, 1, 2, 2},
+                                                   {.on_click = MainGameCombatConfirmButton,
+                                                    .on_right_click = MainGameCombatStanceSecondary,
+                                                    .tooltip = 0x50});
+    g_main_game_buttons.combat_stance[2].Configure(g_cont_start_path, {3, 0, 1, 2, 2},
+                                                   {.on_click = MainGameCombatConfirmButton,
+                                                    .on_right_click = MainGameCombatStanceSecondary,
+                                                    .tooltip = 0x4f});
+    g_main_game_buttons.combat_stance[3].Configure(g_cont_toggle_path, {3, 0, 1, 2, 2},
+                                                   {.on_click = MainGameCombatConfirmButton,
+                                                    .on_right_click = MainGameCombatStanceSecondary,
+                                                    .tooltip = 0x51});
+    g_main_game_buttons.combat_stance[4].Configure(g_cont_pending_path, {3, 0, 1, 2, 2},
+                                                   {.on_click = MainGameCombatConfirmButton,
+                                                    .on_right_click = MainGameCombatStanceSecondary,
+                                                    .tooltip = 0x50});
     for (index = 0; index < 5; ++index) {
         g_main_game_buttons.combat_stance[index].SetPosition(g_combat_stance_positions[index].x,
                                                              g_combat_stance_positions[index].y);
@@ -521,12 +534,15 @@ unsigned char CreateRoofButtons(void)
 {
     int index;
 
-    g_main_game_buttons.roof[0].Configure(g_roof_buttons_path, {9, 0, 6, 3, 6},
-                                          {.on_click = MainGameRoofButton0, .toggles = true, .tooltip = 0x38});
-    g_main_game_buttons.roof[1].Configure(g_roof_buttons_path, {10, 1, 7, 4, 7},
-                                          {.on_click = MainGameRoofButton1, .toggles = true, .tooltip = 0x39});
-    g_main_game_buttons.roof[2].Configure(g_roof_buttons_path, {0xb, 2, 8, 5, 8},
-                                          {.on_click = MainGameRoofButton2, .toggles = true, .tooltip = 0x3a});
+    g_main_game_buttons.roof[0].Configure(
+        g_roof_buttons_path, {9, 0, 6, 3, 6},
+        {.on_click = MainGameRoofButton0, .toggles = true, .tooltip = 0x38});
+    g_main_game_buttons.roof[1].Configure(
+        g_roof_buttons_path, {10, 1, 7, 4, 7},
+        {.on_click = MainGameRoofButton1, .toggles = true, .tooltip = 0x39});
+    g_main_game_buttons.roof[2].Configure(
+        g_roof_buttons_path, {0xb, 2, 8, 5, 8},
+        {.on_click = MainGameRoofButton2, .toggles = true, .tooltip = 0x3a});
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         g_main_game_buttons.roof[0].SetPressed(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
@@ -535,7 +551,8 @@ unsigned char CreateRoofButtons(void)
         g_main_game_buttons.roof[2].SetPressed(true);
     }
     for (index = 0; index < 3; ++index) {
-        g_main_game_buttons.roof[index].SetPosition(g_roof_button_positions[index].x, g_roof_button_positions[index].y);
+        g_main_game_buttons.roof[index].SetPosition(g_roof_button_positions[index].x,
+                                                    g_roof_button_positions[index].y);
     }
     return 1;
 }
@@ -766,18 +783,24 @@ unsigned char CreateLayoutArrowButtons(void)
 {
     int index;
 
-    g_main_game_buttons.layout_arrows[0].Configure(g_layout_arrows_path, {6, 0, 1, BUTTON_NO_IMAGE, 2},
-                                                   {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
-    g_main_game_buttons.layout_arrows[1].Configure(g_layout_arrows_path, {0xe, 8, 9, BUTTON_NO_IMAGE, 10},
-                                                   {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
-    g_main_game_buttons.layout_arrows[2].Configure(g_layout_arrows_path, {0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12},
-                                                   {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
-    g_main_game_buttons.layout_arrows[3].Configure(g_layout_arrows_path, {7, 3, 4, BUTTON_NO_IMAGE, 5},
-                                                   {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
-    g_main_game_buttons.layout_arrows[4].Configure(g_layout_arrows_path, {0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd},
-                                                   {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
-    g_main_game_buttons.layout_arrows[5].Configure(g_layout_arrows_path, {0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15},
-                                                   {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
+    g_main_game_buttons.layout_arrows[0].Configure(
+        g_layout_arrows_path, {6, 0, 1, BUTTON_NO_IMAGE, 2},
+        {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
+    g_main_game_buttons.layout_arrows[1].Configure(
+        g_layout_arrows_path, {0xe, 8, 9, BUTTON_NO_IMAGE, 10},
+        {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
+    g_main_game_buttons.layout_arrows[2].Configure(
+        g_layout_arrows_path, {0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12},
+        {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
+    g_main_game_buttons.layout_arrows[3].Configure(
+        g_layout_arrows_path, {7, 3, 4, BUTTON_NO_IMAGE, 5},
+        {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
+    g_main_game_buttons.layout_arrows[4].Configure(
+        g_layout_arrows_path, {0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd},
+        {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
+    g_main_game_buttons.layout_arrows[5].Configure(
+        g_layout_arrows_path, {0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15},
+        {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
     for (index = 0; index < 6; ++index) {
         g_main_game_buttons.layout_arrows[index].SetPosition(g_layout_arrow_positions[index].x,
                                                              g_layout_arrow_positions[index].y);
@@ -890,14 +913,15 @@ void DrawSubMenuCharacterAction(void)
         action = row->action;
         switch (action) {
         case W8_ACTION_CAST_SPELL:
-            text =
-                fmt::format("{} - {} ({:d})", g_localized_strings[g_action_kind_message_ids[7]],
-                            g_spell_records[row->action_detail0].display_name, row->action_detail1.spell.power_level);
+            text = fmt::format("{} - {} ({:d})", g_localized_strings[g_action_kind_message_ids[7]],
+                               g_spell_records[row->action_detail0].display_name,
+                               row->action_detail1.spell.power_level);
             break;
         case W8_ACTION_USE_ITEM:
             text = fmt::format(
                 "{} - {}", g_localized_strings[g_action_kind_message_ids[8]],
-                g_spell_records[g_item_records[row->action_detail1.item_use.item->iItemNo].spell_id].display_name);
+                g_spell_records[g_item_records[row->action_detail1.item_use.item->iItemNo].spell_id]
+                    .display_name);
             break;
         case W8_ACTION_ATTACK:
             text = fmt::format("{} - ", g_localized_strings[g_action_kind_message_ids[0]]);
@@ -905,8 +929,9 @@ void DrawSubMenuCharacterAction(void)
                 if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
                     text += g_localized_strings[0x5b8];
                 } else {
-                    text += g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                        &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
+                    text +=
+                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                            &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
                 }
             }
             if (!character->Hand[1].in_play) {
@@ -917,8 +942,9 @@ void DrawSubMenuCharacterAction(void)
                 if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
                     second = g_localized_strings[0x5b8];
                 } else {
-                    second = g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                        &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]];
+                    second =
+                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                            &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]];
                 }
                 if (!character->Hand[0].in_play) {
                     text += second;
@@ -940,7 +966,8 @@ void DrawSubMenuCharacterAction(void)
             } else if (row->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(row->target_in_combat.iMonsterID);
                 name = GetMonsterName(monster_info, 0, 0);
-                text = fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]], name);
+                text =
+                    fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]], name);
             } else {
                 text = fmt::format("{} ", g_localized_strings[g_action_kind_message_ids[5]]);
             }
@@ -966,7 +993,8 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!gXStatus.fCombatMode || !g_combat_state->round_active || gXStatus.fSurprisePossible ||
         gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fNpcDialogueMode ||
-        gXStatus.fSpellCastMode || gXStatus.fItemSelectMode || g_level_block->combat_end_notification != -1) {
+        gXStatus.fSpellCastMode || gXStatus.fItemSelectMode ||
+        g_level_block->combat_end_notification != -1) {
         enabled = false;
     } else {
         enabled = AnyCharacterEngaged();
@@ -996,7 +1024,8 @@ void UpdateSubMenuPanelButtons(void)
 static void UpdateSubMenuScrollButtons()
 {
 
-    if (g_level_block->combat_end_notification == -1 && !gXStatus.fNpcDialogueMode && !gXStatus.fCampMode) {
+    if (g_level_block->combat_end_notification == -1 && !gXStatus.fNpcDialogueMode &&
+        !gXStatus.fCampMode) {
         for (auto& button : g_main_game_buttons.submenu_scroll) {
             button.SetEnabled(true);
         }
@@ -1154,8 +1183,9 @@ void UpdateMainGameButtons(void)
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
-    enabled = !gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-              !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract;
+    enabled = !gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode &&
+              !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
+              !gXStatus.fTrapInteract;
     g_main_game_buttons.options_disk.SetEnabled(enabled);
     g_main_game_buttons.options_disk.Draw(GetFrameBufferSurface());
     UpdateCombatStanceButtons();
@@ -1304,7 +1334,8 @@ unsigned char BuildSubMenuPanel(short notification)
         },
         -1);
     static constexpr void (*actions[5][5])() = {
-        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead, SubMenuSelectPray},
+        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead,
+         SubMenuSelectPray},
         {SubMenuSelectDefend, SubMenuSelectProtect},
         {SubMenuSelectEquip, SubMenuOpenUseItemView, SubMenuUseRecordedItem},
         {SubMenuOpenSpellView, SubMenuCastRecordedSpell},
@@ -1315,9 +1346,12 @@ unsigned char BuildSubMenuPanel(short notification)
         message = g_submenu_entry_message_ids[menu * 5 + entry];
         icon_delta = 0;
         if (menu == W8_SUBMENU_SPELLS && entry == 1) {
-            message += g_spell_records[g_status.buffers.XChar[g_status.selected_character].spell_id].realm * 7;
+            message += g_spell_records[g_status.buffers.XChar[g_status.selected_character].spell_id]
+                           .realm *
+                       7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
-            base = GetAttackMenuWeaponOffset(g_status.buffers.Char[g_status.selected_character].Hand[0].weapon_skill);
+            base = GetAttackMenuWeaponOffset(
+                g_status.buffers.Char[g_status.selected_character].Hand[0].weapon_skill);
             message += base * 7;
         }
         switch (state) {
@@ -1338,12 +1372,13 @@ unsigned char BuildSubMenuPanel(short notification)
             break;
         }
         auto button = std::make_unique<W8ButtonWidget>(submenu->input);
-        button->Configure(CatalogArtwork::Load(0x89, 0).spriteSheet(),
-                          {-1, message, message + icon_delta, message, message + icon_delta},
-                          {.on_click = [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); },
-                           .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
-                           .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = g_submenu_entry_help_ids[menu * 5 + entry]});
+        button->Configure(
+            CatalogArtwork::Load(0x89, 0).spriteSheet(),
+            {-1, message, message + icon_delta, message, message + icon_delta},
+            {.on_click = [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); },
+             .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
+             .priority = UI_PRIORITY_LOWEST,
+             .tooltip = g_submenu_entry_help_ids[menu * 5 + entry]});
         button->policy.controller_activation = true;
         button->SetPosition(left + index * 19 + 5, 0x1c8);
         button->Resize(18, 18);
@@ -1360,7 +1395,8 @@ unsigned char BuildSubMenuPanel(short notification)
                 }
                 const auto& row = g_status.buffers.XChar[slot];
                 const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
-                return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
+                return fmt::format("{}: {}", g_localized_strings[0x5d],
+                                   FormatItemDisplayName(item, false));
             });
         }
         submenu->buttons.push_back(std::move(button));
@@ -1451,7 +1487,8 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
                 state = CheckSubMenuActionUsable(party_slot);
             }
         } else if (item == 2) {
-            state = CanPartySlotUseRecordedItem(party_slot) ? W8_SUBMENU_ENTRY_USABLE : W8_SUBMENU_ENTRY_UNAVAILABLE;
+            state = CanPartySlotUseRecordedItem(party_slot) ? W8_SUBMENU_ENTRY_USABLE
+                                                            : W8_SUBMENU_ENTRY_UNAVAILABLE;
         }
         break;
     case W8_SUBMENU_SPELLS:
@@ -1463,8 +1500,9 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
             if (CanPartySlotCastRecordedSpell(party_slot)) {
                 state = W8_SUBMENU_ENTRY_USABLE;
             } else {
-                state = GetAffordableSpellPowerLevel(party_slot) != 0 ? W8_SUBMENU_ENTRY_USABLE
-                                                                      : W8_SUBMENU_ENTRY_UNAVAILABLE;
+                state = GetAffordableSpellPowerLevel(party_slot) != 0
+                            ? W8_SUBMENU_ENTRY_USABLE
+                            : W8_SUBMENU_ENTRY_UNAVAILABLE;
             }
         }
         break;

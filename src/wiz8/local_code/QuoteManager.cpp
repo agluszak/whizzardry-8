@@ -87,7 +87,8 @@ void RedrawPortraitQuoteBubbles(void)
     IsModalOpen();
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         slot = &gXStatus.monster_manager_entries[party_slot];
-        if (!g_status.buffers.XChar[party_slot].fOccupied || g_status.buffers.Char[party_slot].hp_current <= 0 ||
+        if (!g_status.buffers.XChar[party_slot].fOccupied ||
+            g_status.buffers.Char[party_slot].hp_current <= 0 ||
             g_status.buffers.Char[party_slot].highest_condition >= W8_CONDITION_ASLEEP ||
             !slot->portrait_event_active) {
             continue;
@@ -102,8 +103,8 @@ void RedrawPortraitQuoteBubbles(void)
 void StartBreathCycle(int party_slot, bool force)
 {
     if ((!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) || force) {
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_special_event2, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_special_event2, 0,
+                            g_character_event_no_flags, g_character_event_full_volume);
     }
 }
 
@@ -117,8 +118,9 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
 
     for (int slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot && character->hp_current != 0 &&
-            character->highest_condition < W8_CONDITION_ASLEEP && FormatCharacterQuoteText(character, event_type, 0)) {
+        if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot &&
+            character->hp_current != 0 && character->highest_condition < W8_CONDITION_ASLEEP &&
+            FormatCharacterQuoteText(character, event_type, 0)) {
             eligible[count++] = slot;
         }
     }
@@ -190,65 +192,95 @@ struct W8CharacterEventDescriptor {
 };
 // GLOBAL: WIZ8 0x005EE000
 const W8CharacterEventDescriptor g_character_event_descriptors[0xb1] = {
-    {0x00000001, 0x00, 0x00, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
-    {0x00000002, 0x00, 0x01, 0x00, 0x00}, {0x00000003, 0x01, 0x01, 0x00, 0x00}, {0x00000003, 0x01, 0x01, 0x00, 0x00},
-    {0x00000003, 0x01, 0x01, 0x00, 0x00}, {0x00000003, 0x01, 0x01, 0x00, 0x00}, {0x00000001, 0x01, 0x00, 0x00, 0x00},
-    {0x00000001, 0x01, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
-    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000005, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x00, 0x00, 0x00},
-    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x00, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x00, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
-    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
-    {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
-    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x00, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
+    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000002, 0x00, 0x01, 0x00, 0x00},
+    {0x00000003, 0x01, 0x01, 0x00, 0x00}, {0x00000003, 0x01, 0x01, 0x00, 0x00},
+    {0x00000003, 0x01, 0x01, 0x00, 0x00}, {0x00000003, 0x01, 0x01, 0x00, 0x00},
+    {0x00000001, 0x01, 0x00, 0x00, 0x00}, {0x00000001, 0x01, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
+    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
+    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000005, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x00, 0x00, 0x00},
+    {0x00000004, 0x00, 0x01, 0x00, 0x00}, {0x00000005, 0x00, 0x00, 0x00, 0x00},
+    {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x00, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x01, 0x00}, {0x00000001, 0x00, 0x01, 0x01, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000004, 0x00, 0x01, 0x00, 0x00},
+    {0x00000005, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00}, {0x00000001, 0x00, 0x01, 0x00, 0x00},
+    {0x00000001, 0x00, 0x01, 0x00, 0x00},
 };
 
 // GLOBAL: WIZ8 0x0068C504
@@ -302,7 +334,8 @@ static bool MapEventTypeToDescriptorIndex(unsigned int event_type, unsigned int*
         *descriptor_index = event_type;
         return true;
     }
-    if (event_type >= g_first_remapped_event && event_type < g_first_remapped_event + g_remapped_event_count) {
+    if (event_type >= g_first_remapped_event &&
+        event_type < g_first_remapped_event + g_remapped_event_count) {
         *descriptor_index = g_normal_event_count + event_type - g_first_remapped_event;
         return true;
     }
@@ -340,16 +373,17 @@ static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
         return;
     }
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_FINISHED, CharacterPointerToPartySlot(entry->character), entry->event_type, 0);
+    RuntimeObserve(RUNTIME_VOICE_FINISHED, CharacterPointerToPartySlot(entry->character),
+                   entry->event_type, 0);
 #endif
     queue->CompleteActiveEvent(entry);
 }
 
 // FUNCTION: WIZ8 0x0052C810
-W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags, int queue_mode,
-                                   int volume)
-    : sound_end_handled(0), character(character), event_type(event_type), queue_mode(queue_mode), flags(flags),
-      volume(volume), dispatch_delay_ms(0)
+W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_type,
+                                   unsigned int flags, int queue_mode, int volume)
+    : sound_end_handled(0), character(character), event_type(event_type), queue_mode(queue_mode),
+      flags(flags), volume(volume), dispatch_delay_ms(0)
 {
     item.iItemNo = -1;
     switch (event_type) {
@@ -386,7 +420,8 @@ W8CharacterEvent::~W8CharacterEvent()
    selects an entry of the sex/personality/voice quote file, which is then
    wrapped in quotes. Clears the buffer and answers zero when no quote exists. */
 // FUNCTION: WIZ8 0x0052D0B0
-bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type, unsigned int* metadata)
+bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
+                              unsigned int* metadata)
 {
     std::string path;
     std::string text;
@@ -407,9 +442,11 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type, u
         has_npc = npc_index != -1;
     }
     if (!has_npc) {
-        char gender_code = static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
+        char gender_code =
+            static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
         path = fmt::format("Data\\Quotes\\PCs\\{:c}_{}{:d}0.MSG", gender_code,
-                           g_quote_personality_names[character->personality], (character->voice != 0) + 1);
+                           g_quote_personality_names[character->personality],
+                           (character->voice != 0) + 1);
         if (![&]() {
                 const auto status = wiz8::file_status(path);
                 return status && status->info.type == SDL_PATHTYPE_FILE;
@@ -421,7 +458,8 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type, u
         /* Retail does not test the reader result or length before storing
            zero at buffer[strlen(buffer) - 1]. */
         if (!g_character_text.empty()) {
-            g_character_text.resize(wiz8::text::previous(g_character_text, g_character_text.size()));
+            g_character_text.resize(
+                wiz8::text::previous(g_character_text, g_character_text.size()));
         }
     } else {
         W8NpcState* npc = GetNpcState(npc_index);
@@ -474,7 +512,8 @@ void W8CharacterEventQueue::DestroyAllEvents()
 // FUNCTION: WIZ8 0x0052D8D0
 void W8CharacterEventQueue::CompleteActiveEvent(W8CharacterEvent* entry)
 {
-    const auto owner = std::ranges::find(active_events, entry, &std::unique_ptr<W8CharacterEvent>::get);
+    const auto owner =
+        std::ranges::find(active_events, entry, &std::unique_ptr<W8CharacterEvent>::get);
     if (owner == active_events.end()) {
         return;
     }
@@ -487,7 +526,9 @@ void W8CharacterEventQueue::CompleteActiveEvent(W8CharacterEvent* entry)
 // FUNCTION: WIZ8 0x0052D970
 void W8CharacterEventQueue::RemoveCharacterEvents(W8Character* character)
 {
-    const auto belongs_to_character = [character](const auto& entry) { return entry->character == character; };
+    const auto belongs_to_character = [character](const auto& entry) {
+        return entry->character == character;
+    };
     /* Unlink the character's active events before completing them, so
        completion never observes a half-updated list. */
     std::vector<std::unique_ptr<W8CharacterEvent>> removed;
@@ -544,7 +585,8 @@ void W8CharacterEvent::Complete()
             if (item.iItemNo == -1) {
                 PostCharacterNotice(party_slot, g_localized_strings[0x771]);
             } else {
-                PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x772], GetItemDisplayName(&item)));
+                PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x772],
+                                                             GetItemDisplayName(&item)));
             }
         }
     } else if (event_type == 51) {
@@ -595,7 +637,8 @@ unsigned char W8CharacterEvent::IsConditionMet(unsigned int event_type)
 }
 
 // FUNCTION: WIZ8 0x0052CFB0
-static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int event_type, unsigned int flags)
+static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int event_type,
+                                      unsigned int flags)
 {
     W8Character* character;
     unsigned int mapped_event_type;
@@ -606,7 +649,8 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
         return false;
     }
     if (event_type >= g_normal_event_count) {
-        if (event_type < g_first_remapped_event || event_type >= g_remapped_event_count + g_first_remapped_event) {
+        if (event_type < g_first_remapped_event ||
+            event_type >= g_remapped_event_count + g_first_remapped_event) {
             return false;
         }
     }
@@ -641,7 +685,8 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
         mapped_event_type += g_normal_event_count - g_first_remapped_event;
     }
     slot_mask = static_cast<unsigned char>(1 << (party_slot & 31));
-    return (gXStatus.character_event_queue->event_character_masks[mapped_event_type] & slot_mask) == 0;
+    return (gXStatus.character_event_queue->event_character_masks[mapped_event_type] & slot_mask) ==
+           0;
 }
 
 /* What a character says in place of a missing voice sample. */
@@ -664,22 +709,26 @@ unsigned char W8CharacterEvent::PlayEventSound()
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0) {
         sound_event = g_special_event1;
     }
-    if (npc_index == -1 || !g_status.game_started || g_current_screen_state.id == W8_SCREEN_CHARACTER) {
-        char gender_code = static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        voice_stem = fmt::format("{:c}_{}{:d}0", gender_code, g_quote_personality_names[character->personality],
-                                 character->voice + 1);
-        sound_path = fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", voice_stem, voice_stem, sound_event);
+    if (npc_index == -1 || !g_status.game_started ||
+        g_current_screen_state.id == W8_SCREEN_CHARACTER) {
+        char gender_code =
+            static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
+        voice_stem =
+            fmt::format("{:c}_{}{:d}0", gender_code,
+                        g_quote_personality_names[character->personality], character->voice + 1);
+        sound_path =
+            fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", voice_stem, voice_stem, sound_event);
     } else {
         npc = GetNpcState(npc_index);
         if (npc != 0) {
             npc_sound_name = FormatNpcVoiceSoundPath(npc);
-            sound_path =
-                fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", npc_sound_name, npc_sound_name, sound_event);
+            sound_path = fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", npc_sound_name,
+                                     npc_sound_name, sound_event);
         }
     }
-    sound_handle =
-        wiz8::sound::play(sound_path, {.volume = std::uint32_t((volume * (g_settings.voice_volume & 0xff)) / 0x7f),
-                                       .on_finished = [this] { CharacterEventSoundEndCallback(this); }});
+    sound_handle = wiz8::sound::play(
+        sound_path, {.volume = std::uint32_t((volume * (g_settings.voice_volume & 0xff)) / 0x7f),
+                     .on_finished = [this] { CharacterEventSoundEndCallback(this); }});
     voice_playback = sound_handle;
     record = &gXStatus.monster_manager_entries[party_slot];
     record->voice_sound_handle = sound_handle;
@@ -692,13 +741,15 @@ unsigned char W8CharacterEvent::PlayEventSound()
         }
         return 1;
     }
-    const auto playback_time = wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
+    const auto playback_time =
+        wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
     record->voice_time_remaining_ms = playback_time.total_ms;
     record->mouth_gap = LoadMouthGapTrack(sound_path);
 #ifdef WIZ8_RUNTIME_TESTS
     RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle),
                    static_cast<int>(record->mouth_gap.ranges.size()));
-    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms, playback_time.current_ms);
+    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
+                   playback_time.current_ms);
 #endif
     return 1;
 }
@@ -737,7 +788,8 @@ unsigned char W8CharacterEvent::Dispatch()
     }
     metadata = 0xffffffff;
     if ((flags & W8_EVENT_BYPASS_CHECKS) == 0) {
-        if (!CanDispatchCharacterEvent(party_slot, event_type, flags) || IsConditionMet(event_type) == 0) {
+        if (!CanDispatchCharacterEvent(party_slot, event_type, flags) ||
+            IsConditionMet(event_type) == 0) {
             goto finish_without_dispatch;
         }
         if (event_type != static_cast<unsigned int>(g_special_event21) &&
@@ -819,10 +871,12 @@ struct PartyQuoteInput {
     {
         for (int slot = 0; slot < 8; ++slot) {
             targets[slot] = &input.add(SDL_Rect{0, 0, 1, 1}, [slot](const UiPointerEvent& event) {
-                if (event.action == UiPointerAction::Up && event.inside && event.button == UiPointerButton::Left &&
+                if (event.action == UiPointerAction::Up && event.inside &&
+                    event.button == UiPointerButton::Left &&
                     (event.captured_buttons & SDL_BUTTON_LMASK)) {
                     AfterUiDispatch([slot] {
-                        auto* active = gXStatus.monster_manager_entries[slot].active_character_event;
+                        auto* active =
+                            gXStatus.monster_manager_entries[slot].active_character_event;
                         if (slot > 1 && active) {
                             gXStatus.character_event_queue->CompleteActiveEvent(active);
                         } else {
@@ -852,8 +906,8 @@ void CreatePartyPortraitEventRegions()
     }
 }
 
-void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y, unsigned short right,
-                                 unsigned short bottom)
+void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
+                                 unsigned short right, unsigned short bottom)
 {
     CreatePartyPortraitEventRegions();
     if (slot < 8) {
@@ -933,7 +987,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         }
         quote->bubble.reset();
         if (g_current_screen_state.id == W8_SCREEN_CAMP ||
-            (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && !g_level_block->review_transition_active)) {
+            (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
+             !g_level_block->review_transition_active)) {
             int left = quote->x;
             int top = quote->y;
             EraseRegion(left, top, quote->width + left, quote->height + top);
@@ -1006,7 +1061,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         } else {
             quote->bubble = QuoteBubble::layout(quote_text, 200, std::nullopt);
             quote->width = static_cast<unsigned short>(quote->bubble ? quote->bubble->width() : 0);
-            quote->height = static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
+            quote->height =
+                static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
             if (g_current_screen_state.id == W8_SCREEN_CAMP) {
                 if (static_cast<int>(party_slot) == giReviewCharSlot) {
                     quote->x = 10;
@@ -1033,7 +1089,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             EnablePartyPortraitEvent(party_slot);
         }
     }
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
+        g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[party_slot] == 0 &&
         event_type != static_cast<unsigned int>(g_special_event17)) {
         RefreshSelectedPartyPortrait(party_slot);
@@ -1074,7 +1131,8 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
         follow_up_speaker_slot = GetRandomCharacter(0, 0, -1, -1);
         if (follow_up_speaker_slot != -1) {
             follow_up_flags |= 2;
-            QueueCharacterEvent(&g_status.buffers.Char[follow_up_speaker_slot], Random(2) + 0xe, 1, 0, 0x7f);
+            QueueCharacterEvent(&g_status.buffers.Char[follow_up_speaker_slot], Random(2) + 0xe, 1,
+                                0, 0x7f);
             follow_up_clock = -1;
         }
         return;
@@ -1087,7 +1145,8 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
         follow_up_speaker_slot = GetRandomCharacter(0, 0, -1, -1);
         if (follow_up_speaker_slot != -1) {
             follow_up_flags |= 2;
-            QueueCharacterEvent(&g_status.buffers.Char[follow_up_speaker_slot], Random(2) + 0xe, 1, 0, 0x7f);
+            QueueCharacterEvent(&g_status.buffers.Char[follow_up_speaker_slot], Random(2) + 0xe, 1,
+                                0, 0x7f);
             follow_up_clock = -1;
         }
         return;
@@ -1142,7 +1201,8 @@ W8CharacterEvent* W8CharacterEventQueue::QueueEntry(std::unique_ptr<W8CharacterE
 }
 
 // FUNCTION: WIZ8 0x0052DD20
-void W8CharacterEventQueue::SetEventCharacterMask(unsigned int event_type, unsigned int party_slot, bool enabled)
+void W8CharacterEventQueue::SetEventCharacterMask(unsigned int event_type, unsigned int party_slot,
+                                                  bool enabled)
 {
     unsigned char mask = static_cast<unsigned char>(1 << (party_slot & 31));
 
@@ -1163,13 +1223,15 @@ bool W8CharacterEventQueue::HasEventCharacter(unsigned int event_type, unsigned 
     if (event_type >= g_first_remapped_event) {
         event_type += g_normal_event_count - g_first_remapped_event;
     }
-    return (event_character_masks[event_type] & static_cast<unsigned char>(1 << (party_slot & 31))) != 0;
+    return (event_character_masks[event_type] &
+            static_cast<unsigned char>(1 << (party_slot & 31))) != 0;
 }
 
 // FUNCTION: WIZ8 0x0052DC80
 unsigned char W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entry)
 {
-    if (entry == 0 || active_event_type == -1 || entry->event_type != static_cast<unsigned int>(active_event_type)) {
+    if (entry == 0 || active_event_type == -1 ||
+        entry->event_type != static_cast<unsigned int>(active_event_type)) {
         return 1;
     }
 
@@ -1220,7 +1282,8 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         return;
     }
 
-    if (!npc_deferred_events.empty() && !ShouldDeferCharacterEventForNpcScript(false) && !IsNpcScriptSessionActive()) {
+    if (!npc_deferred_events.empty() && !ShouldDeferCharacterEventForNpcScript(false) &&
+        !IsNpcScriptSessionActive()) {
         /* Requeueing can dispatch, so detach the batch first; anything
            deferred again lands in the emptied list. */
         auto deferred = std::move(npc_deferred_events);
@@ -1287,7 +1350,8 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
                     return;
                 }
                 if (entry.dispatch_delay_ms != 0 &&
-                    w8_get_ticks() - entry.dispatch_delay_start <= static_cast<unsigned int>(entry.dispatch_delay_ms)) {
+                    w8_get_ticks() - entry.dispatch_delay_start <=
+                        static_cast<unsigned int>(entry.dispatch_delay_ms)) {
                     return;
                 }
                 std::unique_ptr<W8CharacterEvent> dispatched = std::move(*position);
@@ -1310,14 +1374,15 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
    receive the event the draw retries up to fifty times; exhaustion returns
    zero without queueing anything. */
 // FUNCTION: WIZ8 0x0052E5C0
-W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot, unsigned int flags,
-                                                   int queue_mode)
+W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
+                                                   unsigned int flags, int queue_mode)
 {
     int character_slot;
     int attempts;
 
     if (event_type >= g_normal_event_count &&
-        (event_type < g_first_remapped_event || event_type >= g_remapped_event_count + g_first_remapped_event)) {
+        (event_type < g_first_remapped_event ||
+         event_type >= g_remapped_event_count + g_first_remapped_event)) {
         return 0;
     }
     character_slot = GetRandomCharacter(0, 0, excluded_slot, -1);
@@ -1334,19 +1399,21 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
     if (attempts == 0x32) {
         return 0;
     }
-    return QueueCharacterEvent(&g_status.buffers.Char[character_slot], event_type, flags, queue_mode,
-                               g_character_event_full_volume);
+    return QueueCharacterEvent(&g_status.buffers.Char[character_slot], event_type, flags,
+                               queue_mode, g_character_event_full_volume);
 }
 
 // FUNCTION: WIZ8 0x0052E690
-W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags, int queue_mode,
-                                      unsigned int volume)
+W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
+                                      int queue_mode, unsigned int volume)
 {
-    if (g_settings.pc_confirmations == 0 && (event_type == g_special_event2 || event_type == g_special_event17)) {
+    if (g_settings.pc_confirmations == 0 &&
+        (event_type == g_special_event2 || event_type == g_special_event17)) {
         return 0;
     }
-    if (event_type != g_special_event0 && event_type != g_special_event12 && event_type != g_special_event4 &&
-        event_type != g_special_event9 && event_type != g_special_event10 && event_type != g_special_event16) {
+    if (event_type != g_special_event0 && event_type != g_special_event12 &&
+        event_type != g_special_event4 && event_type != g_special_event9 &&
+        event_type != g_special_event10 && event_type != g_special_event16) {
         volume = volume * 70 / 100;
     }
     return gXStatus.character_event_queue->QueueEntry(
@@ -1363,7 +1430,8 @@ void SetPortraitTargetPose(W8MonsterManagerEntry* slot, int pose)
     int party_slot = RPCPtrToPCSlot(slot);
 
     slot->portrait_blink_closing = false;
-    if (g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
+    if (g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
+        !gXStatus.fSurprisePossible) {
         if (slot->target_portrait_pose != pose) {
             slot->target_portrait_pose = pose;
         }
@@ -1391,8 +1459,8 @@ void MaybeStartIncapacitationEvent(unsigned int party_slot)
         }
         effect = Random(2) == 0 ? g_effect2 : g_effect17;
     }
-    if (effect != -1 &&
-        QueueCharacterEvent(character, effect, 0, g_character_event_no_flags, g_character_event_full_volume) != 0) {
+    if (effect != -1 && QueueCharacterEvent(character, effect, 0, g_character_event_no_flags,
+                                            g_character_event_full_volume) != 0) {
         gXStatus.character_event_queue->SetEventCharacterMask(effect, party_slot, true);
     }
 }
@@ -1421,8 +1489,8 @@ void QueuePartyDeathReaction(unsigned int party_slot)
     }
     remaining = GetRandomPartySlots(0, 0, party_slot, selected, 1, skip_first_two);
     for (index = 0; index < remaining; ++index) {
-        entry = QueueCharacterEvent(&g_status.buffers.Char[selected[index]], effect, 0, g_effect_argument0,
-                                    g_character_event_full_volume);
+        entry = QueueCharacterEvent(&g_status.buffers.Char[selected[index]], effect, 0,
+                                    g_effect_argument0, g_character_event_full_volume);
         if (entry != 0) {
             entry->DelayDispatch(3000);
         }
@@ -1444,7 +1512,8 @@ void QueueDamageReactionEvents(W8Character* character)
 
     hp_percent = (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
     party_slot = CharacterPointerToPartySlot(character);
-    has_incapacitation_event = gXStatus.character_event_queue->HasEventCharacter(g_effect3, party_slot);
+    has_incapacitation_event =
+        gXStatus.character_event_queue->HasEventCharacter(g_effect3, party_slot);
     has_flee_event = gXStatus.character_event_queue->HasEventCharacter(g_effect2, party_slot);
     gXStatus.character_event_queue->HasEventCharacter(g_effect17, party_slot);
     if (character->highest_condition != W8_CONDITION_ASLEEP &&
@@ -1461,8 +1530,8 @@ void QueueDamageReactionEvents(W8Character* character)
             entry = QueueCharacterEvent(character, effect, g_effect_argument2, g_effect_argument1,
                                         g_character_event_full_volume);
         } else {
-            entry = QueueCharacterEvent(character, g_effect3, g_effect_argument2, g_effect_argument1,
-                                        g_character_event_full_volume);
+            entry = QueueCharacterEvent(character, g_effect3, g_effect_argument2,
+                                        g_effect_argument1, g_character_event_full_volume);
         }
         if (entry != 0) {
             entry->DelayDispatch(0x5dc);
@@ -1472,8 +1541,8 @@ queue_follow_up_event:
     follow_up_events[0] = g_special_event11;
     follow_up_events[1] = g_special_event12;
     follow_up_events[2] = g_special_event4;
-    QueueCharacterEvent(character, follow_up_events[Random(3)], g_effect_argument2, g_effect_argument0,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(character, follow_up_events[Random(3)], g_effect_argument2,
+                        g_effect_argument0, g_character_event_full_volume);
 }
 
 /* Turn-begin path for several surviving party members: queue event 0x15 on
@@ -1487,8 +1556,8 @@ void QueueTurnReactionEvent(void)
 
     remaining = GetRandomPartySlots(0, 0, -1, selected, 1, false);
     for (index = 0; index < remaining; ++index) {
-        QueueCharacterEvent(&g_status.buffers.Char[selected[index]], g_effect13, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[selected[index]], g_effect13, 0,
+                            g_effect_argument0, g_character_event_full_volume);
     }
 }
 
@@ -1501,7 +1570,8 @@ void QueueLastSurvivorEvent(void)
     int last_alive = 0;
 
     for (int slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied && g_status.buffers.Char[slot].uiCondition[W8_CONDITION_DEAD] == 0) {
+        if (g_status.buffers.XChar[slot].fOccupied &&
+            g_status.buffers.Char[slot].uiCondition[W8_CONDITION_DEAD] == 0) {
             ++alive_count;
             last_alive = slot;
         }
@@ -1545,17 +1615,21 @@ void QueueConditionChangeReaction(W8Character* character)
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
-        QueueCharacterEvent(character, events[Random(3)], 0, g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(character, events[Random(3)], 0, g_character_event_no_flags,
+                            g_character_event_full_volume);
         return;
     case 5:
-        QueueCharacterEvent(character, g_special_event13, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event13, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case 8:
-        QueueCharacterEvent(character, g_special_event1, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event1, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case 3:
     case 4:
-        QueueCharacterEvent(character, g_special_event7, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event7, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case 2:
     case 7:
@@ -1565,20 +1639,24 @@ void QueueConditionChangeReaction(W8Character* character)
         if (Random(2) == 0) {
             reaction = g_condition_reaction_alt;
         }
-        QueueCharacterEvent(character, reaction, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, reaction, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case 0xc:
-        QueueCharacterEvent(character, g_effect5, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_effect5, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case 0xe:
     case 0x10:
-        QueueCharacterEvent(character, g_effect6, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_effect6, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case 0x13:
         excluded_slot = CharacterPointerToPartySlot(character);
         reaction = g_effect27;
         if ((reaction < g_normal_event_count ||
-             (g_first_remapped_event <= reaction && reaction < g_remapped_event_count + g_first_remapped_event)) &&
+             (g_first_remapped_event <= reaction &&
+              reaction < g_remapped_event_count + g_first_remapped_event)) &&
             (slot = GetRandomCharacter(0, 0, excluded_slot, -1)) != -1) {
             attempts = 0;
             while (!CanDispatchCharacterEvent(slot, reaction, 0)) {
@@ -1594,10 +1672,12 @@ void QueueConditionChangeReaction(W8Character* character)
         }
         break;
     case 6:
-        QueueCharacterEvent(character, g_special_event3, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event3, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case 0xb:
-        QueueCharacterEvent(character, g_special_event21, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event21, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         break;
     default:
         break;
@@ -1619,11 +1699,13 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
     }
     switch (condition) {
     case W8_CONDITION_DEAD:
-        QueueCharacterEvent(character, g_effect8, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_effect8, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case W8_CONDITION_INFATUATED:
     case W8_CONDITION_MISSING:
-        QueueCharacterEvent(character, g_effect7, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_effect7, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         return;
     case W8_CONDITION_DISEASED:
     case W8_CONDITION_IRRITATED:
@@ -1639,10 +1721,12 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
     case W8_CONDITION_PARALYZED:
     case W8_CONDITION_UNCONSCIOUS:
         if (character->highest_condition == W8_CONDITION_NONE) {
-            QueueCharacterEvent(character, g_effect35, 0, g_effect_argument0, g_character_event_full_volume);
+            QueueCharacterEvent(character, g_effect35, 0, g_effect_argument0,
+                                g_character_event_full_volume);
             return;
         }
-        QueueCharacterEvent(character, g_effect34, 0, g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(character, g_effect34, 0, g_effect_argument0,
+                            g_character_event_full_volume);
         break;
     default:
         break;
@@ -1672,7 +1756,8 @@ unsigned char PartyPortraitEventsIdle(void)
     W8PartySlotRow* row = g_status.buffers.XChar;
     const W8MonsterManagerEntry* current;
 
-    for (current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8]; ++current, ++row) {
+    for (current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8];
+         ++current, ++row) {
         if (row->fOccupied && current->portrait_event_active) {
             return 0;
         }
@@ -1715,7 +1800,8 @@ int UpdateCharacterEventState(void)
                     if (record->active_character_event == 0) {
                         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
                     } else {
-                        gXStatus.character_event_queue->CompleteActiveEvent(record->active_character_event);
+                        gXStatus.character_event_queue->CompleteActiveEvent(
+                            record->active_character_event);
                     }
                 }
             } else {
@@ -1727,7 +1813,8 @@ int UpdateCharacterEventState(void)
 #ifdef WIZ8_RUNTIME_TESTS
                 if (sound_active != previous_mouth) {
                     RuntimeObserve(RUNTIME_MOUTH_CHANGED, party_slot,
-                                   wiz8::sound::elapsed_ms(record->voice_sound_handle), sound_active);
+                                   wiz8::sound::elapsed_ms(record->voice_sound_handle),
+                                   sound_active);
                 }
 #endif
             }
@@ -1739,7 +1826,8 @@ int UpdateCharacterEventState(void)
             }
         } else {
             W8Character* character = &g_status.buffers.Char[party_slot];
-            if ((character->highest_condition > W8_CONDITION_WEBBED || character->hp_current == 0) &&
+            if ((character->highest_condition > W8_CONDITION_WEBBED ||
+                 character->hp_current == 0) &&
                 record->active_character_event != 0) {
                 gXStatus.character_event_queue->CompleteActiveEvent(record->active_character_event);
             }
@@ -1756,8 +1844,9 @@ int UpdateCharacterEventState(void)
                             record->portrait_frame_dirty = true;
                             record->voice_time_remaining_ms = 0;
                         } else {
-                            int direction =
-                                ChooseDifferentMonsterDirection(static_cast<short>(record->portrait_frame) - 6) + 6;
+                            int direction = ChooseDifferentMonsterDirection(
+                                                static_cast<short>(record->portrait_frame) - 6) +
+                                            6;
                             if (g_event_range_min <= record->pending_event_type &&
                                 record->pending_event_type <= g_event_range_max) {
                                 direction = 8;
@@ -1780,26 +1869,31 @@ int UpdateCharacterEventState(void)
             RuntimeObserve(RUNTIME_PORTRAIT_FRAME_CHANGED, party_slot, record->portrait_frame,
                            record->portrait_frame_dirty);
             RuntimeObserve(RUNTIME_PORTRAIT_REFRESH_STATE, party_slot,
-                           (record->portrait_pose_dirty ? 1UL : 0UL) | (record->portrait_frame_dirty ? 2UL : 0UL) |
-                               (record->auto_portrait_refresh ? 4UL : 0UL) | (record->keyboard_menu_open ? 8UL : 0UL),
+                           (record->portrait_pose_dirty ? 1UL : 0UL) |
+                               (record->portrait_frame_dirty ? 2UL : 0UL) |
+                               (record->auto_portrait_refresh ? 4UL : 0UL) |
+                               (record->keyboard_menu_open ? 8UL : 0UL),
                            g_current_screen_state.id);
         }
 #endif
-        if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 && IsPortraitObscuredByNpcDialogue(party_slot)) {
+        if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
+            IsPortraitObscuredByNpcDialogue(party_slot)) {
             continue;
         }
         if (!record->damage_splat_active && !record->effect_icon_active &&
             (g_current_screen_state.id != W8_SCREEN_CHARACTER || record->portrait_event_active)) {
             if (!record->portrait_blink_closing) {
                 if (record->portrait_pose == record->target_portrait_pose) {
-                    if (record->portrait_pose == 1 && TimeUntilDeadline(record->portrait_idle_clock) == 0) {
+                    if (record->portrait_pose == 1 &&
+                        TimeUntilDeadline(record->portrait_idle_clock) == 0) {
                         record->portrait_blink_closing = true;
                         record->portrait_idle_clock = w8_get_ticks() + (Random(5000) + 5000);
                     }
                 } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                     int pose = record->portrait_pose;
-                    SetCurrentPortraitPose(*record,
-                                           g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1]);
+                    SetCurrentPortraitPose(
+                        *record,
+                        g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1]);
                     // Reopening and event-pose transitions continue toward the
                     // target; only an idle blink enters the closing phase.
                     record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
@@ -1815,10 +1909,11 @@ int UpdateCharacterEventState(void)
                     record->portrait_blink_closing = false;
                 }
             }
-            if ((record->portrait_pose_dirty || record->portrait_frame_dirty) && !record->keyboard_menu_open) {
+            if ((record->portrait_pose_dirty || record->portrait_frame_dirty) &&
+                !record->keyboard_menu_open) {
 #ifdef WIZ8_RUNTIME_TESTS
-                RuntimeObserve(RUNTIME_PORTRAIT_REFRESH_REQUESTED, party_slot, record->portrait_frame,
-                               g_current_screen_state.id);
+                RuntimeObserve(RUNTIME_PORTRAIT_REFRESH_REQUESTED, party_slot,
+                               record->portrait_frame, g_current_screen_state.id);
 #endif
                 RefreshPartySlotDisplay(party_slot);
             }
@@ -1831,18 +1926,20 @@ int UpdateCharacterEventState(void)
    for the animated form the frame blitter runs first, and the death,
    in-combat or exhausted state adds the darkened overlay. */
 // FUNCTION: WIZ8 0x0052eb00
-void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options, unsigned char value,
-                         int party_slot)
+void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
+                         unsigned char value, int party_slot)
 {
     CatalogArtwork::Load(0x12, portrait).draw(target, 0, left, top, options);
     if (party_slot == -1) {
         return;
     }
     if (value != 0 && g_portrait_frame_flags[portrait] != 0) {
-        bool drawn = BlitPartyPortraitAnimation(target, portrait, left, top, options, party_slot, true);
+        bool drawn =
+            BlitPartyPortraitAnimation(target, portrait, left, top, options, party_slot, true);
         value = !drawn;
     }
-    if ((((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) || gXStatus.fSurprisePossible) ||
+    if ((((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
+          gXStatus.fSurprisePossible) ||
          g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) &&
         value != 0) {
         ShadowRect(target, {left, top, 0x5a, 0x48});
@@ -1854,8 +1951,8 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
    frame and its blend predecessor; the A track draws the frame the animation
    is moving to, and a dead character stops after the B track. */
 // FUNCTION: WIZ8 0x0052ebe0
-bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
-                                int party_slot, bool animate)
+bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
+                                SpriteDraw options, int party_slot, bool animate)
 {
     W8MonsterManagerEntry* state = &gXStatus.monster_manager_entries[party_slot];
     DesignRect rect;
@@ -1882,8 +1979,8 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
         rect.top = image_y + top;
         rect.right = width + rect.left;
         rect.bottom = height + rect.top;
-        if (!animate &&
-            ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) || gXStatus.fSurprisePossible)) {
+        if (!animate && ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
+                         gXStatus.fSurprisePossible)) {
             RenderPartyPortrait(target, portrait, left, top, options, 0, party_slot);
         }
         if (g_status.buffers.Char[party_slot].hp_current == 0) {
@@ -1920,7 +2017,8 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
         const SDL_Point image_position = artwork.position(state->portrait_frame);
         image_x = image_position.x;
         image_y = image_position.y;
-        if (!animate && !drawn && gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) {
+        if (!animate && !drawn && gXStatus.fCombatMode &&
+            g_combat_state->characters[party_slot].dead) {
             RenderPartyPortrait(target, portrait, left, top, options, 0, party_slot);
         }
         artwork.draw(target, state->portrait_frame, left, top, options);
@@ -1949,7 +2047,8 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
         state->rendered_portrait_frame = state->portrait_frame;
         state->portrait_frame_dirty = false;
     }
-    if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) || gXStatus.fSurprisePossible) ||
+    if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
+         gXStatus.fSurprisePossible) ||
         g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) {
         ShadowRect(target, {left, top, 0x5a, 0x48});
     }

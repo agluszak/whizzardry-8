@@ -77,7 +77,8 @@ void W8Item::ApplyRepTransform()
     srNode* mesh;
 
     if (static_cast<W8ItemRep*>(m_pRep)->m_psrMesh == 0) {
-        srAssertFail("m_pRep->m_psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x266, 0);
+        srAssertFail("m_pRep->m_psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x266,
+                     0);
     }
     mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     location = m_pRep->GetLocation();
@@ -212,7 +213,8 @@ W8Item::W8Item()
 }
 
 // FUNCTION: WIZ8 0x0049F4A0
-bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** output, bool anonymous_mesh)
+bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** output,
+                      bool anonymous_mesh)
 try {
     W8Item* item = 0;
     if (name == 0 || output == 0) {

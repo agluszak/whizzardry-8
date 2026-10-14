@@ -94,7 +94,8 @@ struct ArchiveIO {
             *status = SDL_IO_STATUS_ERROR;
             return 0;
         }
-        const size_t wanted = static_cast<size_t>(std::min<Uint64>(bytes, self.length - self.position));
+        const size_t wanted =
+            static_cast<size_t>(std::min<Uint64>(bytes, self.length - self.position));
         const size_t count = wanted ? SDL_ReadIO(self.source, data, wanted) : 0;
         self.position += count;
         if (count < wanted) {
@@ -130,7 +131,8 @@ SDL_IOStream* archive_io(SDL_IOStream* source, Sint64 offset, Sint64 length)
 const fs::path& write_destination(const w8_native::ResolvedPath& path)
 {
     if (path.writable.empty()) {
-        throw std::system_error(std::make_error_code(std::errc::permission_denied), "immutable file path");
+        throw std::system_error(std::make_error_code(std::errc::permission_denied),
+                                "immutable file path");
     }
     return path.writable;
 }
@@ -141,7 +143,8 @@ void prepare_write(const w8_native::ResolvedPath& path, bool preserve)
         return;
     }
     if (!fs::is_directory(path.readable_parent)) {
-        throw std::system_error(std::make_error_code(std::errc::not_a_directory), "game parent directory");
+        throw std::system_error(std::make_error_code(std::errc::not_a_directory),
+                                "game parent directory");
     }
     fs::create_directories(destination.parent_path());
     if (preserve && !fs::exists(destination) && fs::exists(path.readable)) {
@@ -159,7 +162,8 @@ std::optional<FileStatus> physical_status(const fs::path& path, bool writable)
     if (!SDL_GetPathInfo(path_to_utf8(path).c_str(), &info)) {
         sdl_failure("query file metadata");
     }
-    const auto write_bits = fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write;
+    const auto write_bits =
+        fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write;
     return FileStatus{info, writable, (status.permissions() & write_bits) == fs::perms::none};
 }
 char fold(char value)
@@ -293,8 +297,9 @@ File::~File()
     }
 }
 File::File(File&& other) noexcept
-    : stream_(std::exchange(other.stream_, nullptr)), path_(std::move(other.path_)), writable_(other.writable_),
-      writer_create_time_(other.writer_create_time_), extent_(other.extent_)
+    : stream_(std::exchange(other.stream_, nullptr)), path_(std::move(other.path_)),
+      writable_(other.writable_), writer_create_time_(other.writer_create_time_),
+      extent_(other.extent_)
 {
 }
 File& File::operator=(File&& other) noexcept
@@ -372,7 +377,8 @@ void File::write(const void* data, std::size_t bytes)
     }
     std::size_t total = 0;
     while (total < bytes) {
-        const auto count = SDL_WriteIO(stream, static_cast<const std::byte*>(data) + total, bytes - total);
+        const auto count =
+            SDL_WriteIO(stream, static_cast<const std::byte*>(data) + total, bytes - total);
         total += count;
         if (!count || SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY) {
             sdl_failure("write file");
@@ -594,12 +600,14 @@ std::vector<std::string> list_directory(std::string_view directory, std::string_
     for (const auto& base : path.directories) {
         std::error_code error;
         std::vector<std::string> next;
-        for (fs::directory_iterator it(base, error), end; !error && it != end; it.increment(error)) {
+        for (fs::directory_iterator it(base, error), end; !error && it != end;
+             it.increment(error)) {
             next.push_back(path_to_utf8(it->path().filename()));
         }
         std::sort(next.begin(), next.end());
         for (const auto& name : next) {
-            if (matches(name, pattern) && std::none_of(entries.begin(), entries.end(), [&](const auto& previous) {
+            if (matches(name, pattern) &&
+                std::none_of(entries.begin(), entries.end(), [&](const auto& previous) {
                     return previous.size() == name.size() &&
                            std::equal(previous.begin(), previous.end(), name.begin(),
                                       [](char a, char b) { return fold(a) == fold(b); });
@@ -667,7 +675,8 @@ void StagedFile::commit()
 void replace_file(File& destination, std::string_view source)
 {
     const auto from = w8_native::resolve_path(source);
-    const auto to = w8_native::resolve_path(path_to_utf8(destination.physical_path()), w8_native::PathDomain::host);
+    const auto to = w8_native::resolve_path(path_to_utf8(destination.physical_path()),
+                                            w8_native::PathDomain::host);
     const auto& target = write_destination(to);
     destination.close();
     copy_physical(from.readable, target, CopyMode::replace);

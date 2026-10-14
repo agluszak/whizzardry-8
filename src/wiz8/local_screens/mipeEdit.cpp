@@ -24,7 +24,8 @@ static signed char g_mipe_edit_decimal = -1;
 /* Row labels for the prop field editor, one per W8MipeEditField label_index. */
 // GLOBAL: WIZ8 0x0064e004
 static constexpr std::string_view g_mipe_prop_labels[] = {
-    "Open", "Lockable", "Locked", "AutoLocking", "One Way", "Secret", "Found", "Jammable", "Jammed", "Key",
+    "Open",   "Lockable", "Locked",   "AutoLocking", "One Way",
+    "Secret", "Found",    "Jammable", "Jammed",      "Key",
 };
 
 /* Key names for the type-7 "Key" row, indexed by option_base + value. */
@@ -40,9 +41,10 @@ static constexpr std::string_view g_mipe_key_names[] = {
    CommitMipeEditFields. */
 // GLOBAL: WIZ8 0x0064ed08
 static W8MipeEditField g_mipe_prop_fields[10] = {
-    {5, 0, 0, 0, {}, 0.0f, 1}, {5, 1, 0, 0, {}, 0.0f, 1}, {5, 2, 0, 0, {}, 0.0f, 1}, {5, 3, 0, 0, {}, 0.0f, 1},
-    {5, 4, 0, 0, {}, 0.0f, 1}, {5, 5, 0, 0, {}, 0.0f, 1}, {5, 6, 0, 0, {}, 0.0f, 1}, {5, 7, 0, 0, {}, 0.0f, 1},
-    {5, 8, 0, 0, {}, 0.0f, 1}, {7, 9, 3, 0, {}, 0.0f, 0},
+    {5, 0, 0, 0, {}, 0.0f, 1}, {5, 1, 0, 0, {}, 0.0f, 1}, {5, 2, 0, 0, {}, 0.0f, 1},
+    {5, 3, 0, 0, {}, 0.0f, 1}, {5, 4, 0, 0, {}, 0.0f, 1}, {5, 5, 0, 0, {}, 0.0f, 1},
+    {5, 6, 0, 0, {}, 0.0f, 1}, {5, 7, 0, 0, {}, 0.0f, 1}, {5, 8, 0, 0, {}, 0.0f, 1},
+    {7, 9, 3, 0, {}, 0.0f, 0},
 };
 
 /* Field table per variable set; only set 0 (prop trigger flags) exists. */
@@ -60,19 +62,21 @@ void CommitMipeEditFields(W8TriggerActionData* data, signed char bVarSet);
 
 /* Redraws the up-to-seven visible editor rows starting at
    g_mipe_table_base; the selected row gets palette 6, the rest 15. */
-#define MIPE_REDRAW_EDIT_FIELDS()                                                                                      \
-    do {                                                                                                               \
-        W8MipeState* state_ = g_mipe_state.get();                                                                      \
-        char shown_ = static_cast<char>(state_->edit_field_count - static_cast<char>(g_mipe_table_base));              \
-        char row_;                                                                                                     \
-        if (shown_ >= 8) {                                                                                             \
-            shown_ = 7;                                                                                                \
-        }                                                                                                              \
-        ResetEditorStatusLine(-1);                                                                                     \
-        for (row_ = static_cast<char>(g_mipe_table_base); row_ < g_mipe_table_base + shown_; ++row_) {                 \
-            DrawMipeEditFieldRow(&state_->edit_fields[static_cast<int>(row_)],                                         \
-                                 row_ != state_->edit_selection ? 15 : 6, row_);                                       \
-        }                                                                                                              \
+#define MIPE_REDRAW_EDIT_FIELDS()                                                                  \
+    do {                                                                                           \
+        W8MipeState* state_ = g_mipe_state.get();                                                  \
+        char shown_ =                                                                              \
+            static_cast<char>(state_->edit_field_count - static_cast<char>(g_mipe_table_base));    \
+        char row_;                                                                                 \
+        if (shown_ >= 8) {                                                                         \
+            shown_ = 7;                                                                            \
+        }                                                                                          \
+        ResetEditorStatusLine(-1);                                                                 \
+        for (row_ = static_cast<char>(g_mipe_table_base); row_ < g_mipe_table_base + shown_;       \
+             ++row_) {                                                                             \
+            DrawMipeEditFieldRow(&state_->edit_fields[static_cast<int>(row_)],                     \
+                                 row_ != state_->edit_selection ? 15 : 6, row_);                   \
+        }                                                                                          \
     } while (0)
 
 /* Key handler for the prop field editor: digits pick or edit a row, arrows
@@ -96,7 +100,8 @@ void HandleMipeEditPropKey(unsigned short key)
         }
         return;
     }
-    if (((key > 0x40 && key < 0x5b) || (key > 0x2f && key < 0x3a) || key == 0x20) && state->edit_selection != -1) {
+    if (((key > 0x40 && key < 0x5b) || (key > 0x2f && key < 0x3a) || key == 0x20) &&
+        state->edit_selection != -1) {
         field = &fields[static_cast<int>(state->edit_selection)];
         if (field->type == 6) {
             if (key != 0x20 && !IsKeyHeld(VK_SHIFT) && (key < 0x30 || key > 0x39)) {
@@ -171,7 +176,8 @@ void HandleMipeEditPropKey(unsigned short key)
                     field->float_value = g_mipe_edit_accum;
                 } else {
                     ++g_mipe_edit_decimal;
-                    field->float_value = static_cast<float>(g_mipe_edit_accum / pow(10.0, g_mipe_edit_decimal));
+                    field->float_value =
+                        static_cast<float>(g_mipe_edit_accum / pow(10.0, g_mipe_edit_decimal));
                 }
             }
         }
@@ -205,28 +211,31 @@ static void DrawMipeEditFieldRow(W8MipeEditField* field, unsigned int palette, c
 {
     if (field->type == 1) {
         if (g_mipe_edit_decimal == 0) {
-            ShowNotice(palette, fmt::format("{:d}) {}: {:g}.", static_cast<int>(row),
-                                            g_mipe_prop_labels[field->label_index], field->float_value));
+            ShowNotice(palette,
+                       fmt::format("{:d}) {}: {:g}.", static_cast<int>(row),
+                                   g_mipe_prop_labels[field->label_index], field->float_value));
         } else {
-            ShowNotice(palette, fmt::format("{:d}) {}: {:g}", static_cast<int>(row),
-                                            g_mipe_prop_labels[field->label_index], field->float_value));
+            ShowNotice(palette,
+                       fmt::format("{:d}) {}: {:g}", static_cast<int>(row),
+                                   g_mipe_prop_labels[field->label_index], field->float_value));
         }
     } else if (field->type == 2 || field->type == 4) {
-        ShowNotice(palette, fmt::format("{:d}) {}: {:d}", static_cast<int>(row), g_mipe_prop_labels[field->label_index],
-                                        field->value));
+        ShowNotice(palette, fmt::format("{:d}) {}: {:d}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index], field->value));
     } else if (field->type == 5) {
         if (field->value != 0) {
-            ShowNotice(palette,
-                       fmt::format("{:d}) {}: true", static_cast<int>(row), g_mipe_prop_labels[field->label_index]));
+            ShowNotice(palette, fmt::format("{:d}) {}: true", static_cast<int>(row),
+                                            g_mipe_prop_labels[field->label_index]));
         } else {
-            ShowNotice(palette,
-                       fmt::format("{:d}) {}: false", static_cast<int>(row), g_mipe_prop_labels[field->label_index]));
+            ShowNotice(palette, fmt::format("{:d}) {}: false", static_cast<int>(row),
+                                            g_mipe_prop_labels[field->label_index]));
         }
     } else if (field->type == 6) {
-        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row), g_mipe_prop_labels[field->label_index],
-                                        field->text));
+        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index], field->text));
     } else if (field->type == 7) {
-        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row), g_mipe_prop_labels[field->label_index],
+        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index],
                                         g_mipe_key_names[field->option_base + field->value]));
     }
 }

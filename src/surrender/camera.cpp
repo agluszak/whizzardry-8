@@ -28,8 +28,8 @@ static const char* flag_names;
 // FUNCTION: SURRENDER 0x10047D60
 std::ostream& operator<<(std::ostream& stream, const srCamera::Rect& rectangle)
 {
-    stream << "{{" << rectangle.left << ',' << rectangle.bottom << "},{" << rectangle.right << ',' << rectangle.top
-           << "}}";
+    stream << "{{" << rectangle.left << ',' << rectangle.bottom << "},{" << rectangle.right << ','
+           << rectangle.top << "}}";
     return stream;
 }
 
@@ -87,9 +87,11 @@ void srCamera::processPush(srGERD* renderer)
     rectangle.bottom *= scale;
 
     if ((flags.value & (1UL << FLAG_PROJECTION_TYPE)) == 0) {
-        renderer->frustum(rectangle.left, rectangle.right, rectangle.bottom, rectangle.top, near_plane, far_plane);
+        renderer->frustum(rectangle.left, rectangle.right, rectangle.bottom, rectangle.top,
+                          near_plane, far_plane);
     } else {
-        renderer->ortho(rectangle.left, rectangle.right, rectangle.bottom, rectangle.top, near_plane, far_plane);
+        renderer->ortho(rectangle.left, rectangle.right, rectangle.bottom, rectangle.top,
+                        near_plane, far_plane);
     }
 
     renderer->pushEnvironment();
@@ -114,7 +116,8 @@ double srCamera::getAspectRatio() const
 }
 
 // FUNCTION: SURRENDER 0x10048450
-srCamera::srCamera(srNode* parent) : srClassSupport<srCamera, srNode, 0x1400>(static_cast<srNode*>(0))
+srCamera::srCamera(srNode* parent)
+    : srClassSupport<srCamera, srNode, 0x1400>(static_cast<srNode*>(0))
 {
     flags.value = 0;
     near_clip = 0.1;
@@ -263,13 +266,15 @@ void srCamera::setFOV(double field_of_view, double aspect_ratio)
 // FUNCTION: SURRENDER 0x10048AB0
 double srCamera::getHorizontalFOV() const
 {
-    return atan(view_plane.right / view_plane_distance) - atan(view_plane.left / view_plane_distance);
+    return atan(view_plane.right / view_plane_distance) -
+           atan(view_plane.left / view_plane_distance);
 }
 
 // FUNCTION: SURRENDER 0x10048AE0
 double srCamera::getVerticalFOV() const
 {
-    return atan(view_plane.top / view_plane_distance) - atan(view_plane.bottom / view_plane_distance);
+    return atan(view_plane.top / view_plane_distance) -
+           atan(view_plane.bottom / view_plane_distance);
 }
 
 // FUNCTION: SURRENDER 0x10048B10
@@ -316,15 +321,17 @@ srCamera::Projection srCamera::project(const glm::dvec3& input)
 {
     const auto rotation = getWorldSpaceRotation<glm::dmat3>();
     const auto point = glm::transpose(rotation) * (input - getWorldSpaceLocation());
-    if (point.z < std::min(near_clip, far_clip) || point.z > std::max(near_clip, far_clip) || point.z == 0) {
+    if (point.z < std::min(near_clip, far_clip) || point.z > std::max(near_clip, far_clip) ||
+        point.z == 0) {
         return {glm::vec3(0), PROJECTION_RESULT_OUTSIDE_CLIP_RANGE};
     }
     const glm::dvec2 start(view_plane.left, view_plane.top);
     const glm::dvec2 end(view_plane.right, view_plane.bottom);
     const auto uv = (glm::dvec2(point) * (view_plane_distance / point.z) - start) / (end - start);
-    const bool inside =
-        glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) && glm::all(glm::lessThanEqual(uv, glm::dvec2(1)));
-    return {glm::vec3(uv, point.z), inside ? PROJECTION_RESULT_ACCEPTED : PROJECTION_RESULT_OUTSIDE_VIEW};
+    const bool inside = glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) &&
+                        glm::all(glm::lessThanEqual(uv, glm::dvec2(1)));
+    return {glm::vec3(uv, point.z),
+            inside ? PROJECTION_RESULT_ACCEPTED : PROJECTION_RESULT_OUTSIDE_VIEW};
 }
 
 bool srCamera::projectsAny(std::span<const glm::vec3> points)
@@ -339,7 +346,8 @@ std::optional<glm::vec3> srCamera::unproject(const glm::dvec3& input)
 {
     const glm::dvec2 uv(input.x, input.y);
     if (input.z < std::min(near_clip, far_clip) || input.z > std::max(near_clip, far_clip) ||
-        !glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) || !glm::all(glm::lessThanEqual(uv, glm::dvec2(1)))) {
+        !glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) ||
+        !glm::all(glm::lessThanEqual(uv, glm::dvec2(1)))) {
         return std::nullopt;
     }
 

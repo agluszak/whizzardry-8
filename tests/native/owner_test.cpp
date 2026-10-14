@@ -94,8 +94,8 @@ void frame()
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
                           bool app_data = false, unsigned width = 1, unsigned height = 1,
-                          std::array<std::uint8_t, 5> frame_palette_indices = {}, short offset_x = 0,
-                          short offset_y = 0);
+                          std::array<std::uint8_t, 5> frame_palette_indices = {},
+                          short offset_x = 0, short offset_y = 0);
 
 void initialize_test_framebuffer()
 {
@@ -230,8 +230,8 @@ void camp_effects()
 }
 
 std::uint64_t next_mouse_timestamp = 1;
-InputEvent mouse_atom(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false, bool right = false,
-                      std::uint8_t click_count = 0)
+InputEvent mouse_atom(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false,
+                      bool right = false, std::uint8_t click_count = 0)
 {
     InputEvent input{};
     input.timestamp = next_mouse_timestamp++;
@@ -241,8 +241,8 @@ InputEvent mouse_atom(InputEventType event, std::uint16_t x, std::uint16_t y, bo
     input.clicks = click_count;
     return input;
 }
-void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false, bool right = false,
-                    std::uint8_t click_count = 0)
+void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false,
+                    bool right = false, std::uint8_t click_count = 0)
 {
     const auto input = mouse_atom(event, x, y, left, right, click_count);
     if (event == InputEventType::MouseMove) {
@@ -380,9 +380,10 @@ void formatted_strings()
     REQUIRE(std::string("100% literal") == "100% literal");
 }
 
-void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count, bool app_data,
-                          unsigned width, unsigned height, std::array<std::uint8_t, 5> frame_palette_indices,
-                          short offset_x, short offset_y)
+void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
+                          bool app_data, unsigned width, unsigned height,
+                          std::array<std::uint8_t, 5> frame_palette_indices, short offset_x,
+                          short offset_y)
 {
     REQUIRE((width > 0 && width < 128 && height > 0));
     std::replace(name.begin(), name.end(), '\\', '/');
@@ -481,8 +482,8 @@ void bitmap_image_fixture(const std::filesystem::path& root, std::string name)
 
 std::uint16_t surface_pixel(const SDL_Surface& surface, int x, int y)
 {
-    const auto* row =
-        reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(surface.pixels) + y * surface.pitch);
+    const auto* row = reinterpret_cast<const std::uint16_t*>(
+        static_cast<const std::uint8_t*>(surface.pixels) + y * surface.pitch);
     return row[x];
 }
 
@@ -491,7 +492,8 @@ public:
     CatalogArtworkAssets() : previous_roots_(w8_native::path_roots())
     {
         const auto assets = directory_.path / "assets";
-        button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 4, 2, {}, 2, 3);
+        button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 4, 2, {}, 2,
+                             3);
         bitmap_image_fixture(assets, "Data/Portraits/Large/Lhummf.sti");
         g_image_assets.clear();
         w8_native::configure_paths({assets.string(), (directory_.path / "user").string(), {}});
@@ -532,10 +534,11 @@ void generic_button_images()
         REQUIRE(sheet->frames[2].paletteIndexAt(0, 0) == 1);
         REQUIRE(sheet->palette[1].r == 255);
 
-        const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
+        const auto pixel_offset =
+            STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut :
-             {std::size_t{0}, STCI_HEADER_SIZE - 1u, STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE - 1u, pixel_offset - 1u,
-              pixel_offset + 8u, pixel_offset + 12u}) {
+             {std::size_t{0}, STCI_HEADER_SIZE - 1u, STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE - 1u,
+              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
             std::filesystem::resize_file(assets / "metadata.sti", cut);
             REQUIRE(!LoadImage("metadata.sti"));
@@ -557,7 +560,8 @@ void generic_button_images()
     for (bool corrupt_length : {false, true}) {
         button_image_fixture(assets, "bad-extent.sti", 3);
         {
-            std::fstream file(assets / "bad-extent.sti", std::ios::in | std::ios::out | std::ios::binary);
+            std::fstream file(assets / "bad-extent.sti",
+                              std::ios::in | std::ios::out | std::ios::binary);
             STCISubImage region{};
             region.uiDataOffset = corrupt_length ? 1 : 0xffffffffu;
             region.uiDataLength = corrupt_length ? 9 : 3;
@@ -571,7 +575,8 @@ void generic_button_images()
     for (bool corrupt_app_data : {false, true}) {
         button_image_fixture(assets, "bad-size.sti", 3, true);
         {
-            std::fstream file(assets / "bad-size.sti", std::ios::in | std::ios::out | std::ios::binary);
+            std::fstream file(assets / "bad-size.sti",
+                              std::ios::in | std::ios::out | std::ios::binary);
             STCIHeader header{};
             file.read(reinterpret_cast<char*>(&header), STCI_HEADER_SIZE);
             if (corrupt_app_data) {
@@ -601,7 +606,8 @@ void generic_button_images()
     for (bool enabled : {false, true}) {
         for (bool pressed : {false, true}) {
             for (bool hover : {false, true}) {
-                DrawButtonAppearance(target, first_appearance, {0, 0, 8, 8}, {enabled, pressed, hover});
+                DrawButtonAppearance(target, first_appearance, {0, 0, 8, 8},
+                                     {enabled, pressed, hover});
                 const auto* pixels = static_cast<const std::uint16_t*>(target.pixels);
                 const unsigned frame = !enabled ? 0 : pressed ? (hover ? 4 : 3) : (hover ? 2 : 1);
                 REQUIRE(pixels[0] == frame_colors[frame + 1]);
@@ -650,7 +656,8 @@ void generic_button_images()
         for (size_t state = 0; state < 5; ++state) {
             std::array<int, 5> frames{0, 1, 2, 3, 4};
             frames[state] = bad;
-            REQUIRE(!ButtonGraphics::Load("button.sti", frames[0], frames[1], frames[2], frames[3], frames[4]));
+            REQUIRE(!ButtonGraphics::Load("button.sti", frames[0], frames[1], frames[2], frames[3],
+                                          frames[4]));
         }
     }
     REQUIRE(!ButtonGraphics::Load("missing.sti", 0, 1, 2, 3, 4));
@@ -660,7 +667,8 @@ void generic_button_images()
     for (unsigned index = 0; index < 300; ++index) {
         quick_images.push_back(ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4));
     }
-    REQUIRE(std::all_of(quick_images.begin(), quick_images.end(), [](const auto& item) { return item != nullptr; }));
+    REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
+                        [](const auto& item) { return item != nullptr; }));
     quick_images.clear();
     const auto widget_count = LiveUiTargetCount();
     UiLayer buttons;
@@ -694,7 +702,8 @@ void generic_button_images()
     REQUIRE(InitializeButtonImageManager());
     const std::string_view filename = "button.sti", missing = "missing.sti";
     const auto load = [](const std::array<std::string_view, 6>& names) {
-        return LoadGenericButtonImages(names[2], names[0], names[3], names[1], names[4], names[5], 3, 4, 5);
+        return LoadGenericButtonImages(names[2], names[0], names[3], names[1], names[4], names[5],
+                                       3, 4, 5);
     };
     for (size_t index = 0; index < 6; ++index) {
         std::array<std::string_view, 6> names;
@@ -717,7 +726,8 @@ void generic_button_images()
     // A zero-sized first tile would cause division by zero while drawing borders.
     button_image_fixture(assets, "zero-tile.sti");
     {
-        std::fstream file(assets / "zero-tile.sti", std::ios::in | std::ios::out | std::ios::binary);
+        std::fstream file(assets / "zero-tile.sti",
+                          std::ios::in | std::ios::out | std::ios::binary);
         STCISubImage frame{};
         file.seekg(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
         file.read(reinterpret_cast<char*>(&frame), sizeof(frame));
@@ -745,7 +755,8 @@ void generic_button_images()
     for (int index = 0; index < 45; ++index) {
         images.push_back(load({filename, filename, {}, {}, {}, {}}));
     }
-    REQUIRE(std::all_of(images.begin(), images.end(), [](const auto& item) { return item != nullptr; }));
+    REQUIRE(std::all_of(images.begin(), images.end(),
+                        [](const auto& item) { return item != nullptr; }));
     images.clear();
 
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
@@ -802,7 +813,8 @@ void generic_button_images()
         REQUIRE(source.height() == height);
         REQUIRE(moved.height() == 0); // NOLINT(bugprone-use-after-move)
     }
-    ConfigureFontRendering(std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
+    ConfigureFontRendering(
+        std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
     Font primary;
     REQUIRE(primary.load(filename));
     REQUIRE(primary.textWidth("é") > 0);
@@ -831,12 +843,13 @@ void generic_button_images()
     auto expected_pixels = surface_pixels(*expected_surface);
     auto view_pixels = surface_pixels(*view_surface);
     REQUIRE(view_pixels == expected_pixels);
-    REQUIRE(std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
+    REQUIRE(
+        std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
     auto clipped_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
     REQUIRE(clipped_surface);
     REQUIRE(SDL_FillSurfaceRect(clipped_surface.get(), nullptr, 0));
-    const auto first_drawn =
-        std::find_if(expected_pixels.begin(), expected_pixels.end(), [](auto pixel) { return pixel != 0; });
+    const auto first_drawn = std::find_if(expected_pixels.begin(), expected_pixels.end(),
+                                          [](auto pixel) { return pixel != 0; });
     REQUIRE(first_drawn != expected_pixels.end());
     const int first_drawn_x = static_cast<int>(first_drawn - expected_pixels.begin()) % 64;
     const SDL_Rect text_clip{first_drawn_x + 1, 0, 64 - first_drawn_x - 1, 32};
@@ -884,7 +897,8 @@ void generic_button_images()
     REQUIRE(invalidated_width > 0);
     REQUIRE(invalidated_height > 0);
     DrawTextAndInvalidate(GetFrameBufferSurface(), primary, invalidation_at, "A");
-    const SDL_Rect drawn{invalidation_at.x, invalidation_at.y, invalidated_width, invalidated_height};
+    const SDL_Rect drawn{invalidation_at.x, invalidation_at.y, invalidated_width,
+                         invalidated_height};
     const auto upload = TakeUiUpload();
     SDL_Rect covered;
     REQUIRE(SDL_GetRectIntersection(&upload, &drawn, &covered));
@@ -949,7 +963,8 @@ void generic_button_images()
         REQUIRE(fields.HandleInput(committed));
         REQUIRE(fields.Text(field) == "中😀");
         fields.SetText(field, "");
-        const std::array<char32_t, 7> family = {0x1f469, 0x200d, 0x1f469, 0x200d, 0x1f467, 0x200d, 0x1f466};
+        const std::array<char32_t, 7> family = {0x1f469, 0x200d, 0x1f469, 0x200d,
+                                                0x1f467, 0x200d, 0x1f466};
         for (const auto scalar : family) {
             committed.text = scalar;
             REQUIRE(fields.HandleInput(committed));
@@ -1028,7 +1043,8 @@ TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner
     REQUIRE(hits.back() == 2); // Equal layer orders use creation order.
 }
 
-TEST_CASE("Input layers keep capture outside and release it for gameplay drops", "[owner][ui-layer]")
+TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
+          "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
     ResetUiInput();
@@ -1093,10 +1109,12 @@ TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-laye
     fields.ClearFocus();
     fields.RenderAll(*target);
     REQUIRE(*static_cast<std::uint16_t*>(target->pixels) == 0);
-    REQUIRE(std::memcmp(framebuffer.pixels, before->pixels, framebuffer.pitch * framebuffer.h) == 0);
+    REQUIRE(std::memcmp(framebuffer.pixels, before->pixels, framebuffer.pitch * framebuffer.h) ==
+            0);
 }
 
-TEST_CASE("Modal layers isolate editors and restore focus after deferred close", "[owner][ui-layer]")
+TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
+          "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
     ResetUiInput();
@@ -1121,7 +1139,8 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
     {
         Editor nested(font);
         REQUIRE(TextFieldGroup::Focused() == &nested.fields);
-        REQUIRE_FALSE(editor->fields.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'x'}));
+        REQUIRE_FALSE(
+            editor->fields.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'x'}));
     }
     REQUIRE(TextFieldGroup::Focused() == &editor->fields);
     editor->input.add(SDL_Rect{90, 30, 20, 20}, [&](const UiPointerEvent& event) {
@@ -1192,7 +1211,8 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
     REQUIRE(g_ui.hover == 0);
 }
 
-TEST_CASE("Split fields share editing and restore focus after rejecting excessive amounts", "[owner][text-input]")
+TEST_CASE("Split fields share editing and restore focus after rejecting excessive amounts",
+          "[owner][text-input]")
 {
     UiStateSnapshot saved_state;
     Font font{};
@@ -1340,8 +1360,10 @@ TEST_CASE("Only non-passive targets capture the pointer on press", "[owner][ui-l
     UiStateSnapshot saved_state;
     ResetUiInput();
     UiLayer layer;
-    auto& gameplay = layer.add(SDL_Rect{0, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
-    auto& tooltip = layer.add(SDL_Rect{40, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
+    auto& gameplay =
+        layer.add(SDL_Rect{0, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
+    auto& tooltip =
+        layer.add(SDL_Rect{40, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
     tooltip.setPassive();
     // A gameplay control that passes the press still receives the release.
     dispatch_mouse(InputEventType::LeftButtonDown, 5, 5, true);
@@ -1382,7 +1404,8 @@ struct ChainedModal final : ModalContent {
 };
 } // namespace
 
-TEST_CASE("A modal opened from a completion callback survives its predecessor's close", "[owner][modal]")
+TEST_CASE("A modal opened from a completion callback survives its predecessor's close",
+          "[owner][modal]")
 {
     g_modal_owner.reset();
     g_pending_main_game_dialog.reset();
@@ -1440,7 +1463,8 @@ TEST_CASE("Font measurements skip glyphs outside the sprite sheet", "[font][owne
     REQUIRE(font.textWidth("é") == 0);
     REQUIRE(font.prefixWidth("é", 2) == 0);
     W8ControlsRect tooltip_bounds{0, 0, 250, 250};
-    W8TextBuffer tooltip(&tooltip_bounds, "é", font, g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    W8TextBuffer tooltip(&tooltip_bounds, "é", font,
+                         g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
     REQUIRE(tooltip.m_maxLineWidth == 0);
     REQUIRE(tooltip.m_lineCount == 1);
 }
@@ -1546,8 +1570,9 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     }
 
     auto closing = std::make_unique<W8ButtonWidget>(layer);
-    closing->ConfigureTextButton("close", font, 0, 0, {10, 10, 40, 20},
-                                 {.on_click = [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); }});
+    closing->ConfigureTextButton(
+        "close", font, 0, 0, {10, 10, 40, 20},
+        {.on_click = [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); }});
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
@@ -1564,8 +1589,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"}) {
         button_image_fixture(assets / "Data" / "Dialogs", image);
     }
-    for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI", "DialogSlideBar.STI",
-                              "DialogBackground_dark.STI"}) {
+    for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI",
+                              "DialogSlideBar.STI", "DialogBackground_dark.STI"}) {
         button_image_fixture(assets / "Data" / "Dialogs", image);
     }
     button_image_fixture(assets, "font.sti", 128, false, 1, 10);
@@ -1579,8 +1604,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     {
         UiLayer input;
         W8DialogScrollBar bar(input);
-        const W8DialogScrollBar::Resources resources{"arrows.sti", "track.sti", 0,
-                                                     [&](int position) { positions.push_back(position); }};
+        const W8DialogScrollBar::Resources resources{
+            "arrows.sti", "track.sti", 0, [&](int position) { positions.push_back(position); }};
         REQUIRE(bar.CreateControls(&resources));
         bar.SetLayout(100, 20, 20, 5, 10, 30);
         GetInputState().mouse.y = 400;
@@ -1621,12 +1646,14 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             // keeps its controls but takes no input until it is closed.
             MessageDialog inner;
             inner.InputLayer().setModal(true);
-            dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
+            dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y,
+                           true);
             dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
             REQUIRE(dialog.is_open);
         }
         dialog.InputLayer().setModal(true);
-        dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y,
+                       true);
         REQUIRE(dialog.is_open);
         dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
         REQUIRE(!dialog.is_open);
@@ -1651,11 +1678,12 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         dispatch_mouse(InputEventType::LeftButtonUp, list.m_area_button.Bounds().x + 3,
                        list.m_area_button.Bounds().y + 21);
         REQUIRE(list.m_selected_line == 2);
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.Bounds().x, list.m_down_button.Bounds().y,
-                       true);
-        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.Bounds().x, list.m_down_button.Bounds().y,
-                       true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.Bounds().x, list.m_down_button.Bounds().y);
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.Bounds().x,
+                       list.m_down_button.Bounds().y, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.Bounds().x,
+                       list.m_down_button.Bounds().y, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.Bounds().x,
+                       list.m_down_button.Bounds().y);
         REQUIRE(list.m_selected_line == 4);
         dispatch_mouse(InputEventType::LeftButtonDown, list.m_third_text_button.Bounds().x + 1,
                        list.m_third_text_button.Bounds().y + 30, true);
@@ -1675,8 +1703,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(short_list.CreateControls() == 0);
         short_list.Draw(GetFrameBufferSurface());
         REQUIRE_FALSE(short_list.m_scrollable);
-        for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button, &short_list.m_slider_button,
-                                   &short_list.m_third_text_button}) {
+        for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
+                                   &short_list.m_slider_button, &short_list.m_third_text_button}) {
             REQUIRE_FALSE(button->IsVisible());
             REQUIRE_FALSE(button->m_dirty);
         }
@@ -1718,7 +1746,8 @@ TEST_CASE("assert-button-self-destroy", "[.death]")
     FAIL("Destroying a button from its own callback did not abort");
 }
 
-TEST_CASE("Image assets share normalized paths and retain resources across clearing", "[owner][image]")
+TEST_CASE("Image assets share normalized paths and retain resources across clearing",
+          "[owner][image]")
 {
     initialize_test_framebuffer();
     ScopedTemporaryDirectory directory{"wiz8-image-assets"};
@@ -1741,7 +1770,8 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     pcx.resize(pcx.size() + 256 * 3);
     {
         std::ofstream file(bitmap_path, std::ios::binary);
-        file.write(reinterpret_cast<const char*>(pcx.data()), static_cast<std::streamsize>(pcx.size()));
+        file.write(reinterpret_cast<const char*>(pcx.data()),
+                   static_cast<std::streamsize>(pcx.size()));
         REQUIRE(file.good());
     }
 
@@ -1813,7 +1843,8 @@ TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")
     REQUIRE_THROWS_AS(sprites.drawRect(framebuffer, {0, 0, 1, 1}, 40, 40), std::logic_error);
 }
 
-TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[owner][image][catalog]")
+TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics",
+          "[owner][image][catalog]")
 {
     initialize_test_framebuffer();
     CatalogArtworkAssets assets;
@@ -1895,7 +1926,8 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
     REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
     REQUIRE_THROWS_AS(CatalogArtwork::Load(-1, 0), std::out_of_range);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(0, -1), std::out_of_range);
-    REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<int>::max()), std::out_of_range);
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<int>::max()),
+                      std::out_of_range);
 
     g_item_video_objects.Initialize(records.size());
     REQUIRE(g_item_video_objects.LoadedImageCount() == 0);

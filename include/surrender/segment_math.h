@@ -14,7 +14,8 @@ template<glm::length_t Dimensions> struct Projection {
 // Share the segment projection in two and three dimensions. Explicit ordered
 // comparisons retain the endpoint fallback for a degenerate segment or NaN.
 template<glm::length_t Dimensions>
-Projection<Dimensions> project(const glm::vec<Dimensions, float>& point, const glm::vec<Dimensions, float>& from,
+Projection<Dimensions> project(const glm::vec<Dimensions, float>& point,
+                               const glm::vec<Dimensions, float>& from,
                                const glm::vec<Dimensions, float>& to)
 {
     const auto direction = to - from;

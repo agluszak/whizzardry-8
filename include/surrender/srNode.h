@@ -58,7 +58,12 @@ public:
     /* traverse omits a DISABLE node and does not walk the children of a TERMINATE node. Lights,
        clip planes and bounders set GLOBAL. Setting IGNORE_TRANSFORM dirties the cached world
        transform. */
-    enum e_flag { FLAG_DISABLE = 0, FLAG_TERMINATE = 1, FLAG_GLOBAL = 2, FLAG_IGNORE_TRANSFORM = 3 };
+    enum e_flag {
+        FLAG_DISABLE = 0,
+        FLAG_TERMINATE = 1,
+        FLAG_GLOBAL = 2,
+        FLAG_IGNORE_TRANSFORM = 3
+    };
 
     enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
 
@@ -145,7 +150,8 @@ public:
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
-    [[nodiscard]] SR_DLL_IMPORT srModelViewScope scopedWorldSpaceMatrix(class srGERD& renderer) const;
+    [[nodiscard]] SR_DLL_IMPORT srModelViewScope
+    scopedWorldSpaceMatrix(class srGERD& renderer) const;
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
     SR_DLL_IMPORT glm::dvec3 getLocation() const;
     SR_DLL_IMPORT double getLocationX() const;
@@ -165,7 +171,8 @@ public:
 
     template<class Scalar = double> Coordinates<Scalar> getWorldSpaceCoordinates() const
     {
-        return {getWorldSpaceRotation<glm::mat<3, 3, Scalar>>(), glm::vec<3, Scalar>(getWorldSpaceLocation()),
+        return {getWorldSpaceRotation<glm::mat<3, 3, Scalar>>(),
+                glm::vec<3, Scalar>(getWorldSpaceLocation()),
                 glm::vec<3, Scalar>(getWorldSpaceScale())};
     }
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceDOF() const;
@@ -219,7 +226,8 @@ public:
     SR_DLL_IMPORT void setLocationZ(double z);
     SR_DLL_IMPORT void setRotation(const glm::mat3& rotation);
     SR_DLL_IMPORT void setRotation(const glm::dmat3& rotation);
-    SR_DLL_IMPORT void setRotation(const glm::dvec3& first, const glm::dvec3& second, double amount);
+    SR_DLL_IMPORT void setRotation(const glm::dvec3& first, const glm::dvec3& second,
+                                   double amount);
     SR_DLL_IMPORT void setRotation(const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void setRotation(double amount, const glm::dvec3& direction);
     SR_DLL_IMPORT void setRotation(double x, double y, double z);
@@ -273,17 +281,17 @@ private:
 
     glm::dmat3 rotation; /* 0x018 */
     glm::dvec3 location; /* 0x060 */
-    glm::dvec3 scale;    /* 0x078 */
+    glm::dvec3 scale; /* 0x078 */
     /* Cached world transforms and the notification word mutate inside the
        const updateTransformation/getter family. */
     mutable glm::dmat4x3 world_transform0; /* 0x090: cached affine world transform */
-    mutable glm::mat4x3 world_transform1;  /* 0x0f0 */
-    mutable srFlags<e_notify> notifications;       /* 0x120 */
-    srFlags<e_flag> flags;                         /* 0x124 */
+    mutable glm::mat4x3 world_transform1; /* 0x0f0 */
+    mutable srFlags<e_notify> notifications; /* 0x120 */
+    srFlags<e_flag> flags; /* 0x124 */
 
 public:
-    srNode* next_sibling_;     /* 0x128 */
+    srNode* next_sibling_; /* 0x128 */
     srNode* previous_sibling_; /* 0x12c */
-    srNode* parent_;           /* 0x130 */
-    srNode* first_child_;      /* 0x134 */
+    srNode* parent_; /* 0x130 */
+    srNode* first_child_; /* 0x134 */
 };

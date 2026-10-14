@@ -66,7 +66,8 @@ void push(InputEvent event)
     }
     event.timestamp = w8_get_ticks();
     event.modifiers = state.modifiers;
-    event.buttons = (state.left_button ? SDL_BUTTON_LMASK : 0) | (state.right_button ? SDL_BUTTON_RMASK : 0);
+    event.buttons =
+        (state.left_button ? SDL_BUTTON_LMASK : 0) | (state.right_button ? SDL_BUTTON_RMASK : 0);
     switch (event.type) {
     case InputEventType::LeftButtonDown:
         state.left_repeat_at = event.timestamp + button_repeat_timeout;
@@ -86,7 +87,8 @@ void push(InputEvent event)
     events.push_back(event);
 }
 
-void queue_button_repeat(bool held, std::uint64_t& repeat_at, InputEventType type, std::uint64_t now)
+void queue_button_repeat(bool held, std::uint64_t& repeat_at, InputEventType type,
+                         std::uint64_t now)
 {
     if (!held) {
         repeat_at = 0;
@@ -101,7 +103,8 @@ void queue_button_repeat(bool held, std::uint64_t& repeat_at, InputEventType typ
 
 void set_modifiers(SDL_Keymod mod)
 {
-    state.modifiers = ((mod & SDL_KMOD_SHIFT) ? SHIFT_DOWN : 0) | ((mod & SDL_KMOD_CTRL) ? CTRL_DOWN : 0) |
+    state.modifiers = ((mod & SDL_KMOD_SHIFT) ? SHIFT_DOWN : 0) |
+                      ((mod & SDL_KMOD_CTRL) ? CTRL_DOWN : 0) |
                       ((mod & SDL_KMOD_ALT) ? ALT_DOWN : 0);
     state.keys[VK_SHIFT] = (state.modifiers & SHIFT_DOWN) != 0;
     state.keys[VK_CONTROL] = (state.modifiers & CTRL_DOWN) != 0;
@@ -259,7 +262,9 @@ void handle_button(const SDL_MouseButtonEvent& event)
         /* SDL applies the platform's double-click timing; the game wants its
            double-click event on the second release. */
         if (!down && event.clicks != 0 && (event.clicks & 1) == 0) {
-            push({.type = InputEventType::LeftButtonDoubleClick, .position = state.mouse, .clicks = event.clicks});
+            push({.type = InputEventType::LeftButtonDoubleClick,
+                  .position = state.mouse,
+                  .clicks = event.clicks});
         }
     } else if (event.button == SDL_BUTTON_RIGHT) {
         state.right_button = down;
@@ -287,16 +292,19 @@ struct KeyName {
 
 // GLOBAL: WIZ8 0x00647770
 constexpr KeyName key_names[] = {
-    {"F1", 112},        {"F2", 113},        {"F3", 114},        {"F4", 115},         {"F5", 116},
-    {"F6", 117},        {"F7", 118},        {"F8", 119},        {"F9", 120},         {"F10", 121},
-    {"F11", 122},       {"F12", 123},       {"ESC", 27},        {"TAB", 9},          {"PAUSE", 19},
-    {"NUM_LOCK", 144},  {"BACKSPACE", 8},   {"INSERT", 45},     {"DEL", 46},         {"KEY_END", 35},
-    {"PGDN", 34},       {"PGUP", 33},       {"HOME", 36},       {"ENTER", 13},       {"SPACE", 32},
-    {"DNARROW", 40},    {"LEFTARROW", 37},  {"RIGHTARROW", 39}, {"UPARROW", 38},     {"NUM_0", 96},
-    {"NUM_1", 97},      {"NUM_2", 98},      {"NUM_3", 99},      {"NUM_4", 100},      {"NUM_5", 101},
-    {"NUM_6", 102},     {"NUM_7", 103},     {"NUM_8", 104},     {"NUM_9", 105},      {"NUM_TIMES", 106},
-    {"NUM_PLUS", 107},  {"NUM_ENTER", 108}, {"NUM_MINUS", 109}, {"NUM_PERIOD", 110}, {"NUM_SLASH", 111},
-    {"SCRL_LOCK", 145}, {"/", 191},         {"-", 189},         {".", 190}};
+    {"F1", 112},        {"F2", 113},        {"F3", 114},        {"F4", 115},
+    {"F5", 116},        {"F6", 117},        {"F7", 118},        {"F8", 119},
+    {"F9", 120},        {"F10", 121},       {"F11", 122},       {"F12", 123},
+    {"ESC", 27},        {"TAB", 9},         {"PAUSE", 19},      {"NUM_LOCK", 144},
+    {"BACKSPACE", 8},   {"INSERT", 45},     {"DEL", 46},        {"KEY_END", 35},
+    {"PGDN", 34},       {"PGUP", 33},       {"HOME", 36},       {"ENTER", 13},
+    {"SPACE", 32},      {"DNARROW", 40},    {"LEFTARROW", 37},  {"RIGHTARROW", 39},
+    {"UPARROW", 38},    {"NUM_0", 96},      {"NUM_1", 97},      {"NUM_2", 98},
+    {"NUM_3", 99},      {"NUM_4", 100},     {"NUM_5", 101},     {"NUM_6", 102},
+    {"NUM_7", 103},     {"NUM_8", 104},     {"NUM_9", 105},     {"NUM_TIMES", 106},
+    {"NUM_PLUS", 107},  {"NUM_ENTER", 108}, {"NUM_MINUS", 109}, {"NUM_PERIOD", 110},
+    {"NUM_SLASH", 111}, {"SCRL_LOCK", 145}, {"/", 191},         {"-", 189},
+    {".", 190}};
 
 struct KeyCharacters {
     std::uint16_t key;
@@ -305,10 +313,11 @@ struct KeyCharacters {
 };
 
 /* US layout, matching retail's 0x005ffc3c table for every non-letter key. */
-constexpr KeyCharacters key_characters[] = {{0x6a, '*', '*'}, {0x6b, '+', '+'},  {0x6d, '-', '-'}, {0x6e, '.', '.'},
-                                            {0x6f, '/', '/'}, {0xba, ';', ':'},  {0xbb, '=', '+'}, {0xbc, ',', '<'},
-                                            {0xbd, '-', '_'}, {0xbe, '.', '>'},  {0xbf, '/', '?'}, {0xc0, '`', '~'},
-                                            {0xdb, '[', '{'}, {0xdc, '\\', '|'}, {0xdd, ']', '}'}, {0xde, '\'', '"'}};
+constexpr KeyCharacters key_characters[] = {
+    {0x6a, '*', '*'}, {0x6b, '+', '+'},  {0x6d, '-', '-'}, {0x6e, '.', '.'},
+    {0x6f, '/', '/'}, {0xba, ';', ':'},  {0xbb, '=', '+'}, {0xbc, ',', '<'},
+    {0xbd, '-', '_'}, {0xbe, '.', '>'},  {0xbf, '/', '?'}, {0xc0, '`', '~'},
+    {0xdb, '[', '{'}, {0xdc, '\\', '|'}, {0xdd, ']', '}'}, {0xde, '\'', '"'}};
 
 } // namespace
 
@@ -362,7 +371,9 @@ void HandleInputEvent(const SDL_Event& event)
         const std::string_view text(event.text.text);
         std::size_t offset = 0;
         while (offset < text.size()) {
-            push({.type = InputEventType::Text, .text = wiz8::text::next(text, offset), .position = state.mouse});
+            push({.type = InputEventType::Text,
+                  .text = wiz8::text::next(text, offset),
+                  .position = state.mouse});
         }
         state.received = true;
         break;
@@ -400,8 +411,10 @@ void QueueEvent(InputEventType type, SDL_Point position, std::uint16_t key)
 bool DequeueEvent(InputEvent* event)
 {
     const std::uint64_t now = w8_get_ticks();
-    queue_button_repeat(state.left_button, state.left_repeat_at, InputEventType::LeftButtonRepeat, now);
-    queue_button_repeat(state.right_button, state.right_repeat_at, InputEventType::RightButtonRepeat, now);
+    queue_button_repeat(state.left_button, state.left_repeat_at, InputEventType::LeftButtonRepeat,
+                        now);
+    queue_button_repeat(state.right_button, state.right_repeat_at,
+                        InputEventType::RightButtonRepeat, now);
     if (events.empty()) {
         return false;
     }

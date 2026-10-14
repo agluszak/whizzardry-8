@@ -52,7 +52,8 @@ void srMaterial::verify(srRuntimeClass::e_verify mode)
     checkRange(parms.specular.z, 1.0, "parms.specular.z >= 0.0 && parms.specular.z <= 1.0", 0x37);
     checkRange(parms.specular.w, 1.0, "parms.specular.w >= 0.0 && parms.specular.w <= 1.0", 0x38);
     checkRange(parms.shininess, 127.0, "parms.shininess >= 0.0 && parms.shininess <= 127.0", 0x39);
-    checkRange(parms.translucency, 1.0, "parms.translucency >= 0.0 && parms.translucency <= 1.0", 0x3a);
+    checkRange(parms.translucency, 1.0, "parms.translucency >= 0.0 && parms.translucency <= 1.0",
+               0x3a);
 }
 
 // FUNCTION: SURRENDER 0x100339B0
@@ -163,7 +164,8 @@ void srMaterial::postProcess(srVertexPipe& pipe)
             cueColor(true);
         }
     }
-    if ((operations & (1u << OPER_ALPHA)) != 0 && (pipe.channel_mask & (1u << srVertexProcessor::CHANNEL_ALPHA)) != 0) {
+    if ((operations & (1u << OPER_ALPHA)) != 0 &&
+        (pipe.channel_mask & (1u << srVertexProcessor::CHANNEL_ALPHA)) != 0) {
         const auto depth = pipe.getDepthCue();
         const auto alpha = pipe.getAlpha();
         for (w8_ulong i = 0; i < pipe.vertex_count; ++i) {
@@ -195,17 +197,17 @@ void srMaterial::dump(std::ostream& stream)
     srClass::dump(stream);
     const srDumpStreamScope formatting(stream);
     stream.width(0x20);
-    stream << "  Ambient: " << '{' << parms.ambient.x << ',' << parms.ambient.y << ',' << parms.ambient.z << ','
-           << parms.ambient.w << '}' << '\n';
+    stream << "  Ambient: " << '{' << parms.ambient.x << ',' << parms.ambient.y << ','
+           << parms.ambient.z << ',' << parms.ambient.w << '}' << '\n';
     stream.width(0x20);
-    stream << "  Diffuse: " << '{' << parms.diffuse.x << ',' << parms.diffuse.y << ',' << parms.diffuse.z << ','
-           << parms.diffuse.w << '}' << '\n';
+    stream << "  Diffuse: " << '{' << parms.diffuse.x << ',' << parms.diffuse.y << ','
+           << parms.diffuse.z << ',' << parms.diffuse.w << '}' << '\n';
     stream.width(0x20);
-    stream << "  Emissive: " << '{' << parms.emissive.x << ',' << parms.emissive.y << ',' << parms.emissive.z << ','
-           << parms.emissive.w << '}' << '\n';
+    stream << "  Emissive: " << '{' << parms.emissive.x << ',' << parms.emissive.y << ','
+           << parms.emissive.z << ',' << parms.emissive.w << '}' << '\n';
     stream.width(0x20);
-    stream << "  Specular: " << '{' << parms.specular.x << ',' << parms.specular.y << ',' << parms.specular.z << ','
-           << parms.specular.w << '}' << '\n';
+    stream << "  Specular: " << '{' << parms.specular.x << ',' << parms.specular.y << ','
+           << parms.specular.z << ',' << parms.specular.w << '}' << '\n';
     stream.width(0x20);
     stream << "  Shininess: " << parms.shininess << '\n';
     stream.width(0x20);
@@ -354,7 +356,8 @@ struct NamedValue {
 template<std::size_t Count>
 static void dumpNamed(std::ostream& stream, w8_ulong value, const NamedValue (&names)[Count])
 {
-    if (const auto found = std::ranges::find(names, value, &NamedValue::value); found != std::end(names)) {
+    if (const auto found = std::ranges::find(names, value, &NamedValue::value);
+        found != std::end(names)) {
         stream << found->name;
     }
 }
@@ -473,7 +476,8 @@ std::ostream& operator<<(std::ostream& stream, const srShader& shader)
     stream << '/';
     dumpNamed(stream, (shader.value >> srShader::GRADIENT_SHIFT) & 0x3, kGradientNames);
     stream << '/';
-    dumpNamed(stream, (shader.value >> srShader::SECONDARY_GRADIENT_SHIFT) & 0x1, kSecondaryGradientNames);
+    dumpNamed(stream, (shader.value >> srShader::SECONDARY_GRADIENT_SHIFT) & 0x1,
+              kSecondaryGradientNames);
     stream << '/';
     dumpNamed(stream, (shader.value >> srShader::TEXTURING_SHIFT) & 0x1, kTexturingNames);
     return stream;

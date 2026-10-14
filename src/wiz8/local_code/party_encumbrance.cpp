@@ -64,8 +64,8 @@ void RecalculateCharacterDerivedStats(W8Character* character)
         character->damage_reduction += character->attributes[W8_ATTRIBUTE_VITALITY].effective / 10;
     }
     if (CharacterHasTrait(character, W8_TRAIT_MONK_DAMAGE_RESISTANCE)) {
-        character->damage_reduction +=
-            static_cast<int>(ScaleValueByProfessionLevel(character, W8_TRAIT_MONK_DAMAGE_RESISTANCE, 15.0f));
+        character->damage_reduction += static_cast<int>(
+            ScaleValueByProfessionLevel(character, W8_TRAIT_MONK_DAMAGE_RESISTANCE, 15.0f));
     }
     if (character->skills[W8_SKILL_IRON_SKIN].active) {
         character->damage_reduction += (character->skills[W8_SKILL_IRON_SKIN].level >> 2) + 5;
@@ -90,7 +90,8 @@ void RecalculateCharacterDerivedStats(W8Character* character)
     }
     character->total_carried_weight = character->party_weight_share + character->inventory_weight;
 
-    unsigned int load = static_cast<unsigned int>(character->total_carried_weight * 100) / character->carrying_capacity;
+    unsigned int load = static_cast<unsigned int>(character->total_carried_weight * 100) /
+                        character->carrying_capacity;
     if (load < 0x32) {
         character->load_category = W8_LOAD_NONE;
     } else if (load < 0x46) {
@@ -142,12 +143,14 @@ bool RecalculateCarriedWeight(W8Character* character)
     for (int backpack_index = 0; backpack_index < 8; ++backpack_index) {
         character->inventory_weight += GetItemStackWeight(&character->backpack[backpack_index]);
     }
-    if (previous < character->carrying_capacity && character->carrying_capacity < character->inventory_weight) {
+    if (previous < character->carrying_capacity &&
+        character->carrying_capacity < character->inventory_weight) {
         int effect = g_camp_overload_event_id;
         if (g_current_screen_state.id != W8_SCREEN_CAMP) {
             effect = g_special_event13;
         }
-        QueueCharacterEvent(character, effect, 0, g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(character, effect, 0, g_character_event_no_flags,
+                            g_character_event_full_volume);
     }
     return previous != character->inventory_weight;
 }
@@ -215,7 +218,8 @@ void RedistributePartyEncumbrance(void)
         W8Character* character = &characters[slot];
         int carried = character->inventory_weight + character->party_weight_share;
         character->total_carried_weight = carried;
-        unsigned int percent = static_cast<unsigned int>(carried * 100) / character->carrying_capacity;
+        unsigned int percent =
+            static_cast<unsigned int>(carried * 100) / character->carrying_capacity;
         W8LoadCategory old_band = character->load_category;
         if (percent < 50) {
             character->load_category = W8_LOAD_NONE;

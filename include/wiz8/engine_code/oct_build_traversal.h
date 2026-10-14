@@ -6,8 +6,8 @@
 // Both triangle inserters visit overlapping octants in x/y/z order. The callers
 // retain their own depth limits, overlap inputs, node ownership, and leaf actions.
 template<class Overlaps, class CreateNode, class InsertChild>
-bool InsertBuildSurfaceChildren(W8OctSpatialState* parent, W8OctSpatialState& child, float extent, Overlaps overlaps,
-                                CreateNode create_node, InsertChild insert_child)
+bool InsertBuildSurfaceChildren(W8OctSpatialState* parent, W8OctSpatialState& child, float extent,
+                                Overlaps overlaps, CreateNode create_node, InsertChild insert_child)
 {
     bool inserted = false;
     for (unsigned octant = 0; octant < 8; ++octant) {
@@ -28,7 +28,8 @@ bool InsertBuildSurfaceChildren(W8OctSpatialState* parent, W8OctSpatialState& ch
 }
 
 // Existing-child walks borrow the parent's nodes and keep x/y/z visitation order.
-template<class Visit> void visitBuildChildren(const W8OctSpatialState& parent, W8OctSpatialState& child, Visit visit)
+template<class Visit>
+void visitBuildChildren(const W8OctSpatialState& parent, W8OctSpatialState& child, Visit visit)
 {
     for (unsigned octant = 0; octant < 8; ++octant) {
         if (auto* node = parent.m_root->children[octant]) {

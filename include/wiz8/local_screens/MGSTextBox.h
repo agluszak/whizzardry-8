@@ -15,7 +15,11 @@ namespace wiz8 {
 class File;
 }
 
-enum W8NoticeWordState { W8_NOTICE_WORD_NORMAL = 0, W8_NOTICE_WORD_HOVERED = 1, W8_NOTICE_WORD_SELECTED = 2 };
+enum W8NoticeWordState {
+    W8_NOTICE_WORD_NORMAL = 0,
+    W8_NOTICE_WORD_HOVERED = 1,
+    W8_NOTICE_WORD_SELECTED = 2
+};
 
 struct W8NoticeWord {
     std::size_t start;
@@ -149,7 +153,8 @@ int GetTextBoxVisibleLineCount(void);
 
 /* Recolour the character span [start, stop) of the most recent
    line in one text box; -1 picks the box the current game mode writes to. */
-void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop, short text_box);
+void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
+                           short text_box);
 
 void SelectTextBox(short value);
 /* Ask for the text box to be redrawn without changing anything. */
@@ -175,7 +180,8 @@ unsigned char LoadMessageStorage(wiz8::File& file);
 const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
 
-void ShowNotice(unsigned int font_palette, std::string_view text, short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
+void ShowNotice(unsigned int font_palette, std::string_view text,
+                short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
 
 void HighlightNoticeRow(int line);

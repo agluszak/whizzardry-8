@@ -36,8 +36,8 @@ enum {
     W8_LEVEL_FLAG_MOVEMENT_ACTIVE = 0x020,
     W8_LEVEL_FLAG_MOVEMENT_STOPPED = 0x040,
     W8_LEVEL_FLAG_MOVEMENT_RESET = 0x080,
-    W8_LEVEL_MOVEMENT_STATE_MASK =
-        W8_LEVEL_FLAG_MOVEMENT_ACTIVE | W8_LEVEL_FLAG_MOVEMENT_STOPPED | W8_LEVEL_FLAG_MOVEMENT_RESET,
+    W8_LEVEL_MOVEMENT_STATE_MASK = W8_LEVEL_FLAG_MOVEMENT_ACTIVE | W8_LEVEL_FLAG_MOVEMENT_STOPPED |
+                                   W8_LEVEL_FLAG_MOVEMENT_RESET,
     W8_LEVEL_FLAG_FAST_MOVEMENT = 0x100,
     W8_LEVEL_FLAG_MOVED_THIS_UPDATE = 0x200
 };
@@ -105,7 +105,8 @@ struct W8LevelDataRecord {
     /* 0x0041FE20: when the camera sits outside the game-data AABB, push
        motion_displacement toward the box, clear environ vector, and optionally start
        party movement; returns non-zero when a clamp fired. */
-    unsigned char ClampCameraToBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    unsigned char ClampCameraToBounds(const srVector3T<float>* minimum,
+                                      const srVector3T<float>* maximum);
     /* 0x0041FF00: toggle setting-6e props referenced by
      * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
@@ -114,7 +115,8 @@ struct W8LevelDataRecord {
     bool IntegrateCameraForward();
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
-    unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move, const glm::mat3& saved);
+    unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
+                                         const glm::mat3& saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
     void UpdateMotionProgress(unsigned char fast_move, unsigned char moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
@@ -234,12 +236,14 @@ struct W8GameData {
     /* Builds the octree trace mesh and answers its model instance. */
     std::unique_ptr<stModelInstance> CreateTraceModel(); /* 0x0041c930 */
     CameraRotation cameraRotation(unsigned int flags, const glm::mat3& rotation);
-    CameraMotion cameraMotion(unsigned int flags, const glm::vec3& position, const glm::mat3& movement_basis);
+    CameraMotion cameraMotion(unsigned int flags, const glm::vec3& position,
+                              const glm::mat3& movement_basis);
     /* 0x0041AB40: advance camera under environment-load motion, tracing
        props/octree/geometry and applying crossed surfaces. */
     unsigned char AdvanceEnvironmentMotion();
     /* 0x0041BD60: push the motion delta away from nearby active monsters. */
-    unsigned char ProbeMonstersAlongMotion(srVector3T<float>* direction, srVector3T<float>* position, int mode);
+    unsigned char ProbeMonstersAlongMotion(srVector3T<float>* direction,
+                                           srVector3T<float>* position, int mode);
     /* 0x0041B770: probe active collidable props along the motion segment;
        returns the nearest hit surface and may adjust `direction`. */
     W8GDSurface* ProbePropsAlongMotion(srVector3T<float>* direction, srVector3T<float>* position,
@@ -337,7 +341,8 @@ struct W8GameData {
 
     /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */
-    int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag, char gate); /* 0x0041C0D0 */
+    int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
+                         char gate); /* 0x0041C0D0 */
     /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
        into this context, traces in prop-local space through the prop's
        position delta when no pre-tree exists (reseeding the caller's record
@@ -349,7 +354,8 @@ struct W8GameData {
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
        into hit_limit. */
-    bool TestGeometryTrace(std::span<W8GDSurface> surfaces, std::span<const srVector3T<float>> vertices, int count,
+    bool TestGeometryTrace(std::span<W8GDSurface> surfaces,
+                           std::span<const srVector3T<float>> vertices, int count,
                            w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
     bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
                          int mode); /* 0x0041C330 */

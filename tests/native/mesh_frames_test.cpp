@@ -50,7 +50,8 @@ static bool frame_storage()
             REQUIRE(frame.compressed_locations.size() == 9);
             REQUIRE(frame.compressed_vertex_normals.size() == 9);
             REQUIRE(frame.compressed_polygon_normals.size() == 3);
-            REQUIRE(std::all_of(frame.compressed_locations.begin(), frame.compressed_locations.end(),
+            REQUIRE(std::all_of(frame.compressed_locations.begin(),
+                                frame.compressed_locations.end(),
                                 [](short value) { return value == 0; }));
             REQUIRE((!frame.locations && !frame.vertex_normals && !frame.polygon_normals));
         }
@@ -71,15 +72,18 @@ static bool frame_storage()
         mesh.FinalizeVertexFrame(1);
         const std::vector<unsigned char> vertex_normals{0, 0, 127, 0, 0, 127, 0, 0, 127};
         REQUIRE(mesh.frames[0].compressed_vertex_normals == vertex_normals);
-        REQUIRE(mesh.frames[0].compressed_polygon_normals == std::vector<unsigned char>({0, 0, 127}));
+        REQUIRE(mesh.frames[0].compressed_polygon_normals ==
+                std::vector<unsigned char>({0, 0, 127}));
         REQUIRE(!mesh.frames[0].locations);
-        REQUIRE(g_decompressed_mesh_bytes == initial_bytes); // Normal-builder scratch is not a cache.
+        REQUIRE(g_decompressed_mesh_bytes ==
+                initial_bytes); // Normal-builder scratch is not a cache.
 
         auto bounds = mesh.GetFrameBounds(1);
         REQUIRE(bounds.minimum == glm::vec3(2.0f, 0.0f, 0.0f));
         REQUIRE(bounds.maximum == glm::vec3(3.0f, 1.0f, 0.0f));
         REQUIRE(!mesh.frames[1].locations);
-        REQUIRE(g_decompressed_mesh_bytes == initial_bytes); // Bounds must not make a frame resident.
+        REQUIRE(g_decompressed_mesh_bytes ==
+                initial_bytes); // Bounds must not make a frame resident.
         auto* positions = mesh.GetVertexLocations(0, true, 0.0f);
         REQUIRE(positions[1] == glm::vec3(1.0f, 0.0f, 0.0f));
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 3 * sizeof(glm::vec3));
@@ -105,7 +109,8 @@ static bool frame_storage()
         REQUIRE(bounds.minimum == glm::vec3(0.0f, 0.0f, 0.0f));
         REQUIRE(bounds.maximum == glm::vec3(1.0f, 1.0f, 0.0f));
         bounds = mesh.GetFrameBounds(-1);
-        REQUIRE((bounds.minimum == glm::vec3(0.0f, 0.0f, 0.0f) && bounds.minimum == bounds.maximum));
+        REQUIRE(
+            (bounds.minimum == glm::vec3(0.0f, 0.0f, 0.0f) && bounds.minimum == bounds.maximum));
         const int cache_bytes = (3 + 3 + 3 + 1) * sizeof(glm::vec3);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes + cache_bytes);
         REQUIRE(mesh.ReleaseDecompressedFrames() == cache_bytes);
@@ -115,7 +120,8 @@ static bool frame_storage()
         REQUIRE((!mesh.frames[0].polygon_normals && !mesh.frames[1].locations));
         REQUIRE(mesh.GetVertex(0) == compressed);
         REQUIRE(std::equal(first.begin(), first.end(), compressed));
-        REQUIRE(lerp == mesh.lerp_buffer.data()); // Explicit cache eviction does not evict interpolation.
+        REQUIRE(lerp ==
+                mesh.lerp_buffer.data()); // Explicit cache eviction does not evict interpolation.
         REQUIRE(mesh.GetVertexLocations(0, true, 0.25f) == lerp);
         REQUIRE(lerp[0].x == Catch::Approx(0.5f).margin(1e-6));
         REQUIRE(mesh.GetVertex(2) == nullptr);
@@ -233,7 +239,8 @@ static bool part_ownership()
         original.parts[0]->InitializeVertexFrames(1);
         original.parts[0]->GetVertexLocations(0, true, 0.0f);
         REQUIRE((original.head == nullptr && original.parts[0]->head == &original));
-        REQUIRE((original.Next() == original.parts[0].get() && original.parts[0]->Next() == nullptr));
+        REQUIRE(
+            (original.Next() == original.parts[0].get() && original.parts[0]->Next() == nullptr));
         REQUIRE(g_mesh_models.size() == registered + 2);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 2 * sizeof(glm::vec3));
     }
@@ -262,11 +269,13 @@ static bool loaded_model_ownership()
     std::vector<short> mapped_values, mapped_keys;
     unsigned int mesh_count = 0;
     std::vector<std::vector<int>> maps;
-    auto model = BuildSingleLevelMesh(3, faces, 9, materials, &mesh_count, maps, &mapped_values, &mapped_keys);
+    auto model = BuildSingleLevelMesh(3, faces, 9, materials, &mesh_count, maps, &mapped_values,
+                                      &mapped_keys);
     REQUIRE((model && mesh_count == 2 && maps.size() == 2));
     REQUIRE((model->parts.size() == 1 && model->parts[0]->head == model.get()));
     REQUIRE(model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0)[0] == materials[0].material);
-    REQUIRE(model->parts[0]->getMaterial(0, srMeshModel::SIDE_FRONT) == materials[2].material.get());
+    REQUIRE(model->parts[0]->getMaterial(0, srMeshModel::SIDE_FRONT) ==
+            materials[2].material.get());
     std::weak_ptr<srModel> lifetime = model;
     auto* first = new srModelInstance(nullptr);
     first->setModel(std::move(model));
@@ -320,40 +329,48 @@ static bool skins_and_automap()
             const int third = mesh.CreateSkinTable("third2", second);
             REQUIRE(!mesh.GetActivePolygons(second, false));
             auto selection = mesh.GetActivePolygons(second, true);
-            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 && (*selection)[1] == 2));
+            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
+                     (*selection)[1] == 2));
             REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
             mesh.RemoveSkinTable(0);
-            REQUIRE(mesh.FindSkinTable("SECOND1") == second); // ID is no longer its vector position.
+            REQUIRE(mesh.FindSkinTable("SECOND1") ==
+                    second); // ID is no longer its vector position.
             REQUIRE(mesh.GetTextureTable(second) == second_textures);
             REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
             const std::array<char, 9> bounded_name{'t', 'h', 'i', 'r', 'd', '2', 'X', 'X', 'X'};
             REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
             REQUIRE(mesh.CreateSkinTable("reused3", -1) == 0);
-            REQUIRE(mesh.GetTextureTable(second) == second_textures); // Vector growth does not move tables.
+            REQUIRE(mesh.GetTextureTable(second) ==
+                    second_textures); // Vector growth does not move tables.
             REQUIRE(mesh.CreateSkinTable("", -1) == 3);
             REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == 4);
             REQUIRE(mesh.CreateSkinTable(cycle + '1', -1) == 5);
             mesh.RemoveSkinTablesForCycle(cycle);
-            REQUIRE((mesh.FindSkinTable(cycle + '0') == -1 && mesh.FindSkinTable(cycle + '1') == -1));
-            REQUIRE(mesh.FindSkinTable("") == 3); // Empty names must not underflow during cycle removal.
+            REQUIRE(
+                (mesh.FindSkinTable(cycle + '0') == -1 && mesh.FindSkinTable(cycle + '1') == -1));
+            REQUIRE(mesh.FindSkinTable("") ==
+                    3); // Empty names must not underflow during cycle removal.
             REQUIRE(mesh.FindSkinTable("SECOND1") == second);
 
             const std::array<std::string_view, 1> excluded{visible->getName()};
             mesh.ApplyAutomapPolygonFilter(excluded);
             selection = mesh.GetActivePolygons(-1, false);
-            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 0 && (*selection)[1] == 2));
+            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 0 &&
+                     (*selection)[1] == 2));
             mesh.ApplyAutomapPolygonFilter({});
             REQUIRE(!mesh.GetActivePolygons(-1, true)); // All selected.
             mesh.ClearAutomapPolygonFilter();
             REQUIRE(!mesh.GetActivePolygons(-1, false));
             selection = mesh.GetActivePolygons(-1, true);
-            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 && (*selection)[1] == 2));
+            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
+                     (*selection)[1] == 2));
             base[1] = blank;
             base[2] = blank;
             const std::array<std::string_view, 1> exclude_all{"BLANK-BODY"};
             mesh.ApplyAutomapPolygonFilter(exclude_all);
             selection = mesh.GetActivePolygons(-1, true);
-            REQUIRE((selection && selection->empty())); // None selected is NOT the unfiltered null case.
+            REQUIRE((selection &&
+                     selection->empty())); // None selected is NOT the unfiltered null case.
             REQUIRE((mesh.automap_polygons && mesh.automap_polygons->empty()));
             mesh.ClearAutomapPolygonFilter();
             const auto empty_automap = mesh.GetActivePolygons(-1, true);

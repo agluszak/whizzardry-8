@@ -56,12 +56,14 @@ void EnsureTrynnie1KilledVar(void)
         if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
             KillTrynnieGroups();
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0)) {
-                srAssertFail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)", TRYNNIE1_CPP, 0x12, 0);
+                srAssertFail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)", TRYNNIE1_CPP,
+                             0x12, 0);
             }
             vPos2 = vPos;
             group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
             if (group == 0) {
-                srAssertFail("CreateGroup(205, 1, vPos2, TRUE, FALSE, TRUE)", TRYNNIE1_CPP, 0x18, 0);
+                srAssertFail("CreateGroup(205, 1, vPos2, TRUE, FALSE, TRUE)", TRYNNIE1_CPP, 0x18,
+                             0);
             }
             CreateLocationVar("Trynnie1Killed", 1);
         }
@@ -123,7 +125,8 @@ void KillTrynnieGroups(void)
 
     for (index = 0; index < static_cast<int>(gXStatus.monster_groups.size()); ++index) {
         group = GetMonsterGroupByListIndex(index);
-        if (group != 0 && group->members_active && (record = MonsterGroupGetRecord(group), record->faction_id == 0xd) &&
+        if (group != 0 && group->members_active &&
+            (record = MonsterGroupGetRecord(group), record->faction_id == 0xd) &&
             ReplaceMonsterGroupSpecies(group, 0x1be) != 0) {
             RemoveAllGroupMembers(group);
         }
@@ -134,7 +137,8 @@ void KillTrynnieGroups(void)
         srAssertFail("iOldTable!=(-1)", TRYNNIE1_CPP, 0x68, "Can't find monster table 'Trynnies'");
     }
     if (iNewTable == -1) {
-        srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69, "Can't find monster table 'Dead Trynnies'");
+        srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
+                     "Can't find monster table 'Dead Trynnies'");
     }
     for (index = 0; index < static_cast<int>(g_world->monster_generators.size()); ++index) {
         generator = g_world->monster_generators[index];

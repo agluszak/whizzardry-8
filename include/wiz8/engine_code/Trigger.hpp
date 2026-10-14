@@ -199,7 +199,8 @@ public:
     W8Prop* GetProp() const
     {
         if (m_bRepType != W8_TRIGGER_REP_PROP) {
-            srAssertFail("m_bRepType == TRIGGER_REP_PROP", "..\\Engine Code\\Include\\Trigger.hpp", 0x3ed, 0);
+            srAssertFail("m_bRepType == TRIGGER_REP_PROP", "..\\Engine Code\\Include\\Trigger.hpp",
+                         0x3ed, 0);
         }
         return m_pProp;
     }
@@ -297,7 +298,8 @@ public:
 void InitializeStateDrivenPropVariables(Trigger* trigger);
 
 Trigger* FindTriggerByName(const char* name);
-Trigger* FindRequiredTriggerByName(const char* name, std::source_location caller = std::source_location::current());
+Trigger* FindRequiredTriggerByName(const char* name,
+                                   std::source_location caller = std::source_location::current());
 
 inline void RunNamedTrigger(const char* name, int source)
 {

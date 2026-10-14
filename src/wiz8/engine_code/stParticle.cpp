@@ -172,7 +172,8 @@ void stParticle::AllocateParticles(unsigned int count)
 }
 
 // FUNCTION: WIZ8 0x00497AF0
-stParticle::stParticle(srNode* parent, int count) : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
+stParticle::stParticle(srNode* parent, int count)
+    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
 {
     setParent(parent, 1);
     if (count == 0) {
@@ -186,7 +187,8 @@ stParticle::stParticle(srNode* parent, int count) : srClassSupport<stParticle, s
 /* A copy shares material and static texture, but starts with no live
    particles, fresh animation frames and fresh timing. */
 // FUNCTION: WIZ8 0x00498180
-stParticle::stParticle(const stParticle& other) : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
+stParticle::stParticle(const stParticle& other)
+    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
 {
     persisted = other.persisted;
     start_frame = other.start_frame;
@@ -286,7 +288,8 @@ std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
     if (speed_mode == W8_PARTICLE_SPEED_FIXED) {
         magnitude = initial_speed;
     } else if (speed_mode == W8_PARTICLE_SPEED_RANDOM) {
-        magnitude = (speed_max - speed_min) * (rand() & 0x7fff) * g_particle_random_unit_scale + speed_min;
+        magnitude =
+            (speed_max - speed_min) * (rand() & 0x7fff) * g_particle_random_unit_scale + speed_min;
     }
     magnitude *= size_scale;
 
@@ -304,7 +307,8 @@ std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
     case W8_PARTICLE_DIRECTION_CONE: {
         glm::vec3 direction(0, 0, magnitude);
 
-        double angle = ((rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half) * cone_pitch;
+        double angle =
+            ((rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half) * cone_pitch;
         direction = glm::vec3(glm::rotateX(glm::dvec3(direction), angle));
 
         angle = ((rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half) * cone_yaw;
@@ -380,7 +384,8 @@ void stParticle::Update()
         const auto node_location = glm::vec3(getLocation());
 
         double elapsed = static_cast<double>(elapsed_ticks);
-        const auto acceleration_step = glm::vec3(glm::dvec3(acceleration) * (elapsed * g_double_one_thousandth));
+        const auto acceleration_step =
+            glm::vec3(glm::dvec3(acceleration) * (elapsed * g_double_one_thousandth));
 
         unsigned int index;
         for (index = 0; index < particle_count; ++index) {
@@ -419,7 +424,8 @@ void stParticle::Update()
                 velocities[index] += acceleration_step;
             }
 
-            const auto movement = glm::vec3(glm::dvec3(velocities[index]) * (elapsed * g_double_one_thousandth));
+            const auto movement =
+                glm::vec3(glm::dvec3(velocities[index]) * (elapsed * g_double_one_thousandth));
             auto candidate = particle_positions[index] + movement;
 
             if (bounds_mode == W8_PARTICLE_BOUNDS_SPHERE) {
@@ -440,7 +446,8 @@ void stParticle::Update()
                 // The octree trace still accepts packed endpoint records.
                 const srVector3 from(particle_positions[index]);
                 srVector3 to(candidate);
-                if (g_world->octree == nullptr || !g_world->octree->HasLineOfSight(&from, &to, true)) {
+                if (g_world->octree == nullptr ||
+                    !g_world->octree->HasLineOfSight(&from, &to, true)) {
                     DeactivateParticle(index);
                     continue;
                 }
@@ -501,7 +508,9 @@ glm::vec3 stParticle::emissionPosition()
     // Braced initialization preserves the x, y, z random draw order.
     const glm::vec3 random{float(rand() & 0x7fff), float(rand() & 0x7fff), float(rand() & 0x7fff)};
     const auto offset =
-        ((emission_maximum - emission_minimum) * random * g_particle_random_unit_scale + emission_minimum) * size_scale;
+        ((emission_maximum - emission_minimum) * random * g_particle_random_unit_scale +
+         emission_minimum) *
+        size_scale;
     return getRotation<glm::mat3>() * offset + glm::vec3(getLocation());
 }
 
@@ -560,8 +569,8 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
 
     float phase = 0;
     if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0) {
-        phase =
-            float(g_shared_timer_base->milliseconds() % flutter_period) / int(flutter_period) * g_camera_angle_period;
+        phase = float(g_shared_timer_base->milliseconds() % flutter_period) / int(flutter_period) *
+                g_camera_angle_period;
     }
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
     for (unsigned index = 0; index < particle_count; ++index) {
@@ -572,7 +581,8 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
                 amount *= std::max(g_particle_flutter_velocity_floor, velocities[index].y) *
                           g_particle_flutter_displacement_scale;
             }
-            position += glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
+            position +=
+                glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
         }
         for (unsigned corner = 0; corner < corners.size(); ++corner) {
             vertex_positions[index * 4 + corner] = position + offsets[corner];
@@ -740,7 +750,8 @@ void stParticle::SetActive(unsigned char active)
 }
 
 // FUNCTION: WIZ8 0x0049ac30
-unsigned char stParticle::ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement)
+unsigned char stParticle::ReplaceTexture(const char* old_name,
+                                         std::shared_ptr<srTextureIFace> replacement)
 {
     if ((sr_cast<stTextureFile>(texture) || sr_cast<stTextureAnim>(texture)) &&
         _stricmp(texture->getName().c_str(), old_name) == 0) {

@@ -116,7 +116,8 @@ void EnableUseItemSelectInput()
 void UpdateUseItemScrollButtons(void);
 static void SelectUseItemScrollMode(int mode);
 static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
-static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select, unsigned char pass);
+static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
+                                   unsigned char pass);
 bool IsUseItemFilteredOut(W8ItemInstance* item);
 static void UseItemSelectScrollUp(void);
 static void UseItemSelectFilterToggle(void);
@@ -126,12 +127,14 @@ static void CreateUseItemSelectControls(void);
 static void CreateUseItemSelectControls(void)
 {
     use_item = std::make_unique<UseItemView>();
-    const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover, int disabled,
-                                SDL_Rect bounds, int help, void (*action)()) {
+    const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
+                                int disabled, SDL_Rect bounds, int help, void (*action)()) {
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
-        button->Configure(
-            CatalogArtwork::Load(artwork, 0).spriteSheet(), {disabled, normal, hover, pressed, pressed_hover},
-            {.on_click = [action](auto*) { AfterUiDispatch(action); }, .priority = UI_PRIORITY_LOWEST, .tooltip = help});
+        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
+                          {disabled, normal, hover, pressed, pressed_hover},
+                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .priority = UI_PRIORITY_LOWEST,
+                           .tooltip = help});
         button->policy.controller_activation = true;
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
@@ -139,27 +142,33 @@ static void CreateUseItemSelectControls(void)
     };
     for (int index = 0; index < 2; ++index) {
         const int base = index * 5;
-        use_item->pools[index] = make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
-                                             {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
-                                             index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
+        use_item->pools[index] =
+            make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
+                        {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
+                        index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
         use_item->pools[index]->policy.primary_toggle = ButtonToggle::Release;
     }
-    use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13, {0x234, 0x16c, 14, 14}, 99, UseItemSelectFilterToggle);
+    use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13, {0x234, 0x16c, 14, 14}, 99,
+                                   UseItemSelectFilterToggle);
     use_item->filter->policy.primary_toggle = ButtonToggle::Release;
     use_item->filter->SetEnabled(false);
-    use_item->close = make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
+    use_item->close =
+        make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
     use_item->caption.SetLayoutBounds(0x1b, 0x16a, 0xa0, 0x179);
     use_item->caption.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     use_item->caption.SetText(g_localized_strings[0x77a], g_wiz_text_font_secondary);
     use_item->quantity.SetLayoutBounds(0x1e1, 0x16b, 0x20d, 0x19f);
     use_item->quantity.SetLayoutMode(g_W8TextBufferAlignBottom | g_W8TextBufferAlignRight);
-    auto& item = use_item->input.add(SDL_Rect{0x1e1, 0x16b, 45, 53}, [](const UiPointerEvent& event) {
-        const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-        if (event.action == UiPointerAction::Up && event.inside && (event.captured_buttons & mask)) {
-            AfterUiDispatch(UseItemSelectAssayButton);
-        }
-        return UiResult::Handled;
-    });
+    auto& item =
+        use_item->input.add(SDL_Rect{0x1e1, 0x16b, 45, 53}, [](const UiPointerEvent& event) {
+            const auto mask =
+                event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+            if (event.action == UiPointerAction::Up && event.inside &&
+                (event.captured_buttons & mask)) {
+                AfterUiDispatch(UseItemSelectAssayButton);
+            }
+            return UiResult::Handled;
+        });
     item.setTooltip([] { return g_localized_strings[98]; });
 }
 
@@ -278,7 +287,8 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         item = FindCharacterItemAt(party_slot, g_status.buffers.XChar[party_slot].item_origin,
                                    g_status.buffers.XChar[party_slot].item_slot);
         if (CanUseItemForAction(g_use_item_owner_index, item)) {
-            const bool party_pool = g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
+            const bool party_pool =
+                g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode) {
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
             }
@@ -342,7 +352,8 @@ void UpdateUseItemSelect(bool active)
             // These unavailable actions are artwork, not six disabled widgets.
             const auto actions = CatalogArtwork::Load(0x1ab, 0);
             for (int index : {0, 1, 3, 4, 5}) {
-                actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17, 0x16c + (index / 3) * 17);
+                actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17,
+                             0x16c + (index / 3) * 17);
             }
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
             use_item->filter->m_dirty = use_item->close->m_dirty = true;
@@ -440,7 +451,8 @@ void CommitSelectedItemUse(void)
 {
     W8Character* character;
 
-    if (g_use_item_selected != 0 && CanUseItemForAction(g_status.selected_character, g_use_item_selected) &&
+    if (g_use_item_selected != 0 &&
+        CanUseItemForAction(g_status.selected_character, g_use_item_selected) &&
         IsItemTargetOfNeededKind(g_status.selected_character, g_use_item_selected)) {
         character = &g_status.buffers.Char[g_status.selected_character];
         if (g_use_item_selected != 0) {
@@ -638,7 +650,8 @@ bool IsUseItemFilteredOut(W8ItemInstance* item)
             return true;
         }
         if ((g_status.selected_character == 0 || g_status.selected_character == 1) &&
-            (npc = GetNpcState(g_status.buffers.XChar[g_status.selected_character].npc_index), npc != 0) &&
+            (npc = GetNpcState(g_status.buffers.XChar[g_status.selected_character].npc_index),
+             npc != 0) &&
             NpcWantsItem(npc, item)) {
             return true;
         }
@@ -754,9 +767,11 @@ void SelectUseItemLine(int iTextLine)
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateUseItemDetailPanel(g_use_item_list[iTextLine]);
-    if (ValidateItemSpellUse(g_use_item_owner_index, g_use_item_list[iTextLine], SpellCastingNoticeClosed)) {
-        QueueCharacterEvent(&g_status.buffers.Char[g_use_item_owner_index], g_character_event_kind2, 0,
-                            g_character_event_flags_mask | g_character_event_no_flags, g_character_event_full_volume);
+    if (ValidateItemSpellUse(g_use_item_owner_index, g_use_item_list[iTextLine],
+                             SpellCastingNoticeClosed)) {
+        QueueCharacterEvent(&g_status.buffers.Char[g_use_item_owner_index], g_character_event_kind2,
+                            0, g_character_event_flags_mask | g_character_event_no_flags,
+                            g_character_event_full_volume);
         return;
     }
     g_use_item_selected = g_use_item_list[iTextLine];
@@ -770,15 +785,17 @@ void SelectUseItemLine(int iTextLine)
         return;
     }
     if (CanCastFromItem(&g_status.buffers.Char[g_status.selected_character], g_use_item_selected)) {
-        LearnSpellFromItem(&g_status.buffers.Char[g_status.selected_character], g_use_item_selected);
+        LearnSpellFromItem(&g_status.buffers.Char[g_status.selected_character],
+                           g_use_item_selected);
         CloseUseItemSelectView();
         return;
     }
     SetSelectedTextLine(iTextLine, 2);
     ClearHoveredTextLine(2);
     RedrawTextBox();
-    target_type = GetSpellTargetType(GetItemSpell(g_use_item_selected),
-                                     ItemClassNormalizesTarget(&g_item_records[g_use_item_selected->iItemNo]));
+    target_type = GetSpellTargetType(
+        GetItemSpell(g_use_item_selected),
+        ItemClassNormalizesTarget(&g_item_records[g_use_item_selected->iItemNo]));
     ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(g_use_item_selected));
 }
 
@@ -861,7 +878,8 @@ void TakeUseItemIntoHand(void)
     }
     old_count = g_status.party_item_count;
     GiveItemToCharacterOrParty(g_use_item_owner_index, &g_status.item_in_hand, true);
-    if (g_use_item_select_mode == 1 && old_count != g_status.party_item_count && g_status.party_item_count != 0) {
+    if (g_use_item_select_mode == 1 && old_count != g_status.party_item_count &&
+        g_status.party_item_count != 0) {
         for (i = 0; i < g_status.party_item_count; i++) {
             if (g_use_item_selected == &g_status.party_item_pool[i]) {
                 g_use_item_selected = &g_status.party_item_pool[i + 1];

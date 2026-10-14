@@ -165,10 +165,12 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
     }
     source_record = GetMonsterDataForInfo(source);
     threshold = ComputeSightThreshold(
-        observer_position, target_position, observer_yaw, source->attributes[W8_MONSTER_ATTRIBUTE_SENSES], ranged_bonus,
+        observer_position, target_position, observer_yaw,
+        source->attributes[W8_MONSTER_ATTRIBUTE_SENSES], ranged_bonus,
         static_cast<unsigned char>(source->uiCondition[W8_CONDITION_BLIND] != 0),
-        static_cast<unsigned char>(source_record->kind == 12), static_cast<int>(target_record->effective_level),
-        penalty_modifier, static_cast<int>(record->sight_state), 0, distance);
+        static_cast<unsigned char>(source_record->kind == 12),
+        static_cast<int>(target_record->effective_level), penalty_modifier,
+        static_cast<int>(record->sight_state), 0, distance);
     if (threshold < distance) {
         return false;
     }
@@ -177,10 +179,11 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
 
 /* Maximum distance at which the observer can perceive the target. */
 // FUNCTION: WIZ8 0x00505a40
-float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<float> target_position, float observer_yaw,
-                            unsigned int perception_attribute, unsigned char ranged_bonus, bool blinded,
-                            bool extended_sight_active, int penalty_source, int penalty_modifier,
-                            int skip_field_of_view, unsigned char sight_override, float distance)
+float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<float> target_position,
+                            float observer_yaw, unsigned int perception_attribute,
+                            unsigned char ranged_bonus, bool blinded, bool extended_sight_active,
+                            int penalty_source, int penalty_modifier, int skip_field_of_view,
+                            unsigned char sight_override, float distance)
 {
     W8World* world;
     double far_clip;
@@ -205,7 +208,8 @@ float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<floa
         skip_field_of_view != 0 || distance == g_float_zero) {
         sight_percent = 100;
     } else {
-        float sight_factor = static_cast<float>(static_cast<int>(perception_attribute) - penalty_source * 2);
+        float sight_factor =
+            static_cast<float>(static_cast<int>(perception_attribute) - penalty_source * 2);
         float sight_ratio = (viewing_distance - distance) / distance;
         sight_percent = static_cast<int>(sight_factor * sight_ratio);
     }
@@ -255,8 +259,8 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
         monster_info = FindMonster(group->MemberLocationId(index));
-        if (monster_info->fActive && !monster_info->p3D->IsDying() && monster_info->hp_current != 0 &&
-            monster_info->highest_condition < W8_CONDITION_BLIND &&
+        if (monster_info->fActive && !monster_info->p3D->IsDying() &&
+            monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
             return true;
         }
@@ -315,7 +319,8 @@ unsigned int AgeAllMonsterSight(void)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    elapsed = g_status.world_clock * 1000 - g_status.level_progress[g_status.current_level].sight_clock * 1000;
+    elapsed = g_status.world_clock * 1000 -
+              g_status.level_progress[g_status.current_level].sight_clock * 1000;
     steps = elapsed / 120000;
     if (steps == 0) {
         return 0;
@@ -393,7 +398,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     srVector3T<float> other_position;
     srVector3T<float> trace_position;
 
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME || !monster_info->fActive || monster_info->hp_current == 0) {
+    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME || !monster_info->fActive ||
+        monster_info->hp_current == 0) {
         return;
     }
     viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
@@ -414,7 +420,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         for (index = 0; index < gXStatus.monsters.size(); ++index) {
             W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
 
-            if (other != monster_info && other->fInCombat && other->fActive && other->hp_current != 0) {
+            if (other != monster_info && other->fInCombat && other->fActive &&
+                other->hp_current != 0) {
                 auto* entry = &(*monster_info->monster_visibility)[other->location_id];
                 entry->about_location_id = other->location_id;
                 {
@@ -446,14 +453,16 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         entry->sight_state = W8_SIGHT_UNSEEN;
                     } else {
                         entry->sight_state = static_cast<unsigned char>(
-                            (0xf0U < static_cast<unsigned int>(g_status.world_clock - entry->last_seen_clock))
+                            (0xf0U < static_cast<unsigned int>(g_status.world_clock -
+                                                               entry->last_seen_clock))
                                 ? W8_SIGHT_UNSEEN
                                 : W8_SIGHT_RECENT);
                     }
                     if (!entry->line_of_sight) {
                         memset(entry->los_flags, 0, 4);
                     } else {
-                        monster->GetMonsterSightFlags(other->p3D, entry->los_flags, entry->los_flags + 2);
+                        monster->GetMonsterSightFlags(other->p3D, entry->los_flags,
+                                                      entry->los_flags + 2);
                         if (monster_info->has_projectile_origin) {
                             bool found = monster->GetProjectilePosition(&trace_position);
                             bool clear;
@@ -462,9 +471,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x1f5, 0);
                                 clear = false;
                             } else {
-                                short line =
-                                    g_octree->TraceLineOfSight(&trace_position, &other_position, true,
-                                                               monster_info->location_id, other->location_id, true, 1);
+                                short line = g_octree->TraceLineOfSight(
+                                    &trace_position, &other_position, true,
+                                    monster_info->location_id, other->location_id, true, 1);
 
                                 clear = line == 0;
                             }
@@ -477,8 +486,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0x1fd, 0);
                                 entry->los_flags[3] = false;
                             } else {
-                                short line =
-                                    g_octree->TraceLineOfSight(&trace_position, &other_position, true, -3, -3, true, 0);
+                                short line = g_octree->TraceLineOfSight(
+                                    &trace_position, &other_position, true, -3, -3, true, 0);
 
                                 entry->los_flags[3] = line != 1;
                             }
@@ -504,7 +513,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             } else {
                 monster_info->player_visibility.sight_state = static_cast<unsigned char>(
                     (0xf0U <
-                     static_cast<unsigned int>(g_status.world_clock - monster_info->player_visibility.last_seen_clock))
+                     static_cast<unsigned int>(g_status.world_clock -
+                                               monster_info->player_visibility.last_seen_clock))
                         ? W8_SIGHT_UNSEEN
                         : W8_SIGHT_RECENT);
             }
@@ -512,7 +522,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             monster_info->player_visibility.line_of_sight = monster->CheckLineOfSightToPlayer();
         }
         if (monster_info->player_visibility.line_of_sight) {
-            if (monster_info->hp_current == 0 || monster_info->highest_condition > W8_CONDITION_WEBBED) {
+            if (monster_info->hp_current == 0 ||
+                monster_info->highest_condition > W8_CONDITION_WEBBED) {
                 visible_to_player = false;
             } else {
                 float yaw = monster->GetYaw();
@@ -531,7 +542,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     W8Character* character = &g_status.buffers.Char[slot];
 
                     if (row->fOccupied && character->hp_current != 0 &&
-                        character->highest_condition < W8_CONDITION_ASLEEP && character->uiExpLevel < minimum_level) {
+                        character->highest_condition < W8_CONDITION_ASLEEP &&
+                        character->uiExpLevel < minimum_level) {
                         minimum_level = character->uiExpLevel;
                     }
                 }
@@ -550,8 +562,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 observer_position = own_position;
                 target_position = camera_position;
                 float threshold = ComputeSightThreshold(
-                    observer_position, target_position, yaw, monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES],
-                    fade_flag, monster_info->uiCondition[W8_CONDITION_BLIND] != 0, record->kind == 0xc,
+                    observer_position, target_position, yaw,
+                    monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES], fade_flag,
+                    monster_info->uiCondition[W8_CONDITION_BLIND] != 0, record->kind == 0xc,
                     static_cast<int>(minimum_level), static_cast<int>(sight_override),
                     monster_info->player_visibility.sight_state, 0, player_distance);
 
@@ -597,7 +610,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0xa3, 0);
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
-                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true, -3, -3, true, 0);
+                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true, -3,
+                                                        -3, true, 0);
 
                 monster_info->player_visibility.los_flags[3] = line != 1;
             }
@@ -648,8 +662,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             character->attributes[W8_ATTRIBUTE_SENSES].effective,
                             static_cast<unsigned char>(character->skills[W8_SKILL_SCOUTING].level),
                             character->uiCondition[W8_CONDITION_BLIND] != 0,
-                            character->iProfession == W8_PROFESSION_MONK, record->effective_level, npc_fade_flag,
-                            static_cast<int>(monster_info->party_threat.sight_state),
+                            character->iProfession == W8_PROFESSION_MONK, record->effective_level,
+                            npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
                             g_status.party_modifiers.sight_override, distance);
 
                         if (g_status.search_mode != 0) {
@@ -664,13 +678,16 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 monster_info->party_threat.party_detected = seen_by_party;
                 if (seen_by_party) {
                     if (GetViewDistance() == g_sight_default) {
-                        if (record == 0 || (SetFactionFlag(static_cast<signed char>(record->faction_id), true),
-                                            (record->flags & W8_MONSTER_FLAG_NPC) == 0)) {
-                            unsigned int now = static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                        if (record == 0 ||
+                            (SetFactionFlag(static_cast<signed char>(record->faction_id), true),
+                             (record->flags & W8_MONSTER_FLAG_NPC) == 0)) {
+                            unsigned int now =
+                                static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
 
                             if ((((monster_info->party_threat.last_seen_clock == 0) ||
-                                  (0x78U < static_cast<unsigned int>(g_status.world_clock -
-                                                                     monster_info->party_threat.last_seen_clock))) &&
+                                  (0x78U < static_cast<unsigned int>(
+                                               g_status.world_clock -
+                                               monster_info->party_threat.last_seen_clock))) &&
                                  (ShowMonsterTargetMarker(monster_info) == 0)) &&
                                 (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE ||
                                  monster_info->ubDisposition == W8_DISPOSITION_NEUTRAL) &&
@@ -684,9 +701,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                     if (Random(2) == 0) {
                                         effect = g_sight_effect3;
                                     }
-                                    W8CharacterEvent* notice =
-                                        QueueCharacterEvent(&g_status.buffers.Char[party_slot], effect, 0,
-                                                            g_character_event_no_flags, g_character_event_full_volume);
+                                    W8CharacterEvent* notice = QueueCharacterEvent(
+                                        &g_status.buffers.Char[party_slot], effect, 0,
+                                        g_character_event_no_flags, g_character_event_full_volume);
 
                                     if (notice != 0) {
                                         notice->DelayDispatch(0x5dc);
@@ -710,11 +727,13 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                     if (party_slot != -1) {
                                         int effect = g_sight_effect0;
 
-                                        if (npc->name_style == W8_NPC_VI_DOMINA && GetFact(W8_FACT_PARTY_MET_VI) != 0) {
+                                        if (npc->name_style == W8_NPC_VI_DOMINA &&
+                                            GetFact(W8_FACT_PARTY_MET_VI) != 0) {
                                             effect = g_sight_effect1;
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
-                                            &g_status.buffers.Char[party_slot], effect, 0, g_character_event_no_flags,
+                                            &g_status.buffers.Char[party_slot], effect, 0,
+                                            g_character_event_no_flags,
                                             g_character_event_full_volume);
 
                                         if (notice != 0) {
@@ -725,8 +744,10 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             }
                         }
                     }
-                    if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN && record->camouflage0 != 0) {
-                        unsigned int now = static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                    if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN &&
+                        record->camouflage0 != 0) {
+                        unsigned int now =
+                            static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
 
                         monster->BeginFadeIn(5.0f);
                         if (!gXStatus.fSurprisePossible &&
@@ -743,11 +764,13 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             }
         }
         if (!seen_by_party) {
-            if (monster_info->party_threat.sight_state == W8_SIGHT_SEEN && record->camouflage0 != 0) {
+            if (monster_info->party_threat.sight_state == W8_SIGHT_SEEN &&
+                record->camouflage0 != 0) {
                 unsigned int now = static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
 
                 monster->BeginFadeOut(5.0f);
-                if (!gXStatus.fSurprisePossible && (g_sight_fade_out_tick == 0 || now - g_sight_fade_out_tick > 199)) {
+                if (!gXStatus.fSurprisePossible &&
+                    (g_sight_fade_out_tick == 0 || now - g_sight_fade_out_tick > 199)) {
                     g_sight_fade_out_tick = now;
                     ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1de]);
                 }
@@ -756,8 +779,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 monster_info->party_threat.sight_state = W8_SIGHT_UNSEEN;
             } else {
                 monster_info->party_threat.sight_state = static_cast<unsigned char>(
-                    (0x78U <
-                     static_cast<unsigned int>(g_status.world_clock - monster_info->party_threat.last_seen_clock))
+                    (0x78U < static_cast<unsigned int>(g_status.world_clock -
+                                                       monster_info->party_threat.last_seen_clock))
                         ? W8_SIGHT_UNSEEN
                         : W8_SIGHT_RECENT);
             }

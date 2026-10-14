@@ -46,15 +46,17 @@ bool IsMarkup(char32_t scalar)
     return scalar >= kFontToggle && scalar <= kColourReset;
 }
 
-void DrawQuoteLine(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text, std::uint8_t colour)
+void DrawQuoteLine(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
+                   std::uint8_t colour)
 {
-    const TextOptions options{.mono = true, .colors = {font.color(colour), font.color(0), font.color(0)}};
+    const TextOptions options{.mono = true,
+                              .colors = {font.color(colour), font.color(0), font.color(0)}};
     DrawTextAndInvalidate(target, font, at, text, {.colors = options.colors});
     DrawText(target, font, at, text, options);
 }
 
-void DrawWrappedText(SDL_Surface& target, SDL_Point origin, int wrap_width, Font& font, std::uint8_t colour,
-                     std::string_view text)
+void DrawWrappedText(SDL_Surface& target, SDL_Point origin, int wrap_width, Font& font,
+                     std::uint8_t colour, std::string_view text)
 {
     std::string line;
     std::string word;
@@ -107,7 +109,8 @@ void DrawWrappedText(SDL_Surface& target, SDL_Point origin, int wrap_width, Font
             line_width = 0;
         } else {
             flush();
-            if (word_code == kColourChange && word_cursor < word.size() && word[word_cursor] != ' ') {
+            if (word_code == kColourChange && word_cursor < word.size() &&
+                word[word_cursor] != ' ') {
                 active_colour = static_cast<std::uint8_t>(wiz8::text::next(word, word_cursor));
             }
             at.x += active_font->textWidth(line);
@@ -244,7 +247,8 @@ std::optional<QuoteBubble> QuoteBubble::layout(std::string_view text, int max_wi
         wrap_width = widest + 1;
     } else {
         wrap_width = max_width - kFrame + 1;
-        const auto first_wrap = MeasureWrappedText(wrap_width, g_font12point1, text).first_wrap_width;
+        const auto first_wrap =
+            MeasureWrappedText(wrap_width, g_font12point1, text).first_wrap_width;
         if (first_wrap && *first_wrap - wrap_width < kWrapSlack) {
             wrap_width = *first_wrap;
             max_width = *first_wrap + kFrame;

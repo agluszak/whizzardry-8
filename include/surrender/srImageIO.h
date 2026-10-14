@@ -13,7 +13,8 @@ namespace srImage {
 std::unique_ptr<srColorSurfaceIFace> load(const char* path, SDL_IOStream* stream);
 std::unique_ptr<srColorSurfaceIFace> load(const char* path, wiz8::File& file);
 std::unique_ptr<srColorSurfaceIFace> load(const char* path);
-bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, SDL_IOStream* stream);
+bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path,
+              SDL_IOStream* stream);
 bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, wiz8::File& file);
 void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path);
 void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, int quality = 100);

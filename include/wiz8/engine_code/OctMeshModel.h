@@ -30,7 +30,8 @@ public:
     OctMeshModel& operator=(OctMeshModel&& other) noexcept;
     OctMeshModel(const OctMeshModel&) = delete;
     OctMeshModel& operator=(const OctMeshModel&) = delete;
-    std::unique_ptr<stMeshModel> Read(wiz8::File* file, const std::vector<W8MeshMaterial>& materials);
+    std::unique_ptr<stMeshModel> Read(wiz8::File* file,
+                                      const std::vector<W8MeshMaterial>& materials);
     bool Write(wiz8::File& hFile); /* 0x0049E5D0 */
 
     short version;

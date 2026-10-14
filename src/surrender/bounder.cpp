@@ -13,7 +13,8 @@
 #include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x1004a5a0
-srBounder::srBounder(srNode* parent) : srClassSupport<srBounder, srNode, 0x1600>(static_cast<srNode*>(0))
+srBounder::srBounder(srNode* parent)
+    : srClassSupport<srBounder, srNode, 0x1600>(static_cast<srNode*>(0))
 {
     bound_mode = BOUND_MODE_DYNAMIC;
     bounds.state = 2;
@@ -103,10 +104,12 @@ void srBounder::traverse(TraverseInfo& info)
             }
             if (bounds.state == 1) {
                 const auto transform = scopedWorldSpaceMatrix(*renderer);
-                if (renderer->testBoundingSphere(bounds.center, bounds.radius) == srGERD::VISIBILITY_OUTSIDE) {
+                if (renderer->testBoundingSphere(bounds.center, bounds.radius) ==
+                    srGERD::VISIBILITY_OUTSIDE) {
                     return;
                 }
-                if (renderer->testBoundingBox(bounds.minimum, bounds.maximum) == srGERD::VISIBILITY_OUTSIDE) {
+                if (renderer->testBoundingBox(bounds.minimum, bounds.maximum) ==
+                    srGERD::VISIBILITY_OUTSIDE) {
                     return;
                 }
             }
@@ -186,13 +189,16 @@ void srBounder::dump(std::ostream& stream)
     } else {
         stream.width(0x20);
         stream << "  Bounding box min: ";
-        stream << '{' << bounds.minimum.x << ',' << bounds.minimum.y << ',' << bounds.minimum.z << '}' << '\n';
+        stream << '{' << bounds.minimum.x << ',' << bounds.minimum.y << ',' << bounds.minimum.z
+               << '}' << '\n';
         stream.width(0x20);
         stream << "  Bounding box max: ";
-        stream << '{' << bounds.maximum.x << ',' << bounds.maximum.y << ',' << bounds.maximum.z << '}' << '\n';
+        stream << '{' << bounds.maximum.x << ',' << bounds.maximum.y << ',' << bounds.maximum.z
+               << '}' << '\n';
         stream.width(0x20);
         stream << "  Bounding sphere origin: ";
-        stream << '{' << bounds.center.x << ',' << bounds.center.y << ',' << bounds.center.z << '}' << '\n';
+        stream << '{' << bounds.center.x << ',' << bounds.center.y << ',' << bounds.center.z << '}'
+               << '\n';
         stream.width(0x20);
         stream << "  Bounding sphere radius: " << bounds.radius << '\n';
     }

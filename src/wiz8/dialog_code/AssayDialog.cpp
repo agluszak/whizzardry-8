@@ -52,24 +52,27 @@ struct W8AssayButtonOffset {
 
 // GLOBAL: WIZ8 0x0064f920
 static W8AssayButtonOffset g_assay_button_offsets[W8_ASSAY_BUTTON_COUNT] = {
-    {0xb, 0xb},   {0xb, 0xb},   {0xd, 0xd},   {0x27, 0xd},  {0x46, 0x48}, {0x14f, 0xf5}, {0xd, 0x2a},  {0xd, 0x47},
-    {0xd, 0x64},  {0xd, 0x81},  {0xd, 0x9e},  {0xd, 0xbb},  {0xd, 0xd8},  {0x26, 0x2a},  {0x26, 0x47}, {0x26, 0x64},
-    {0x26, 0x81}, {0x26, 0x9e}, {0x26, 0xbb}, {0x26, 0xd8}, {0x26, 0xf5}, {0xd, 0x2a},   {0xd, 0x47},  {0xd, 0x64},
-    {0xd, 0x81},  {0xd, 0x9e},  {0xd, 0xbb},  {0xd, 0xd8},  {0xd, 0xf5},  {0x26, 0x2a},  {0x26, 0x47}, {0x26, 0x64},
-    {0x26, 0x81}, {0x26, 0x9e}, {0x26, 0xbb}, {0x26, 0xd8}, {0x26, 0xf5},
+    {0xb, 0xb},   {0xb, 0xb},   {0xd, 0xd},   {0x27, 0xd},  {0x46, 0x48}, {0x14f, 0xf5},
+    {0xd, 0x2a},  {0xd, 0x47},  {0xd, 0x64},  {0xd, 0x81},  {0xd, 0x9e},  {0xd, 0xbb},
+    {0xd, 0xd8},  {0x26, 0x2a}, {0x26, 0x47}, {0x26, 0x64}, {0x26, 0x81}, {0x26, 0x9e},
+    {0x26, 0xbb}, {0x26, 0xd8}, {0x26, 0xf5}, {0xd, 0x2a},  {0xd, 0x47},  {0xd, 0x64},
+    {0xd, 0x81},  {0xd, 0x9e},  {0xd, 0xbb},  {0xd, 0xd8},  {0xd, 0xf5},  {0x26, 0x2a},
+    {0x26, 0x47}, {0x26, 0x64}, {0x26, 0x81}, {0x26, 0x9e}, {0x26, 0xbb}, {0x26, 0xd8},
+    {0x26, 0xf5},
 };
 // GLOBAL: WIZ8 0x0064fa48
 static W8ControlsRect g_assay_text_buffer_offsets[W8_ASSAY_TEXT_BUFFER_COUNT] = {
-    {117, 15, 343, 31}, {117, 35, 170, 47}, {174, 35, 343, 47}, {117, 53, 170, 65}, {174, 53, 343, 65},
+    {117, 15, 343, 31}, {117, 35, 170, 47}, {174, 35, 343, 47},
+    {117, 53, 170, 65}, {174, 53, 343, 65},
 };
 // GLOBAL: WIZ8 0x0064fa98
 static W8ControlsRect g_assay_text_area_offsets = {0x48, 0x4a, 0x156, 0xef};
 // GLOBAL: WIZ8 0x0064faa8
 static int g_assay_text_buffer_string_ids[W8_ASSAY_TEXT_BUFFER_COUNT] = {270, 271, 270, 272, 270};
 // GLOBAL: WIZ8 0x0061e7dc
-unsigned short g_equip_class_name_ids[32] = {1087, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097,
-                                             1098, 1099, 1100, 1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108,
-                                             1109, 1110, 1111, 1112, 1114, 1115, 1116, 1117, 1118, 1119};
+unsigned short g_equip_class_name_ids[32] = {
+    1087, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1099, 1100, 1101, 1102,
+    1103, 1104, 1105, 1106, 1107, 1108, 1109, 1110, 1111, 1112, 1114, 1115, 1116, 1117, 1118, 1119};
 /* String-list label ids indexed by W8ItemDatabaseRecord::flags bit. */
 // GLOBAL: WIZ8 0x0061e938
 static unsigned short g_item_flag_name_ids[8] = {
@@ -122,13 +125,13 @@ int W8AssayDialog::CreateControls()
         return 7;
     }
     // GLOBAL: WIZ8 0x0064f908
-    const W8DialogScrollBar::Resources scroll_resources{"Data\\Main Interface\\main_scroll.sti",
-                                                        "Data\\Dialogs\\popup_iteminfo.sti", 4,
-                                                        [this](int first_visible_entry) {
-                                                            m_text_area.SetFirstVisibleLine(first_visible_entry);
-                                                            m_buttons[4].m_dirty = true;
-                                                            m_text_area.m_dirty = true;
-                                                        }};
+    const W8DialogScrollBar::Resources scroll_resources{
+        "Data\\Main Interface\\main_scroll.sti", "Data\\Dialogs\\popup_iteminfo.sti", 4,
+        [this](int first_visible_entry) {
+            m_text_area.SetFirstVisibleLine(first_visible_entry);
+            m_buttons[4].m_dirty = true;
+            m_text_area.m_dirty = true;
+        }};
     if (m_scroll_bar.CreateControls(&scroll_resources)) {
         m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
                                m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
@@ -180,7 +183,8 @@ static int AppendAssayRequirements(const W8ItemRequirement* requirement, int cou
                 AppendAssayEntryText(g_comma_space);
             }
             std::string text =
-                g_localized_strings[g_character_description_first_ids[static_cast<signed char>(requirement->stat_id)]];
+                g_localized_strings[g_character_description_first_ids[static_cast<signed char>(
+                    requirement->stat_id)]];
             AppendAssayEntryText(text);
             text = fmt::format(" {:d}", requirement->minimum);
             AppendAssayEntryText(text);
@@ -213,17 +217,20 @@ bool W8AssayDialog::PopulateText()
     record = &g_item_records[m_item->iItemNo];
     if (m_item->identified && record->damage_dice.count + record->damage_dice.base > 0) {
         if (!ItemHasSingledOutGenericName(m_item->iItemNo) || record->damage_dice.base == 0) {
-            text = fmt::format("{:d} - {:d}", record->damage_dice.Minimum(), record->damage_dice.Maximum());
+            text = fmt::format("{:d} - {:d}", record->damage_dice.Minimum(),
+                               record->damage_dice.Maximum());
         } else {
             text = fmt::format("{:+d}%", record->damage_dice.base * 10);
         }
         m_text_area.AddEntry(g_localized_strings[0x8e8], text, 10, 0xf, 0);
     }
     if (record->attack_hit_bonus != 0 && m_item->identified) {
-        m_text_area.AddEntry(g_localized_strings[0x8b7], fmt::format("{:+d}", record->attack_hit_bonus), 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8b7],
+                             fmt::format("{:+d}", record->attack_hit_bonus), 10, 0xf, 0);
     }
     if (record->attack_damage_bonus != 0 && m_item->identified) {
-        m_text_area.AddEntry(g_localized_strings[0x8b1], fmt::format("{:+d}", record->attack_damage_bonus), 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8b1],
+                             fmt::format("{:+d}", record->attack_damage_bonus), 10, 0xf, 0);
     }
     slot_mask = GetItemEquipSlotMask(m_item->iItemNo, true, true, true, true);
     count = 0;
@@ -262,7 +269,8 @@ bool W8AssayDialog::PopulateText()
     }
     count = 0;
     for (bit = 0; bit < 8; ++bit) {
-        if ((1 << bit) == W8_ITEM_FLAG_TWO_HANDED && (record->flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
+        if ((1 << bit) == W8_ITEM_FLAG_TWO_HANDED &&
+            (record->flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
             if (count == 0) {
                 g_assay_entry_text = "";
             } else {
@@ -304,26 +312,30 @@ bool W8AssayDialog::PopulateText()
             m_text_area.AddEntry(g_localized_strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
         }
         if (record->slays_kind != 0xff) {
-            m_text_area.AddEntry(g_localized_strings[0x8d8],
-                                 g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10, 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8d8],
+                g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10, 0xf, 0);
         }
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SHIELD && m_character != 0 &&
             IsItemWornByCharacter(m_character, m_item)) {
             m_text_area.AddEntry(
                 g_localized_strings[0x8df],
                 fmt::format("{:+d}, {:+d} {}", record->armor_class_bonus,
-                            m_character->armor_class_components[W8_AC_COMPONENT_SHIELD] - record->armor_class_bonus,
+                            m_character->armor_class_components[W8_AC_COMPONENT_SHIELD] -
+                                record->armor_class_bonus,
                             g_localized_strings[0x428]),
                 10, 0xf, 0);
         } else if (record->armor_class_bonus != 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8df], fmt::format("{:+d}", record->armor_class_bonus), 10, 0xf,
-                                 0);
+            m_text_area.AddEntry(g_localized_strings[0x8df],
+                                 fmt::format("{:+d}", record->armor_class_bonus), 10, 0xf, 0);
         }
     }
     if (record->property != 0) {
         m_text_area.AddEntry(
             g_localized_strings[0x8e9],
-            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]], 10, 0xf, 0);
+            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST +
+                                                    record->property]],
+            10, 0xf, 0);
     }
     switch (record->equip_class) {
     case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
@@ -333,20 +345,23 @@ bool W8AssayDialog::PopulateText()
     case W8_ITEM_EQUIP_CLASS_BOMB:
     case W8_ITEM_EQUIP_CLASS_POWDER:
         m_text_area.AddEntry(g_localized_strings[0x8e7],
-                             g_localized_strings[g_spell_range_name_ids[record->range_category]], 10, 0xf, 0);
+                             g_localized_strings[g_spell_range_name_ids[record->range_category]],
+                             10, 0xf, 0);
     }
     W8Skill presentation_skill = GetItemSpellPresentation(record);
     if (presentation_skill == W8_SKILL_NONE) {
         if (record->weapon_skill != W8_SKILL_NONE) {
-            m_text_area.AddEntry(g_localized_strings[0x8c8],
-                                 g_localized_strings[g_character_skill_name_ids[record->weapon_skill]], 10, 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8c8],
+                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]], 10, 0xf, 0);
         }
     } else {
         if (record->weapon_skill == W8_SKILL_NONE) {
             text = g_localized_strings[g_character_skill_name_ids[presentation_skill]];
         } else {
-            text = fmt::format("{}, {}", g_localized_strings[g_character_skill_name_ids[presentation_skill]],
-                               g_localized_strings[g_character_skill_name_ids[record->weapon_skill]]);
+            text = fmt::format(
+                "{}, {}", g_localized_strings[g_character_skill_name_ids[presentation_skill]],
+                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]]);
         }
         m_text_area.AddEntry(g_localized_strings[0x8c8], text, 10, 0xf, 0);
     }
@@ -368,73 +383,84 @@ bool W8AssayDialog::PopulateText()
     }
     if ((m_item->identified || m_item->spell_hint) && record->spell_id != W8_SPELL_NONE) {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT ||
-            record->equip_class == W8_ITEM_EQUIP_CLASS_GADGET || record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
+            record->equip_class == W8_ITEM_EQUIP_CLASS_GADGET ||
+            record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
             text = g_spell_records[record->spell_id].display_name;
         } else {
-            text = fmt::format("{} (Pwr {:d})", g_spell_records[record->spell_id].display_name, record->spell_power);
+            text = fmt::format("{} (Pwr {:d})", g_spell_records[record->spell_id].display_name,
+                               record->spell_power);
         }
         m_text_area.AddEntry(g_localized_strings[0x8ea], text, 10, 0xf, 0);
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
             m_text_area.AddEntry(g_localized_strings[0x8eb],
-                                 fmt::format("{:d}", g_spell_records[record->spell_id].spell_level), 10, 0xf, 0);
+                                 fmt::format("{:d}", g_spell_records[record->spell_id].spell_level),
+                                 10, 0xf, 0);
         }
     }
     if (m_item->identified) {
         if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES) {
-            m_text_area.AddEntry(g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
-                                 fmt::format("{:d}", m_item->uses_or_charges), 10, 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
+                fmt::format("{:d}", m_item->uses_or_charges), 10, 0xf, 0);
         }
-        if (record->quantity_kind == W8_ITEM_QUANTITY_USES || record->quantity_kind == W8_ITEM_QUANTITY_SHOTS) {
-            m_text_area.AddEntry(g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
-                                 fmt::format("{:d}/{:d}", m_item->uses_or_charges, record->initial_quantity.Maximum()),
-                                 10, 0xf, 0);
+        if (record->quantity_kind == W8_ITEM_QUANTITY_USES ||
+            record->quantity_kind == W8_ITEM_QUANTITY_SHOTS) {
+            m_text_area.AddEntry(
+                g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
+                fmt::format("{:d}/{:d}", m_item->uses_or_charges,
+                            record->initial_quantity.Maximum()),
+                10, 0xf, 0);
         }
         if (record->health_regen_bonus > 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8d9], fmt::format("{:+d}", record->health_regen_bonus), 10, 0xf,
-                                 0);
+            m_text_area.AddEntry(g_localized_strings[0x8d9],
+                                 fmt::format("{:+d}", record->health_regen_bonus), 10, 0xf, 0);
         }
         if (record->health_regen_bonus < 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8da], fmt::format("{:d}", record->health_regen_bonus), 10, 0xf,
-                                 0);
+            m_text_area.AddEntry(g_localized_strings[0x8da],
+                                 fmt::format("{:d}", record->health_regen_bonus), 10, 0xf, 0);
         }
         if (record->stamina_regen_bonus > 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8db], fmt::format("{:+d}", record->stamina_regen_bonus), 10, 0xf,
-                                 0);
+            m_text_area.AddEntry(g_localized_strings[0x8db],
+                                 fmt::format("{:+d}", record->stamina_regen_bonus), 10, 0xf, 0);
         }
         if (record->stamina_regen_bonus < 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8dc], fmt::format("{:d}", record->stamina_regen_bonus), 10, 0xf,
-                                 0);
+            m_text_area.AddEntry(g_localized_strings[0x8dc],
+                                 fmt::format("{:d}", record->stamina_regen_bonus), 10, 0xf, 0);
         }
         if (record->spell_regen_bonus > 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8dd], fmt::format("{:+d}", record->spell_regen_bonus), 10, 0xf,
-                                 0);
+            m_text_area.AddEntry(g_localized_strings[0x8dd],
+                                 fmt::format("{:+d}", record->spell_regen_bonus), 10, 0xf, 0);
         }
         if (record->spell_regen_bonus < 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8de], fmt::format("{:d}", record->spell_regen_bonus), 10, 0xf,
-                                 0);
+            m_text_area.AddEntry(g_localized_strings[0x8de],
+                                 fmt::format("{:d}", record->spell_regen_bonus), 10, 0xf, 0);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value > 0) {
             modifier_text = fmt::format(
-                "{} {:+d}", g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]],
+                "{} {:+d}",
+                g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]],
                 record->modifier_0b3_value);
             m_text_area.AddEntry(g_localized_strings[0x8c3], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value < 0) {
             modifier_text = fmt::format(
-                "{} {:d}", g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]],
+                "{} {:d}",
+                g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]],
                 record->modifier_0b3_value);
             m_text_area.AddEntry(g_localized_strings[0x8c4], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value > 0) {
-            modifier_text =
-                fmt::format("{} {:+d}", g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
-                            record->modifier_0b1_value);
+            modifier_text = fmt::format(
+                "{} {:+d}",
+                g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
+                record->modifier_0b1_value);
             m_text_area.AddEntry(g_localized_strings[0x8c5], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value < 0) {
-            modifier_text =
-                fmt::format("{} {:d}", g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
-                            record->modifier_0b1_value);
+            modifier_text = fmt::format(
+                "{} {:d}",
+                g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
+                record->modifier_0b1_value);
             m_text_area.AddEntry(g_localized_strings[0x8c6], modifier_text, 10, 0xf, 0);
         }
         count = 0;
@@ -471,7 +497,8 @@ bool W8AssayDialog::PopulateText()
     g_assay_entry_text = "";
     count = AppendAssayRequirements(record->attribute_requirements, count);
     count = AppendAssayRequirements(record->skill_requirements, count);
-    if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 || record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
+    if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
+        record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
         if (record->spell_id == W8_SPELL_NONE) {
             srAssertFail("uiSpell != SPELL_NONE", ASSAY_DIALOG_CPP, 0x390, 0);
         }
@@ -490,16 +517,18 @@ bool W8AssayDialog::PopulateText()
     if (count != 0) {
         m_text_area.AddEntry(g_localized_strings[0x8f4], g_assay_entry_text, 10, 0xf, 0);
     }
-    if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK && (m_item->identified || m_item->spell_hint) &&
-        m_character != 0) {
+    if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK &&
+        (m_item->identified || m_item->spell_hint) && m_character != 0) {
         if (m_character->spell_learned[record->spell_id] == 1) {
             m_text_area.AddEntry({}, g_localized_strings[0x8ed], 10, 1, 0);
-        } else if (!CanCharacterLearnSpell(m_character, record->spell_id) && CanCastFromItem(m_character, m_item)) {
+        } else if (!CanCharacterLearnSpell(m_character, record->spell_id) &&
+                   CanCastFromItem(m_character, m_item)) {
             m_text_area.AddEntry({}, g_localized_strings[0x8ec], 10, 0, 0);
         }
     }
     if (record->maximum_quantity != 0) {
-        m_text_area.AddEntry(g_localized_strings[0x8f8], fmt::format("{:d}", record->maximum_quantity), 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8f8],
+                             fmt::format("{:d}", record->maximum_quantity), 10, 0xf, 0);
     }
     strcpy(path, "Data\\Databases\\ItemDesc.dbs");
     description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0);
@@ -536,7 +565,8 @@ void W8AssayDialog::Draw(SDL_Surface& target)
         W8DialogBase::Draw(target);
     }
     if (m_item_portrait_dirty) {
-        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45, m_y + 0xe);
+        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
+                                m_x + 0x45, m_y + 0xe);
         if (!m_item->identified) {
             CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(target, 0, m_x + 0x45, m_y + 0xe);
         }
@@ -610,31 +640,43 @@ bool W8AssayDialog::PopulateRequirements()
                            {.priority = UI_PRIORITY_LOWEST});
     m_buttons[1].Configure("Data\\Dialogs\\popup_iteminfo.sti", {BUTTON_NO_IMAGE, 2, 2, 2, 2},
                            {.priority = UI_PRIORITY_LOWEST});
-    m_buttons[2].Configure(
-        "Data\\Dialogs\\iteminfo_tabbutton.sti", {3, 0, 1, 4, 2},
-        {.on_click = [this](W8ButtonWidget*) { ShowPrimaryTab(); }, .toggles = true, .tooltip = 0x115});
-    m_buttons[3].Configure(
-        "Data\\Dialogs\\iteminfo_tabbutton.sti", {8, 5, 6, 9, 7},
-        {.on_click = [this](W8ButtonWidget*) { ShowSecondaryTab(); }, .toggles = true, .tooltip = 0x116});
+    m_buttons[2].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", {3, 0, 1, 4, 2},
+                           {.on_click = [this](W8ButtonWidget*) { ShowPrimaryTab(); },
+                            .toggles = true,
+                            .tooltip = 0x115});
+    m_buttons[3].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", {8, 5, 6, 9, 7},
+                           {.on_click = [this](W8ButtonWidget*) { ShowSecondaryTab(); },
+                            .toggles = true,
+                            .tooltip = 0x116});
     m_buttons[4].Configure("Data\\Dialogs\\popup_iteminfo.sti", {BUTTON_NO_IMAGE, 3, 3, 3, 3},
                            {.priority = UI_PRIORITY_LOWEST});
-    m_buttons[5].Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 0, 1, 2, 2},
-                           {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x12});
+    m_buttons[5].Configure(
+        "Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 0, 1, 2, 2},
+        {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x12});
     m_buttons[6].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, {.tooltip = 0x2ad});
     m_buttons[7].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, {.tooltip = 0x2a7});
     m_buttons[8].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, {.tooltip = 0x2b0});
     m_buttons[9].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, {.tooltip = 0x2ac});
     m_buttons[10].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, {.tooltip = 0x2a6});
     m_buttons[11].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xb, 10, {.tooltip = 0x2a4});
-    m_buttons[12].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc, {.tooltip = 0x2aa});
-    m_buttons[13].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe, {.tooltip = 0x2b1});
-    m_buttons[14].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10, {.tooltip = 0x2a8});
-    m_buttons[15].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12, {.tooltip = 0x2ae});
-    m_buttons[16].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14, {.tooltip = 0x2a9});
-    m_buttons[17].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16, {.tooltip = 0x2af});
-    m_buttons[18].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18, {.tooltip = 0x2a5});
-    m_buttons[19].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a, {.tooltip = 0x2b2});
-    m_buttons[20].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c, {.tooltip = 0x2ab});
+    m_buttons[12].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
+                                {.tooltip = 0x2aa});
+    m_buttons[13].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
+                                {.tooltip = 0x2b1});
+    m_buttons[14].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
+                                {.tooltip = 0x2a8});
+    m_buttons[15].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
+                                {.tooltip = 0x2ae});
+    m_buttons[16].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
+                                {.tooltip = 0x2a9});
+    m_buttons[17].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
+                                {.tooltip = 0x2af});
+    m_buttons[18].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
+                                {.tooltip = 0x2a5});
+    m_buttons[19].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
+                                {.tooltip = 0x2b2});
+    m_buttons[20].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
+                                {.tooltip = 0x2ab});
     m_buttons[21].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, {.tooltip = 0x28a});
     m_buttons[22].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, {.tooltip = 0x28c});
     m_buttons[23].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, {.tooltip = 0x285});
@@ -704,7 +746,8 @@ bool W8AssayDialog::PopulateRequirements()
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-        m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x, m_y + g_assay_button_offsets[index].y);
+        m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
+                                     m_y + g_assay_button_offsets[index].y);
     }
     return true;
 }
@@ -723,9 +766,9 @@ bool W8AssayDialog::CreateTextBuffers()
         bounds.top = m_y + g_assay_text_buffer_offsets[index].top;
         bounds.right = m_x + g_assay_text_buffer_offsets[index].right;
         bounds.bottom = m_y + g_assay_text_buffer_offsets[index].bottom;
-        m_text_buffers[index] =
-            new W8TextBuffer(&bounds, g_localized_strings[g_assay_text_buffer_string_ids[index]],
-                             g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[index] = new W8TextBuffer(
+            &bounds, g_localized_strings[g_assay_text_buffer_string_ids[index]],
+            g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_text_buffers[index] == 0) {
             DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
             return false;
@@ -734,11 +777,14 @@ bool W8AssayDialog::CreateTextBuffers()
 
     m_text_buffers[0]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
     equip_class = GetItemEquipClass(m_item);
-    m_text_buffers[2]->SetText(g_localized_strings[g_equip_class_name_ids[equip_class]], g_wiz_text_font_secondary);
+    m_text_buffers[2]->SetText(g_localized_strings[g_equip_class_name_ids[equip_class]],
+                               g_wiz_text_font_secondary);
     item = m_item;
-    if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && item->stack_count > 1) {
+    if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
+        item->stack_count > 1) {
         unsigned int unit_weight = GetItemUnitWeight(item);
-        text = fmt::format("{:.1f} ({:.1f} {})", GetItemStackWeight(m_item) * g_item_weight_display_scale,
+        text = fmt::format("{:.1f} ({:.1f} {})",
+                           GetItemStackWeight(m_item) * g_item_weight_display_scale,
                            unit_weight * g_item_weight_display_scale, g_localized_strings[0x117]);
     } else {
         text = fmt::format("{:.1f}", GetItemUnitWeight(item) * g_item_weight_display_scale);
@@ -806,7 +852,8 @@ void W8AssayDialog::SetProfessionIconsVisible(bool show)
         }
         m_buttons[button_index].SetVisible(show);
         if (show) {
-            m_buttons[button_index].SetEnabled((record->profession_mask & (1 << (profession & 0x1f))) != 0);
+            m_buttons[button_index].SetEnabled(
+                (record->profession_mask & (1 << (profession & 0x1f))) != 0);
         }
         m_buttons[button_index].m_dirty = true;
     }

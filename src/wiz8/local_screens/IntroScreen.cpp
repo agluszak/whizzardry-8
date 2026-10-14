@@ -27,7 +27,8 @@
 w8_ulong g_intro_video_index = 6;
 // GLOBAL: WIZ8 0x0064D8B0
 static char g_intro_video_names[7][40] = {
-    "Wizardry8.bik", "unaligned.bik", "Umpani.bik", "T'Rang.bik", "virgin.bik", "darkend.bik", "sirtech.bik",
+    "Wizardry8.bik", "unaligned.bik", "Umpani.bik",  "T'Rang.bik",
+    "virgin.bik",    "darkend.bik",   "sirtech.bik",
 };
 
 // FUNCTION: WIZ8 0x005AE770
@@ -56,7 +57,8 @@ unsigned char IntroScreenEnter(void)
         if (!FindGameDataPath(gzCdDirectory, 3)) {
             return 1;
         }
-        path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory, g_intro_video_names[g_intro_video_index]);
+        path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory,
+                           g_intro_video_names[g_intro_video_index]);
         if (![&]() {
                 const auto status = wiz8::file_status(path);
                 return status && status->info.type == SDL_PATHTYPE_FILE;
@@ -124,7 +126,8 @@ static void AdvanceIntroScreen(void)
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }();
         if (!first_video_available && FindGameDataPath(gzCdDirectory, 3)) {
-            path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory, g_intro_video_names[g_intro_video_index]);
+            path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory,
+                               g_intro_video_names[g_intro_video_index]);
             first_video_available = [&]() {
                 const auto status = wiz8::file_status(path);
                 return status && status->info.type == SDL_PATHTYPE_FILE;

@@ -23,7 +23,8 @@ void InsertIndexValue(Index& index, typename Index::key_type key, typename Index
 }
 
 template<class Index>
-void InsertUniqueIndexValue(Index& index, typename Index::key_type key, typename Index::mapped_type value)
+void InsertUniqueIndexValue(Index& index, typename Index::key_type key,
+                            typename Index::mapped_type value)
 {
     const auto [first, last] = index.equal_range(key);
     if (std::find_if(first, last, [&](const auto& item) { return item.second == value; }) == last) {
@@ -31,7 +32,8 @@ void InsertUniqueIndexValue(Index& index, typename Index::key_type key, typename
     }
 }
 
-template<class Index, class Key> auto NextIndexValue(Index& index, Key key, typename Index::iterator previous)
+template<class Index, class Key>
+auto NextIndexValue(Index& index, Key key, typename Index::iterator previous)
 {
     if (previous == index.end()) {
         return index.equal_range(key).first;
@@ -46,10 +48,12 @@ template<class Index, class Key> auto LookupIndexValue(const Index& index, Key k
     return first == last ? typename Index::mapped_type{} : first->second;
 }
 
-template<class Index, class Key, class Value> void RemoveIndexValue(Index& index, Key key, Value value)
+template<class Index, class Key, class Value>
+void RemoveIndexValue(Index& index, Key key, Value value)
 {
     const auto [first, last] = index.equal_range(key);
-    const auto found = std::find_if(first, last, [&](const auto& item) { return item.second == value; });
+    const auto found =
+        std::find_if(first, last, [&](const auto& item) { return item.second == value; });
     if (found != last) {
         index.erase(found);
     }

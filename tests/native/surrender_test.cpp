@@ -31,7 +31,8 @@
 #include "surrender/srNode.h"
 #include "glm/fwd.hpp"
 
-template<class T> constexpr bool noncopyable = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>;
+template<class T>
+constexpr bool noncopyable = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>;
 
 static_assert(noncopyable<srVertexPipe>);
 static_assert(std::is_destructible_v<srIlluminator>);
@@ -44,12 +45,14 @@ struct Node : srNode {
 
 template<class T> static bool rotations()
 {
-    constexpr std::array angles = {0.0,   1e-12, -1e-7, std::numbers::pi / 2, -std::numbers::pi / 2, std::numbers::pi,
-                                   0.731, -2.193};
+    constexpr std::array angles = {
+        0.0,   1e-12, -1e-7, std::numbers::pi / 2, -std::numbers::pi / 2, std::numbers::pi,
+        0.731, -2.193};
     std::mt19937 random(0x55D40);
     for (int sample = 0; sample < 256; ++sample) {
-        const glm::dvec3 axis = glm::normalize(glm::dvec3(
-            int(random() % 2000001) - 1000000, int(random() % 2000001) - 1000000, int(random() % 2000001) - 1000000));
+        const glm::dvec3 axis = glm::normalize(glm::dvec3(int(random() % 2000001) - 1000000,
+                                                          int(random() % 2000001) - 1000000,
+                                                          int(random() % 2000001) - 1000000));
         for (double angle : angles) {
             Node node;
             node.setRotation(angle, glm::dvec3(axis));
@@ -67,9 +70,11 @@ template<class T> static bool rotations()
                         reference += cosine;
                     } else {
                         const int remaining = 3 - row - column;
-                        reference += (column == (row + 1) % 3 ? -1 : 1) * components[remaining] * sine;
+                        reference +=
+                            (column == (row + 1) % 3 ? -1 : 1) * components[remaining] * sine;
                     }
-                    REQUIRE(std::abs(actual[column][row] - reference) <= 8 * std::numeric_limits<T>::epsilon());
+                    REQUIRE(std::abs(actual[column][row] - reference) <=
+                            8 * std::numeric_limits<T>::epsilon());
                 }
                 for (int other = 0; other < 3; ++other) {
                     REQUIRE(std::abs(glm::dot(actual[row], actual[other]) - T(row == other)) <=
@@ -91,7 +96,8 @@ static bool transforms()
     child.setLocation(1, 2, 3);
     auto world = child.getWorldSpaceMatrix<glm::dmat4>();
     REQUIRE(glm::length(glm::dvec3(world[3]) - glm::dvec3(-2, 0, 13)) < 1e-12);
-    REQUIRE(glm::length(glm::dvec3(world * glm::dvec4(1, 0, 0, 1)) - glm::dvec3(-2, 2, 13)) < 1e-12);
+    REQUIRE(glm::length(glm::dvec3(world * glm::dvec4(1, 0, 0, 1)) - glm::dvec3(-2, 2, 13)) <
+            1e-12);
     auto affine = child.getWorldSpaceMatrix<glm::dmat4x3>();
     REQUIRE(glm::dmat4(affine) == world);
     REQUIRE(child.getWorldSpaceMatrix<glm::mat4>() == glm::mat4(world));
@@ -103,8 +109,10 @@ static bool transforms()
     REQUIRE(glm::length(coordinates.scale - glm::dvec3(2, 3, 4)) < 1e-12);
     REQUIRE(glm::length(float_coordinates.scale - glm::vec3(2, 3, 4)) < 1e-6f);
     for (int column = 0; column < 3; ++column) {
-        REQUIRE(glm::length(coordinates.rotation[column] - glm::normalize(glm::dvec3(world[column]))) < 1e-12);
-        REQUIRE(glm::length(float_coordinates.rotation[column] - glm::normalize(glm::vec3(world[column]))) < 1e-6f);
+        REQUIRE(glm::length(coordinates.rotation[column] -
+                            glm::normalize(glm::dvec3(world[column]))) < 1e-12);
+        REQUIRE(glm::length(float_coordinates.rotation[column] -
+                            glm::normalize(glm::vec3(world[column]))) < 1e-6f);
     }
 
     // Each axis operation must invalidate the already-cached child transform.
@@ -139,12 +147,14 @@ static bool transforms()
     REQUIRE(glm::length(aiming.getWorldSpaceDOF() - glm::dvec3(0, 1, 0)) < 1e-12);
     aiming.setRotation(glm::dmat3(1));
     aiming.rollAt(glm::dvec3(1, 1, 0), .5);
-    const auto roll = glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8, glm::dvec3(0, 0, 1)));
+    const auto roll =
+        glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8, glm::dvec3(0, 0, 1)));
     for (int column = 0; column < 3; ++column) {
         REQUIRE(glm::length(aiming.getRotation()[column] - roll[column]) < 1e-12);
     }
 
-    const glm::mat4 transform = glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(2, 3, 4));
+    const glm::mat4 transform =
+        glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(2, 3, 4));
     const auto plane_matrix = glm::transpose(glm::inverse(transform));
     const auto plane = srTriangleCuller::transformClipPlane(glm::vec4(1, 0, 0, -1), plane_matrix);
     REQUIRE(glm::length(plane - glm::vec4(1, 0, 0, -5)) < 1e-6f);
@@ -165,7 +175,8 @@ static bool interfaces()
     {
         Node rotated;
         rotated.setRotation(0.71, glm::dvec3{3, 4, 0});
-        const auto reference = glm::dmat3(glm::rotate(glm::dmat4(1), 0.71, glm::dvec3(0.6, 0.8, 0)));
+        const auto reference =
+            glm::dmat3(glm::rotate(glm::dmat4(1), 0.71, glm::dvec3(0.6, 0.8, 0)));
         auto actual_rotation = rotated.getRotation<glm::dmat3>();
         const auto delta = actual_rotation - reference;
         for (int col = 0; col < 3; ++col) {
@@ -262,8 +273,10 @@ TEST_CASE("surrender_test")
 TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surrender][culling]")
 {
     const std::array<glm::ivec3, 4> triangles{{{5, 1, 3}, {0, 2, 4}, {4, 3, 1}, {5, 0, 2}}};
-    const std::array<glm::vec3, 6> vertices{{{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0}, {3, 0, 0}, {-4, 0, 0}, {4, 0, 0}}};
-    const std::array<glm::vec4, 4> equations{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}, {0, 0, 0, -1}}};
+    const std::array<glm::vec3, 6> vertices{
+        {{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0}, {3, 0, 0}, {-4, 0, 0}, {4, 0, 0}}};
+    const std::array<glm::vec4, 4> equations{
+        {{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}, {0, 0, 0, -1}}};
     std::array<glm::vec4, 32> planes{};
     planes[7] = {1, 0, 0, 0};
     const glm::mat4 identity(1);
@@ -316,7 +329,8 @@ TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surr
     REQUIRE(srRender::triangleVisible(triangles[1], flags.data()));
 }
 
-TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selection semantics", "[surrender][culling]")
+TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selection semantics",
+          "[surrender][culling]")
 {
     std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     const std::array<glm::vec3, 3> vertices{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}}};
@@ -329,7 +343,8 @@ TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selecti
     input.cull_mode = 2;
     input.clip_mask = 1u << 31;
     REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
-    REQUIRE_THROWS_AS(srTriangleCuller::getClipMask({0, 0, 0}, 1, planes, 1u << 31), std::invalid_argument);
+    REQUIRE_THROWS_AS(srTriangleCuller::getClipMask({0, 0, 0}, 1, planes, 1u << 31),
+                      std::invalid_argument);
     const std::array<w8_ulong, 1> active{0};
     input.active_triangles = active;
     // Explicit selections have already been clipped, so the unused plane mask is ignored.
@@ -375,7 +390,8 @@ TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[sur
     std::vector<w8_ulong> expected;
     for (w8_ulong index = 0; index < triangles.size(); ++index) {
         const auto& triangle = triangles[index];
-        if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 || vertices[triangle.z].x >= 0) {
+        if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 ||
+            vertices[triangle.z].x >= 0) {
             expected.push_back(index);
         }
     }

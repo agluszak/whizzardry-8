@@ -69,9 +69,10 @@ static bool g_cd_marker_present;
    frame handler falls back to. */
 // GLOBAL: WIZ8 0x0064bf8c
 static int g_level_backdrops[W8_LEVEL_COUNT] = {
-    0x1bc, 0x1bd, 0x1be, 0x1bf, 0x1c0, 0x1c2, 0x1c1, 0x1c3, 0x1c4, 0x1c5, 0x1c6, 0xe4,  0x1c7, 0x1c8, 0x1c9, 0x1ca,
-    0x1cb, 0x1cc, 0x1cd, 0x1ce, 0x1cf, 0x1d0, 0x1d1, 0xe4,  0x1d2, 0x1d3, 0x1d4, 0x1d5, 0xe4,  0x1d6, 0xe4,  0x1d7,
-    0x1d8, 0x1d9, 0xe4,  0xe4,  0x1da, 0x1db, 0x1dc, 0xe4,  0,     0,     0,     0,     0,     0,     0,
+    0x1bc, 0x1bd, 0x1be, 0x1bf, 0x1c0, 0x1c2, 0x1c1, 0x1c3, 0x1c4, 0x1c5, 0x1c6, 0xe4,
+    0x1c7, 0x1c8, 0x1c9, 0x1ca, 0x1cb, 0x1cc, 0x1cd, 0x1ce, 0x1cf, 0x1d0, 0x1d1, 0xe4,
+    0x1d2, 0x1d3, 0x1d4, 0x1d5, 0xe4,  0x1d6, 0xe4,  0x1d7, 0x1d8, 0x1d9, 0xe4,  0xe4,
+    0x1da, 0x1db, 0x1dc, 0xe4,  0,     0,     0,     0,     0,     0,     0,
 };
 /* The path the five assertions carry. */
 #define PLEASE_WAIT_SCREEN_CPP __FILE__
@@ -117,7 +118,8 @@ unsigned char PleaseWaitScreenEnter(void)
             g_load_descriptor->parameter = g_status.current_level;
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
-            g_load_descriptor->save_payload = static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
+            g_load_descriptor->save_payload =
+                static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
             break;
         case 3:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
@@ -157,7 +159,8 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
                 g_swap_disc_dialog->SetOrigin(0xf0, 0xbe);
                 g_swap_disc_dialog->SetExtent(0xa0, 100);
             }
-            std::string message = fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
+            std::string message =
+                fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
             SetDialogPrompt(g_swap_disc_dialog.get(), message);
             EnableCursorScene();
             return false;
@@ -177,7 +180,8 @@ static void DrawPleaseWaitScreen()
     CatalogArtwork::Load(backdrop, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     CatalogArtwork::Load(0x1de, 0).draw(GetFrameBufferSurface(), 0, 0, 0x1be);
     DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7}, g_load_descriptor->caption);
-    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0, 0x185);
+    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0,
+                                        0x185);
     ResetTransientRenderScenes();
 }
 
@@ -224,20 +228,22 @@ void PleaseWaitScreenFrame(void)
         break;
     case 1: {
         const auto& strings = g_localized_strings;
-        g_load_descriptor->caption = g_load_descriptor->name.starts_with("Quick") ? strings[0x6f1] : strings[0x6f0];
+        g_load_descriptor->caption =
+            g_load_descriptor->name.starts_with("Quick") ? strings[0x6f1] : strings[0x6f0];
     } break;
     case 2:
         g_load_descriptor->caption = g_localized_strings[0x6f2].c_str();
         break;
     case 3:
         if (static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT) {
-            g_load_descriptor->caption =
-                fmt::format("{} {}...", g_localized_strings[0x6f3],
-                            g_localized_strings[g_level_name_indices[g_load_descriptor->parameter]]);
+            g_load_descriptor->caption = fmt::format(
+                "{} {}...", g_localized_strings[0x6f3],
+                g_localized_strings[g_level_name_indices[g_load_descriptor->parameter]]);
         } else if (g_load_descriptor->parameter == 0x38) {
             g_load_descriptor->caption = "Entering default level...";
         } else {
-            g_load_descriptor->caption = fmt::format("Entering test level {:c}...", g_load_descriptor->parameter + 2);
+            g_load_descriptor->caption =
+                fmt::format("Entering test level {:c}...", g_load_descriptor->parameter + 2);
         }
     }
 
@@ -275,16 +281,18 @@ void PleaseWaitScreenFrame(void)
         // An asset-only save has no writable overlay to remove and is left intact.
         if (saved && !g_load_descriptor->previous_save_name.empty() &&
             g_load_descriptor->previous_save_name != g_load_descriptor->name) {
-            const std::string previous_path =
-                fmt::format("Saves\\{}.{}", g_load_descriptor->previous_save_name, g_save_extension);
+            const std::string previous_path = fmt::format(
+                "Saves\\{}.{}", g_load_descriptor->previous_save_name, g_save_extension);
             try {
                 wiz8::remove_file(previous_path);
             } catch (const std::exception& error) {
-                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Saved %s but could not remove previous save %s: %s",
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Saved %s but could not remove previous save %s: %s",
                             g_load_descriptor->name.c_str(), previous_path.c_str(), error.what());
             }
         }
-        ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE,
+                   saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
         if (g_load_descriptor->save_payload) {
             delete g_load_descriptor->save_payload;
         }
@@ -294,7 +302,8 @@ void PleaseWaitScreenFrame(void)
     }
     case 3:
         if (PleaseWaitScreenEnsureLevelArchive(g_load_descriptor->parameter)) {
-            if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter, g_load_descriptor->parameter_2)) {
+            if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter,
+                                             g_load_descriptor->parameter_2)) {
                 srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 320, 0);
             }
             AutoSaveIfAllowed(true);
@@ -344,8 +353,8 @@ void UpdatePleaseWaitLoadFrame(void)
     if (tick - g_load_descriptor->entered_tick > 499) {
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;
-        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0,
-                                                         0x185);
+        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(),
+                                                         g_load_descriptor->caption_y, 0, 0x185);
         RenderFrame();
     }
 }

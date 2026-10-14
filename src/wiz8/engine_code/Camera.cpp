@@ -116,7 +116,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
                             CameraSnapToTarget(&target);
                         }
                     } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH &&
-                               g_gd_camera->ComputeTrackingOrientation(&target, &angle, &pitch) == 0) {
+                               g_gd_camera->ComputeTrackingOrientation(&target, &angle, &pitch) ==
+                                   0) {
                         g_gd_camera->BeginOrientationTransition(pitch, angle, false);
                     }
                 }
@@ -179,7 +180,8 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
     if (!monster->IsRenderable(true)) {
         return;
     }
-    if (monster->movement.height_offset - monster->movement.secondary_height_offset < g_float_one_thousand ||
+    if (monster->movement.height_offset - monster->movement.secondary_height_offset <
+            g_float_one_thousand ||
         monster->GetDistanceToPlayer() > g_float_two_thousand) {
         position = monster->movement.position;
         position.y += monster->movement.secondary_height_offset;

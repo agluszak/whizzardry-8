@@ -83,7 +83,8 @@ template<class T> static void write(std::ofstream& out, const T& value)
     REQUIRE(out.good());
 }
 
-static void character_file_contracts(const std::filesystem::path& assets, const std::filesystem::path& user)
+static void character_file_contracts(const std::filesystem::path& assets,
+                                     const std::filesystem::path& user)
 {
     // The checked-in retail character supplies real nonzero gameplay and
     // unknown fields, independent of the synthetic Unicode fixtures.
@@ -196,7 +197,8 @@ static void unicode_database_contracts()
     REQUIRE(InitializeItemDatabase());
     REQUIRE(gXStatus.uiItemsInDatabase == 2);
     REQUIRE(std::string(g_item_records[0].display_name) == "Épée");
-    REQUIRE((std::string(g_item_records[1].display_name) == "药水😀" && g_item_records[1].value == 101));
+    REQUIRE((std::string(g_item_records[1].display_name) == "药水😀" &&
+             g_item_records[1].value == 101));
     DestroyItemDatabase();
     g_item_records = nullptr;
     auto monsters = wiz8::open_file("Data/Databases/Monsters.DBS", wiz8::OpenMode::replace);
@@ -230,8 +232,8 @@ static void unicode_file_contracts()
         wiz8::text::to_utf16le(text, bytes);
         if (encrypted) {
             for (std::size_t index = 0; index < bytes.size(); index += 2) {
-                auto unit =
-                    std::to_integer<unsigned>(bytes[index]) | (std::to_integer<unsigned>(bytes[index + 1]) << 8);
+                auto unit = std::to_integer<unsigned>(bytes[index]) |
+                            (std::to_integer<unsigned>(bytes[index + 1]) << 8);
                 unit = static_cast<unsigned short>(~(unit - 0x9697));
                 bytes[index] = static_cast<std::byte>(unit & 255);
                 bytes[index + 1] = static_cast<std::byte>(unit >> 8);
@@ -258,13 +260,17 @@ static void unicode_file_contracts()
         file->close();
         std::string output;
         unsigned metadata0 = 0, metadata1 = 0;
-        REQUIRE(
-            (!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, &metadata0, &metadata1)).empty()));
+        REQUIRE((!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, &metadata0,
+                                                        &metadata1))
+                      .empty()));
         REQUIRE((std::string(output) == name && metadata0 == 123 && metadata1 == 456));
-        REQUIRE(!(!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", -1, nullptr, nullptr)).empty()));
+        REQUIRE(!(!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", -1, nullptr,
+                                                         nullptr))
+                       .empty()));
         REQUIRE(output.empty());
         std::string complete;
-        REQUIRE((complete = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, nullptr, nullptr)) == name);
+        REQUIRE((complete = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, nullptr,
+                                                        nullptr)) == name);
     }
     auto file = wiz8::open_file("Data/Strings/unicode.dat", wiz8::OpenMode::replace);
     const int count = 1;
@@ -307,7 +313,8 @@ static void unicode_file_contracts()
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
     REQUIRE(g_message_storage[0][0].entries.empty());
     REQUIRE(g_message_storage[0][0].length == 6);
-    REQUIRE((g_message_storage[0][0].highlight_start == 3 && g_message_storage[0][0].highlight_stop == 6));
+    REQUIRE((g_message_storage[0][0].highlight_start == 3 &&
+             g_message_storage[0][0].highlight_stop == 6));
     ReleaseMessageStorage();
 }
 
@@ -372,7 +379,8 @@ static void keyword_file_contracts()
     REQUIRE(TranslateDialogueKeyword("final") == "final");
     ClearKeywordLists();
     REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
-    write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
+    write_keywords(english,
+                   "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
     ReloadKeywordLists();
     REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
     write_keywords(english, "header\n01234567890" + std::string(1000, 'x'));
@@ -614,7 +622,8 @@ static void graphical_object_ownership_contracts()
     auto* first = event.get();
     original.AddSoundEvent(std::move(event));
     for (int i = 0; i < 20; ++i) {
-        original.AddSoundEvent(std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
+        original.AddSoundEvent(
+            std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
     REQUIRE((original.sound_events.front().get() == first));
     W8GrObject copy(original);
@@ -623,7 +632,8 @@ static void graphical_object_ownership_contracts()
     REQUIRE((copy.sound_events.size() == original.sound_events.size()));
     REQUIRE((copy.sound_events.front().get() != first));
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
-    REQUIRE((!copy.sound_events.front()->looping && copy.sound_events.front()->sound_handle == nullptr));
+    REQUIRE((!copy.sound_events.front()->looping &&
+             copy.sound_events.front()->sound_handle == nullptr));
     original.sound_events.clear();
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
     W8GrObject missile;
@@ -642,8 +652,8 @@ static void script_record_contracts()
     const std::string prefix(31, 'x');
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        const auto text = "* comment\r\n\r\nStart:\r\n  MOVE 10\r\nstart:\nWAIT 5\n" + prefix + "first:\nEND\n" +
-                          prefix + "second:\nFINAL";
+        const auto text = "* comment\r\n\r\nStart:\r\n  MOVE 10\r\nstart:\nWAIT 5\n" + prefix +
+                          "first:\nEND\n" + prefix + "second:\nFINAL";
         file->write(text.data(), text.size());
     }
     stScript script;
@@ -704,10 +714,12 @@ static void encounter_table_contracts()
         REQUIRE(table->entries.size() == 2);
         const auto& first = table->entries[0];
         const auto& second = table->entries[1];
-        REQUIRE((first.species == 12 && first.rarity_class == 3 && first.time_condition == W8_ENCOUNTER_DAY &&
-                 first.challenge_level == 5 && !strcmp(first.script.value, "first.msf")));
-        REQUIRE((second.species == 34 && second.rarity_class == 70 && second.time_condition == W8_ENCOUNTER_ANY_TIME &&
-                 second.challenge_level == 20 && !strcmp(second.script.value, "second.msf")));
+        REQUIRE((first.species == 12 && first.rarity_class == 3 &&
+                 first.time_condition == W8_ENCOUNTER_DAY && first.challenge_level == 5 &&
+                 !strcmp(first.script.value, "first.msf")));
+        REQUIRE((second.species == 34 && second.rarity_class == 70 &&
+                 second.time_condition == W8_ENCOUNTER_ANY_TIME && second.challenge_level == 20 &&
+                 !strcmp(second.script.value, "second.msf")));
         REQUIRE((!GetEncounterTable(-1) && !GetEncounterTable(1)));
     }
     // Failed loads must not publish partially populated parallel data.
@@ -852,9 +864,12 @@ static void save_file_contracts(const std::filesystem::path& user)
     REQUIRE((utc.year == 1970 && utc.month == 1 && utc.day == 1));
     REQUIRE(wiz8::file_time_from_sdl(-1).ticks() == epoch.ticks() - 1);
     REQUIRE(wiz8::file_time_from_utc({1601, 1, 1, 0, 0, 0, 0, 1}).ticks() == 0);
-    REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() == epoch.ticks() + 19800ULL * 10000000);
-    REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() == epoch.ticks() - 18000ULL * 10000000);
-    REQUIRE(wiz8::file_time_to_utc(wiz8::file_time_with_legacy_local_bias(epoch, -18000)).year == 1969);
+    REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() ==
+            epoch.ticks() + 19800ULL * 10000000);
+    REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() ==
+            epoch.ticks() - 18000ULL * 10000000);
+    REQUIRE(wiz8::file_time_to_utc(wiz8::file_time_with_legacy_local_bias(epoch, -18000)).year ==
+            1969);
     REQUIRE(wiz8::file_time_with_legacy_local_bias({}, -1).ticks() == UINT64_MAX - 9999999);
 
     char path[] = "Saves\\Timestamp.SAV";
@@ -864,8 +879,9 @@ static void save_file_contracts(const std::filesystem::path& user)
     REQUIRE(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
     const int offset = wiz8::current_utc_offset_seconds();
     auto created = file->times().created;
-    REQUIRE(created.ticks() ==
-            wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
+    REQUIRE(created.ticks() == wiz8::file_time_with_legacy_local_bias(
+                                   wiz8::file_time_from_sdl(info.create_time), offset)
+                                   .ticks());
 
     // SaveGame's unchanged masks apply independently to the packed dwords.
     constexpr unsigned masks[] = {0x6b24e9f0u, 0xe77c28c1u};
@@ -889,10 +905,12 @@ static void save_file_contracts(const std::filesystem::path& user)
     later = times.created;
     REQUIRE(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
     // Reader fallback is current SDL create_time (POSIX ctime, not birth).
-    REQUIRE(later.ticks() ==
-            wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
-    REQUIRE(times.modified.ticks() ==
-            wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.modify_time), offset).ticks());
+    REQUIRE(later.ticks() == wiz8::file_time_with_legacy_local_bias(
+                                 wiz8::file_time_from_sdl(info.create_time), offset)
+                                 .ticks());
+    REQUIRE(times.modified.ticks() == wiz8::file_time_with_legacy_local_bias(
+                                          wiz8::file_time_from_sdl(info.modify_time), offset)
+                                          .ticks());
     file.reset();
     // Fixed epoch pair encodes the same eight bytes; no record layout changed.
     const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
@@ -904,7 +922,9 @@ static void save_file_contracts(const std::filesystem::path& user)
         std::ofstream save(user / "Saves" / name, std::ios::binary);
         write(save, slot);
         save.close();
-        std::filesystem::last_write_time(user / "Saves" / name, now - hours(slot == 1 ? 0 : slot == 2 ? 4 : 2));
+        std::filesystem::last_write_time(user / "Saves" / name, now - hours(slot == 1   ? 0
+                                                                            : slot == 2 ? 4
+                                                                                        : 2));
     }
     REQUIRE(SelectQuickSaveSlotForWrite() == "Quick 2");
     REQUIRE(FindStartupQuickSave() == "Quick 1");
@@ -1136,7 +1156,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
     gXStatus.uiNpcsInDatabase = 3;
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
-    const unsigned char version = GENERATE(static_cast<unsigned char>(2), static_cast<unsigned char>(3));
+    const unsigned char version =
+        GENERATE(static_cast<unsigned char>(2), static_cast<unsigned char>(3));
     CAPTURE(version);
     {
         std::ofstream out(path, std::ios::binary | std::ios::trunc);
@@ -1156,7 +1177,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
                     write(out, static_cast<unsigned int>(wiz8::retail::kCharacterBytes));
                 }
                 const auto image = wiz8::retail::encode(character);
-                out.write(reinterpret_cast<const char*>(image.data()), version == 2 ? 0x185c : image.size());
+                out.write(reinterpret_cast<const char*>(image.data()),
+                          version == 2 ? 0x185c : image.size());
                 REQUIRE(out.good());
             }
         }
@@ -1346,7 +1368,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         REQUIRE((subs[0].operand == 11 && subs[0].text == "line"));
         REQUIRE((subs[1].operand == 22 && subs[1].text.empty()));
         REQUIRE((quotes[1].entries.empty() && quotes[1].subquotes.empty()));
-        REQUIRE((quotes[2].entries[0].operand0 == 0x1234 && quotes[2].entries[0].sub_entries.empty()));
+        REQUIRE(
+            (quotes[2].entries[0].operand0 == 0x1234 && quotes[2].entries[0].sub_entries.empty()));
         ReleaseNpcScriptFile(file);
         std::ifstream encoded(script_path, std::ios::binary);
         const std::string bytes((std::istreambuf_iterator<char>(encoded)), {});
@@ -1398,7 +1421,8 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     }
     REQUIRE(FindFreeEndingSaveName() == std::optional<std::string>{"Ending10"});
     for (int index = 10; index < 20; ++index) {
-        auto file = wiz8::open_file("Saves/Ending" + std::to_string(index) + ".SAV", wiz8::OpenMode::replace);
+        auto file = wiz8::open_file("Saves/Ending" + std::to_string(index) + ".SAV",
+                                    wiz8::OpenMode::replace);
         file->close();
     }
     REQUIRE(FindFreeEndingSaveName() == std::optional<std::string>{"Ending20"});

@@ -43,8 +43,8 @@ W8OctBuildNode::~W8OctBuildNode()
 /* Build the cubic spatial domain used to insert processed GameData surfaces.
    The optional level bounds are expanded locally by half a leaf on every axis. */
 // FUNCTION: WIZ8 0x00446390
-W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit,
-                               short extent_mode)
+W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
+                               unsigned short item_limit, short extent_mode)
     : spatial(0)
 {
     spatial.Reset();
@@ -177,7 +177,8 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
 /* Descend through every overlapping octant.  Branch nodes own child nodes;
    leaf nodes reuse the same eight slots as per-mode linked-list heads. */
 // FUNCTION: WIZ8 0x004469f0
-unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
+unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
+                                                     W8GDSurface* surface,
                                                      const glm::vec3& planeNormal, w8_ulong mode)
 {
     W8OctSpatialState child(working);
@@ -200,7 +201,8 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
             working, child, half_extent,
             [&](W8OctSpatialState& candidate) {
                 return triangleIntersectsBox(
-                    candidate.bounds(), std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3), planeNormal);
+                    candidate.bounds(),
+                    std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3), planeNormal);
             },
             [&]() -> W8OctBuildNode* {
                 if (use_owned_nodes) {
@@ -282,8 +284,10 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
     bool all_inside = true;
     bool inside = false;
     for (unsigned corner = 0; corner < 8; ++corner) {
-        const auto point = glm::mix(box.minimum, box.maximum, glm::bvec3(corner & 4, corner & 2, corner & 1));
-        if (glm::any(glm::lessThan(point, bounds.minimum)) || glm::any(glm::greaterThanEqual(point, bounds.maximum))) {
+        const auto point =
+            glm::mix(box.minimum, box.maximum, glm::bvec3(corner & 4, corner & 2, corner & 1));
+        if (glm::any(glm::lessThan(point, bounds.minimum)) ||
+            glm::any(glm::greaterThanEqual(point, bounds.maximum))) {
             all_inside = false;
             if (inside) {
                 break;
@@ -300,7 +304,8 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
     }
     if (!inside) {
         for (unsigned corner = 0; corner < 8; ++corner) {
-            const auto point = glm::mix(bounds.minimum, bounds.maximum, glm::bvec3(corner & 4, corner & 2, corner & 1));
+            const auto point = glm::mix(bounds.minimum, bounds.maximum,
+                                        glm::bvec3(corner & 4, corner & 2, corner & 1));
             if (box.contains(point)) {
                 return 1;
             }
@@ -310,23 +315,25 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
 }
 
 // FUNCTION: WIZ8 0x00446d80
-std::vector<W8GDSurface*> W8OctBuildTree::queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
-                                                            float extent, unsigned short kind)
+std::vector<W8GDSurface*> W8OctBuildTree::queryAlongSegment(const glm::vec3& origin,
+                                                            const glm::vec3& delta, float extent,
+                                                            unsigned short kind)
 {
     SurfaceCollector collector;
     if (spatial.m_root) {
         W8OctSpatialState state(&spatial);
         state.m_depth = 0;
         state.m_level_kind = 1;
-        collectRecursive(state, srSegmentMath::sweptBounds(origin, delta, extent), static_cast<short>(kind), collector);
+        collectRecursive(state, srSegmentMath::sweptBounds(origin, delta, extent),
+                         static_cast<short>(kind), collector);
     }
     collector.clearVisited();
     return std::move(collector.results);
 }
 
 // FUNCTION: WIZ8 0x00446f20
-void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBoundingBox& bounds, short kind,
-                                      SurfaceCollector& collector) const
+void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBoundingBox& bounds,
+                                      short kind, SurfaceCollector& collector) const
 {
     const bool leaf = state.m_depth == spatial.m_depth;
     const int verdict = classifyBuildBox(state.bounds(), bounds, leaf);
@@ -341,7 +348,8 @@ void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBo
 }
 
 // FUNCTION: WIZ8 0x00447110
-void W8OctBuildTree::collectLeaf(W8OctBuildNode* node, short depth, short kind, SurfaceCollector& collector) const
+void W8OctBuildTree::collectLeaf(W8OctBuildNode* node, short depth, short kind,
+                                 SurfaceCollector& collector) const
 {
     if (depth != spatial.m_depth) {
         for (auto* child : node->children) {

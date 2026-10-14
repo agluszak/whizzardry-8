@@ -70,7 +70,8 @@ struct TextOptions {
     bool wrap = false;
 };
 
-void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text, TextOptions options = {});
+void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
+              TextOptions options = {});
 void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
                            TextOptions options = {});
 

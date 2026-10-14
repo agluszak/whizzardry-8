@@ -14,8 +14,8 @@ constexpr std::uint64_t kRetailRandMax = 0x7fff;
 
 std::uint32_t ScaleRoll(int roll, std::uint32_t range)
 {
-    return static_cast<std::uint32_t>((static_cast<std::uint64_t>(roll) & kRetailRandMax) * range / kRetailRandMax %
-                                      range);
+    return static_cast<std::uint32_t>((static_cast<std::uint64_t>(roll) & kRetailRandMax) * range /
+                                      kRetailRandMax % range);
 }
 } // namespace
 

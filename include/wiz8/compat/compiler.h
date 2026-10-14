@@ -10,7 +10,8 @@ typedef int32_t w8_long;
 typedef uint32_t w8_ulong;
 typedef uintptr_t w8_ulong_ptr;
 
-#define W8_PRINTF(format_index, first_argument) __attribute__((format(printf, format_index, first_argument)))
+#define W8_PRINTF(format_index, first_argument)                                                    \
+    __attribute__((format(printf, format_index, first_argument)))
 
 #ifndef __cplusplus
 #include <assert.h>

@@ -13,8 +13,9 @@ struct W8CombatSlot;
    Its two effect slots each roll against a per-target miss chance and dispatch
    on the effect style; the hit/damage tallies are summarized to the text box
    unless combat announcements are verbose. */
-void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource, W8CombatSlot* pAttackerSlot,
-                               std::vector<int> char_targets, std::vector<int> monster_targets);
+void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
+                               W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
+                               std::vector<int> monster_targets);
 /* Whether the special-attack kind is one of the seven the casting-blocked
    condition keeps from fleeing. */
 bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind);
@@ -22,4 +23,5 @@ bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind);
 /* Translate a summoning special-attack kind to its monster species, roll that
    record's group size and bring the new group in as close to the attacker's
    position as camera-facing placement allows. */
-void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource, W8CombatSlot* pAttackerSlot);
+void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
+                               W8CombatSlot* pAttackerSlot);

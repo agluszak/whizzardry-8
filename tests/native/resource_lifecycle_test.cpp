@@ -133,7 +133,8 @@ static void queued_state_teardown()
     REQUIRE((IsMessageBoxLineQueueEmpty()));
 }
 
-TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization", "[resources][lifecycle]")
+TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization",
+          "[resources][lifecycle]")
 {
     shutdown_survivors();
     shutdown_survivors();
@@ -198,7 +199,9 @@ struct SpellVisualFixture {
         g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
-        roots.configure({(directory.path / "assets").string(), (directory.path / "user").string(), {"", "", ""}});
+        roots.configure({(directory.path / "assets").string(),
+                         (directory.path / "user").string(),
+                         {"", "", ""}});
         SetCurrentWorld(&world);
     }
 
@@ -335,7 +338,8 @@ static void WriteEmitterFixture(unsigned char cycle, bool truncate)
     }
 }
 
-TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles", "[resources][spell]")
+TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
+                 "[resources][spell]")
 {
     W8SpellVisual visual;
     auto& host = *visual.host;
@@ -378,7 +382,8 @@ static void RestartShakeFromCompletion()
     callback_system->Start(next, callback_key);
 }
 
-TEST_CASE("Shake instances retire before reentrant completion and can restart", "[resources][shake]")
+TEST_CASE("Shake instances retire before reentrant completion and can restart",
+          "[resources][shake]")
 {
     ShakeSystem system;
     ShakeDefinition definition(0, false, 1, 0, nullptr);
@@ -399,7 +404,8 @@ TEST_CASE("Shake instances retire before reentrant completion and can restart", 
     REQUIRE(shake_callbacks == 1);
 }
 
-TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights", "[resources][spell]")
+TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights",
+                 "[resources][spell]")
 {
     struct ObservedInstance : stModelInstance {
         explicit ObservedInstance(std::vector<std::size_t>& observations)

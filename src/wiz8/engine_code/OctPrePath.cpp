@@ -108,7 +108,8 @@ PrePathing::PrePathing()
     owned_248 = 0;
     cell_map = 0;
     named_positions = 0;
-    node_chunks[0] = static_cast<W8PrePathNode*>(malloc(W8_PREPATH_NODES_PER_CHUNK * sizeof(W8PrePathNode)));
+    node_chunks[0] =
+        static_cast<W8PrePathNode*>(malloc(W8_PREPATH_NODES_PER_CHUNK * sizeof(W8PrePathNode)));
     memset(node_chunks[0], 0, W8_PREPATH_NODES_PER_CHUNK * sizeof(W8PrePathNode));
     chunk_index = 0;
     chunk_node_count = 0;
@@ -147,7 +148,8 @@ int PrePathing::SnapNamedPositions(std::span<const W8LevelFileNamedPosition> pos
     if (named_position_count != 0) {
         named_positions = new srVector3T<float>[named_position_count];
         for (int i = 0; i < named_position_count; ++i) {
-            named_positions[i].Set(positions[i].position.x * g_world_scale, positions[i].position.y * g_world_scale,
+            named_positions[i].Set(positions[i].position.x * g_world_scale,
+                                   positions[i].position.y * g_world_scale,
                                    positions[i].position.z * g_world_scale);
             octree->SnapToGround(&named_positions[i], 0);
         }
@@ -177,14 +179,17 @@ W8PrePathNode* PrePathing::GetPathNode()
 }
 
 // FUNCTION: WIZ8 0x004CD2C0
-unsigned char PrePathing::BuildPathList(W8PrePathNode* nodes, std::unordered_map<unsigned int, int>* cell_map)
+unsigned char PrePathing::BuildPathList(W8PrePathNode* nodes,
+                                        std::unordered_map<unsigned int, int>* cell_map)
 {
     this->cell_map = cell_map;
     path_log = new OctPrePathLog(grid_scale, &level_bounds);
-    path_node_list = static_cast<W8PrePathNode**>(malloc(path_node_count * sizeof(*path_node_list)));
+    path_node_list =
+        static_cast<W8PrePathNode**>(malloc(path_node_count * sizeof(*path_node_list)));
     if (path_node_list == 0) {
         char message[0x100];
-        sprintf(message, "BuildPathList: Could not allocate path node list, length %d nodes.\n", path_node_count);
+        sprintf(message, "BuildPathList: Could not allocate path node list, length %d nodes.\n",
+                path_node_count);
         ReportBuildStatus(7, message);
         return 0;
     }
@@ -226,7 +231,8 @@ unsigned char PrePathing::LinkPathNodes()
         int percent = static_cast<int>(i * 100.0f / path_node_count);
         if (last_percent + 5 < percent) {
             last_percent += 5;
-            sprintf(message, "Linking:  %d%% Complete:  %d Links Found  \r", last_percent, links_found);
+            sprintf(message, "Linking:  %d%% Complete:  %d Links Found  \r", last_percent,
+                    links_found);
             ReportStartupMessage(message);
         }
         W8PrePathNode* node = path_node_list[i];
@@ -255,7 +261,8 @@ unsigned char PrePathing::LinkPathNodes()
     for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
         W8PrePathNode* edge = path_node_list[i];
         edge->level_flags &= 0xfffffff;
-        if ((edge->level_flags & W8_PATH_CELL_NEIGHBOR_OR_DEPTH_MASK) != W8_PATH_CELL_NEIGHBOR_OR_DEPTH_MASK) {
+        if ((edge->level_flags & W8_PATH_CELL_NEIGHBOR_OR_DEPTH_MASK) !=
+            W8_PATH_CELL_NEIGHBOR_OR_DEPTH_MASK) {
             edge->level_flags |= W8_PATH_CELL_HAS_DIRECTIONS;
         }
     }
@@ -339,7 +346,8 @@ unsigned int PrePathing::DeleteUnreachableAreas()
         int percent = static_cast<int>(i * 100.0f / path_node_count);
         if (last_percent < percent) {
             last_percent = percent;
-            sprintf(message, "Deleting:  %d%% Complete:  %d Pathnodes Deleted  \r", percent, deleted);
+            sprintf(message, "Deleting:  %d%% Complete:  %d Pathnodes Deleted  \r", percent,
+                    deleted);
             ReportStartupMessage(message);
         }
         if (TestBit(m_visited_path_nodes, i)) {
@@ -381,7 +389,8 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                             } else {
                                 float height_diff = fabsf(neighbor->y - path_node_list[index]->y);
                                 if (link_height <= height_diff) {
-                                    if (first_probe || (neighbor->level_flags & W8_PATH_CELL_INACTIVE) == 0) {
+                                    if (first_probe ||
+                                        (neighbor->level_flags & W8_PATH_CELL_INACTIVE) == 0) {
                                         ++next_index;
                                         first_probe = false;
                                     } else {
@@ -411,13 +420,16 @@ unsigned int PrePathing::DeleteUnreachableAreas()
         }
         if (component_size < static_cast<int>(minimum)) {
             bool clear_of_named = true;
-            for (unsigned int collected = 0; collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
+            for (unsigned int collected = 0;
+                 collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
                 if (m_collected_path_nodes[collected]) {
                     W8PrePathNode* node = path_node_list[collected];
                     unsigned int cell = node->cell;
                     float world_y = node->y;
-                    float world_x = ((cell & 0xffff) + g_float_half) * grid_scale + level_bounds.minimum.x;
-                    float world_z = ((cell >> 0x10) + g_float_half) * grid_scale + level_bounds.minimum.z;
+                    float world_x =
+                        ((cell & 0xffff) + g_float_half) * grid_scale + level_bounds.minimum.x;
+                    float world_z =
+                        ((cell >> 0x10) + g_float_half) * grid_scale + level_bounds.minimum.z;
                     for (int n = 0; n < named_position_count && clear_of_named; ++n) {
                         float dx = world_x - named_positions[n].x;
                         float dy = world_y - named_positions[n].y;
@@ -428,7 +440,8 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                     }
                 }
             }
-            for (unsigned int collected = 0; collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
+            for (unsigned int collected = 0;
+                 collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
                 if (m_collected_path_nodes[collected]) {
                     path_node_list[collected]->level_flags |= W8_PREPATH_NODE_PRUNED;
                     ++deleted;
@@ -470,7 +483,8 @@ int PrePathing::CreatePathNodeArray()
     char message[0x400];
 
     edge_node_count = 1;
-    file_path_nodes = static_cast<W8FilePathNode*>(malloc(path_node_count * sizeof(W8FilePathNode)));
+    file_path_nodes =
+        static_cast<W8FilePathNode*>(malloc(path_node_count * sizeof(W8FilePathNode)));
     if (file_path_nodes == 0) {
         sprintf(message, "CreatePathNodeArray: Could not allocate m_pulNodeHashArray.\n");
         ReportBuildStatus(7, message);
@@ -488,7 +502,8 @@ int PrePathing::CreatePathNodeArray()
             ++i;
         } while (i < static_cast<unsigned int>(path_node_count));
     }
-    sprintf(message, "  %d Total Pathnodes, %d of which are Edge Nodes.\n", path_node_count, edge_node_count);
+    sprintf(message, "  %d Total Pathnodes, %d of which are Edge Nodes.\n", path_node_count,
+            edge_node_count);
     ReportBuildStatus(6, message);
     sprintf(message, "Total memory taken by Path Nodes: %dk.\n",
             (static_cast<unsigned int>(path_node_count) & 0x1fffffff) >> 7);
@@ -515,13 +530,15 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
     for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
         int percent = static_cast<int>(i * 100.0f / path_node_count);
         if (last_percent < percent) {
-            sprintf(message, "Creating Automap Nodes:  %d%% Complete:  %d Nodes created  \r", percent, created);
+            sprintf(message, "Creating Automap Nodes:  %d%% Complete:  %d Nodes created  \r",
+                    percent, created);
             ReportStartupMessage(message);
             last_percent = percent;
         }
         W8PrePathNode* node = path_node_list[i];
         srVector3T<float> position;
-        position.Set((node->cell & 0xffff) * grid_scale, (node->level_flags & W8_PATH_CELL_HEIGHT_MASK) * span,
+        position.Set((node->cell & 0xffff) * grid_scale,
+                     (node->level_flags & W8_PATH_CELL_HEIGHT_MASK) * span,
                      (node->cell >> 0x10) * grid_scale);
         unsigned int key = AutomapNodeKey(&position);
         if (!used_keys.contains(key)) {
@@ -548,8 +565,9 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
 }
 
 // FUNCTION: WIZ8 0x004CE510
-void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
-                                            std::unordered_multimap<unsigned int, CondPathNode*>* pCondValues)
+void W8PathingService::LinkCollideableProps(
+    int lNumProps, W8PreProp* pPreProps,
+    std::unordered_multimap<unsigned int, CondPathNode*>* pCondValues)
 {
     int aiLookup[10000];
     unsigned int aulKeys[10000];
@@ -565,7 +583,8 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
         InsertIndexValue(*m_pPathValues, file_path_nodes[i].cell, file_path_nodes[i].level_flags);
     }
 
-    GDPropCondPaths** ppCondPaths = static_cast<GDPropCondPaths**>(malloc((lNumProps + 2) * sizeof(*ppCondPaths)));
+    GDPropCondPaths** ppCondPaths =
+        static_cast<GDPropCondPaths**>(malloc((lNumProps + 2) * sizeof(*ppCondPaths)));
     if (ppCondPaths == 0) {
         srAssertFail("ppCondPaths", OCTPREPATH_CPP, 1037,
                      "LinkCollideableProps: Couldn't allocate GDPropCondPaths objects.");
@@ -579,19 +598,25 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
         if (pProp->num_stop_meshes != 0) {
             for (unsigned short j = 0; j < pProp->num_stop_meshes; ++j) {
                 bool bWroteFrame = false;
-                unsigned int key = (static_cast<unsigned int>(pProp->pStopMeshes[j].m_prop_number) << 16) | (i + 1);
+                unsigned int key =
+                    (static_cast<unsigned int>(pProp->pStopMeshes[j].m_prop_number) << 16) |
+                    (i + 1);
                 auto slot = pCondValues->equal_range(key).first;
                 if (slot != pCondValues->end()) {
                     do {
                         CondPathNode* puValue = slot->second;
-                        if ((puValue != 0) && (FindConditionalPathValue(puValue->cell, puValue->value) != 0)) {
+                        if ((puValue != 0) &&
+                            (FindConditionalPathValue(puValue->cell, puValue->value) != 0)) {
                             if (ppCondPaths[i] == 0) {
-                                if (static_cast<unsigned int>(lNumProps) < static_cast<unsigned int>(ulOriginalCount)) {
-                                    srAssertFail("ulOriginalCount <= (UINT32)lNumProps", OCTPREPATH_CPP, 1065,
+                                if (static_cast<unsigned int>(lNumProps) <
+                                    static_cast<unsigned int>(ulOriginalCount)) {
+                                    srAssertFail("ulOriginalCount <= (UINT32)lNumProps",
+                                                 OCTPREPATH_CPP, 1065,
                                                  "LinkCollideableProps: Invalid count for "
                                                  "collideable props.");
                                 }
-                                GDPropCondPaths* pPath = static_cast<GDPropCondPaths*>(malloc(sizeof(GDPropCondPaths)));
+                                GDPropCondPaths* pPath =
+                                    static_cast<GDPropCondPaths*>(malloc(sizeof(GDPropCondPaths)));
                                 ppCondPaths[i] = pPath;
                                 memset(pPath, 0, sizeof(GDPropCondPaths));
                                 strcpy(pPath->name, pProp->name);
@@ -630,7 +655,8 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
             }
         }
         if (ppCondPaths[i] != 0) {
-            if ((pProp->num_stop_meshes == 1) && (pProp->pStopMeshes[0].m_flags.always_blocks_path)) {
+            if ((pProp->num_stop_meshes == 1) &&
+                (pProp->pStopMeshes[0].m_flags.always_blocks_path)) {
                 aiLookup[m_ulNumCondFrames + 1] = aiLookup[m_ulNumCondFrames];
                 ausFrames[m_ulNumCondFrames] = pProp->pStopMeshes[0].last_frame;
                 ++m_ulNumCondFrames;
@@ -641,13 +667,15 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
         }
     }
 
-    if ((static_cast<unsigned int>(m_ulNumCondFrames) < 2) || (static_cast<unsigned int>(m_ulNumCondNodes) < 2)) {
+    if ((static_cast<unsigned int>(m_ulNumCondFrames) < 2) ||
+        (static_cast<unsigned int>(m_ulNumCondNodes) < 2)) {
         m_ulNumCondNodes = 0;
         m_ulNumCondFrames = 0;
         return;
     }
 
-    m_pCondPaths = static_cast<GDPropCondPaths*>(malloc(m_ulNumCondPaths * sizeof(GDPropCondPaths)));
+    m_pCondPaths =
+        static_cast<GDPropCondPaths*>(malloc(m_ulNumCondPaths * sizeof(GDPropCondPaths)));
     if (m_pCondPaths == 0) {
         srAssertFail("m_pCondPaths", OCTPREPATH_CPP, 1116,
                      "LinkCollideableProps: Couldn't allocate m_pCondPaths array.");
@@ -664,25 +692,29 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
         }
     }
 
-    m_pulCondLookup = static_cast<unsigned int*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
+    m_pulCondLookup =
+        static_cast<unsigned int*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
     if (m_pulCondLookup == 0) {
         srAssertFail("m_pulCondLookup", OCTPREPATH_CPP, 1127, 0);
     }
     memcpy(m_pulCondLookup, aiLookup + 1, m_ulNumCondFrames * sizeof(*m_pulCondLookup));
 
-    m_pusCondNodeFrames = static_cast<unsigned short*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
+    m_pusCondNodeFrames =
+        static_cast<unsigned short*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
     if (m_pusCondNodeFrames == 0) {
         srAssertFail("m_pusCondNodeFrames", OCTPREPATH_CPP, 1130, 0);
     }
     memcpy(m_pusCondNodeFrames, ausFrames, m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames));
 
-    m_pulCondNodeKeys = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
+    m_pulCondNodeKeys =
+        static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
     if (m_pulCondNodeKeys == 0) {
         srAssertFail("m_pulCondNodeKeys", OCTPREPATH_CPP, 1134, 0);
     }
     memcpy(m_pulCondNodeKeys, aulKeys, m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys));
 
-    m_pulCondNodeValues = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
+    m_pulCondNodeValues =
+        static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
     if (m_pulCondNodeValues == 0) {
         srAssertFail("m_pulCondNodeValues", OCTPREPATH_CPP, 1137, 0);
     }

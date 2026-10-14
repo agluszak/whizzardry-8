@@ -33,26 +33,28 @@ template<class T> T ReadStatValue(const void* address)
 
 // GLOBAL: WIZ8 0x006483d0
 W8PortraitDescriptor g_portrait_descriptors[80] = {
-    {0, 0, 0, 1},  {0, 0, 1, 0},  {0, 0, 2, 2},  {0, 0, 3, 0},  {0, 0, 3, 1},  {0, 0, 3, 2},  {0, 1, 0, 2},
-    {0, 1, 1, 0},  {0, 1, 2, 0},  {0, 1, 3, 1},  {0, 1, 3, 0},  {0, 1, 3, 0},  {1, 0, 0, 1},  {1, 0, 1, 1},
-    {1, 0, 2, 2},  {1, 1, 0, 1},  {1, 1, 1, 1},  {1, 1, 2, 0},  {2, 0, 0, 1},  {2, 0, 1, 2},  {2, 0, 2, 1},
-    {2, 1, 0, 1},  {2, 1, 1, 1},  {2, 1, 2, 2},  {3, 0, 1, 1},  {3, 0, 2, 2},  {3, 1, 0, 0},  {3, 1, 1, 1},
-    {4, 0, 0, 1},  {4, 0, 1, 1},  {4, 1, 0, 1},  {4, 1, 1, 0},  {5, 0, 0, 0},  {5, 0, 2, 1},  {5, 1, 0, 1},
-    {5, 1, 1, 0},  {6, 0, 0, 1},  {6, 0, 1, 2},  {6, 1, 0, 0},  {6, 1, 1, 2},  {7, 0, 0, 0},  {7, 0, 1, 2},
-    {7, 1, 0, 2},  {7, 1, 1, 2},  {8, 0, 0, 0},  {8, 0, 1, 2},  {8, 1, 0, 2},  {8, 1, 1, 1},  {9, 0, 1, 2},
-    {9, 0, 2, 1},  {9, 1, 0, 1},  {9, 1, 1, 1},  {10, 0, 0, 2}, {10, 0, 1, 1}, {10, 1, 0, 2}, {10, 1, 1, 1},
-    {11, 0, 4, 0}, {11, 1, 4, 2}, {10, 0, 3, 2}, {11, 0, 1, 1}, {11, 0, 0, 0}, {11, 0, 1, 0}, {12, 0, 3, 2},
-    {13, 0, 3, 1}, {13, 0, 3, 1}, {13, 0, 3, 2}, {13, 0, 3, 2}, {13, 0, 3, 1}, {13, 0, 3, 0}, {13, 0, 3, 1},
-    {13, 0, 3, 1}, {13, 0, 3, 2}, {13, 0, 3, 0}, {13, 0, 3, 1}, {13, 0, 3, 0}, {13, 0, 3, 0}, {0, 0, 3, 0},
-    {0, 1, 3, 2},  {1, 0, 3, 1},  {1, 1, 3, 0},
+    {0, 0, 0, 1},  {0, 0, 1, 0},  {0, 0, 2, 2},  {0, 0, 3, 0},  {0, 0, 3, 1},  {0, 0, 3, 2},
+    {0, 1, 0, 2},  {0, 1, 1, 0},  {0, 1, 2, 0},  {0, 1, 3, 1},  {0, 1, 3, 0},  {0, 1, 3, 0},
+    {1, 0, 0, 1},  {1, 0, 1, 1},  {1, 0, 2, 2},  {1, 1, 0, 1},  {1, 1, 1, 1},  {1, 1, 2, 0},
+    {2, 0, 0, 1},  {2, 0, 1, 2},  {2, 0, 2, 1},  {2, 1, 0, 1},  {2, 1, 1, 1},  {2, 1, 2, 2},
+    {3, 0, 1, 1},  {3, 0, 2, 2},  {3, 1, 0, 0},  {3, 1, 1, 1},  {4, 0, 0, 1},  {4, 0, 1, 1},
+    {4, 1, 0, 1},  {4, 1, 1, 0},  {5, 0, 0, 0},  {5, 0, 2, 1},  {5, 1, 0, 1},  {5, 1, 1, 0},
+    {6, 0, 0, 1},  {6, 0, 1, 2},  {6, 1, 0, 0},  {6, 1, 1, 2},  {7, 0, 0, 0},  {7, 0, 1, 2},
+    {7, 1, 0, 2},  {7, 1, 1, 2},  {8, 0, 0, 0},  {8, 0, 1, 2},  {8, 1, 0, 2},  {8, 1, 1, 1},
+    {9, 0, 1, 2},  {9, 0, 2, 1},  {9, 1, 0, 1},  {9, 1, 1, 1},  {10, 0, 0, 2}, {10, 0, 1, 1},
+    {10, 1, 0, 2}, {10, 1, 1, 1}, {11, 0, 4, 0}, {11, 1, 4, 2}, {10, 0, 3, 2}, {11, 0, 1, 1},
+    {11, 0, 0, 0}, {11, 0, 1, 0}, {12, 0, 3, 2}, {13, 0, 3, 1}, {13, 0, 3, 1}, {13, 0, 3, 2},
+    {13, 0, 3, 2}, {13, 0, 3, 1}, {13, 0, 3, 0}, {13, 0, 3, 1}, {13, 0, 3, 1}, {13, 0, 3, 2},
+    {13, 0, 3, 0}, {13, 0, 3, 1}, {13, 0, 3, 0}, {13, 0, 3, 0}, {0, 0, 3, 0},  {0, 1, 3, 2},
+    {1, 0, 3, 1},  {1, 1, 3, 0},
 };
 // VTABLE: WIZ8 0x005ef1d8 W8CharacterPageEntry
 // class W8CharacterPageEntry
 
 // FUNCTION: WIZ8 0x005af690
 W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool compact)
-    : m_input(input), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact), m_dirty(1),
-      m_enabled(0), m_increment_allowed(1)
+    : m_input(input), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),
+      m_dirty(1), m_enabled(0), m_increment_allowed(1)
 {
     m_x = 0xc3 + x;
     m_y = 0x2b + y;
@@ -81,11 +83,12 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
             UpdateButtons();
             MarkDirty();
         };
-        result->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(),
-                          {frame + 3, frame, frame + 1, frame + 2, frame + 4},
-                          {.on_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); },
-                           .on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); },
-                           .priority = UI_PRIORITY_LOWEST});
+        result->Configure(
+            CatalogArtwork::Load(0x10a, 0).spriteSheet(),
+            {frame + 3, frame, frame + 1, frame + 2, frame + 4},
+            {.on_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); },
+             .on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); },
+             .priority = UI_PRIORITY_LOWEST});
         result->policy.controller_activation = true;
         result->policy.repeat = true;
         result->SetPosition(x, m_y + 1);
@@ -95,13 +98,14 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     m_decrement = button(split + 0x1b, 0x19, -1);
     m_decrement->SetEnabled(false);
     m_increment = button(split + 0x3d, 0x1e, 1);
-    m_help = &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13}, [this](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up && event.inside && event.button == UiPointerButton::Right &&
-            event.captured_buttons && on_info) {
-            AfterUiDispatch(on_info);
-        }
-        return UiResult::Handled;
-    });
+    m_help =
+        &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13}, [this](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Up && event.inside &&
+                event.button == UiPointerButton::Right && event.captured_buttons && on_info) {
+                AfterUiDispatch(on_info);
+            }
+            return UiResult::Handled;
+        });
     m_help->setEnabled(false);
 }
 
@@ -111,8 +115,8 @@ W8CharacterPageEntry::~W8CharacterPageEntry()
 }
 
 // FUNCTION: WIZ8 0x005af9e0
-void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, unsigned int* first, int* second,
-                                      int* third, int help_id)
+void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, unsigned int* first,
+                                      int* second, int* third, int help_id)
 {
     m_id = id;
     m_first = first;
@@ -162,8 +166,10 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         if (m_draw_background) {
             CatalogArtwork::Load(0x108, 0).drawAndInvalidate(target, 2, m_x, m_y);
         }
-        m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
-        m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
+        m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)),
+                             g_wiz_text_font_secondary);
+        m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)),
+                              g_wiz_text_font_secondary);
         m_first_text.FillBounds(target, 0x8000);
         m_second_text.FillBounds(target, 0x8000);
         m_label.RenderToTarget(0, true, target);
@@ -214,7 +220,10 @@ void W8CharacterPageEntry::UpdateButtons()
 // class W8CharacterPage
 
 // FUNCTION: WIZ8 0x005afd90
-W8CharacterPage::W8CharacterPage(CatalogArtwork background) : background(std::move(background)), m_screen(nullptr) {}
+W8CharacterPage::W8CharacterPage(CatalogArtwork background)
+    : background(std::move(background)), m_screen(nullptr)
+{
+}
 
 // FUNCTION: WIZ8 0x005afe40
 W8CharacterPage::~W8CharacterPage() = default;
@@ -226,7 +235,8 @@ void W8CharacterPage::SetActive(bool active)
 }
 
 // FUNCTION: WIZ8 0x005aff00
-void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationState* creation_state, int mode)
+void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
+                                   int mode)
 {
     m_character = character;
     m_creation_state = creation_state;

@@ -63,7 +63,8 @@ void W8ListBoxDialog::OnSliderTrackClick()
 {
     SDL_Point cursor = UiPointerPosition();
     const int top = m_third_text_button.Bounds().y + m_up_button.Bounds().h;
-    const int bottom = m_third_text_button.Bounds().y + m_third_text_button.Bounds().h - m_down_button.Bounds().h;
+    const int bottom =
+        m_third_text_button.Bounds().y + m_third_text_button.Bounds().h - m_down_button.Bounds().h;
     if (cursor.y < top) {
         cursor.y = top;
     }

@@ -75,7 +75,8 @@ static void ClippingAndLighting()
     srLightingMath::power(power, {light, std::size(power)}, 1);
     REQUIRE((power[0] == 0 && power[1] > 0 && power[2] == 0.5f && power[3] == 1));
     srLightingMath::power(power, {light, std::size(power)}, 2);
-    REQUIRE((power[0] == 0 && std::abs(power[1] - .0001f) < 1e-8f && power[2] == 0.25f && power[3] == 1));
+    REQUIRE((power[0] == 0 && std::abs(power[1] - .0001f) < 1e-8f && power[2] == 0.25f &&
+             power[3] == 1));
     srLightingMath::power(power, {light, std::size(power)}, 127);
     srLightingMath::power(clamped, {light, std::size(clamped)}, 1000);
     for (int i = 0; i < 4; ++i) {
@@ -94,7 +95,8 @@ static void PackedStorage()
     const glm::vec3 value = stored.point.glmValue();
     REQUIRE((value.x == 2 && value.y == -3 && value.z == 4));
     stored.point = value + glm::vec3(1, 2, 3);
-    REQUIRE((stored.tag == 0x5a && stored.point.x == 3 && stored.point.y == -1 && stored.point.z == 7));
+    REQUIRE(
+        (stored.tag == 0x5a && stored.point.x == 3 && stored.point.y == -1 && stored.point.z == 7));
 
     stored.point.Normalize();
     REQUIRE((stored.tag == 0x5a && std::abs(stored.point.Length() - 1) < 1e-6f));
@@ -138,7 +140,8 @@ TEST_CASE("vector_math_test")
     std::puts("ok: packed storage, guarded vector methods, rotations, clipping and lighting");
 }
 
-TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp policies", "[math][lighting]")
+TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp policies",
+          "[math][lighting]")
 {
     using srChannelMath::RampDirection;
     std::array<float, 5> distances{-1, 0, 5, 10, 20}, ramp{};
@@ -154,10 +157,12 @@ TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp po
     REQUIRE(ramp[2] == .75f);
     srChannelMath::distanceRamp({}, {}, 0, 0, 0, RampDirection::increasing);
     const float nan = std::numeric_limits<float>::quiet_NaN();
-    const std::array<glm::vec3, 4> normals{glm::vec3(0, 0, -1), glm::vec3(0), glm::vec3(0, 0, 2), glm::vec3(0, 0, nan)};
+    const std::array<glm::vec3, 4> normals{glm::vec3(0, 0, -1), glm::vec3(0), glm::vec3(0, 0, 2),
+                                           glm::vec3(0, 0, nan)};
     const glm::vec3 direction(0, 0, 1);
     std::array<float, 4> dots{};
-    srLightingMath::normalDots(dots, normals, {&direction, 1}, srLightingMath::DotRange::nonnegative);
+    srLightingMath::normalDots(dots, normals, {&direction, 1},
+                               srLightingMath::DotRange::nonnegative);
     REQUIRE(dots[0] == 0);
     REQUIRE(dots[1] == 0);
     REQUIRE(dots[2] == 2);
@@ -170,7 +175,8 @@ TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp po
     srLightingMath::normalDots({}, {}, {}, srLightingMath::DotRange::unit);
     std::array<glm::vec4, 2> colors{glm::vec4(1), glm::vec4(2)};
     const std::array<float, 2> weights{.5f, 2}, attenuation{.25f, .5f};
-    srLightingMath::accumulateLight(std::span<glm::vec4>(colors), glm::vec4(4), weights, attenuation);
+    srLightingMath::accumulateLight(std::span<glm::vec4>(colors), glm::vec4(4), weights,
+                                    attenuation);
     REQUIRE(colors[0] == glm::vec4(1.5f));
     REQUIRE(colors[1] == glm::vec4(6));
     srLightingMath::accumulateLight(std::span<glm::vec4>(colors), glm::vec4(1));
@@ -202,7 +208,8 @@ TEST_CASE("Renderer dump formatting restores native flags on failed output")
     const auto original = stream.flags();
     REQUIRE_THROWS_AS(([&] {
                           const srDumpStreamScope outer(stream);
-                          REQUIRE((stream.flags() & std::ios_base::adjustfield) == std::ios_base::left);
+                          REQUIRE((stream.flags() & std::ios_base::adjustfield) ==
+                                  std::ios_base::left);
                           const auto inner_flags = stream.flags();
                           {
                               const srDumpStreamScope inner(stream);
@@ -262,8 +269,14 @@ TEST_CASE("Navigation slide math returns complete values for blocked headings")
     REQUIRE_FALSE(slideDirection(0, {1, 0, 1}));
     REQUIRE_FALSE(slideDirection(255, {1, 0, 1}));
     REQUIRE_FALSE(slideDirection(1, {0, 0, 0}));
-    const std::array<glm::vec3, 8> directions{
-        {{0, 0, -1}, {-1, 0, -1}, {-1, 0, 0}, {-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {1, 0, 0}, {1, 0, -1}}};
+    const std::array<glm::vec3, 8> directions{{{0, 0, -1},
+                                               {-1, 0, -1},
+                                               {-1, 0, 0},
+                                               {-1, 0, 1},
+                                               {0, 0, 1},
+                                               {1, 0, 1},
+                                               {1, 0, 0},
+                                               {1, 0, -1}}};
     for (unsigned bit = 0; bit < directions.size(); ++bit) {
         const auto slide = slideDirection(255u & ~(1u << bit), -directions[bit]);
         REQUIRE(slide);
@@ -304,7 +317,8 @@ TEST_CASE("Picking edge tests retain signed W, winding and clipping depth policy
     REQUIRE_FALSE(srPickingMath::triangleDepth(near_plane, glm::vec3(0, 0, 1)));
 }
 
-TEST_CASE("Lighting direction results preserve caller zero policies and native power handles sub-unit exponents")
+TEST_CASE("Lighting direction results preserve caller zero policies and native power handles "
+          "sub-unit exponents")
 {
     const auto sample = srLightingMath::directionAndDistance({3, 0, 4});
     REQUIRE(sample.distance == 5);
@@ -312,8 +326,8 @@ TEST_CASE("Lighting direction results preserve caller zero policies and native p
     const auto zero = srLightingMath::directionAndDistance(glm::vec3(0));
     REQUIRE(zero.distance == 0);
     REQUIRE(zero.direction == glm::vec3(0));
-    const auto divided =
-        srLightingMath::directionAndDistance(glm::vec3(0), srLightingMath::ZeroLengthDirection::divide);
+    const auto divided = srLightingMath::directionAndDistance(
+        glm::vec3(0), srLightingMath::ZeroLengthDirection::divide);
     REQUIRE(std::isnan(divided.direction.x));
     REQUIRE(std::isnan(divided.direction.y));
     REQUIRE(std::isnan(divided.direction.z));
@@ -332,7 +346,8 @@ TEST_CASE("Projected area keeps orientation and closed triangle edge coverage")
     using srTriangleProjection::orientedArea;
     REQUIRE(orientedArea(glm::vec2(0), glm::vec2(4, 0), glm::vec2(1, 3)) == 12);
     REQUIRE(orientedArea(glm::vec2(4, 0), glm::vec2(0), glm::vec2(1, 3)) == -12);
-    REQUIRE(orientedArea(glm::dvec2(1e8), glm::dvec2(1e8 + 4, 1e8), glm::dvec2(1e8 + 1, 1e8 + 3)) == 12);
+    REQUIRE(orientedArea(glm::dvec2(1e8), glm::dvec2(1e8 + 4, 1e8), glm::dvec2(1e8 + 1, 1e8 + 3)) ==
+            12);
     std::array<glm::vec2, 3> triangle{{{0, 0}, {2, 0}, {0, 2}}};
     REQUIRE(srTriangleProjection::containsClosed(triangle, {.5f, .5f}));
     REQUIRE(srTriangleProjection::containsClosed(triangle, {1, 1}));

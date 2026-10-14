@@ -95,7 +95,8 @@ enum { W8_CYCLE_NONE = 0xff, W8_CYCLE_STOP = 0x14, W8_CYCLE_DEATH = 0x15 };
 static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monster);
 
 // FUNCTION: WIZ8 0x004e3930
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record, srVector3T<float>* position)
+W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
+                                 srVector3T<float>* position)
 {
     std::unique_ptr<W8MonsterInfo> owner(new (std::nothrow) W8MonsterInfo{});
     W8MonsterInfo* monster_info = owner.get();
@@ -182,13 +183,14 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 
         if (std::ranges::contains(gXStatus.unborn_monsters, monster_info)) {
             if (!MonsterIsCycleSupported(monster_info->p3D, 0)) {
-                srAssertFail("MonsterIsCycleSupported(pMonsterInfo->p3D, CYCLE_BIRTH)", MONSTER_MANAGER_CPP, 0x190,
-                             "Unborn monsters must have CYCLE_BIRTH!");
+                srAssertFail("MonsterIsCycleSupported(pMonsterInfo->p3D, CYCLE_BIRTH)",
+                             MONSTER_MANAGER_CPP, 0x190, "Unborn monsters must have CYCLE_BIRTH!");
             }
             MonsterSetCycleBehaviour(monster_info->p3D, 1);
             MonsterSetCycle(monster_info->p3D, 0);
             if (MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
-                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1", MONSTER_MANAGER_CPP, 0x196, 0);
+                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1",
+                             MONSTER_MANAGER_CPP, 0x196, 0);
             }
             MonsterSetCycleSubCycle(monster_info->p3D, 0);
             MonsterSetAnimating(monster_info->p3D, false);
@@ -198,10 +200,12 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
             MonsterSetCycle(monster_info->p3D, 1);
             MonsterSetCycleBehaviour(monster_info->p3D, 3);
             if (MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
-                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1", MONSTER_MANAGER_CPP, 0x1a4, 0);
+                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1",
+                             MONSTER_MANAGER_CPP, 0x1a4, 0);
             }
-            MonsterSetCycleSubCycle(monster_info->p3D,
-                                    Random(MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT)));
+            MonsterSetCycleSubCycle(
+                monster_info->p3D,
+                Random(MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT)));
             MonsterSetAnimating(monster_info->p3D, !monster_info->fMotionless);
         }
 
@@ -209,24 +213,28 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
         MonsterSetFacing(monster_info->p3D, monster_info->derived);
         RebuildMonsterDerivedStats(monster_info->location_id);
         monster_info->p3D->movement.leadership_rank =
-            static_cast<unsigned int>(record->effective_level) * 0x10000U + monster_info->location_id;
+            static_cast<unsigned int>(record->effective_level) * 0x10000U +
+            monster_info->location_id;
         MonsterSetLocationId(monster_info->p3D, monster_info->location_id);
         monster_info->p3D->pending_finalize = false;
 
-        InitializeMonsterRangeCapabilities(monster_info, MonsterDBFromSpecies(monster_info->monster_species));
+        InitializeMonsterRangeCapabilities(monster_info,
+                                           MonsterDBFromSpecies(monster_info->monster_species));
     }
 
     camera_position = cameraLocation(*GetWorld());
     MonsterSelectLOD(monster_info->p3D, &camera_position);
     UpdateCycleRepresentation(monster_info->p3D, GetWorld());
-    g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id), &monster_info->position);
+    g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
+                             &monster_info->position);
     monster_info->fActive = true;
     ++gXStatus.active_monster_count;
     if (monster_info->p3D != 0) {
         int damage_stage_count = monster_info->p3D->GetDamageStageCount();
         if (damage_stage_count > 1) {
             int damage_stage =
-                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * damage_stage_count) /
+                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) *
+                 damage_stage_count) /
                 monster_info->uiHPMax;
             if (damage_stage >= damage_stage_count - 1) {
                 damage_stage = damage_stage_count - 1;
@@ -270,7 +278,8 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
 
     if (mode == W8_MONSTER_LOAD_ALL_CYCLES) {
         W8Monster* monster = monster_info->p3D;
-        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 1, monster_info->location_id);
+        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 1,
+                                       monster_info->location_id);
         monster_info->p3D = monster;
         if (!success) {
             srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20a,
@@ -278,7 +287,8 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
         }
     } else if (mode == W8_MONSTER_LOAD_STARTUP_CYCLE) {
         W8Monster* monster = monster_info->p3D;
-        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 0, monster_info->location_id);
+        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 0,
+                                       monster_info->location_id);
         monster_info->p3D = monster;
         if (!success) {
             srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20f,
@@ -287,7 +297,8 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
         MonsterSetCycle(monster_info->p3D, 1);
     }
 
-    if (monster_info->scale < g_float_zero || g_status.level_progress[g_status.current_level].visited == 0) {
+    if (monster_info->scale < g_float_zero ||
+        g_status.level_progress[g_status.current_level].visited == 0) {
         monster_info->saved_mirror_x = MonsterGetMirrorX(monster_info->p3D);
         monster_info->scale = CalculateMonsterScale(monster_info);
         MonsterSetScale(monster_info->p3D, monster_info->scale);
@@ -362,18 +373,23 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     unsigned int notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
         killer_party_slot = monster_info->condition_target.iChar;
-        if (killer_party_slot != -1 && (killer_party_slot < 0 || killer_party_slot >= W8_PARTY_SLOT_COUNT ||
-                                        !g_status.buffers.XChar[killer_party_slot].fOccupied ||
-                                        !g_status.buffers.Char[killer_party_slot].fInParty)) {
-            srAssertFail("(iKilledByPC == BAD_INDEX) || VALID_CHAR(iKilledByPC)", MONSTER_MANAGER_CPP, 0x354, 0);
+        if (killer_party_slot != -1 &&
+            (killer_party_slot < 0 || killer_party_slot >= W8_PARTY_SLOT_COUNT ||
+             !g_status.buffers.XChar[killer_party_slot].fOccupied ||
+             !g_status.buffers.Char[killer_party_slot].fInParty)) {
+            srAssertFail("(iKilledByPC == BAD_INDEX) || VALID_CHAR(iKilledByPC)",
+                         MONSTER_MANAGER_CPP, 0x354, 0);
         }
         notice_channel = (killer_party_slot == -1) + 8;
     } else {
         notice_channel = 9;
     }
-    if (announce && !monster_info->death_processed && monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
-        ShowNotice(notice_channel, fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
-                                               g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+    if (announce && !monster_info->death_processed &&
+        monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
+        ShowNotice(
+            notice_channel,
+            fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
     }
     ReleaseMonsterConditionBindings(monster_info);
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {
@@ -420,7 +436,9 @@ done:
                         ++occupied;
                     }
                 }
-                int share = occupied == 0 ? 1 : static_cast<int>(level_total / static_cast<double>(occupied));
+                int share = occupied == 0
+                                ? 1
+                                : static_cast<int>(level_total / static_cast<double>(occupied));
                 if (share + 2 <= static_cast<int>(record->effective_level)) {
                     QueueCharacterEvent(killer, g_effect25, 0, g_character_event_no_flags,
                                         g_character_event_full_volume);
@@ -442,7 +460,8 @@ done:
 }
 
 // FUNCTION: WIZ8 0x004e5550
-unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure, std::source_location caller)
+unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure,
+                                         std::source_location caller)
 {
     unsigned int index;
     W8MonsterInfo* monster;
@@ -463,8 +482,8 @@ unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure
 
     if (assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x5c1,
-                     fmt::format("MonsterIndex: ID {:d} not found ({} line {:d})", location_id, caller.file_name(),
-                                 caller.line()));
+                     fmt::format("MonsterIndex: ID {:d} not found ({} line {:d})", location_id,
+                                 caller.file_name(), caller.line()));
     }
     return 0xffffffff;
 }
@@ -486,8 +505,8 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
         if (result != 0) {
             return result;
         }
-        detail = fmt::format("MonsterInfo: ERROR - missing entry, index {:d}, pList {}", monster_list_index,
-                             static_cast<const void*>(&gXStatus.monsters));
+        detail = fmt::format("MonsterInfo: ERROR - missing entry, index {:d}, pList {}",
+                             monster_list_index, static_cast<const void*>(&gXStatus.monsters));
         line = 0x5de;
     } else {
         if (monster_list_index - 10000 >= gXStatus.unborn_monsters.size()) {
@@ -499,8 +518,8 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
         if (result != 0) {
             return result;
         }
-        detail = fmt::format("MonsterInfo: ERROR - missing entry, index {:d}, pList {}", monster_list_index,
-                             static_cast<const void*>(&gXStatus.monsters));
+        detail = fmt::format("MonsterInfo: ERROR - missing entry, index {:d}, pList {}",
+                             monster_list_index, static_cast<const void*>(&gXStatus.monsters));
         line = 0x5d5;
     }
     srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, line, detail);
@@ -551,8 +570,8 @@ W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure, std::source_
     }
     if (monster == 0 && assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x626,
-                     fmt::format("FindMonster: ID {:d} not found ({} line {:d})", location_id, caller.file_name(),
-                                 caller.line()));
+                     fmt::format("FindMonster: ID {:d} not found ({} line {:d})", location_id,
+                                 caller.file_name(), caller.line()));
     }
     return monster;
 }
@@ -608,7 +627,8 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
         int count = monster->GetDamageStageCount();
         if (count > 1) {
             int value =
-                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) / monster_info->uiHPMax;
+                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
+                monster_info->uiHPMax;
             if (value >= count - 1) {
                 value = count - 1;
             }
@@ -669,11 +689,13 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         if (monster_info->fActive && monster_info->hp_current > 0 &&
-            monster_info->uiCondition[W8_CONDITION_DEAD] == 0 && monster_info->summoned != W8_MONSTER_SUMMON_NONE) {
+            monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
+            monster_info->summoned != W8_MONSTER_SUMMON_NONE) {
             if (!forced_cleanup) {
-                ShowNotice(
-                    W8_FONT_PALETTE_RUST,
-                    fmt::sprintf(g_localized_strings[W8_NOTICE_MONSTER_SLAIN], GetMonsterName(monster_info, 0, 0)), 0);
+                ShowNotice(W8_FONT_PALETTE_RUST,
+                           fmt::sprintf(g_localized_strings[W8_NOTICE_MONSTER_SLAIN],
+                                        GetMonsterName(monster_info, 0, 0)),
+                           0);
             }
             ReleaseMonsterConditionBindings(monster_info);
             if (!forced_cleanup) {
@@ -687,7 +709,8 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
 // FUNCTION: WIZ8 0x004e5d00
 void ConvertMonsterAttributes(W8MonsterInfo* monster_info)
 {
-    for (unsigned int monster_attribute = 0; monster_attribute < W8_MONSTER_ATTR_COUNT; ++monster_attribute) {
+    for (unsigned int monster_attribute = 0; monster_attribute < W8_MONSTER_ATTR_COUNT;
+         ++monster_attribute) {
         W8MonsterRecord* record;
         W8Attribute attribute_index;
         int value;
@@ -751,7 +774,8 @@ void ResetLivingMonstersAfterCombat(void)
 
         if (monster_info->hp_current > 0) {
             monster_info->p3D->ResetMovementAndGroupState();
-            if (monster_info->ai_mode > W8_RT_AI_IDLE && monster_info->ai_mode <= W8_RT_AI_APPROACH_PARTY) {
+            if (monster_info->ai_mode > W8_RT_AI_IDLE &&
+                monster_info->ai_mode <= W8_RT_AI_APPROACH_PARTY) {
                 monster_info->ai_mode = W8_RT_AI_IDLE;
             }
         }
@@ -816,7 +840,8 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
     switch (control_state) {
     case W8_MONSTER_CONTROL_NONE:
     case W8_MONSTER_CONTROL_RESISTED:
-        if (monster_info->control_state == W8_MONSTER_CONTROL_LURED && monster_info->p3D->linked_navigator == 0) {
+        if (monster_info->control_state == W8_MONSTER_CONTROL_LURED &&
+            monster_info->p3D->linked_navigator == 0) {
             monster_info->p3D->ClearMovement();
             monster_info->ai_mode = W8_RT_AI_IDLE;
         }
@@ -880,7 +905,8 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
     monster_info->p3D->inactive = false;
 }
 
-static double DistanceBetweenPositions(const srVector3T<float>* first, const srVector3T<float>& second)
+static double DistanceBetweenPositions(const srVector3T<float>* first,
+                                       const srVector3T<float>& second)
 {
     return (*first - second).Length();
 }
@@ -893,8 +919,10 @@ W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double 
 
     for (const auto* monsters : {&gXStatus.monsters, &gXStatus.unborn_monsters}) {
         for (W8MonsterInfo* monster_info : *monsters) {
-            const double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
-            if (distance < nearest_distance && (maximum_distance == 0.0 || distance < maximum_distance)) {
+            const double distance =
+                DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
+            if (distance < nearest_distance &&
+                (maximum_distance == 0.0 || distance < maximum_distance)) {
                 nearest = monster_info;
                 nearest_distance = distance;
             }
@@ -950,9 +978,10 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
     W8MonsterRecord* record = MonsterDBFromSpecies(monster_info->monster_species);
     int minimum_hp = record->hit_points.Minimum();
     int maximum_hp = record->hit_points.Maximum();
-    float scale = ((maximum - minimum) * (static_cast<unsigned int>(monster_info->uiHPMax) - minimum_hp)) /
-                      (maximum_hp - minimum_hp) +
-                  minimum;
+    float scale =
+        ((maximum - minimum) * (static_cast<unsigned int>(monster_info->uiHPMax) - minimum_hp)) /
+            (maximum_hp - minimum_hp) +
+        minimum;
     float result = (maximum - minimum) * (Random(1000) * 0.0004f - 0.2f) + scale;
 
     if (result < minimum) {
@@ -967,7 +996,8 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x004e67a0
 void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state)
 {
-    if (monster_info->fActive && monster_info->hp_current > 0 && monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
+    if (monster_info->fActive && monster_info->hp_current > 0 &&
+        monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
         monster_info->within_viewing_distance && query_state == 1) {
         int result = MonsterQuery(monster, W8_MONSTER_QUERY_AT_PLAYBACK_END);
 
@@ -1297,9 +1327,11 @@ void ToggleCombatMode(void)
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
-        for (group_list_index = 0; group_list_index < gXStatus.monster_groups.size(); ++group_list_index) {
+        for (group_list_index = 0; group_list_index < gXStatus.monster_groups.size();
+             ++group_list_index) {
             monster_group = GetMonsterGroupByListIndex(group_list_index);
-            if (monster_group->members_active && monster_group->fInCombat && MonsterGroupCanEngage(monster_group)) {
+            if (monster_group->members_active && monster_group->fInCombat &&
+                MonsterGroupCanEngage(monster_group)) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
                 return;
             }
@@ -1309,7 +1341,8 @@ void ToggleCombatMode(void)
         if ((missile == g_combat_state->engaged_missile ||
              g_missile_table[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
             return;
         }
     }
@@ -1358,14 +1391,17 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             if (static_cast<signed char>(cycle) == W8_CYCLE_STOP) {
                 return;
             }
-            srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x497,
-                         fmt::format("{} starting new cycle ({}) with an uninterruptable cycle pending ({})!",
-                                     GetMonsterName(monster_info, 0, 0),
-                                     g_cycle_names[static_cast<signed char>(cycle)].name,
-                                     g_cycle_names[static_cast<signed char>(pending)].name));
+            srAssertFail(
+                "FALSE", MONSTER_MANAGER_CPP, 0x497,
+                fmt::format(
+                    "{} starting new cycle ({}) with an uninterruptable cycle pending ({})!",
+                    GetMonsterName(monster_info, 0, 0),
+                    g_cycle_names[static_cast<signed char>(cycle)].name,
+                    g_cycle_names[static_cast<signed char>(pending)].name));
             return;
         }
-        if (static_cast<signed char>(cycle) == W8_CYCLE_STOP || static_cast<signed char>(cycle) == W8_CYCLE_DEATH ||
+        if (static_cast<signed char>(cycle) == W8_CYCLE_STOP ||
+            static_cast<signed char>(cycle) == W8_CYCLE_DEATH ||
             static_cast<signed char>(cycle) == 0 || !monster_info->fMotionless) {
             MonsterSetAnimating(monster, true);
             MonsterSetRuntimeBehaviour(monster, static_cast<signed char>(behavior));
@@ -1390,7 +1426,8 @@ void ProcessMonsterManagerFrame(void)
 {
     unsigned int monster_list_index;
 
-    for (monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
+    for (monster_list_index = 0; monster_list_index < gXStatus.monsters.size();
+         ++monster_list_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         W8Monster* monster = monster_info->p3D;
 
@@ -1402,7 +1439,8 @@ void ProcessMonsterManagerFrame(void)
                 DestroyMonsterListEntry(monster_list_index);
                 --monster_list_index;
             }
-        } else if ((monster->runtime_flags & (W8_MONSTER_REMOVE_NOW | W8_MONSTER_SCRIPT_WAIT)) != 0) {
+        } else if ((monster->runtime_flags & (W8_MONSTER_REMOVE_NOW | W8_MONSTER_SCRIPT_WAIT)) !=
+                   0) {
             RemoveMonsterAt(monster_list_index, true);
             --monster_list_index;
         } else {
@@ -1438,7 +1476,8 @@ void ProcessMonsterManagerFrame(void)
                                slot to -1. W8_CYCLE_NONE is 0xff as int 255,
                                which a signed char never equals. */
                             if (monster_info->p3D->m_pRep->pending_cycle == -1) {
-                                StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
+                                StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE,
+                                                  W8_ANIMATION_NEVER_STOP);
                             }
                         } else if (MonsterIsAnimating(monster) != 0) {
                             MonsterSetAnimating(monster, false);
@@ -1463,7 +1502,8 @@ void ProcessMonsterManagerFrame(void)
    wide characters apart. A monster with no group at all is a bug unless it is
    already dying, and says so on the debug channel rather than asserting. */
 // FUNCTION: WIZ8 0x004e5150
-std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record, unsigned char name_form)
+std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+                           unsigned char name_form)
 {
     W8MonsterGroup* monster_group;
 
@@ -1471,12 +1511,14 @@ std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
         record = GetMonsterDataForInfo(monster_info);
     }
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        g_status.monster_name_buffer = fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
+        g_status.monster_name_buffer =
+            fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_info->monster_group_id == 0) {
         if (!monster_info->p3D->IsDying()) {
-            DebugMessage(1, fmt::format("ERROR: Monster ID {:d} has no group", monster_info->location_id));
+            DebugMessage(
+                1, fmt::format("ERROR: Monster ID {:d} has no group", monster_info->location_id));
         }
     } else {
         monster_group = FindMonsterGroup(monster_info->monster_group_id);
@@ -1561,8 +1603,9 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
         monster_level = record->display_level;
         health_knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
         if (static_cast<int>(average_party_level) < monster_level) {
-            float adjusted_knowledge =
-                health_knowledge - (monster_level - average_party_level) * g_float_three + g_float_half;
+            float adjusted_knowledge = health_knowledge -
+                                       (monster_level - average_party_level) * g_float_three +
+                                       g_float_half;
             if (adjusted_knowledge < g_float_zero) {
                 adjusted_knowledge = g_float_zero;
             }
@@ -1573,10 +1616,12 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     if (g_dev_mode) {
         return fmt::format("{:d}/{:d}", monster_info->hp_current, monster_info->uiHPMax);
     }
-    const auto current =
-        health_knowledge < 10 || suppress_exact_health ? "?" : fmt::format("{:d}", monster_info->hp_current);
-    const auto maximum =
-        health_knowledge < 5 || suppress_exact_health ? "?" : fmt::format("{:d}", monster_info->uiHPMax);
+    const auto current = health_knowledge < 10 || suppress_exact_health
+                             ? "?"
+                             : fmt::format("{:d}", monster_info->hp_current);
+    const auto maximum = health_knowledge < 5 || suppress_exact_health
+                             ? "?"
+                             : fmt::format("{:d}", monster_info->uiHPMax);
     return fmt::format("{}/{}", current, maximum);
 }
 
@@ -1585,7 +1630,8 @@ static bool CanNoticeMonsterGroup(unsigned int slot)
 {
     const W8Character& character = g_status.buffers.Char[slot];
     return g_status.buffers.XChar[slot].fOccupied && character.hp_current != 0 &&
-           character.highest_condition < W8_CONDITION_INSANE && character.uiCondition[W8_CONDITION_BLIND] == 0;
+           character.highest_condition < W8_CONDITION_INSANE &&
+           character.uiCondition[W8_CONDITION_BLIND] == 0;
 }
 
 // FUNCTION: WIZ8 0x004e4ab0
@@ -1593,10 +1639,12 @@ void DetectMonsterGroups(void)
 {
     bool noticed = false;
 
-    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
+         ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
-            (gXStatus.fCombatMode && !group->fInCombat) || !MonsterGroupHasRenderableMember(group, false)) {
+            (gXStatus.fCombatMode && !group->fInCombat) ||
+            !MonsterGroupHasRenderableMember(group, false)) {
             continue;
         }
         if (!group->alternate_name) {
@@ -1608,9 +1656,11 @@ void DetectMonsterGroups(void)
                     continue;
                 }
                 W8Character* character = &g_status.buffers.Char[slot];
-                int score = (character->monster_awareness[group->monster_id] - record->effective_level) * 3 +
-                            character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective / 10 +
-                            character->skills[W8_SKILL_MYTHOLOGY].level;
+                int score =
+                    (character->monster_awareness[group->monster_id] - record->effective_level) *
+                        3 +
+                    character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective / 10 +
+                    character->skills[W8_SKILL_MYTHOLOGY].level;
                 int roll = Random(100);
                 if (roll >= score) {
                     continue;
@@ -1625,7 +1675,8 @@ void DetectMonsterGroups(void)
                 }
             }
             if (best_slot != -1) {
-                PostCharacterNotice(best_slot, fmt::sprintf(g_localized_strings[0x1ca], GetMonsterGroupName(group)));
+                PostCharacterNotice(best_slot, fmt::sprintf(g_localized_strings[0x1ca],
+                                                            GetMonsterGroupName(group)));
                 group->alternate_name = true;
                 bool vowel;
                 switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
@@ -1646,7 +1697,8 @@ void DetectMonsterGroups(void)
                 } else {
                     article = g_localized_strings[0x1cd];
                 }
-                ShowNotice(W8_FONT_PALETTE_WHITE, fmt::format("{} {}!", article, GetMonsterGroupName(group)));
+                ShowNotice(W8_FONT_PALETTE_WHITE,
+                           fmt::format("{} {}!", article, GetMonsterGroupName(group)));
                 noticed = true;
             }
         }
@@ -1656,11 +1708,13 @@ void DetectMonsterGroups(void)
                     continue;
                 }
                 W8Character* character = &g_status.buffers.Char[slot];
-                unsigned int awareness = character->monster_awareness[group->monster_id] + group->member_count;
+                unsigned int awareness =
+                    character->monster_awareness[group->monster_id] + group->member_count;
                 if (awareness > 0xff) {
                     awareness = 0xff;
                 }
-                character->monster_awareness[group->monster_id] = static_cast<unsigned char>(awareness);
+                character->monster_awareness[group->monster_id] =
+                    static_cast<unsigned char>(awareness);
             }
             group->group_state[0] = 1;
         }
@@ -1681,10 +1735,11 @@ void EvaluateCombatDifficulty(void)
 
     for (monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(monster_index);
-        if (monster->fInCombat && monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current > 0 &&
-            monster->highest_condition < W8_CONDITION_DEAD) {
+        if (monster->fInCombat && monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
+            monster->hp_current > 0 && monster->highest_condition < W8_CONDITION_DEAD) {
             unsigned int health_percent = monster->hp_current * 100 / monster->uiHPMax;
-            hostile_experience += GetMonsterExperience(GetMonsterDataForInfo(monster)) * health_percent / 100;
+            hostile_experience +=
+                GetMonsterExperience(GetMonsterDataForInfo(monster)) * health_percent / 100;
         }
     }
     unsigned int threat_level = EstimateCombatThreatLevel(hostile_experience);
@@ -1704,7 +1759,8 @@ void EvaluateCombatDifficulty(void)
             if (npc != 0) {
                 int faction = npc->record->faction;
                 if (faction != 0 && faction != 1) {
-                    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+                    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
+                         ++group_index) {
                         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
                         if (group->members_active && group->fInCombat &&
                             group->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -1725,7 +1781,8 @@ void EvaluateCombatDifficulty(void)
     unsigned int party_power = 0;
     if (eligible_count > 0) {
         party_power = static_cast<unsigned int>(
-            party_levels / pow(static_cast<double>(eligible_count) * g_float_six, g_double_half) + g_double_half);
+            party_levels / pow(static_cast<double>(eligible_count) * g_float_six, g_double_half) +
+            g_double_half);
     }
     int relative_strength = static_cast<int>(party_power * 100 / threat_level) - 100;
     unsigned char difficulty;
@@ -1748,7 +1805,8 @@ void EvaluateCombatDifficulty(void)
         StartMusicResource("CombatLousy.MPL", 0, 1);
         break;
     }
-    if ((g_combat_state != 0 && g_combat_state->party_surprised) || TimeUntilDeadline(gXStatus.combat_countdown) == 0 ||
+    if ((g_combat_state != 0 && g_combat_state->party_surprised) ||
+        TimeUntilDeadline(gXStatus.combat_countdown) == 0 ||
         difficulty != gXStatus.combat_difficulty) {
         unsigned int event_type;
         switch (difficulty) {
@@ -1775,8 +1833,8 @@ void EvaluateCombatDifficulty(void)
                 W8Character* character = &g_status.buffers.Char[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
                     npc->item_assist = 0;
-                } else if (npc->name_style == W8_NPC_VI_DOMINA || npc->name_style == W8_NPC_DRAZIC ||
-                           npc->name_style == W8_NPC_RODAN) {
+                } else if (npc->name_style == W8_NPC_VI_DOMINA ||
+                           npc->name_style == W8_NPC_DRAZIC || npc->name_style == W8_NPC_RODAN) {
                     npc->healer_assist = 1;
                 } else {
                     npc->item_assist = 1;

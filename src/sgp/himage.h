@@ -60,8 +60,8 @@ std::optional<DecodedImage> LoadImage(std::string_view filename);
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, std::uint32_t rscale, std::uint32_t gscale,
-                                   std::uint32_t bscale, bool mono);
+Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, std::uint32_t rscale,
+                                   std::uint32_t gscale, std::uint32_t bscale, bool mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
 std::uint16_t Get16BPPColor(SDL_Color color);
 // The rendering session's 16-bit format: the framebuffer, frame surfaces, cached

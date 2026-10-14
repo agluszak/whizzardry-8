@@ -51,7 +51,8 @@ public:
         return "stSurface2D";
     }
 
-    stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent, int tile_size);
+    stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent,
+                int tile_size);
 
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
@@ -64,7 +65,8 @@ public:
     void enableTextureUpdateFlags(unsigned int flag);
     void setAlphaTestEnabled(bool enabled);
     void invalidateTiles();
-    void updateRectangle(srGERD* renderer, void* pixels, w8_long pitch, int left, int top, int right, int bottom);
+    void updateRectangle(srGERD* renderer, void* pixels, w8_long pitch, int left, int top,
+                         int right, int bottom);
 
     int vertex_array_mask;               /* 0x13c */
     unsigned int shader_bits;            /* 0x140 */

@@ -15,9 +15,17 @@ enum W8NpcPickpocketResult {
     W8_PICKPOCKET_EMPTY = 4
 };
 
-enum W8NpcItemTheftResult { W8_ITEM_THEFT_SUCCEEDED = 0, W8_ITEM_THEFT_FAILED = 1, W8_ITEM_THEFT_CAUGHT = 2 };
+enum W8NpcItemTheftResult {
+    W8_ITEM_THEFT_SUCCEEDED = 0,
+    W8_ITEM_THEFT_FAILED = 1,
+    W8_ITEM_THEFT_CAUGHT = 2
+};
 
-enum W8NpcDispositionBand { W8_NPC_BAND_FRIENDLY = 0, W8_NPC_BAND_NEUTRAL = 1, W8_NPC_BAND_HOSTILE = 2 };
+enum W8NpcDispositionBand {
+    W8_NPC_BAND_FRIENDLY = 0,
+    W8_NPC_BAND_NEUTRAL = 1,
+    W8_NPC_BAND_HOSTILE = 2
+};
 
 void QueueNpcHeldItemNotice(int npc_kind);
 
@@ -124,15 +132,16 @@ W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
 unsigned char GetNpcDispositionBand(W8NpcState* npc);
 void SetNpcDispositionBand(W8NpcState* npc, char band);
 bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item);
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item, unsigned int gold);
+void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
+                         unsigned int gold);
 /* Whether the NPC's database entry carries the value at 0x002. */
 bool NpcRecordHasTradePool(W8NpcState* npc);
 /* Push a topic onto the NPC's five-slot topic list. */
 void AddNpcTopic(W8NpcState* npc, int topic);
 /* Resolve one pickpocket attempt; the taken item goes to
    item_out and the taken gold to gold_out. */
-W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* npc, W8ItemInstance* item_out,
-                                           unsigned int* gold_out);
+W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* npc,
+                                           W8ItemInstance* item_out, unsigned int* gold_out);
 /* Clear the npc's item_ids slots matching the item the quote
    entry just handed out. */
 void ClearNpcItemId(W8NpcState* npc, int item_id);

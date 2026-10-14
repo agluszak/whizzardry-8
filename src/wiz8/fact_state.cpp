@@ -71,7 +71,8 @@ unsigned char EvaluateFact(W8FactId fact_id)
     unsigned char value;
     unsigned char count;
 
-    if (fact_id == W8_FACT_DEVICE_ONE || fact_id == W8_FACT_DEVICE_TWO || fact_id == W8_FACT_DEVICE_THREE) {
+    if (fact_id == W8_FACT_DEVICE_ONE || fact_id == W8_FACT_DEVICE_TWO ||
+        fact_id == W8_FACT_DEVICE_THREE) {
         count = FindItemOnParty(0x243, 0, 0, 2, 0);
         if (FindItemOnParty(0x242, 0, 0, 2, 0)) {
             ++count;
@@ -112,7 +113,8 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return CountLeadingPartySlots() == 2;
         case W8_FACT_MOOK_MOOK_IN_PARTY: {
             unsigned int slot = 0;
-            while (!g_status.buffers.XChar[slot].fOccupied || g_status.buffers.Char[slot].iRace != W8_RACE_MOOK ||
+            while (!g_status.buffers.XChar[slot].fOccupied ||
+                   g_status.buffers.Char[slot].iRace != W8_RACE_MOOK ||
                    g_status.buffers.Char[slot].highest_condition > W8_CONDITION_WEBBED) {
                 if (slot >= 7) {
                     return 0;
@@ -143,7 +145,8 @@ unsigned char EvaluateFact(W8FactId fact_id)
             value = GetFact(W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN);
             if (value == 0) {
                 value = GetFact(W8_FACT_UMISSION_TRAIN_FIRE_ASSIGN);
-                if (value != 0 && !FindItemOnParty(0x271, 0, 0, 2, 0) && !FindItemOnParty(0x272, 0, 0, 2, 0)) {
+                if (value != 0 && !FindItemOnParty(0x271, 0, 0, 2, 0) &&
+                    !FindItemOnParty(0x272, 0, 0, 2, 0)) {
                     return 1;
                 }
             }
@@ -231,7 +234,8 @@ unsigned char EvaluateFact(W8FactId fact_id)
                 return g_fact_values[fact_id];
             }
             W8NpcState* npc = GetNpcStateByKind(0x18);
-            if (npc != 0 && g_status.buffers.Char[npc->group_index].highest_condition >= W8_CONDITION_ASLEEP) {
+            if (npc != 0 &&
+                g_status.buffers.Char[npc->group_index].highest_condition >= W8_CONDITION_ASLEEP) {
                 return 1;
             }
             return 0;

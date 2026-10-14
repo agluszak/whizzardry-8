@@ -100,8 +100,8 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
     int index;
     for (index = 0; index < count; ++index) {
         MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->active != 0 && event->type == InputEventType::KeyDown && binding->modifiers == event->modifiers &&
-            binding->key == event->key) {
+        if (binding->active != 0 && event->type == InputEventType::KeyDown &&
+            binding->modifiers == event->modifiers && binding->key == event->key) {
             return binding->command;
         }
     }
@@ -280,7 +280,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                     return;
                 }
             }
-            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true, true);
+            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true,
+                                   true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
         break;
@@ -314,7 +315,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay += 0xfa - delay % 0xfa;
             }
             g_settings.combat_delay_ms = delay;
-            ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} ({:d})", g_localized_strings[0x7bb], 0x14 - delay / 0xfa));
@@ -330,7 +332,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay -= delay % 0xfa;
             }
             g_settings.combat_delay_ms = delay;
-            ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} ({:d})", g_localized_strings[0x7bc], 0x14 - delay / 0xfa));
@@ -346,7 +349,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay += 0xfa - delay % 0xfa;
             }
             g_settings.text_display_delay_ms = delay;
-            ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} ({:d})", g_localized_strings[0x7b8], 0x14 - delay / 0xfa));
@@ -362,7 +366,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay -= delay % 0xfa;
             }
             g_settings.text_display_delay_ms = delay;
-            ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} ({:d})", g_localized_strings[0x7b9], 0x14 - delay / 0xfa));
@@ -390,16 +395,20 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1), true);
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1),
+                                  true);
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 1) % 3), true);
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 1) % 3),
+                                  true);
         }
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1), true);
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1),
+                                  true);
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 2) % 3), true);
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 2) % 3),
+                                  true);
         }
         break;
     case W8_MGS_COMMAND_AUTOMAP:
@@ -409,7 +418,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_OPTIONS:
         if (gXStatus.fNpcDialogueMode || CanOpenNpcDialogue() || gXStatus.fLockInteractMode ||
-            gXStatus.fTrapInteractMode || gXStatus.fCampMode || gXStatus.fLockInteract || gXStatus.fTrapInteract) {
+            gXStatus.fTrapInteractMode || gXStatus.fCampMode || gXStatus.fLockInteract ||
+            gXStatus.fTrapInteract) {
             break;
         }
         if (!CanInterruptLevelMovement()) {
@@ -422,7 +432,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_INVENTORY:
         if (CanOpenNpcDialogue() || gXStatus.fCampMode || g_status.selected_character == -1 ||
-            (gXStatus.fNpcDialogueMode && g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
+            (gXStatus.fNpcDialogueMode &&
+             g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
             break;
         }
         OpenCharacterScreenForPartySlot(g_status.selected_character, false);
@@ -629,8 +640,9 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
         g_settings.auto_advance_character ^= 1;
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
+        ShowNotice(
+            W8_FONT_PALETTE_BEIGE,
+            g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);
@@ -725,10 +737,10 @@ void CloseKeyboardMenu(void)
         g_main_input->combat.setEnabled(false);
     }
     if (keyboard_menu && g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
-        ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y, keyboard_menu->origin.x + 0x52,
-                         keyboard_menu->origin.y + 0x4a);
-        InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y, keyboard_menu->origin.x + 0x52,
-                         keyboard_menu->origin.y + 0x4a);
+        ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,
+                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
+        InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y,
+                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
     }
     keyboard_menu.reset();
     RequestRedraw(1 << g_selected_party_slot);
@@ -761,12 +773,13 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
 unsigned char BuildKeyboardMenu(void)
 {
     int left, top, unused_4, unused_5, unused_6, unused_7;
-    GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6, &unused_7, 0);
+    GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
+                           &unused_7, 0);
     keyboard_menu = std::make_unique<KeyboardMenu>();
     keyboard_menu->origin = {left + 0x17, top};
     static void (*const actions[4][5])() = {
-        {KeyboardMenuSelectAttack, KeyboardMenuSelectBerserk, KeyboardMenuSelectBreathe, KeyboardMenuSelectTurnUndead,
-         KeyboardMenuSelectPray},
+        {KeyboardMenuSelectAttack, KeyboardMenuSelectBerserk, KeyboardMenuSelectBreathe,
+         KeyboardMenuSelectTurnUndead, KeyboardMenuSelectPray},
         {KeyboardMenuSelectDefend, KeyboardMenuSelectProtect},
         {KeyboardMenuSelectEquip, KeyboardMenuOpenUseItemView, KeyboardMenuUseRecordedItem},
         {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}};
@@ -783,27 +796,30 @@ unsigned char BuildKeyboardMenu(void)
     for (int i = 0; i < 13; ++i) {
         auto& row = keyboard_menu->rows[i];
         row.target = &keyboard_menu->input.add(
-            SDL_Rect{left + 0x17 + g_keyboard_row_positions[i].x, top + g_keyboard_row_positions[i].y, 19, 19},
+            SDL_Rect{left + 0x17 + g_keyboard_row_positions[i].x,
+                     top + g_keyboard_row_positions[i].y, 19, 19},
             [&row](const UiPointerEvent& event) {
                 keyboard_menu->dirty = true;
                 const ButtonPolicy policy{.controller_activation = true};
                 if (event.action == UiPointerAction::Leave) {
                     row.press.leave(policy);
                 }
-                if (event.action == UiPointerAction::Enter && ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
-                                                               (row.menu == W8_SUBMENU_SPELLS && row.item == 1))) {
+                if (event.action == UiPointerAction::Enter &&
+                    ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
+                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1))) {
                     SetUiHelpForced(true);
                 }
                 if (!row.enabled) {
                     PushButtonSoundScheme(0, true);
                     return UiResult::Handled;
                 }
-                const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+                const auto mask =
+                    event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
                 if (event.action == UiPointerAction::Down) {
                     row.press.press(mask, policy);
                 }
-                if (event.action == UiPointerAction::Up && event.inside && (event.captured_buttons & mask) &&
-                    row.press.release(mask, policy).activate) {
+                if (event.action == UiPointerAction::Up && event.inside &&
+                    (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
                     auto action = event.button == UiPointerButton::Right || row.menu == -1
                                       ? CloseKeyboardMenu
                                       : actions[row.menu][row.item];
@@ -815,14 +831,15 @@ unsigned char BuildKeyboardMenu(void)
             });
         row.target->setTooltip([&row] { return KeyboardMenuTooltip(row); });
     }
-    keyboard_menu->rows[12].appearance.quick_image =
-        ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
-    keyboard_menu->input.add(SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
-            AfterUiDispatch(CloseKeyboardMenu);
-        }
-        return UiResult::Handled;
-    });
+    keyboard_menu->rows[12].appearance.quick_image = ButtonGraphics::Load(
+        CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
+    keyboard_menu->input.add(
+        SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
+                AfterUiDispatch(CloseKeyboardMenu);
+            }
+            return UiResult::Handled;
+        });
     RefreshKeyboardMenuRows();
     return 1;
 }
@@ -869,12 +886,16 @@ void RefreshKeyboardMenuRows(void)
         }
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
-            offset = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
+            offset =
+                g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
         } else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0) {
-            offset = GetAttackMenuWeaponOffset(g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) * 7;
+            offset = GetAttackMenuWeaponOffset(
+                         g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) *
+                     7;
         }
-        row.appearance.quick_image = ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
-                                                          normal + offset, hover + offset);
+        row.appearance.quick_image =
+            ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
+                                 normal + offset, hover + offset);
     }
     keyboard_menu->dirty = true;
 }
@@ -889,12 +910,13 @@ void RedrawKeyboardMenuPanel(bool invalidate)
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
     for (int index = 0; index < 13; ++index) {
         const auto& row = keyboard_menu->rows[index];
-        DrawButtonAppearance(target, row.appearance,
-                             {x + g_keyboard_row_positions[index].x, y + g_keyboard_row_positions[index].y, 18, 18},
-                             {.enabled = row.enabled,
-                              .pressed = row.press.pressed,
-                              .hovered = row.target->hovered(),
-                              .menu_artwork = true});
+        DrawButtonAppearance(
+            target, row.appearance,
+            {x + g_keyboard_row_positions[index].x, y + g_keyboard_row_positions[index].y, 18, 18},
+            {.enabled = row.enabled,
+             .pressed = row.press.pressed,
+             .hovered = row.target->hovered(),
+             .menu_artwork = true});
     }
     keyboard_menu->dirty = false;
 }

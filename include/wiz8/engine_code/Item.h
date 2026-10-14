@@ -87,4 +87,5 @@ bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** item, bool anonymous_mesh)
 unsigned char RunItemTrigger(W8Item* item); /* 0x004A0070 */
 std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item);
 
-bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** item, bool anonymous_mesh);
+bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** item,
+                      bool anonymous_mesh);

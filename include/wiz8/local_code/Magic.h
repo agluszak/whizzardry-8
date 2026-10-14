@@ -21,7 +21,8 @@ extern int g_learn_sound;
 /* Whether the spell may be cast in the current situation. */
 bool SpellUsableNow(int spell_id, bool allow_out_of_combat);
 
-W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, W8TargetingContext context);
+W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize,
+                                             W8TargetingContext context);
 W8TargetNeed GetTargetNeededForSpellHostile(int spell_id);
 /* Whether the monster's spellcasting-blocked condition stops it
    casting this spell - everything except alchemy, and alchemy only for the
@@ -33,11 +34,12 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int power_l
 unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsigned int power_level);
 /* The power level the monster can afford for the spell, out of
    its database base plus its runtime bonus. */
-unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8MonsterRecord* record, int spell_id);
+unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+                                          int spell_id);
 /* One physical callable for queued and repeated casts; returns
    0/1/2 and writes the per-step point cost. */
-int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_level, int* out_points,
-                              bool continue_cast);
+int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_level,
+                              int* out_points, bool continue_cast);
 /* A backfiring spell swaps roles - the intended target becomes
    the source and the original source the target. */
 void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target);
@@ -70,18 +72,21 @@ void RecountLearnedSpellsByRealm(W8Character* character);
 inline bool CanCharacterCastSpell(W8Character* character, int spell_id)
 {
     if (spell_id != W8_SPELL_NONE && character->spell_learned[spell_id] == 1 &&
-        g_spell_records[spell_id].spell_point_cost <= character->iSPLeft[g_spell_records[spell_id].realm]) {
+        g_spell_records[spell_id].spell_point_cost <=
+            character->iSPLeft[g_spell_records[spell_id].realm]) {
         return true;
     }
     return false;
 }
-unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spellbook_skill, W8SpellRealm realm);
-W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing, bool prefer_unlocked,
-                                      unsigned int power_level);
+unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spellbook_skill,
+                                       W8SpellRealm realm);
+W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing,
+                                      bool prefer_unlocked, unsigned int power_level);
 
-int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target, unsigned int power_level,
-                        int power_cast_bonus, unsigned int failure_chance, bool recast, int* out_power, int cast_kind,
-                        std::vector<int>* party_targets, std::vector<int>* monster_targets);
+int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
+                        unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
+                        bool recast, int* out_power, int cast_kind, std::vector<int>* party_targets,
+                        std::vector<int>* monster_targets);
 /* Assert and route the source/target pair a cast is about to
    use; some target kinds have their own placement pass. */
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target);
@@ -89,8 +94,9 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    caller's vectors. The party and monster vectors are separate outputs; the
    final flag enables radius highlighting rather than plain line-of-sight
    collection. */
-void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source, W8CombatSlot* target,
-                                std::vector<int>& monster_markers, std::vector<int>& party_markers, int highlighting);
+void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
+                                W8CombatSlot* target, std::vector<int>& monster_markers,
+                                std::vector<int>& party_markers, int highlighting);
 /* Drop every marker that no longer names a live, targetable
    monster; a few spell ids prune on extra monster-record rules. */
 void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers);
@@ -134,7 +140,8 @@ enum W8SpellCastRating {
 
 /* The spell screen's one-to-five safety rating for one cast at a
    power level; zero for the as-affordable request. */
-W8SpellCastRating GetSpellCastRating(W8Character* character, int spell_id, unsigned int power_level);
+W8SpellCastRating GetSpellCastRating(W8Character* character, int spell_id,
+                                     unsigned int power_level);
 /* The same chance for a bare skill figure rather than a caster,
    which is what an item-use attempt has. */
 unsigned int GetSpellFailureChance(unsigned int skill, int spell_id, int factor);
@@ -143,8 +150,10 @@ unsigned int GetSpellFailureChance(unsigned int skill, int spell_id, int factor)
 void ScaleByCombatPace(int party_slot, unsigned int* value);
 
 /* Validate the available target set and cursor state for a spell or item cast. */
-bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool item_cast, bool skip_world_cursor);
-bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim, unsigned int power);
+bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool item_cast,
+                         bool skip_world_cursor);
+bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim,
+                         unsigned int power);
 void TrackItemSpellSource(W8Character* character, int spell_id);
 bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id);
 extern unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT];

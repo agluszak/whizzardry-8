@@ -35,8 +35,8 @@ private:
 };
 
 std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image);
-void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image, int left, int top,
-                             SpriteDraw options = {});
+void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image, int left,
+                             int top, SpriteDraw options = {});
 
 void ReleaseCatalogArtwork();
 

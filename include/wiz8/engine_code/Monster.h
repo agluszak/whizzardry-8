@@ -92,7 +92,8 @@ struct W8MonsterRep : public W8EmitterHost {
     virtual unsigned int ApplyEmitterSetting(signed char cycle) override; /* 0x004BF970 */
     virtual W8AniMesh* GetEmitterAniMesh(signed char cycle) override;     /* 0x004BF920 */
     virtual void CopyCycle(signed char cycle, const W8MonsterRep* other, signed char other_cycle);
-    unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Monster* monster, int cycle_index, int value);
+    unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Monster* monster, int cycle_index,
+                                int value);
 
     /* The spell-icon list; named by the SetMonsterSpellIcon assert
        "pMonRep->GetSpellIcons()". */
@@ -227,7 +228,8 @@ public:
     bool CheckLineOfSightToPlayer();
     void GetPlayerSightFlags(bool* primary, bool* secondary);
     bool IsVisibleToPlayer(bool use_bounds);
-    void GetPlayerToMonsterSightFlags(bool* primary, bool* secondary, const srVector3T<float>* source);
+    void GetPlayerToMonsterSightFlags(bool* primary, bool* secondary,
+                                      const srVector3T<float>* source);
     bool HasLineOfSightToMonster(W8Monster* monster);
     void GetMonsterSightFlags(W8Monster* monster, bool* primary, bool* secondary);
     bool HasLineOfSightFromPoint(srVector3T<float> point);
@@ -363,15 +365,17 @@ public:
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
-unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context, const char* monster_name,
-                                       W8Monster** monster, int load_value, int location_id);
-unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::string_view monster_name,
-                                   W8Monster** monster, int load_value, int location_id);
+unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
+                                       const char* monster_name, W8Monster** monster,
+                                       int load_value, int location_id);
+unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context,
+                                   std::string_view monster_name, W8Monster** monster,
+                                   int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
-unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8Monster** monster,
-                               int cycle, int value);
+unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
+                               W8Monster** monster, int cycle, int value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
 srVector3T<float> MonsterGetLocation(const W8Monster* monster);
@@ -391,11 +395,12 @@ void MonsterGetScaleRange(W8Monster* monster, float* minimum, float* maximum);
 void MonsterSetAdjustedPosition(W8Monster* monster, const srVector3T<float>* position);
 unsigned short MonsterApproachStartupNavigator(W8Monster* monster, double separation);
 unsigned char MonsterLinkToStartupNavigator(W8Monster* monster);
-unsigned short MonsterConfigureMovementToPlayer(W8Monster* monster, float separation, float maximum_distance,
-                                                srVector3T<float> position, int trace_mode,
-                                                unsigned char* probe_result);
-unsigned short MonsterConfigureMovementToMonster(W8Monster* monster, W8Monster* target, float separation,
-                                                 float maximum_distance, srVector3T<float> position, int trace_mode,
+unsigned short MonsterConfigureMovementToPlayer(W8Monster* monster, float separation,
+                                                float maximum_distance, srVector3T<float> position,
+                                                int trace_mode, unsigned char* probe_result);
+unsigned short MonsterConfigureMovementToMonster(W8Monster* monster, W8Monster* target,
+                                                 float separation, float maximum_distance,
+                                                 srVector3T<float> position, int trace_mode,
                                                  unsigned char* probe_result);
 void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate);
 void MonsterSetCycle(W8Monster* monster, signed char cycle);
@@ -460,8 +465,9 @@ void MonsterSetNavigatorHalted(W8Monster* monster, bool value);
 W8AIRecord* MonsterGetAIRecord(W8Monster* monster);                     /* 0x004C5B30 */
 void MonsterSetNavigatorMovementScale(W8Monster* monster, float value); /* 0x004C5F50 */
 float MonsterGetNavigatorMovementScale(W8Monster* monster);             /* 0x004C5F70 */
-unsigned char MonsterConfigureMovementToPosition(W8Monster* monster,
-                                                 const srVector3T<float>* position);           /* 0x004C5F90 */
+unsigned char
+MonsterConfigureMovementToPosition(W8Monster* monster,
+                                   const srVector3T<float>* position);           /* 0x004C5F90 */
 void MonsterAddPathPoint(W8Monster* monster, const srVector3T<float>* argument); /* 0x004C5FB0 */
 void MonsterSetPathLooping(W8Monster* monster, char value);                      /* 0x004C5FD0 */
 void MonsterResumeAllNavigators(void);

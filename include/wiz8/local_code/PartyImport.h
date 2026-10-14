@@ -43,7 +43,8 @@ struct W8Wiz7Character {
 void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported);
 void GrantStartingSpells(W8Character* character, const W8Wiz7Character* imported);
 void ImportEquipment(W8Character* character, const W8Wiz7Character* imported);
-unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7Character* imported);
+unsigned int ConvertSkill(W8Skill skill_id, W8Character* character,
+                          const W8Wiz7Character* imported);
 void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported);
 
 /* Parse the Wizardry 7 save into the import globals - character

@@ -23,7 +23,14 @@ public:
     };
     /* Clip-mask bit indices: the six frustum planes (X pair, Y pair, then near/far); bits 6+ are
        user planes from pushClipPlane. */
-    enum e_clip { CLIP_LEFT = 0, CLIP_RIGHT = 1, CLIP_BOTTOM = 2, CLIP_TOP = 3, CLIP_NEAR = 4, CLIP_FAR = 5 };
+    enum e_clip {
+        CLIP_LEFT = 0,
+        CLIP_RIGHT = 1,
+        CLIP_BOTTOM = 2,
+        CLIP_TOP = 3,
+        CLIP_NEAR = 4,
+        CLIP_FAR = 5
+    };
     enum { FRUSTUM_CLIP_MASK = 0x3fu, FIRST_USER_CLIP_PLANE = 6 };
 
     enum e_type { TYPE_FLOAT = 1 };
