@@ -424,7 +424,6 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
     return true;
 }
 
-
 /* Execute a queued quote entry's deferred effect: switch the dialogue to the
    named NPC (suspending the current session when the target is grouped), hand
    items or gold to the party with the notice bubble and chime, or open the

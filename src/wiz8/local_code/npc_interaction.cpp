@@ -6,8 +6,8 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
+#include "wiz8/local_code/npc_story_events.h"
 
 // GLOBAL: WIZ8 0x0068C430
 W8NpcDialogue g_npc_dialogue;

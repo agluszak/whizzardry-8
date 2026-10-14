@@ -7,7 +7,6 @@
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
-#include "wiz8/local_code/NPCScripting.h"
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
@@ -32,6 +31,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"

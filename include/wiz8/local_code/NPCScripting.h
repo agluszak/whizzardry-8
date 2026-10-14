@@ -37,31 +37,13 @@ struct W8NpcPriceCheck {
    class decides which script step follows. */
 class W8NpcDialogue {
 public:
-    W8NpcState* speaker() const
-    {
-        return session_.npc;
-    }
-    int current_quote() const
-    {
-        return session_.current_quote_index;
-    }
-    W8NpcReplyState reply() const
-    {
-        return reply_;
-    }
-    const std::optional<W8NpcPriceCheck>& price_check() const
-    {
-        return price_check_;
-    }
-    bool has_queued_actions() const
-    {
-        return !queue_.empty();
-    }
+    W8NpcState* speaker() const { return session_.npc; }
+    int current_quote() const { return session_.current_quote_index; }
+    W8NpcReplyState reply() const { return reply_; }
+    const std::optional<W8NpcPriceCheck>& price_check() const { return price_check_; }
+    bool has_queued_actions() const { return !queue_.empty(); }
     /* A scripted scene holds the queue until it ends. */
-    bool is_held_by_scene() const
-    {
-        return held_by_scene_;
-    }
+    bool is_held_by_scene() const { return held_by_scene_; }
 
     /* Make `npc` the speaker. `suspend_current` keeps the current
        conversation, which resumes once the queue drains. */
