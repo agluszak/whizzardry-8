@@ -26,6 +26,11 @@ live layers and maintains hover, capture, modal scopes and the tooltip timer.
 - Modal layers block underlying targets and restore valid capture on dismissal.
   Controls receive their owner's layer explicitly; there is no global dialog stack
   used to infer ownership.
+- Screens own their layers. A suspended screen keeps its layers, so the game loop
+  disables all input before entering any screen and the entering screen enables
+  its own. Within the main game, a UI mode change does the same and
+  `SyncMainGameModeRegions` re-enables the layers that mode uses, including the
+  fixed interface buttons in `MainGameButtons`.
 - `UiResult::Pass` delegates to screen policy, not to lower targets.
 - `AfterUiDispatch` commits target removal, owner destruction and screen transitions
   after the outermost dispatch transaction. The pump then yields, preserving queued
@@ -50,7 +55,7 @@ controllers, separate from modal UI ownership.
 ## Controls and painting
 
 `ButtonInteraction` supplies press, selection, arming and repeat state.
-`W8ButtonWidget` is an ordinary layer-backed button with the shared artwork painter;
+`W8ButtonWidget` is an ordinary button on its owner's layer with the shared artwork painter;
 its historical name does not imply widget inheritance. Policies preserve press and
 release toggles, latches and controller activation. Screen-specific animated art
 and readouts are painted by their owners.
@@ -66,7 +71,8 @@ callbacks request redraw instead of painting the framebuffer directly. Screens c
 restoring backing artwork before repainting changed controls. Ordinary dialog
 controllers retain shared backdrop and sizing behavior; they are not a generic
 visual parent/child system. NPC replies demonstrate modal content without
-`W8DialogBase` inheritance.
+`W8DialogBase` inheritance. A closing overlay calls `EraseRegion` on the area it
+painted, which clears that area and schedules its upload.
 
 Main menu, formation, journal, options, party selection, character creation, camp,
 NPC dialogue, combat actions, locks, traps, spell selection and gameplay overlays

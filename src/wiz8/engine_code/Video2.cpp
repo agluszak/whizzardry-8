@@ -1887,6 +1887,12 @@ void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom
     SDL_FillSurfaceRect(primarySurface.get(), &rectangle, 0);
 }
 
+void EraseRegion(int left, int top, int right, int bottom)
+{
+    ClearSurfaceRect(left, top, right, bottom);
+    InvalidateRegion(left, top, right, bottom);
+}
+
 // FUNCTION: WIZ8 0x00426500
 void PurgeInactiveSceneInstances(srScene* scene)
 {

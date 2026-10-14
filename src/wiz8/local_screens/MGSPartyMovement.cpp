@@ -81,8 +81,7 @@ unsigned char CreatePartyMovementPanel(void)
 void ReleasePartyMovement(void)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        ClearSurfaceRect(0xb1, 0x13f, 0x1cf, 0x153);
-        InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153);
+        EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     movement.reset();

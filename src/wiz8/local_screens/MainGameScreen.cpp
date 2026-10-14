@@ -2307,8 +2307,7 @@ void W8NpcDialogueTextController::ClearBackground()
     int top;
 
     top = ((1 - scroll_height / line_height) * line_height - margin) + 0x11b;
-    ClearSurfaceRect(0x1dc, top, 0x269, 0x140);
-    InvalidateRegion(0x1dc, top, 0x269, 0x140);
+    EraseRegion(0x1dc, top, 0x269, 0x140);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2495,7 +2494,6 @@ unsigned char MainGameScreenEnter(void)
         LoadMainGameCursorResources();
     }
     gXStatus.level_up_notice = true;
-    ResetUiInput();
     CreatePartyPortraitEventRegions();
 
 
@@ -2990,6 +2988,10 @@ unsigned char MainGameScreenLeave(int leaving)
     if (leaving) {
         OpenModal(nullptr);
         g_pending_main_game_dialog.reset();
+        // End a fight while the interface it updates still exists.
+        if (gXStatus.fCombatMode) {
+            EndCombat(true);
+        }
     }
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
 
@@ -3063,7 +3065,6 @@ unsigned char MainGameScreenLeave(int leaving)
         ReleaseCatalogArtwork();
     }
     NoOp();
-    ResetUiInput();
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
     DisableSky();
@@ -3510,8 +3511,7 @@ void RedrawCombatMonsterList(void)
     if (g_level_block->group_list_rows != 0) {
         unsigned int clear_bottom = g_level_block->group_list_rows * 0xb + 0x1a;
         int clear_right = g_level_block->group_list_width + 0xfb;
-        ClearSurfaceRect(0xfa, 0x19, clear_right, clear_bottom);
-        InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom);
+        EraseRegion(0xfa, 0x19, clear_right, clear_bottom);
     }
     if (gXStatus.active_monster_count != 0) {
         group_list_index = 0;
@@ -4589,8 +4589,7 @@ void ClearPortraitRefreshSlot(int slot)
         g_level_block->portrait_refresh_mode[slot] = 0;
         g_level_block->portrait_refresh_image[slot] = 0;
         row = &g_main_game_invalidate_rects[slot];
-        ClearSurfaceRect(row->left - 1, row->top, row->right + 1, row->bottom);
-        InvalidateRegion(row->left - 1, row->top, row->right + 1, row->bottom);
+        EraseRegion(row->left - 1, row->top, row->right + 1, row->bottom);
         RequestRedraw(1 << (slot & 0x1f));
         g_main_input->edge_targets[slot]->setEnabled(true);
         DisableMainGamePortraitSlot(slot);
@@ -4767,6 +4766,7 @@ void SyncMainGameModeRegions(void)
     SetMouseCursorHotspot(0, 0);
     SyncSystemCursor();
     g_main_input->world.setEnabled(true);
+    g_main_game_buttons.input.setEnabled(true);
     if (g_level_block->group_list_rows == 0) {
         g_main_input->monster_list->setEnabled(false);
     } else {
@@ -6632,8 +6632,7 @@ void ResumeMainGameWorld(void)
             if (gXStatus.fPartyMovementUi) {
                 UpdatePartyMovementPanel();
             }
-            ClearSurfaceRect(0xb1, 0x13f, 0x1cf, 0x153);
-            InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153);
+            EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         }
     }

@@ -20,7 +20,7 @@
 #include "input.h"
 
 class W8OptionsPanel;
-class W8OptionsSaveRow;
+struct W8OptionsSaveRow;
 class W8MessageDialogBase;
 class W8TextBuffer;
 struct W8SaveSlot;

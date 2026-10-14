@@ -400,7 +400,6 @@ std::size_t LiveUiTargetCount()
     return count;
 }
 std::size_t LiveUiLayerCount() { return State().layers.size(); }
-
 bool PumpUiInput(const UiInputPolicy& policy)
 {
     if (policy.track_hover) {

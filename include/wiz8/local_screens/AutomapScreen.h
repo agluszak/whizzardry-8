@@ -6,8 +6,11 @@ extern float g_automap_grid_cell_size;
 
 #include <vector>
 #include <memory>
+#include <array>
 
 #include "input.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "glm/ext/vector_float2.hpp"
 
@@ -26,9 +29,12 @@ extern W8MainUiMode g_ui_mode_saved;
 void SetCurrentAutomapUiMode(W8MainUiMode value);
 void SetSavedAutomapUiMode(W8MainUiMode value);
 
-class W8ButtonWidget;
-
-extern std::vector<std::unique_ptr<W8ButtonWidget>> g_automap_buttons;
+/* The sixteen chrome buttons; a slot stays empty when its artwork is missing. */
+struct AutomapButtons {
+    UiLayer input;
+    std::array<std::unique_ptr<W8ButtonWidget>, 16> buttons;
+};
+extern std::unique_ptr<AutomapButtons> g_automap_buttons;
 extern int g_automap_zoom_mode;
 
 extern bool g_mipe_menu_active;

@@ -399,7 +399,6 @@ unsigned char JournalScreenEnter(void)
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_journal_panel = std::make_unique<JournalScreen>();
 
@@ -431,7 +430,6 @@ unsigned char JournalScreenEnter(void)
 // FUNCTION: WIZ8 0x005be0b0
 unsigned char JournalScreenLeave(int)
 {
-    ResetUiInput();
     g_journal_panel.reset();
     g_journal_entries.clear();
     if (gXStatus.fCampMode) {

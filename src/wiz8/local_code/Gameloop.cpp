@@ -13,6 +13,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
@@ -124,6 +125,14 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
         SaveGameConfiguration();
 }
 
+/* Screens own their input layers. A suspended screen keeps its layers, so
+   every screen boundary disables all input; the entering screen enables its own. */
+static bool EnterScreen(W8ScreenId state)
+{
+    ResetUiInput();
+    return g_screen_handlers[state].enter();
+}
+
 // FUNCTION: WIZ8 0x004e3340
 void GameLoop(void)
 {
@@ -173,7 +182,7 @@ void GameLoop(void)
         }
         state = g_pending_screen_state.id;
         g_current_screen_state = g_pending_screen_state;
-        if (!g_screen_handlers[state].enter()) {
+        if (!EnterScreen(state)) {
             g_current_screen_state.id = W8_SCREEN_NONE;
             gfProgramIsRunning = 0;
             return;
@@ -233,7 +242,7 @@ void GameloopExit(unsigned char release_screens)
             }
             state = g_pending_screen_state.id;
             g_current_screen_state = g_pending_screen_state;
-            if (!g_screen_handlers[state].enter()) {
+            if (!EnterScreen(state)) {
                 g_current_screen_state.id = W8_SCREEN_NONE;
             } else {
                 g_pending_screen_state.id = W8_SCREEN_NONE;

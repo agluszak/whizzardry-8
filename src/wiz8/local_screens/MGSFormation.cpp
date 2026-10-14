@@ -534,7 +534,6 @@ void CloseFormationPanel(void)
     gXStatus.fReviewCharacterMode = false;
     UpdateHeldItemCursor();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    ClearSurfaceRect(0xd6, 0x3c, 0x1ab, 0x12f);
-    InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f);
+    EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
     ResumeMainGameWorld();
 }

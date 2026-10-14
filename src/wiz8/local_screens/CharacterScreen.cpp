@@ -681,7 +681,6 @@ unsigned char CharacterScreenEnter(void)
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
@@ -700,7 +699,6 @@ unsigned char CharacterScreenLeave(int leaving)
 {
     if (leaving) g_character_screen.reset();
     NoOp();
-    ResetUiInput();
     return 1;
 }
 

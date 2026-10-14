@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "wiz8/fonts.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
@@ -126,7 +125,6 @@ unsigned char PleaseWaitScreenEnter(void)
             break;
         }
     }
-    ResetUiInput();
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
@@ -334,7 +332,6 @@ unsigned char PleaseWaitScreenLeave(int leaving)
         g_load_descriptor.reset();
     }
     NoOp();
-    ResetUiInput();
     EnableCursorScene();
     return 1;
 }

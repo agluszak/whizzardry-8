@@ -89,6 +89,8 @@ extern bool g_camera_sway_active;
 extern int g_screenshot_index;
 extern int g_screenshot_page;
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom);
+/* Clear a rectangle of the interface overlay and upload it. */
+void EraseRegion(int left, int top, int right, int bottom);
 
 extern const float g_viewport_x_scale;
 extern const float g_viewport_y_scale;

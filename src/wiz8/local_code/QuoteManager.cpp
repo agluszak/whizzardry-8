@@ -963,8 +963,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
              !g_level_block->review_transition_active)) {
             int left = quote->x;
             int top = quote->y;
-            ClearSurfaceRect(left, top, quote->width + left, quote->height + top);
-            InvalidateRegion(left, top, quote->width + left, quote->height + top);
+            EraseRegion(left, top, quote->width + left, quote->height + top);
         }
         DisablePartyPortraitEvent(party_slot);
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {

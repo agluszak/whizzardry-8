@@ -26,7 +26,6 @@ using W8ButtonCallback = std::function<void(W8ButtonWidget*)>;
 // VTABLE: WIZ8 0x005efa98
 class W8ButtonWidget {
 public:
-    W8ButtonWidget();
     explicit W8ButtonWidget(UiLayer& layer);
     ~W8ButtonWidget();
     void Draw(SDL_Surface& target);
@@ -98,8 +97,7 @@ public:
     void SetTooltipIndex(int tooltip_index);
 
 private:
-    std::unique_ptr<UiLayer> m_owned_layer;
-    UiLayer* m_layer;
+    UiLayer& m_layer;
     HitTarget* m_target = nullptr;
     SDL_Rect m_bounds{};
     bool m_enabled = true;

@@ -410,8 +410,7 @@ void RedrawCombatPortraits(void)
         row_y = (slot >> 1) * 0x55;
         if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
             g_level_block->portrait_refresh_pending[slot] == 0) {
-            ClearSurfaceRect(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
-            InvalidateRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
+            EraseRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
         }
         if (g_level_block->combat_action_hover_party_slot == -1 ||
             g_level_block->combat_action_hover_party_slot != slot) {

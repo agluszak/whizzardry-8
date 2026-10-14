@@ -589,8 +589,7 @@ static void ReleaseMessageBoxControls()
     message_box.cancel.Reset();
     message_box.background.Reset();
     if (bounds.w > 0 && bounds.h > 0) {
-        ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
-        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
+        EraseRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
     }
 }
 

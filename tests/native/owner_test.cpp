@@ -668,8 +668,9 @@ void generic_button_images()
                         [](const auto& item) { return item != nullptr; }));
     quick_images.clear();
     const auto widget_count = LiveUiTargetCount();
+    UiLayer buttons;
     {
-        auto dialog = std::make_unique<W8ButtonWidget>();
+        auto dialog = std::make_unique<W8ButtonWidget>(buttons);
         REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, UI_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
         dialog->SetPosition(12, 13);
@@ -682,7 +683,7 @@ void generic_button_images()
     REQUIRE(LiveUiTargetCount() == widget_count);
     // A dialog's click callback can close it. The dispatcher must not read
     // the released dialog while completing the click (including its sound).
-    auto closing_dialog = std::make_unique<W8ButtonWidget>();
+    auto closing_dialog = std::make_unique<W8ButtonWidget>(buttons);
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
         [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); }, nullptr, false,
         UI_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
@@ -1459,8 +1460,9 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     Font font{};
     PushButtonSoundScheme(0, true);
     int activations = 0;
+    UiLayer layer;
     {
-        W8ButtonWidget button;
+        W8ButtonWidget button(layer);
         REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
             [&](W8ButtonWidget* control) {
                 REQUIRE(control->GetUserData() == 42);
@@ -1525,7 +1527,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE(activations == 5);
     }
 
-    auto closing = std::make_unique<W8ButtonWidget>();
+    auto closing = std::make_unique<W8ButtonWidget>(layer);
     closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
         [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); }, 0);
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);

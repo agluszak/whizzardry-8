@@ -1660,7 +1660,6 @@ unsigned char OptionsScreenLeave(int)
     g_options_values.TransferSettings();
     g_options_screen.reset();
     NoOp();
-    ResetUiInput();
     return 1;
 }
 
@@ -1673,7 +1672,6 @@ unsigned char OptionsScreenEnter()
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_options_values.applying = 0;

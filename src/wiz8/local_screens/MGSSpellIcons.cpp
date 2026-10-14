@@ -94,7 +94,6 @@ void RefreshCombatEffectHud()
 void InvalidateMainGameEffectHud()
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        ClearSurfaceRect(0x7f, 0x14, 0x201, 0x28);
-        InvalidateRegion(0x7f, 0x14, 0x201, 0x28);
+        EraseRegion(0x7f, 0x14, 0x201, 0x28);
     }
 }

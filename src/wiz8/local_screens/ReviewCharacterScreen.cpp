@@ -58,7 +58,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srMaterial.h"
@@ -1281,7 +1280,6 @@ unsigned char CampScreenLeave(int)
     DestroyCampItemControls();
     DestroyCampHeaderButtons();
     g_camp_screen.reset();
-    ResetUiInput();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
     }

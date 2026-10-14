@@ -1199,7 +1199,6 @@ unsigned char PartySelectionScreenEnter(void)
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetUiInput();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
@@ -1233,7 +1232,6 @@ unsigned char PartySelectionScreenLeave(int leaving)
         g_party_selection_controller.reset();
     }
     NoOp();
-    ResetUiInput();
     return 1;
 }
 

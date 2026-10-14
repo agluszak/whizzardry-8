@@ -139,20 +139,21 @@ void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
 }
 
 // FUNCTION: WIZ8 0x005db1b0
-W8ButtonWidget::W8ButtonWidget()
-    : m_owned_layer(new UiLayer()), m_layer(m_owned_layer.get()) {}
-
-W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(&layer) {}
+W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(layer) {}
 
 W8ButtonWidget::~W8ButtonWidget()
 {
     *m_alive = false;
-    if (m_target) m_layer->remove(*m_target);
+    if (m_target) {
+        m_layer.remove(*m_target);
+    }
 }
 
 void W8ButtonWidget::Reset()
 {
-    if (m_target) m_layer->remove(*m_target);
+    if (m_target) {
+        m_layer.remove(*m_target);
+    }
     m_target = nullptr;
     m_appearance = {};
     SetBounds({});
@@ -168,8 +169,11 @@ void W8ButtonWidget::Reset()
 
 void W8ButtonWidget::ConfigureInput(int priority)
 {
-    if (m_target) m_layer->remove(*m_target);
-    m_target = &m_layer->add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
+    if (m_target) {
+        m_layer.remove(*m_target);
+    }
+    m_target = &m_layer.add(
+        SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
         [this](const UiPointerEvent& event) { return HandlePointer(event); }, priority);
     m_visible = true;
     m_enabled = true;

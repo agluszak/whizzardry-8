@@ -194,7 +194,6 @@ unsigned char MainMenuScreenEnter(void)
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, wide);
     g_wiz_text_font_secondary.resetPalette();
     main_menu_input.reset();
-    ResetUiInput();
     CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
@@ -332,7 +331,6 @@ unsigned char MainMenuScreenLeave(int)
     main_menu_dialog.reset();
     main_menu_input.reset();
     ReleaseCatalogArtwork();
-    ResetUiInput();
     return 1;
 }
 
