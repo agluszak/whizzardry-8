@@ -41,9 +41,7 @@ struct W8MipeEditField {
 struct W8MipeState {
     int SelectedMonsterLocationId() const
     {
-        if (monster_ids.empty()) {
-            return -1;
-        }
+        if (monster_ids.empty()) return -1;
         return monster_ids.front();
     }
 

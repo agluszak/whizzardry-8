@@ -375,9 +375,7 @@ bool ResolvePickedProp(W8World* world)
                         (srVector3T<float>(bounds->center()) - camera_position).Length();
                     if (trigger->range_minimum <= distance) {
                         g_selected_prop_index = prop_index;
-                        if (distance <= trigger->range_maximum) {
-                            continue;
-                        }
+                        if (distance <= trigger->range_maximum) continue;
                     }
                 }
             }
@@ -1209,15 +1207,11 @@ std::optional<srBoundingBox> W8Prop::GetBounds()
 {
     auto* animation = Rep()->animation;
     auto bounds = AnimObjGetBounds(animation, 2, 0);
-    if (!bounds) {
-        return std::nullopt;
-    }
+    if (!bounds) return std::nullopt;
     const auto total = AnimObjValue(animation, 2);
     for (unsigned int frame = 1; frame < total; ++frame) {
         const auto frame_bounds = AnimObjGetBounds(animation, 2, frame);
-        if (!frame_bounds) {
-            return std::nullopt;
-        }
+        if (!frame_bounds) return std::nullopt;
         bounds->include(*frame_bounds);
     }
     return bounds;
@@ -1310,18 +1304,13 @@ bool W8Prop::IsTriggerInView(srVector3T<float>* position)
 {
     const auto* trigger = this->trigger;
     if (!trigger || (trigger->flags & W8_TRIGGER_ENABLED) == 0 ||
-        ((trigger->flags & W8_TRIGGER_ONCE) != 0 && (trigger->flags & W8_TRIGGER_FIRED) != 0)) {
+        ((trigger->flags & W8_TRIGGER_ONCE) != 0 && (trigger->flags & W8_TRIGGER_FIRED) != 0))
         return false;
-    }
     const auto bounds = GetFrameBounds();
-    if (!bounds) {
-        return false;
-    }
+    if (!bounds) return false;
     const srVector3T<float> center(bounds->center());
     const float distance = (center - *position).Length();
-    if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance)) {
-        return false;
-    }
+    if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance)) return false;
     const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
     return g_world->camera->projectsAny(points);
 }

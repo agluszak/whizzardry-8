@@ -94,9 +94,8 @@ void RedrawPortraitQuoteBubbles(void)
             !slot->portrait_event_active) {
             continue;
         }
-        if (slot->quote.bubble) {
+        if (slot->quote.bubble)
             slot->quote.bubble->draw(GetFrameBufferSurface(), slot->quote.x, slot->quote.y);
-        }
     }
 }
 
@@ -458,10 +457,9 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
         g_character_text = GetStringFromStringDatabase(path, event_type, 0, metadata);
         /* Retail does not test the reader result or length before storing
            zero at buffer[strlen(buffer) - 1]. */
-        if (!g_character_text.empty()) {
+        if (!g_character_text.empty())
             g_character_text.resize(
                 wiz8::text::previous(g_character_text, g_character_text.size()));
-        }
     } else {
         W8NpcState* npc = GetNpcState(npc_index);
         if ((g_character_text = GetNpcQuoteText(npc, event_type)).empty()) {
@@ -878,11 +876,10 @@ struct PartyQuoteInput {
                     AfterUiDispatch([slot] {
                         auto* active =
                             gXStatus.monster_manager_entries[slot].active_character_event;
-                        if (slot > 1 && active) {
+                        if (slot > 1 && active)
                             gXStatus.character_event_queue->CompleteActiveEvent(active);
-                        } else {
+                        else
                             TryFinishNpcVoicePlayback(true);
-                        }
                     });
                 }
                 return UiResult::Handled;
@@ -902,34 +899,27 @@ static void ReleasePartyQuoteInput()
 
 void CreatePartyPortraitEventRegions()
 {
-    if (!party_quote_input) {
-        party_quote_input = std::make_unique<PartyQuoteInput>();
-    }
+    if (!party_quote_input) party_quote_input = std::make_unique<PartyQuoteInput>();
 }
 
 void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
                                  unsigned short right, unsigned short bottom)
 {
     CreatePartyPortraitEventRegions();
-    if (slot < 8) {
+    if (slot < 8)
         party_quote_input->targets[slot]->setShape(SDL_Rect{x, y, right - x + 1, bottom - y + 1});
-    }
 }
 
 void EnablePartyPortraitEvent(unsigned int slot)
 {
     CreatePartyPortraitEventRegions();
     party_quote_input->input.setEnabled(true);
-    if (slot < 8) {
-        party_quote_input->targets[slot]->setEnabled(true);
-    }
+    if (slot < 8) party_quote_input->targets[slot]->setEnabled(true);
 }
 
 void DisablePartyPortraitEvent(unsigned int slot)
 {
-    if (party_quote_input && slot < 8) {
-        party_quote_input->targets[slot]->setEnabled(false);
-    }
+    if (party_quote_input && slot < 8) party_quote_input->targets[slot]->setEnabled(false);
 }
 
 /* Turn a party-slot portrait/voice event on or off, optionally

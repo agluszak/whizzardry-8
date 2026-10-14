@@ -48,14 +48,8 @@ public:
     ~W8ButtonWidget();
     void Draw(SDL_Surface& target);
     void Reset();
-    bool IsConfigured() const
-    {
-        return m_target != nullptr;
-    }
-    const SDL_Rect& Bounds() const
-    {
-        return m_bounds;
-    }
+    bool IsConfigured() const { return m_target != nullptr; }
+    const SDL_Rect& Bounds() const { return m_bounds; }
     bool m_dirty = true;
     void SetPosition(int x, int y);
     void Resize(int width, int height);
@@ -77,20 +71,11 @@ public:
             m_dirty = true;
         }
     }
-    bool IsEnabled() const
-    {
-        return m_target && m_enabled;
-    }
+    bool IsEnabled() const { return m_target && m_enabled; }
     void SetPressed(bool pressed);
-    bool IsPressed() const
-    {
-        return m_interaction.pressed;
-    }
+    bool IsPressed() const { return m_interaction.pressed; }
     void SetVisible(bool visible);
-    bool IsVisible() const
-    {
-        return m_visible;
-    }
+    bool IsVisible() const { return m_visible; }
     void SetImage(ButtonImage image);
     void SetCircularHitArea(SDL_Point center, int radius);
     void SetTooltip(std::function<std::string()> text);

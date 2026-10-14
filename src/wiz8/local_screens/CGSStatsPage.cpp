@@ -123,21 +123,17 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
     m_value = &owner.input.add(
         SDL_Rect{m_x + 0x1c, m_y + 4, 127, 23}, [this](const UiPointerEvent& event) {
             m_dirty = true;
-            if (!m_enabled) {
-                PushButtonSoundScheme(0, true);
-            }
+            if (!m_enabled) PushButtonSoundScheme(0, true);
             if (event.action == UiPointerAction::Up && event.inside && event.captured_buttons) {
-                if (event.button == UiPointerButton::Right && m_index >= 0) {
+                if (event.button == UiPointerButton::Right && m_index >= 0)
                     AfterUiDispatch([this] { m_owner.OnRowInfoRequested(this, m_index); });
-                } else if (event.button == UiPointerButton::Left && m_enabled) {
+                else if (event.button == UiPointerButton::Left && m_enabled)
                     AfterUiDispatch([this] {
-                        if (m_choices) {
+                        if (m_choices)
                             Collapse();
-                        } else {
+                        else
                             BuildSubpanel();
-                        }
                     });
-                }
             }
             return UiResult::Handled;
         });
@@ -162,9 +158,7 @@ void W8CharacterStatsRow::SetValue(int index)
     const int previous = m_index;
     m_index = index;
     m_dirty = true;
-    if (previous != index) {
-        m_owner.OnRowValueChanged(this, index);
-    }
+    if (previous != index) m_owner.OnRowValueChanged(this, index);
 }
 
 void W8CharacterStatsRow::Step(int direction)
@@ -190,18 +184,15 @@ void W8CharacterStatsRow::BuildSubpanel()
             SDL_Rect{m_x + 0x9e, m_y + 1 + top, 127, height + 1},
             [this, index](const UiPointerEvent& event) {
                 m_dirty = true;
-                if (!m_table[index].enabled) {
-                    PushButtonSoundScheme(0, true);
-                }
+                if (!m_table[index].enabled) PushButtonSoundScheme(0, true);
                 if (event.action == UiPointerAction::Up && event.inside && event.captured_buttons) {
-                    if (event.button == UiPointerButton::Right) {
+                    if (event.button == UiPointerButton::Right)
                         AfterUiDispatch([this, index] { m_owner.OnRowInfoRequested(this, index); });
-                    } else if (event.button == UiPointerButton::Left && m_table[index].enabled) {
+                    else if (event.button == UiPointerButton::Left && m_table[index].enabled)
                         AfterUiDispatch([this, index] {
                             SetValue(index);
                             Collapse();
                         });
-                    }
                 }
                 return UiResult::Handled;
             });
@@ -223,9 +214,8 @@ void W8CharacterStatsRow::CollapseIfNotHovered()
 {
     if (m_choices && !m_value->hovered() &&
         std::ranges::none_of(m_choice_targets,
-                             [](const auto* target) { return target->hovered(); })) {
+                             [](const auto* target) { return target->hovered(); }))
         Collapse();
-    }
 }
 
 static void DrawStatRecord(SDL_Surface& target, const W8CharacterStatsRecord& record, int x, int y,
@@ -258,16 +248,12 @@ void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
     m_increment->m_dirty |= force;
     m_decrement->Draw(target);
     m_increment->Draw(target);
-    if (!m_choices) {
-        m_dirty = false;
-    }
+    if (!m_choices) m_dirty = false;
 }
 
 void W8CharacterStatsRow::DrawChoices(SDL_Surface& target)
 {
-    if (!m_choices || !m_dirty) {
-        return;
-    }
+    if (!m_choices || !m_dirty) return;
     for (int index = 0; index < m_count; ++index) {
         const int top = index == 0 ? 0 : index * 22 + 2;
         const int frame = index == 0 ? 4 : index == m_count - 1 ? 6 : 5;
@@ -567,9 +553,8 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
             SDL_Rect{0xc3 + 0xf3, 0x2b + 0xba + index * 14, 0xa3, 13},
             [this, index](const UiPointerEvent& event) {
                 if (event.action == UiPointerAction::Up && event.inside &&
-                    event.button == UiPointerButton::Right && event.captured_buttons) {
+                    event.button == UiPointerButton::Right && event.captured_buttons)
                     AfterUiDispatch([this, index] { m_screen->ShowSecondaryAttributeInfo(index); });
-                }
                 return UiResult::Handled;
             });
         target.setTooltip([] { return std::string(g_localized_strings[0x101]); });

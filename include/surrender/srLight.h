@@ -36,10 +36,7 @@ public:
     srLight& operator=(const srLight& other);
 
     // FUNCTION: SURRENDER 0x1004E8F0
-    static const char* sGetClassName()
-    {
-        return "srLight";
-    }
+    static const char* sGetClassName() { return "srLight"; }
 
     virtual void dump(std::ostream& stream) override;
 

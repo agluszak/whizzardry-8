@@ -95,10 +95,7 @@ public:
 
     // FUNCTION: SURRENDER 0x1005F5B0 SYMBOL
     // RECOMP: ?sGetClassName@srTextureIFace@@SAPBDXZ
-    static const char* sGetClassName()
-    {
-        return "srTextureIFace";
-    }
+    static const char* sGetClassName() { return "srTextureIFace"; }
 
     /* srTextureFile's vftable is this interface exactly. */
     virtual w8_ulong getTextureFrameHandle() = 0;

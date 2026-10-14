@@ -59,11 +59,9 @@ static std::vector<unsigned int> ReadFrame()
     auto surface = g_gerd->lockBuffer();
     REQUIRE(surface);
     std::vector<unsigned int> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
-    for (int y = 0; y < SCREEN_HEIGHT; ++y) {
-        for (int x = 0; x < SCREEN_WIDTH; ++x) {
+    for (int y = 0; y < SCREEN_HEIGHT; ++y)
+        for (int x = 0; x < SCREEN_WIDTH; ++x)
             pixels[y * SCREEN_WIDTH + x] = surface->getPixel(x, y);
-        }
-    }
     g_gerd->unlockBuffer();
     return pixels;
 }
@@ -130,9 +128,7 @@ TEST_CASE("world graphics")
             GameLoop();
         }
         int slot = 0;
-        while (!g_status.buffers.XChar[slot].fOccupied) {
-            ++slot;
-        }
+        while (!g_status.buffers.XChar[slot].fOccupied) ++slot;
         auto& portrait = gXStatus.monster_manager_entries[slot];
         portrait.portrait_event_active = false;
         portrait.damage_splat_active = portrait.effect_icon_active = false;
@@ -162,9 +158,7 @@ TEST_CASE("world graphics")
             REQUIRE(portrait.rendered_portrait_pose == portrait.portrait_pose);
         }
         REQUIRE(portrait.rendered_portrait_pose == 1);
-        if (!gXStatus.fCombatMode) {
-            StartCombat(0);
-        }
+        if (!gXStatus.fCombatMode) StartCombat(0);
         GameLoop();
         REQUIRE(gXStatus.fCombatMode);
         DrawSubMenuCharacterAction();
@@ -172,19 +166,17 @@ TEST_CASE("world graphics")
         const auto caption = [&] {
             std::vector<unsigned char> result;
             auto* pixels = static_cast<const unsigned char*>(framebuffer.pixels);
-            for (int y = 450; y < 480; ++y) {
+            for (int y = 450; y < 480; ++y)
                 result.insert(result.end(), pixels + y * framebuffer.pitch + 343 * 2,
                               pixels + y * framebuffer.pitch + 528 * 2);
-            }
             return result;
         };
         const auto first = caption();
             // Deliberately stain the panel to model obsolete text from another action.
-        for (int y = 450; y < 480; ++y) {
+        for (int y = 450; y < 480; ++y)
             memset(static_cast<unsigned char*>(framebuffer.pixels) + y * framebuffer.pitch +
                        343 * 2,
                    0xff, 185 * 2);
-        }
         DrawSubMenuCharacterAction();
         REQUIRE(caption() == first);
         VideoRemoveToolTip();
@@ -199,11 +191,9 @@ TEST_CASE("world graphics")
         auto* texture = static_cast<srTextureMap*>(mesh->getTexture(0, 0));
         auto* surface = texture->getSurfacePtr();
         REQUIRE(surface);
-        for (int y = 0; y < g_help_box_height; ++y) {
-            for (int x = 0; x < g_help_box_width; ++x) {
+        for (int y = 0; y < g_help_box_height; ++y)
+            for (int x = 0; x < g_help_box_width; ++x)
                 REQUIRE((surface->getPixelRaw(x + 1, y + 1) & 0x8000) != 0);
-            }
-        }
         REQUIRE((surface->getPixelRaw(g_help_box_width + 2, 2) & 0x8000) == 0);
         const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
         const std::string ui_output =
@@ -217,11 +207,8 @@ TEST_CASE("world graphics")
     fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
             state.position.y, state.position.z, state.yaw[0], state.pitch[0]);
     unsigned enabled = 0;
-    for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
-        if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) {
-            ++enabled;
-        }
-    }
+    for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
+        if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) ++enabled;
     REQUIRE(enabled > 0);
 
         // Same scene and UI, with only the actual world pass switched off.
@@ -238,17 +225,12 @@ TEST_CASE("world graphics")
     RenderFrame();
     auto restored = ReadFrame();
     unsigned changed = 0, recovered = 0;
-    for (int y = g_viewport.top; y < g_viewport.bottom; ++y) {
+    for (int y = g_viewport.top; y < g_viewport.bottom; ++y)
         for (int x = g_viewport.left; x < g_viewport.right; ++x) {
             int index = y * SCREEN_WIDTH + x;
-            if (visible[index] != control[index]) {
-                ++changed;
-            }
-            if (restored[index] != control[index]) {
-                ++recovered;
-            }
+            if (visible[index] != control[index]) ++changed;
+            if (restored[index] != control[index]) ++recovered;
         }
-    }
     fprintf(stderr,
             "world: %u enabled meshes, %u submitted polygons; draws %u/%u, "
             "triangles %u/%u; viewport pixels %u changed, %u restored\n",
@@ -258,17 +240,14 @@ TEST_CASE("world graphics")
     REQUIRE(with_world.input_triangles > without_world.input_triangles);
     REQUIRE((changed > 1000 && recovered > 1000));
     const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
-    if (!output) {
-        output = "/tmp/wiz8-native-world.ppm";
-    }
+    if (!output) output = "/tmp/wiz8-native-world.ppm";
     SaveFrame(output, restored);
     std::string control_path = std::string(output) + ".control.ppm";
     SaveFrame(control_path.c_str(), control);
     if (mode && strcmp(mode, "kill") == 0) {
         W8MonsterInfo* monster = GetNextMonsterInfo(true);
-        while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current)) {
+        while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current))
             monster = GetNextMonsterInfo(false);
-        }
         REQUIRE(monster);
         fprintf(stderr, "regression: kill monster %d species %u HP %u\n", monster->location_id,
                 monster->monster_species, monster->hp_current);
@@ -278,26 +257,19 @@ TEST_CASE("world graphics")
                 GameLoop();
             }
         }
-        if (!gXStatus.fCombatMode) {
-            REQUIRE(StartCombat(0));
-        }
-        if (!monster->fInCombat) {
-            MonsterInfoEnterCombat(monster);
-        }
+        if (!gXStatus.fCombatMode) REQUIRE(StartCombat(0));
+        if (!monster->fInCombat) MonsterInfoEnterCombat(monster);
         W8TargetSource attacker{};
         attacker.iType = W8_TARGET_SOURCE_CHARACTER;
         attacker.iChar = 0;
         while (attacker.iChar < W8_PARTY_SLOT_COUNT &&
-               !g_status.buffers.XChar[attacker.iChar].fOccupied) {
+               !g_status.buffers.XChar[attacker.iChar].fOccupied)
             ++attacker.iChar;
-        }
         REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
         attacker.iMonsterID = -1;
         ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
         fprintf(stderr, "regression: lethal damage returned\n");
-        for (int frame = 0; frame < 100; ++frame) {
-            GameLoop();
-        }
+        for (int frame = 0; frame < 100; ++frame) GameLoop();
     }
     if (mode && strcmp(mode, "save") == 0) {
         REQUIRE(SaveGame("native-test", nullptr));
@@ -317,7 +289,5 @@ TEST_CASE("world graphics")
     }
 
     application.reset();
-    if (have_overlay) {
-        std::filesystem::remove_all(temporary);
-    }
+    if (have_overlay) std::filesystem::remove_all(temporary);
 }

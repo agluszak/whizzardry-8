@@ -53,10 +53,7 @@ struct ButtonGraphics {
                             std::int32_t off_normal, std::int32_t off_hilite,
                             std::int32_t on_normal, std::int32_t on_hilite);
 
-    const SpriteSheet& object() const
-    {
-        return *sprites;
-    }
+    const SpriteSheet& object() const { return *sprites; }
 
 private:
     std::shared_ptr<const SpriteSheet> sprites;

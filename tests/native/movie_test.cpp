@@ -29,39 +29,32 @@
 std::vector<unsigned char> read(const char* path)
 {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file) {
-        throw std::runtime_error("Missing test fixture");
-    }
+    if (!file) throw std::runtime_error("Missing test fixture");
     std::vector<unsigned char> bytes(static_cast<size_t>(file.tellg()));
     file.seekg(0);
-    if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size())) {
+    if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Short fixture");
-    }
     return bytes;
 }
 void write(const std::filesystem::path& path, const std::vector<unsigned char>& bytes)
 {
     std::ofstream file(path, std::ios::binary);
-    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size())) {
+    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Cannot create fixture");
-    }
 }
 bool matchesFrame(const std::vector<uint16_t>& pixels, const unsigned char* golden)
 {
     unsigned largest_difference = 0;
     for (size_t i = 0; i < pixels.size(); ++i) {
         const unsigned expected = golden[i * 2] | (unsigned(golden[i * 2 + 1]) << 8);
-        if ((pixels[i] & 0x8000) != (expected & 0x8000)) {
-            return false;
-        }
+        if ((pixels[i] & 0x8000) != (expected & 0x8000)) return false;
         for (unsigned shift : {0u, 5u, 10u}) {
             const int difference = int((pixels[i] >> shift) & 31) - int((expected >> shift) & 31);
             largest_difference = std::max(largest_difference, unsigned(std::abs(difference)));
         }
     }
-    if (largest_difference > 1) {
+    if (largest_difference > 1)
         fprintf(stderr, "movie RGB555 maximum channel difference: %u\n", largest_difference);
-    }
     // libswscale versions/CPU paths can round by one RGB555 quantization step.
     return largest_difference <= 1;
 }
@@ -108,18 +101,14 @@ static void exercise_movie(const char* retail_movie)
         bool done[3]{};
         for (int tick = 0; tick < 700; ++tick) {
             for (unsigned i = 0; i < 3; ++i) {
-                if (done[i]) {
-                    continue;
-                }
+                if (done[i]) continue;
                 auto result = movies[i].update(tick / 1000.0);
                 if (result == W8NativeVideo::FrameReady) {
                     const auto& frame = movies[i].frame();
                     REQUIRE((shown[i] < 5 && frame.width == 32 && frame.height == 24));
                     REQUIRE(std::abs(frame.time - shown[i] * 0.1) < 0.000001);
                     REQUIRE(matchesFrame(frame.pixels, golden.data() + shown[i] * 1536));
-                    if (i == 0 && shown[i] == 0) {
-                        first_frame = frame.pixels;
-                    }
+                    if (i == 0 && shown[i] == 0) first_frame = frame.pixels;
                     ++shown[i];
                 }
                 if (result == W8NativeVideo::Done) {
@@ -127,14 +116,10 @@ static void exercise_movie(const char* retail_movie)
                     done[i] = true;
                 }
             }
-            if (done[0] && done[1] && done[2]) {
-                break;
-            }
+            if (done[0] && done[1] && done[2]) break;
             std::vector<float> samples((tick % 10 == 9 ? 45 : 44) * 2);
             REQUIRE(w8_native::audio_render_for_test(samples.data(), samples.size() / 2));
-            for (auto value : samples) {
-                energy += value * value;
-            }
+            for (auto value : samples) energy += value * value;
         }
         for (unsigned i = 0; i < 3; ++i) {
             REQUIRE((done[i] && shown[i] == 5 && movies[i].decoded_frames() == 5));
@@ -168,11 +153,10 @@ static void exercise_movie(const char* retail_movie)
         movie.SetTarget(target.get());
         REQUIRE(movie.Open("Movie.mkv", 0));
         REQUIRE(!movie.UpdateFrame());
-        for (int y = 0; y < 24; ++y) {
+        for (int y = 0; y < 24; ++y)
             REQUIRE(
                 std::memcmp(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
                             first_frame.data() + y * 32, 64) == 0);
-        }
         REQUIRE(movie.Open("Data\\Packed.mkv",
                            0)); // Reopen stops the preceding PCM voice.
         REQUIRE(!movie.UpdateFrame());
@@ -183,9 +167,7 @@ static void exercise_movie(const char* retail_movie)
     std::vector<float> silence(8192 * 2);
     REQUIRE(w8_native::audio_render_for_test(silence.data(), 8192));
     double residual = 0;
-    for (size_t i = 4096; i < silence.size(); ++i) {
-        residual += silence[i] * silence[i];
-    }
+    for (size_t i = 4096; i < silence.size(); ++i) residual += silence[i] * silence[i];
     REQUIRE(residual == 0);
     if (retail_movie) {
         W8NativeVideo retail;

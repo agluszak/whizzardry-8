@@ -38,10 +38,7 @@ enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
 // VTABLE: WIZ8 0x005ECB6C srClassSupport<stMaterial, srMaterial, 65538>
 class stMaterial : public srClassSupport<stMaterial, srMaterial, 0x10002> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stMaterial";
-    }
+    static const char* sGetClassName() { return "stMaterial"; }
 
     stMaterial();
     virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;

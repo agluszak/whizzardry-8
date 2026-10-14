@@ -67,9 +67,9 @@ template<class T> static bool rotations()
             for (int row = 0; row < 3; ++row) {
                 for (int column = 0; column < 3; ++column) {
                     long double reference = components[row] * components[column] * (1 - cosine);
-                    if (row == column) {
+                    if (row == column)
                         reference += cosine;
-                    } else {
+                    else {
                         const int remaining = 3 - row - column;
                         reference +=
                             (column == (row + 1) % 3 ? -1 : 1) * components[remaining] * sine;
@@ -77,10 +77,9 @@ template<class T> static bool rotations()
                     REQUIRE(std::abs(actual[column][row] - reference) <=
                             8 * std::numeric_limits<T>::epsilon());
                 }
-                for (int other = 0; other < 3; ++other) {
+                for (int other = 0; other < 3; ++other)
                     REQUIRE(std::abs(glm::dot(actual[row], actual[other]) - T(row == other)) <=
                             16 * std::numeric_limits<T>::epsilon());
-                }
             }
         }
     }
@@ -135,9 +134,8 @@ static bool transforms()
     const glm::dmat4 desired = glm::translate(glm::dmat4(1), glm::dvec3(7, 8, 9));
     child.setWorldSpaceMatrix(desired);
     world = child.getWorldSpaceMatrix<glm::dmat4>();
-    for (int column = 0; column < 4; ++column) {
+    for (int column = 0; column < 4; ++column)
         REQUIRE(glm::length(world[column] - desired[column]) < 1e-12);
-    }
 
     Node aiming;
     aiming.setLocation(4, -2, 1);
@@ -150,9 +148,8 @@ static bool transforms()
     aiming.rollAt(glm::dvec3(1, 1, 0), .5);
     const auto roll =
         glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8, glm::dvec3(0, 0, 1)));
-    for (int column = 0; column < 3; ++column) {
+    for (int column = 0; column < 3; ++column)
         REQUIRE(glm::length(aiming.getRotation()[column] - roll[column]) < 1e-12);
-    }
 
     const glm::mat4 transform =
         glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(2, 3, 4));
@@ -180,11 +177,8 @@ static bool interfaces()
             glm::dmat3(glm::rotate(glm::dmat4(1), 0.71, glm::dvec3(0.6, 0.8, 0)));
         auto actual_rotation = rotated.getRotation<glm::dmat3>();
         const auto delta = actual_rotation - reference;
-        for (int col = 0; col < 3; ++col) {
-            for (int row = 0; row < 3; ++row) {
-                REQUIRE(std::abs(delta[col][row]) < 1e-14);
-            }
-        }
+        for (int col = 0; col < 3; ++col)
+            for (int row = 0; row < 3; ++row) REQUIRE(std::abs(delta[col][row]) < 1e-14);
         srScene scene;
         scene.setAmbientLight(0.3f, 0.4f, 0.5f);
         REQUIRE(scene.getAmbientLight() == glm::vec3(0.3f, 0.4f, 0.5f));
@@ -371,12 +365,10 @@ TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[sur
 {
     std::array<glm::vec3, 513> vertices;
     std::array<glm::ivec3, 171> triangles;
-    for (int vertex = 0; vertex < 513; ++vertex) {
+    for (int vertex = 0; vertex < 513; ++vertex)
         vertices[vertex] = {vertex % 7 < 4 ? -1.0f : 1.0f, 0, 0};
-    }
-    for (int triangle = 0; triangle < 171; ++triangle) {
+    for (int triangle = 0; triangle < 171; ++triangle)
         triangles[triangle] = {3 * triangle, 3 * triangle + 1, 3 * triangle + 2};
-    }
     std::array<glm::vec4, 32> planes{};
     planes[31] = {1, 0, 0, 0};
     planes[5] = {0, 1, 0, 1};
@@ -392,9 +384,8 @@ TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[sur
     for (w8_ulong index = 0; index < triangles.size(); ++index) {
         const auto& triangle = triangles[index];
         if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 ||
-            vertices[triangle.z].x >= 0) {
+            vertices[triangle.z].x >= 0)
             expected.push_back(index);
-        }
     }
     REQUIRE(result.indices == expected);
     REQUIRE(result.indices.size() < triangles.size());

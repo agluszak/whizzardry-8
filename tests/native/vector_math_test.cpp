@@ -44,24 +44,19 @@ static void ClippingAndLighting()
 {
     std::array<glm::vec4, 513> vertices;
     std::array<SRDWORD, 513> culled;
-    for (std::size_t i = 0; i < vertices.size(); ++i) {
+    for (std::size_t i = 0; i < vertices.size(); ++i)
         vertices[i] = glm::vec4(i % 3 ? 1 : -1, 0, 0, 1);
-    }
     glm::vec4 plane;
     plane = glm::vec4(1, 0, 0, 0);
     const auto count = srRender::collectOutside(culled, plane, vertices);
     REQUIRE(count == 171);
-    for (SRDWORD i = 0; i < count; ++i) {
-        REQUIRE(culled[i] == i * 3);
-    }
+    for (SRDWORD i = 0; i < count; ++i) REQUIRE(culled[i] == i * 3);
     glm::vec4 boundary[] = {glm::vec4(-2, 0, 0, 1), glm::vec4(2, 0, 0, 1),  glm::vec4(0, -2, 0, 1),
                             glm::vec4(0, 2, 0, 1),  glm::vec4(0, 0, -2, 1), glm::vec4(0, 0, 2, 1),
                             glm::vec4(1, -1, 1, 1)};
     SRBYTE flags[7];
     srRender::clipFlags(flags, boundary);
-    for (int i = 0; i < 6; ++i) {
-        REQUIRE(flags[i] == (1 << i));
-    }
+    for (int i = 0; i < 6; ++i) REQUIRE(flags[i] == (1 << i));
     REQUIRE(flags[6] == 0);
     glm::mat4 identity;
     identity = glm::mat4(1);
@@ -80,9 +75,7 @@ static void ClippingAndLighting()
              power[3] == 1));
     srLightingMath::power(power, {light, std::size(power)}, 127);
     srLightingMath::power(clamped, {light, std::size(clamped)}, 1000);
-    for (int i = 0; i < 4; ++i) {
-        CheckFloats(power[i], clamped[i]);
-    }
+    for (int i = 0; i < 4; ++i) CheckFloats(power[i], clamped[i]);
 }
 
 static void PackedStorage()
@@ -312,9 +305,7 @@ TEST_CASE("Picking edge tests retain signed W, winding and clipping depth policy
     REQUIRE_FALSE(srPickingMath::triangleDepth(degenerate, glm::vec3(0, 0, 1)));
     std::array<glm::vec4, 3> near_plane{{{-1, -1, -1, 1}, {1, -1, -1, 1}, {0, 1, -1, 1}}};
     REQUIRE(srPickingMath::triangleDepth(near_plane, glm::vec3(0, 0, 1)) == -1);
-    for (auto& corner : near_plane) {
-        corner.z = -1.1f;
-    }
+    for (auto& corner : near_plane) corner.z = -1.1f;
     REQUIRE_FALSE(srPickingMath::triangleDepth(near_plane, glm::vec3(0, 0, 1)));
 }
 

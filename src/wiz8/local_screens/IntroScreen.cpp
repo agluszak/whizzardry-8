@@ -95,9 +95,7 @@ void IntroScreenFrame(void)
     while (DequeueEvent(&input) == 1) {
         switch (input.type) {
         case InputEventType::KeyDown:
-            if (input.key != VK_ESCAPE) {
-                break;
-            }
+            if (input.key != VK_ESCAPE) break;
             AdvanceIntroScreen();
             return;
         case InputEventType::LeftButtonUp:

@@ -44,9 +44,7 @@ FileOperationHook set_file_operation_hook(FileOperationHook hook)
 }
 void before_operation(FileOperation operation)
 {
-    if (operation_hook) {
-        operation_hook(operation);
-    }
+    if (operation_hook) operation_hook(operation);
 }
 }
 #endif
@@ -67,10 +65,7 @@ struct ArchiveIO {
     SDL_IOStream* source;
     Sint64 offset, length, position = 0;
 
-    static Sint64 SDLCALL size(void* cookie)
-    {
-        return static_cast<ArchiveIO*>(cookie)->length;
-    }
+    static Sint64 SDLCALL size(void* cookie) { return static_cast<ArchiveIO*>(cookie)->length; }
     static Sint64 SDLCALL seek(void* cookie, Sint64 offset, SDL_IOWhence whence)
     {
         auto& self = *static_cast<ArchiveIO*>(cookie);
@@ -83,9 +78,7 @@ struct ArchiveIO {
             return -1;
         }
         const Sint64 destination = base + offset;
-        if (SDL_SeekIO(self.source, self.offset + destination, SDL_IO_SEEK_SET) < 0) {
-            return -1;
-        }
+        if (SDL_SeekIO(self.source, self.offset + destination, SDL_IO_SEEK_SET) < 0) return -1;
         return self.position = destination;
     }
     static size_t SDLCALL read(void* cookie, void* data, size_t bytes, SDL_IOStatus* status)
@@ -124,30 +117,24 @@ SDL_IOStream* archive_io(SDL_IOStream* source, Sint64 offset, Sint64 length)
     interface.read = ArchiveIO::read;
     interface.close = ArchiveIO::close;
     auto* io = SDL_OpenIO(&interface, context.get());
-    if (!io) {
-        sdl_failure("open SLF stream");
-    }
+    if (!io) sdl_failure("open SLF stream");
     context.release();
     return io;
 }
 const fs::path& write_destination(const w8_native::ResolvedPath& path)
 {
-    if (path.writable.empty()) {
+    if (path.writable.empty())
         throw std::system_error(std::make_error_code(std::errc::permission_denied),
                                 "immutable file path");
-    }
     return path.writable;
 }
 void prepare_write(const w8_native::ResolvedPath& path, bool preserve)
 {
     const auto& destination = write_destination(path);
-    if (!path.overlay) {
-        return;
-    }
-    if (!fs::is_directory(path.readable_parent)) {
+    if (!path.overlay) return;
+    if (!fs::is_directory(path.readable_parent))
         throw std::system_error(std::make_error_code(std::errc::not_a_directory),
                                 "game parent directory");
-    }
     fs::create_directories(destination.parent_path());
     if (preserve && !fs::exists(destination) && fs::exists(path.readable)) {
         fs::copy_file(path.readable, destination);
@@ -157,13 +144,9 @@ void prepare_write(const w8_native::ResolvedPath& path, bool preserve)
 std::optional<FileStatus> physical_status(const fs::path& path, bool writable)
 {
     const fs::file_status status = fs::status(path);
-    if (!fs::exists(status)) {
-        return std::nullopt;
-    }
+    if (!fs::exists(status)) return std::nullopt;
     SDL_PathInfo info{};
-    if (!SDL_GetPathInfo(path_to_utf8(path).c_str(), &info)) {
-        sdl_failure("query file metadata");
-    }
+    if (!SDL_GetPathInfo(path_to_utf8(path).c_str(), &info)) sdl_failure("query file metadata");
     const auto write_bits =
         fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write;
     return FileStatus{info, writable, (status.permissions() & write_bits) == fs::perms::none};
@@ -174,9 +157,7 @@ char fold(char value)
 }
 bool matches(std::string_view name, std::string_view pattern)
 {
-    if (pattern == "*.*") {
-        pattern = "*";
-    }
+    if (pattern == "*.*") pattern = "*";
     std::size_t n = 0, p = 0, star = std::string_view::npos, retry = 0;
     while (n < name.size()) {
         if (p < pattern.size() && (pattern[p] == '?' || fold(pattern[p]) == fold(name[n]))) {
@@ -188,13 +169,10 @@ bool matches(std::string_view name, std::string_view pattern)
         } else if (star != std::string_view::npos) {
             p = star + 1;
             n = ++retry;
-        } else {
+        } else
             return false;
-        }
     }
-    while (p < pattern.size() && pattern[p] == '*') {
-        ++p;
-    }
+    while (p < pattern.size() && pattern[p] == '*') ++p;
     return p == pattern.size();
 }
 struct StagingDirectory {
@@ -220,15 +198,13 @@ struct StagingDirectory {
 void publish_staged_file(const fs::path& temporary, const fs::path& destination)
 {
     WIZ8_FILE_OPERATION(publish);
-    if (!SDL_RenamePath(path_to_utf8(temporary).c_str(), path_to_utf8(destination).c_str())) {
+    if (!SDL_RenamePath(path_to_utf8(temporary).c_str(), path_to_utf8(destination).c_str()))
         sdl_failure("replace file");
-    }
 }
 void copy_physical(const fs::path& source, const fs::path& destination, CopyMode mode)
 {
-    if (fs::exists(destination) && fs::equivalent(source, destination)) {
+    if (fs::exists(destination) && fs::equivalent(source, destination))
         throw std::invalid_argument("copy source and destination refer to the same file");
-    }
     // A staging file leaves the old save untouched on read/write failure.
     StagingDirectory staging(destination.parent_path());
     const fs::path temporary = staging.path / "content";
@@ -238,18 +214,15 @@ void copy_physical(const fs::path& source, const fs::path& destination, CopyMode
     for (;;) {
         const auto result = input->read(buffer.data(), buffer.size());
         output->write(buffer.data(), result.bytes);
-        if (result.eof) {
-            break;
-        }
+        if (result.eof) break;
     }
     output->flush();
     output->close();
     input->close();
-    if (mode == CopyMode::fail_if_exists) {
+    if (mode == CopyMode::fail_if_exists)
         fs::copy_file(temporary, destination, fs::copy_options::none);
-    } else {
+    else
         publish_staged_file(temporary, destination);
-    }
 }
 } // namespace
 
@@ -279,9 +252,7 @@ File::File(fs::path path, OpenMode mode) : path_(std::move(path)), writable_(mod
         break;
     }
     stream_ = SDL_IOFromFile(path_to_utf8(path_).c_str(), access);
-    if (!stream_) {
-        sdl_failure("open file");
-    }
+    if (!stream_) sdl_failure("open file");
     if (writable_) {
         SDL_PathInfo info{};
         if (!SDL_GetPathInfo(path_to_utf8(path_).c_str(), &info)) {
@@ -294,9 +265,7 @@ File::File(fs::path path, OpenMode mode) : path_(std::move(path)), writable_(mod
 }
 File::~File()
 {
-    if (stream_) {
-        SDL_CloseIO(stream_);
-    }
+    if (stream_) SDL_CloseIO(stream_);
 }
 File::File(File&& other) noexcept
     : stream_(std::exchange(other.stream_, nullptr)), path_(std::move(other.path_)),
@@ -307,9 +276,7 @@ File::File(File&& other) noexcept
 File& File::operator=(File&& other) noexcept
 {
     if (this != &other) {
-        if (stream_) {
-            SDL_CloseIO(stream_);
-        }
+        if (stream_) SDL_CloseIO(stream_);
         stream_ = std::exchange(other.stream_, nullptr);
         path_ = std::move(other.path_);
         writable_ = other.writable_;
@@ -320,48 +287,34 @@ File& File::operator=(File&& other) noexcept
 }
 SDL_IOStream* File::require_stream() const
 {
-    if (!stream_) {
-        throw std::logic_error("file is closed");
-    }
+    if (!stream_) throw std::logic_error("file is closed");
     return stream_;
 }
 ReadResult File::read(void* data, std::size_t bytes)
 {
     WIZ8_FILE_OPERATION(read);
     SDL_IOStream* stream = require_stream();
-    if (!bytes) {
-        return {0, false};
-    }
-    if (!data) {
-        throw std::invalid_argument("null read buffer");
-    }
+    if (!bytes) return {0, false};
+    if (!data) throw std::invalid_argument("null read buffer");
     std::size_t total = 0;
     while (total < bytes) {
         const auto count = SDL_ReadIO(stream, static_cast<std::byte*>(data) + total, bytes - total);
         total += count;
         const auto status = SDL_GetIOStatus(stream);
-        if (status == SDL_IO_STATUS_EOF) {
-            return {total, true};
-        }
-        if (!count || status != SDL_IO_STATUS_READY) {
-            sdl_failure("read file");
-        }
+        if (status == SDL_IO_STATUS_EOF) return {total, true};
+        if (!count || status != SDL_IO_STATUS_READY) sdl_failure("read file");
     }
     return {total, false};
 }
 void File::read_exact(void* data, std::size_t bytes)
 {
-    if (read(data, bytes).bytes != bytes) {
-        throw std::runtime_error("short file read");
-    }
+    if (read(data, bytes).bytes != bytes) throw std::runtime_error("short file read");
 }
 
 std::string File::read_text()
 {
     const auto remaining = size() - tell();
-    if (remaining < 0) {
-        throw std::runtime_error("file cursor is beyond its end");
-    }
+    if (remaining < 0) throw std::runtime_error("file cursor is beyond its end");
     std::string text(static_cast<std::size_t>(remaining), '\0');
     read_exact(text.data(), text.size());
     return text;
@@ -371,20 +324,14 @@ void File::write(const void* data, std::size_t bytes)
 {
     WIZ8_FILE_OPERATION(write);
     SDL_IOStream* stream = require_stream();
-    if (!writable_) {
-        throw std::logic_error("file was opened for reading only");
-    }
-    if (bytes && !data) {
-        throw std::invalid_argument("null write buffer");
-    }
+    if (!writable_) throw std::logic_error("file was opened for reading only");
+    if (bytes && !data) throw std::invalid_argument("null write buffer");
     std::size_t total = 0;
     while (total < bytes) {
         const auto count =
             SDL_WriteIO(stream, static_cast<const std::byte*>(data) + total, bytes - total);
         total += count;
-        if (!count || SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY) {
-            sdl_failure("write file");
-        }
+        if (!count || SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY) sdl_failure("write file");
     }
 }
 std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
@@ -403,49 +350,36 @@ std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
     default:
         throw std::invalid_argument("invalid seek origin");
     }
-    if (offset < -base || offset > std::numeric_limits<std::int64_t>::max() - base) {
+    if (offset < -base || offset > std::numeric_limits<std::int64_t>::max() - base)
         throw std::out_of_range("seek outside signed file positions");
-    }
     const auto destination = base + offset;
-    if (extent_ && destination > extent_->length) {
-        throw std::out_of_range("seek exceeds SLF entry");
-    }
+    if (extent_ && destination > extent_->length) throw std::out_of_range("seek exceeds SLF entry");
     const auto physical = destination;
     const auto position = SDL_SeekIO(require_stream(), physical, SDL_IO_SEEK_SET);
-    if (position != physical) {
-        sdl_failure("seek file");
-    }
+    if (position != physical) sdl_failure("seek file");
     return destination;
 }
 std::int64_t File::tell() const
 {
     const auto position = SDL_TellIO(require_stream());
-    if (position < 0) {
-        sdl_failure("tell file");
-    }
+    if (position < 0) sdl_failure("tell file");
     return position;
 }
 std::int64_t File::size() const
 {
     const auto bytes = SDL_GetIOSize(require_stream());
-    if (bytes < 0) {
-        sdl_failure("size file");
-    }
+    if (bytes < 0) sdl_failure("size file");
     return bytes;
 }
 void File::flush()
 {
     WIZ8_FILE_OPERATION(flush);
-    if (!SDL_FlushIO(require_stream())) {
-        sdl_failure("flush file");
-    }
+    if (!SDL_FlushIO(require_stream())) sdl_failure("flush file");
 }
 void File::close()
 {
     WIZ8_FILE_OPERATION(close);
-    if (stream_ && !SDL_CloseIO(std::exchange(stream_, nullptr))) {
-        sdl_failure("close file");
-    }
+    if (stream_ && !SDL_CloseIO(std::exchange(stream_, nullptr))) sdl_failure("close file");
 }
 SDL_IOStream* File::io() const
 {
@@ -474,17 +408,13 @@ FileStatus File::status() const
         return result;
     }
     const auto info = host_file_status(path_);
-    if (!info) {
-        throw std::runtime_error("opened file path no longer exists");
-    }
+    if (!info) throw std::runtime_error("opened file path no longer exists");
     return *info;
 }
 FileTimes File::times() const
 {
     require_stream();
-    if (extent_) {
-        return {{}, {}, extent_->modified};
-    }
+    if (extent_) return {{}, {}, extent_->modified};
     const auto info = status().info;
     const auto offset = current_utc_offset_seconds();
     const auto convert = [offset](SDL_Time time) {
@@ -501,14 +431,12 @@ std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode)
 {
     const auto path = w8_native::resolve_path(game_path);
     if (mode == OpenMode::read) {
-        if (physical_status(path.readable, path.writable_source)) {
+        if (physical_status(path.readable, path.writable_source))
             return std::unique_ptr<File>(new File(path.readable, mode));
-        }
         if (const auto entry = archive_entry(game_path)) {
             auto file = open_host_file(entry->archive);
-            if (std::int64_t(entry->offset) + entry->length > file->size()) {
+            if (std::int64_t(entry->offset) + entry->length > file->size())
                 throw std::runtime_error("truncated SLF entry");
-            }
             file->seek(entry->offset, SeekOrigin::begin);
             file->stream_ = archive_io(file->stream_, entry->offset, entry->length);
             file->extent_ = File::Extent{entry->offset, entry->length, entry->modified};
@@ -516,10 +444,9 @@ std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode)
         }
         return std::unique_ptr<File>(new File(path.readable, mode));
     }
-    if (mode == OpenMode::update && !fs::exists(path.readable)) {
+    if (mode == OpenMode::update && !fs::exists(path.readable))
         throw std::system_error(std::make_error_code(std::errc::no_such_file_or_directory),
                                 "update existing game file");
-    }
     prepare_write(path, mode != OpenMode::replace);
     return std::unique_ptr<File>(new File(write_destination(path), mode));
 }
@@ -532,9 +459,7 @@ std::unique_ptr<File> open_host_file(const fs::path& path, OpenMode mode)
 std::optional<FileStatus> file_status(std::string_view game_path)
 {
     const auto path = w8_native::resolve_path(game_path);
-    if (const auto status = physical_status(path.readable, path.writable_source)) {
-        return status;
-    }
+    if (const auto status = physical_status(path.readable, path.writable_source)) return status;
     if (const auto entry = archive_entry(game_path)) {
         FileStatus result{};
         result.info.type = SDL_PATHTYPE_FILE;
@@ -555,36 +480,28 @@ bool remove_file(std::string_view game_path)
     const auto path = w8_native::resolve_path(game_path);
     const auto& destination = write_destination(path);
     const auto info = physical_status(destination, true);
-    if (!info) {
-        return false;
-    }
-    if (info->info.type != SDL_PATHTYPE_FILE) {
+    if (!info) return false;
+    if (info->info.type != SDL_PATHTYPE_FILE)
         throw std::invalid_argument("remove_file requires a regular file");
-    }
-    if (!SDL_RemovePath(path_to_utf8(destination).c_str())) {
-        sdl_failure("remove game file");
-    }
+    if (!SDL_RemovePath(path_to_utf8(destination).c_str())) sdl_failure("remove game file");
     return true;
 }
 void create_directory(std::string_view game_path)
 {
     const auto path = w8_native::resolve_path(game_path);
-    if (!SDL_CreateDirectory(path_to_utf8(write_destination(path)).c_str())) {
+    if (!SDL_CreateDirectory(path_to_utf8(write_destination(path)).c_str()))
         sdl_failure("create game directory");
-    }
 }
 void clear_read_only(std::string_view game_path)
 {
     const auto path = w8_native::resolve_path(game_path);
     const auto status = physical_status(path.readable, path.writable_source);
-    if (!status) {
+    if (!status)
         throw std::system_error(std::make_error_code(std::errc::no_such_file_or_directory));
-    }
     const auto& destination = write_destination(path);
     if (status->info.type == SDL_PATHTYPE_DIRECTORY) {
-        if (!SDL_CreateDirectory(path_to_utf8(destination).c_str())) {
+        if (!SDL_CreateDirectory(path_to_utf8(destination).c_str()))
             sdl_failure("create writable game directory");
-        }
     } else if (!path.writable_source) {
         prepare_write(path, false);
         copy_physical(path.readable, destination, CopyMode::replace);
@@ -595,28 +512,23 @@ std::vector<std::string> list_directory(std::string_view directory, std::string_
 {
     const auto path = w8_native::resolve_path(directory);
     const auto status = physical_status(path.readable, path.writable_source);
-    if (!status || status->info.type != SDL_PATHTYPE_DIRECTORY) {
+    if (!status || status->info.type != SDL_PATHTYPE_DIRECTORY)
         throw std::invalid_argument("list_directory requires an existing directory");
-    }
     std::vector<std::string> entries;
     for (const auto& base : path.directories) {
         std::error_code error;
         std::vector<std::string> next;
-        for (fs::directory_iterator it(base, error), end; !error && it != end;
-             it.increment(error)) {
+        for (fs::directory_iterator it(base, error), end; !error && it != end; it.increment(error))
             next.push_back(path_to_utf8(it->path().filename()));
-        }
         std::sort(next.begin(), next.end());
-        for (const auto& name : next) {
+        for (const auto& name : next)
             if (matches(name, pattern) &&
                 std::none_of(entries.begin(), entries.end(), [&](const auto& previous) {
                     return previous.size() == name.size() &&
                            std::equal(previous.begin(), previous.end(), name.begin(),
                                       [](char a, char b) { return fold(a) == fold(b); });
-                })) {
+                }))
                 entries.push_back(name);
-            }
-        }
     }
     std::sort(entries.begin(), entries.end());
     return entries;
@@ -625,9 +537,8 @@ void copy_file(std::string_view source, std::string_view destination, CopyMode m
 {
     const auto from = w8_native::resolve_path(source);
     const auto to = w8_native::resolve_path(destination);
-    if (mode == CopyMode::fail_if_exists && fs::exists(to.readable)) {
+    if (mode == CopyMode::fail_if_exists && fs::exists(to.readable))
         throw std::system_error(std::make_error_code(std::errc::file_exists), "copy game file");
-    }
     prepare_write(to, false);
     copy_physical(from.readable, write_destination(to), mode);
 }
@@ -652,9 +563,7 @@ StagedFile::~StagedFile()
 {
     // Close borrowed references too, before removing the staging directory.
     try {
-        if (impl_->stream->is_open()) {
-            impl_->stream->close();
-        }
+        if (impl_->stream->is_open()) impl_->stream->close();
     } catch (...) {
     }
 }
@@ -664,9 +573,7 @@ std::shared_ptr<File> StagedFile::file() const
 }
 void StagedFile::commit()
 {
-    if (impl_->committed) {
-        throw std::logic_error("staged file already committed");
-    }
+    if (impl_->committed) throw std::logic_error("staged file already committed");
     if (impl_->stream->is_open()) {
         impl_->stream->flush();
         impl_->stream->close();

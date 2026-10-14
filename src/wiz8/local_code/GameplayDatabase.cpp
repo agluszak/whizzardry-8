@@ -93,9 +93,7 @@ try {
         std::array<char, 256> bytes;
         handle->read_exact(bytes.data(), bytes.size());
         auto end = std::find(bytes.begin(), bytes.end(), '\0');
-        if (end == bytes.end()) {
-            return false;
-        }
+        if (end == bytes.end()) return false;
         category.assign(bytes.begin(), end);
     }
 
@@ -136,9 +134,8 @@ try {
                  wiz8::SeekOrigin::begin);
     W8MonsterRecord loaded;
     wiz8::retail::read_exact(*handle, loaded);
-    for (auto* name : {&loaded.name0, &loaded.name1, &loaded.name2, &loaded.name3}) {
+    for (auto* name : {&loaded.name0, &loaded.name1, &loaded.name2, &loaded.name3})
         StripMonsterNameSuffix(*name);
-    }
     *record = loaded;
     return true;
 } catch (const std::exception&) {
@@ -188,9 +185,7 @@ try {
     }
     if (records) {
         auto block = std::make_unique<W8MonsterRecord[]>(count);
-        for (unsigned i = 0; i < count; ++i) {
-            wiz8::retail::read_exact(*handle, block[i]);
-        }
+        for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, block[i]);
         *records = block.release();
     }
     gXStatus.uiMonstersInDatabase = count;
@@ -219,9 +214,7 @@ try {
         return false;
     }
     std::vector<W8MonsterRecord> loaded(count);
-    for (auto& record : loaded) {
-        wiz8::retail::read_exact(*handle, record);
-    }
+    for (auto& record : loaded) wiz8::retail::read_exact(*handle, record);
     std::copy(loaded.begin(), loaded.end(), records);
     return true;
 } catch (const std::exception&) {

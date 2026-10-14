@@ -56,10 +56,7 @@ public:
     // Hover-only targets (tooltips, previews) see presses but never capture the
     // pointer. Other targets capture on press whatever their handler returns:
     // gameplay controls that Pass a press still expect the matching release.
-    void setPassive()
-    {
-        passive_ = true;
-    }
+    void setPassive() { passive_ = true; }
     // Release capture when gameplay starts a drag whose destination should
     // receive the release. This changes the existing dispatcher's capture.
     void releaseCapture();

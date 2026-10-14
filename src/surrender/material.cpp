@@ -357,9 +357,8 @@ template<std::size_t Count>
 static void dumpNamed(std::ostream& stream, w8_ulong value, const NamedValue (&names)[Count])
 {
     if (const auto found = std::ranges::find(names, value, &NamedValue::value);
-        found != std::end(names)) {
+        found != std::end(names))
         stream << found->name;
-    }
 }
 
 constexpr NamedValue kDetailAlphaNames[] = {

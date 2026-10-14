@@ -12,10 +12,7 @@ namespace wiz8 {
 struct DiskFileTime {
     std::uint32_t low = 0;
     std::uint32_t high = 0;
-    constexpr std::uint64_t ticks() const noexcept
-    {
-        return (std::uint64_t(high) << 32) | low;
-    }
+    constexpr std::uint64_t ticks() const noexcept { return (std::uint64_t(high) << 32) | low; }
     static constexpr DiskFileTime from_ticks(std::uint64_t ticks) noexcept
     {
         return {std::uint32_t(ticks), std::uint32_t(ticks >> 32)};

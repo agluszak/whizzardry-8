@@ -750,21 +750,15 @@ void CloseKeyboardMenu(void)
 
 static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
 {
-    if (row.menu == -1) {
-        return g_localized_strings[0x11];
-    }
+    if (row.menu == -1) return g_localized_strings[0x11];
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
-        if (!row.enabled) {
-            return g_localized_strings[0x5a];
-        }
+        if (!row.enabled) return g_localized_strings[0x5a];
         const auto& spell = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id];
         return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(g_selected_party_slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
-        if (!row.enabled) {
-            return g_localized_strings[0x5d];
-        }
+        if (!row.enabled) return g_localized_strings[0x5d];
         const auto& party = g_status.buffers.XChar[g_selected_party_slot];
         auto* item = FindCharacterItemAt(g_selected_party_slot, party.item_origin, party.item_slot);
         return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
@@ -786,15 +780,12 @@ unsigned char BuildKeyboardMenu(void)
         {KeyboardMenuSelectEquip, KeyboardMenuOpenUseItemView, KeyboardMenuUseRecordedItem},
         {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}};
     int index = 0;
-    for (int menu = 0; menu < 4; ++menu) {
+    for (int menu = 0; menu < 4; ++menu)
         for (int item = 0; item < 5; ++item) {
-            if (g_submenu_entry_message_ids[menu * 5 + item] == -1) {
-                continue;
-            }
+            if (g_submenu_entry_message_ids[menu * 5 + item] == -1) continue;
             keyboard_menu->rows[index].menu = menu;
             keyboard_menu->rows[index++].item = item;
         }
-    }
     for (int i = 0; i < 13; ++i) {
         auto& row = keyboard_menu->rows[i];
         row.target = &keyboard_menu->input.add(
@@ -803,31 +794,24 @@ unsigned char BuildKeyboardMenu(void)
             [&row](const UiPointerEvent& event) {
                 keyboard_menu->dirty = true;
                 const ButtonPolicy policy{.controller_activation = true};
-                if (event.action == UiPointerAction::Leave) {
-                    row.press.leave(policy);
-                }
+                if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
-                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1))) {
+                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
                     SetUiHelpForced(true);
-                }
                 if (!row.enabled) {
                     PushButtonSoundScheme(0, true);
                     return UiResult::Handled;
                 }
                 const auto mask =
                     event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-                if (event.action == UiPointerAction::Down) {
-                    row.press.press(mask, policy);
-                }
+                if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
                 if (event.action == UiPointerAction::Up && event.inside &&
                     (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
                     auto action = event.button == UiPointerButton::Right || row.menu == -1
                                       ? CloseKeyboardMenu
                                       : actions[row.menu][row.item];
-                    if (action) {
-                        AfterUiDispatch(action);
-                    }
+                    if (action) AfterUiDispatch(action);
                 }
                 return UiResult::Handled;
             });
@@ -837,9 +821,8 @@ unsigned char BuildKeyboardMenu(void)
         CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
     keyboard_menu->input.add(
         SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
                 AfterUiDispatch(CloseKeyboardMenu);
-            }
             return UiResult::Handled;
         });
     RefreshKeyboardMenuRows();
@@ -861,9 +844,7 @@ void RefreshKeyboardMenuRows(void)
 {
     const auto art = CatalogArtwork::Load(0x89, 0);
     for (auto& row : keyboard_menu->rows) {
-        if (row.menu == -1) {
-            continue;
-        }
+        if (row.menu == -1) continue;
         const int base = g_submenu_entry_message_ids[row.menu * 5 + row.item];
         int normal = base;
         int hover = base + 2;
@@ -887,14 +868,13 @@ void RefreshKeyboardMenuRows(void)
             break;
         }
         int offset = 0;
-        if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
+        if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
             offset =
                 g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
-        } else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0) {
+        else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset = GetAttackMenuWeaponOffset(
                          g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) *
                      7;
-        }
         row.appearance.quick_image =
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
                                  normal + offset, hover + offset);
@@ -904,9 +884,7 @@ void RefreshKeyboardMenuRows(void)
 
 void RedrawKeyboardMenuPanel(bool invalidate)
 {
-    if (!invalidate && !keyboard_menu->dirty) {
-        return;
-    }
+    if (!invalidate && !keyboard_menu->dirty) return;
     const auto [x, y] = keyboard_menu->origin;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);

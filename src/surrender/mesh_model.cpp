@@ -60,14 +60,12 @@ public:
     MeshPermutation(std::span<const w8_ulong> order, w8_long count)
         : order(order), inverse(order.size())
     {
-        if (order.size() != static_cast<std::size_t>(count)) {
+        if (order.size() != static_cast<std::size_t>(count))
             throw std::invalid_argument("Mesh permutation length mismatch");
-        }
         std::vector<bool> seen(order.size());
         for (std::size_t i = 0; i < order.size(); ++i) {
-            if (order[i] >= order.size() || seen[order[i]]) {
+            if (order[i] >= order.size() || seen[order[i]])
                 throw std::invalid_argument("Invalid mesh permutation");
-            }
             seen[order[i]] = true;
             inverse[order[i]] = static_cast<w8_ulong>(i);
         }
@@ -75,20 +73,15 @@ public:
 
     template<class T> void apply(T* table) const
     {
-        if (!table || order.empty()) {
-            return;
-        }
+        if (!table || order.empty()) return;
         const std::vector<T> original(table, table + order.size());
-        for (std::size_t i = 0; i < order.size(); ++i) {
-            table[i] = original[order[i]];
-        }
+        for (std::size_t i = 0; i < order.size(); ++i) table[i] = original[order[i]];
     }
 
     void remapCorners(std::span<glm::ivec3> triangles, bool retain_external) const
     {
-        for (auto& triangle : triangles) {
+        for (auto& triangle : triangles)
             triangle = srMeshMath::remapTriangle(triangle, inverse, retain_external);
-        }
     }
 
     std::span<const w8_ulong> order;
@@ -101,14 +94,10 @@ template<class Vector>
 static void VerifyFiniteChannel(const Vector* values, w8_long count, const char* expression,
                                 int line)
 {
-    if (!values || count <= 0) {
-        return;
-    }
-    for (const auto& value : std::span(values, static_cast<std::size_t>(count))) {
-        if (!isFinite(value)) {
+    if (!values || count <= 0) return;
+    for (const auto& value : std::span(values, static_cast<std::size_t>(count)))
+        if (!isFinite(value))
             srAssertFail(expression, "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", line, 0);
-        }
-    }
 }
 
 /* Bounds-checked pass/side slots; out-of-range indices are ignored. */
@@ -457,12 +446,8 @@ void srMeshModel::calculatePolygonNormals()
 // FUNCTION: SURRENDER 0x1003E390
 void srMeshModel::calculateVertexNormals()
 {
-    if (polygon_count == 0 || vertex_location_count == 0) {
-        return;
-    }
-    if (dirty_flags.value & (1UL << DIRTY_POLYGON_NORMALS)) {
-        calculatePolygonNormals();
-    }
+    if (polygon_count == 0 || vertex_location_count == 0) return;
+    if (dirty_flags.value & (1UL << DIRTY_POLYGON_NORMALS)) calculatePolygonNormals();
     dirty_flags.value &= ~(1UL << DIRTY_VERTEX_NORMALS);
     const auto* equations = getPolyEq();
     const auto* polygons = getPolyVertex();
@@ -493,9 +478,7 @@ void srMeshModel::scale(const glm::vec3& scale)
 void srMeshModel::applyMatrix(const glm::mat3& matrix)
 {
     auto* vertices = getVertexLoc();
-    for (w8_long i = 0; i < vertex_location_count; ++i) {
-        vertices[i] = matrix * vertices[i];
-    }
+    for (w8_long i = 0; i < vertex_location_count; ++i) vertices[i] = matrix * vertices[i];
     setDirtyAll();
 }
 
@@ -512,13 +495,10 @@ void srMeshModel::relocateVertices(const glm::vec3& offset)
 // FUNCTION: SURRENDER 0x1003E9B0
 void srMeshModel::centerVertices()
 {
-    if (vertex_location_count == 0) {
-        return;
-    }
+    if (vertex_location_count == 0) return;
     glm::dvec3 sum(0);
-    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count)) {
+    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
         sum += glm::dvec3(vertex);
-    }
     relocateVertices(glm::vec3(-sum / double(vertex_location_count)));
 }
 
@@ -529,9 +509,8 @@ double srMeshModel::getAverageRadius()
         return 0.0;
     }
     double radius = 0;
-    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count)) {
+    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
         radius += glm::length(vertex);
-    }
     return radius / vertex_location_count;
 }
 
@@ -545,18 +524,14 @@ double srMeshModel::getMaxRadius()
 void srMeshModel::scaleToAverageRadius(double radius)
 {
     const double current_radius = getAverageRadius();
-    if (current_radius > 0) {
-        scale(glm::vec3(static_cast<float>(radius / current_radius)));
-    }
+    if (current_radius > 0) scale(glm::vec3(static_cast<float>(radius / current_radius)));
 }
 
 // FUNCTION: SURRENDER 0x1003EBF0
 void srMeshModel::scaleToMaxRadius(double radius)
 {
     const double current_radius = getMaxRadius();
-    if (current_radius > 0) {
-        scale(glm::vec3(static_cast<float>(radius / current_radius)));
-    }
+    if (current_radius > 0) scale(glm::vec3(static_cast<float>(radius / current_radius)));
 }
 
 // FUNCTION: SURRENDER 0x1003EC30
@@ -700,27 +675,21 @@ bool srMeshModel::isVisible(srGERD& renderer)
     const bool test_sphere = (render_control.value & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0;
     const bool test_box =
         (render_control.value & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 && vertex_location_count >= 8;
-    if (!test_sphere && !test_box) {
-        return true;
-    }
+    if (!test_sphere && !test_box) return true;
     const auto bounds = getBounds();
     if (test_sphere && renderer.testBoundingSphere(bounds.sphere.center, bounds.sphere.radius) ==
-                           srGERD::VISIBILITY_OUTSIDE) {
+                           srGERD::VISIBILITY_OUTSIDE)
         return false;
-    }
     if (test_box && renderer.testBoundingBox(bounds.box.minimum, bounds.box.maximum) ==
-                        srGERD::VISIBILITY_OUTSIDE) {
+                        srGERD::VISIBILITY_OUTSIDE)
         return false;
-    }
     return true;
 }
 
 // FUNCTION: SURRENDER 0x1003CEA0
 void srMeshModel::render(srGERD& renderer)
 {
-    if (!isVisible(renderer)) {
-        return;
-    }
+    if (!isVisible(renderer)) return;
     renderTriMesh(renderer, getTriMesh());
 }
 
@@ -728,23 +697,18 @@ void srMeshModel::render(srGERD& renderer)
 void srMeshModel::reindexPolygons(std::span<const w8_ulong> indices)
 {
     const MeshPermutation permutation(indices, polygon_count);
-    if (!polygon_count) {
-        return;
-    }
+    if (!polygon_count) return;
     permutation.apply(getPolyEq());
     permutation.apply(getPolyVertex());
     for (w8_long pass = 0; pass < pass_count; ++pass) {
         permutation.apply(getPolyUVIndex(pass, 0));
         permutation.apply(getPolyShader(pass, 0));
-        for (w8_long layer = 0; layer < 2; ++layer) {
+        for (w8_long layer = 0; layer < 2; ++layer)
             permutation.apply(getPolyTexture(pass, layer, 0));
-        }
     }
     if (active_polygon_count && getActivePolygonTable(0)) {
         auto* table = getActivePolygonTable(1);
-        for (w8_long i = 0; i < active_polygon_count; ++i) {
-            table[i] = permutation.inverse[table[i]];
-        }
+        for (w8_long i = 0; i < active_polygon_count; ++i) table[i] = permutation.inverse[table[i]];
     }
     setDirtyAll();
 }
@@ -753,16 +717,13 @@ void srMeshModel::reindexPolygons(std::span<const w8_ulong> indices)
 void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
 {
     const MeshPermutation permutation(indices, vertex_location_count);
-    if (!vertex_location_count) {
-        return;
-    }
+    if (!vertex_location_count) return;
     permutation.apply(getVertexNormal());
     permutation.apply(getVertexLoc());
     if (auto* shade = getVertexShadeIndex(0)) {
         permutation.apply(shade);
-        for (w8_long i = 0; i < vertex_location_count; ++i) {
+        for (w8_long i = 0; i < vertex_location_count; ++i)
             shade[i] = permutation.inverse[shade[i]];
-        }
         for (w8_long i = 0; i < vertex_location_count; ++i) {
             const auto value = shade[i];
             if (value < static_cast<w8_ulong>(i)) {
@@ -772,19 +733,16 @@ void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
         }
     }
     for (w8_long pass = 0; pass < pass_count; ++pass) {
-        for (w8_long side = 0; side < 2; ++side) {
+        for (w8_long side = 0; side < 2; ++side)
             permutation.apply(getVertexMaterial(pass, static_cast<e_side>(side), 0));
-        }
-        for (w8_long table = 0; table < 2; ++table) {
+        for (w8_long table = 0; table < 2; ++table)
             permutation.apply(getVertexTexCoords(pass, table, 0));
-        }
         permutation.apply(getVertexDIG(pass, 0));
         permutation.apply(getVertexSCG(pass, 0));
         permutation.apply(getVertexDCG(pass, 0));
-        if (getPolyUVIndex(pass, 0)) {
+        if (getPolyUVIndex(pass, 0))
             permutation.remapCorners(
                 {getPolyUVIndex(pass, 1), static_cast<std::size_t>(polygon_count)}, true);
-        }
     }
     permutation.remapCorners({getPolyVertex(), static_cast<std::size_t>(polygon_count)}, false);
     setDirtyAll();
@@ -1388,9 +1346,7 @@ void srTriMeshPipeline::FlushSlots()
                 pipe_input.active_vertices = culler_output.avt;
                 pipe_input.direct_vertex_indices = false;
                 pipe_input.positions = {positions, vertex_count};
-                if (vertex_extras) {
-                    pipe_input.normals = {vertex_extras, vertex_count};
-                }
+                if (vertex_extras) pipe_input.normals = {vertex_extras, vertex_count};
                 pipe_input.eye_bounds = eye_bounds;
                 pipe_input.vertex_arrays = std::span{this->vertex_arrays}.first(slot_count);
                 pipe_input.exclusion_mask = exclusion_mask;
@@ -1403,9 +1359,7 @@ void srTriMeshPipeline::FlushSlots()
                 pipe_input.environment_inverse_scale = environment_inverse_scale;
 
                 if (!active_triangles && processed != 0) {
-                    for (auto& index : culler_output.indices) {
-                        index += processed;
-                    }
+                    for (auto& index : culler_output.indices) index += processed;
                 }
 
                 w8_ulong renderer_disable_mask = 0;
@@ -1583,19 +1537,16 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                 w8_long material_side = side;
                 if (side == 1) {
                     renderer.setCullMode(srGERD::CULL_FRONT);
-                    if (!renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS)) {
+                    if (!renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS))
                         renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
-                    }
-                    if ((mesh.control_flags & (1UL << CONTROL_REUSE_FRONT_MATERIAL)) != 0) {
+                    if ((mesh.control_flags & (1UL << CONTROL_REUSE_FRONT_MATERIAL)) != 0)
                         material_side = 0;
-                    }
                 } else {
                     renderer.setCullMode((mesh.control_flags & (1UL << CONTROL_NO_FRONT_CULL)) != 0
                                              ? srGERD::CULL_NONE
                                              : srGERD::CULL_BACK);
-                    if (renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS)) {
+                    if (renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS))
                         renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
-                    }
                 }
                 return material_side;
             },

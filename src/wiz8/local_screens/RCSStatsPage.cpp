@@ -126,9 +126,7 @@ W8CampStatsControls::W8CampStatsControls()
     m_buttons[2]->SetPressed(g_camp_screen->effect_items_only);
     input.add(SDL_Rect{0x15d, 0xbe, 260, 248}, [](const UiPointerEvent& event) {
         PushButtonSoundScheme(0, true);
-        if (event.action != UiPointerAction::Wheel) {
-            return UiResult::Pass;
-        }
+        if (event.action != UiPointerAction::Wheel) return UiResult::Pass;
         g_camp_screen->stats_range->AdjustValue(event.wheel);
         return UiResult::Handled;
     });
@@ -136,9 +134,7 @@ W8CampStatsControls::W8CampStatsControls()
 
 void W8CampStatsControls::InvalidateAll()
 {
-    for (const auto& button : m_buttons) {
-        button->m_dirty = true;
-    }
+    for (const auto& button : m_buttons) button->m_dirty = true;
 }
 
 void W8CampStatsControls::Redraw(SDL_Surface& target, bool force)
@@ -938,9 +934,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         const bool voice = index >= 9;
         const int x = 0xc3 + (voice ? 0x21 : (index % 3) * 0x80 + 0x24);
         const int y = 0x2b + (voice ? (index == 9 ? 0x140 : 0x15d) : (index / 3) * 14 + 0x107);
-        if (m_choices[index]) {
-            input.remove(*m_choices[index]);
-        }
+        if (m_choices[index]) input.remove(*m_choices[index]);
         m_choices[index] =
             &input.add(SDL_Rect{x, y, voice ? 73 : 128, voice ? 15 : 14},
                        [this, index, voice](const UiPointerEvent& event) {
@@ -948,11 +942,10 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                            if (event.action == UiPointerAction::Up && event.inside &&
                                event.button == UiPointerButton::Left && event.captured_buttons) {
                                AfterUiDispatch([this, index, voice] {
-                                   if (voice) {
+                                   if (voice)
                                        m_character->voice = index - 9;
-                                   } else {
+                                   else
                                        m_character->personality = index;
-                                   }
                                    m_description_dirty = true;
                                    m_screen->UpdateNavigation(this);
                                });
@@ -972,11 +965,10 @@ void W8CharacterPersonalityPage::Activate()
                0x7f, m_character->name_part_2, 5, 0xf, true);
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xc7, 0x106, 0x10,
                0x7f, m_character->name, 9, 0xf, true);
-    if (fields.ByteLength(0) == 0) {
+    if (fields.ByteLength(0) == 0)
         fields.Focus(0);
-    } else if (fields.ByteLength(1) == 0) {
+    else if (fields.ByteLength(1) == 0)
         fields.Focus(1);
-    }
     m_choices_dirty = true;
 }
 
@@ -1029,9 +1021,7 @@ void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* ex
 // FUNCTION: WIZ8 0x005c6a60
 void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
 {
-    if (m_screen->HasDialog()) {
-        return;
-    }
+    if (m_screen->HasDialog()) return;
     if (!IsTypingEvent(*input)) {
         return;
     }
@@ -1040,16 +1030,12 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
     if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
         return;
     }
-    if (!m_text_fields) {
-        return;
-    }
+    if (!m_text_fields) return;
     if (input->key == VK_TAB) {
         m_text_fields->FocusNext();
         return;
     }
-    if (!m_text_fields->HandleInput(*input)) {
-        return;
-    }
+    if (!m_text_fields->HandleInput(*input)) return;
 
     const int field = m_text_fields->FocusedId();
     if (field == 0) {
@@ -1222,16 +1208,12 @@ void W8CharacterPersonalityPage::ChangePortrait(int action)
     int portrait = m_character->portrait_index;
     if (action == 1) {
         int group = g_portrait_descriptors[portrait].group + 1;
-        if (group > 11) {
-            group = 0;
-        }
+        if (group > 11) group = 0;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
     } else if (action == 0) {
         int group = g_portrait_descriptors[portrait].group - 1;
-        if (group < 0) {
-            group = 11;
-        }
+        if (group < 0) group = 11;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
     } else if (action == 3 || action == 2) {
@@ -1243,14 +1225,10 @@ void W8CharacterPersonalityPage::ChangePortrait(int action)
         }
         if (action == 3) {
             ++index;
-            if (index >= portraits->count) {
-                index = 0;
-            }
+            if (index >= portraits->count) index = 0;
         } else {
             --index;
-            if (index < 0) {
-                index = portraits->count - 1;
-            }
+            if (index < 0) index = portraits->count - 1;
         }
         m_character->portrait_index = portraits->portraits[index];
         m_portrait_dirty = true;
@@ -1440,9 +1418,7 @@ void W8CharacterSkillsPage::UpdateEntries()
             }
             W8CharacterPageEntry* entry = m_entries[entry_index].get();
             ++category_count[category];
-            if (category == 4) {
-                m_show_fifth_category = true;
-            }
+            if (category == 4) m_show_fifth_category = true;
             entry->SetContent(skill, g_localized_strings[g_character_skill_name_ids[skill]],
                               &value->points, &m_creation_state->skill_points_spent[skill],
                               &m_creation_state->skill_limits[skill], 0x101);

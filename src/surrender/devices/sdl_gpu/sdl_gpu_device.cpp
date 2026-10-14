@@ -203,10 +203,7 @@ public:
         parameters[0] = parameters[1] = {};
     }
 
-    ~SDLGPUDevice() override
-    {
-        deleteContext();
-    }
+    ~SDLGPUDevice() override { deleteContext(); }
 
     Info getInfo() override
     {
@@ -236,10 +233,7 @@ public:
         return info;
     }
 
-    std::span<const WindowInfo> getWindowList() override
-    {
-        return {};
-    }
+    std::span<const WindowInfo> getWindowList() override { return {}; }
 
     std::span<const PixelFormat> getTextureFormats() override
     {
@@ -247,18 +241,12 @@ public:
         return formats;
     }
 
-    Statistics getStatistics() override
-    {
-        return {};
-    }
+    Statistics getStatistics() override { return {}; }
 
     void resetStatistics() override {}
     void extCommand(w8_ulong, void*, w8_ulong) override {}
 
-    int isBusy() override
-    {
-        return 0;
-    }
+    int isBusy() override { return 0; }
 
     e_error openWindow(const OpenInfo& info, OpenResult& result) override
     {
@@ -307,20 +295,11 @@ public:
 
     void beginFrame() override {}
 
-    void endFrame() override
-    {
-        flush(false);
-    }
+    void endFrame() override { flush(false); }
 
-    void flushFrame() override
-    {
-        flush(false);
-    }
+    void flushFrame() override { flush(false); }
 
-    void flipFrame(const Scissor*, const Scissor*, w8_ulong) override
-    {
-        flush(true);
-    }
+    void flipFrame(const Scissor*, const Scissor*, w8_ulong) override { flush(true); }
 
     void clearBuffers(const srFlags<e_buffer>& buffers) override
     {
@@ -396,20 +375,11 @@ public:
         }
     }
 
-    void setClearValues(const ClearValues& values) override
-    {
-        clear_values = values;
-    }
+    void setClearValues(const ClearValues& values) override { clear_values = values; }
 
-    void setFogColor(const glm::vec4& color) override
-    {
-        fog_color = color;
-    }
+    void setFogColor(const glm::vec4& color) override { fog_color = color; }
 
-    void setShader(const srShader& value) override
-    {
-        shader = value;
-    }
+    void setShader(const srShader& value) override { shader = value; }
 
     void setTextureParameters(w8_ulong stage, const TexParms& parms) override
     {
@@ -555,22 +525,13 @@ public:
 
     void fence() override {}
 
-    PixelFormat getBufferPixelFormat() override
-    {
-        return argb8888Format();
-    }
+    PixelFormat getBufferPixelFormat() override { return argb8888Format(); }
 
     void preBindTexture(w8_ulong, Texture&) override {}
 
-    void setPolygonMode(e_polygonMode mode) override
-    {
-        polygon_mode = mode;
-    }
+    void setPolygonMode(e_polygonMode mode) override { polygon_mode = mode; }
 
-    void setCullMode(e_cullMode mode) override
-    {
-        cull_mode = mode;
-    }
+    void setCullMode(e_cullMode mode) override { cull_mode = mode; }
 
     void setProjectionMatrix(const glm::mat4& matrix, srRendererDefs::e_matrixType) override
     {
@@ -594,10 +555,7 @@ public:
         draw(primitive, count, 0, first);
     }
 
-    void setPolygonOffset(w8_long offset) override
-    {
-        polygon_offset = offset;
-    }
+    void setPolygonOffset(w8_long offset) override { polygon_offset = offset; }
 
 private:
     SDL_GPUShader* createShader(const uint32_t* code, size_t size, SDL_GPUShaderStage stage,
@@ -690,12 +648,9 @@ private:
     Vector fetch(srRendererDefs::e_vertexArray slot, uint32_t index, Vector fallback) const
     {
         if (((vertex_arrays.mask.value >> slot) & 1) == 0 &&
-            slot != srRendererDefs::VERTEX_ARRAY_POSITIONS) {
+            slot != srRendererDefs::VERTEX_ARRAY_POSITIONS)
             return fallback;
-        }
-        if (vertex_arrays.arrays[slot] == nullptr) {
-            return fallback;
-        }
+        if (vertex_arrays.arrays[slot] == nullptr) return fallback;
         const int components =
             SDL_min(static_cast<int>(vertex_arrays.components[slot]), Vector::length());
         const uint32_t stride = vertex_arrays.strides[slot] != 0
@@ -827,9 +782,7 @@ private:
     {
         const auto key = std::make_pair(parameters.packed, parameters.mipmap_bias);
         const auto found = samplers.find(key);
-        if (found != samplers.end()) {
-            return found->second;
-        }
+        if (found != samplers.end()) return found->second;
         SDL_GPUSamplerCreateInfo info = {};
         info.mag_filter =
             ((parameters.packed >> 4) & 3) >= 2 ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
@@ -1208,25 +1161,21 @@ private:
         const glm::ivec2 position(command.x, command.y);
         const glm::ivec2 dimensions(width, height);
         if (glm::any(glm::lessThan(position, glm::ivec2(0))) ||
-            glm::any(glm::greaterThanEqual(position, dimensions))) {
+            glm::any(glm::greaterThanEqual(position, dimensions)))
             return;
-        }
         const unsigned axis = vertical ? 1 : 0;
         const auto count = glm::min(command.count, dimensions[axis] - position[axis]);
-        if (count <= 0) {
-            return;
-        }
+        if (count <= 0) return;
         const bool read = command.opcode == 2 || command.opcode == 6;
         const bool fill = command.opcode == 4;
         const size_t stride = vertical ? width : 1;
         auto* line = readback.data() + size_t(command.y) * width + command.x;
         auto* data = static_cast<uint32_t*>(command.data);
         for (w8_long index = 0; index < count; ++index) {
-            if (read) {
+            if (read)
                 data[index] = line[size_t(index) * stride];
-            } else {
+            else
                 line[size_t(index) * stride] = data[fill ? 0 : index];
-            }
         }
         readback_dirty |= !read;
     }

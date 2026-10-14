@@ -29,15 +29,9 @@ const float g_mesh_view_degrees_to_radians = 0.01745329424738884f;
 
 static bool AppendQuadRow(int left, int right, int max_x, int row, std::vector<glm::ivec2>& cells)
 {
-    if (left > 0) {
-        --left;
-    }
-    if (right < max_x) {
-        ++right;
-    }
-    for (int x = left; x <= right; ++x) {
-        cells.emplace_back(x, row);
-    }
+    if (left > 0) --left;
+    if (right < max_x) ++right;
+    for (int x = left; x <= right; ++x) cells.emplace_back(x, row);
     return left <= right;
 }
 
@@ -68,19 +62,13 @@ static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, in
             edges.position += edges.step;
             if (left < 0) {
                 left = 0;
-                if (right < 0) {
-                    continue;
-                }
+                if (right < 0) continue;
             }
             if (right > max_x) {
                 right = max_x;
-                if (left > max_x) {
-                    continue;
-                }
+                if (left > max_x) continue;
             }
-            if (skip_boundary && row == first_row) {
-                continue;
-            }
+            if (skip_boundary && row == first_row) continue;
             emitted |= AppendQuadRow(left, right, max_x, row, cells);
         } else {
             AppendQuadRow(left, right, max_x, row, cells);
@@ -96,9 +84,7 @@ static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left, 
                                  const glm::ivec2& tip, bool flat_top, bool skip_boundary,
                                  std::vector<glm::ivec2>& cells)
 {
-    if (right.x < left.x) {
-        std::swap(left, right);
-    }
+    if (right.x < left.x) std::swap(left, right);
     const int first_row = flat_top ? left.y : tip.y;
     const int last_row = flat_top ? tip.y : left.y;
     const glm::ivec2 start = flat_top ? glm::ivec2(left.x, right.x) : glm::ivec2(tip.x);
@@ -116,19 +102,11 @@ std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions,
                                               std::array<glm::ivec2, 3> points)
 {
     auto& [first, middle, last] = points;
-    if ((first.x == middle.x && middle.x == last.x) ||
-        (first.y == middle.y && middle.y == last.y)) {
+    if ((first.x == middle.x && middle.x == last.x) || (first.y == middle.y && middle.y == last.y))
         return {};
-    }
-    if (middle.y < first.y) {
-        std::swap(first, middle);
-    }
-    if (last.y < first.y) {
-        std::swap(first, last);
-    }
-    if (last.y < middle.y) {
-        std::swap(middle, last);
-    }
+    if (middle.y < first.y) std::swap(first, middle);
+    if (last.y < first.y) std::swap(first, last);
+    if (last.y < middle.y) std::swap(middle, last);
     std::vector<glm::ivec2> cells;
     if (first.y == middle.y) {
         ScanQuadTriangleHalf(dimensions, first, middle, last, true, false, cells);
@@ -181,9 +159,7 @@ void UpdateWorldMeshFromQuads(W8World* world)
     W8Quad& quad = *world->quads;
     const auto cells = visibleQuadCells(*world);
     w8_long polygon_count = 0;
-    for (const auto& cell : cells) {
-        polygon_count += quad.Cell(cell.x, cell.y).size();
-    }
+    for (const auto& cell : cells) polygon_count += quad.Cell(cell.x, cell.y).size();
     mesh->setActivePolygonCount(polygon_count);
     w8_ulong* table = mesh->getActivePolygonTable(1);
     for (const auto& cell : cells) {

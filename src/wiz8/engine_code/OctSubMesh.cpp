@@ -52,9 +52,7 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
                    const char* read_message)
 {
     static_assert(std::is_trivially_copyable_v<T>);
-    if (!values.data()) {
-        ShutdownWithErrorBox(get_message);
-    }
+    if (!values.data()) ShutdownWithErrorBox(get_message);
     try {
         if constexpr (std::is_same_v<T, glm::ivec3>) {
             std::vector<std::array<std::int32_t, 3>> records(values.size());
@@ -74,9 +72,7 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
 static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values, const char* get_message,
                             const char* read_message)
 {
-    if (!values.data()) {
-        ShutdownWithErrorBox(get_message);
-    }
+    if (!values.data()) ShutdownWithErrorBox(get_message);
     std::vector<srVector3> records(values.size());
     ReadMeshArray(file, std::span(records), get_message, read_message);
     std::ranges::transform(records, values.begin(),
@@ -92,12 +88,8 @@ static void ReleaseMeshArray(T*& values)
 
 static void ReleaseMeshSunLights(float**& banks, short count)
 {
-    if (!banks) {
-        return;
-    }
-    for (short index = 0; index < count; ++index) {
-        ReleaseMeshArray(banks[index]);
-    }
+    if (!banks) return;
+    for (short index = 0; index < count; ++index) ReleaseMeshArray(banks[index]);
     ReleaseMeshArray(banks);
 }
 
@@ -109,9 +101,7 @@ static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, in
 {
     static_assert(std::is_trivially_copyable_v<T>);
     const auto write = [&] {
-        if (count < 0) {
-            throw std::runtime_error("Negative mesh record count");
-        }
+        if (count < 0) throw std::runtime_error("Negative mesh record count");
         const auto records = std::span<const T>(values, static_cast<std::size_t>(count));
         if constexpr (std::is_same_v<T, glm::ivec3>) {
             std::vector<std::array<std::int32_t, 3>> packed(records.size());
@@ -239,9 +229,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
                                                 const std::vector<W8MeshMaterial>& materials)
 {
     const int material_count = static_cast<int>(materials.size());
-    if (materials.empty()) {
-        throw std::runtime_error("Missing mesh materials");
-    }
+    if (materials.empty()) throw std::runtime_error("Missing mesh materials");
     wiz8::BinaryReader input(*file);
     m_packed_header = input.record<unsigned int>();
     m_vertex_count = input.record<int>();
@@ -260,9 +248,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
         m_material_index >= material_count) {
         throw std::runtime_error("Invalid mesh counts or material index");
     }
-    if (m_vertex_count == 0 && m_material_index < 0) {
+    if (m_vertex_count == 0 && m_material_index < 0)
         throw std::runtime_error("Missing mesh vertex material");
-    }
     const auto vertex_bytes = static_cast<std::uint64_t>(m_vertex_count) *
                               (36 + (m_material_index < 0 ? 4 : 0) + (version != 0 ? 4 : 0));
     const auto polygon_bytes = static_cast<std::uint64_t>(m_polygon_count) * 44;

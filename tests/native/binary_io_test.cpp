@@ -136,9 +136,7 @@ TEST_CASE("binary_io_test")
     long_bits[129] = 0xff;
     auto long_input = srIO::own(SDL_IOFromConstMem(long_bits.data(), long_bits.size()));
     srHuffman::BitIStream long_reader(long_input.get());
-    for (unsigned i = 0; i < 127; ++i) {
-        REQUIRE(long_reader.get(8) == 0);
-    }
+    for (unsigned i = 0; i < 127; ++i) REQUIRE(long_reader.get(8) == 0);
     REQUIRE(long_reader.get(24) == 0xff4281);
     long_reader.rewind(24);
     REQUIRE((long_reader.get(24) == 0xff4281 && long_reader.peekByte() == 0));
@@ -155,9 +153,7 @@ TEST_CASE("binary_io_test")
         const auto base = whence == SDL_IO_SEEK_SET   ? 0
                           : whence == SDL_IO_SEEK_CUR ? self.position
                                                       : self.size;
-        if (offset < -base || offset > self.size - base) {
-            return -1;
-        }
+        if (offset < -base || offset > self.size - base) return -1;
         return self.position = base + offset;
     };
     interface.read = [](void* cookie, void* data, size_t requested,
@@ -166,9 +162,7 @@ TEST_CASE("binary_io_test")
         const auto count = std::min(requested, size_t(self.size - self.position));
         std::fill_n(static_cast<Uint8*>(data), count, Uint8(0xa5));
         self.position += count;
-        if (count < requested) {
-            *status = SDL_IO_STATUS_EOF;
-        }
+        if (count < requested) *status = SDL_IO_STATUS_EOF;
         return count;
     };
     auto sparse_io = srIO::own(SDL_OpenIO(&interface, &sparse));

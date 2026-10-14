@@ -15,9 +15,8 @@ template<class PositionAt>
 void transformPositions(std::span<srVector3> destination, const glm::mat4x3& matrix,
                         PositionAt position_at)
 {
-    for (std::size_t vertex = 0; vertex < destination.size(); ++vertex) {
+    for (std::size_t vertex = 0; vertex < destination.size(); ++vertex)
         destination[vertex] = matrix * glm::vec4(position_at(vertex), 1);
-    }
 }
 
 inline void initializePropSurface(W8GDSurface& surface, std::span<const srVector3> vertices)
@@ -28,11 +27,10 @@ inline void initializePropSurface(W8GDSurface& surface, std::span<const srVector
         dominantPlaneAxis(surface.plane.normal.glmValue()) + W8_GD_SURFACE_PROP_GEOMETRY;
     surface.hit_plane = 0;
     surface.contact_margin = 500;
-    if (surface.plane.normal.y >= 0.5f) {
+    if (surface.plane.normal.y >= 0.5f)
         surface.flags |= W8_GD_SURFACE_WALKABLE;
-    } else {
+    else
         surface.slope = 0;
-    }
 }
 
 struct CompilationOrder {
@@ -47,10 +45,8 @@ inline CompilationOrder compilationOrder(std::span<const W8GDSurface> surfaces)
     result.indices.reserve(surfaces.size());
     for (std::size_t index = 0; index < surfaces.size(); ++index) {
         const auto& vertices = surfaces[index].vertex_indices;
-        if (vertices[0] != vertices[1] && vertices[0] != vertices[2] &&
-            vertices[1] != vertices[2]) {
+        if (vertices[0] != vertices[1] && vertices[0] != vertices[2] && vertices[1] != vertices[2])
             result.indices.push_back(static_cast<int>(index));
-        }
     }
     const auto boundary =
         std::stable_partition(result.indices.begin(), result.indices.end(), [&](int index) {

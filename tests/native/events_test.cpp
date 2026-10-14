@@ -118,9 +118,7 @@ static std::vector<InputEvent> input()
 {
     std::vector<InputEvent> result;
     InputEvent atom;
-    while (DequeueEvent(&atom)) {
-        result.push_back(atom);
-    }
+    while (DequeueEvent(&atom)) result.push_back(atom);
     return result;
 }
 static void expect(const InputEvent& atom, InputEventType kind, std::uint16_t parameter,
@@ -180,9 +178,8 @@ TEST_CASE("events_test")
     events = input();
     REQUIRE(events.size() == 3);
     REQUIRE((events[0].text == 0x00e9 && events[1].text == 0x4e2d && events[2].text == 0x1f600));
-    for (const auto& event : events) {
+    for (const auto& event : events)
         REQUIRE((event.type == InputEventType::Text && event.key == 0));
-    }
     SetNativeTextInputEnabled(false);
     REQUIRE(SDL_PushEvent(&committed));
     drain_events();
@@ -294,9 +291,7 @@ TEST_CASE("events_test")
     REQUIRE(events[0].buttons == SDL_BUTTON_LMASK);
     REQUIRE(events[1].buttons == 0);
     REQUIRE(events[2].buttons == 0);
-    for (const auto& event : events) {
-        REQUIRE(event.clicks == 2);
-    }
+    for (const auto& event : events) REQUIRE(event.clicks == 2);
 
     // Closely spaced clicks are not double-clicks unless SDL identifies them.
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
@@ -406,14 +401,12 @@ TEST_CASE("events_test")
 
     /* Ring wrap, full-queue drop and FIFO are still recovered SGP behavior. */
     for (unsigned batch = 0; batch < 3; ++batch) {
-        for (unsigned i = 0; i < 257; ++i) {
+        for (unsigned i = 0; i < 257; ++i)
             QueueEvent(InputEventType::KeyDown, {int(batch), 0}, std::uint16_t(i));
-        }
         events = input();
         REQUIRE(events.size() == 256);
-        for (unsigned i = 0; i < 256; ++i) {
+        for (unsigned i = 0; i < 256; ++i)
             REQUIRE((events[i].key == i && events[i].position.x == int(batch)));
-        }
     }
     gfIgnoreMessages = true;
     key(SDL_EVENT_KEY_DOWN, SDLK_Q);
@@ -429,9 +422,8 @@ TEST_CASE("events_test")
     gfIgnoreMessages = false;
     for (int round = 0; round < 3; ++round) {
         REQUIRE(InitializeInputManager());
-        for (unsigned i = 0; i < 256; ++i) {
+        for (unsigned i = 0; i < 256; ++i)
             QueueEvent(InputEventType::KeyDown, {int(i) + 100, 0}, std::uint16_t(i));
-        }
         QueueEvent(InputEventType::KeyUp, {}, 999);
         events = input();
         REQUIRE(events.size() == 256);
@@ -442,24 +434,20 @@ TEST_CASE("events_test")
     }
     for (unsigned queued : {254u, 255u, 256u}) {
         REQUIRE(InitializeInputManager());
-        for (unsigned i = 0; i < queued; ++i) {
+        for (unsigned i = 0; i < queued; ++i)
             QueueEvent(InputEventType::KeyDown, {}, std::uint16_t(i));
-        }
         GetInputState().modifiers = SHIFT_DOWN;
         mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
         drain_events();
         events = input();
         REQUIRE(events.size() == 256);
-        for (unsigned i = 0; i < queued; ++i) {
-            expect(events[i], InputEventType::KeyDown, i);
-        }
+        for (unsigned i = 0; i < queued; ++i) expect(events[i], InputEventType::KeyDown, i);
         if (queued < 256) {
             expect(events[queued], InputEventType::LeftButtonUp, 0, SHIFT_DOWN);
             REQUIRE((events[queued].position.x == 320 && events[queued].position.y == 240));
         }
-        if (queued == 254) {
+        if (queued == 254)
             expect(events.back(), InputEventType::LeftButtonDoubleClick, 0, SHIFT_DOWN);
-        }
         GetInputState().modifiers = 0;
         QueueEvent(InputEventType::KeyUp, {}, 999);
         events = input();

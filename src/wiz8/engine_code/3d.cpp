@@ -142,17 +142,11 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
 
     for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next()) {
         const auto count = mesh->vertex_location_count;
-        if (count <= 0) {
-            continue;
-        }
+        if (count <= 0) continue;
         const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        if (vertex_lights.empty()) {
-            return 0;
-        }
-        if (!lights) {
-            continue;
-        }
+        if (vertex_lights.empty()) return 0;
+        if (!lights) continue;
         auto* vertex_materials = mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
         auto* base_material =
             static_cast<srMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
@@ -177,23 +171,17 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
-            if (!light || _strnicmp(node->getName().c_str(), "Sun", 3) == 0) {
-                continue;
-            }
+            if (!light || _strnicmp(node->getName().c_str(), "Sun", 3) == 0) continue;
             const float range = static_cast<float>(
                 g_light_range_attenuation_numerator /
                 (light->opengl_attenuation.y * g_light_range_attenuation_denominator));
             const auto position = glm::vec3(light->getWorldSpaceLocation());
-            if (!box.overlaps({position - range, position + range})) {
-                continue;
-            }
+            if (!box.overlaps({position - range, position + range})) continue;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
             for (int i = 0; i < count; ++i) {
                 const auto direction = world_vertices[i] - position;
                 const float distance = glm::length(direction);
-                if (distance > range) {
-                    continue;
-                }
+                if (distance > range) continue;
                 const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
                 if (facing < 0) {
                     const float contribution = -facing * light->intensity * (1 - distance / range);
@@ -270,13 +258,9 @@ bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
     const srVector3 from(eye);
     for (const auto& sample : bounds.visibilitySamples()) {
-        if (!projectsToCamera(sample)) {
-            continue;
-        }
+        if (!projectsToCamera(sample)) continue;
         srVector3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) {
-            return true;
-        }
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -287,9 +271,7 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& boun
     const srVector3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         srVector3 point(sample);
-        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) {
-            return true;
-        }
+        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
     }
     return false;
 }
@@ -300,9 +282,7 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
     const srVector3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         srVector3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) {
-            return true;
-        }
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -651,9 +631,7 @@ void WorldSetFarClip(W8World* world, float distance)
 // FUNCTION: WIZ8 0x0046e440
 double WorldGetFarClip(W8World* world)
 {
-    if (world != nullptr && world->camera != nullptr) {
-        return world->camera->getClipRange().second;
-    }
+    if (world != nullptr && world->camera != nullptr) return world->camera->getClipRange().second;
     return 0;
 }
 
@@ -722,12 +700,10 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
     std::array<glm::vec3, 8> sorted;
     std::ranges::copy(points, sorted.begin());
     constexpr std::array<std::pair<unsigned, unsigned>, 3> passes{{{1, 8}, {2, 4}, {0, 2}}};
-    for (const auto [axis, run] : passes) {
-        for (unsigned start = 0; start < sorted.size(); start += run) {
+    for (const auto [axis, run] : passes)
+        for (unsigned start = 0; start < sorted.size(); start += run)
             std::stable_sort(sorted.begin() + start, sorted.begin() + start + run,
                              [axis](const auto& a, const auto& b) { return a[axis] < b[axis]; });
-        }
-    }
     return sorted;
 }
 
@@ -743,16 +719,10 @@ bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W
 // FUNCTION: WIZ8 0x0046d920
 bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds)
 {
-    for (unsigned corner = 0; corner < 8; ++corner) {
-        if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) {
-            return true;
-        }
-    }
-    for (unsigned corner = 1; corner < 9; ++corner) {
-        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) {
-            return true;
-        }
-    }
+    for (unsigned corner = 0; corner < 8; ++corner)
+        if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) return true;
+    for (unsigned corner = 1; corner < 9; ++corner)
+        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) return true;
     return false;
 }
 

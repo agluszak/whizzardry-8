@@ -284,9 +284,7 @@ void W8OptionsSaveLoadPanel::SetActive(bool active)
 static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancelled)
 {
     W8OptionsTextEditor* editor = screen->m_text_editor.get();
-    if (!editor) {
-        return;
-    }
+    if (!editor) return;
     editor->owner->OnTextEditComplete(editor, cancelled);
     screen->m_text_editor.reset();
 }
@@ -436,17 +434,12 @@ void W8OptionsSaveLoadPanel::OnEditSaveName()
 
 void W8OptionsSaveLoadPanel::SelectRow(int selected)
 {
-    if (m_selected == selected) {
-        return;
-    }
+    if (m_selected == selected) return;
     m_selected = selected;
-    for (int i = 0; i < static_cast<int>(m_rows.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(m_rows.size()); ++i)
         m_rows[i]->button.SetPressed(i == selected);
-    }
     FinishOptionsTextEdit(g_options_screen.get(), 1);
-    if (m_panel == 12 && m_current == 0 && selected == 0) {
-        OnEditSaveName();
-    }
+    if (m_panel == 12 && m_current == 0 && selected == 0) OnEditSaveName();
 }
 
 void W8OptionsSaveLoadPanel::DeleteSelectedSave()
@@ -534,27 +527,24 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
 {
     auto art = CatalogArtwork::Load(0xf9, 0);
     const int normal = save_mode ? 0 : 2;
-    button.Configure(art.spriteSheet(), {4, normal, -1, normal + 1, -1},
-                     {.on_click =
-                          [&owner, this, index, save_mode](auto*) {
-                              AfterUiDispatch([&owner, this, index, save_mode] {
-                                  const auto point = button.GetMousePosition();
-                                  if (!m_editing && owner.m_selected == index && save_mode &&
-                                      point.x - button.Bounds().x >= 0x5c &&
-                                      point.y - button.Bounds().y >= 0x33) {
-                                      owner.OnEditSaveName();
-                                  }
-                                  owner.SelectRow(index);
-                              });
-                          },
-                      .on_double_click =
-                          [&owner, this, index](auto*) {
-                              if (!m_editing && owner.m_selected == index) {
-                                  AfterUiDispatch(
-                                      [&owner] { owner.OnPrimary(owner.m_action_button); });
-                              }
-                          },
-                      .priority = UI_PRIORITY_LOWEST});
+    button.Configure(
+        art.spriteSheet(), {4, normal, -1, normal + 1, -1},
+        {.on_click =
+             [&owner, this, index, save_mode](auto*) {
+                 AfterUiDispatch([&owner, this, index, save_mode] {
+                     const auto point = button.GetMousePosition();
+                     if (!m_editing && owner.m_selected == index && save_mode &&
+                         point.x - button.Bounds().x >= 0x5c && point.y - button.Bounds().y >= 0x33)
+                         owner.OnEditSaveName();
+                     owner.SelectRow(index);
+                 });
+             },
+         .on_double_click =
+             [&owner, this, index](auto*) {
+                 if (!m_editing && owner.m_selected == index)
+                     AfterUiDispatch([&owner] { owner.OnPrimary(owner.m_action_button); });
+             },
+         .priority = UI_PRIORITY_LOWEST});
     button.policy.primary_toggle = ButtonToggle::StayLatched;
     button.policy.controller_activation = true;
     button.SetPosition(0x104 + 10, 0x12 + index * 0x49);
@@ -564,9 +554,7 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
 
 void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!full_redraw && !button.m_dirty) {
-        return;
-    }
+    if (!full_redraw && !button.m_dirty) return;
     button.m_dirty = true;
     button.Draw(target);
     if (!button.IsEnabled() || m_save == 0) {
@@ -612,14 +600,10 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 
 void W8OptionsSaveLoadPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!m_active) {
-        return;
-    }
+    if (!m_active) return;
     const bool repaint = full_redraw || m_dirty;
     W8OptionsPanel::Redraw(target, full_redraw);
-    for (auto& row : m_rows) {
-        row->Redraw(target, repaint);
-    }
+    for (auto& row : m_rows) row->Redraw(target, repaint);
 }
 
 void W8OptionsScreen::BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row,
@@ -694,13 +678,13 @@ void W8OptionsKeyboardPanel::Populate()
                 const ButtonPolicy policy{.primary_toggle = ButtonToggle::StayLatched,
                                           .controller_activation = true};
                 m_dirty = true;
-                if (event.action == UiPointerAction::Leave) {
+                if (event.action == UiPointerAction::Leave)
                     key->interaction.leave(policy);
-                } else if (event.button == UiPointerButton::Left) {
-                    if (event.action == UiPointerAction::Down) {
+                else if (event.button == UiPointerButton::Left) {
+                    if (event.action == UiPointerAction::Down)
                         key->interaction.press(SDL_BUTTON_LMASK, policy);
-                    } else if (event.action == UiPointerAction::Up && event.inside &&
-                               key->interaction.release(SDL_BUTTON_LMASK, policy).activate) {
+                    else if (event.action == UiPointerAction::Up && event.inside &&
+                             key->interaction.release(SDL_BUTTON_LMASK, policy).activate) {
                         if (key->m_primary_binding == W8_MGS_COMMAND_NONE) {
                             key->interaction = {};
                             AfterUiDispatch([this] {
@@ -708,9 +692,8 @@ void W8OptionsKeyboardPanel::Populate()
                                     true, 0x834,
                                     [this](bool accepted) { OnDialogClosed(accepted, 0); });
                             });
-                        } else {
+                        } else
                             SelectKey(key);
-                        }
                     }
                 }
                 return UiResult::Handled;
@@ -724,9 +707,7 @@ void W8OptionsKeyboardPanel::Populate()
         g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4));
     m_content_top += 44;
     auto* row = g_options_key_rows;
-    while (row->primary_binding != page.first_binding) {
-        ++row;
-    }
+    while (row->primary_binding != page.first_binding) ++row;
     for (;;) {
         const W8ControlsRect bounds{m_bounds.x + 20, m_content_top, m_bounds.x + m_bounds.w,
                                     m_content_top + 22};
@@ -736,9 +717,7 @@ void W8OptionsKeyboardPanel::Populate()
         add_key({m_bounds.x + 100, m_content_top, 0x15e - 100, 22}, row->primary_binding,
                 row->secondary_binding, "");
         m_content_top += 22;
-        if ((row++)->primary_binding == page.last_binding) {
-            break;
-        }
+        if ((row++)->primary_binding == page.last_binding) break;
     }
     const auto& reset = g_localized_strings[0x833];
     const int width = g_options_detail_font.textWidth(reset) + 20;
@@ -748,27 +727,22 @@ void W8OptionsKeyboardPanel::Populate()
 
 void W8OptionsKeyboardPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!m_active) {
-        return;
-    }
+    if (!m_active) return;
     const bool repaint = full_redraw || m_dirty;
     W8OptionsPanel::Redraw(target, full_redraw);
-    if (repaint) {
+    if (repaint)
         for (auto& key : m_keys) {
             key->text.SetFontStateIndex(key->interaction.pressed ? 13
                                         : key->target->hovered() ? 14
                                                                  : -1);
             key->text.RenderToTarget(0, true, target);
         }
-    }
 }
 
 void W8OptionsKeyboardPanel::SelectKey(W8OptionsKeyButton* key)
 {
     m_captured_button = key;
-    if (g_options_screen) {
-        g_options_screen->m_key_capture = key ? this : nullptr;
-    }
+    if (g_options_screen) g_options_screen->m_key_capture = key ? this : nullptr;
     for (auto& entry : m_keys) {
         entry->interaction.cancel(false);
         entry->interaction.selected = entry->interaction.pressed = entry.get() == key;
@@ -779,14 +753,10 @@ void W8OptionsKeyboardPanel::SelectKey(W8OptionsKeyButton* key)
 void W8OptionsKeyboardPanel::RefreshBindingLabels()
 {
     for (auto& key : m_keys) {
-        if (key->m_primary_binding == W8_MGS_COMMAND_NONE) {
-            continue;
-        }
+        if (key->m_primary_binding == W8_MGS_COMMAND_NONE) continue;
         auto* binding =
             g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(key->m_primary_binding));
-        if (binding) {
-            key->SetKeyText(binding->key);
-        }
+        if (binding) key->SetKeyText(binding->key);
     }
     InvalidateAll();
 }
@@ -1178,36 +1148,25 @@ void W8OptionsScreen::CreateControls()
         button->policy = {.primary_toggle =
                               item < 6 ? ButtonToggle::StayLatched : ButtonToggle::None,
                           .controller_activation = true};
-        if (item == 5) {
-            button->SetEnabled(g_status.game_started);
-        }
-        if (item == 4) {
-            button->SetEnabled(m_save_slots.size() > 1);
-        }
+        if (item == 5) button->SetEnabled(g_status.game_started);
+        if (item == 4) button->SetEnabled(m_save_slots.size() > 1);
         for (const auto& bounds : row.child_bounds) {
-            if (bounds.left == -1) {
-                continue;
-            }
+            if (bounds.left == -1) continue;
             m_menu_input.add(
                 SDL_Rect{bounds.left, bounds.top, bounds.right - bounds.left + 1,
                          bounds.bottom - bounds.top + 1},
                 [this, item, press = ButtonInteraction{}](const UiPointerEvent& event) mutable {
                     if (event.action == UiPointerAction::Enter ||
-                        event.action == UiPointerAction::Leave) {
+                        event.action == UiPointerAction::Leave)
                         PushButtonSoundScheme(0, true);
-                    }
-                    if (event.action == UiPointerAction::Leave) {
-                        press.leave({});
-                    }
+                    if (event.action == UiPointerAction::Leave) press.leave({});
                     if (event.button == UiPointerButton::Left &&
-                        event.action == UiPointerAction::Down) {
+                        event.action == UiPointerAction::Down)
                         press.press(SDL_BUTTON_LMASK, {});
-                    }
                     if (event.action == UiPointerAction::Up && event.inside &&
                         event.button == UiPointerButton::Left &&
-                        press.release(SDL_BUTTON_LMASK, {}).activate) {
+                        press.release(SDL_BUTTON_LMASK, {}).activate)
                         AfterUiDispatch([this, item] { ActivateMenu(item); });
-                    }
                     return UiResult::Handled;
                 });
         }
@@ -1279,9 +1238,7 @@ void W8OptionsScreen::SelectPanel(int selected)
         }
         UpdateNavigation();
     }
-    for (int item = 0; item < 6; ++item) {
-        m_menu_buttons[item]->SetPressed(item == selected);
-    }
+    for (int item = 0; item < 6; ++item) m_menu_buttons[item]->SetPressed(item == selected);
     if (m_selected_panel >= 0) {
         g_last_options_panel = m_selected_panel;
     }
@@ -1300,14 +1257,12 @@ void W8OptionsScreen::ShowNotification(bool allow_cancel, int message,
 
 void W8OptionsScreen::ActivateMenu(int item)
 {
-    if (!m_menu_buttons[item]->IsEnabled()) {
-        return;
-    }
-    if (item < 6) {
+    if (!m_menu_buttons[item]->IsEnabled()) return;
+    if (item < 6)
         SelectPanel(item);
-    } else if (item == 7) {
+    else if (item == 7)
         RequestScreenTransition();
-    } else {
+    else {
         FinishOptionsTextEdit(this, 1);
         ShowNotification(true, 0x832, [this](bool accepted) { OnDialogClosed(accepted, 0); });
     }
@@ -1344,9 +1299,7 @@ void W8OptionsScreen::Redraw()
         ClearPrimarySurface();
         ClearSurfaceRect(0, 0, 640, 480);
         CatalogArtwork::Load(0xee, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
-        for (auto& button : m_menu_buttons) {
-            button->m_dirty = true;
-        }
+        for (auto& button : m_menu_buttons) button->m_dirty = true;
         m_navigation_dirty = true;
         m_redraw_pending = false;
     }
@@ -1358,10 +1311,9 @@ void W8OptionsScreen::Redraw()
     }
     for (int item = 0; item < 8; ++item) {
         auto& button = *m_menu_buttons[item];
-        if (button.m_dirty && item == m_selected_panel) {
+        if (button.m_dirty && item == m_selected_panel)
             CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(
                 GetFrameBufferSurface(), g_options_menu_rows[item].item_id, 12, 15);
-        }
         button.Draw(GetFrameBufferSurface());
     }
     if (m_navigation_visible &&
@@ -1481,9 +1433,7 @@ void W8OptionsValues::TransferSettings()
 W8OptionsSlider::W8OptionsSlider(UiLayer& layer, SDL_Point origin, float* value, bool alternate)
     : m_origin(origin), m_value(value), m_backgroundSprite(alternate ? 4 : 0)
 {
-    if (value) {
-        m_position = *value;
-    }
+    if (value) m_position = *value;
     const auto size = m_artwork.size(m_backgroundSprite);
     m_thumbWidth = m_artwork.size(1).x;
     m_trackLength = size.x - m_thumbWidth;
@@ -1509,56 +1459,38 @@ void W8OptionsSlider::CancelDrag()
 void W8OptionsSlider::SetEnabled(bool enabled)
 {
     m_enabled = enabled;
-    if (!enabled) {
-        CancelDrag();
-    }
+    if (!enabled) CancelDrag();
     m_dirty = true;
 }
 
 UiResult W8OptionsSlider::HandlePointer(const UiPointerEvent& event)
 {
     PushButtonSoundScheme(0, true);
-    if (!m_enabled) {
-        return UiResult::Handled;
-    }
+    if (!m_enabled) return UiResult::Handled;
     const int x = event.position.x - g_cursor_hotspot_x - m_origin.x;
     switch (event.action) {
     case UiPointerAction::Down:
-        if (event.button != UiPointerButton::Left) {
-            break;
-        }
+        if (event.button != UiPointerButton::Left) break;
         m_dragCoordinate = x;
         m_dragging = true;
-        if (m_hovered) {
-            break;
-        }
+        if (m_hovered) break;
         m_hovered = true;
         m_position = (x - m_thumbWidth / 2) / static_cast<float>(m_trackLength) *
                          (m_maximumPosition - m_minimumPosition) +
                      m_minimumPosition;
         UpdatePixelPosition();
-        if (m_value) {
-            *m_value = m_position;
-        }
-        if (on_change) {
-            on_change(m_position);
-        }
+        if (m_value) *m_value = m_position;
+        if (on_change) on_change(m_position);
         break;
     case UiPointerAction::Move:
         if (m_dragging) {
-            if (x < 0 || x > m_trackLength + m_thumbWidth / 2) {
-                break;
-            }
+            if (x < 0 || x > m_trackLength + m_thumbWidth / 2) break;
             m_position += (x - m_dragCoordinate) / static_cast<float>(m_trackLength) *
                           (m_maximumPosition - m_minimumPosition);
             m_dragCoordinate = x;
             UpdatePixelPosition();
-            if (m_value) {
-                *m_value = m_position;
-            }
-            if (on_change) {
-                on_change(m_position);
-            }
+            if (m_value) *m_value = m_position;
+            if (on_change) on_change(m_position);
         } else {
             const bool hovered = m_pixelPosition <= x && x <= m_pixelPosition + m_thumbWidth;
             m_dirty |= m_hovered != hovered;
@@ -1568,9 +1500,7 @@ UiResult W8OptionsSlider::HandlePointer(const UiPointerEvent& event)
     case UiPointerAction::Up:
         if (event.button == UiPointerButton::Left && m_dragging) {
             CancelDrag();
-            if (on_release) {
-                on_release();
-            }
+            if (on_release) on_release();
         }
         break;
     case UiPointerAction::Leave:
@@ -1587,9 +1517,7 @@ UiResult W8OptionsSlider::HandlePointer(const UiPointerEvent& event)
 
 void W8OptionsSlider::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!full_redraw && !m_dirty) {
-        return;
-    }
+    if (!full_redraw && !m_dirty) return;
     m_dirty = false;
     const auto [left, top] = m_origin;
     m_artwork.drawAndInvalidate(target, m_backgroundSprite, left, top);
@@ -1671,9 +1599,7 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
     for (int index = 0; index < count; ++index) {
         auto* button = AddChoiceButton(choices[index], [this, first, count, index, value](auto*) {
             *value = index;
-            for (int i = 0; i < count; ++i) {
-                m_buttons[first + i]->SetPressed(i == index);
-            }
+            for (int i = 0; i < count; ++i) m_buttons[first + i]->SetPressed(i == index);
         });
         button->policy.primary_toggle = ButtonToggle::StayLatched;
         button->SetPressed(index == *value);
@@ -1683,23 +1609,17 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
 
 void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!m_active) {
-        return;
-    }
+    if (!m_active) return;
     const bool repaint = full_redraw || m_dirty;
     if (repaint) {
         m_background.drawAndInvalidate(target, m_backgroundImage, m_bounds.x, m_bounds.y);
-        for (auto& text : m_text_buffers) {
-            text->RenderToTarget(0, true, target);
-        }
+        for (auto& text : m_text_buffers) text->RenderToTarget(0, true, target);
     }
     for (auto& button : m_buttons) {
         button->m_dirty |= repaint;
         button->Draw(target);
     }
-    for (auto& slider : m_owned_sliders) {
-        slider->Redraw(target, repaint);
-    }
+    for (auto& slider : m_owned_sliders) slider->Redraw(target, repaint);
     m_dirty = false;
 }
 
@@ -1713,15 +1633,10 @@ W8OptionsPanel::W8OptionsPanel()
 void W8OptionsPanel::SetActive(bool active)
 {
     m_active = active;
-    if (!active) {
-        for (auto& slider : m_owned_sliders) {
-            slider->CancelDrag();
-        }
-    }
+    if (!active)
+        for (auto& slider : m_owned_sliders) slider->CancelDrag();
     m_input.setEnabled(active);
-    for (auto& button : m_buttons) {
-        button->SetVisible(active);
-    }
+    for (auto& button : m_buttons) button->SetVisible(active);
     InvalidateAll();
 }
 
@@ -1736,12 +1651,10 @@ void W8OptionsPanelSet::Scroll(int delta)
     const int current = m_page_count ? m_panels[0]->m_current : m_current;
     const int count = m_page_count ? m_page_count : static_cast<int>(m_panels.size());
     const int next = std::clamp(current + delta, 0, count - 1);
-    if (next == current) {
-        return;
-    }
-    if (m_page_count) {
+    if (next == current) return;
+    if (m_page_count)
         m_panels[0]->SetCurrent(next);
-    } else {
+    else {
         m_panels[m_current]->SetActive(false);
         m_current = next;
         m_panels[m_current]->SetActive(true);
@@ -1862,9 +1775,7 @@ void OptionsScreenFrame()
             const bool accepted = active_modal->accepted;
             auto closed = std::exchange(screen->m_notification_closed, {});
             active_modal.reset();
-            if (closed) {
-                closed(accepted);
-            }
+            if (closed) closed(accepted);
             screen->m_redraw_pending = true;
             if (screen->m_selected_panel != -1) {
                 W8OptionsPanelSet* panel_set = screen->m_panel[screen->m_selected_panel].get();
@@ -1875,7 +1786,7 @@ void OptionsScreenFrame()
         }
     }
 
-    if (!screen->m_active_modal) {
+    if (!screen->m_active_modal)
         PumpUiInput({
             .before =
                 [screen](const InputEvent& input) {
@@ -1889,7 +1800,6 @@ void OptionsScreenFrame()
                     return InputRoute::Handled;
                 },
         });
-    }
     screen->Redraw();
     if (g_options_first_frame) {
         SetRendererAutoFlipEnabled(false);

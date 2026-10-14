@@ -221,10 +221,7 @@ struct W8LevelFilePathAI {
     std::vector<W8LevelFileScaledPathNode> scaled_paths;
     std::vector<W8LevelFilePathNode> paths;
 
-    bool IsScaled() const
-    {
-        return scaled == 2;
-    }
+    bool IsScaled() const { return scaled == 2; }
     int PathCount() const
     {
         return static_cast<int>(IsScaled() ? scaled_paths.size() : paths.size());
@@ -232,9 +229,7 @@ struct W8LevelFilePathAI {
     /* A frame as a scaled node; unscaled frames get unit scale. */
     W8LevelFileScaledPathNode Node(int frame) const
     {
-        if (IsScaled()) {
-            return scaled_paths[frame];
-        }
+        if (IsScaled()) return scaled_paths[frame];
         return {paths[frame], srVector3T<float>(1.0f, 1.0f, 1.0f)};
     }
 };
@@ -262,18 +257,9 @@ struct W8LevelFileMesh {
     std::vector<W8LevelFileCompressedFace> compressed_faces;
     std::vector<W8SerializedMeshFace> faces;
 
-    bool HasLods() const
-    {
-        return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
-    }
-    bool HasShortLods() const
-    {
-        return (flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
-    }
-    bool HasCompressedFaces() const
-    {
-        return (flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0;
-    }
+    bool HasLods() const { return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0; }
+    bool HasShortLods() const { return (flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0; }
+    bool HasCompressedFaces() const { return (flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0; }
     int LodCount() const
     {
         return static_cast<int>(HasShortLods() ? lod_shorts.size() : lods.size());
@@ -517,9 +503,7 @@ struct W8LevelFileAnimObj {
     {
         for (const auto& transform : transforms) {
             const int count = transform.pathAI.PathCount();
-            if (count <= frame) {
-                frame = static_cast<unsigned short>(count - 1);
-            }
+            if (count <= frame) frame = static_cast<unsigned short>(count - 1);
         }
         return frame;
     }

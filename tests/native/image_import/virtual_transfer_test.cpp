@@ -86,9 +86,7 @@ static void checkGray(srColorSurfaceIFace* surface)
     for (unsigned y = 0; y < 2; ++y) {
         const auto* row =
             static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch();
-        for (unsigned x = 0; x < 3; ++x) {
-            REQUIRE(abs(int(row[x]) - int(20 + (y * 3 + x) * 9)) <= 1);
-        }
+        for (unsigned x = 0; x < 3; ++x) REQUIRE(abs(int(row[x]) - int(20 + (y * 3 + x) * 9)) <= 1);
     }
 }
 static void checkTga(const char* name, bool succeeds)
@@ -108,11 +106,10 @@ static void checkTga(const char* name, bool succeeds)
         const unsigned char expected[] = {0,    0, 0x03, 0xfc, 0xe0, 0x03,
                                           0x1f, 0, 0,    0x7c, 0xff, 0xff};
         REQUIRE((surface->getWidth() == 3 && surface->getHeight() == 2));
-        for (unsigned y = 0; y < 2; ++y) {
+        for (unsigned y = 0; y < 2; ++y)
             REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) +
                                y * surface->getPitch(),
                            expected + y * 6, 6) == 0);
-        }
     }
     REQUIRE((handle->size() > 0 && (handle->seek(0, wiz8::SeekOrigin::begin), true)));
     unsigned char signature = 255;
@@ -139,11 +136,10 @@ static void runtimeImages()
         REQUIRE((desc.width == 3 && desc.height == 2));
         const unsigned char expected[] = {0,    0, 0x03, 0xfc, 0xe0, 0x03,
                                           0x1f, 0, 0,    0x7c, 0xff, 0xff};
-        for (unsigned y = 0; y < 2; ++y) {
+        for (unsigned y = 0; y < 2; ++y)
             REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) +
                                y * surface->getPitch(),
                            expected + y * 6, 6) == 0);
-        }
     }
     for (const char* name :
          {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg", "jpg://Data/archive.jpg",
@@ -175,11 +171,9 @@ static void runtimeImages()
         output->close();
         auto decoded = srImage::load(name);
         REQUIRE((decoded && decoded->getWidth() == 3 && decoded->getHeight() == 2));
-        for (unsigned y = 0; y < 2; ++y) {
-            for (unsigned x = 0; x < 3; ++x) {
+        for (unsigned y = 0; y < 2; ++y)
+            for (unsigned x = 0; x < 3; ++x)
                 REQUIRE(decoded->getPixel(x, y) == surface->getPixel(x, y));
-            }
-        }
     }
 }
 static void checkUninitialized()

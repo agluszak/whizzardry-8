@@ -34,10 +34,7 @@ class W8CharacterSpellList {
 public:
     W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, int y,
                          W8CharacterSpellEntry* entries);
-    ~W8CharacterSpellList()
-    {
-        m_owner.input.remove(*m_target);
-    }
+    ~W8CharacterSpellList() { m_owner.input.remove(*m_target); }
     void Redraw(SDL_Surface& target, bool force);
     void SetEntryCount(int count);
     W8CharacterSpellsPage& m_owner;
@@ -68,9 +65,7 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
             const int entry =
                 (event.position.y - m_bounds.y) / 13 + m_scroll_offset + m_first_entry;
             const bool valid = entry >= m_first_entry && entry < m_first_entry + m_entry_count;
-            if (event.action == UiPointerAction::Enter || !valid) {
-                PushButtonSoundScheme(0, true);
-            }
+            if (event.action == UiPointerAction::Enter || !valid) PushButtonSoundScheme(0, true);
             if (event.action == UiPointerAction::Leave) {
                 m_hovered_entry = -1;
                 m_dirty = true;
@@ -85,9 +80,9 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
                 m_range->AdjustValue(event.wheel);
             } else if (event.action == UiPointerAction::Up && event.inside &&
                        event.captured_buttons && valid) {
-                if (event.button == UiPointerButton::Right) {
+                if (event.button == UiPointerButton::Right)
                     AfterUiDispatch([this, entry] { m_owner.ShowSpellInfo(entry); });
-                } else if (m_entries[entry].fSelectable) {
+                else if (m_entries[entry].fSelectable) {
                     m_dirty = true;
                     AfterUiDispatch([this, entry] { m_owner.SelectSpell(entry); });
                 }
@@ -129,9 +124,7 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         for (int index = m_first_entry + m_scroll_offset;
              index < m_first_entry + m_scroll_offset + 7; ++index) {
-            if (index >= m_first_entry + m_entry_count) {
-                break;
-            }
+            if (index >= m_first_entry + m_entry_count) break;
             if (!m_entries[index].fSelectable) {
                 g_wiz_text_font_secondary.setShade(6);
             } else if (m_entries[index].selected) {

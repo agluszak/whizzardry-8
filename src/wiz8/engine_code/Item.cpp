@@ -176,16 +176,12 @@ W8ItemRep::~W8ItemRep() = default;
 // FUNCTION: WIZ8 0x0049F170
 bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh)
 {
-    if (!info || !info->hFile || !item) {
-        return false;
-    }
+    if (!info || !info->hFile || !item) return false;
     const char* bitmap_folder = info->bitmap_folder;
     info->bitmap_folder = "Data\\Items3D\\Bitmaps";
     auto mesh = ReadSingleLevelMesh(info, anonymous_mesh ? nullptr : info->mesh_filename, true);
     info->bitmap_folder = bitmap_folder;
-    if (!mesh) {
-        return false;
-    }
+    if (!mesh) return false;
     mesh->setName("ItemRep::ReadFromFile");
     mesh->render_flags |= stModelInstance::RENDER_SHADOW;
     SetModelInstanceChainExclusionMask(mesh.get(), 4);
@@ -250,9 +246,7 @@ try {
         *output = item;
         success = true;
     }
-    if (file) {
-        file->close();
-    }
+    if (file) file->close();
     file.reset();
     delete[] mesh_name;
     return success;

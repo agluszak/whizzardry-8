@@ -78,9 +78,7 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     const auto button = [this](int x, int frame, int direction) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
         const auto adjust = [this, direction](int amount) {
-            if (on_adjust) {
-                on_adjust(direction * amount);
-            }
+            if (on_adjust) on_adjust(direction * amount);
             UpdateButtons();
             MarkDirty();
         };
@@ -102,9 +100,8 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     m_help =
         &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13}, [this](const UiPointerEvent& event) {
             if (event.action == UiPointerAction::Up && event.inside &&
-                event.button == UiPointerButton::Right && event.captured_buttons && on_info) {
+                event.button == UiPointerButton::Right && event.captured_buttons && on_info)
                 AfterUiDispatch(on_info);
-            }
             return UiResult::Handled;
         });
     m_help->setEnabled(false);
@@ -124,11 +121,10 @@ void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, u
     m_second = second;
     m_third = third;
     m_label.SetText(label, g_wiz_text_font_secondary);
-    if (help_id == -1) {
+    if (help_id == -1)
         m_help->setTooltip({});
-    } else {
+    else
         m_help->setTooltip([help_id] { return std::string(g_localized_strings[help_id]); });
-    }
     SetEnabled(true);
     UpdateButtons();
     MarkDirty();
@@ -247,14 +243,10 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 // FUNCTION: WIZ8 0x005aff20
 void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!m_active) {
-        return;
-    }
+    if (!m_active) return;
     if (m_dirty || full_redraw) {
         background.drawAndInvalidate(target, 0, bounds.x, bounds.y);
-        for (const auto& entry : m_entries) {
-            entry->MarkDirty();
-        }
+        for (const auto& entry : m_entries) entry->MarkDirty();
     }
     m_dirty = false;
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {

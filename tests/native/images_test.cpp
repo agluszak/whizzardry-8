@@ -87,20 +87,16 @@ static Bytes tga(unsigned depth, bool top, bool rle)
     const std::array<std::uint16_t, 6> packed{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
     const std::array<std::array<std::uint8_t, 3>, 6> colors{
         {{0, 0, 0}, {1, 1, 1}, {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {23, 45, 67}}};
-    if (rle) {
-        bytes.push_back(5); // One raw RLE packet crossing the scan-line boundary.
-    }
-    for (unsigned row = 0; row < 2; ++row) {
+    if (rle) bytes.push_back(5); // One raw RLE packet crossing the scan-line boundary.
+    for (unsigned row = 0; row < 2; ++row)
         for (unsigned x = 0; x < 3; ++x) {
             const unsigned index = (top ? row : 1 - row) * 3 + x;
             if (depth == 16) {
                 bytes.push_back(packed[index]);
                 bytes.push_back(packed[index] >> 8);
-            } else {
+            } else
                 bytes.insert(bytes.end(), {colors[index][2], colors[index][1], colors[index][0]});
-            }
         }
-    }
     return bytes;
 }
 
@@ -129,9 +125,9 @@ static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const B
     header.usHeight = height;
     header.ubDepth = depth;
     header.fFlags = depth == 8 ? STCI_INDEXED : STCI_RGB;
-    if (depth == 8) {
+    if (depth == 8)
         header.Indexed.uiNumberOfColours = 256;
-    } else {
+    else {
         const auto* native_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
         REQUIRE(native_format != nullptr);
         header.RGB.uiRedMask = native_format->Rmask;
@@ -150,11 +146,9 @@ static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const B
     header.uiStoredSize = stored.size();
     Bytes bytes(sizeof(header));
     memcpy(bytes.data(), &header, sizeof(header));
-    if (depth == 8) {
-        for (unsigned i = 0; i < 256; ++i) {
+    if (depth == 8)
+        for (unsigned i = 0; i < 256; ++i)
             bytes.insert(bytes.end(), {std::uint8_t(i), std::uint8_t(i), std::uint8_t(i)});
-        }
-    }
     bytes.insert(bytes.end(), stored.begin(), stored.end());
     return bytes;
 }
@@ -164,18 +158,15 @@ static Bytes rgb_pcx(const std::uint8_t* rgb)
     auto bytes = pcx();
     bytes.resize(128);
     bytes[65] = 3;
-    for (unsigned row = 0; row < 2; ++row) {
+    for (unsigned row = 0; row < 2; ++row)
         for (unsigned plane = 0; plane < 3; ++plane) {
             for (unsigned x = 0; x < 3; ++x) {
                 const auto value = rgb[(row * 3 + x) * 3 + plane];
-                if (value >= 0xc0) {
-                    bytes.push_back(0xc1);
-                }
+                if (value >= 0xc0) bytes.push_back(0xc1);
                 bytes.push_back(value);
             }
             bytes.push_back(99);
         }
-    }
     return bytes;
 }
 
@@ -249,10 +240,9 @@ static std::vector<std::uint8_t> bitmap_bytes(const SDL_Surface& image)
     const int row_bytes = image.w * SDL_BYTESPERPIXEL(format);
     std::vector<std::uint8_t> bytes(std::size_t(row_bytes) * image.h);
     if (format == image.format) {
-        for (int y = 0; y < image.h; ++y) {
+        for (int y = 0; y < image.h; ++y)
             std::copy_n(static_cast<const std::uint8_t*>(image.pixels) + y * image.pitch, row_bytes,
                         bytes.data() + std::size_t(y) * row_bytes);
-        }
     } else {
         REQUIRE(SDL_ConvertPixels(image.w, image.h, image.format, image.pixels, image.pitch, format,
                                   bytes.data(), row_bytes));
@@ -431,8 +421,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && SDL_BYTESPERPIXEL(image->format) >= 3 && !indexed(*image)));
         REQUIRE(!memcmp(bitmap_bytes(*image).data(), rgb, sizeof(rgb)));
     }
-    for (unsigned depth : {16u, 24u}) {
-        for (bool top : {false, true}) {
+    for (unsigned depth : {16u, 24u})
+        for (bool top : {false, true})
             for (bool rle : {false, true}) {
                 fixture(assets / "test.tga", tga(depth, top, rle));
                 auto image = load("test.tga");
@@ -442,8 +432,6 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
                                 depth == 16 ? static_cast<const void*>(packed) : rgb,
                                 depth == 16 ? sizeof(packed) : sizeof(rgb)));
             }
-        }
-    }
     {
         fixture(assets / "indexed.tga", indexed_tga());
         auto image = load("indexed.tga");
@@ -503,7 +491,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
             SDL_CreateSurface(8, 8, SDL_PIXELFORMAT_RGB24), SDL_DestroySurface);
         REQUIRE(surface);
-        for (int y = 0; y < 8; ++y) {
+        for (int y = 0; y < 8; ++y)
             for (int x = 0; x < 8; ++x) {
                 auto* pixel =
                     static_cast<std::uint8_t*>(surface->pixels) + y * surface->pitch + x * 3;
@@ -511,7 +499,6 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
                 pixel[1] = 20;
                 pixel[2] = 40;
             }
-        }
         REQUIRE(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
         auto image = load("test.jpeg");
         REQUIRE((image && image->w == 8 && image->h == 8 && SDL_BYTESPERPIXEL(image->format) >= 3));
@@ -529,9 +516,7 @@ TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode to normalized pixel data", "[
     for (unsigned depth : {8u, 16u, 24u}) {
         const unsigned width = 5, height = 3;
         Bytes expected(width * height * (depth / 8));
-        for (std::size_t i = 0; i < expected.size(); ++i) {
-            expected[i] = (i * 7) ^ (i >> 5);
-        }
+        for (std::size_t i = 0; i < expected.size(); ++i) expected[i] = (i * 7) ^ (i >> 5);
         for (bool compressed : {false, true}) {
             fixture(assets / "bitmap.sti", sti_bitmap(width, height, depth, expected, compressed));
             auto image = load("bitmap.sti");
@@ -563,10 +548,9 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
                                                         std::uint16_t(0x001f | alpha)};
             const auto frame = ConvertBitmapToFrameSurface(*image);
             REQUIRE((frame->w == 2 && frame->h == 2));
-            for (int y = 0; y < 2; ++y) {
+            for (int y = 0; y < 2; ++y)
                 REQUIRE(!memcmp(static_cast<const std::uint8_t*>(frame->pixels) + y * frame->pitch,
                                 expected.data() + y * 2, 2 * sizeof(std::uint16_t)));
-            }
         }
     }
     rgb555();
@@ -621,27 +605,13 @@ TEST_CASE_METHOD(ImageFixture, "Malformed ETRLE fails before any image is expose
     for (unsigned corruption = 0; corruption < 8; ++corruption) {
         auto frames = valid_frames;
         auto pixels = runs;
-        if (corruption == 0) {
-            pixels[6] = 0x80; // Zero-length run in the second frame.
-        }
-        if (corruption == 1) {
-            frames[1].uiDataLength = 3; // Missing terminator.
-        }
-        if (corruption == 2) {
-            frames[1].uiDataOffset = 0xffffffffu;
-        }
-        if (corruption == 3) {
-            frames[1].usWidth = 2; // Run exceeds row width.
-        }
-        if (corruption == 4) {
-            frames[1].usWidth = 4; // Short row.
-        }
-        if (corruption == 5) {
-            frames[1].usWidth = frames[1].usHeight = 65535;
-        }
-        if (corruption == 6) {
-            pixels[6] = 3; // Truncated literal run.
-        }
+        if (corruption == 0) pixels[6] = 0x80; // Zero-length run in the second frame.
+        if (corruption == 1) frames[1].uiDataLength = 3; // Missing terminator.
+        if (corruption == 2) frames[1].uiDataOffset = 0xffffffffu;
+        if (corruption == 3) frames[1].usWidth = 2; // Run exceeds row width.
+        if (corruption == 4) frames[1].usWidth = 4; // Short row.
+        if (corruption == 5) frames[1].usWidth = frames[1].usHeight = 65535;
+        if (corruption == 6) pixels[6] = 3; // Truncated literal run.
         if (corruption == 7) {
             frames[1].usWidth = frames[1].usHeight = 0;
             frames[1].uiDataOffset = pixels.size() + 1;
@@ -663,9 +633,7 @@ TEST_CASE_METHOD(ImageFixture,
                  "[image][decoding]")
 {
     Bytes expected(500 * 200);
-    for (std::size_t i = 0; i < expected.size(); ++i) {
-        expected[i] = (i * 7) ^ (i >> 5);
-    }
+    for (std::size_t i = 0; i < expected.size(); ++i) expected[i] = (i * 7) ^ (i >> 5);
     const auto valid = sti_bitmap(500, 200, 8, expected, true);
     auto truncated = valid;
     truncated.pop_back();
@@ -697,55 +665,25 @@ TEST_CASE_METHOD(ImageFixture, "Malformed STI zlib data fails at the loading bou
         auto bytes = valid;
         STCIHeader header;
         memcpy(&header, bytes.data(), sizeof(header));
-        if (corruption == 0) {
-            bytes.pop_back();
-        }
-        if (corruption == 1) {
-            bytes.back() ^= 1;
-        }
+        if (corruption == 0) bytes.pop_back();
+        if (corruption == 1) bytes.back() ^= 1;
         if (corruption == 2) {
             bytes.push_back(0);
             ++header.uiStoredSize;
         }
-        if (corruption == 3) {
-            ++header.uiOriginalSize;
-        }
-        if (corruption == 4) {
-            ++header.usHeight;
-        }
-        if (corruption == 5) {
-            header.uiOriginalSize = 0xffffffffu;
-        }
-        if (corruption == 6) {
-            header.usWidth = 0;
-        }
-        if (corruption == 7) {
-            header.usHeight = 0;
-        }
-        if (corruption == 8) {
-            header.usWidth = header.usHeight = 65535;
-        }
-        if (corruption == 9) {
-            header.fFlags |= STCI_ETRLE_COMPRESSED;
-        }
-        if (corruption == 10) {
-            header.Indexed.uiNumberOfColours = 255;
-        }
-        if (corruption == 11) {
-            header.uiAppDataSize = 1;
-        }
-        if (corruption < 12) {
-            memcpy(bytes.data(), &header, sizeof(header));
-        }
-        if (corruption == 12) {
-            bytes = sti_bitmap(3, 2, 8, {}, true);
-        }
-        if (corruption == 13) {
-            bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4}, true);
-        }
-        if (corruption == 14) {
-            bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4, 5, 6}, true);
-        }
+        if (corruption == 3) ++header.uiOriginalSize;
+        if (corruption == 4) ++header.usHeight;
+        if (corruption == 5) header.uiOriginalSize = 0xffffffffu;
+        if (corruption == 6) header.usWidth = 0;
+        if (corruption == 7) header.usHeight = 0;
+        if (corruption == 8) header.usWidth = header.usHeight = 65535;
+        if (corruption == 9) header.fFlags |= STCI_ETRLE_COMPRESSED;
+        if (corruption == 10) header.Indexed.uiNumberOfColours = 255;
+        if (corruption == 11) header.uiAppDataSize = 1;
+        if (corruption < 12) memcpy(bytes.data(), &header, sizeof(header));
+        if (corruption == 12) bytes = sti_bitmap(3, 2, 8, {}, true);
+        if (corruption == 13) bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4}, true);
+        if (corruption == 14) bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4, 5, 6}, true);
         fixture(assets / "bad-zlib.sti", bytes);
         for (unsigned repeat = 0; repeat < 3; ++repeat) {
             REQUIRE_FALSE(LoadImage("bad-zlib.sti"));
@@ -767,9 +705,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
     invalid_pcx[5].resize(130); // Truncated RLE/palette.
     for (const auto& bytes : invalid_pcx) {
         fixture(assets / "invalid.pcx", bytes);
-        for (unsigned repeat = 0; repeat < 10; ++repeat) {
-            CHECK(!load("invalid.pcx"));
-        }
+        for (unsigned repeat = 0; repeat < 10; ++repeat) CHECK(!load("invalid.pcx"));
     }
     std::vector<Bytes> invalid_tga{{},
                                    Bytes(17),
@@ -811,10 +747,7 @@ TEST_CASE("SDL sprite drawing preserves opaque pixels across native formats")
     const auto previous_format = g_sgp_pixel_format;
     struct RestoreFormat {
         SDL_PixelFormat format;
-        ~RestoreFormat()
-        {
-            g_sgp_pixel_format = format;
-        }
+        ~RestoreFormat() { g_sgp_pixel_format = format; }
     } restore{previous_format};
     SpriteFrame frame;
     frame.width = 2;

@@ -48,11 +48,8 @@ std::vector<std::uint16_t> pixels(SDL_Surface& image)
 {
     std::vector<std::uint16_t> result;
     result.reserve(image.w * image.h);
-    for (int y = 0; y < image.h; ++y) {
-        for (int x = 0; x < image.w; ++x) {
-            result.push_back(pixel(image, x, y));
-        }
-    }
+    for (int y = 0; y < image.h; ++y)
+        for (int x = 0; x < image.w; ++x) result.push_back(pixel(image, x, y));
     return result;
 }
 
@@ -64,14 +61,11 @@ std::vector<std::uint16_t> golden(std::string_view name)
         std::istringstream values(line);
         std::string entry;
         values >> entry;
-        if (entry != name) {
-            continue;
-        }
+        if (entry != name) continue;
         std::vector<std::uint16_t> result;
         std::string value;
-        while (values >> value) {
+        while (values >> value)
             result.push_back(static_cast<std::uint16_t>(std::stoul(value, nullptr, 0)));
-        }
         return result;
     }
     return {};
@@ -84,9 +78,8 @@ SpriteSheet sprite_sheet(unsigned width, unsigned height, std::vector<std::uint1
     sprites.frames[0].width = static_cast<int>(width);
     sprites.frames[0].height = static_cast<int>(height);
     sprites.frames[0].indices = std::move(indices);
-    for (std::size_t index = 0; index < sprites.colors.size(); ++index) {
+    for (std::size_t index = 0; index < sprites.colors.size(); ++index)
         sprites.colors[index] = static_cast<std::uint16_t>(0x1000 + index);
-    }
     return sprites;
 }
 
@@ -97,9 +90,8 @@ constexpr int blitter_pitch = blitter_width * 2;
 void reset_surface(SDL_Surface& image, std::uint16_t multiplier, std::uint16_t offset)
 {
     auto* pixels = static_cast<std::uint16_t*>(image.pixels);
-    for (int index = 0; index < image.pitch * image.h / 2; ++index) {
+    for (int index = 0; index < image.pitch * image.h / 2; ++index)
         pixels[index] = static_cast<std::uint16_t>(index * multiplier + offset);
-    }
 }
 
 SpriteSheet legacy_sprite(int data, const std::array<std::uint16_t, 256>& palette)
@@ -145,9 +137,8 @@ std::vector<std::string> legacy_goldens()
         std::istringstream fields(line);
         std::string name;
         fields >> name;
-        if (name.starts_with("Blt") || name == "DrawSpriteMono" || name == "FillRect16BPP") {
+        if (name.starts_with("Blt") || name == "DrawSpriteMono" || name == "FillRect16BPP")
             result.push_back(line);
-        }
     }
     return result;
 }
@@ -157,9 +148,8 @@ bool matches_legacy_golden(const SDL_Surface& image, const SDL_Rect& rect, std::
 {
     std::uint64_t hash = UINT64_C(14695981039346656037);
     const auto* bytes = static_cast<const std::uint8_t*>(image.pixels);
-    for (int index = 0; index < image.pitch * image.h; ++index) {
+    for (int index = 0; index < image.pitch * image.h; ++index)
         hash = (hash ^ bytes[index]) * UINT64_C(1099511628211);
-    }
 
     char actual[256];
     std::snprintf(actual, sizeof(actual), "%.*s %d %u %d,%d,%d,%d %08x%08x",
@@ -267,11 +257,9 @@ TEST_CASE("self blits preserve overlapping rows in either direction", "[blit]")
     auto target = surface(4, 6);
     REQUIRE(target);
     const auto reset = [&] {
-        for (int y = 0; y < target->h; ++y) {
-            for (int x = 0; x < target->w; ++x) {
+        for (int y = 0; y < target->h; ++y)
+            for (int x = 0; x < target->w; ++x)
                 pixel(*target, x, y) = static_cast<std::uint16_t>(y * 10 + x);
-            }
-        }
     };
 
     reset();
@@ -340,29 +328,22 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Overlay border copies preserve offset so
                  "[blit]")
 {
     auto source = surface(6, 5);
-    for (int y = 0; y < source->h; ++y) {
-        for (int x = 0; x < source->w; ++x) {
-            pixel(*source, x, y) = 0x8000 + y * 16 + x;
-        }
-    }
+    for (int y = 0; y < source->h; ++y)
+        for (int x = 0; x < source->w; ++x) pixel(*source, x, y) = 0x8000 + y * 16 + x;
     srColorSurface target(srPixelConvert::SURFACE_ARGB1555, 8, 8);
-    for (int y = 0; y < 8; ++y) {
-        for (int x = 0; x < 8; ++x) {
-            target.setPixelRaw(x, y, 0xeeee);
-        }
-    }
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) target.setPixelRaw(x, y, 0xeeee);
     const W8ControlsRect rect{2, 1, 5, 3};
     float scale_x, scale_y, mapping_x, mapping_y;
     REQUIRE(
         CopySurfaceWithBorder(&target, &rect, *source, &scale_x, &scale_y, &mapping_x, &mapping_y));
-    for (int y = 0; y < 8; ++y) {
+    for (int y = 0; y < 8; ++y)
         for (int x = 0; x < 8; ++x) {
             const unsigned expected = x < 5 && y < 4 ? pixel(*source, 2 + std::clamp(x - 1, 0, 2),
                                                              1 + std::clamp(y - 1, 0, 1))
                                                      : 0xeeee;
             REQUIRE(target.getPixelRaw(x, y) == expected);
         }
-    }
 }
 
 TEST_CASE("Sprite transparency preserves opaque RGB regardless of alpha bits", "[blit]")
@@ -380,9 +361,7 @@ TEST_CASE("Sprite transparency preserves opaque RGB regardless of alpha bits", "
         g_sgp_pixel_format = format;
         REQUIRE(InitializePrimarySurface());
         auto sprites = sprite_sheet(4, 1, {0, 1, SpriteFrame::kTransparent, 2});
-        for (unsigned i = 0; i < sprites.colors.size(); ++i) {
-            sprites.colors[i] = 0x8000 | i;
-        }
+        for (unsigned i = 0; i < sprites.colors.size(); ++i) sprites.colors[i] = 0x8000 | i;
         const auto image = RenderSpriteToImage(sprites, 0);
         REQUIRE(image);
         auto target = CreateCpuStorage(5, 1, format);
@@ -391,9 +370,8 @@ TEST_CASE("Sprite transparency preserves opaque RGB regardless of alpha bits", "
             REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
             DrawSprite(*target, sprites, 0, 0, 0, {.mirror = mirrored});
             const std::uint16_t expected[]{0x8000, 0x8001, 0x1234, 0x8002};
-            for (int x = 0; x < 4; ++x) {
+            for (int x = 0; x < 4; ++x)
                 REQUIRE(pixel(*target, x, 0) == expected[mirrored ? 3 - x : x]);
-            }
             REQUIRE(pixel(*target, 4, 0) == 0x1234);
         }
         // Surface consumers must also preserve opaque black when SDL blits it.
@@ -487,10 +465,7 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
         {
             g_sgp_pixel_format = format;
         }
-        ~PixelFormatRestore()
-        {
-            g_sgp_pixel_format = previous_;
-        }
+        ~PixelFormatRestore() { g_sgp_pixel_format = previous_; }
 
     private:
         SDL_PixelFormat previous_;
@@ -500,9 +475,8 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
     std::array<std::uint16_t, 256> palette{};
     for (unsigned index = 0; index < 65536; ++index) {
         ShadeTable[index] = static_cast<std::uint16_t>((index * 37) ^ 0x1234);
-        if (index < palette.size()) {
+        if (index < palette.size())
             palette[index] = static_cast<std::uint16_t>((index * 257) ^ 0x57ab);
-        }
     }
 
     const auto check = [&](std::string_view name, int variant, bool result, const SDL_Rect& rect,
@@ -614,11 +588,10 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
         auto* sdl_palette = SDL_CreateSurfacePalette(bitmap.get());
         REQUIRE(sdl_palette);
         REQUIRE(SDL_SetPaletteColors(sdl_palette, bitmap_palette.data(), 0, 256));
-        for (int y = 0; y < blitter_height; ++y) {
+        for (int y = 0; y < blitter_height; ++y)
             std::memcpy(static_cast<std::uint8_t*>(bitmap->pixels) + y * bitmap->pitch,
                         static_cast<const std::uint8_t*>(source->pixels) + y * blitter_pitch,
                         blitter_pitch);
-        }
         REQUIRE(Create16BPPPalette(bitmap_palette) == palette);
         auto indexed_surface = ConvertBitmapToFrameSurface(*bitmap);
         REQUIRE(indexed_surface);
@@ -629,11 +602,9 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
     }
 
     std::array<std::uint8_t, 64> pattern{};
-    for (unsigned y = 0; y < 8; ++y) {
-        for (unsigned x = 0; x < 8; ++x) {
+    for (unsigned y = 0; y < 8; ++y)
+        for (unsigned x = 0; x < 8; ++x)
             pattern[y * 8 + x] = static_cast<std::uint8_t>((x + 3 * y) % 5);
-        }
-    }
     for (int variant = 0; variant < 6; ++variant) {
         const SDL_Rect clip = variant % 2 ? SDL_Rect{2, 3, 16, 8} : full;
         const SDL_Rect legacy_area{-1, 1, 10 + variant, 11};

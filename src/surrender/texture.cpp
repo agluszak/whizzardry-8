@@ -419,17 +419,11 @@ const char* srTextureIFace::getTextureName()
 
 void srTexture::copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request)
 {
-    if (request.destinations.empty()) {
-        return;
-    }
-    if (auto* first = request.destinations.front()) {
-        first->copy(source);
-    }
+    if (request.destinations.empty()) return;
+    if (auto* first = request.destinations.front()) first->copy(source);
     for (std::size_t level = 1; level < request.destinations.size(); ++level) {
         auto* destination = request.destinations[level];
         auto* previous = request.destinations[level - 1];
-        if (destination && previous) {
-            destination->copy(*previous);
-        }
+        if (destination && previous) destination->copy(*previous);
     }
 }

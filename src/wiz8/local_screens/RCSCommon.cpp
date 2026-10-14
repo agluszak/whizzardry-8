@@ -285,9 +285,8 @@ UiResult HandleCampDismissPortrait(const UiPointerEvent& event)
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
     }
     if (event.action == UiPointerAction::Up && event.inside &&
-        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
         AfterUiDispatch(DismissSelectedPartyCharacter);
-    }
     return UiResult::Handled;
 }
 
@@ -297,17 +296,13 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
         g_camp_screen->redraw_flags |= 1u << target_slot;
         if ((g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
              g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
-            g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
+            g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0)
             UpdateItemCursorForState(event.action == UiPointerAction::Enter, nullptr, target_slot);
-        }
     }
-    if (event.action != UiPointerAction::Up || !event.inside) {
-        return UiResult::Handled;
-    }
+    if (event.action != UiPointerAction::Up || !event.inside) return UiResult::Handled;
     if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
-        g_status.item_in_cursor) {
+        g_status.item_in_cursor)
         AfterUiDispatch([target_slot] { TryGiveHeldItemToCampPortrait(target_slot); });
-    }
     if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
         g_status.buffers.XChar[target_slot].fOccupied) {
         AfterUiDispatch([target_slot] {
@@ -358,9 +353,8 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
 
 UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
 {
-    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
         g_camp_screen->redraw_flags |= 0x200;
-    }
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
         AfterUiDispatch([] {
@@ -376,16 +370,13 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
 
 UiResult HandleCampProfessionHistory(const UiPointerEvent& event)
 {
-    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
         g_camp_screen->redraw_flags |= 0x200;
-    }
     if (event.button == UiPointerButton::Left) {
-        if (event.action == UiPointerAction::Down) {
+        if (event.action == UiPointerAction::Down)
             SetCampHeaderMode(W8_CAMP_HEADER_PROFESSION_HISTORY);
-        } else if (event.action == UiPointerAction::Up &&
-                   (event.captured_buttons & SDL_BUTTON_LMASK)) {
+        else if (event.action == UiPointerAction::Up && (event.captured_buttons & SDL_BUTTON_LMASK))
             SetCampHeaderMode(W8_CAMP_HEADER_SUMMARY);
-        }
         g_camp_screen->redraw_flags |= 0x7ff;
     }
     return UiResult::Handled;
@@ -895,11 +886,10 @@ int CreateCampButtonPanel(void)
                                     W8_CAMP_PAGE_STATS};
     constexpr int frames[] = {0, 10, 15, 5};
     constexpr int help[] = {2364, 2367, 2366, 2365};
-    for (int index = 0; index < 4; ++index) {
+    for (int index = 0; index < 4; ++index)
         camp_buttons->pages[index] =
             button(0x111, frames[index], 0x1a4 + index * 44, help[index], true,
                    [index, page = pages[index]] { SelectCampPageButton(index, page); });
-    }
     auto& exit = camp_buttons->pages[4];
     exit = button(0x106, 16, 0x254, 2368, false, DismissSelectedPartyCharacter);
     exit->policy.primary_toggle = ButtonToggle::None;
@@ -910,10 +900,9 @@ int CreateCampButtonPanel(void)
     const std::array actions{OnCampIdentifyItem,  OnCampMoveItem,          OnCampSplitStack,
                              OnCampUseItem,       OnCampDropItem,          OnCampCastSpell,
                              OnCampUseItemOnItem, OnCampUseItemOnCharacter};
-    for (int index = 0; index < W8_CAMP_ACTION_BUTTON_COUNT; ++index) {
+    for (int index = 0; index < W8_CAMP_ACTION_BUTTON_COUNT; ++index)
         camp_buttons->actions[index] = button(0x112, action_frames[index], action_x[index],
                                               2369 + index, false, actions[index]);
-    }
     camp_buttons->pages[0]->SetPressed(true);
     return 1;
 }
@@ -1032,12 +1021,8 @@ void RefreshCampItemActions(bool invalidate)
         }
     }
     camp_buttons->dirty |= invalidate;
-    for (const auto& button : camp_buttons->pages) {
-        camp_buttons->dirty |= button->m_dirty;
-    }
-    for (const auto& button : camp_buttons->actions) {
-        camp_buttons->dirty |= button->m_dirty;
-    }
+    for (const auto& button : camp_buttons->pages) camp_buttons->dirty |= button->m_dirty;
+    for (const auto& button : camp_buttons->actions) camp_buttons->dirty |= button->m_dirty;
     if (camp_buttons->dirty) {
         auto& target = GetFrameBufferSurface();
         CatalogArtwork::Load(0x110, 0).drawAndInvalidate(target, 0, 0, 0x1c2);
@@ -1061,9 +1046,7 @@ void SetCampItemActionMode(char mode)
 {
     short selected = W8_CAMP_ACTION_BUTTON_NONE;
     W8TargetNeed targeting;
-    for (const auto& control : camp_buttons->actions) {
-        control->SetPressed(false);
-    }
+    for (const auto& control : camp_buttons->actions) control->SetPressed(false);
     g_camp_screen->item_action = mode;
     switch (mode) {
     case W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL:

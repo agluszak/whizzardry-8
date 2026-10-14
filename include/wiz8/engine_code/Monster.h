@@ -96,10 +96,7 @@ struct W8MonsterRep : public W8EmitterHost {
 
     /* The spell-icon list; named by the SetMonsterSpellIcon assert
        "pMonRep->GetSpellIcons()". */
-    std::vector<W8MonsterSpellIcon*>* GetSpellIcons()
-    {
-        return spell_icons;
-    }
+    std::vector<W8MonsterSpellIcon*>* GetSpellIcons() { return spell_icons; }
 
     std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];              /* 0x0ac */
     std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];             /* 0x25c */

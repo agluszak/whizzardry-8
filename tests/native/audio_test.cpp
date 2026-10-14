@@ -39,9 +39,7 @@
 static unsigned callbacks = 0;
 static void word(std::vector<unsigned char>& data, unsigned value, int bytes)
 {
-    for (int i = 0; i < bytes; ++i) {
-        data.push_back(value >> (i * 8));
-    }
+    for (int i = 0; i < bytes; ++i) data.push_back(value >> (i * 8));
 }
 static void tag(std::vector<unsigned char>& data, const char* value)
 {
@@ -65,41 +63,35 @@ static std::vector<unsigned char> wav(bool stereo = false)
     word(bytes, 4410 * (stereo ? 4 : 2), 4);
     for (int i = 0; i < 4410; ++i) {
         word(bytes, unsigned(short(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 12000)), 2);
-        if (stereo) {
+        if (stereo)
             word(bytes, unsigned(short(std::sin(i * 2 * 3.14159265 * 880 / 44100) * 6000)), 2);
-        }
     }
     return bytes;
 }
 static void write(const std::filesystem::path& name, const std::vector<unsigned char>& bytes)
 {
     std::ofstream file(name, std::ios::binary);
-    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size())) {
+    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         FAIL("Audio fixture or offline mixer failed");
-    }
 }
 static std::vector<float> mix(size_t frames)
 {
     std::vector<float> samples(frames * 2);
-    if (!w8_native::audio_render_for_test(samples.data(), frames)) {
+    if (!w8_native::audio_render_for_test(samples.data(), frames))
         FAIL("Audio fixture or offline mixer failed");
-    }
     return samples;
 }
 static double energy(const std::vector<float>& values, int channel)
 {
     double sum = 0;
-    for (size_t i = channel; i < values.size(); i += 2) {
-        sum += values[i] * values[i];
-    }
+    for (size_t i = channel; i < values.size(); i += 2) sum += values[i] * values[i];
     return sum;
 }
 static unsigned crossings(const std::vector<float>& samples, int channel = 0)
 {
     unsigned count = 0;
-    for (size_t i = channel + 2; i < samples.size(); i += 2) {
+    for (size_t i = channel + 2; i < samples.size(); i += 2)
         count += samples[i - 2] <= 0 && samples[i] > 0;
-    }
     return count;
 }
 static bool near(double value, double expected, double tolerance = 0.02)
@@ -331,9 +323,8 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     wiz8::sound::service();
     REQUIRE(!wiz8::sound::is_playing(sound));
-    for (int i = 0; i < 64; ++i) {
+    for (int i = 0; i < 64; ++i)
         REQUIRE(wiz8::sound::play(path, {.loops = 0, .group = Group::ambient}) != nullptr);
-    }
     REQUIRE(wiz8::sound::stop_group(Group::ambient));
     sound = wiz8::sound::play(path, {.loops = 0, .group = Group::music});
     REQUIRE(sound != nullptr);
@@ -461,9 +452,8 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
         samples = mix(1024);
         REQUIRE(energy(samples, 0) + energy(samples, 1) == 0);
         std::vector<float> pcm(4096);
-        for (size_t i = 0; i < pcm.size(); ++i) {
+        for (size_t i = 0; i < pcm.size(); ++i)
             pcm[i] = float(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 0.25);
-        }
         movie.append(pcm.data(), pcm.size());
         samples = mix(2048);
         REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);

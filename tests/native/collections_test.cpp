@@ -234,9 +234,7 @@ static bool visibilityRecordLifetime()
     row.sight_state = W8_SIGHT_SEEN;
     auto* original = FindMonToMonVisibility(&observer, &target);
     REQUIRE(original == &row);
-    for (int id = 1000; id < 2000; ++id) {
-        records[id].about_location_id = id;
-    }
+    for (int id = 1000; id < 2000; ++id) records[id].about_location_id = id;
     REQUIRE(FindMonToMonVisibility(&observer, &target) == original);
     REQUIRE(original->sight_state == W8_SIGHT_SEEN);
     gXStatus.monsters = {&observer, &target};

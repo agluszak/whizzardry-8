@@ -93,9 +93,7 @@ int W8NpcDialog::CreateControls()
     m_background.generic_image = LoadGenericButtonImages(
         {}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {},
         "Data\\Dialogs\\DialogBackground.sti", 0, 0, 0);
-    if (!m_background.generic_image) {
-        return 4;
-    }
+    if (!m_background.generic_image) return 4;
     m_input.add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1}, {},
                 UI_PRIORITY_BACKGROUND);
     if (m_message->kind == W8_NPC_ENTRY_OPTIONS) {
@@ -216,7 +214,7 @@ void W8NpcDialog::DrawModal(SDL_Surface& target)
 bool W8NpcDialog::ProcessInput()
 {
     m_input.setModal(true);
-    if (m_keep_open) {
+    if (m_keep_open)
         PumpUiInput({
             .before =
                 [this](const InputEvent& input) {
@@ -228,9 +226,7 @@ bool W8NpcDialog::ProcessInput()
                         (input.key == VK_RETURN || input.key == VK_ESCAPE) &&
                         m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
                         m_cancelled = input.key == VK_ESCAPE;
-                        if (!m_cancelled) {
-                            m_input_text = m_input_group->Text(m_input_field);
-                        }
+                        if (!m_cancelled) m_input_text = m_input_group->Text(m_input_field);
                         m_keep_open = false;
                         return InputRoute::Stop;
                     }
@@ -242,15 +238,12 @@ bool W8NpcDialog::ProcessInput()
                     return m_keep_open ? InputRoute::Handled : InputRoute::Stop;
                 },
         });
-    }
     if (!m_keep_open) {
         // Restore the previous editor before delivering the reply. Destruction
         // during screen teardown must not submit an unfinished reply.
         m_input_group.reset();
         m_input.setModal(false);
-        if (auto closed = std::exchange(m_closed, {})) {
-            closed(*this);
-        }
+        if (auto closed = std::exchange(m_closed, {})) closed(*this);
     }
     return m_keep_open;
 }

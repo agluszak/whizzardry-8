@@ -391,9 +391,8 @@ static void wgd_banks()
         if (invalid == 0) {
             int index = 3;
             memcpy(bad.data() + 44, &index, 4);
-        } else {
+        } else
             memset(bad.data() + 100, 'x', 64);
-        }
         store("secondary.wgd", bad);
         bool rejected = false;
         try {
@@ -448,9 +447,7 @@ static void geometry()
     }
     auto query = [&] {
         srVector3 start(0.25f, 0.25f, 2), end(0.25f, 0.25f, -2);
-        if (!data.geometry_index) {
-            REQUIRE((InitializeGameData(&data)));
-        }
+        if (!data.geometry_index) REQUIRE((InitializeGameData(&data)));
         auto delta = end - start;
         const auto hits =
             data.geometry_index->queryAlongSegment(start.glmValue(), delta.glmValue(), 0, 3);
@@ -660,9 +657,7 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed octree files", "[loader][records]")
 static std::vector<std::size_t> truncation_samples(std::size_t size)
 {
     std::vector<std::size_t> lengths{0, 1, 2, size / 4, size / 2, size * 3 / 4, size - 2, size - 1};
-    for (std::size_t length = 128; length < size; length += 128) {
-        lengths.push_back(length);
-    }
+    for (std::size_t length = 128; length < size; length += 128) lengths.push_back(length);
     std::ranges::sort(lengths);
     lengths.erase(std::unique(lengths.begin(), lengths.end()), lengths.end());
     return lengths;
@@ -685,9 +680,7 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
         append(bytes, name);
         append(bytes, static_cast<unsigned char>(1)); // No placement or hotspot.
         bytes.append(6, '\x12');
-        for (int value : {17, 29, 41}) {
-            append(bytes, value);
-        }
+        for (int value : {17, 29, 41}) append(bytes, value);
         std::array<char, 256> recipients{};
         std::strcpy(recipients.data(), "fixture recipients");
         append(bytes, recipients);
@@ -698,13 +691,9 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
         bytes.append(1, '\x24');
         bytes.append(128, '\x25');
         if (version >= 2) {
-            for (float value : {1.f, 2.f, 3.f, 4.f}) {
-                append(bytes, value);
-            }
+            for (float value : {1.f, 2.f, 3.f, 4.f}) append(bytes, value);
             bytes.append(4, '\x32');
-            for (float value : {5.f, 6.f, 7.f, 8.f}) {
-                append(bytes, value);
-            }
+            for (float value : {5.f, 6.f, 7.f, 8.f}) append(bytes, value);
         }
         bytes.append(3, '\x41');
         bytes.append(256, '\x42');
@@ -714,9 +703,7 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
         append(bytes, 107);
         bytes.append(256, '\x45');
         append(bytes, 9.f);
-        if (version >= 3) {
-            bytes.append(128, '\x51');
-        }
+        if (version >= 3) bytes.append(128, '\x51');
         bytes.append(1, '\0'); // No door.
         REQUIRE(bytes.size() == (version == 1 ? 1580 : version == 2 ? 1616 : 1744));
         store("super.bin", bytes);
@@ -753,28 +740,16 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
     for (unsigned char mode : {0, 1, 2}) {
         for (unsigned char colours : {0, 1, 2, 3}) {
             std::string bytes(1, '\1');
-            for (float value : {1.f, 2.f, 3.f, 4.f, 5.f}) {
-                append(bytes, value);
-            }
+            for (float value : {1.f, 2.f, 3.f, 4.f, 5.f}) append(bytes, value);
             append(bytes, mode);
-            if (mode >= 1) {
-                for (float value : {6.f, 7.f, 8.f}) {
-                    append(bytes, value);
-                }
-            }
-            if (mode >= 2) {
-                for (float value : {9.f, 10.f, 11.f, 12.f}) {
-                    append(bytes, value);
-                }
-            }
+            if (mode >= 1)
+                for (float value : {6.f, 7.f, 8.f}) append(bytes, value);
+            if (mode >= 2)
+                for (float value : {9.f, 10.f, 11.f, 12.f}) append(bytes, value);
             append(bytes, static_cast<unsigned char>(colours & 1));
-            if (colours & 1) {
-                bytes.append(768, '\x61');
-            }
+            if (colours & 1) bytes.append(768, '\x61');
             append(bytes, static_cast<unsigned char>(colours & 2));
-            if (colours & 2) {
-                bytes.append(768, '\x62');
-            }
+            if (colours & 2) bytes.append(768, '\x62');
             store("block.bin", bytes);
             auto file = wiz8::open_file("block.bin");
             W8LevelFileBlock block{};
@@ -888,18 +863,14 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
         std::array<char, 20> name{};
         std::strcpy(name.data(), scaled ? "SCALED" : "DEFAULT");
         append(bytes, name);
-        if (scaled) {
-            append(bytes, 7.5f);
-        }
+        if (scaled) append(bytes, 7.5f);
         append(bytes, std::uint8_t{0}); // Path record version.
         append(bytes, std::uint8_t{1}); // Path data version, without per-node scales.
         append(bytes, 0.f);
         append(bytes, std::uint32_t{0});
         append(bytes, std::int32_t{2});
         for (float x : {0.f, 1.f}) {
-            for (float value : {x, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f}) {
-                append(bytes, value);
-            }
+            for (float value : {x, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f}) append(bytes, value);
         }
     }
     W8World world{};
@@ -999,9 +970,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
                 text.template operator()<N>(bytes, value);
             };
             if (type == 1) {
-                for (int value : {9, 11, 13, 15, 17, 19, 21}) {
-                    append(bytes, value);
-                }
+                for (int value : {9, 11, 13, 15, 17, 19, 21}) append(bytes, value);
                 append(bytes, char{1});
                 append(bytes, char{1});
                 checked_text.template operator()<128>("switch");
@@ -1018,19 +987,13 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
                     bytes.append(9, '\x34');
                     append(bytes, short{23});
                     append(bytes, char{1});
-                    for (float value : {3.f, 5.f, 7.f}) {
-                        append(bytes, value);
-                    }
+                    for (float value : {3.f, 5.f, 7.f}) append(bytes, value);
                     text.template operator()<128>(bytes, "linked");
                 }
-                if (version > 3) {
-                    append(bytes, 29);
-                }
+                if (version > 3) append(bytes, 29);
             } else if (type == 2) {
                 append(bytes, 2.5f);
-                for (float value : {1.f, 2.f, 3.f}) {
-                    append(bytes, value);
-                }
+                for (float value : {1.f, 2.f, 3.f}) append(bytes, value);
                 append(bytes, 29);
                 append(bytes, 31);
                 append(bytes, char{1});
@@ -1039,15 +1002,12 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
                 checked_text.template operator()<256>("recipient");
                 if (version > 1) {
                     append(bytes, char{1});
-                    for (int index = 0; index < 12; ++index) {
+                    for (int index = 0; index < 12; ++index)
                         append(bytes, static_cast<float>(index));
-                    }
                 }
                 if (version > 2) {
                     append(bytes, 1.25f);
-                    for (float value : {5.f, 7.f, 11.f}) {
-                        append(bytes, value);
-                    }
+                    for (float value : {5.f, 7.f, 11.f}) append(bytes, value);
                     append(bytes, char{1});
                     text.template operator()<128>(bytes, "action");
                 }
@@ -1061,33 +1021,22 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
                     // The serialized kind does not set the distinct legacy kind gate.
                 }
             } else {
-                for (int value : {2, 3, 5, 7, 11, 13, 17}) {
-                    append(bytes, value);
-                }
+                for (int value : {2, 3, 5, 7, 11, 13, 17}) append(bytes, value);
                 append(bytes, 2.5f);
-                for (int index = 0; index < 9; ++index) {
-                    append(bytes, static_cast<float>(index));
-                }
+                for (int index = 0; index < 9; ++index) append(bytes, static_cast<float>(index));
                 text.template operator()<128>(bytes, "ambient.wav");
                 if (version > 1) {
                     append(bytes, char{1});
                     append(bytes, char{2});
                 }
                 if (version > 2) {
-                    for (float value : {19.f, 23.f, 29.f}) {
-                        append(bytes, value);
-                    }
+                    for (float value : {19.f, 23.f, 29.f}) append(bytes, value);
                     append(bytes, 1.25f);
-                    for (int index = 0; index < 6; ++index) {
+                    for (int index = 0; index < 6; ++index)
                         append(bytes, static_cast<float>(index));
-                    }
                 }
-                if (version > 3) {
-                    text.template operator()<128>(bytes, "sound");
-                }
-                if (version > 4) {
-                    append(bytes, char{1});
-                }
+                if (version > 3) text.template operator()<128>(bytes, "sound");
+                if (version > 4) append(bytes, char{1});
             }
             store("trigger.bin", bytes);
             auto file = wiz8::open_file("trigger.bin");

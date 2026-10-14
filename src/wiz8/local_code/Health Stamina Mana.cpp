@@ -702,9 +702,7 @@ int __cdecl CompareSpellPointDeficits(const void* first, const void* second)
 {
     const W8SpellPointDeficit* a = static_cast<const W8SpellPointDeficit*>(first);
     const W8SpellPointDeficit* b = static_cast<const W8SpellPointDeficit*>(second);
-    if (a->deficit < b->deficit) {
-        return 1;
-    }
+    if (a->deficit < b->deficit) return 1;
     return (a->deficit == b->deficit) - 1;
 }
 
@@ -1430,8 +1428,6 @@ W8Character* FindPartyMemberWithLowestResistance4(void)
             lowest = character->resistances[4].total;
         }
     }
-    if (lowest == 999) {
-        return 0;
-    }
+    if (lowest == 999) return 0;
     return &g_status.buffers.Char[selected];
 }

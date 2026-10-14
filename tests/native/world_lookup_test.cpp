@@ -36,9 +36,7 @@ struct TestWorld {
     ~TestWorld()
     {
         DestroyAllWorldTriggers(&world);
-        for (stParticle* particle : particles) {
-            delete particle;
-        }
+        for (stParticle* particle : particles) delete particle;
         delete world.static_scene;
     }
 };

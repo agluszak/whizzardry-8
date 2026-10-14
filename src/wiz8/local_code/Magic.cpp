@@ -439,9 +439,8 @@ static void ReleaseHypnoticLureControl()
 {
     for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
-        if (monster && !monster->p3D->IsDying()) {
+        if (monster && !monster->p3D->IsDying())
             SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
-        }
     }
 }
 
@@ -1370,9 +1369,7 @@ static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
         DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
                                     GetMonsterName(monster_info, 0, 0)));
     }
-    if (static_cast<int>(budget) < 0) {
-        budget = 0;
-    }
+    if (static_cast<int>(budget) < 0) budget = 0;
     return budget;
 }
 
@@ -2862,9 +2859,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                             g_world_scale,
                         1, true, false, false, 5, true);
                     ground_point = placement.source;
-                    if (!placement.positions.empty()) {
-                        target->point = placement.positions.front();
-                    }
+                    if (!placement.positions.empty()) target->point = placement.positions.front();
                 }
             } else {
                 monster_markers = *monster_targets;

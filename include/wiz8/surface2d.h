@@ -15,10 +15,7 @@ class srGERD;
 // VTABLE: WIZ8 0x005EC704 srClassSupport<stTexture2D, srTexture, 65551>
 class stTexture2D : public srClassSupport<stTexture2D, srTexture, 0x1000f> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stTexture2D";
-    }
+    static const char* sGetClassName() { return "stTexture2D"; }
 
     stTexture2D();
     virtual ~stTexture2D() override;
@@ -46,10 +43,7 @@ class stSurface2D : public srClassSupport<stSurface2D, srNode, 0x1000e> {
 public:
     enum { UPDATE_FULL_TILE = 1 };
 
-    static const char* sGetClassName()
-    {
-        return "stSurface2D";
-    }
+    static const char* sGetClassName() { return "stSurface2D"; }
 
     stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent,
                 int tile_size);

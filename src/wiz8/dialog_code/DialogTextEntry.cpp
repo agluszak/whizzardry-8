@@ -106,13 +106,9 @@ void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
     for (;;) {
         const auto end = remaining.find('\n');
         prefix_remaining = DrawLine(target, remaining.substr(0, end), prefix_remaining, y);
-        if (end == std::string_view::npos) {
-            break;
-        }
+        if (end == std::string_view::npos) break;
         y += GetLineHeight();
-        if (m_layoutBounds.bottom <= y) {
-            break;
-        }
+        if (m_layoutBounds.bottom <= y) break;
         remaining.remove_prefix(end + 1);
     }
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,

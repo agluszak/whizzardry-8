@@ -21,9 +21,7 @@ w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* path)
     }
     const char* slash = strrchr(path, '/');
     const char* backslash = strrchr(path, '\\');
-    if (backslash && (!slash || backslash > slash)) {
-        slash = backslash;
-    }
+    if (backslash && (!slash || backslash > slash)) slash = backslash;
     if (slash == 0) {
         return scanFiles(files, 0, path);
     }
@@ -36,13 +34,9 @@ w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* path)
 
 char* srSystem::getCwd(char* path, w8_long size)
 {
-    if (path == nullptr || size <= 0) {
-        return nullptr;
-    }
+    if (path == nullptr || size <= 0) return nullptr;
     const auto cwd = w8_native::current_directory();
-    if (cwd.size() >= static_cast<std::size_t>(size)) {
-        return nullptr;
-    }
+    if (cwd.size() >= static_cast<std::size_t>(size)) return nullptr;
     memcpy(path, cwd.c_str(), cwd.size() + 1);
     return path;
 }
@@ -71,9 +65,7 @@ w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directo
                 SDL_GlobDirectory(host_path.c_str(), strcmp(pattern, "*.*") == 0 ? "*" : pattern,
                                   SDL_GLOB_CASEINSENSITIVE, nullptr),
                 &SDL_free);
-            if (!entries) {
-                return 0;
-            }
+            if (!entries) return 0;
             for (char** entry = entries.get(); *entry; ++entry) {
                 const auto path = host / wiz8::path_from_utf8(*entry);
                 const auto info = wiz8::host_file_status(path);
@@ -85,9 +77,7 @@ w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directo
             }
             return count;
         }
-        if (!base.empty() && base.back() != '/' && base.back() != '\\') {
-            base += '\\';
-        }
+        if (!base.empty() && base.back() != '/' && base.back() != '\\') base += '\\';
         for (const auto& name : wiz8::list_directory(base, pattern)) {
             const std::string game_path = base + name;
             const auto entry = wiz8::file_status(game_path);
@@ -131,18 +121,12 @@ void srSystem::makePath(char* path, const char* drive, const char* directory, co
 char* srSystem::fullPath(char* absolute_path, const char* path, w8_ulong size)
 {
     const std::string full = w8_native::full_path(path);
-    if (full.empty()) {
-        return 0;
-    }
-    if (absolute_path == 0) {
-        size = 4096;
-    }
+    if (full.empty()) return 0;
+    if (absolute_path == 0) size = 4096;
     if (full.size() + 1 > size) {
         return 0;
     }
-    if (absolute_path == 0) {
-        absolute_path = new char[size];
-    }
+    if (absolute_path == 0) absolute_path = new char[size];
     strcpy(absolute_path, full.c_str());
     return absolute_path;
 }
@@ -162,16 +146,8 @@ void srSystem::splitPath(const char* path, char* drive, char* directory, char* f
     const auto dot = leaf.find_last_of('.');
     const std::string stem = dot == std::string::npos ? leaf : leaf.substr(0, dot);
     const std::string suffix = dot == std::string::npos ? "" : leaf.substr(dot);
-    if (drive) {
-        strcpy(drive, prefix.c_str());
-    }
-    if (directory) {
-        strcpy(directory, folder.c_str());
-    }
-    if (filename) {
-        strcpy(filename, stem.c_str());
-    }
-    if (extension) {
-        strcpy(extension, suffix.c_str());
-    }
+    if (drive) strcpy(drive, prefix.c_str());
+    if (directory) strcpy(directory, folder.c_str());
+    if (filename) strcpy(filename, stem.c_str());
+    if (extension) strcpy(extension, suffix.c_str());
 }

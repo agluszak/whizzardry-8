@@ -127,11 +127,8 @@ void ApplyScriptedDialogueKeyword(int kind, const char* text)
 // FUNCTION: WIZ8 0x00528f10
 std::string GetNpcScriptRegionName(int region)
 {
-    for (const auto& entry : g_npc_script_region_names) {
-        if (entry.region == region) {
-            return entry.name;
-        }
-    }
+    for (const auto& entry : g_npc_script_region_names)
+        if (entry.region == region) return entry.name;
     return {};
 }
 
@@ -667,10 +664,7 @@ static void ProcessMessageBoxQueue(void)
             }
             ShowNpcPortraitMessage(message.text, message.notice);
         }
-        void operator()(W8NpcStoryAction action) const
-        {
-            RunNpcStoryAction(action);
-        }
+        void operator()(W8NpcStoryAction action) const { RunNpcStoryAction(action); }
         void operator()(W8NpcCommand command) const
         {
             switch (command) {

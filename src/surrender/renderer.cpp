@@ -406,9 +406,8 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                     gather_stream(arrays.st1);
                     gather_stream(arrays.q1);
                     gather_stream(arrays.attributes);
-                    for (std::size_t i = 0; i < new_count; ++i) {
+                    for (std::size_t i = 0; i < new_count; ++i)
                         arrays.st0[base + i] = pass.texcoords[corner_remap[i]];
-                    }
                     std::fill_n(arrays.q0 + base, new_count, 1.0f);
                 }
                 free_vertex = base + new_count;
@@ -416,11 +415,10 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                 gatherTriangles({write.triangles + written, input.triangleCount()}, input.triangles,
                                 input.indices, vertex_base, input.vertices);
             }
-            if (sorted != 0) {
+            if (sorted != 0)
                 sortKeys({write.sort_key + written, input.triangleCount()},
                          {write.triangles + written, input.triangleCount()}, vertices.positions,
                          input.sort_bias);
-            }
             written += input.triangleCount();
         }
     }
@@ -435,18 +433,13 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
 // FUNCTION: SURRENDER 0x100259D0
 void srGERD::Renderer::transformVertices(const TriInput& input, unsigned char* clip_flags)
 {
-    if (input.vertex_count == 0) {
-        return;
-    }
+    if (input.vertex_count == 0) return;
     auto* positions = vertices.positions.data() + first_vertex;
     const auto& projection = *input.project_clip_near;
-    for (w8_ulong i = 0; i < input.vertex_count; ++i) {
-        positions[i] = projection * positions[i];
-    }
+    for (w8_ulong i = 0; i < input.vertex_count; ++i) positions[i] = projection * positions[i];
     srRender::clipFlags({clip_flags, input.vertex_count}, {positions, input.vertex_count});
-    for (w8_ulong replica = 1; replica < input.record_count; ++replica) {
+    for (w8_ulong replica = 1; replica < input.record_count; ++replica)
         std::copy_n(positions, input.vertex_count, positions + replica * input.vertex_count);
-    }
 }
 
 /* Whether all clip-flag bytes share a clip plane. */
@@ -489,9 +482,7 @@ static w8_ulong attributeMask(const unsigned char* packed, w8_ulong count)
 void srGERD::Renderer::drawTriangleRuns(std::span<const w8_ulong> order)
 {
     const auto count = indices.count;
-    if (count == 0) {
-        return;
-    }
+    if (count == 0) return;
     const auto triangles = std::span{indices.triangles}.first(count);
     const auto texture_sets = std::span{indices.texture_set}.first(count);
     std::array<glm::ivec3, 512> gathered;
@@ -521,9 +512,7 @@ void srGERD::Renderer::drawImmediate()
 void srGERD::Renderer::drawSorted()
 {
     const auto count = indices.count;
-    if (count == 0) {
-        return;
-    }
+    if (count == 0) return;
     const auto order = sortedTriangleOrder(std::span{indices.sort_key}.first(count));
     drawTriangleRuns(order);
 }
@@ -563,9 +552,7 @@ void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count
     for (unsigned stage = 0; stage < coordinates.size(); ++stage) {
         const w8_ulong st_bit = srVertexArray::ATTRIBUTE_ST0 << stage;
         const w8_ulong q_bit = srVertexArray::ATTRIBUTE_Q0 << stage;
-        if ((attributes & st_bit) == 0) {
-            continue;
-        }
+        if ((attributes & st_bit) == 0) continue;
         const auto array = static_cast<srRendererDefs::e_vertexArray>(
             srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage);
         mask.set(array, 1);
@@ -575,9 +562,8 @@ void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count
         } else {
             stq[stage].resize(count);
             auto* combined = stq[stage].data();
-            for (w8_ulong i = 0; i < count; ++i) {
+            for (w8_ulong i = 0; i < count; ++i)
                 combined[i] = {coordinates[stage][i], weights[stage][i]};
-            }
             gerd->setDataPtr(array, 3, srRendererDefs::TYPE_FLOAT, sizeof(TexCoordQ), combined);
         }
     }
@@ -734,12 +720,8 @@ void srRender::clipFlags(std::span<SRBYTE> destination, std::span<const glm::vec
         SRBYTE flags = 0;
         for (std::size_t axis = 0; axis < 3; ++axis) {
             const auto low = static_cast<SRBYTE>(1u << (2 * axis));
-            if (negative_w > point[axis]) {
-                flags |= low;
-            }
-            if (point[axis] > point.w) {
-                flags |= static_cast<SRBYTE>(low << 1);
-            }
+            if (negative_w > point[axis]) flags |= low;
+            if (point[axis] > point.w) flags |= static_cast<SRBYTE>(low << 1);
         }
         destination[index] = flags;
     }

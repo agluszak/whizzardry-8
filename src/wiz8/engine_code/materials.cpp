@@ -90,10 +90,7 @@
 class W8NormalTexcoordMapper : public srVertexProcessor {
 public:
     // FUNCTION: WIZ8 0x004D6190
-    virtual int isActive(srVertexPipe&) override
-    {
-        return 1;
-    }
+    virtual int isActive(srVertexPipe&) override { return 1; }
     virtual void process(srVertexPipe& pipe) override;
 };
 
@@ -290,9 +287,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
         ReportBuildStatus(7, "Could not find and\\or open level file.\n");
     } else {
         unsigned char built = PreprocessLevel(*handle, stem);
-        if (handle) {
-            handle->close();
-        }
+        if (handle) handle->close();
         handle.reset();
         if (built != 0) {
             snprintf(line, sizeof(line), "%s.pvl", stem);
@@ -304,9 +299,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
                 wiz8::remove_file(line);
             }
             move_pvl = (wiz8::copy_file("NewLevel.lvl", line, wiz8::CopyMode::replace), true);
-            if (move_pvl) {
-                wiz8::remove_file("NewLevel.lvl");
-            }
+            if (move_pvl) wiz8::remove_file("NewLevel.lvl");
             snprintf(line, sizeof(line), "%s.rlk", stem);
             if ([&]() {
                     const auto status = wiz8::file_status(line);
@@ -325,9 +318,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
                 wiz8::remove_file(line);
             }
             move_oct = (wiz8::copy_file("NewLevel.oct", line, wiz8::CopyMode::replace), true);
-            if (move_oct) {
-                wiz8::remove_file("NewLevel.oct");
-            }
+            if (move_oct) wiz8::remove_file("NewLevel.oct");
             result =
                 built & static_cast<unsigned char>(move_pvl) & static_cast<unsigned char>(move_oct);
             if (result == 0) {
@@ -845,9 +836,7 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                             ReportBuildStatus(6, "\nWriting PVL File...\n");
                             result = result & WriteLevelFile(*file, handle, *level, submeshes,
                                                              tree->m_meshCount);
-                            if (file) {
-                                file->close();
-                            }
+                            if (file) file->close();
                             file.reset();
                             if (result != 0) {
                                 goto write_done;
@@ -857,9 +846,7 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                     }
                 write_done:
                     if (file != 0) {
-                        if (file) {
-                            file->close();
-                        }
+                        if (file) file->close();
                         file.reset();
                     }
                     ReportStartupMessage("Cleaning up preprocessing data...");
@@ -927,9 +914,7 @@ void ReportBuildStatus(short channel, std::string_view message)
             if (g_log_file != 0) {
                 log("\n\n");
                 log(message);
-                if (g_log_file) {
-                    g_log_file->close();
-                }
+                if (g_log_file) g_log_file->close();
                 g_log_file.reset();
             }
             ShutdownWithErrorBox(message);
@@ -969,9 +954,7 @@ void ReportBuildStatus(short channel, std::string_view message)
             break;
         case 8:
             if (g_log_file != 0) {
-                if (g_log_file) {
-                    g_log_file->close();
-                }
+                if (g_log_file) g_log_file->close();
                 g_log_file.reset();
             }
             break;
@@ -1027,9 +1010,7 @@ void ReportStartupMessage(std::string_view message)
     scroll = !message.ends_with('\r');
     line->clear();
     for (const unsigned char byte : message) {
-        if (byte > 0x1f) {
-            line->push_back(static_cast<char>(byte));
-        }
+        if (byte > 0x1f) line->push_back(static_cast<char>(byte));
     }
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
     const TextOptions text_options{
@@ -1396,17 +1377,14 @@ bool W8OctPreTreeGeometry::splitVerticesByMaterial()
             for (unsigned corner = 0; corner < 3; ++corner) {
                 if (polygon.vertices[corner] == &original) {
                     corners[face][corner] = entry->second;
-                    if (fresh) {
+                    if (fresh)
                         splits[entry->second].m_uv = polygon.face.texture_coordinates[corner];
-                    }
                 }
             }
         }
     }
     auto vertices = geometryRepack::copyTable<W8OctPreTreeVertex>(splits);
-    if (!vertices) {
-        return false;
-    }
+    if (!vertices) return false;
     geometryRepack::repointCorners({m_polygons, m_polygon_count}, corners, vertices.get());
     std::free(m_vertices);
     m_vertices = vertices.release();
@@ -1422,25 +1400,18 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
     for (std::size_t index = 0; index < lights.size(); ++index) {
         const auto& light = lights[index];
         const bool is_sun = sun_map && sun_map[index] != 0;
-        if (light.version >= 2 && (light.create != 0 || light.visible == 0)) {
-            continue;
-        }
+        if (light.version >= 2 && (light.create != 0 || light.visible == 0)) continue;
         const glm::vec3 delta = light.position.glmValue() - vertex->position;
         // NOLINTNEXTLINE(misc-include-cleaner)
         const float distance = glm::length(delta);
-        if (distance >= light.range && !is_sun) {
-            continue;
-        }
+        if (distance >= light.range && !is_sun) continue;
         ++g_light_candidates;
         const float dot = glm::dot(delta / distance, vertex->m_normal);
-        if (dot <= g_float_zero) {
-            continue;
-        }
+        if (dot <= g_float_zero) continue;
         ++g_lights_facing;
         if (g_option_shadow_test &&
-            !tree->SegmentClear(light.position.glmValue(), vertex->position)) {
+            !tree->SegmentClear(light.position.glmValue(), vertex->position))
             continue;
-        }
         ++g_lights_unblocked;
         ++lit;
         if (is_sun) {
@@ -1462,18 +1433,13 @@ static unsigned char PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& 
                                        const W8LevelFileLight& light)
 {
     const auto origin = light.position.glmValue();
-    if (tree->SegmentClear(origin, prop.position.glmValue() * g_world_scale)) {
-        return 1;
-    }
+    if (tree->SegmentClear(origin, prop.position.glmValue() * g_world_scale)) return 1;
     for (const auto& box : prop.anim_obj.bounds) {
         const srBoundingBox bounds{box.minimum.glmValue() * g_world_scale,
                                    box.maximum.glmValue() * g_world_scale};
         // Bounding-box corners retain the original x/y/z probe order.
-        for (unsigned corner = 0; corner < 8; ++corner) {
-            if (tree->SegmentClear(origin, bounds.corner(corner))) {
-                return 1;
-            }
-        }
+        for (unsigned corner = 0; corner < 8; ++corner)
+            if (tree->SegmentClear(origin, bounds.corner(corner))) return 1;
     }
     return 0;
 }
@@ -1570,9 +1536,7 @@ static unsigned char* ClassifyTextures(std::span<W8MaterialRecord> textures, cha
                     if (path.size() >= 4 &&
                         SDL_strcasecmp(path.c_str() + path.size() - 4, ".ifl") == 0) {
                         ReadTextLine(file.get(), texture, 0x3ff, more);
-                        if (file) {
-                            file->close();
-                        }
+                        if (file) file->close();
                         file.reset();
                         path = fmt::format("{}{}", folder, texture);
                         file = [&]() {
@@ -1590,9 +1554,7 @@ static unsigned char* ClassifyTextures(std::span<W8MaterialRecord> textures, cha
                                  path.c_str());
                         ReportBuildStatus(5, message);
                     } else {
-                        if (file) {
-                            file->close();
-                        }
+                        if (file) file->close();
                         file.reset();
                         if (probe == 0) {
                             probe = new stTextureFile(path.c_str(), 1);
@@ -1865,9 +1827,7 @@ void W8Octree::OctBuildOptions(char* stem)
             ClearSurfaceRect(0, 0x183, 0x27f, 0x1df);
             for (line = 0; line < 7; ++line) {
                 auto display = lines[line].substr(0, wiz8::text::codepoint_prefix(lines[line], 90));
-                if (display.size() < 90) {
-                    display.append(90 - display.size(), ' ');
-                }
+                if (display.size() < 90) display.append(90 - display.size(), ' ');
                 DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                       {1, 0x184 + line * 0xd}, display, text_options);
             }
@@ -1960,9 +1920,7 @@ accepted:
     ClearSurfaceRect(0, 0x183, 0x27f, 0x1df);
     lines[1] = fmt::format("OCTBUILD VERSION {:d} -- Preprocessing {}: ", 0x22, stem);
     auto display = lines[1].substr(0, wiz8::text::codepoint_prefix(lines[1], 90));
-    if (display.size() < 90) {
-        display.append(90 - display.size(), ' ');
-    }
+    if (display.size() < 90) display.append(90 - display.size(), ' ');
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, 0x184}, display, text_options);
     InvalidateRegion(0, 0x183, 0x27f, 0x1df);
     RenderFrame();
@@ -2156,9 +2114,8 @@ std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
     const auto split = full_path.find_last_of("/\\:");
     const std::string folder(full_path.substr(0, split == full_path.npos ? 0 : split + 1));
     const std::string name(full_path.substr(split == full_path.npos ? 0 : split + 1));
-    if (name.size() >= 4 && _stricmp(name.c_str() + name.size() - 4, ".IFL") == 0) {
+    if (name.size() >= 4 && _stricmp(name.c_str() + name.size() - 4, ".IFL") == 0)
         return LoadAnimatedTexture(folder.c_str(), name.c_str(), source, required);
-    }
     return LoadTextureFromFolder(folder.c_str(), name.c_str(), required);
 }
 
@@ -2174,9 +2131,7 @@ std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char*
     path = folder;
     path += name;
     const auto dot = path.find_last_of('.');
-    if (dot == std::string::npos) {
-        path += '.';
-    }
+    if (dot == std::string::npos) path += '.';
     const auto extension = dot == std::string::npos ? path.size() : dot + 1;
     path.resize(extension);
 
@@ -2238,15 +2193,10 @@ std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const cha
     animation->setName(name);
     g_texture_animations.insert(name, animation);
     for (std::string frame; std::getline(frames, frame);) {
-        if (frame.ends_with('\r')) {
-            frame.pop_back();
-        }
-        if (frame.size() <= 2) {
-            break;
-        }
-        if (auto texture = LoadTextureFromFolder(folder, frame.c_str(), required)) {
+        if (frame.ends_with('\r')) frame.pop_back();
+        if (frame.size() <= 2) break;
+        if (auto texture = LoadTextureFromFolder(folder, frame.c_str(), required))
             animation->AddTexture(std::move(texture));
-        }
     }
     animation->setupDefaultValues();
     if (source != 0) {

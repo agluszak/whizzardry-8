@@ -16,10 +16,7 @@ public:
     SR_DLL_IMPORT srFog(srNode* parent = 0);
 
     // FUNCTION: SURRENDER 0x1004C1A0
-    static const char* sGetClassName()
-    {
-        return "srFog";
-    }
+    static const char* sGetClassName() { return "srFog"; }
     SR_DLL_IMPORT void setDensity(float density);
     SR_DLL_IMPORT float getDensity() const;
     SR_DLL_IMPORT void setRange(double start, double end);

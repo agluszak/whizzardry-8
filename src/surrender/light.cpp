@@ -327,11 +327,10 @@ void srLight::process(srVertexPipe& pipe)
                 srChannelMath::distanceRamp(far_values, distance_values, scaled_far_end,
                                             far_attenuation, 1,
                                             srChannelMath::RampDirection::decreasing);
-                if (has_near) {
+                if (has_near)
                     srChannelMath::multiply(attenuation, far_values);
-                } else {
+                else
                     attenuation = far_values;
-                }
             }
             if (!attenuation.empty() && srChannelMath::allZero(attenuation)) {
                 return;
@@ -342,16 +341,14 @@ void srLight::process(srVertexPipe& pipe)
                     float constant = 1.0f / opengl_attenuation.x;
                     std::fill_n(attenuation_bank, count, constant);
                 } else {
-                    for (std::size_t i = 0; i < count; ++i) {
+                    for (std::size_t i = 0; i < count; ++i)
                         attenuation_bank[i] =
                             1.0f / ((opengl_attenuation.z * distances[i] + opengl_attenuation.y) *
                                         distances[i] +
                                     opengl_attenuation.x);
-                    }
                 }
-                for (std::size_t i = 0; i < count; ++i) {
+                for (std::size_t i = 0; i < count; ++i)
                     attenuation_bank[i] = glm::clamp(attenuation_bank[i], 0.0f, 1.0f);
-                }
                 attenuation = attenuation_values;
             }
         }
@@ -411,10 +408,9 @@ void srLight::process(srVertexPipe& pipe)
         std::fill_n(directions, count, light_position);
     }
     const auto eye_directions = pipe.getEyeSpaceDir();
-    for (std::size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i)
         directions[i] =
             srLightingMath::directionAndDistance(directions[i] - eye_directions[i]).direction;
-    }
     const auto normals = pipe.getEyeSpaceNormal();
     srLightingMath::normalDots(distance_values, normals, direction_values,
                                srLightingMath::DotRange::nonnegative);

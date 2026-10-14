@@ -43,9 +43,7 @@ w8_ulong stTexture2D::getTextureFrameHandle()
 // FUNCTION: WIZ8 0x0047E710
 void stTexture2D::getMipmapData(const MultiRequest& request)
 {
-    if (request.destinations.empty() || !request.destinations.front()) {
-        return;
-    }
+    if (request.destinations.empty() || !request.destinations.front()) return;
     request.destinations.front()->blit(0, 0, *surface, left, top, right, bottom);
 }
 

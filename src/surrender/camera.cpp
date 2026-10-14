@@ -323,9 +323,8 @@ srCamera::Projection srCamera::project(const glm::dvec3& input)
     const auto rotation = getWorldSpaceRotation<glm::dmat3>();
     const auto point = glm::transpose(rotation) * (input - getWorldSpaceLocation());
     if (point.z < std::min(near_clip, far_clip) || point.z > std::max(near_clip, far_clip) ||
-        point.z == 0) {
+        point.z == 0)
         return {glm::vec3(0), PROJECTION_RESULT_OUTSIDE_CLIP_RANGE};
-    }
     const glm::dvec2 start(view_plane.left, view_plane.top);
     const glm::dvec2 end(view_plane.right, view_plane.bottom);
     const auto uv = (glm::dvec2(point) * (view_plane_distance / point.z) - start) / (end - start);
@@ -348,9 +347,8 @@ std::optional<glm::vec3> srCamera::unproject(const glm::dvec3& input)
     const glm::dvec2 uv(input.x, input.y);
     if (input.z < std::min(near_clip, far_clip) || input.z > std::max(near_clip, far_clip) ||
         !glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) ||
-        !glm::all(glm::lessThanEqual(uv, glm::dvec2(1)))) {
+        !glm::all(glm::lessThanEqual(uv, glm::dvec2(1))))
         return std::nullopt;
-    }
 
     const glm::dvec2 start(view_plane.left, view_plane.top);
     const glm::dvec2 end(view_plane.right, view_plane.bottom);

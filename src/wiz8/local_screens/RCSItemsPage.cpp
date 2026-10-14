@@ -821,12 +821,8 @@ static void ShowCampItemInfo(W8ItemInstance* item)
 
 static std::pair<W8ItemInstance*, int> CampItemAt(int slot, int origin)
 {
-    if (origin == W8_ITEM_ORIGIN_BACKPACK) {
-        return {g_review_character->backpack + slot, slot};
-    }
-    if (origin == W8_ITEM_ORIGIN_EQUIPPED) {
-        return {g_review_character->EquippedItem + slot, slot};
-    }
+    if (origin == W8_ITEM_ORIGIN_BACKPACK) return {g_review_character->backpack + slot, slot};
+    if (origin == W8_ITEM_ORIGIN_EQUIPPED) return {g_review_character->EquippedItem + slot, slot};
     const auto visible = g_camp_screen->item_scroll + slot;
     const int index =
         visible < g_camp_screen->item_list_count &&
@@ -848,9 +844,8 @@ static std::string CampItemTooltip(int slot, int origin)
         const auto& record = g_item_records[item->iItemNo];
         if (record.category == W8_ITEM_CATEGORY_SPELL_SOURCE && record.spell_id != W8_SPELL_NONE &&
             g_review_character->spell_learned[record.spell_id] &&
-            (item->identified || item->spell_hint)) {
+            (item->identified || item->spell_hint))
             text += fmt::format(" ({})", g_localized_strings[0x930]);
-        }
     }
     return text;
 }
@@ -867,17 +862,15 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
          (equipped && (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
                        !CanEquipItemInSlot(g_review_character, g_status.item_in_hand.iItemNo,
                                            static_cast<unsigned char>(slot), true) ||
-                       !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo))))) {
+                       !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo)))))
         PushButtonSoundScheme(0, true);
-    }
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
-        if (item->iItemNo != -1 || g_status.item_in_cursor) {
+        if (item->iItemNo != -1 || g_status.item_in_cursor)
             g_camp_screen->item_redraw_flags |=
                 (pool       ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
                  : equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
                             : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST)
                 << slot;
-        }
         UpdateItemCursorForState(event.action == UiPointerAction::Enter, item, 0);
     }
     if (event.action == UiPointerAction::Leave ||
@@ -885,19 +878,16 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
         target.setTooltip({});
         return UiResult::Handled;
     }
-    if (event.action == UiPointerAction::Wheel && pool) {
+    if (event.action == UiPointerAction::Wheel && pool)
         g_camp_screen->item_range->AdjustValue(event.wheel);
-    }
     if (event.action == UiPointerAction::Up && event.inside) {
-        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
             AfterUiDispatch([item, index, origin] {
                 HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin));
             });
-        }
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
-            item->iItemNo != -1 && g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
+            item->iItemNo != -1 && g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY)
             AfterUiDispatch([item] { ShowCampItemInfo(item); });
-        }
     }
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Up ||
         event.action == UiPointerAction::Wheel) {
@@ -1051,31 +1041,24 @@ void CreateCampItemControls()
     }
     const auto label = [](SDL_Rect bounds, std::function<void()> action, int help) {
         auto& target = item_controls->secondary.add(bounds, [action](const UiPointerEvent& event) {
-            if (event.button != UiPointerButton::Right) {
-                PushButtonSoundScheme(0, true);
-            }
+            if (event.button != UiPointerButton::Right) PushButtonSoundScheme(0, true);
             if (event.action == UiPointerAction::Up && event.inside &&
-                event.button == UiPointerButton::Right && event.captured_buttons) {
+                event.button == UiPointerButton::Right && event.captured_buttons)
                 AfterUiDispatch(action);
-            }
             return UiResult::Handled;
         });
-        if (help >= 0) {
-            target.setTooltip([help] { return std::string(g_localized_strings[help]); });
-        }
+        if (help >= 0) target.setTooltip([help] { return std::string(g_localized_strings[help]); });
         return &target;
     };
-    for (int index = 0; index < 7; ++index) {
+    for (int index = 0; index < 7; ++index)
         item_controls->stats[index] = label(
             {0x1c2, 0x3a + index * 14, 77, 13},
             [index] { OpenAttributeInfoDialog(static_cast<W8Attribute>(index)); }, 0x958);
-    }
     constexpr int info_y[] = {0x3a, 0x48, 0x80, 0x8e};
-    for (int index = 0; index < 4; ++index) {
+    for (int index = 0; index < 4; ++index)
         item_controls->info[index] = label(
             {0x144, info_y[index], 118, 13},
             [index] { OpenSecondaryAttributeInfoDialog(index < 2 ? index : 3); }, 0x958);
-    }
     item_controls->help = label({0x141, 0x54, 120, 13}, OpenSecondaryAttributeInfoDialog4, -1);
     item_controls->help->setTooltip([] { return item_controls->help_text; });
 }
@@ -1230,9 +1213,7 @@ void RefreshCampSecondaryPanel(bool invalidate)
     if (invalidate) {
         InvalidateCampPanel();
     }
-    for (const auto& tab : item_controls->tabs) {
-        item_controls->dirty |= tab->m_dirty;
-    }
+    for (const auto& tab : item_controls->tabs) item_controls->dirty |= tab->m_dirty;
     if (item_controls->dirty) {
         CatalogArtwork::Load(0x120, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x13c, 7);
         for (const auto& tab : item_controls->tabs) {

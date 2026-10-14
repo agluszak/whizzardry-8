@@ -40,10 +40,7 @@ void __cdecl srAssertFail(const char* expression, const char* path, w8_long line
 
 namespace {
 struct Registered : srClassSupport<Registered, srClass, 0x7ff001> {
-    static const char* sGetClassName()
-    {
-        return "Registry ownership fixture";
-    }
+    static const char* sGetClassName() { return "Registry ownership fixture"; }
 };
 
 void names()

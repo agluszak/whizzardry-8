@@ -2772,13 +2772,9 @@ void RefreshMonsterTargetCounts(void)
 bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>* position,
                                     float max_distance)
 {
-    if (!(monster->GetDistanceToPlayer() < max_distance)) {
-        return false;
-    }
+    if (!(monster->GetDistanceToPlayer() < max_distance)) return false;
     const auto bounds = MonsterGetWorldAnimationBounds(monster);
-    if (!bounds) {
-        return false;
-    }
+    if (!bounds) return false;
     auto center = monster->movement.position;
     center.y += monster->movement.height_offset;
     const std::array points{center.glmValue(), bounds->minimum, bounds->maximum};

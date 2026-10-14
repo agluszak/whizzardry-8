@@ -21,9 +21,8 @@ inline bool containsClosed(std::span<const glm::vec2, 3> vertices, const glm::ve
         const auto& second = vertices[(opposite + 2) % vertices.size()];
         if (!(orientedArea(first, second, point) *
                   orientedArea(first, second, vertices[opposite]) >=
-              0)) {
+              0))
             return false;
-        }
     }
     return true;
 }
@@ -50,16 +49,12 @@ inline bool contains(std::span<const glm::vec3, 3> vertices, unsigned axis, cons
         const bool second_crosses = boundary == Boundary::visibility
                                         ? second.y < query.y && query.y < first.y
                                         : second.y <= query.y && query.y < first.y;
-        if (!first_crosses && !second_crosses) {
-            continue;
-        }
+        if (!first_crosses && !second_crosses) continue;
         const auto area = orientedArea(first, second, query);
         const bool upward = second.y > first.y;
         const bool crosses = boundary == Boundary::visibility ? (upward ? area >= 0 : area <= 0)
                                                               : (upward ? area > 0 : area < 0);
-        if (crosses) {
-            inside = !inside;
-        }
+        if (crosses) inside = !inside;
     }
     return inside;
 }

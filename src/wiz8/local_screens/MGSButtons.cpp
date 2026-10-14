@@ -166,22 +166,16 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
 // FUNCTION: WIZ8 0x005963E0
 void RefreshSubMenuPanel(bool invalidate)
 {
-    if (!submenu) {
-        return;
-    }
+    if (!submenu) return;
     submenu->dirty |= invalidate;
     auto& target = GetFrameBufferSurface();
     if (submenu->dirty) {
         CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left,
                                                         0x1c3);
-        for (auto& button : submenu->buttons) {
-            button->m_dirty = true;
-        }
+        for (auto& button : submenu->buttons) button->m_dirty = true;
         submenu->dirty = false;
     }
-    for (auto& button : submenu->buttons) {
-        button->Draw(target);
-    }
+    for (auto& button : submenu->buttons) button->Draw(target);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -1239,9 +1233,7 @@ void UpdateSubMenuAutoClose(void)
 // FUNCTION: WIZ8 0x005957E0
 void EnableSubMenuRegions(void)
 {
-    if (submenu) {
-        submenu->input.setEnabled(true);
-    }
+    if (submenu) submenu->input.setEnabled(true);
 }
 
 // FUNCTION: WIZ8 0x00595850
@@ -1329,9 +1321,8 @@ unsigned char BuildSubMenuPanel(short notification)
     submenu->input.add(
         SDL_Rect{left, 0x1c3, icon_delta + 1, 0x1d},
         [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
                 AfterUiDispatch(DestroySubMenuControls);
-            }
             return UiResult::Handled;
         },
         -1);
@@ -1386,15 +1377,12 @@ unsigned char BuildSubMenuPanel(short notification)
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
             button->on_hover = [](bool hovered) {
-                if (hovered) {
-                    SetUiHelpForced(true);
-                }
+                if (hovered) SetUiHelpForced(true);
             };
             button->SetTooltip([] {
                 const int slot = g_status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot)) {
+                if (!CanPartySlotUseRecordedItem(slot))
                     return std::string(g_localized_strings[0x5d]);
-                }
                 const auto& row = g_status.buffers.XChar[slot];
                 const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
                 return fmt::format("{}: {}", g_localized_strings[0x5d],

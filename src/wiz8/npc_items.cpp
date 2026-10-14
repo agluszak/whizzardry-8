@@ -277,9 +277,7 @@ void SortNpcItems(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0055a5d0
 void ClearNpcItems(W8NpcState* npc)
 {
-    if (npc->record->owns_stock != 0) {
-        npc->items.clear();
-    }
+    if (npc->record->owns_stock != 0) npc->items.clear();
 }
 
 /* Add stock described by an item instance. Only the instance's item id is used;

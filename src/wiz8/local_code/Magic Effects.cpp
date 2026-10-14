@@ -792,9 +792,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                                                                        : W8_MONSTER_SUMMON_HOSTILE;
     for (index = 0; index < group->member_count; ++index) {
         member = FindMonster(group->MemberLocationId(index));
-        if (member == 0) {
-            srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-        }
+        if (member == 0) srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
         if (member->summoned == W8_MONSTER_SUMMON_NONE) {
             member->summoned = summoned_state;
             SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
@@ -1360,20 +1358,15 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
         if (stamina && restored == 0) {
             continue;
         }
-        if (stamina) {
-            missing = character->uiStaminaMax - character->stamina;
-        }
+        if (stamina) missing = character->uiStaminaMax - character->stamina;
         restored = std::min(missing, restored);
         if (stamina) {
             RestoreCharacterStamina(character_index, restored, verbose);
-            if (character->stamina < character->uiStaminaMax) {
-                all_full = false;
-            }
+            if (character->stamina < character->uiStaminaMax) all_full = false;
         } else {
             HealCharacter(character_index, restored, verbose);
-            if (character->hp_current < static_cast<unsigned int>(character->uiHPMax)) {
+            if (character->hp_current < static_cast<unsigned int>(character->uiHPMax))
                 all_full = false;
-            }
         }
         record(restored, character_index, true);
     }
@@ -1388,28 +1381,21 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
         if (stamina && restored == 0) {
             continue;
         }
-        if (stamina) {
-            missing = monster->stamina_max - monster->stamina;
-        }
+        if (stamina) missing = monster->stamina_max - monster->stamina;
         restored = std::min(missing, restored);
         if (stamina) {
             RestoreMonsterStamina(monster, restored, true);
             if (static_cast<unsigned int>(monster->stamina) <
-                static_cast<unsigned int>(monster->stamina_max)) {
+                static_cast<unsigned int>(monster->stamina_max))
                 all_full = false;
-            }
         } else {
             HealMonster(monster, restored, verbose);
-            if (monster->hp_current < static_cast<unsigned int>(monster->uiHPMax)) {
-                all_full = false;
-            }
+            if (monster->hp_current < static_cast<unsigned int>(monster->uiHPMax)) all_full = false;
         }
         record(restored, monster->location_id, false);
     }
     if (!verbose && count != 0) {
-        if (stamina) {
-            effect->applied = true;
-        }
+        if (stamina) effect->applied = true;
         if (GetTextBoxMode() != 0) {
             AppendToLastTextLine(" -- ", -1);
             SetTextBoxMode(1, -1);
@@ -1428,9 +1414,7 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
         }
         SetTextBoxMode(1, -1);
         effect->reported = true;
-        if (!stamina) {
-            effect->applied = true;
-        }
+        if (!stamina) effect->applied = true;
     }
     return all_full;
 }
@@ -1774,12 +1758,11 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
                 : g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns;
         if (haste_turns != 0) {
             const int remaining = static_cast<int>(duration) - static_cast<int>(haste_turns);
-            if (monster) {
+            if (monster)
                 TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE,
                                            duration);
-            } else {
+            else
                 TickCharacterEnchantmentSlot(character_index, W8_ENCHANTMENT_HASTE, duration);
-            }
             return remaining > 0 &&
                    !ResolveAttackOnTarget(
                        &effect->Source, target, condition, g_spell_records[effect->kind].realm,
@@ -1790,9 +1773,8 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
 
     if (ResolveAttackOnTarget(&effect->Source, target, condition,
                               g_spell_records[effect->kind].realm, effect->definition.power_level,
-                              argument, duration, verbose, verbose, 0)) {
+                              argument, duration, verbose, verbose, 0))
         return false;
-    }
 
     if (effect->kind == W8_SPELL_TERROR && !monster) {
         ResolveAttackOnTarget(&effect->Source, target, W8_CONDITION_UNCONSCIOUS,
@@ -1952,16 +1934,12 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
     const std::size_t total = character_count + effect->monster_ids.size();
 
     for (std::size_t index = 0; index < total; ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
-            continue;
-        }
+        if (Random(100) >= static_cast<unsigned int>(chance)) continue;
 
         const unsigned int duration = RollEffectDuration(&effect->definition);
         if (index < character_count) {
             const int character_index = effect->target_indices[index];
-            if (character_index == -1) {
-                srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
-            }
+            if (character_index == -1) srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
             target.iType = W8_TARGET_KIND_CHARACTER;
             target.iChar = character_index;
         } else {
@@ -2148,18 +2126,15 @@ static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot*
     unsigned int magnitude = RollEffectMagnitude(&effect->definition);
     ReduceMagnitudeByResistance(&magnitude, target, realm, power_level);
     if (magnitude == 0) {
-        if (verbose) {
-            AnnounceEffectResisted(target);
-        }
+        if (verbose) AnnounceEffectResisted(target);
         return;
     }
     W8SpellEffectResult* result = verbose ? nullptr : &effect->result;
-    if (target->iType == W8_TARGET_KIND_CHARACTER) {
+    if (target->iType == W8_TARGET_KIND_CHARACTER)
         ApplyDamageToCharacter(target->iChar, magnitude, false, verbose, false, result, false);
-    } else {
+    else
         ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0, result,
                              false);
-    }
 }
 
 /* The affliction spells: each listed target takes either a weighted-random

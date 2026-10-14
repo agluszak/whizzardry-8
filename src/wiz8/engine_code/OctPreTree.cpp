@@ -149,9 +149,7 @@ bool OctPreTree::SegmentClear(const glm::vec3& from, const glm::vec3& to)
         },
         [&](const glm::ivec3& current, bool adjacent) {
             CollectLeafPolygons(current);
-            if (m_gd_result_count != 0 || adjacent) {
-                blocked = TestCollectedPolygons(&trace);
-            }
+            if (m_gd_result_count != 0 || adjacent) blocked = TestCollectedPolygons(&trace);
             return !blocked;
         });
     return !blocked;
@@ -332,12 +330,8 @@ try {
             srAssertFail("m_pAlphaBits->Save(hOctFile)", OCTPRETREE_CPP, 0x224,
                          "ReadOctFile: Failure writing Alpha Bits.");
         }
-        if (m_ulNumParticles != 0) {
-            m_particle_links.write(*file, header.m_mesh_total);
-        }
-        if (m_ulNumProps != 0) {
-            m_prop_links.write(*file, header.m_mesh_total);
-        }
+        if (m_ulNumParticles != 0) m_particle_links.write(*file, header.m_mesh_total);
+        if (m_ulNumProps != 0) m_prop_links.write(*file, header.m_mesh_total);
     }
     /* Every section terminator is the same 0xffffffff dword: retail keeps one
        -1 local for all of them (verified at 0x468406). */
@@ -373,9 +367,7 @@ try {
             return 0;
         }
     }
-    if (file) {
-        file->close();
-    }
+    if (file) file->close();
     file.reset();
     return written;
 } catch (const std::exception&) {
@@ -1219,9 +1211,7 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
     if (result != 1) {
         for (int i = 0; i < 4; ++i) {
             char out = 1;
-            if (result == 1) {
-                break;
-            }
+            if (result == 1) break;
             switch (i) {
             case 0:
                 corner.x = bounds_min.x;
@@ -1254,17 +1244,13 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
                     if (!probe ||
                         clearance * static_cast<float>(g_double_half) < fabsf(node->y - corner.y)) {
                         for (int b = 0; b < m_lNumBlocks && result != 1; ++b) {
-                            if (current_prop == m_lBlocks[b]) {
-                                result = 1;
-                            }
+                            if (current_prop == m_lBlocks[b]) result = 1;
                         }
                         out = result;
                         if (result != 1) {
                             bool absent = true;
                             for (int s = 0; s < m_lNumSupports; ++s) {
-                                if (current_prop == m_lSupports[s]) {
-                                    absent = false;
-                                }
+                                if (current_prop == m_lSupports[s]) absent = false;
                             }
                             if (absent) {
                                 m_lSupports[m_lNumSupports] = current_prop;
@@ -1298,9 +1284,7 @@ OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPat
                                    unsigned int cell, unsigned int node,
                                    std::span<const W8PreProp> preprops)
 {
-    if (m_lNumSupports == 0 && m_lNumBlocks == 0) {
-        return 0;
-    }
+    if (m_lNumSupports == 0 && m_lNumBlocks == 0) return 0;
 
     const auto insert = [&](std::span<const int> ids, unsigned flags) {
         for (const int prop_id : ids) {
@@ -1308,30 +1292,27 @@ OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPat
             for (std::size_t index = 0; index < preprops.size(); ++index) {
                 const auto& prop = preprops[index];
                 if (prop.num_stop_meshes == 0 || prop_id < prop.first_prop_number ||
-                    prop_id >= prop.first_prop_number + prop.num_stop_meshes) {
+                    prop_id >= prop.first_prop_number + prop.num_stop_meshes)
                     continue;
-                }
                 const unsigned key =
                     (static_cast<unsigned>(
                          prop.pStopMeshes[prop_id - prop.first_prop_number].m_prop_number)
                      << 16) |
                     static_cast<unsigned>(index + 1);
                 auto* entry = static_cast<CondPathNode*>(malloc(sizeof(CondPathNode)));
-                if (!entry) {
+                if (!entry)
                     srAssertFail(
                         "pCondNode", OCTPRETREE_CPP, 0x7e0,
                         "InsertConditionalNodes: Could not allocate CondPathNode stucture.");
-                }
                 entry->value = node | flags;
                 entry->cell = cell;
                 InsertIndexValue(nodes, key, entry);
                 found = true;
                 break;
             }
-            if (!found) {
+            if (!found)
                 srAssertFail("FALSE", OCTPRETREE_CPP, 0x7e8,
                              "Could not find prop and frame for conditional node.");
-            }
         }
     };
     insert({m_lSupports, static_cast<std::size_t>(m_lNumSupports)}, 0);
@@ -1354,9 +1335,7 @@ char OctPreTree::TestPathPropBounds(const srBoundingBox& bounds)
         }
     }
     current_prop = -1;
-    if (hit != 0) {
-        return 1;
-    }
+    if (hit != 0) return 1;
 
     ids = queryObjects(bounds, 8, -1);
     count = ids.size();
@@ -1366,22 +1345,16 @@ char OctPreTree::TestPathPropBounds(const srBoundingBox& bounds)
         GDProp* prop = (*props)[id];
         if (prop->boundsOverlap(bounds)) {
             prop_hit = true;
-            if (prop->m_flags.always_blocks_path) {
-                return 1;
-            }
+            if (prop->m_flags.always_blocks_path) return 1;
             /* Dead in retail: current_prop was just set to -1 above and
                QueryObjects never republishes it, while support entries are
                registered prop ids >= 0 - the comparison can never fire. */
-            if (m_lNumSupports != 0 && current_prop == m_lSupports[0]) {
-                return 1;
-            }
+            if (m_lNumSupports != 0 && current_prop == m_lSupports[0]) return 1;
             m_lBlocks[m_lNumBlocks] = id;
             ++m_lNumBlocks;
         }
     }
-    if (prop_hit) {
-        return 3;
-    }
+    if (prop_hit) return 3;
     return 0;
 }
 
@@ -1402,9 +1375,7 @@ int OctPreTree::CreatePathProps(const W8LevelFile& level, W8PreProp** preprops)
         for (int i = 0; i < count; ++i) {
             const W8LevelFileProp* prop = &level.props[i];
             W8PreProp* record = records + i;
-            if ((prop->flags & W8_PROP_COLLIDABLE) == 0) {
-                continue;
-            }
+            if ((prop->flags & W8_PROP_COLLIDABLE) == 0) continue;
             const auto registerFrame = [&](unsigned mesh_index, unsigned short frame) {
                 auto& mesh = record->pStopMeshes[mesh_index];
                 mesh.ApplyAnimFrame(frame, prop->anim_obj);
@@ -1573,17 +1544,14 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
     const auto& maximum = box.maximum;
 
     for (const auto& vertex : vertices) {
-        if (box.contains(vertex)) {
-            return true;
-        }
+        if (box.contains(vertex)) return true;
     }
 
     const auto triangleMinimum = glm::min(glm::min(vertices[0], vertices[1]), vertices[2]);
     const auto triangleMaximum = glm::max(glm::max(vertices[0], vertices[1]), vertices[2]);
     if (glm::any(glm::lessThan(triangleMaximum, minimum)) ||
-        glm::any(glm::greaterThan(triangleMinimum, maximum))) {
+        glm::any(glm::greaterThan(triangleMinimum, maximum)))
         return false;
-    }
 
     const bool nearAxis = glm::any(
         glm::greaterThan(glm::abs(normal), glm::vec3(g_region_axis_alignment_threshold)) &&
@@ -1594,15 +1562,13 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
         const auto positive = glm::greaterThanEqual(normal, glm::vec3(0));
         const auto nearest = glm::mix(maximum, minimum, positive);
         const auto farthest = glm::mix(minimum, maximum, positive);
-        if (glm::dot(nearest - centroid, normal) > 0 || glm::dot(farthest - centroid, normal) < 0) {
+        if (glm::dot(nearest - centroid, normal) > 0 || glm::dot(farthest - centroid, normal) < 0)
             return false;
-        }
     }
 
     RuntimeTriangle edge_delta;
-    for (unsigned edge = 0; edge < vertices.size(); ++edge) {
+    for (unsigned edge = 0; edge < vertices.size(); ++edge)
         edge_delta[edge] = vertices[(edge + 1) % vertices.size()] - vertices[edge];
-    }
 
     for (short face_axis = 0; face_axis < 3; ++face_axis) {
         short first_axis = face_axis == 2 ? 0 : face_axis + 1;

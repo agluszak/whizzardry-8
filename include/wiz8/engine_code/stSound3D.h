@@ -22,10 +22,7 @@ extern std::vector<stSound3D*> g_sound3d_instances;
    string to settle it. Move the bodies when the gap is attributed. */
 class stSound3D : public srClassSupport<stSound3D, srNode, 0x1000b> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stSound3D";
-    }
+    static const char* sGetClassName() { return "stSound3D"; }
     stSound3D(const char* sound_name, srNode* parent); /* 0x004AE6D0 */
     virtual ~stSound3D() override;
     bool IsPlaying(); /* 0x004AEC70 */

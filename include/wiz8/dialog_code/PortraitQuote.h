@@ -19,10 +19,7 @@ public:
     void draw(SDL_Surface& target, int x, int y) const;
     int width() const;
     int height() const;
-    std::string_view text() const
-    {
-        return text_;
-    }
+    std::string_view text() const { return text_; }
 
 private:
     QuoteBubble(std::shared_ptr<SDL_Surface> surface, std::string_view text);

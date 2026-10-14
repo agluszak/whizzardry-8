@@ -70,10 +70,7 @@ public:
     enum class Ownership { parent, independent };
     SR_DLL_IMPORT srNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
     /* Copies the transform under the default parent; links are not copied. */
-    srNode(const srNode& other) : srNode(nullptr)
-    {
-        *this = other;
-    }
+    srNode(const srNode& other) : srNode(nullptr) { *this = other; }
     virtual SR_DLL_IMPORT ~srNode() override;
 
     SR_DLL_IMPORT srNode& operator=(const srNode& other);
@@ -95,30 +92,20 @@ protected:
     template<class Activity>
     void traverseEffect(TraverseInfo& info, Activity activity)
     {
-        if (next_sibling_) {
-            next_sibling_->traverse(info);
-        }
-        if (testFlag(FLAG_TERMINATE)) {
-            return;
-        }
+        if (next_sibling_) next_sibling_->traverse(info);
+        if (testFlag(FLAG_TERMINATE)) return;
         // Evaluate activity after siblings, and preserve disabled-node descent.
         const auto mode = testFlag(FLAG_DISABLE) ? EffectTraversal::childrenOnly : activity();
-        if (mode == EffectTraversal::skipSubtree) {
-            return;
-        }
+        if (mode == EffectTraversal::skipSubtree) return;
         if (mode == EffectTraversal::active) {
-            if (testFlag(FLAG_GLOBAL)) {
+            if (testFlag(FLAG_GLOBAL))
                 info.nodes.push_back(this);
-            } else {
+            else
                 info.entries.push_back({this, PROCESS_PUSH});
-            }
         }
-        if (first_child_) {
-            first_child_->traverse(info);
-        }
-        if (mode == EffectTraversal::active && !testFlag(FLAG_GLOBAL)) {
+        if (first_child_) first_child_->traverse(info);
+        if (mode == EffectTraversal::active && !testFlag(FLAG_GLOBAL))
             info.entries.push_back({this, PROCESS_POP});
-        }
     }
 
 protected:
@@ -140,10 +127,7 @@ public:
     SR_DLL_IMPORT srNode* getNext() const;
     // FUNCTION: SURRENDER 0x10051A40 SYMBOL
     // RECOMP: ?getParent@srNode@@QBEPAV1@XZ
-    srNode* getParent() const
-    {
-        return parent_;
-    }
+    srNode* getParent() const { return parent_; }
     SR_DLL_IMPORT srNode* getPrev() const;
     SR_DLL_IMPORT int isChildOf(const srNode& node) const;
     SR_DLL_IMPORT int isParentOf(const srNode& node) const;
@@ -185,11 +169,10 @@ public:
     Matrix getWorldSpaceMatrix() const
     {
         checkTransformation();
-        if constexpr (std::is_same_v<typename Matrix::value_type, float>) {
+        if constexpr (std::is_same_v<typename Matrix::value_type, float>)
             return Matrix(world_transform1);
-        } else {
+        else
             return Matrix(world_transform0);
-        }
     }
 
     template<class Matrix = glm::dmat3>
@@ -197,9 +180,8 @@ public:
     {
         const auto world = getWorldSpaceMatrix<glm::mat<4, 3, typename Matrix::value_type>>();
         Matrix result(world);
-        for (int column = 0; column < 3; ++column) {
+        for (int column = 0; column < 3; ++column)
             result[column] = normalizedOrZero(result[column]);
-        }
         return result;
     }
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceScale() const;
@@ -259,9 +241,7 @@ public:
     template<class T> T* adoptChild(std::unique_ptr<T> child, int preserve_world_transform = 0)
     {
         std::lock_guard access(sceneGraphCSect);
-        if (!child || !child->setParent(this, preserve_world_transform)) {
-            return nullptr;
-        }
+        if (!child || !child->setParent(this, preserve_world_transform)) return nullptr;
         static_cast<srNode*>(child.get())->parent_owns_ = true;
         return child.release();
     }

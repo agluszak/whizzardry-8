@@ -16,10 +16,7 @@ public:
     EmitterLights() = default;
     EmitterLights(const EmitterLights&) = delete;
     void CloneFrom(const EmitterLights&);
-    EmitterLights(EmitterLights&& other) noexcept
-    {
-        lights.swap(other.lights);
-    }
+    EmitterLights(EmitterLights&& other) noexcept { lights.swap(other.lights); }
     EmitterLights& operator=(const EmitterLights&) = delete;
     ~EmitterLights();
     std::vector<stLight*> lights;
@@ -33,10 +30,7 @@ struct EmitterCycleResources {
     EmitterCycleResources() = default;
     EmitterCycleResources(EmitterCycleResources&&) noexcept = default;
     EmitterCycleResources& operator=(const EmitterCycleResources&) = delete;
-    std::vector<stLight*>* lightView()
-    {
-        return lights.lights.empty() ? nullptr : &lights.lights;
-    }
+    std::vector<stLight*>* lightView() { return lights.lights.empty() ? nullptr : &lights.lights; }
     void swap(EmitterCycleResources& other) noexcept
     {
         lights.lights.swap(other.lights.lights);

@@ -52,18 +52,13 @@ void HandleGameEvent(const SDL_Event& event)
         gfProgramIsRunning = false;
         return;
     }
-    if (gfIgnoreMessages) {
-        return;
-    }
+    if (gfIgnoreMessages) return;
     HandleInputEvent(event);
-    if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow)) {
+    if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow))
         return;
-    }
     switch (event.type) {
     case SDL_EVENT_WINDOW_RESIZED:
-        if (event.window.data1 > 0 && event.window.data2 > 0) {
-            VideoResizeWindow();
-        }
+        if (event.window.data1 > 0 && event.window.data2 > 0) VideoResizeWindow();
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         if (restore_pending) {
@@ -76,9 +71,7 @@ void HandleGameEvent(const SDL_Event& event)
         gfApplicationActive = true;
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (!VideoInspectorIsEnabled()) {
-            SuspendVideoManager();
-        }
+        if (!VideoInspectorIsEnabled()) SuspendVideoManager();
         MoveTimer(TIMER_SUSPEND);
         gfApplicationActive = false;
         restore_pending = true;

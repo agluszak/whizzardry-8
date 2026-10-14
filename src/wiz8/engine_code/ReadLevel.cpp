@@ -117,9 +117,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             continue;
         }
 
-        if (!model->isVisible(renderer)) {
-            continue;
-        }
+        if (!model->isVisible(renderer)) continue;
 
         srNode* linked_child = child;
         while (model != 0) {
@@ -561,9 +559,7 @@ try {
             pWorld->plsProps.push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
                 const auto prop_bounds = prop->GetBounds();
-                if (!prop_bounds) {
-                    return false;
-                }
+                if (!prop_bounds) return false;
                 pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, *prop_bounds);
@@ -992,9 +988,7 @@ try {
     unsigned char version;
 
     hFile->read_exact(&count, sizeof(count));
-    if (count < 0) {
-        return false;
-    }
+    if (count < 0) return false;
     std::vector<W8NamedPosition> pending;
     for (index = 0; index < count; ++index) {
         W8NamedPosition position;

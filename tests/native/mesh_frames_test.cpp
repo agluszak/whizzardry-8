@@ -297,10 +297,7 @@ public:
     inline static int destroyed = 0;
     void invalidate() override {}
     void setupDefaultValues() override {}
-    ~TestTexture() override
-    {
-        ++destroyed;
-    }
+    ~TestTexture() override { ++destroyed; }
 };
 
 static bool skins_and_automap()

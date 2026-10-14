@@ -67,10 +67,7 @@ protected:
     srRuntimeClass() = default;
     /* Copies start unnamed; srClass assignment copies the name explicitly. */
     srRuntimeClass(const srRuntimeClass&) {}
-    srRuntimeClass& operator=(const srRuntimeClass&)
-    {
-        return *this;
-    }
+    srRuntimeClass& operator=(const srRuntimeClass&) { return *this; }
 
 private:
     static SR_DLL_IMPORT w8_ulong sGetClassID();
@@ -94,10 +91,7 @@ public:
 
 protected:
     SR_DLL_IMPORT srClass();
-    srClass(const srClass& other) : srRuntimeClass(other)
-    {
-        *this = other;
-    }
+    srClass(const srClass& other) : srRuntimeClass(other) { *this = other; }
 };
 
 /* Supplies format identity and cloning for a concrete scene/data type. */
@@ -119,26 +113,14 @@ public:
         return node;
     }
 
-    virtual const char* getClassName() const override
-    {
-        return Derived::sGetClassName();
-    }
+    virtual const char* getClassName() const override { return Derived::sGetClassName(); }
 
-    virtual w8_ulong getClassID() const override
-    {
-        return ClassID;
-    }
+    virtual w8_ulong getClassID() const override { return ClassID; }
 
-    virtual srRegistry::ClassNode* getClassNode() const override
-    {
-        return sGetClassNode();
-    }
+    virtual srRegistry::ClassNode* getClassNode() const override { return sGetClassNode(); }
 
 public:
-    srClassSupport()
-    {
-        sGetClassNode();
-    }
+    srClassSupport() { sGetClassNode(); }
 
 public:
     /* Forwarding constructors. They are templates so that exporting an instantiation whose Base

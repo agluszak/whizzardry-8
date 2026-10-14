@@ -13,15 +13,11 @@ inline std::optional<SDL_Rect> axisLineRectangle(int fixed, int begin, int end, 
                                                  const glm::ivec2& dimensions)
 {
     const int fixed_limit = vertical ? dimensions.x : dimensions.y;
-    if (fixed < 0 || fixed >= fixed_limit) {
-        return std::nullopt;
-    }
+    if (fixed < 0 || fixed >= fixed_limit) return std::nullopt;
     const int variable_limit = vertical ? dimensions.y : dimensions.x;
     const auto interval =
         glm::clamp(glm::ivec2(std::min(begin, end), std::max(begin, end)), 0, variable_limit);
-    if (interval.x >= interval.y) {
-        return std::nullopt;
-    }
+    if (interval.x >= interval.y) return std::nullopt;
     const auto count = interval.y - interval.x;
     return vertical ? SDL_Rect{fixed, interval.x, 1, count} : SDL_Rect{interval.x, fixed, count, 1};
 }

@@ -197,9 +197,7 @@ private:
     template<class T, std::size_t Count>
     std::span<const T> scratchChannel(const T (&values)[Count], w8_ulong ready, SetupChannel setup)
     {
-        if ((scratch.flags & ready) == 0) {
-            (this->*setup)();
-        }
+        if ((scratch.flags & ready) == 0) (this->*setup)();
         return std::span<const T>(values).subspan(sub_batch_offset, vertex_count);
     }
     void prepareOutputChannel(srVertexProcessor::e_channel channel, w8_ulong& operations,

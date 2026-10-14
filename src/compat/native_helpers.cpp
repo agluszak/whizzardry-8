@@ -44,13 +44,10 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
             drive[0] = path[0];
             drive[1] = ':';
             drive[2] = 0;
-        } else {
+        } else
             drive[0] = 0;
-        }
     }
-    if (has_drive) {
-        path += 2;
-    }
+    if (has_drive) path += 2;
     const char* separator = 0;
     for (const char* cursor = path; *cursor != 0; ++cursor) {
         if (*cursor == '/' || *cursor == '\\') {

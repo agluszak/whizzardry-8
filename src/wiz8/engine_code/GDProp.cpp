@@ -337,12 +337,9 @@ unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& p
     const glm::vec2 boundaries(minimum[major], major == 0 ? maximum.x : minimum.y);
     const auto crossings = (boundaries - from[major]) * (delta[minor] / delta[major]) + from[minor];
     bool found = false;
-    for (float cross : {crossings.x, crossings.y}) {
+    for (float cross : {crossings.x, crossings.y})
         found |= cross > minimum[minor] - 1 && cross < maximum[minor] + 1;
-    }
-    if (!found) {
-        return 0;
-    }
+    if (!found) return 0;
     m_path_edges.push_back(static_cast<unsigned short>(index));
     return 1;
 }
@@ -428,21 +425,19 @@ void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim
     m_vertex_count = 0;
     m_surface_count = 0;
 
-    for (const auto& transform : anim.transforms) {
+    for (const auto& transform : anim.transforms)
         appendMeshGeometry(transform.pathAI.Node(frame), transform.frames.front().mesh);
-    }
 }
 
 void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
 {
     for (int face = 0; face < mesh.num_faces; ++face) {
         auto& surface = m_pGDSurfaces[m_surface_count++];
-        for (unsigned corner = 0; corner < 3; ++corner) {
+        for (unsigned corner = 0; corner < 3; ++corner)
             surface.vertex_indices[corner] =
                 vertex_base + (mesh.HasCompressedFaces()
                                    ? mesh.compressed_faces[face].vertex_indices[corner]
                                    : mesh.faces[face].vertices[corner]);
-        }
     }
 }
 
@@ -458,10 +453,9 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
 
     const auto axis = node.path.axis.glmValue();
     glm::mat3 rotation(1);
-    if (node.path.angle != g_double_zero) {
+    if (node.path.angle != g_double_zero)
         rotation *= glm::mat3_cast(glm::angleAxis(
             float(std::atan2(sin(node.path.angle), cos(node.path.angle))), normalizedOrZero(axis)));
-    }
     const auto translation =
         glm::vec3(glm::dvec3(node.path.position.glmValue()) * g_double_five_hundred);
     float factor;
@@ -476,9 +470,7 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
 
     glm::mat4x3 matrix(rotation);
     matrix[3] = translation;
-    for (int column = 0; column < 3; ++column) {
-        matrix[column] *= scale[column];
-    }
+    for (int column = 0; column < 3; ++column) matrix[column] *= scale[column];
 
     const bool has_lods = (mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
     const bool compressed = has_lods && (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;

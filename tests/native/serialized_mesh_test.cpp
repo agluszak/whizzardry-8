@@ -245,10 +245,7 @@ TEST_CASE("serialized_mesh_test")
                 : srModelInstance(parent), destroyed(destroyed)
             {
             }
-            ~TrackedInstance() override
-            {
-                ++destroyed;
-            }
+            ~TrackedInstance() override { ++destroyed; }
         };
         int destroyed = 0;
         srScene scene(nullptr);
@@ -284,7 +281,7 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
         std::ifstream file(path, std::ios::binary);
         return std::string(std::istreambuf_iterator<char>(file), {});
     };
-    for (bool transform : {false, true}) {
+    for (bool transform : {false, true})
         for (bool lod : {false, true}) {
             {
                 auto file = wiz8::open_host_file(input, wiz8::OpenMode::replace);
@@ -292,9 +289,7 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                                                           static_cast<unsigned char>(transform)});
                 Write(*file, std::array<char, 50>{});
                 Write(*file, char{1}); // Group count.
-                if (transform) {
-                    Write(*file, char{1}); // Transform count.
-                }
+                if (transform) Write(*file, char{1}); // Transform count.
                 Write(*file, char{0}); // Channel.
                 Write(*file, char{2}); // Frame count, including frames inside the LOD mesh.
                 const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
@@ -320,9 +315,7 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                     material.version = 1;
                     file->write(&material, 0x11a);
                 }
-                if (transform) {
-                    Write(*file, std::array<char, 14>{}); // Empty path AI record.
-                }
+                if (transform) Write(*file, std::array<char, 14>{}); // Empty path AI record.
             }
             const std::string bytes = bytes_at(input);
             W8LevelFileAnimObj animation{};
@@ -349,7 +342,6 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                 REQUIRE(partial.transforms.empty());
             }
         }
-    }
 }
 
 TEST_CASE("Octree mesh writer consumes arrays in disk order")
@@ -388,18 +380,14 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                 Write(*file, std::array<int, 7>{4 | (version << 8), 3, 3, 1, 11, 13, material});
                 Write(*file, locations);
                 Write(*file, uv);
-                if (material < 0) {
-                    Write(*file, materials);
-                }
+                if (material < 0) Write(*file, materials);
                 Write(*file, std::array<std::int32_t, 3>{0, 2, 1});
                 Write(*file, std::array<std::int32_t, 3>{2, 1, 0});
                 Write(*file, textures);
                 Write(*file, normals);
                 Write(*file, lights);
                 Write(*file, equations);
-                if (version) {
-                    Write(*file, sun); // Only the first bank is serialized.
-                }
+                if (version) Write(*file, sun); // Only the first bank is serialized.
                 Write(*file, -1);
             }
             for (bool inject_failure : {false, true}) {
@@ -423,9 +411,8 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                 if (version) {
                     mesh.m_sun_lights = static_cast<float**>(std::calloc(version, sizeof(float*)));
                     REQUIRE(mesh.m_sun_lights);
-                    for (short index = 0; index < version; ++index) {
+                    for (short index = 0; index < version; ++index)
                         mesh.m_sun_lights[index] = copy(sun);
-                    }
                 }
                 auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
                 if (inject_failure) {

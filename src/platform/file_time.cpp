@@ -22,9 +22,8 @@ SDL_DateTime local_now()
 {
     SDL_Time now;
     SDL_DateTime local{};
-    if (!SDL_GetCurrentTime(&now) || !SDL_TimeToDateTime(now, &local, true)) {
+    if (!SDL_GetCurrentTime(&now) || !SDL_TimeToDateTime(now, &local, true))
         throw std::runtime_error(std::string("local time: ") + SDL_GetError());
-    }
     return local;
 }
 } // namespace
@@ -38,15 +37,12 @@ std::optional<SDL_Time> file_time_to_sdl(DiskFileTime time) noexcept
     const auto value = time.ticks();
     if (value >= unix_epoch_ticks) {
         const auto delta = value - unix_epoch_ticks;
-        if (delta > std::uint64_t(std::numeric_limits<SDL_Time>::max()) / 100) {
-            return std::nullopt;
-        }
+        if (delta > std::uint64_t(std::numeric_limits<SDL_Time>::max()) / 100) return std::nullopt;
         return SDL_Time(delta * 100);
     }
     const auto delta = unix_epoch_ticks - value;
-    if (delta > (std::uint64_t(std::numeric_limits<SDL_Time>::max()) + 1) / 100) {
+    if (delta > (std::uint64_t(std::numeric_limits<SDL_Time>::max()) + 1) / 100)
         return std::nullopt;
-    }
     return -SDL_Time(delta * 100);
 }
 CivilTime file_time_to_utc(DiskFileTime time) noexcept
@@ -71,22 +67,18 @@ DiskFileTime file_time_from_utc(const CivilTime& time)
     using namespace std::chrono;
     if (time.year < 1601 || time.year > 60056 || time.hour > 23 || time.minute > 59 ||
         time.second > 59 || time.fraction_100ns >= ticks_per_second || time.month < 1 ||
-        time.month > 12 || time.day < 1 || time.day > 31) {
+        time.month > 12 || time.day < 1 || time.day > 31)
         throw std::invalid_argument("invalid disk civil time");
-    }
     const auto era = (time.year - 1601) / 400;
     const year_month_day date{year{1601 + (time.year - 1601) % 400}, month{time.month},
                               day{time.day}};
-    if (!date.ok()) {
-        throw std::invalid_argument("invalid disk calendar date");
-    }
+    if (!date.ok()) throw std::invalid_argument("invalid disk calendar date");
     const auto days = std::uint64_t((sys_days{date} - epoch).count()) + era * days_per_era;
     const auto remainder =
         (std::uint64_t(time.hour) * 3600 + time.minute * 60 + time.second) * ticks_per_second +
         time.fraction_100ns;
-    if (days > (std::numeric_limits<std::uint64_t>::max() - remainder) / ticks_per_day) {
+    if (days > (std::numeric_limits<std::uint64_t>::max() - remainder) / ticks_per_day)
         throw std::out_of_range("civil time exceeds disk tick range");
-    }
     return DiskFileTime::from_ticks(days * ticks_per_day + remainder);
 }
 SDL_DateTime current_local_time()

@@ -342,12 +342,8 @@ static void ClearAutomapNotes()
 
 static void EraseAutomapNote(W8AutomapNote* note)
 {
-    if (g_automap_editing_note == note) {
-        g_automap_editing_note = nullptr;
-    }
-    if (g_automap_hovered_note == note) {
-        g_automap_hovered_note = nullptr;
-    }
+    if (g_automap_editing_note == note) g_automap_editing_note = nullptr;
+    if (g_automap_hovered_note == note) g_automap_hovered_note = nullptr;
     std::erase_if(g_automap_notes, [note](const auto& owned) { return owned.get() == note; });
 }
 
@@ -465,16 +461,12 @@ void CreateAutomapButtons(void)
         const int catalog_id = g_automap_button_catalogs[index];
         auto artwork = CatalogArtwork::Load(catalog_id);
         auto sprites = artwork.spriteSheet();
-        if (!sprites) {
-            continue;
-        }
+        if (!sprites) continue;
         const int base_frame = artwork.imageOffset();
         auto button = std::make_unique<W8ButtonWidget>(buttons->input);
         const auto action = g_automap_button_callbacks[index];
         W8ButtonCallback callback;
-        if (action) {
-            callback = [action](W8ButtonWidget*) { action(); };
-        }
+        if (action) callback = [action](W8ButtonWidget*) { action(); };
         if (button->Configure(
                 std::move(sprites),
                 {base_frame + 3, base_frame, base_frame + 1, base_frame + 2, base_frame + 2},
@@ -667,14 +659,10 @@ unsigned char AutomapScreenEnter(void)
     unsigned int monster_count = gXStatus.monsters.size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->p3D) {
-            monster->p3D->DetachRepresentation(g_world);
-        }
+        if (monster->p3D) monster->p3D->DetachRepresentation(g_world);
     }
     for (W8WorldItem* item = GetNextWorldItem(true); item; item = GetNextWorldItem(false)) {
-        if (item->p3D) {
-            item->p3D->DetachMesh(g_world);
-        }
+        if (item->p3D) item->p3D->DetachMesh(g_world);
     }
     SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();
@@ -691,9 +679,7 @@ unsigned char AutomapScreenEnter(void)
             g_automap_surface =
                 std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
             auto* surface = g_automap_surface.get();
-            if (surface) {
-                surface->setFilter(&srBoxFilter);
-            }
+            if (surface) surface->setFilter(&srBoxFilter);
         }
     }
     g_automap_redraw = true;
@@ -720,17 +706,13 @@ unsigned char AutomapScreenEnter(void)
         int line = 0;
         int section = -1;
         while (section < g_status.current_level && line < static_cast<int>(script.lines.size())) {
-            if (script.lines[line].text.contains('[')) {
-                ++section;
-            }
+            if (script.lines[line].text.contains('[')) ++section;
             ++line;
         }
         if (line < static_cast<int>(script.lines.size()) && section == g_status.current_level) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
                 const auto& text = script.lines[line].text;
-                if (text.contains('[')) {
-                    break;
-                }
+                if (text.contains('[')) break;
                 if (!text.contains("LAYER=")) {
                     excluded_textures.push_back(text);
                 } else {
@@ -785,23 +767,17 @@ void EnvironmentColour::Set(double red_value, double green_value, double blue_va
     y = static_cast<float>(green_value);
     z = static_cast<float>(blue_value);
     if (x > 0.0f) {
-        if (x >= 1.0f) {
-            x = 1.0f;
-        }
+        if (x >= 1.0f) x = 1.0f;
     } else {
         x = 0.0f;
     }
     if (y > 0.0f) {
-        if (y >= 1.0f) {
-            y = 1.0f;
-        }
+        if (y >= 1.0f) y = 1.0f;
     } else {
         y = 0.0f;
     }
     if (z > 0.0f) {
-        if (z >= 1.0f) {
-            z = 1.0f;
-        }
+        if (z >= 1.0f) z = 1.0f;
     } else {
         z = 0.0f;
     }
@@ -831,9 +807,7 @@ void AutomapScreenFrame(void)
                     HandleAutomapNoteInput(&input);
                     return InputRoute::Handled;
                 }
-                if (HandleAutomapKey(&input)) {
-                    return InputRoute::Handled;
-                }
+                if (HandleAutomapKey(&input)) return InputRoute::Handled;
                 if (!IsCursorInsideViewport()) {
                     if (g_automap_cursor_inside) {
                         g_automap_cursor_inside = false;
@@ -904,9 +878,7 @@ void AutomapScreenFrame(void)
                     W8AutomapNote* previous = g_automap_hovered_note;
                     g_automap_hovered_note = FindAutomapNoteUnderCursor();
                     if (previous != g_automap_hovered_note) {
-                        if (previous) {
-                            ShowAutomapNoteTooltip(previous);
-                        }
+                        if (previous) ShowAutomapNoteTooltip(previous);
                         RenderAutomapMarkers();
                     }
                     srVector3 point;
@@ -950,13 +922,9 @@ void AutomapScreenFrame(void)
         g_automap_position.z -= g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
-    if (moved) {
-        SetAutomapCameraPoint(&g_automap_position);
-    }
+    if (moved) SetAutomapCameraPoint(&g_automap_position);
     if (w8_get_ticks() - g_automap_state->blink_time > 500) {
-        if (g_automap_state->blink_enabled) {
-            DrawVideoInspector(0xdc, 0x32);
-        }
+        if (g_automap_state->blink_enabled) DrawVideoInspector(0xdc, 0x32);
         g_automap_state->blink_time = w8_get_ticks();
     }
     RenderAutomapFrame();
@@ -969,9 +937,7 @@ void RestoreAutomapWorldSettings(void)
     RestoreWorldCameraState(GetWorld(), 0, &g_automap_saved_camera);
     WorldSetFarClip(g_world, g_automap_saved_far_clip);
     WorldSetRenderRange(g_world, g_automap_saved_world_value);
-    if (g_automap_saved_sky) {
-        EnableSky();
-    }
+    if (g_automap_saved_sky) EnableSky();
     SetRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL, g_automap_saved_render_flags[0]);
     SetRenderOption(W8_RENDER_OPTION_MESH_SKY, g_automap_saved_render_flags[1]);
     g_monster_shadow_updates_enabled = g_automap_saved_render_flags[2];
@@ -1318,14 +1284,11 @@ void LightAutomapCell(const srVector3T<float>* position)
     const auto center = position->glmValue();
     const auto instances = g_world->octree->modelsNearPoint(center, g_automap_range, 0, false);
     for (auto* instance : instances) {
-        if (!instance) {
-            continue;
-        }
+        if (!instance) continue;
         auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh;
-             mesh = mesh->Next()) {
+             mesh = mesh->Next())
             mesh->RevealVerticesNear(center, g_automap_range, world);
-        }
     }
 }
 
@@ -1528,13 +1491,9 @@ try {
                           (handle.read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
                           (handle.read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
                           (handle.read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
-                if (!ok || length < 1 || length > 40) {
-                    return false;
-                }
+                if (!ok || length < 1 || length > 40) return false;
                 std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
-                if (handle.read(bytes.data(), bytes.size()).bytes != bytes.size()) {
-                    return false;
-                }
+                if (handle.read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
                 CreateAutomapNote(&position, layer, wiz8::text::from_utf16le(bytes));
             }
             return (handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
@@ -1790,9 +1749,7 @@ void RenderAutomapMarkers(void)
             int y = 0x20 -
                     static_cast<int>((1.0f - (note->position.y - top) / g_automap_zoom) * -435.0f);
             stModelInstance2D* marker = CreateAutomapTextMarker();
-            if (note == g_automap_editing_note) {
-                marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
-            }
+            if (note == g_automap_editing_note) marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
             if (marker != 0) {
                 unsigned short width = marker->GetScaledWidth();
                 x -= width >> 1;
@@ -1981,10 +1938,9 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
         g_automap_redraw = true;
     } else {
         if (input->key == VK_BACK) {
-            if (last) {
+            if (last)
                 text.erase(wiz8::text::previous_grapheme(text, last),
                            last - wiz8::text::previous_grapheme(text, last));
-            }
             g_automap_redraw = true;
         } else if (input->key == VK_RETURN) {
             text.resize(last);

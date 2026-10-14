@@ -476,9 +476,7 @@ void MartensBluff2MonsterCrusher(int command)
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
             const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
             const auto other_bounds = g_squisher4_prop->GetFrameBounds();
-            if (!crusher_bounds || !other_bounds) {
-                return;
-            }
+            if (!crusher_bounds || !other_bounds) return;
             crusher_lower = crusher_bounds->minimum;
             crusher_upper = crusher_bounds->maximum;
             lower = other_bounds->minimum;

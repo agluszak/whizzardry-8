@@ -178,10 +178,9 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         REQUIRE(read_bytes(*file, 10) == "disc bytes");
         file.reset();
     }
-    for (auto mode : {wiz8::OpenMode::update, wiz8::OpenMode::replace, wiz8::OpenMode::append}) {
+    for (auto mode : {wiz8::OpenMode::update, wiz8::OpenMode::replace, wiz8::OpenMode::append})
         REQUIRE_THROWS_AS(([&] { wiz8::open_file("D:/Levels/Levels.slf", mode); })(),
                           std::exception);
-    }
     REQUIRE_THROWS_AS(([&] { wiz8::clear_read_only("D:/Levels/Levels.slf"); })(), std::exception);
     REQUIRE_THROWS_AS(([&] { wiz8::remove_file("D:/Levels/Levels.slf"); })(), std::exception);
     wiz8::create_directory("sAVES");
@@ -255,9 +254,7 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         REQUIRE(chunk.OpenRead(path));
         chunk.ForEachChunk([&](unsigned id) {
             visited.push_back(id);
-            if (id != W8ChunkId("GRP1")) {
-                return;
-            }
+            if (id != W8ChunkId("GRP1")) return;
             chunk.ReadGroup([&] {
                 REQUIRE(chunk.ReadValue<int>() == 7);
                 chunk.ForEachChunk([&](unsigned leaf) {
@@ -327,10 +324,9 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
     REQUIRE(srSystem::scanFiles(host_files, host_text.c_str()) == 1);
     REQUIRE(host_files == std::vector<std::string>{host_text});
     REQUIRE_THROWS_AS(([&] { wiz8::open_file(host_text); })(), std::exception);
-    for (const char* path : {"C:/../outside.sav", "Saves/../../outside.sav", "Saves/part:stream"}) {
+    for (const char* path : {"C:/../outside.sav", "Saves/../../outside.sav", "Saves/part:stream"})
         REQUIRE_THROWS_AS(([&] { wiz8::open_file(path, wiz8::OpenMode::replace); })(),
                           std::exception);
-    }
     const auto outside = root / "outside";
     fixture(outside / "untouched.sav", "outside");
     std::error_code symlink_error;
@@ -345,9 +341,8 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
                           })(),
                           std::exception);
         REQUIRE(contents(outside / "untouched.sav") == "outside");
-    } else {
+    } else
         fprintf(stderr, "Symlink checks unavailable: %s\n", symlink_error.message().c_str());
-    }
     symlink_error.clear();
     fs::create_directory_symlink(assets, user / "AssetLink", symlink_error);
     if (!symlink_error) {
@@ -529,15 +524,9 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
         auto bytes = archive_bytes;
         wiz8::SlfHeader header{};
         memcpy(&header, bytes.data(), sizeof(header));
-        if (corruption == 0) {
-            header.iEntries = -1;
-        }
-        if (corruption == 1) {
-            header.iUsed = 3;
-        }
-        if (corruption == 2) {
-            memset(header.sPathToLibrary, 'x', sizeof(header.sPathToLibrary));
-        }
+        if (corruption == 0) header.iEntries = -1;
+        if (corruption == 1) header.iUsed = 3;
+        if (corruption == 2) memset(header.sPathToLibrary, 'x', sizeof(header.sPathToLibrary));
         if (corruption == 3) {
             const auto offset = sizeof(header) + 15;
             memcpy(bytes.data() + offset + sizeof(wiz8::SlfEntry), bytes.data() + offset,
@@ -568,9 +557,7 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
         REQUIRE((read_bytes(*reader, 4) == (i % 2 ? "arch" : "user")));
         readers.push_back(std::move(reader));
     }
-    for (std::size_t i = 0; i < readers.size(); i += 2) {
-        readers[i].reset();
-    }
+    for (std::size_t i = 0; i < readers.size(); i += 2) readers[i].reset();
     readers.clear();
     auto level_archive = archive_bytes;
     wiz8::SlfHeader level_header{};

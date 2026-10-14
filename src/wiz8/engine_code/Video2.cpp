@@ -471,13 +471,9 @@ void ReleasePrimarySurface(void)
 
 unsigned char InitializePrimarySurface(void)
 {
-    if (g_sgp_pixel_format == SDL_PIXELFORMAT_UNKNOWN) {
-        return 0;
-    }
+    if (g_sgp_pixel_format == SDL_PIXELFORMAT_UNKNOWN) return 0;
     primarySurface.reset(SDL_CreateSurface(640, 480, g_sgp_pixel_format));
-    if (!primarySurface) {
-        return 0;
-    }
+    if (!primarySurface) return 0;
     SDL_SetSurfaceBlendMode(primarySurface.get(), SDL_BLENDMODE_NONE);
     return 1;
 }
@@ -510,13 +506,10 @@ try {
 
     try {
         auto input = wiz8::open_file("3DVideo.CFG");
-        if (input->size() > 65536) {
-            throw std::runtime_error("oversized video configuration");
-        }
+        if (input->size() > 65536) throw std::runtime_error("oversized video configuration");
         std::string text(static_cast<std::size_t>(input->size()), '\0');
-        if (input->read(text.data(), text.size()).bytes != text.size()) {
+        if (input->read(text.data(), text.size()).bytes != text.size())
             throw std::runtime_error("truncated video configuration");
-        }
         config.str(text);
     } catch (const std::exception&) {
         config.setstate(std::ios::failbit);
@@ -557,9 +550,8 @@ try {
 
     // reinterpret-ok: SurRender takes the window handle as an integer
     if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
-        !OpenRendererWindow()) {
+        !OpenRendererWindow())
         return 0;
-    }
     srAssertSetFunc(AssertFailureHandler);
     s_setup_disables_audio = _strnicmp(audio_setting, "none", 4) == 0;
     return 1;
@@ -572,12 +564,9 @@ try {
 // FUNCTION: WIZ8 0x00422800
 unsigned char OpenRendererWindow(void)
 {
-    if (!W8ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height)) {
+    if (!W8ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
         return 0;
-    }
-    if (g_gerd->openWindow(g_screen_width, g_screen_height) != srGERD::ERROR_NONE) {
-        return 0;
-    }
+    if (g_gerd->openWindow(g_screen_width, g_screen_height) != srGERD::ERROR_NONE) return 0;
     g_flush_pending = true;
     return 1;
 }
@@ -712,21 +701,18 @@ void UpdateRenderElapsedTime(void);
 // FUNCTION: WIZ8 0x004299b0
 srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
 {
-    if (color->x <= 0.0f) {
+    if (color->x <= 0.0f)
         color->x = 0.0f;
-    } else if (color->x >= 1.0f) {
+    else if (color->x >= 1.0f)
         color->x = 1.0f;
-    }
-    if (color->y <= 0.0f) {
+    if (color->y <= 0.0f)
         color->y = 0.0f;
-    } else if (color->y >= 1.0f) {
+    else if (color->y >= 1.0f)
         color->y = 1.0f;
-    }
-    if (color->z <= 0.0f) {
+    if (color->z <= 0.0f)
         color->z = 0.0f;
-    } else if (color->z >= 1.0f) {
+    else if (color->z >= 1.0f)
         color->z = 1.0f;
-    }
     return color;
 }
 
@@ -1214,9 +1200,7 @@ bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t reg
                                                format, destination.getDataPtr(),
                                                destination.getPitch()),
                          SDL_DestroySurface};
-    if (!view) {
-        return false;
-    }
+    if (!view) return false;
     DrawSprite(*view, sprites, region, x, y);
     return true;
 }
@@ -1238,19 +1222,18 @@ bool ResizeMouseCursorSurface(int width, int height)
         return true;
     }
     extent = width > height ? width : height;
-    if (extent <= 16) {
+    if (extent <= 16)
         extent = 16;
-    } else if (extent <= 32) {
+    else if (extent <= 32)
         extent = 32;
-    } else if (extent <= 64) {
+    else if (extent <= 64)
         extent = 64;
-    } else if (extent <= 128) {
+    else if (extent <= 128)
         extent = 128;
-    } else if (extent <= 256) {
+    else if (extent <= 256)
         extent = 256;
-    } else {
+    else
         extent = -1;
-    }
     if (!g_mouse_surface->resize(extent, extent)) {
         return false;
     }
@@ -1439,16 +1422,14 @@ void SyncSystemCursor(void)
         return;
     }
 
-    if (cursor.x < 1) {
+    if (cursor.x < 1)
         cursor.x = 0;
-    } else if (cursor.x >= 640) {
+    else if (cursor.x >= 640)
         cursor.x = 640;
-    }
-    if (cursor.y < 1) {
+    if (cursor.y < 1)
         cursor.y = 0;
-    } else if (cursor.y >= 480) {
+    else if (cursor.y >= 480)
         cursor.y = 480;
-    }
     if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
         PositionMouseCursor(cursor.x, cursor.y, true);
         WarpGameMouse(ghWindow, cursor.x, cursor.y);
@@ -1545,21 +1526,17 @@ void InvalidateRegion(int left, int top, int right, int bottom)
     constexpr SDL_Rect screen{0, 0, 640, 480};
     const SDL_Rect area{left, top, right - left, bottom - top};
     SDL_Rect clipped;
-    if (!SDL_GetRectIntersection(&area, &screen, &clipped)) {
-        return;
-    }
-    if (SDL_RectEmpty(&g_ui_upload)) {
+    if (!SDL_GetRectIntersection(&area, &screen, &clipped)) return;
+    if (SDL_RectEmpty(&g_ui_upload))
         g_ui_upload = clipped;
-    } else {
+    else
         SDL_GetRectUnion(&g_ui_upload, &clipped, &g_ui_upload);
-    }
 }
 
 void InvalidateScreenRects(DesignRect* rects, unsigned int count)
 {
-    for (const auto& rect : std::span(rects, count)) {
+    for (const auto& rect : std::span(rects, count))
         InvalidateRegion(rect.left, rect.top, rect.right, rect.bottom);
-    }
 }
 
 SDL_Rect TakeUiUpload()
@@ -1570,9 +1547,7 @@ SDL_Rect TakeUiUpload()
 static void FlushUiUpload()
 {
     const auto upload = TakeUiUpload();
-    if (SDL_RectEmpty(&upload)) {
-        return;
-    }
+    if (SDL_RectEmpty(&upload)) return;
     const auto& description = *primarySurface;
     g_surface_node->updateRectangle(g_gerd, description.pixels, description.pitch, upload.x,
                                     upload.y, upload.x + upload.w, upload.y + upload.h);
@@ -1905,9 +1880,7 @@ unsigned char InitializeRendererSceneObjects(void)
         std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, *primarySurface);
 
     g_surface_node = new stSurface2D(g_primary_color_surface, 640, 480, g_scene_overlay0, 128);
-    if (!g_surface_node) {
-        return 0;
-    }
+    if (!g_surface_node) return 0;
 
     strncpy(renderer_name, g_gerd->getName().c_str(), 127);
     renderer_name[127] = 0;
@@ -1923,9 +1896,7 @@ unsigned char InitializeRendererSceneObjects(void)
 // FUNCTION: WIZ8 0x004263f0
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom)
 {
-    if (top >= bottom || left >= right) {
-        return;
-    }
+    if (top >= bottom || left >= right) return;
     const SDL_Rect rectangle{left, static_cast<int>(top), right - left,
                              static_cast<int>(bottom - top)};
     SDL_FillSurfaceRect(primarySurface.get(), &rectangle, 0);
@@ -1942,9 +1913,7 @@ void PurgeInactiveSceneInstances(srScene* scene)
 {
     srNode* node;
 
-    if (!scene) {
-        return;
-    }
+    if (!scene) return;
     node = scene->first_child_;
     while (node) {
         srNode* next = node->next_sibling_;
@@ -2591,16 +2560,13 @@ void VideoToolTip(std::string_view text)
     g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     surface->fill(0);
     void* data = surface->getDataPtr();
-    for (int y = 0; y < g_help_box_height; ++y) {
+    for (int y = 0; y < g_help_box_height; ++y)
         surface->setHLine(y, 0, g_help_box_width, 0xff000000u);
-    }
     SDLSurfaceOwner text_surface{SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
                                                        SDL_PIXELFORMAT_RGB565, data,
                                                        surface->getPitch()),
                                  SDL_DestroySurface};
-    if (text_surface) {
-        buffer->RenderText(*text_surface, 2, 1, true);
-    }
+    if (text_surface) buffer->RenderText(*text_surface, 2, 1, true);
     w8_ulong border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     surface->setHLine(0, 0, g_help_box_width, border_colour);
@@ -2761,15 +2727,9 @@ int GetRendererFamily(void)
     strncpy(name, g_gerd->getName().c_str(), sizeof(name) - 1);
     name[sizeof(name) - 1] = '\0';
     _strupr(name);
-    if (strstr(name, "OPENGL")) {
-        return 0;
-    }
-    if (strstr(name, "GLIDE")) {
-        return 2;
-    }
-    if (strstr(name, "DIRECT3D")) {
-        return 1;
-    }
+    if (strstr(name, "OPENGL")) return 0;
+    if (strstr(name, "GLIDE")) return 2;
+    if (strstr(name, "DIRECT3D")) return 1;
     return strstr(name, "SOFTWARE") ? 3 : 4;
 }
 

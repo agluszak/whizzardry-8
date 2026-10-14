@@ -145,17 +145,11 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
 {
     W8OctSpatialState working(&spatial);
     // Only physical surfaces have a vertex table in this builder.
-    if (static_cast<short>(mode) != 3) {
-        return 0;
-    }
+    if (static_cast<short>(mode) != 3) return 0;
     const auto triangle = surfaceTriangle(surface->vertex_indices);
-    if (!triangle) {
-        return 0;
-    }
+    if (!triangle) return 0;
     const auto normal = surface->plane.normal.glmValue();
-    if (!triangleIntersectsBox(spatial.bounds(), *triangle, normal)) {
-        return 0;
-    }
+    if (!triangleIntersectsBox(spatial.bounds(), *triangle, normal)) return 0;
 
     if (spatial.m_root == 0) {
         if (!use_owned_nodes) {
@@ -206,9 +200,7 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
                     std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3), planeNormal);
             },
             [&]() -> W8OctBuildNode* {
-                if (use_owned_nodes) {
-                    return new W8CountedOctBuildNode;
-                }
+                if (use_owned_nodes) return new W8CountedOctBuildNode;
                 return new W8OctBuildNode;
             },
             [&](W8OctSpatialState& candidate) {
@@ -246,24 +238,17 @@ struct W8OctBuildTree::SurfaceCollector {
     std::vector<W8GDSurface*> results;
     std::unordered_set<W8GDSurface*> seen;
 
-    ~SurfaceCollector()
-    {
-        clearVisited();
-    }
+    ~SurfaceCollector() { clearVisited(); }
 
     void clearVisited() const
     {
-        for (auto* surface : results) {
-            surface->flags &= ~W8_GD_SURFACE_QUERY_VISITED;
-        }
+        for (auto* surface : results) surface->flags &= ~W8_GD_SURFACE_QUERY_VISITED;
     }
 
     void append(W8GDSurface& surface, bool mark)
     {
         if (mark) {
-            if ((surface.flags & W8_GD_SURFACE_QUERY_VISITED) != 0) {
-                return;
-            }
+            if ((surface.flags & W8_GD_SURFACE_QUERY_VISITED) != 0) return;
             // A marked reference after an unmarked list remains a separate
             // result; the original collector uses the flag for this path.
             seen.insert(&surface);
@@ -271,9 +256,7 @@ struct W8OctBuildTree::SurfaceCollector {
             return;
         }
         results.push_back(&surface);
-        if (mark) {
-            surface.flags |= W8_GD_SURFACE_QUERY_VISITED;
-        }
+        if (mark) surface.flags |= W8_GD_SURFACE_QUERY_VISITED;
     }
 };
 
@@ -290,26 +273,18 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
         if (glm::any(glm::lessThan(point, bounds.minimum)) ||
             glm::any(glm::greaterThanEqual(point, bounds.maximum))) {
             all_inside = false;
-            if (inside) {
-                break;
-            }
+            if (inside) break;
         } else {
             inside = true;
-            if (!all_inside || leaf) {
-                break;
-            }
+            if (!all_inside || leaf) break;
         }
     }
-    if (all_inside) {
-        return 2;
-    }
+    if (all_inside) return 2;
     if (!inside) {
         for (unsigned corner = 0; corner < 8; ++corner) {
             const auto point = glm::mix(bounds.minimum, bounds.maximum,
                                         glm::bvec3(corner & 4, corner & 2, corner & 1));
-            if (box.contains(point)) {
-                return 1;
-            }
+            if (box.contains(point)) return 1;
         }
     }
     return inside ? 1 : 0;
@@ -353,17 +328,13 @@ void W8OctBuildTree::collectLeaf(W8OctBuildNode* node, short depth, short kind,
                                  SurfaceCollector& collector) const
 {
     if (depth != spatial.m_depth) {
-        for (auto* child : node->children) {
-            if (child) {
-                collectLeaf(child, depth + 1, kind, collector);
-            }
-        }
+        for (auto* child : node->children)
+            if (child) collectLeaf(child, depth + 1, kind, collector);
         return;
     }
     const auto collect_links = [&](int list, bool mark) {
-        for (auto* link = node->links[list]; link; link = link->next) {
+        for (auto* link = node->links[list]; link; link = link->next)
             collector.append(*static_cast<W8GDSurface*>(link->surface), mark);
-        }
     };
     if (kind == 9) {
         collect_links(3, true);

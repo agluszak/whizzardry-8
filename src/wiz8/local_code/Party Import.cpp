@@ -109,9 +109,7 @@ W8Wiz7Character g_imported_characters[6];
 // FUNCTION: WIZ8 0x00558D00
 unsigned char LoadWizardry7ImportFile(std::string_view path)
 try {
-    if (path.empty()) {
-        return 0;
-    }
+    if (path.empty()) return 0;
     auto file = wiz8::open_file(path, wiz8::OpenMode::read);
     unsigned char header[0x34c];
     short party_block[0x26];
@@ -121,21 +119,15 @@ try {
     short bank_skip;
     memcpy(&record_skip, header + 0x2cc, sizeof(record_skip));
     memcpy(&bank_skip, header + 0x2ce, sizeof(bank_skip));
-    if (record_skip < 0 || bank_skip < 0) {
-        return 0;
-    }
+    if (record_skip < 0 || bank_skip < 0) return 0;
     file->seek(record_skip * 6 + bank_skip * 8 + 0x20 * 0x100, wiz8::SeekOrigin::current);
     file->read_exact(party_block, sizeof(party_block));
     const int character_count = party_block[0x25];
-    if (character_count < 1 || character_count > 6) {
-        return 0;
-    }
+    if (character_count < 1 || character_count > 6) return 0;
     file->seek(0x80 + 0x90 + 0x68 + 0x14a + 0x344 + 0x42 + 100, wiz8::SeekOrigin::current);
     file->read_exact(characters, character_count * sizeof(characters[0]));
     for (int index = 1; index < character_count; ++index) {
-        if (characters[index].party_tag != characters[0].party_tag) {
-            return 0;
-        }
+        if (characters[index].party_tag != characters[0].party_tag) return 0;
     }
 
     const bool ending_record = party_block[0] == -1;

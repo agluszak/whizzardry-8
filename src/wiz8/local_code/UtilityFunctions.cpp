@@ -214,9 +214,7 @@ DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second)
 // FUNCTION: WIZ8 0x00517e70
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
 {
-    if (rect == nullptr || point == nullptr) {
-        return false;
-    }
+    if (rect == nullptr || point == nullptr) return false;
     const SDL_Rect bounds{rect->left, rect->top, rect->right - rect->left,
                           rect->bottom - rect->top};
     return SDL_PointInRect(point, &bounds);
@@ -225,9 +223,7 @@ bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
 // FUNCTION: WIZ8 0x00517ea0
 void StripMonsterNameSuffix(std::string& name)
 {
-    if (const auto suffix = name.find('#'); suffix != std::string::npos) {
-        name.resize(suffix);
-    }
+    if (const auto suffix = name.find('#'); suffix != std::string::npos) name.resize(suffix);
 }
 
 // FUNCTION: WIZ8 0x00517ec0

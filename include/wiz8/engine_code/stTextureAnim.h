@@ -17,10 +17,7 @@ enum W8TextureTriggerMode {
 
 class stTextureAnim : public srClassSupport<stTextureAnim, srTexture, 0x10000> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stTextureAnim";
-    }
+    static const char* sGetClassName() { return "stTextureAnim"; }
 
     stTextureAnim();                           /* 0x00484BE0 */
     stTextureAnim(const stTextureAnim& other); /* 0x00485070 */
@@ -56,8 +53,5 @@ public:
     bool running = false;
 
 private:
-    srTextureIFace& current()
-    {
-        return *textures[frame];
-    }
+    srTextureIFace& current() { return *textures[frame]; }
 };

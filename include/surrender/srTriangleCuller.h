@@ -17,14 +17,8 @@ public:
         std::vector<w8_ulong> avt;
         std::vector<w8_ulong> vertex_remap;
 
-        w8_ulong triangleCount() const
-        {
-            return static_cast<w8_ulong>(indices.size());
-        }
-        w8_ulong vertexCount() const
-        {
-            return static_cast<w8_ulong>(avt.size());
-        }
+        w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
+        w8_ulong vertexCount() const { return static_cast<w8_ulong>(avt.size()); }
     };
 
     struct Input {

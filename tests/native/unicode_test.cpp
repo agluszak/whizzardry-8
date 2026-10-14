@@ -108,9 +108,7 @@ static void record_contracts()
     REQUIRE(std::string(decoded.name) == "é中😀");
     // Nonzero opaque bytes after the six-unit secondary name survive both
     // a no-op round trip and edits to identified text, including old saves.
-    for (std::size_t i = 0; i < 0x44; ++i) {
-        bytes[0x25 + i] = std::byte(1 + i * 37);
-    }
+    for (std::size_t i = 0; i < 0x44; ++i) bytes[0x25 + i] = std::byte(1 + i * 37);
     wiz8::retail::decode<W8Character>(bytes, decoded);
     REQUIRE(wiz8::retail::encode(decoded) == bytes);
     auto independent = decoded;
@@ -137,9 +135,7 @@ static void record_contracts()
     npc.source_name = "商人";
     npc.character.name = "é中😀";
     auto npc_bytes = wiz8::retail::encode(npc);
-    for (std::size_t i = 0; i < 0x44; ++i) {
-        npc_bytes[0xc4 + 0x20 + i] = std::byte(0xff - i);
-    }
+    for (std::size_t i = 0; i < 0x44; ++i) npc_bytes[0xc4 + 0x20 + i] = std::byte(0xff - i);
     W8NpcDatabaseRecord copy{};
     wiz8::retail::decode<W8NpcDatabaseRecord>(npc_bytes, copy);
     REQUIRE(std::string(copy.source_name) == "商人");

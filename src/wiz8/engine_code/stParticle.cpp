@@ -565,30 +565,26 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
     basis *= normalization;
     const float scale = float(particle_size) * size_scale;
     std::array<glm::vec3, 4> offsets;
-    for (unsigned corner = 0; corner < corners.size(); ++corner) {
+    for (unsigned corner = 0; corner < corners.size(); ++corner)
         offsets[corner] = (basis * corners[corner]) * scale;
-    }
 
     float phase = 0;
-    if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0) {
+    if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
         phase = float(g_shared_timer_base->milliseconds() % flutter_period) / int(flutter_period) *
                 g_camera_angle_period;
-    }
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
     for (unsigned index = 0; index < particle_count; ++index) {
         auto position = particle_positions[index];
         if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && velocities[index].y < 0) {
             float amount = flutter;
-            if (flutter_mode == W8_PARTICLE_FLUTTER_VELOCITY_SCALED) {
+            if (flutter_mode == W8_PARTICLE_FLUTTER_VELOCITY_SCALED)
                 amount *= std::max(g_particle_flutter_velocity_floor, velocities[index].y) *
                           g_particle_flutter_displacement_scale;
-            }
             position +=
                 glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
         }
-        for (unsigned corner = 0; corner < corners.size(); ++corner) {
+        for (unsigned corner = 0; corner < corners.size(); ++corner)
             vertex_positions[index * 4 + corner] = position + offsets[corner];
-        }
     }
 }
 

@@ -29,10 +29,7 @@ class stModelInstance : public srClassSupport<stModelInstance, srModelInstance, 
 public:
     enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
 
-    static const char* sGetClassName()
-    {
-        return "stModelInstance";
-    }
+    static const char* sGetClassName() { return "stModelInstance"; }
 
     explicit stModelInstance(srNode* parent,
                              Ownership ownership = Ownership::parent); /* 0x0047EC80 */
@@ -83,10 +80,7 @@ public:
 // VTABLE: WIZ8 0x005ec858 srClassSupport<srModelInstance, class srNode, 4352>
 class stModelInstance2D : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stModelInstance2D";
-    }
+    static const char* sGetClassName() { return "stModelInstance2D"; }
 
     explicit stModelInstance2D(srNode* parent); /* 0x0047F0F0 */
 
@@ -99,10 +93,7 @@ public:
     void SetGlowEnabled(bool enable); /* 0x00480EB0 */
     void SetGlowColors(const glm::vec4& first, const glm::vec4& second);
 
-    unsigned char displayState() const
-    {
-        return render_state.display_state;
-    }
+    unsigned char displayState() const { return render_state.display_state; }
     void configure2D(unsigned short width, unsigned short height)
     {
         overlay_scene_flag = 0;
@@ -117,10 +108,7 @@ public:
         glow_color_peak.reset();
         glow_material.reset();
     }
-    void setRenderDepth(w8_ulong depth)
-    {
-        render_state.render_depth = depth;
-    }
+    void setRenderDepth(w8_ulong depth) { render_state.render_depth = depth; }
 
     w8_ulong overlay_scene_flag;
     W8ModelInstance2DRenderState render_state;

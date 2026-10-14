@@ -63,9 +63,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
     std::string line;
     while (!(handle->tell() >= handle->size())) {
         auto line_result = ReadRetailTextLine(handle.get());
-        if (!line_result) {
-            break;
-        }
+        if (!line_result) break;
         line = std::move(*line_result);
         if (line.empty() || line[0] == '*') {
             continue;
@@ -124,9 +122,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         m_command_index.emplace(command, borrowed);
         loaded_binding = true;
     }
-    if (handle) {
-        handle->close();
-    }
+    if (handle) handle->close();
     handle.reset();
     return loaded_binding;
 }

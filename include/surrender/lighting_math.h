@@ -64,12 +64,8 @@ inline void accumulateLight(std::span<glm::vec<Components, float>> destination,
     assert(attenuation.empty() || attenuation.size() >= destination.size());
     for (std::size_t i = 0; i < destination.size(); ++i) {
         glm::vec<Components, float> contribution = color;
-        if (!attenuation.empty()) {
-            contribution *= attenuation[i];
-        }
-        if (!weights.empty()) {
-            contribution *= weights[i];
-        }
+        if (!attenuation.empty()) contribution *= attenuation[i];
+        if (!weights.empty()) contribution *= weights[i];
         destination[i] = contribution + destination[i];
     }
 }

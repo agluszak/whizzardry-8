@@ -96,10 +96,7 @@ public:
     srMeshModel& operator=(const srMeshModel&) = delete;
 
     // FUNCTION: SURRENDER 0x10041AF0
-    static const char* sGetClassName()
-    {
-        return "srMeshModel";
-    }
+    static const char* sGetClassName() { return "srMeshModel"; }
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void verify(srRuntimeClass::e_verify mode) override;
@@ -141,16 +138,10 @@ public:
     }
     // FUNCTION: SURRENDER 0x10041750 SYMBOL
     // RECOMP: ?clearDirty@srMeshModel@@QAEXW4e_flags@1@@Z
-    void clearDirty(e_flags flag)
-    {
-        dirty_flags.set(flag, 0);
-    }
+    void clearDirty(e_flags flag) { dirty_flags.set(flag, 0); }
     // FUNCTION: SURRENDER 0x10041770 SYMBOL
     // RECOMP: ?testDirty@srMeshModel@@QBEHW4e_flags@1@@Z
-    int testDirty(e_flags flag) const
-    {
-        return (dirty_flags.value & (1 << flag)) != 0;
-    }
+    int testDirty(e_flags flag) const { return (dirty_flags.value & (1 << flag)) != 0; }
     SR_DLL_IMPORT srShader* getPolyShader(w8_long polygon, int layer);
     SR_DLL_IMPORT srShader getShader(w8_long polygon) const;
     SR_DLL_IMPORT void setShader(srShader shader, w8_long pass);

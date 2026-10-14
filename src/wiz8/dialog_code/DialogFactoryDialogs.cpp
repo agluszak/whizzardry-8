@@ -194,9 +194,7 @@ int W8ListBoxDialog::CreateControls()
     edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {},
                                          "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path,
                                          static_cast<short>(m_background_flags), 0, 0);
-    if (!edge_inlay) {
-        return m_error = 4;
-    }
+    if (!edge_inlay) return m_error = 4;
     m_text_button.ConfigureTextButton(
         m_text, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
         {m_x + 9, m_y + 9, m_width - 0x12, g_dialog_interface_font->height() * 0x96 / 100},
@@ -309,12 +307,9 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
 
     if (m_area_button.m_dirty || m_third_text_button.m_dirty || m_up_button.m_dirty ||
         m_down_button.m_dirty || m_slider_button.m_dirty || m_ok_button.m_dirty ||
-        m_cancel_button.m_dirty) {
+        m_cancel_button.m_dirty)
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) {
-        return;
-    }
+    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) return;
     W8DialogBase::Draw(target);
     m_text_button.m_dirty = m_second_text_button.m_dirty = true;
     m_text_button.Draw(target);
@@ -380,10 +375,9 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
         m_cancel_button.m_dirty = true;
         m_cancel_button.Draw(target);
     }
-    if (!m_scrollable) {
+    if (!m_scrollable)
         m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty =
             m_third_text_button.m_dirty = false;
-    }
     rect = m_area_button.Bounds();
     {
         SDL_Rect text_clip{rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6};
@@ -426,9 +420,7 @@ bool W8ListBoxDialog::ProcessInput()
                 return route();
             },
     });
-    if (!m_keep_open) {
-        EndModalInput();
-    }
+    if (!m_keep_open) EndModalInput();
     return m_keep_open;
 }
 
@@ -474,12 +466,8 @@ void W8SplitAmountDialog::DestroyControls()
 {
     m_active_field = nullptr;
     m_split_input.reset();
-    for (auto& text : m_text_buffers) {
-        text.reset();
-    }
-    for (auto& button : m_buttons) {
-        button.reset();
-    }
+    for (auto& text : m_text_buffers) text.reset();
+    for (auto& button : m_buttons) button.reset();
     W8DialogBase::DestroyControls();
 }
 
@@ -491,9 +479,7 @@ W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 // FUNCTION: WIZ8 0x005d99f0
 int W8SplitAmountDialog::CreateControls()
 {
-    if (int error = W8DialogBase::CreateControls(); error != 0) {
-        return error;
-    }
+    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     m_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
         DestroyControls();
@@ -520,9 +506,7 @@ bool W8SplitAmountDialog::CreateButtons()
 {
     int index;
 
-    for (auto& button : m_buttons) {
-        button = std::make_unique<W8ButtonWidget>(InputLayer());
-    }
+    for (auto& button : m_buttons) button = std::make_unique<W8ButtonWidget>(InputLayer());
     if (!m_buttons[0]->Configure(
             "Data\\Dialogs\\popup_splititem.sti", {0xc, 9, 10, 0xd, 0xb},
             {.on_click = [this](W8ButtonWidget*) { DecreaseAmount(1); },
@@ -603,9 +587,7 @@ void W8SplitAmountDialog::Draw(SDL_Surface& target)
     int index;
 
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized && CreateControls() != 0) {
-            return;
-        }
+        if (!m_initialized && CreateControls() != 0) return;
         for (index = 0; index < 6; ++index) {
             m_buttons[index]->m_dirty = true;
         }
@@ -715,9 +697,7 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
 // FUNCTION: WIZ8 0x005da180
 bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input)) {
-        return true;
-    }
+    if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input)) return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         int key = toupper(input->key);
         if (key == 0x1b) {
@@ -1204,9 +1184,7 @@ bool W8TriggerItemPickerDialog::ProcessInput()
                 return route();
             },
     });
-    if (!m_keep_open) {
-        EndModalInput();
-    }
+    if (!m_keep_open) EndModalInput();
     return m_keep_open;
 }
 

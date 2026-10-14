@@ -923,9 +923,7 @@ bool W8Navigator::UpdateLinkedPosition()
             linked_navigator->movement.position.glmValue(), linked_navigator->movement.yaw,
             movement.collision_radius + movement.collision_radius, 1, true, false, false, 5, true);
         linked_navigator->movement.position = placement.source;
-        if (placement.positions.empty()) {
-            return false;
-        }
+        if (placement.positions.empty()) return false;
         position = placement.positions.front();
         SetMovementStopped();
     } else {
@@ -1171,9 +1169,7 @@ void W8NavigatorAttachment::InitializeSegment(const srVector3T<float>* source,
     recorded_position = segment_start;
     path_length_origin = segment_start;
     follow_offset = 0;
-    for (auto& entry : path) {
-        entry.value = 0;
-    }
+    for (auto& entry : path) entry.value = 0;
     path_length = (path_destination - segment_start).Length();
 }
 
@@ -1290,9 +1286,7 @@ bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned bas
     const auto* surfaces = g_octree->pathing->m_waypoints;
     float height = (surfaces[path[base].value].flags >> 0xc) * g_world_scale;
     const float next_height = (surfaces[path[base + 1].value].flags >> 0xc) * g_world_scale;
-    if (height != next_height) {
-        height = (next_height - height) * projection.fraction + height;
-    }
+    if (height != next_height) height = (next_height - height) * projection.fraction + height;
     return projection.distance <= height;
 }
 
@@ -1300,9 +1294,7 @@ bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned bas
 bool W8NavigatorAttachment::checkPositionHopHeight(const glm::vec3& position) const
 {
     const unsigned base = path_cursor == 1 ? 1 : path_cursor - 1;
-    if (path_position_index < base + 1) {
-        return false;
-    }
+    if (path_position_index < base + 1) return false;
     return withinHopHeight({position.x, position.z}, base, false);
 }
 

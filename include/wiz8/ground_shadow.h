@@ -34,10 +34,7 @@ struct GroundShadowProjection {
 // VTABLE: WIZ8 0x005ed3c4
 class stGroundShadow : public srClassSupport<stGroundShadow, srNode, 0x10010> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stGroundShadow";
-    }
+    static const char* sGetClassName() { return "stGroundShadow"; }
     stGroundShadow(srNode* parent);              /* 0x004D61B0 */
     stGroundShadow(const stGroundShadow& other); /* 0x004D6430 */
     stGroundShadow& operator=(const stGroundShadow&) = default;

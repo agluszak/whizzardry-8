@@ -67,9 +67,7 @@ static DesignRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 // FUNCTION: WIZ8 0x005DCED0
 W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count)
 {
-    for (int index = 0; index < 10; ++index) {
-        m_buttons.emplace_back(InputLayer());
-    }
+    for (int index = 0; index < 10; ++index) m_buttons.emplace_back(InputLayer());
     int index;
 
     SetExtent(0x142, 0xbd);
@@ -118,9 +116,7 @@ void W8SplitItemDialog::DestroyButtons()
     } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 10;
     }
-    for (int index = 0; index < count; ++index) {
-        m_buttons[index].Reset();
-    }
+    for (int index = 0; index < count; ++index) m_buttons[index].Reset();
 }
 
 /* Shared cleanup in failure paths and DestroyControls. The helper name
@@ -484,9 +480,7 @@ void W8SplitItemDialog::OnNumericInputChanged(int value)
 // FUNCTION: WIZ8 0x005DE120
 bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (m_count_input && m_count_input->HandleInput(input)) {
-        return true;
-    }
+    if (m_count_input && m_count_input->HandleInput(input)) return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         int key = toupper(input->key);
         if (key == '\r') {

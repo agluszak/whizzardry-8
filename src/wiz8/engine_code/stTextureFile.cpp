@@ -146,9 +146,7 @@ void stTextureFile::loadSurface()
     }();
     if (handle != 0) {
         surface = LoadSurface(handle.get(), &unused);
-        if (handle) {
-            handle->close();
-        }
+        if (handle) handle->close();
         handle.reset();
     }
 
@@ -167,16 +165,10 @@ void stTextureFile::loadSurface()
 // FUNCTION: WIZ8 0x0047CA50
 void stTextureFile::getMipmapData(const MultiRequest& request)
 {
-    if (!surface) {
-        loadSurface();
-    }
-    if (!surface) {
-        return;
-    }
+    if (!surface) loadSurface();
+    if (!surface) return;
     copyMipmapChain(*surface, request);
-    if ((cached & 1) == 0) {
-        releaseSurface();
-    }
+    if ((cached & 1) == 0) releaseSurface();
 }
 
 void stTextureFile::getMipmapLevelPartial(PartialRequest&) {}

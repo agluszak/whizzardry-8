@@ -44,27 +44,21 @@ static void checkConsumers()
         output.put(compressor.code_width, 6);
         output.put(values.size(), 32);
         compressor.storeSymbolTable(output);
-        for (auto symbol : values) {
-            compressor.compressSymbol(output, symbol);
-        }
+        for (auto symbol : values) compressor.compressSymbol(output, symbol);
         output.flush();
     }
     const auto size = SDL_GetIOSize(io.get());
     const auto* bytes = static_cast<const Uint8*>(SDL_GetPointerProperty(
         SDL_GetIOProperties(io.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     uint64_t hash = 14695981039346656037ull;
-    for (Sint64 i = 0; i < size; ++i) {
-        hash = (hash ^ bytes[i]) * 1099511628211ull;
-    }
+    for (Sint64 i = 0; i < size; ++i) hash = (hash ^ bytes[i]) * 1099511628211ull;
     // Captured before replacing srHashTable; protects tie-breaking and wire bytes.
     REQUIRE((size == 2470 && hash == 9655952702272475046ull));
     REQUIRE(SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) == 0);
     srHuffman::BitIStream input(io.get());
     srHuffman::Decompressor decoder(input);
     REQUIRE(decoder.getDataCount() == values.size());
-    for (auto symbol : values) {
-        REQUIRE(decoder.decompressSymbol() == symbol);
-    }
+    for (auto symbol : values) REQUIRE(decoder.decompressSymbol() == symbol);
 
     // Interning must distinguish both texture addresses and the shader word,
     // preserve index zero, and keep existing indices across growth and clear.

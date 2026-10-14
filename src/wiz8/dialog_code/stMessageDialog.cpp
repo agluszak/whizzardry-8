@@ -147,13 +147,10 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         if (!line.empty() && g_dialog_interface_font->textWidth(candidate) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);
-        } else {
+        } else
             line = std::move(candidate);
-        }
         start = stop;
-        if (start < message.size() && message[start] == ' ') {
-            ++start;
-        }
+        if (start < message.size() && message[start] == ' ') ++start;
     }
     m_lines.push_back(std::move(line));
     return m_lines.size();
@@ -172,9 +169,7 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
 // FUNCTION: WIZ8 0x005d2d00
 int W8MessageDialogBase::CreateControls()
 {
-    if (int error = W8DialogBase::CreateControls(); error != 0) {
-        return error;
-    }
+    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     if (!m_edge_image) {
         m_edge_image = LoadGenericButtonImages(
             {}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {},
@@ -255,15 +250,11 @@ bool W8MessageDialogBase::ProcessInput()
         .unhandled =
             [this, &keep_open](const InputEvent& input) {
                 keep_open = HandleInput(&input);
-                if (!keep_open) {
-                    EndModalInput();
-                }
+                if (!keep_open) EndModalInput();
                 return InputRoute::Stop;
             },
     });
-    if (!keep_open) {
-        EndModalInput();
-    }
+    if (!keep_open) EndModalInput();
     return keep_open;
 }
 

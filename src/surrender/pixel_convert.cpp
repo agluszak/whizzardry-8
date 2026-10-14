@@ -356,16 +356,10 @@ std::string srPixelConvert::PixelFormat::getName() const
     }
 
     std::string name;
-    for (int k = 0; k < 4; k++) {
-        if (bits[k] != 0) {
-            name.push_back(channel_letters[color_model * 4 + order[k]]);
-        }
-    }
-    for (int j = 0; j < 4; j++) {
-        if (bits[j] != 0) {
-            name.push_back(static_cast<char>(bits[j] + '0'));
-        }
-    }
+    for (int k = 0; k < 4; k++)
+        if (bits[k] != 0) name.push_back(channel_letters[color_model * 4 + order[k]]);
+    for (int j = 0; j < 4; j++)
+        if (bits[j] != 0) name.push_back(static_cast<char>(bits[j] + '0'));
     name += '/';
     name += std::to_string(pixel_size * 8 + 8);
     return name;
@@ -380,17 +374,11 @@ static glm::vec4 channelBitCounts(const srPixelConvert::PixelFormat& format)
 std::optional<std::size_t>
 srPixelConvert::PixelFormat::match(std::span<const PixelFormat> formats) const
 {
-    if (formats.empty()) {
-        return std::nullopt;
-    }
-    if (formats.size() == 1) {
-        return 0;
-    }
+    if (formats.empty()) return std::nullopt;
+    if (formats.size() == 1) return 0;
     if (fourcc != 0) {
         const auto exact = std::ranges::find(formats, fourcc, &PixelFormat::fourcc);
-        if (exact != formats.end()) {
-            return exact - formats.begin();
-        }
+        if (exact != formats.end()) return exact - formats.begin();
     }
     const auto wanted = channelBitCounts(*this);
     const auto required = glm::min(wanted, glm::vec4(1));
@@ -400,9 +388,8 @@ srPixelConvert::PixelFormat::match(std::span<const PixelFormat> formats) const
     for (std::size_t index = 0; index < formats.size(); ++index) {
         const auto& candidate = formats[index];
         const auto bits = channelBitCounts(candidate);
-        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required))) {
+        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required)))
             continue;
-        }
         // Only shortfall costs distance; byte-sized channel counts score exactly in float.
         const auto shortfall = glm::min(bits - wanted, glm::vec4(0));
         const auto distance = glm::dot(shortfall, shortfall);
@@ -413,9 +400,7 @@ srPixelConvert::PixelFormat::match(std::span<const PixelFormat> formats) const
             best_bytes = candidate.pixel_size;
         }
     }
-    if (best) {
-        return best;
-    }
+    if (best) return best;
     // No compatible class: retain the first widest format.
     return std::ranges::max_element(formats, {}, &PixelFormat::pixel_size) - formats.begin();
 }
@@ -449,9 +434,7 @@ srPixelConvert::ConversionFunctions srPixelConvert::selectFuncs(const PixelForma
     const auto entry =
         std::find_if(std::begin(format_table), std::end(format_table),
                      [&](const FormatEntry& candidate) { return candidate.format == format; });
-    if (entry != std::end(format_table)) {
-        return {entry->write, entry->read};
-    }
+    if (entry != std::end(format_table)) return {entry->write, entry->read};
 
     return GenericConversionFunctions(format.color_model);
 }
@@ -488,18 +471,9 @@ struct PackedChannel {
           reduce_table(channel_reduce[bits])
     {
     }
-    w8_ulong extract(w8_ulong pixel) const
-    {
-        return (pixel >> shift) & mask;
-    }
-    w8_ulong expand(w8_ulong pixel) const
-    {
-        return expand_table[extract(pixel)];
-    }
-    w8_ulong reduce(unsigned value) const
-    {
-        return w8_ulong(reduce_table[value]) << shift;
-    }
+    w8_ulong extract(w8_ulong pixel) const { return (pixel >> shift) & mask; }
+    w8_ulong expand(w8_ulong pixel) const { return expand_table[extract(pixel)]; }
+    w8_ulong reduce(unsigned value) const { return w8_ulong(reduce_table[value]) << shift; }
 };
 
 struct PackedChannels {
@@ -644,9 +618,8 @@ static SDL_PixelFormat byteChannelFormat(const srPixelConvert::PixelFormat& f)
 {
     if (f.red_bits != 8 || f.green_bits != 8 || f.blue_bits != 8 ||
         !((f.pixel_size == srPixelConvert::PIXEL_SIZE_24 && f.alpha_bits == 0) ||
-          (f.pixel_size == srPixelConvert::PIXEL_SIZE_32 && f.alpha_bits == 8))) {
+          (f.pixel_size == srPixelConvert::PIXEL_SIZE_32 && f.alpha_bits == 8)))
         return SDL_PIXELFORMAT_UNKNOWN;
-    }
     return SDL_GetPixelFormatForMasks((f.pixel_size + 1) * 8, 255u << f.red_shift,
                                       255u << f.green_shift, 255u << f.blue_shift,
                                       f.alpha_bits ? 255u << f.alpha_shift : 0);

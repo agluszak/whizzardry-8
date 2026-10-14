@@ -135,9 +135,7 @@ static void CreateSpellCastingViewControls(void)
                              });
         const auto tooltip = [realm] {
             const auto& name = g_localized_strings[g_spell_realm_help_string_ids[realm]];
-            if (!gpSCSV->realm_buttons[realm]->IsEnabled()) {
-                return std::string(name);
-            }
+            if (!gpSCSV->realm_buttons[realm]->IsEnabled()) return std::string(name);
             return fmt::format("{} ({}: {:d})", name, g_localized_strings[0x2d],
                                g_status.buffers.Char[g_status.selected_character]
                                    .skills[W8_SKILL_FIRE_MAGIC + realm]
@@ -170,15 +168,14 @@ static void CreateSpellCastingViewControls(void)
                              {0x1a4 + pip_positions[pip].x, 0x166 + pip_positions[pip].y,
                               radius * 2 + 1, radius * 2 + 1},
                              46 + pip, [pip] {
-                                 if (pip == 7) {
+                                 if (pip == 7)
                                      SelectSpellPowerPip7();
-                                 } else if (pip == 8) {
+                                 else if (pip == 8)
                                      SelectSpellPowerPip8();
-                                 } else {
+                                 else {
                                      SelectSpellPowerLevel(pip);
-                                     if (!gpSCSV->power_controls[pip]->IsPressed()) {
+                                     if (!gpSCSV->power_controls[pip]->IsPressed())
                                          PreviewSpellPowerPipHover(pip);
-                                     }
                                  }
                              });
         button->SetCircularHitArea({0x1a4 + pip_centers[pip].x, 0x166 + pip_centers[pip].y},
@@ -698,20 +695,14 @@ void SetSpellCastingPanelsActive(bool active)
 {
     auto& view = *gpSCSV;
     auto& target = GetFrameBufferSurface();
-    for (const auto& button : view.realm_buttons) {
-        view.dirty[0] |= button->m_dirty;
-    }
-    for (const auto& button : view.power_controls) {
-        view.dirty[2] |= button->m_dirty;
-    }
+    for (const auto& button : view.realm_buttons) view.dirty[0] |= button->m_dirty;
+    for (const auto& button : view.power_controls) view.dirty[2] |= button->m_dirty;
     view.dirty[2] |= view.cancel->m_dirty;
     constexpr int origins[] = {0x17, 0xe6, 0x1a4};
     constexpr SDL_Point icons[] = {{0x55, 0xf},  {0x73, 0xf},  {0x49, 0x25},
                                    {0x7f, 0x25}, {0x55, 0x3b}, {0x73, 0x3b}};
     for (int panel = 0; panel < 3; ++panel) {
-        if (!active && !view.dirty[panel]) {
-            continue;
-        }
+        if (!active && !view.dirty[panel]) continue;
         CatalogArtwork::Load(400, 0).drawAndInvalidate(target, panel, origins[panel], 0x166);
         if (panel == 0) {
             for (int realm = 0; realm < 6; ++realm) {
@@ -965,20 +956,14 @@ void CommitSpellCastingSelection(void)
 
 UiResult HandleSpellTextBox(const UiPointerEvent& event)
 {
-    if (g_status.selected_character == -1 || gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE) {
+    if (g_status.selected_character == -1 || gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE)
         return UiResult::Handled;
-    }
     int line = g_level_block->text_lines[g_status.text_line_cursor] + event.local.y / 11;
-    if (!event.inside || line < 0 || line >= static_cast<int>(gpSCSV->uiSpellsInList)) {
-        line = -1;
-    }
-    if (line != gpSCSV->selected_spell_index) {
-        SelectSpellCastingRow(line);
-    }
+    if (!event.inside || line < 0 || line >= static_cast<int>(gpSCSV->uiSpellsInList)) line = -1;
+    if (line != gpSCSV->selected_spell_index) SelectSpellCastingRow(line);
     if (line != -1 && event.action == UiPointerAction::Up) {
-        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
             AfterUiDispatch([line] { SelectSpellCastingListRow(line); });
-        }
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
             const auto spell = gpSCSV->uiSpells[line];
             AfterUiDispatch([spell] {

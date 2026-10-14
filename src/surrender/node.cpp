@@ -35,9 +35,8 @@ static void orthonormalizeRotation(glm::dmat3& rotation)
 {
     auto rows = glm::transpose(rotation);
     for (int row = 0; row < 3; ++row) {
-        for (int earlier = 0; earlier < row; ++earlier) {
+        for (int earlier = 0; earlier < row; ++earlier)
             rows[row] -= rows[earlier] * glm::dot(rows[row], rows[earlier]);
-        }
         rows[row] = glm::normalize(rows[row]);
     }
     rotation = glm::transpose(rows);
@@ -228,9 +227,7 @@ srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == 
     rotation = glm::dmat3(1);
     scale = glm::dvec3(1);
     notifications.value = 0;
-    if (parent || parent_owns_) {
-        setParent(parent, 0);
-    }
+    if (parent || parent_owns_) setParent(parent, 0);
 }
 
 /* Destroy owned children; independently owned render members are detached. */
@@ -923,9 +920,8 @@ void srNode::setWorldSpaceRotation(const glm::dmat3& rotation)
     if (parent_) {
         auto parent_world = parent_->getWorldSpaceMatrix<glm::dmat4>();
         this->rotation = glm::inverse(glm::dmat3(parent_world)) * rotation;
-        for (int column = 0; column < 3; ++column) {
+        for (int column = 0; column < 3; ++column)
             this->rotation[column] = normalizedOrZero(this->rotation[column]);
-        }
     }
     setWSDirty();
 }
@@ -942,9 +938,7 @@ void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
     rotation = glm::dmat3(local);
     scale =
         glm::dvec3(glm::length(rotation[0]), glm::length(rotation[1]), glm::length(rotation[2]));
-    for (int column = 0; column < 3; ++column) {
-        rotation[column] /= scale[column];
-    }
+    for (int column = 0; column < 3; ++column) rotation[column] /= scale[column];
     setWSDirty();
 }
 

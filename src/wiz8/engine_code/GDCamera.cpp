@@ -216,9 +216,7 @@ bool GDCamera::CanTrackTarget() const
 static std::optional<DirectionAngles> aimAngles(const glm::vec3& target, const glm::vec3& position)
 {
     const auto direction = target - position;
-    if (glm::length(direction) < 1.0f) {
-        return std::nullopt;
-    }
+    if (glm::length(direction) < 1.0f) return std::nullopt;
     auto angles = directionAngles(direction);
     angles.yaw = glm::mod(angles.yaw, g_camera_angle_period0);
     return angles;
@@ -227,14 +225,10 @@ static std::optional<DirectionAngles> aimAngles(const glm::vec3& target, const g
 // FUNCTION: WIZ8 0x00476950
 void GDCamera::SnapToTarget(const srVector3T<float>* target)
 {
-    if (!CanTrackTarget()) {
-        return;
-    }
+    if (!CanTrackTarget()) return;
 
     const auto aim = aimAngles(target->glmValue(), m_position);
-    if (!aim) {
-        return;
-    }
+    if (!aim) return;
     m_target_pitch = aim->pitch;
     m_target_yaw = aim->yaw;
     SetOrientationImmediate(aim->pitch, aim->yaw);
@@ -243,9 +237,7 @@ void GDCamera::SnapToTarget(const srVector3T<float>* target)
 // FUNCTION: WIZ8 0x00476C30
 void GDCamera::SetOrientationImmediate(float pitch, float angle)
 {
-    if (!CanTrackTarget()) {
-        return;
-    }
+    if (!CanTrackTarget()) return;
 
     m_target_pitch = pitch;
     m_target_yaw = angle;
@@ -260,14 +252,10 @@ void GDCamera::SetOrientationImmediate(float pitch, float angle)
 // FUNCTION: WIZ8 0x00476F90
 unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pitch)
 {
-    if (!CanTrackTarget()) {
-        return 0;
-    }
+    if (!CanTrackTarget()) return 0;
 
     const auto aim = aimAngles(target->glmValue(), m_position);
-    if (!aim) {
-        return 0;
-    }
+    if (!aim) return 0;
     return BeginOrientationTransition(preserve_pitch ? m_pitch : aim->pitch, aim->yaw, false);
 }
 
@@ -317,9 +305,7 @@ unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* targ
 unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float target_angle,
                                                    bool force)
 {
-    if (!force && !CanTrackTarget()) {
-        return 0;
-    }
+    if (!force && !CanTrackTarget()) return 0;
 
     m_target_pitch = target_pitch;
     m_target_yaw = target_angle;
@@ -331,11 +317,10 @@ unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float tar
     const float pitch_delta = target_pitch - m_pitch;
     m_yaw_distance = std::abs(yaw_delta);
     m_pitch_distance = std::abs(pitch_delta);
-    if (target_pitch != g_float_zero || m_yaw_distance >= g_camera_snap_epsilon) {
+    if (target_pitch != g_float_zero || m_yaw_distance >= g_camera_snap_epsilon)
         m_orientation_flags = 0;
-    } else {
+    else
         m_orientation_flags &= W8_CAMERA_LEVELING;
-    }
 
     if (m_yaw_distance + m_pitch_distance > g_camera_transition_epsilon) {
         m_start_pitch = m_pitch;
@@ -347,9 +332,7 @@ unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float tar
         m_pitch_velocity = pitch_delta / distance * speed;
         m_yaw_velocity =
             m_yaw_distance <= g_camera_angle_dead_zone ? 0.0f : yaw_delta / distance * speed;
-        if (m_yaw_velocity != 0) {
-            m_orientation_flags |= W8_CAMERA_YAW_MOVING;
-        }
+        if (m_yaw_velocity != 0) m_orientation_flags |= W8_CAMERA_YAW_MOVING;
     } else {
         m_forced_transition = false;
     }

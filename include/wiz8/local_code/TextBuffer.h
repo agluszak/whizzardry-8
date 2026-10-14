@@ -25,10 +25,7 @@ public:
     W8TextBuffer();
     W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                  unsigned int layout_mode, int render_mode);
-    std::string_view GetText() const
-    {
-        return m_text;
-    }
+    std::string_view GetText() const { return m_text; }
     unsigned int GetLineHeight();
     int GetHorizontalPosition(int width);
     int GetVerticalPosition();
@@ -63,22 +60,10 @@ public:
         m_pendingBounds = m_layoutBounds;
     }
 
-    bool HasBuffer() const
-    {
-        return !m_buffer.empty();
-    }
-    void SetGeometryDirty()
-    {
-        m_geometryDirty = true;
-    }
-    void SetRenderMode(int mode)
-    {
-        m_renderMode = mode;
-    }
-    void SetFontStateIndex(int index)
-    {
-        m_fontStateIndex = index;
-    }
+    bool HasBuffer() const { return !m_buffer.empty(); }
+    void SetGeometryDirty() { m_geometryDirty = true; }
+    void SetRenderMode(int mode) { m_renderMode = mode; }
+    void SetFontStateIndex(int index) { m_fontStateIndex = index; }
     void MarkGeometryDirty(unsigned int mode)
     {
         m_geometryDirty = true;

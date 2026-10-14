@@ -106,9 +106,7 @@ static void npc_script_teardown()
         for (auto& entry : quote.entries) {
             entry.sub_entry_count = 2;
             entry.sub_entries.resize(2);
-            for (auto& sub : entry.sub_entries) {
-                sub.text.assign(80, 's');
-            }
+            for (auto& sub : entry.sub_entries) sub.text.assign(80, 's');
         }
     }
     ReleaseNpcScriptFile(owner.release());
@@ -157,26 +155,21 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
     party[0].fInParty = party[1].fInParty = true;
     struct RestoreParty {
         W8Character* saved;
-        ~RestoreParty()
-        {
-            g_status.buffers.Char = saved;
-        }
+        ~RestoreParty() { g_status.buffers.Char = saved; }
     } restore{std::exchange(g_status.buffers.Char, party.data())};
     // Declared last, so its remaining active event completes while the party is reachable.
     W8CharacterEventQueue queue;
     const auto queues = {&queue.pending_events, &queue.npc_deferred_events, &queue.active_events};
     for (auto* events : queues) {
-        for (auto* character : {&party[0], &party[1]}) {
+        for (auto* character : {&party[0], &party[1]})
             events->push_back(std::make_unique<W8CharacterEvent>(character, 0, 0, 0, 0));
-        }
     }
     gXStatus.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
 
     queue.RemoveCharacterEvents(&party[0]);
 
-    for (const auto* events : queues) {
+    for (const auto* events : queues)
         REQUIRE((events->size() == 1 && events->front()->character == &party[1]));
-    }
     // Completion releases the portrait's borrowed pointer to the active event.
     REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
 }
@@ -414,10 +407,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
             : stModelInstance(nullptr), observations(observations)
         {
         }
-        ~ObservedInstance() override
-        {
-            observations.push_back(g_world->transient_lights.size());
-        }
+        ~ObservedInstance() override { observations.push_back(g_world->transient_lights.size()); }
         std::vector<std::size_t>& observations;
     };
     std::vector<std::size_t> observations;

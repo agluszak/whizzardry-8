@@ -21,9 +21,7 @@
 // FUNCTION: WIZ8 0x005e0ca0
 bool W8DialogScrollBar::CreateControls(const Resources* resources)
 {
-    if (m_initialized) {
-        return true;
-    }
+    if (m_initialized) return true;
     const bool configured =
         // FUNCTION: WIZ8 0x005e1280
         m_up_button.Configure(resources->arrows_path, {3, 0, 1, 2, 2},
@@ -176,9 +174,7 @@ void W8DialogScrollBar::ScrollToMouse(int mouse_y)
         m_first_visible_entry != -1) {
         int top = m_track_bounds.top;
         int range = m_track_bounds.bottom - top - m_thumb_button.Bounds().h;
-        if (range <= 0) {
-            return;
-        }
+        if (range <= 0) return;
         const int last_entry = m_entry_count - m_view_height / m_entry_height;
         m_first_visible_entry = last_entry * std::clamp(mouse_y - top, 0, range) / range;
         if (m_on_scroll) {

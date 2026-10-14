@@ -28,26 +28,19 @@ try {
     auto* io = handle.io();
     Uint32 magic, bit_count, packed_size;
     srIO::check(SDL_ReadU32LE(io, &magic));
-    if (magic != kMagic) {
-        return false;
-    }
+    if (magic != kMagic) return false;
     srIO::check(SDL_ReadU32LE(io, &bit_count));
-    if (!bit_count) {
-        return false;
-    }
+    if (!bit_count) return false;
     srIO::check(SDL_ReadU32LE(io, &packed_size));
     const auto position = SDL_TellIO(io), length = SDL_GetIOSize(io);
-    if (position < 0 || length < position || Uint64(packed_size) + 4 > Uint64(length - position)) {
+    if (position < 0 || length < position || Uint64(packed_size) + 4 > Uint64(length - position))
         return false;
-    }
     std::vector<unsigned char> packed(packed_size);
     srIO::readExact(io, packed.data(), packed.size());
     auto stream = srIO::own(SDL_IOFromConstMem(packed.data(), packed.size()));
     srHuffman::BitIStream input(stream.get());
     srHuffman::Decompressor decoder(input);
-    if (decoder.getDataCount() != WordCount(bit_count)) {
-        return false;
-    }
+    if (decoder.getDataCount() != WordCount(bit_count)) return false;
     std::vector<bool> decoded(bit_count);
     for (std::size_t word = 0; word < WordCount(bit_count); ++word) {
         const unsigned int value = decoder.decompressSymbol();
@@ -58,9 +51,7 @@ try {
         }
     }
     srIO::check(SDL_ReadU32LE(io, &magic));
-    if (magic != kMagic) {
-        return false;
-    }
+    if (magic != kMagic) return false;
     bits = std::move(decoded);
     return true;
 } catch (const std::exception&) {

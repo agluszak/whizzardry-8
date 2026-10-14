@@ -19,15 +19,11 @@ static bool candidateOrdering()
     InsertIndexValue(index, 7, 3);
     InsertUniqueIndexValue(index, 7, 2);
     // Growth must not reverse the candidates of an existing key.
-    for (unsigned int key = 100; key < 10000; ++key) {
-        InsertIndexValue(index, key, 4);
-    }
+    for (unsigned int key = 100; key < 10000; ++key) InsertIndexValue(index, key, 4);
     index.rehash(index.bucket_count() * 2);
     auto [first, last] = index.equal_range(7);
     std::vector<int> values;
-    for (auto item = first; item != last; ++item) {
-        values.push_back(item->second);
-    }
+    for (auto item = first; item != last; ++item) values.push_back(item->second);
     REQUIRE((values == std::vector<int>{3, 2, 1}));
     RemoveIndexValue(index, 7, 2);
     REQUIRE(LookupIndexValue(index, 7) == 3);
@@ -103,9 +99,7 @@ static bool renderingAndSymbolIndexes()
     srHuffman::Sampler sampler;
     sampler.insert(0);
     sampler.insert(500);
-    for (unsigned int symbol = 1; symbol < 500; ++symbol) {
-        sampler.insert(symbol);
-    }
+    for (unsigned int symbol = 1; symbol < 500; ++symbol) sampler.insert(symbol);
     sampler.insert(0);
     sampler.insert(500);
     REQUIRE(sampler.getNumSymbols() == 501);

@@ -57,37 +57,26 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
 {
     std::vector<W8SoundEvent*> candidates;
     for (unsigned int bit = 1; bit != 0; bit <<= 1) {
-        if ((bit & event_mask) == 0) {
-            continue;
-        }
+        if ((bit & event_mask) == 0) continue;
         candidates.clear();
         for (const auto& event : events) {
             const auto kind = event->kind;
-            if ((bit & kind) == 0) {
-                continue;
-            }
+            if ((bit & kind) == 0) continue;
             if (kind == W8_SOUND_EVENT_FRAME || kind == W8_SOUND_EVENT_FOOTSTEP) {
                 if ((event->cycle != -1 && event->cycle != cycle) || event->frame != frame ||
-                    event->subcycle != subcycle) {
+                    event->subcycle != subcycle)
                     continue;
-                }
             } else if (kind == W8_SOUND_EVENT_CYCLE) {
-                if (event->cycle != cycle || event->subcycle != subcycle) {
-                    continue;
-                }
+                if (event->cycle != cycle || event->subcycle != subcycle) continue;
             }
             candidates.push_back(event.get());
         }
-        if (candidates.empty()) {
-            continue;
-        }
+        if (candidates.empty()) continue;
         int selected;
         do {
             selected = static_cast<int>(Random(candidates.size()));
         } while (candidates.size() > 1 && selected == g_last_sound_event);
-        if (candidates[selected]->Play(position, cycle)) {
-            g_last_sound_event = selected;
-        }
+        if (candidates[selected]->Play(position, cycle)) g_last_sound_event = selected;
     }
 }
 

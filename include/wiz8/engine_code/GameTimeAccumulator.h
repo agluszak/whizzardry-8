@@ -11,14 +11,8 @@ public:
     void SetDurationScale(float scale);
     void ResetDurationScale();
     float Update();
-    float GetFrameDelta() const
-    {
-        return m_frame_delta;
-    }
-    float GetElapsed() const
-    {
-        return m_elapsed;
-    }
+    float GetFrameDelta() const { return m_frame_delta; }
+    float GetElapsed() const { return m_elapsed; }
 
 private:
     float m_max_frame_delta;

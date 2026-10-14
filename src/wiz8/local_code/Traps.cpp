@@ -118,9 +118,7 @@ void WriteRecordModeEntry(void)
         length = strlen(g_record_mode_line);
         g_record_mode_line[length] = '\n';
         file->write(g_record_mode_line, length + 1);
-        if (file) {
-            file->close();
-        }
+        if (file) file->close();
         file.reset();
     }
     ResetEditorStatusLine(-1);
@@ -358,9 +356,7 @@ void ResolveSprungTrap(Trigger* trigger)
         GetCameraForwardPoint(1000.0f, &point);
     } else {
         const auto center = prop->GetCenterPosition();
-        if (!center) {
-            return;
-        }
+        if (!center) return;
         point = *center;
     }
     camera = cameraLocation();

@@ -60,9 +60,7 @@ TEST_CASE("resource_text_test")
     REQUIRE((srExit()));
 
     std::string attacks;
-    for (int i = 0; i < 38; ++i) {
-        attacks += "attack * comment\r\n";
-    }
+    for (int i = 0; i < 38; ++i) attacks += "attack * comment\r\n";
     const std::string impact = "impact_" + std::string(300, 'x') + "é";
     write_text("Data/Databases/HitSounds.txt",
                attacks + "# metal\r\n" + impact + " * comment\r\nsecond\r\n# wood\r\nwood");

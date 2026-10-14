@@ -5,12 +5,6 @@
 #include "surrender/srCore.h"
 
 struct SurRenderTestFixture {
-    SurRenderTestFixture()
-    {
-        REQUIRE(srInit());
-    }
-    ~SurRenderTestFixture()
-    {
-        srExit();
-    }
+    SurRenderTestFixture() { REQUIRE(srInit()); }
+    ~SurRenderTestFixture() { srExit(); }
 };

@@ -1123,50 +1123,40 @@ static void ClearConditionHighlight()
 void DisablePortraitControls()
 {
     portrait_buttons->input.setEnabled(false);
-    for (auto& button : portrait_buttons->buttons) {
-        button->SetVisible(false);
-    }
+    for (auto& button : portrait_buttons->buttons) button->SetVisible(false);
 }
 
 void DisableConditionButtons()
 {
     condition_icons->active = false;
     condition_icons->input.setEnabled(false);
-    if (g_level_block->condition_highlight_party_slot != -1) {
-        ClearConditionHighlight();
-    }
+    if (g_level_block->condition_highlight_party_slot != -1) ClearConditionHighlight();
 }
 
 void EnableConditionButtons()
 {
     condition_icons->active = true;
     condition_icons->input.setEnabled(true);
-    for (auto& icon : condition_icons->icons) {
-        icon.dirty = true;
-    }
+    for (auto& icon : condition_icons->icons) icon.dirty = true;
 }
 
 void EnablePortraitAdvanceRegions()
 {
     portrait_buttons->input.setEnabled(true);
-    for (int slot = 0; slot < 8; ++slot) {
+    for (int slot = 0; slot < 8; ++slot)
         portrait_buttons->buttons[slot]->SetEnabled(IsCharacterReadyToAdvance(slot) &&
                                                     g_status.buffers.XChar[slot].portrait_advance);
-    }
 }
 
 void InvalidatePortraitControl(unsigned int party_slot)
 {
-    if (party_slot < 8 && g_status.buffers.XChar[party_slot].fOccupied) {
+    if (party_slot < 8 && g_status.buffers.XChar[party_slot].fOccupied)
         portrait_buttons->buttons[party_slot]->m_dirty = true;
-    }
 }
 
 void InvalidatePortraitPanel()
 {
-    for (auto& button : portrait_buttons->buttons) {
-        button->m_dirty = true;
-    }
+    for (auto& button : portrait_buttons->buttons) button->m_dirty = true;
 }
 
 void UpdatePortraitAdvanceButtons()
@@ -1217,9 +1207,8 @@ void CreateConditionButtons()
                 if (event.action == UiPointerAction::Leave ||
                     (event.action == UiPointerAction::Up &&
                      event.button == UiPointerButton::Left)) {
-                    if (g_level_block->condition_highlight_party_slot != -1) {
+                    if (g_level_block->condition_highlight_party_slot != -1)
                         ClearConditionHighlight();
-                    }
                 } else if (event.action == UiPointerAction::Down &&
                            event.button == UiPointerButton::Left) {
                     g_level_block->condition_highlight_party_slot = slot;
@@ -1241,22 +1230,19 @@ void UpdateConditionButtons()
         if (g_status.buffers.XChar[slot].fOccupied &&
             g_level_block->portrait_refresh_pending[slot] == 0 && !entry.keyboard_menu_open) {
             const auto& character = g_status.buffers.Char[slot];
-            if (character.highest_condition) {
+            if (character.highest_condition)
                 catalog = character.highest_condition + 0xb6;
-            } else if (character.enchantment_top) {
+            else if (character.enchantment_top)
                 catalog = character.enchantment_top + 0xc9;
-            }
         }
         if (catalog != icon.catalog) {
             icon.dirty = true;
             if (!catalog) {
-                if (!g_level_block->portrait_refresh_pending[slot] && !entry.keyboard_menu_open) {
+                if (!g_level_block->portrait_refresh_pending[slot] && !entry.keyboard_menu_open)
                     ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19,
                                      icon.position.y + 19);
-                }
-                if (g_level_block->condition_highlight_party_slot == slot) {
+                if (g_level_block->condition_highlight_party_slot == slot)
                     ClearConditionHighlight();
-                }
             }
             icon.catalog = catalog;
         }

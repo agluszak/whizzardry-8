@@ -259,9 +259,7 @@ try {
         success = false;
     }
 
-    if (handle) {
-        handle->close();
-    }
+    if (handle) handle->close();
 
     handle.reset();
     if (!success) {
@@ -704,9 +702,7 @@ void W8GrCycle::UpdateLights()
 std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
 {
     auto* representation = GetRepresentation();
-    if (!representation) {
-        return std::nullopt;
-    }
+    if (!representation) return std::nullopt;
     return AnimObjGetBounds(GetCurrentAnimation(), representation->m_bLOD,
                             representation->subcycle);
 }

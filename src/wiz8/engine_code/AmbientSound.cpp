@@ -53,10 +53,7 @@ struct W8RandomAmbient {
     std::uint64_t next_at = 0;
     wiz8::sound::Playback instance;
 
-    void Reschedule()
-    {
-        next_at = w8_get_ticks() + RandomRange(time_min, time_max);
-    }
+    void Reschedule() { next_at = w8_get_ticks() + RandomRange(time_min, time_max); }
     bool Due() const
     {
         return enabled && next_at <= w8_get_ticks() && !wiz8::sound::is_playing(instance);
@@ -781,9 +778,7 @@ unsigned char ReadAmbientSoundListFile(char* filename)
             }
         }
     }
-    if (handle) {
-        handle->close();
-    }
+    if (handle) handle->close();
     handle.reset();
     return 1;
 }

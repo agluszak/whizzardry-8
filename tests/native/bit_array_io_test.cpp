@@ -19,9 +19,8 @@ TEST_CASE("packed bit IO")
     const auto path = directory.path / "bits.bin";
     const unsigned int words[] = {0x81, 0x12345678, 0};
     std::vector<bool> original(64);
-    for (unsigned bit = 0; bit < original.size(); ++bit) {
+    for (unsigned bit = 0; bit < original.size(); ++bit)
         original[bit] = (words[bit / 32] >> (bit % 32)) & 1;
-    }
     {
         auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
         REQUIRE((SavePackedBits(*file, original)));

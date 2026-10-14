@@ -143,22 +143,17 @@ bool IsLevelCdMissing(int level)
 // FUNCTION: WIZ8 0x0042B590
 unsigned char FindGameDataPath(char* path, int cd_number)
 {
-    if (path == nullptr || cd_number < 1 || cd_number > 3) {
-        return 0;
-    }
+    if (path == nullptr || cd_number < 1 || cd_number > 3) return 0;
     path[0] = '\0';
     try {
-        if (w8_native::path_roots().discs[cd_number - 1].empty()) {
-            return 0;
-        }
+        if (w8_native::path_roots().discs[cd_number - 1].empty()) return 0;
         char disc[] = "D:\\";
         disc[0] += cd_number - 1;
         const auto root = wiz8::file_status(disc);
         const auto data = wiz8::file_status(std::string(disc) + "Data");
         if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable || !data ||
-            data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) {
+            data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable)
             return 0;
-        }
         strcpy(path, disc);
         return 1;
     } catch (const std::exception&) {

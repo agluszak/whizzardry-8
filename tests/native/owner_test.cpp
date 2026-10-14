@@ -112,9 +112,8 @@ void screen_stack()
     gXStatus.character_event_queue = &queue;
     const auto saved_intro = g_screen_handlers[W8_SCREEN_INTRO];
     const auto saved_options = g_screen_handlers[W8_SCREEN_OPTIONS];
-    for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS}) {
+    for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS})
         g_screen_handlers[id] = {nullptr, enter, frame, leave, nullptr};
-    }
     g_current_screen_state = {};
     g_current_screen_state.id = W8_SCREEN_NONE;
     g_pending_screen_state.id = W8_SCREEN_NONE;
@@ -209,12 +208,8 @@ void camp_effects()
         FilterCampEffectList();
         REQUIRE((state->effect_visible_lines == 4 && state->effect_first_visible == 2));
         W8Character character{};
-        for (auto& condition : character.uiCondition) {
-            condition = 1;
-        }
-        for (auto& enchantment : character.enchantments) {
-            enchantment.turns = 2;
-        }
+        for (auto& condition : character.uiCondition) condition = 1;
+        for (auto& enchantment : character.enchantments) enchantment.turns = 2;
         g_review_character = &character;
         state->effect_items_only = false;
         RebuildCampEffectList();
@@ -246,9 +241,7 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
                     bool right = false, std::uint8_t click_count = 0)
 {
     const auto input = mouse_atom(event, x, y, left, right, click_count);
-    if (event == InputEventType::MouseMove) {
-        UpdateUiPointer(x, y);
-    }
+    if (event == InputEventType::MouseMove) UpdateUiPointer(x, y);
     DispatchUiInput(&input);
 }
 
@@ -303,9 +296,7 @@ void image_and_sprite_ownership()
         REQUIRE(surfaces.back());
     }
     auto& surviving_surface = *surfaces[32];
-    for (unsigned index : {0u, 31u, 63u}) {
-        surfaces[index].reset();
-    }
+    for (unsigned index : {0u, 31u, 63u}) surfaces[index].reset();
     REQUIRE(surviving_surface.w == 8);
 }
 
@@ -441,12 +432,9 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     pixels.front() = width;
     pixels.back() = 0;
     for (unsigned index = 0; index < count; ++index) {
-        if (frame_palette_indices[0]) {
+        if (frame_palette_indices[0])
             pixels[1] = frame_palette_indices[index % frame_palette_indices.size()];
-        }
-        for (unsigned row = 0; row < height; ++row) {
-            write(pixels.data(), pixels.size());
-        }
+        for (unsigned row = 0; row < height; ++row) write(pixels.data(), pixels.size());
     }
     if (app_data) {
         const std::uint8_t bytes[]{7, 8, 9, 10};
@@ -546,9 +534,7 @@ void generic_button_images()
         }
     }
     std::string long_image_path;
-    for (int i = 0; i < 8; ++i) {
-        long_image_path += "long-component-for-a-native-image-path/";
-    }
+    for (int i = 0; i < 8; ++i) long_image_path += "long-component-for-a-native-image-path/";
     long_image_path += "button.sti";
     REQUIRE(long_image_path.size() > 260);
     button_image_fixture(assets, long_image_path, 3);
@@ -580,11 +566,10 @@ void generic_button_images()
                               std::ios::in | std::ios::out | std::ios::binary);
             STCIHeader header{};
             file.read(reinterpret_cast<char*>(&header), STCI_HEADER_SIZE);
-            if (corrupt_app_data) {
+            if (corrupt_app_data)
                 header.uiAppDataSize = 0xffffffffu;
-            } else {
+            else
                 header.uiStoredSize = 0xffffffffu;
-            }
             file.seekp(0);
             file.write(reinterpret_cast<const char*>(&header), STCI_HEADER_SIZE);
             REQUIRE(file.good());
@@ -665,9 +650,8 @@ void generic_button_images()
     REQUIRE(!ButtonGraphics::Load("button.sti", -1, -1, -1, -1, -1));
     REQUIRE(ButtonGraphics::Load("button.sti", -1, 0, -1, 1, -1));
     std::vector<ButtonImage> quick_images;
-    for (unsigned index = 0; index < 300; ++index) {
+    for (unsigned index = 0; index < 300; ++index)
         quick_images.push_back(ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4));
-    }
     REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
                         [](const auto& item) { return item != nullptr; }));
     quick_images.clear();
@@ -753,9 +737,8 @@ void generic_button_images()
 
     // There is no fixed image slot limit. Lifetime is owned by the image.
     std::vector<GenericButtonImage> images;
-    for (int index = 0; index < 45; ++index) {
+    for (int index = 0; index < 45; ++index)
         images.push_back(load({filename, filename, {}, {}, {}, {}}));
-    }
     REQUIRE(std::all_of(images.begin(), images.end(),
                         [](const auto& item) { return item != nullptr; }));
     images.clear();
@@ -974,9 +957,7 @@ void generic_button_images()
         REQUIRE(fields.HandleInput(backspace));
         REQUIRE(fields.Text(field).empty());
         std::string long_text;
-        for (unsigned n = 0; n < 100; ++n) {
-            long_text += "中";
-        }
+        for (unsigned n = 0; n < 100; ++n) long_text += "中";
         fields.SetText(field, long_text);
         fields.SetCursor(long_text.size());
         REQUIRE(fields.Cursor() == 300);
@@ -1009,9 +990,7 @@ TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner
     std::vector<int> hits;
     const auto record = [&](int id) {
         return [&, id](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Wheel) {
-                hits.push_back(id);
-            }
+            if (event.action == UiPointerAction::Wheel) hits.push_back(id);
             return UiResult::Handled;
         };
     };
@@ -1055,15 +1034,11 @@ TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
     UiLayer layer;
     auto& source = layer.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
         events.push_back(event);
-        if (drag_source && event.action == UiPointerAction::Leave) {
-            drag_source->releaseCapture();
-        }
+        if (drag_source && event.action == UiPointerAction::Leave) drag_source->releaseCapture();
         return UiResult::Handled;
     });
     layer.add(SDL_Rect{40, 10, 20, 20}, [&](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up) {
-            ++drops;
-        }
+        if (event.action == UiPointerAction::Up) ++drops;
         return UiResult::Handled;
     });
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 2);
@@ -1168,9 +1143,7 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
     int releases = 0;
     UiLayer screen;
     auto& target = screen.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up) {
-            ++releases;
-        }
+        if (event.action == UiPointerAction::Up) ++releases;
         return UiResult::Handled;
     });
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
@@ -1278,9 +1251,7 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
 
     layer = std::make_unique<UiLayer>();
     layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Enter) {
-            AfterUiDispatch([&] { layer.reset(); });
-        }
+        if (event.action == UiPointerAction::Enter) AfterUiDispatch([&] { layer.reset(); });
         return UiResult::Handled;
     });
     UpdateUiPointer(15, 15);
@@ -1298,9 +1269,7 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
     }
     auto layer = std::make_unique<UiLayer>();
     layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Down) {
-            AfterUiDispatch([&] { layer.reset(); });
-        }
+        if (event.action == UiPointerAction::Down) AfterUiDispatch([&] { layer.reset(); });
         return UiResult::Handled;
     });
     QueueEvent(InputEventType::LeftButtonDown, {15, 15});
@@ -1384,15 +1353,11 @@ struct ChainedModal final : ModalContent {
     }
     ~ChainedModal() override
     {
-        if (destroyed) {
-            *destroyed = true;
-        }
+        if (destroyed) *destroyed = true;
     }
     bool ProcessInput() override
     {
-        if (next) {
-            OpenModal(std::move(next));
-        }
+        if (next) OpenModal(std::move(next));
         // Still executing after opening a replacement: members must be alive.
         *later_use = *destroyed ? -1 : 1;
         return false;
@@ -1587,13 +1552,11 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
-    for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"}) {
+    for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
         button_image_fixture(assets / "Data" / "Dialogs", image);
-    }
     for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI",
-                              "DialogSlideBar.STI", "DialogBackground_dark.STI"}) {
+                              "DialogSlideBar.STI", "DialogBackground_dark.STI"})
         button_image_fixture(assets / "Data" / "Dialogs", image);
-    }
     button_image_fixture(assets, "font.sti", 128, false, 1, 10);
     button_image_fixture(assets, "background.sti");
     button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
@@ -1667,9 +1630,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         list.SetOrigin(10, 10);
         list.SetExtent(100, 80);
         list.SetBackground("background.sti", 0);
-        for (int index = 0; index < 20; ++index) {
-            list.m_lines.emplace_back("X");
-        }
+        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw(GetFrameBufferSurface());
         list.InputLayer().setModal(true);
@@ -1883,9 +1844,7 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "Data/Items/icon.sti", 1);
     std::vector<W8ItemDatabaseRecord> records(1005);
-    for (auto& record : records) {
-        record.video_object_name = "icon.sti";
-    }
+    for (auto& record : records) record.video_object_name = "icon.sti";
     struct Restore {
         W8ItemDatabaseRecord* records;
         w8_native::Roots roots;

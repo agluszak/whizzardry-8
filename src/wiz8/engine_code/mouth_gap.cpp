@@ -21,9 +21,8 @@ W8MouthGapTrack LoadMouthGapTrack(std::string_view voice_path)
                                ? std::string_view{}
                                : voice_path.substr(0, separator + 1);
     auto filename = voice_path.substr(separator == std::string_view::npos ? 0 : separator + 1);
-    if (const auto dot = filename.find_last_of('.'); dot != std::string_view::npos) {
+    if (const auto dot = filename.find_last_of('.'); dot != std::string_view::npos)
         filename = filename.substr(0, dot);
-    }
     const auto gap_path = std::string(directory) + "GAP\\" + std::string(filename) + ".gap";
 
     W8MouthGapTrack track;

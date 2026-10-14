@@ -31,9 +31,7 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
     pixel(*source, 0, 0) = 0;
     pixel(*source, 1, 0) = 0x1234;
     pixel(*source, 2, 0) = 0x2345;
-    for (int x = 0; x < 5; ++x) {
-        pixel(*destination, x, 0) = 0x4567;
-    }
+    for (int x = 0; x < 5; ++x) pixel(*destination, x, 0) = 0x4567;
     BlitImage(*destination, 1, 0, *source, nullptr, {.color_key = 0});
     REQUIRE(pixel(*destination, 0, 0) == 0x4567);
     REQUIRE(pixel(*destination, 1, 0) == 0x4567);

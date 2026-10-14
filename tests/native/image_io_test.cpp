@@ -26,11 +26,8 @@ static void CheckImage(const char* name, const std::vector<unsigned char>& bytes
     auto stream = srIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
     auto surface = srImage::load(name, stream.get());
     REQUIRE((surface && surface->getWidth() == 2 && surface->getHeight() == 2));
-    for (int y = 0; y < 2; ++y) {
-        for (int x = 0; x < 2; ++x) {
-            REQUIRE(surface->getPixel(x, y) == expected[y * 2 + x]);
-        }
-    }
+    for (int y = 0; y < 2; ++y)
+        for (int x = 0; x < 2; ++x) REQUIRE(surface->getPixel(x, y) == expected[y * 2 + x]);
 }
 
 static std::vector<unsigned char> Targa(bool top, bool rle, bool alpha)
@@ -40,17 +37,13 @@ static std::vector<unsigned char> Targa(bool top, bool rle, bool alpha)
     bytes[12] = bytes[14] = 2;
     bytes[16] = alpha ? 32 : 24;
     bytes[17] = (top ? 32 : 0) | (alpha ? 8 : 0);
-    if (rle) {
-        bytes.push_back(3); // Four raw pixels in one RLE packet.
-    }
-    for (int y = 0; y < 2; ++y) {
+    if (rle) bytes.push_back(3); // Four raw pixels in one RLE packet.
+    for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x) {
             auto color = colors[(top ? y : 1 - y) * 2 + x];
-            for (int channel = 0; channel < (alpha ? 4 : 3); ++channel) {
+            for (int channel = 0; channel < (alpha ? 4 : 3); ++channel)
                 bytes.push_back(static_cast<unsigned char>(color >> (channel * 8)));
-            }
         }
-    }
     return bytes;
 }
 
@@ -65,14 +58,11 @@ static std::vector<unsigned char> Bitmap()
     bytes[18] = bytes[22] = 2;
     bytes[26] = 1;
     bytes[28] = 24;
-    for (int y = 0; y < 2; ++y) {
-        for (int x = 0; x < 2; ++x) {
-            for (int channel = 0; channel < 3; ++channel) {
+    for (int y = 0; y < 2; ++y)
+        for (int x = 0; x < 2; ++x)
+            for (int channel = 0; channel < 3; ++channel)
                 bytes[54 + y * 8 + x * 3 + channel] =
                     static_cast<unsigned char>(colors[(1 - y) * 2 + x] >> (channel * 8));
-            }
-        }
-    }
     return bytes;
 }
 
@@ -86,28 +76,22 @@ static std::vector<unsigned char> PCX(bool indexed)
     bytes[8] = bytes[10] = 1;
     bytes[65] = indexed ? 1 : 3;
     bytes[66] = 2;
-    for (int y = 0; y < 2; ++y) {
-        for (int channel = 0; channel < (indexed ? 1 : 3); ++channel) {
+    for (int y = 0; y < 2; ++y)
+        for (int channel = 0; channel < (indexed ? 1 : 3); ++channel)
             for (int x = 0; x < 2; ++x) {
                 auto value =
                     indexed ? static_cast<unsigned char>(y * 2 + x)
                             : static_cast<unsigned char>(colors[y * 2 + x] >> ((2 - channel) * 8));
-                if (value >= 192) {
-                    bytes.push_back(193);
-                }
+                if (value >= 192) bytes.push_back(193);
                 bytes.push_back(value);
             }
-        }
-    }
     if (indexed) {
         bytes.push_back(12);
-        for (int entry = 0; entry < 256; ++entry) {
-            for (int channel = 0; channel < 3; ++channel) {
+        for (int entry = 0; entry < 256; ++entry)
+            for (int channel = 0; channel < 3; ++channel)
                 bytes.push_back(
                     entry < 4 ? static_cast<unsigned char>(colors[entry] >> ((2 - channel) * 8))
                               : 0);
-            }
-        }
     }
     return bytes;
 }
@@ -118,9 +102,7 @@ public:
 
     void getPixelRow(w8_ulong* pixels, w8_long, w8_long begin, w8_long end) override
     {
-        for (w8_long x = begin; x < end; ++x) {
-            pixels[x - begin] = 0xfff82010;
-        }
+        for (w8_long x = begin; x < end; ++x) pixels[x - begin] = 0xfff82010;
     }
 };
 
@@ -144,24 +126,20 @@ static void CheckJPEG()
         SDL_GetIOSize(output.get())));
     auto decoded = srImage::load("screenshot.jpeg", input.get());
     REQUIRE((decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16));
-    for (int y = 0; y < 16; ++y) {
+    for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) {
             auto pixel = decoded->getPixel(x, y);
             REQUIRE(abs(int((pixel >> 16) & 255) - 248) <= 4);
             REQUIRE(abs(int((pixel >> 8) & 255) - 32) <= 4);
             REQUIRE(abs(int(pixel & 255) - 16) <= 4);
         }
-    }
 }
 
 static void CheckLossless(const char* name)
 {
     srColorSurface source(srPixelConvert::SURFACE_BGRA32, 2, 2);
-    for (int y = 0; y < 2; ++y) {
-        for (int x = 0; x < 2; ++x) {
-            source.setPixel(x, y, colors[y * 2 + x]);
-        }
-    }
+    for (int y = 0; y < 2; ++y)
+        for (int x = 0; x < 2; ++x) source.setPixel(x, y, colors[y * 2 + x]);
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save(name, output.get(), source);
     REQUIRE(
@@ -228,11 +206,8 @@ TEST_CASE("image_io_test")
     for (int cycle = 0; cycle < 3; ++cycle) {
         REQUIRE((srInit() && srCore.isInitialized()));
         REQUIRE(srInit());
-        for (bool top : {false, true}) {
-            for (bool rle : {false, true}) {
-                CheckImage("test.TGA", Targa(top, rle, false));
-            }
-        }
+        for (bool top : {false, true})
+            for (bool rle : {false, true}) CheckImage("test.TGA", Targa(top, rle, false));
         auto alpha = Targa(true, false, true);
         alpha[21] = 64;
         w8_ulong transparent[] = {0x40123456, colors[1], colors[2], colors[3]};

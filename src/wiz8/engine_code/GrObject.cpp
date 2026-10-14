@@ -30,9 +30,7 @@ W8GrObject::~W8GrObject() = default;
 // FUNCTION: WIZ8 0x004b6bd0
 void W8GrObject::AddSoundEvent(std::unique_ptr<W8SoundEvent> event)
 {
-    if (event) {
-        sound_events.push_back(std::move(event));
-    }
+    if (event) sound_events.push_back(std::move(event));
 }
 
 // GLOBAL: WIZ8 0x0060dfac

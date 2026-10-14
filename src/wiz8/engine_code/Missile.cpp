@@ -244,9 +244,8 @@ static int missileCycleIndex(const char* pac_name)
 {
     for (int index = 0; index < 2; ++index) {
         if (_strnicmp(pac_name, g_missile_cycle_names[index],
-                      strlen(g_missile_cycle_names[index])) == 0) {
+                      strlen(g_missile_cycle_names[index])) == 0)
             return index;
-        }
     }
     return -1;
 }
@@ -264,16 +263,13 @@ try {
     std::uint32_t version;
     handle->read_exact(&count, sizeof(count));
     handle->read_exact(&version, sizeof(version));
-    if (count < 0 || count > 100000) {
-        return false;
-    }
+    if (count < 0 || count > 100000) return false;
     auto rows = std::make_unique<W8MissileTableRecord[]>(count);
     for (std::int32_t index = 0; index < count; ++index) {
         handle->seek(0x101, wiz8::SeekOrigin::current);
         if (wiz8::retail::read(*handle, rows[index]).bytes !=
-            wiz8::retail::kMissileTableRecordBytes) {
+            wiz8::retail::kMissileTableRecordBytes)
             return false;
-        }
     }
     g_missile_table = rows.release();
     g_missile_table_count = count;
@@ -608,9 +604,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     return loaded;
 
 close_file:
-    if (handle) {
-        handle->close();
-    }
+    if (handle) handle->close();
     handle.reset();
     if (*ppMissile != 0) {
         (*ppMissile)->gravity = gravity;

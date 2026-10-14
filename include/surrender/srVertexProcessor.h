@@ -71,10 +71,7 @@ protected:
 public:
     // The provider's base vtable contains these bodies, not _purecall.
     // FUNCTION: SURRENDER 0x10035470
-    virtual int isActive(srVertexPipe& pipe)
-    {
-        return 1;
-    }
+    virtual int isActive(srVertexPipe& pipe) { return 1; }
     // FUNCTION: SURRENDER 0x10035480
     virtual void process(srVertexPipe& pipe) {}
 

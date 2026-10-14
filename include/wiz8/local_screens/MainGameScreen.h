@@ -75,10 +75,7 @@ public:
     void BeginProgress(std::string_view text, float duration, float hold);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void OnRangeChanged();
-    void InvalidateAll()
-    {
-        m_dirty = true;
-    }
+    void InvalidateAll() { m_dirty = true; }
     void EnableInput(bool enabled)
     {
         input.setEnabled(enabled);
@@ -130,14 +127,8 @@ class W8NpcDialogueTextController {
 public:
     W8NpcDialogueTextController();
     void Redraw(SDL_Surface& target, bool full_redraw);
-    void InvalidateAll()
-    {
-        m_dirty = true;
-    }
-    void InvalidateLayout()
-    {
-        m_dirty = true;
-    }
+    void InvalidateAll() { m_dirty = true; }
+    void InvalidateLayout() { m_dirty = true; }
     UiLayer input{0x03};
     HitTarget* expanded_target = nullptr;
     bool m_active = false, m_dirty = true;
@@ -162,10 +153,7 @@ public:
     /* Snapshot the transcript lines into the screen state's
        dialogue_transcript records (text plus category byte). */
     void SaveTranscriptEntries();
-    void HighlightFirstEntry()
-    {
-        text_area.SelectEntry(text_area.m_first_visible_entry);
-    }
+    void HighlightFirstEntry() { text_area.SelectEntry(text_area.m_first_visible_entry); }
     /* Drop every transcript line from the text area and invalidate. */
     void ClearTranscriptEntries();
     int GetSelectedTranscriptEntryIndex();
@@ -207,10 +195,7 @@ class W8LockTumblerPanel {
 public:
     W8LockTumblerPanel(int tumbler_count, const unsigned char* pin_data, W8LockInteraction& owner);
     void UpdateTumblerAnimation();
-    void InvalidateAll()
-    {
-        m_dirty = true;
-    }
+    void InvalidateAll() { m_dirty = true; }
     void Redraw(SDL_Surface& target, bool full_redraw);
     UiLayer input;
     std::array<W8LockTumbler, 8> m_tumblers;
@@ -227,10 +212,7 @@ public:
     explicit W8LockInfoPanel(int tumbler_count);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void RefreshInfo();
-    void InvalidateAll()
-    {
-        m_dirty = true;
-    }
+    void InvalidateAll() { m_dirty = true; }
     int m_tumbler_count;
     bool m_dirty = true;
     std::array<W8TextBuffer, 7> text;

@@ -22,10 +22,7 @@ public:
 
     // FUNCTION: SURRENDER 0x10034700 SYMBOL
     // RECOMP: ??0srMaterial@@QAE@XZ
-    inline srMaterial()
-    {
-        reset();
-    }
+    inline srMaterial() { reset(); }
 
     static const char* sGetClassName();
 
@@ -56,29 +53,17 @@ public:
     int isEnabled(e_oper operation) const;
     // FUNCTION: SURRENDER 0x10034930 SYMBOL
     // RECOMP: ?setAmbient@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    void setAmbient(const glm::vec4& ambient)
-    {
-        setVector(parms.ambient, ambient);
-    }
+    void setAmbient(const glm::vec4& ambient) { setVector(parms.ambient, ambient); }
     void setAmbientAndDiffuse(const glm::vec4& color);
     // FUNCTION: SURRENDER 0x10034960 SYMBOL
     // RECOMP: ?setDiffuse@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    inline void setDiffuse(const glm::vec4& diffuse)
-    {
-        setVector(parms.diffuse, diffuse);
-    }
+    inline void setDiffuse(const glm::vec4& diffuse) { setVector(parms.diffuse, diffuse); }
     // FUNCTION: SURRENDER 0x10034990 SYMBOL
     // RECOMP: ?setEmissive@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    inline void setEmissive(const glm::vec4& emissive)
-    {
-        setVector(parms.emissive, emissive);
-    }
+    inline void setEmissive(const glm::vec4& emissive) { setVector(parms.emissive, emissive); }
     // FUNCTION: SURRENDER 0x10034B40 SYMBOL
     // RECOMP: ?setMapper@srMaterial@@QAEXPAVsrVertexProcessor@@@Z
-    inline void setMapper(srVertexProcessor* mapper)
-    {
-        this->mapper = mapper;
-    }
+    inline void setMapper(srVertexProcessor* mapper) { this->mapper = mapper; }
     // FUNCTION: SURRENDER 0x10034A80 SYMBOL
     // RECOMP: ?setOpacity@srMaterial@@QAEXN@Z
     inline void setOpacity(double opacity)
@@ -89,10 +74,7 @@ public:
     void setShininess(double shininess);
     // FUNCTION: SURRENDER 0x100349C0 SYMBOL
     // RECOMP: ?setSpecular@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    inline void setSpecular(const glm::vec4& specular)
-    {
-        setVector(parms.specular, specular);
-    }
+    inline void setSpecular(const glm::vec4& specular) { setVector(parms.specular, specular); }
     void setTranslucency(double translucency);
 
 protected:

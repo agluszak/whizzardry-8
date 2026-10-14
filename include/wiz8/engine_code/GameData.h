@@ -262,14 +262,8 @@ struct W8GameData {
     int trigger_surface_count;
     int integrated_surface_count;
     std::vector<W8GDSurface> m_pSurfaces;
-    int TrigSurfacesCount() const noexcept
-    {
-        return int(m_pTrigSurfaces.size());
-    }
-    int TrigVerticesCount() const noexcept
-    {
-        return int(m_pTrigVertices.size());
-    }
+    int TrigSurfacesCount() const noexcept { return int(m_pTrigSurfaces.size()); }
+    int TrigVerticesCount() const noexcept { return int(m_pTrigVertices.size()); }
     int m_iNumTriggers;
     std::vector<W8GDSurface> m_pTrigSurfaces;
     std::vector<srVector3T<float>> m_pTrigVertices;
@@ -280,30 +274,12 @@ struct W8GameData {
     std::vector<W8GDInterface> m_pInterfaces;
     std::vector<W8GDInterfaceState> m_pStates;
     std::vector<int> m_piCondPolys;
-    int VerticesCount() const noexcept
-    {
-        return int(m_pVertices.size());
-    }
-    int SurfacesCount() const noexcept
-    {
-        return int(m_pSurfaces.size());
-    }
-    int InterfacesCount() const noexcept
-    {
-        return int(m_pInterfaces.size());
-    }
-    int StatesCount() const noexcept
-    {
-        return int(m_pStates.size());
-    }
-    int CondPolysCount() const noexcept
-    {
-        return int(m_piCondPolys.size());
-    }
-    int EnvironsCount() const noexcept
-    {
-        return int(m_ppEnvirons.size());
-    }
+    int VerticesCount() const noexcept { return int(m_pVertices.size()); }
+    int SurfacesCount() const noexcept { return int(m_pSurfaces.size()); }
+    int InterfacesCount() const noexcept { return int(m_pInterfaces.size()); }
+    int StatesCount() const noexcept { return int(m_pStates.size()); }
+    int CondPolysCount() const noexcept { return int(m_piCondPolys.size()); }
+    int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
     /* Set by W8Octree::settleToGround around its TestTraceResult calls: while

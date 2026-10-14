@@ -416,17 +416,12 @@ std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(int ite
     if (!image) {
         const auto& record = g_item_records[item_id];
         std::string_view name = record.video_object_name;
-        if (name.empty()) {
+        if (name.empty())
             name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
-        }
         std::string path = fmt::format("Data\\Items\\{}", name);
-        if (path.find(".sti") == std::string::npos) {
-            path += ".sti";
-        }
+        if (path.find(".sti") == std::string::npos) path += ".sti";
         image = g_image_assets.sprites(path);
-        if (!image) {
-            throw std::runtime_error(fmt::format("Cannot load item image {}", path));
-        }
+        if (!image) throw std::runtime_error(fmt::format("Cannot load item image {}", path));
     }
     return image;
 }
@@ -792,12 +787,9 @@ static bool CanHoldItemsTogether(int first_item_id, int second_item_id)
 // FUNCTION: WIZ8 0x0051CDE0
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
 {
-    if (party_slot == -1) {
-        srAssertFail("iChar != -1", PC_ITEM_CPP, 0x4e0, 0);
-    }
-    if (static_cast<unsigned int>(equip_slot) >= W8_EQUIP_SLOT_COUNT) {
+    if (party_slot == -1) srAssertFail("iChar != -1", PC_ITEM_CPP, 0x4e0, 0);
+    if (static_cast<unsigned int>(equip_slot) >= W8_EQUIP_SLOT_COUNT)
         srAssertFail("uiSlot < SLOT_COUNT", PC_ITEM_CPP, 0x4e1, 0);
-    }
 
     W8EquipSlot paired_slot;
     switch (equip_slot) {
@@ -843,9 +835,7 @@ static bool FindUnmetItemRequirement(const W8Character* character,
         const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
         if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
             character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
-            if (message_id) {
-                *message_id = g_character_description_first_ids[stat];
-            }
+            if (message_id) *message_id = g_character_description_first_ids[stat];
             return true;
         }
     }
@@ -853,9 +843,7 @@ static bool FindUnmetItemRequirement(const W8Character* character,
         const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
         if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
             character->skills[stat].level < record->skill_requirements[index].minimum) {
-            if (message_id) {
-                *message_id = g_character_skill_name_ids[stat];
-            }
+            if (message_id) *message_id = g_character_skill_name_ids[stat];
             return true;
         }
     }
@@ -884,9 +872,7 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         return false;
     }
 
-    if (FindUnmetItemRequirement(character, record, nullptr)) {
-        return false;
-    }
+    if (FindUnmetItemRequirement(character, record, nullptr)) return false;
 
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         spell_id = record->spell_id;
@@ -1700,9 +1686,7 @@ void InitializeItemVideoObjects(void)
 void ReleaseGenericItemNames(void)
 {
     g_item_video_objects.Clear();
-    for (auto& name : g_generic_item_names) {
-        name.clear();
-    }
+    for (auto& name : g_generic_item_names) name.clear();
 }
 
 /* Hand the item in hand to a party member. It is first offered to everybody who
@@ -1721,9 +1705,7 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
         srAssertFail("gStatus.fItemInCursor", PC_ITEM_CPP, 376, 0);
     }
 
-    if (!item->identified) {
-        PartyAttemptsToIdentifyItem(item, 0);
-    }
+    if (!item->identified) PartyAttemptsToIdentifyItem(item, 0);
 
     if (!g_status.game_started) {
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
@@ -2491,9 +2473,7 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
 // FUNCTION: WIZ8 0x005207e0
 W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 {
-    if (item == nullptr) {
-        return W8_RANGE_NONE;
-    }
+    if (item == nullptr) return W8_RANGE_NONE;
     const int spell_id = GetItemSpell(item);
     return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : g_spell_records[spell_id].range_category;
 }

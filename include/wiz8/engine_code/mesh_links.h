@@ -15,19 +15,12 @@ struct OctreeMeshLinks {
 
     std::span<const unsigned short> runAt(std::size_t start) const
     {
-        if (start >= records.size()) {
-            return {};
-        }
+        if (start >= records.size()) return {};
         auto end = start;
-        while (end < records.size() && records[end] != 0) {
-            ++end;
-        }
+        while (end < records.size() && records[end] != 0) ++end;
         return std::span<const unsigned short>(records).subspan(start, end - start);
     }
-    std::span<const unsigned short> alwaysVisible() const
-    {
-        return runAt(0);
-    }
+    std::span<const unsigned short> alwaysVisible() const { return runAt(0); }
     std::span<const unsigned short> forMesh(std::size_t mesh) const
     {
         return mesh < lookup.size() && lookup[mesh] != 0 ? runAt(lookup[mesh])
@@ -40,10 +33,8 @@ struct OctreeMeshLinks {
     void markVisible(std::size_t mesh, std::span<Object* const> loaded,
                      std::vector<bool>& visible) const
     {
-        for (const auto id : forMesh(mesh)) {
-            if (id <= loaded.size() && id <= visible.size() && loaded[id - 1]) {
+        for (const auto id : forMesh(mesh))
+            if (id <= loaded.size() && id <= visible.size() && loaded[id - 1])
                 visible[id - 1] = true;
-            }
-        }
     }
 };

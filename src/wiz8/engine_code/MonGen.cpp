@@ -123,18 +123,14 @@ try {
     int name_count;
     int table_count;
     handle->read_exact(&name_count, sizeof(name_count));
-    if (name_count < 0) {
-        return 0;
-    }
+    if (name_count < 0) return 0;
     for (int index = 0; index < name_count; ++index) {
         char name[256];
         handle->read_exact(name, sizeof(name));
         names.emplace_back(name, std::find(std::begin(name), std::end(name), '\0'));
     }
     handle->read_exact(&table_count, sizeof(table_count));
-    if (table_count < 0) {
-        return 0;
-    }
+    if (table_count < 0) return 0;
     for (int index = 0; index < table_count; ++index) {
         W8EncounterTableDiskHeader header;
         handle->read_exact(&header, sizeof(header));
@@ -144,25 +140,15 @@ try {
         table.category = header.unknown_101;
         table.entries.resize(header.entry_count);
         // The file stores columns; combine them into records at the boundary.
-        for (auto& entry : table.entries) {
-            handle->read_exact(&entry.species, sizeof(entry.species));
-        }
-        for (auto& entry : table.entries) {
-            handle->read_exact(&entry.rarity_class, 1);
-        }
-        for (auto& entry : table.entries) {
-            handle->read_exact(&entry.time_condition, 1);
-        }
-        for (auto& entry : table.entries) {
-            handle->read_exact(&entry.challenge_level, 1);
-        }
+        for (auto& entry : table.entries) handle->read_exact(&entry.species, sizeof(entry.species));
+        for (auto& entry : table.entries) handle->read_exact(&entry.rarity_class, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.time_condition, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.challenge_level, 1);
         for (auto& entry : table.entries) {
             handle->read_exact(&entry.script, sizeof(entry.script));
             entry.script.value[sizeof(entry.script.value) - 1] = '\0';
         }
-        if (header.version != 1) {
-            handle->read_exact(&table.version_two_flags, 1);
-        }
+        if (header.version != 1) handle->read_exact(&table.version_two_flags, 1);
     }
     g_encounter_names = std::move(names);
     g_encounter_tables = std::move(tables);
@@ -252,9 +238,7 @@ const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableR
         }
     }
 
-    if (candidates.empty()) {
-        return nullptr;
-    }
+    if (candidates.empty()) return nullptr;
     return candidates[candidates.size() == 1 ? 0 : Random(static_cast<int>(candidates.size()))];
 }
 
@@ -325,9 +309,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     }
 
     table = GetEncounterTable(encounter_table_index);
-    if (!table) {
-        return 0;
-    }
+    if (!table) return 0;
     const auto* selected = SelectEncounterCandidate(*table);
     if (!selected) {
         return 0;

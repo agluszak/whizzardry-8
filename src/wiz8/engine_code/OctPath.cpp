@@ -428,10 +428,8 @@ try {
     if (version <= 2) {
         unsigned int surface;
         for (surface = 1; surface < m_ulNumWayPoints; ++surface) {
-            if ((ClassifyWaypoint(&m_waypoints[surface].position) & W8_PATH_CELL_CONDITIONAL) !=
-                0) {
+            if ((ClassifyWaypoint(&m_waypoints[surface].position) & W8_PATH_CELL_CONDITIONAL) != 0)
                 m_waypoints[surface].flags |= W8_WAYPOINT_CONDITIONAL;
-            }
         }
         for (surface = 1; surface < m_ulNumWayPoints; ++surface) {
             unsigned short edge_index = m_waypoints[surface].first_edge;
@@ -445,9 +443,7 @@ try {
                 } else {
                     TestWaypointSpan(&m_waypoints[surface].position,
                                      &m_waypoints[destination_index].position, false, false);
-                    if (span_blocked) {
-                        edge->flags |= W8_PATH_EDGE_CONDITIONAL;
-                    }
+                    if (span_blocked) edge->flags |= W8_PATH_EDGE_CONDITIONAL;
                 }
                 edge_index = edge->next;
             }
@@ -797,9 +793,7 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
     for (int pass = 0; pass < 2; ++pass) {
         const bool selected_frame = pass == 1;
         for (unsigned int lookup = path_handle; m_pulCondLookup[lookup] != 0; ++lookup) {
-            if ((m_pusCondNodeFrames[lookup] == frame) != selected_frame) {
-                continue;
-            }
+            if ((m_pusCondNodeFrames[lookup] == frame) != selected_frame) continue;
 
             for (unsigned int key_index = m_pulCondLookup[lookup];
                  m_pulCondNodeKeys[key_index] != 0; ++key_index) {
@@ -809,21 +803,15 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
                 const bool blocking_frame = (stored & W8_PATH_CELL_BLOCKING_FRAME) != 0;
                 const bool should_be_inactive = blocking_frame == selected_frame;
                 const bool is_inactive = (current & W8_PATH_CELL_INACTIVE) != 0;
-                if (should_be_inactive == is_inactive) {
-                    continue;
-                }
+                if (should_be_inactive == is_inactive) continue;
 
                 RemoveIndexValue(*index, key, current);
                 if (should_be_inactive) {
                     current |= W8_PATH_CELL_INACTIVE;
-                    if (!selected_frame) {
-                        stored |= W8_PATH_CELL_INACTIVE;
-                    }
+                    if (!selected_frame) stored |= W8_PATH_CELL_INACTIVE;
                 } else {
                     current &= ~W8_PATH_CELL_INACTIVE;
-                    if (!selected_frame) {
-                        stored &= ~W8_PATH_CELL_INACTIVE;
-                    }
+                    if (!selected_frame) stored &= ~W8_PATH_CELL_INACTIVE;
                 }
                 InsertIndexValue(*index, key, current);
             }
@@ -1888,9 +1876,7 @@ void W8PathingService::UpdateConditionalPathFlags(unsigned int path_handle, unsi
     for (int pass = 0; pass < 2; ++pass) {
         const bool active_frame = pass == 1;
         for (unsigned int lookup = path_handle; m_pulCondLookup[lookup] != 0; ++lookup) {
-            if ((m_pusCondNodeFrames[lookup] == frame) != active_frame) {
-                continue;
-            }
+            if ((m_pusCondNodeFrames[lookup] == frame) != active_frame) continue;
 
             for (unsigned int key_index = m_pulCondLookup[lookup];
                  m_pulCondNodeKeys[key_index] != 0; ++key_index) {
@@ -1899,9 +1885,7 @@ void W8PathingService::UpdateConditionalPathFlags(unsigned int path_handle, unsi
                 const unsigned int current = FindConditionalPathValue(key, wanted);
                 const bool update =
                     active_frame ? (flags & current) == 0 : (current & W8_PATH_CELL_DOOR) != 0;
-                if (!update) {
-                    continue;
-                }
+                if (!update) continue;
 
                 const unsigned int next =
                     active_frame ? current | flags
@@ -2978,15 +2962,11 @@ void W8PathingService::ResolveLinkedNavigatorAttachment(W8NavigatorMovementState
                                                         bool enabled)
 {
     m_linked_attachment = nullptr;
-    if (!enabled) {
-        return;
-    }
+    if (!enabled) return;
 
     W8Monster* monster = GetMonsterByLocationID(static_cast<unsigned int>(movement->location_id));
     W8Navigator* linked = monster->linked_navigator;
-    if (linked) {
-        m_linked_attachment = linked->movement.attachment.get();
-    }
+    if (linked) m_linked_attachment = linked->movement.attachment.get();
 }
 
 /* Rebuild the attachment route against the linked navigator's recorded path.
@@ -3363,9 +3343,7 @@ bool W8PathingService::FindNearbyPathCell(srVector3T<float>* position, bool snap
                               (matched_height - 1) * span + level_bounds.minimum.y,
                               (cell.y + g_float_half) * grid_scale + level_bounds.minimum.z);
             }
-            if (packed_out) {
-                *packed_out = packed;
-            }
+            if (packed_out) *packed_out = packed;
             return true;
         }
         slot = NextIndexValue(*m_pPathValues, key, slot);
@@ -3395,14 +3373,11 @@ bool W8PathingService::TestPathCellClearance(srVector3T<float>* position, float 
                                              bool snap_to_cell)
 {
     unsigned int packed;
-    if (!FindNearbyPathCell(position, snap_to_cell, true, &packed)) {
-        return false;
-    }
+    if (!FindNearbyPathCell(position, snap_to_cell, true, &packed)) return false;
 
     float direction = g_float_zero;
-    if ((packed & W8_PATH_CELL_HAS_DIRECTIONS) == 0) {
+    if ((packed & W8_PATH_CELL_HAS_DIRECTIONS) == 0)
         direction = static_cast<float>((packed >> 16) & 0xff);
-    }
     return clearance < direction * g_world_scale + grid_scale * g_float_half;
 }
 
@@ -3876,9 +3851,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         };
 
         unsigned int source_value = 0;
-        if (!findCellAtHeight(*source, source_value)) {
-            return false;
-        }
+        if (!findCellAtHeight(*source, source_value)) return false;
         m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&cell, source_value);
         unsigned int destination_value;
         return findCellAtHeight(*destination, destination_value) &&
@@ -4536,9 +4509,7 @@ void W8PathingService::UpdatePathVisualization(const glm::vec3& source,
 // FUNCTION: WIZ8 0x0045BE30
 stModelInstance* W8PathingService::BuildPathVisualization()
 {
-    if (m_path_visualization == nullptr) {
-        EnsurePathVisualization();
-    }
+    if (m_path_visualization == nullptr) EnsurePathVisualization();
     const std::array<glm::vec3, 5> marker_offsets{
         glm::vec3(0, 0.5f, 0) * static_cast<float>(g_double_five_hundred),
         glm::vec3(-0.25f, 0, -0.25f) * static_cast<float>(g_double_five_hundred),
@@ -4911,15 +4882,9 @@ void W8PathingService::BuildSearchVisualization()
 // FUNCTION: WIZ8 0x0045d490
 glm::vec3 W8PathingService::waypointVisualizationColor(unsigned short waypoint) const
 {
-    if ((m_waypoints[waypoint].flags & W8_WAYPOINT_DISABLED) != 0) {
-        return glm::vec3(0);
-    }
-    if (waypoint == start_waypoint) {
-        return {1, 1, 0};
-    }
-    if (waypoint != destination_waypoint) {
-        return {0, 0, 1};
-    }
+    if ((m_waypoints[waypoint].flags & W8_WAYPOINT_DISABLED) != 0) return glm::vec3(0);
+    if (waypoint == start_waypoint) return {1, 1, 0};
+    if (waypoint != destination_waypoint) return {0, 0, 1};
     return path_direction_valid ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
 }
 
@@ -5631,9 +5596,7 @@ template<std::size_t Count>
 static void appendFlagNames(char* line, unsigned int value, const FlagName (&names)[Count])
 {
     for (const auto& entry : names) {
-        if ((value & entry.bit) != 0) {
-            strcat(line, entry.name);
-        }
+        if ((value & entry.bit) != 0) strcat(line, entry.name);
     }
 }
 

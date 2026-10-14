@@ -99,37 +99,29 @@ void stMeshModel::CalculateLinkedBounds()
     srBoundingBox box;
     bool has_vertices = false;
     for (auto* model : Meshes(first)) {
-        if (model->vertex_location_count == 0) {
-            continue;
-        }
+        if (model->vertex_location_count == 0) continue;
         for (std::size_t frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
             srBoundingBox frame_box;
-            if (model->flags & W8_MESH_HAS_FRAME_STORAGE) {
+            if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
                 frame_box = model->GetFrameBounds(frame);
-            } else {
+            else
                 frame_box = model->srMeshModel::getBounds().box;
-            }
-            if (has_vertices) {
+            if (has_vertices)
                 box.include(frame_box);
-            } else {
+            else
                 box = frame_box;
-            }
             has_vertices = true;
         }
     }
     const auto center = box.center();
     const float radius = glm::distance(box.maximum, center);
-    for (auto* model : Meshes(first)) {
-        model->setBounds(box.minimum, box.maximum, center, radius);
-    }
+    for (auto* model : Meshes(first)) model->setBounds(box.minimum, box.maximum, center, radius);
 }
 
 /* Reveal nearby vertices in world space, preserving already explored vertices. */
 void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world)
 {
-    if (vertex_location_count == 0 || !(range >= 0)) {
-        return;
-    }
+    if (vertex_location_count == 0 || !(range >= 0)) return;
     const auto lights = GetVertexLights(true, -1);
     const auto* vertices =
         (flags & W8_MESH_HAS_FRAME_STORAGE) ? GetVertexLocations(0, true, 0.0f) : getVertexLoc();
@@ -166,9 +158,7 @@ srBoundingBox stMeshModel::GetFrameBounds(int frame)
 void stMeshModel::updateBakedLighting()
 {
     const auto& lights = vertex_lights[vertex_light_table];
-    if (lights.empty() || vertex_sunlight.empty()) {
-        return;
-    }
+    if (lights.empty() || vertex_sunlight.empty()) return;
     auto* destination = getVertexDIG(0, 1);
     const auto* materials = getVertexMaterial(0, SIDE_FRONT, 0);
     const bool suppress_ambient = ambient_color == glm::vec3(0) || vertex_light_table == 1;
@@ -203,12 +193,8 @@ void stMeshModel::updateBakedLighting()
             color = base_ambient * vertex_sunlight[vertex];
             color += lights[vertex];
         }
-        if (add_environment) {
-            color += environment;
-        }
-        if (light_scale != 1) {
-            color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
-        }
+        if (add_environment) color += environment;
+        if (light_scale != 1) color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
         destination[vertex] = color;
     }
 }
@@ -234,9 +220,7 @@ std::vector<w8_ulong> stMeshModel::facingPolygons(const TriMesh& mesh,
                                                   float threshold)
 {
     const auto available = mesh.active_polygons ? mesh.active_polygons->size() : mesh.polygon_count;
-    if (available <= 0) {
-        return {};
-    }
+    if (available <= 0) return {};
     const auto count = static_cast<w8_ulong>(available);
     std::vector<w8_ulong> polygons(count);
     const auto keep = [&](w8_ulong polygon) {
@@ -261,9 +245,8 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                                              std::span<const glm::vec3> arg_poly_equations)
 {
     if (!arg_poly_equations.empty() &&
-        arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count)) {
+        arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
         throw std::invalid_argument("Incomplete mesh polygon normals");
-    }
     std::vector<w8_ulong> software_polygons;
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
         {
@@ -298,9 +281,8 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                     },
                     [&](w8_long pass) {
                         auto shader = mesh.shaders[pass];
-                        if (g_inverted_depth_render) {
+                        if (g_inverted_depth_render)
                             shader.value = (shader.value & 0xfffffffeUL) | 6UL;
-                        }
                         return shader;
                     });
             }
@@ -604,9 +586,7 @@ unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
     const auto count = flags & (W8_MESH_FRAME_LOCATIONS | W8_MESH_FRAME_VERTEX_NORMALS)
                            ? vertex_location_count
                            : polygon_count;
-    if (destination.size() < static_cast<std::size_t>(count)) {
-        return 0;
-    }
+    if (destination.size() < static_cast<std::size_t>(count)) return 0;
     if (flags & W8_MESH_FRAME_LOCATIONS) {
         for (int index = 0; index < vertex_location_count; ++index) {
             const short* source = &storage.compressed_locations[index * 3];
@@ -678,9 +658,8 @@ glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load, float 
             if (interpolation == g_float_one) {
                 std::copy_n(next, vertex_location_count, lerp_buffer.data());
             } else {
-                for (int i = 0; i < vertex_location_count; ++i) {
+                for (int i = 0; i < vertex_location_count; ++i)
                     lerp_buffer[i] = glm::mix(current[i], next[i], interpolation);
-                }
             }
         }
         return lerp_buffer.data();
@@ -702,27 +681,21 @@ glm::vec3* stMeshModel::GetPolygonNormals(unsigned int frame, bool load)
 
 glm::vec3* stMeshModel::frameTable(unsigned int frame, bool load, unsigned char kind)
 {
-    if (frame >= frames.size()) {
-        return nullptr;
-    }
+    if (frame >= frames.size()) return nullptr;
     auto& storage = frames[frame];
     auto& cache = kind == W8_MESH_FRAME_LOCATIONS        ? storage.locations
                   : kind == W8_MESH_FRAME_VERTEX_NORMALS ? storage.vertex_normals
                                                          : storage.polygon_normals;
     if (!cache) {
         AllocateFrameBuffers(frame, kind);
-        if (load) {
-            DecompressFrame(frame, kind, *cache);
-        }
+        if (load) DecompressFrame(frame, kind, *cache);
     }
     return cache->data();
 }
 
 stMeshModel::FrameGeometry stMeshModel::frameGeometry(unsigned int frame, float interpolation)
 {
-    if (frame >= frames.size()) {
-        throw std::out_of_range("Mesh frame index out of range");
-    }
+    if (frame >= frames.size()) throw std::out_of_range("Mesh frame index out of range");
     auto* positions = GetVertexLocations(frame, true, interpolation);
     auto* normals = GetVertexNormals(frame, true);
     const auto* polygon_normals = GetPolygonNormals(frame, true);
@@ -761,9 +734,8 @@ static void CompressMeshNormals(const std::vector<glm::vec3>& normals,
     compressed.resize(normals.size() * 3);
     for (std::size_t i = 0; i < normals.size(); ++i) {
         const auto normal = normalizedOrZero(normals[i]) * 127.0f;
-        for (int component = 0; component < 3; ++component) {
+        for (int component = 0; component < 3; ++component)
             compressed[i * 3 + component] = CompressNormalByte(normal[component]);
-        }
     }
 }
 
@@ -795,10 +767,9 @@ void stMeshModel::ComputeFrameNormals(int frame)
         l = scratch.data();
     }
 
-    for (int poly = 0; poly < polygon_count; ++poly) {
+    for (int poly = 0; poly < polygon_count; ++poly)
         pnorm[poly] = srMeshMath::polygonNormal(
             std::span<const glm::vec3>(l, vertex_location_count), poly_vertex[poly]);
-    }
 
     const auto* shade_index = getVertexShadeIndex(0);
     const auto vnorm = srMeshMath::vertexNormalSums(

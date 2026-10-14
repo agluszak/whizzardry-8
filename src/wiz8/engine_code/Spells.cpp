@@ -509,9 +509,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             }
         }
 
-        if (handle) {
-            handle->close();
-        }
+        if (handle) handle->close();
 
         handle.reset();
         if (*visual == 0) {
@@ -729,9 +727,7 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
         srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x8ea, 0);
     }
     const auto bounds = monster->GetAnimationBounds();
-    if (!bounds) {
-        return nullptr;
-    }
+    if (!bounds) return nullptr;
     W8SpellVisual* visual =
         CreateSpellVisual(mls_name, W8_SPELL_VISUAL_TARGET, power_level, value, flags);
     if (visual != 0) {
@@ -769,9 +765,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
                      0x93f, 0);
     }
     const auto bounds = parent ? parent->GetAnimationBounds() : std::nullopt;
-    if (parent && !bounds) {
-        return nullptr;
-    }
+    if (parent && !bounds) return nullptr;
     W8SpellVisual* visual =
         CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
     if (visual != 0) {
@@ -1305,9 +1299,7 @@ try {
         delete[] g_spell_records;
         g_spell_records = 0;
     }
-    if (handle) {
-        handle->close();
-    }
+    if (handle) handle->close();
     handle.reset();
     g_spell_database_version = allocation_count;
     return ok;

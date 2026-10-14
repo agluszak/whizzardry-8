@@ -1545,9 +1545,7 @@ float GetAveragePartyMemberLevel(void)
             count += 1.0f;
         }
     }
-    if (count == 0.0f) {
-        return 1.0f;
-    }
+    if (count == 0.0f) return 1.0f;
     return total / count;
 }
 
@@ -1565,9 +1563,7 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
             best_slot = index;
         }
     }
-    if (party_slot != 0) {
-        *party_slot = best_slot;
-    }
+    if (party_slot != 0) *party_slot = best_slot;
     return best_level;
 }
 
@@ -1615,9 +1611,8 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
         }
     }
 
-    if (g_dev_mode) {
+    if (g_dev_mode)
         return fmt::format("{:d}/{:d}", monster_info->hp_current, monster_info->uiHPMax);
-    }
     const auto current = health_knowledge < 10 || suppress_exact_health
                              ? "?"
                              : fmt::format("{:d}", monster_info->hp_current);
@@ -1654,9 +1649,7 @@ void DetectMonsterGroups(void)
             int best_slot = -1;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                if (!CanNoticeMonsterGroup(slot)) {
-                    continue;
-                }
+                if (!CanNoticeMonsterGroup(slot)) continue;
                 W8Character* character = &g_status.buffers.Char[slot];
                 int score =
                     (character->monster_awareness[group->monster_id] - record->effective_level) *
@@ -1706,9 +1699,7 @@ void DetectMonsterGroups(void)
         }
         if (group->group_state[0] == 0) {
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                if (!CanNoticeMonsterGroup(slot)) {
-                    continue;
-                }
+                if (!CanNoticeMonsterGroup(slot)) continue;
                 W8Character* character = &g_status.buffers.Char[slot];
                 unsigned int awareness =
                     character->monster_awareness[group->monster_id] + group->member_count;

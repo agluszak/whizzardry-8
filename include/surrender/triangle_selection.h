@@ -11,11 +11,8 @@ template<class Indices, class Keep>
 w8_ulong selectTriangles(std::span<w8_ulong> destination, const Indices& indices, Keep keep)
 {
     w8_ulong count = 0;
-    for (w8_ulong index : indices) {
-        if (keep(index)) {
-            destination[count++] = index;
-        }
-    }
+    for (w8_ulong index : indices)
+        if (keep(index)) destination[count++] = index;
     return count;
 }
 

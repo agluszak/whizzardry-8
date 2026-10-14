@@ -85,9 +85,7 @@ static UiResult HandleFormationBackground(const UiPointerEvent& event);
 
 void EnableFormationInput()
 {
-    if (formation) {
-        formation->input.setEnabled(true);
-    }
+    if (formation) formation->input.setEnabled(true);
 }
 
 void DestroyFormationPanel()
@@ -146,14 +144,10 @@ void RefreshFormationBoard(void)
     const auto board_artwork =
         CatalogArtwork::Load(g_level_block->formation_board_alternate ? 0x9a : 0x99);
     board_image = RenderSpriteToImage(*board_artwork.spriteSheet(), 0);
-    if (!board_image) {
-        return;
-    }
+    if (!board_image) return;
     const auto compass_artwork = CatalogArtwork::Load(0x9b);
     compass_image = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
-    if (!compass_image) {
-        return;
-    }
+    if (!compass_image) return;
     DrawFormationSlotMarkers(*board_image);
     g_level_block->formation_compass_sprite = CreateSpriteFromSurface(*compass_image, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_level_block->formation_compass_sprite, 0x207, 0x167);
@@ -198,13 +192,11 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
 {
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
-        !gXStatus.fReviewCharacterMode) {
+        !gXStatus.fReviewCharacterMode)
         AfterUiDispatch(OpenFormationPanel);
-    }
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter &&
-        event.action != UiPointerAction::Leave) {
+        event.action != UiPointerAction::Leave)
         return UiResult::Handled;
-    }
     int slot;
     int hit;
 
@@ -280,25 +272,17 @@ static void CreateFormationPanel()
 
 void RefreshFormationPanel(bool force)
 {
-    if (!formation) {
-        return;
-    }
+    if (!formation) return;
     bool dirty = force || formation->dirty;
-    for (const auto& button : formation->actions) {
-        dirty = dirty || button->m_dirty;
-    }
-    if (!dirty) {
-        return;
-    }
+    for (const auto& button : formation->actions) dirty = dirty || button->m_dirty;
+    if (!dirty) return;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0x9e, 0).drawAndInvalidate(target, 0, 0xd6, 0x3c);
     const auto arrows = CatalogArtwork::Load(0x9f, 0);
     const auto chips = CatalogArtwork::Load(0xa0, 0);
     for (int cell = 0; cell < 15; ++cell) {
         const int slot = g_formation_cell_slots[cell];
-        if (slot == -1) {
-            continue;
-        }
+        if (slot == -1) continue;
         const auto position = g_formation_cell_positions[cell];
         const bool disabled = !CanHoldFormationPlace(slot);
         const int arrow = gXStatus.edited_formation.positions[slot].facing * 3 +
@@ -342,14 +326,11 @@ void OpenFormationPanel(void)
 // FUNCTION: WIZ8 0x005b2600
 static void UpdateFormationCells(void)
 {
-    for (auto& slot : g_formation_cell_slots) {
-        slot = -1;
-    }
+    for (auto& slot : g_formation_cell_slots) slot = -1;
     for (int slot = 0; slot < 8; ++slot) {
         const auto& position = gXStatus.edited_formation.positions[slot];
-        if (g_status.buffers.XChar[slot].fOccupied && position.bQuadrant != -1) {
+        if (g_status.buffers.XChar[slot].fOccupied && position.bQuadrant != -1)
             g_formation_cell_slots[position.bQuadrant * 3 + position.bQuadrantSlot] = slot;
-        }
     }
     SelectFormationSlotCell(g_status.selected_character);
 }
@@ -410,15 +391,12 @@ static void DropFormationSlot(int cell);
 // FUNCTION: WIZ8 0x005b29d0
 static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 {
-    if (!gXStatus.fReviewCharacterMode) {
-        return UiResult::Pass;
-    }
+    if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
     if (g_formation_cell_slots[id] == -1) {
         PushButtonSoundScheme(0, true);
         if (event.action != UiPointerAction::Up || event.button != UiPointerButton::Left ||
-            g_formation_drag_cell == -1) {
+            g_formation_drag_cell == -1)
             return UiResult::Handled;
-        }
     }
     if (event.button == UiPointerButton::Left) {
         switch (event.action) {
@@ -442,14 +420,11 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         case UiPointerAction::Up:
             if (g_formation_cell_slots[id] != -1) {
                 g_formation_active_cell = id;
-                if (formation->cells[id].release(SDL_BUTTON_LMASK, cell_policy).activate) {
+                if (formation->cells[id].release(SDL_BUTTON_LMASK, cell_policy).activate)
                     SelectFormationCell();
-                }
                 formation->dirty = true;
             }
-            if (g_formation_drag_cell != -1) {
-                DropFormationSlot(id);
-            }
+            if (g_formation_drag_cell != -1) DropFormationSlot(id);
             return UiResult::Handled;
         default:
             break;
@@ -482,23 +457,18 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 
 static UiResult HandleFormationBackground(const UiPointerEvent& event)
 {
-    if (!gXStatus.fReviewCharacterMode) {
-        return UiResult::Pass;
-    }
+    if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
     PushButtonSoundScheme(0, true);
     if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left) {
-        if (g_formation_drag_cell != -1) {
-            DropFormationSlot(-1);
-        }
+        if (g_formation_drag_cell != -1) DropFormationSlot(-1);
         return UiResult::Handled;
     }
     if ((event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
          event.action == UiPointerAction::Leave) &&
         (event.position.x < 234 || event.position.x > 406 || event.position.y < 80 ||
          event.position.y > 252) &&
-        g_formation_drag_cell != -1) {
+        g_formation_drag_cell != -1)
         DropFormationSlot(-1);
-    }
     return UiResult::Pass;
 }
 

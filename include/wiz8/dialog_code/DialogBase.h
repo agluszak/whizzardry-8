@@ -30,19 +30,10 @@ class W8DialogBase : public ModalContent {
 
 public:
     W8DialogBase();
-    UiLayer& InputLayer()
-    {
-        return m_input;
-    }
+    UiLayer& InputLayer() { return m_input; }
     ~W8DialogBase() override;
-    void DrawModal(SDL_Surface& target) override
-    {
-        Draw(target);
-    }
-    void RequestModalRedraw() override
-    {
-        m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    void DrawModal(SDL_Surface& target) override { Draw(target); }
+    void RequestModalRedraw() override { m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW; }
     virtual int CreateControls();
     virtual void DestroyControls();
     virtual void Draw(SDL_Surface& target);

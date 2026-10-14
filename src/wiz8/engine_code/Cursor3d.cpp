@@ -200,9 +200,7 @@ void InitializeWorldCursor(void)
             }
             ClearCombatSelection();
             const auto bounds = gp3DCursor->monster->GetAnimationBounds();
-            if (!bounds) {
-                return;
-            }
+            if (!bounds) return;
             const auto& [minimum, maximum] = *bounds;
             gp3DCursor->probe_center = bounds->center();
             gp3DCursor->probe_offsets[0] = maximum;
@@ -810,9 +808,7 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
             }
         }
         const auto ground = g_octree->settleToGround(position->glmValue() + offset, true, 500);
-        if (best <= ground.position.y) {
-            best = ground.position.y;
-        }
+        if (best <= ground.position.y) best = ground.position.y;
     }
     if (cursor->footprint_mode &&
         static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {

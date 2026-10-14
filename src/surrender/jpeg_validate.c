@@ -19,18 +19,14 @@ static void reject(j_common_ptr image)
 }
 static void warning(j_common_ptr image, int level)
 {
-    if (level < 0) {
-        reject(image);
-    }
+    if (level < 0) reject(image);
 }
 
 bool srValidateJpeg(const unsigned char* data, size_t size, unsigned* width, unsigned* height,
                     unsigned* components)
 {
     struct Validation* state = calloc(1, sizeof(*state));
-    if (!state) {
-        return false;
-    }
+    if (!state) return false;
     state->image.err = jpeg_std_error(&state->errors);
     state->errors.error_exit = reject;
     state->errors.emit_message = warning;

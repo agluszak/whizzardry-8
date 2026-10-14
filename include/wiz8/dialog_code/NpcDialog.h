@@ -30,10 +30,7 @@ public:
     W8NpcDialog(W8NpcQuoteEntry* message, int aux_data, std::function<void(W8NpcDialog&)> closed);
     virtual ~W8NpcDialog() override;
     void DrawModal(SDL_Surface& target) override;
-    void RequestModalRedraw() override
-    {
-        m_dirty = true;
-    }
+    void RequestModalRedraw() override { m_dirty = true; }
     virtual bool ProcessInput() override;
 
 private:

@@ -51,9 +51,7 @@ static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_su
 }
 static OwnedSurface loadJpeg(const Bytes& data)
 {
-    if (data.empty()) {
-        return nullptr;
-    }
+    if (data.empty()) return nullptr;
     auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
     auto result = srImage::load("sample.jpg", input.get());
     REQUIRE(SDL_GetIOSize(input.get()) == Sint64(data.size()));
@@ -108,7 +106,7 @@ static void jpegTests()
 {
     const auto gray = fixture("gray.jpg"), cmyk = fixture("cmyk.jpg");
     Bytes pixels(2 * 16, 0xee);
-    for (unsigned y = 0; y < 2; ++y) {
+    for (unsigned y = 0; y < 2; ++y)
         for (unsigned x = 0; x < 3; ++x) {
             auto* p = pixels.data() + y * 16 + x * 4;
             p[0] = 20 + 40 * x + 60 * y;
@@ -116,7 +114,6 @@ static void jpegTests()
             p[2] = p[0] + 60;
             p[3] = 40;
         }
-    }
     auto source =
         std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16);
     const auto rgb = encode(*source);
@@ -161,15 +158,12 @@ static void jpegTests()
                 } else {
                     REQUIRE(memcmp(row + x * pixel_bytes, expected + x * pixel_bytes,
                                    pixel_bytes) == 0);
-                    if (four_channels) {
-                        REQUIRE(row[x * 4 + 3] == 255);
-                    }
+                    if (four_channels) REQUIRE(row[x * 4 + 3] == 255);
                     if (data == &rgb) {
                         const auto* original = pixels.data() + y * 16 + x * 4;
-                        for (unsigned component = 0; component < 3; ++component) {
+                        for (unsigned component = 0; component < 3; ++component)
                             REQUIRE(abs(int(row[x * 3 + component]) - int(original[component])) <=
                                     3);
-                        }
                     }
                 }
             }
@@ -178,13 +172,12 @@ static void jpegTests()
     }
     // SDL/libjpeg tolerates missing EOI; the SDL entry point must reject it.
     for (size_t length :
-         {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2}) {
+         {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2})
         REQUIRE(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length)));
-    }
     auto invalid = rgb;
     invalid[0] = 0;
     REQUIRE(!loadJpeg(invalid));
-    for (size_t i = 0; i + 9 < invalid.size(); ++i) {
+    for (size_t i = 0; i + 9 < invalid.size(); ++i)
         if (rgb[i] == 0xff && rgb[i + 1] == 0xc0) {
             invalid = rgb;
             invalid[i + 5] = invalid[i + 6] = invalid[i + 7] = invalid[i + 8] = 0xff;
@@ -194,7 +187,6 @@ static void jpegTests()
             REQUIRE(!loadJpeg(invalid));
             break;
         }
-    }
 }
 
 static void pitchTests()
@@ -211,11 +203,8 @@ static void pitchTests()
         const unsigned row_bytes = 3 * format.bytes, src_pitch = row_bytes + 5,
                        dst_pitch = row_bytes + 7;
         Bytes src(2 * src_pitch, 0xac), dst(2 * dst_pitch, 0xcd);
-        for (unsigned y = 0; y < 2; ++y) {
-            for (unsigned x = 0; x < row_bytes; ++x) {
-                src[y * src_pitch + x] = 20 * y + x;
-            }
-        }
+        for (unsigned y = 0; y < 2; ++y)
+            for (unsigned x = 0; x < row_bytes; ++x) src[y * src_pitch + x] = 20 * y + x;
         srImage::Surface view(SDL_CreateSurfaceFrom(3, 2, format.sdl, src.data(), src_pitch),
                               SDL_DestroySurface);
         auto destination = std::make_unique<srColorSurface>(format.sr, dst.data(), 3, 2, dst_pitch);
@@ -223,17 +212,14 @@ static void pitchTests()
         for (bool mirror : {false, true}) {
             REQUIRE(srImage::copyRows(*view, *destination, format.bytes, mirror));
             for (unsigned y = 0; y < 2; ++y) {
-                for (unsigned x = 0; x < 3; ++x) {
+                for (unsigned x = 0; x < 3; ++x)
                     REQUIRE(memcmp(dst.data() + y * dst_pitch + x * format.bytes,
                                    src.data() + y * src_pitch + (mirror ? 2 - x : x) * format.bytes,
                                    format.bytes) == 0);
-                }
-                for (unsigned x = row_bytes; x < dst_pitch; ++x) {
+                for (unsigned x = row_bytes; x < dst_pitch; ++x)
                     REQUIRE(dst[y * dst_pitch + x] == 0xcd);
-                }
-                for (unsigned x = row_bytes; x < src_pitch; ++x) {
+                for (unsigned x = row_bytes; x < src_pitch; ++x)
                     REQUIRE(src[y * src_pitch + x] == 0xac);
-                }
             }
         }
         view->pitch = row_bytes - 1;
@@ -271,39 +257,34 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
     file[16] = depth;
     file[17] = origin | (alpha ? (depth == 16 ? 1 : 8) : 0);
     file.insert(file.end(), {'i', 'd', '!'});
-    if (indexed && with_palette) {
+    if (indexed && with_palette)
         for (unsigned i = 0; i < 3; ++i) {
-            if (palette_bits == 16) {
+            if (palette_bits == 16)
                 file.insert(file.end(), {Uint8(i + 1), 0x7c});
-            } else {
+            else {
                 file.insert(file.end(), {Uint8(10 + i), Uint8(30 + i), Uint8(90 + i)});
-                if (palette_bits == 32) {
-                    file.push_back(40 + i);
-                }
+                if (palette_bits == 32) file.push_back(40 + i);
             }
         }
-    }
     // Repeated middle pixels exercise RLE packets crossing row boundaries.
     for (unsigned p = 0; p < 6; ++p) {
         const unsigned value = p == 0 ? 0 : p == 5 ? 2 : 1;
-        if (indexed) {
+        if (indexed)
             fixture.expected.push_back(7 + value);
-        } else if (depth == 8) {
+        else if (depth == 8)
             fixture.expected.push_back(20 + 50 * value);
-        } else if (depth == 16) {
+        else if (depth == 16) {
             const unsigned word = value == 0 ? 0 : value == 1 ? 0xfc03 : 0x03e0;
             fixture.expected.insert(fixture.expected.end(), {Uint8(word), Uint8(word >> 8)});
         } else {
             fixture.expected.insert(
                 fixture.expected.end(),
                 {Uint8(10 + value * 50), Uint8(70 + value * 30), Uint8(210 - value * 40)});
-            if (depth == 32) {
-                fixture.expected.push_back(value * 100);
-            }
+            if (depth == 32) fixture.expected.push_back(value * 100);
         }
     }
     Bytes serialized;
-    for (unsigned y = 0; y < 2; ++y) {
+    for (unsigned y = 0; y < 2; ++y)
         for (unsigned x = 0; x < 3; ++x) {
             const unsigned canonical =
                 ((origin & 0x20) ? y : 1 - y) * 3 + ((origin & 0x10) ? 2 - x : x);
@@ -311,23 +292,20 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
                               fixture.expected.begin() + canonical * fixture.bytes,
                               fixture.expected.begin() + (canonical + 1) * fixture.bytes);
         }
-    }
-    if (!rle) {
+    if (!rle)
         file.insert(file.end(), serialized.begin(), serialized.end());
-    } else {
+    else
         for (unsigned p = 0; p < 6;) {
             unsigned run = 1;
             while (p + run < 6 &&
                    memcmp(serialized.data() + p * fixture.bytes,
-                          serialized.data() + (p + run) * fixture.bytes, fixture.bytes) == 0) {
+                          serialized.data() + (p + run) * fixture.bytes, fixture.bytes) == 0)
                 ++run;
-            }
             file.push_back(run > 1 ? 0x80 | (run - 1) : 0);
             file.insert(file.end(), serialized.begin() + p * fixture.bytes,
                         serialized.begin() + (p + 1) * fixture.bytes);
             p += run;
         }
-    }
     return fixture;
 }
 static OwnedSurface loadTga(const Bytes& data)
@@ -341,34 +319,29 @@ static void checkTga(const TgaFixture& fixture, srColorSurfaceIFace& surface)
 {
     REQUIRE((surface.getWidth() == 3 && surface.getHeight() == 2));
     checkFormat(surface, fixture.format);
-    for (unsigned y = 0; y < 2; ++y) {
+    for (unsigned y = 0; y < 2; ++y)
         REQUIRE(memcmp(static_cast<const Uint8*>(surface.getDataPtr()) + y * surface.getPitch(),
                        fixture.expected.data() + y * 3 * fixture.bytes, 3 * fixture.bytes) == 0);
-    }
 }
 static void tgaTests()
 {
-    for (unsigned origin : {0u, 0x10u, 0x20u, 0x30u}) {
-        for (bool rle : {false, true}) {
-            for (unsigned depth : {8u, 16u, 24u, 32u}) {
+    for (unsigned origin : {0u, 0x10u, 0x20u, 0x30u})
+        for (bool rle : {false, true})
+            for (unsigned depth : {8u, 16u, 24u, 32u})
                 for (bool alpha : {false, true}) {
                     const auto fixture = tgaFixture(depth, false, rle, origin, alpha);
                     auto surface = loadTga(fixture.encoded);
-                    if (!surface) {
+                    if (!surface)
                         fprintf(stderr, "TGA depth=%u rle=%d origin=%u alpha=%d\n", depth, rle,
                                 origin, alpha);
-                    }
                     REQUIRE(surface);
                     checkTga(fixture, *surface);
                     auto truncated = fixture.encoded;
                     truncated.pop_back();
                     REQUIRE(!loadTga(truncated));
                 }
-            }
-        }
-    }
-    for (unsigned origin : {0u, 0x10u, 0x20u, 0x30u}) {
-        for (bool rle : {false, true}) {
+    for (unsigned origin : {0u, 0x10u, 0x20u, 0x30u})
+        for (bool rle : {false, true})
             for (unsigned palette_bits : {16u, 24u, 32u}) {
                 const auto fixture = tgaFixture(8, true, rle, origin, false, palette_bits);
                 auto surface = loadTga(fixture.encoded);
@@ -380,16 +353,13 @@ static void tgaTests()
                 for (unsigned i = 0; i < 3; ++i) {
                     const auto color = palette->getColor(7 + i);
                     REQUIRE(color.alpha == (palette_bits == 32 ? 40 + i : 255));
-                    if (palette_bits != 16) {
+                    if (palette_bits != 16)
                         REQUIRE(
                             (color.blue == 10 + i && color.green == 30 + i && color.red == 90 + i));
-                    } else {
+                    else
                         REQUIRE((color.red >= 248 && color.blue != 0));
-                    }
                 }
             }
-        }
-    }
     const auto fallback = tgaFixture(8, true, true, 0x30, false, 24, false);
     auto core_palette = loadTga(fallback.encoded);
     REQUIRE((core_palette && core_palette->getPalette() == srCore.getPalette()));
@@ -402,9 +372,8 @@ static void tgaTests()
     REQUIRE((palette_surface && palette_surface->getWidth() == 1 && palette_surface->getPalette()));
     REQUIRE(*static_cast<const Uint8*>(palette_surface->getDataPtr()) == 7);
     const auto raw = tgaFixture(24, false, false, 0, false).encoded;
-    for (size_t size : {size_t(0), size_t(17), size_t(18), raw.size() - 1}) {
+    for (size_t size : {size_t(0), size_t(17), size_t(18), raw.size() - 1})
         REQUIRE(!loadTga(Bytes(raw.begin(), raw.begin() + size)));
-    }
     for (const auto change : {std::pair{2u, 7u}, {12u, 0u}, {16u, 15u}, {17u, 0x40u}, {1u, 2u}}) {
         auto invalid = raw;
         invalid[change.first] = change.second;
@@ -438,15 +407,11 @@ struct FaultIO {
     static Sint64 SDLCALL seek(void* cookie, Sint64 offset, SDL_IOWhence whence)
     {
         auto& self = *static_cast<FaultIO*>(cookie);
-        if (self.fault == 2) {
-            return -1;
-        }
+        if (self.fault == 2) return -1;
         const Sint64 base = whence == SDL_IO_SEEK_SET   ? 0
                             : whence == SDL_IO_SEEK_CUR ? self.position
                                                         : Sint64(self.data.size());
-        if (offset < -base || offset > Sint64(self.data.size()) - base) {
-            return -1;
-        }
+        if (offset < -base || offset > Sint64(self.data.size()) - base) return -1;
         return self.position = base + offset;
     }
     static size_t SDLCALL read(void* cookie, void*, size_t, SDL_IOStatus* status)

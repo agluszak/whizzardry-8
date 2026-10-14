@@ -21,10 +21,7 @@ public:
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
 
     // FUNCTION: SURRENDER 0x1004FFE0
-    static const char* sGetClassName()
-    {
-        return "srModelInstance";
-    }
+    static const char* sGetClassName() { return "srModelInstance"; }
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void traverse(TraverseInfo& info) override;
@@ -32,14 +29,8 @@ public:
     SR_DLL_IMPORT virtual BoundInfo getLocalBounds() override;
 
     // The instance shares ownership of its model; renderers borrow it.
-    srModel* getModel() const
-    {
-        return model_.get();
-    }
-    void setModel(std::shared_ptr<srModel> model)
-    {
-        model_ = std::move(model);
-    }
+    srModel* getModel() const { return model_.get(); }
+    void setModel(std::shared_ptr<srModel> model) { model_ = std::move(model); }
 
     double getAlignAngle() const;
     glm::vec3 getAlignAxis() const;

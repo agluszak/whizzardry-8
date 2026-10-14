@@ -231,10 +231,7 @@ public:
        or another mover. True once the collision was consumed. Same folded
        body as W8GrCycle::CanEnterCycle at 0x004A7140; /OPT:NOICF emits this
        copy. */
-    virtual bool OnCollision(W8Navigator*)
-    {
-        return true;
-    }
+    virtual bool OnCollision(W8Navigator*) { return true; }
     virtual void SetPosition(const srVector3T<float>* position); /* 0x00456020 */
 
     /* The missile homing step scales this snapshot of movement.velocity

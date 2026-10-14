@@ -160,9 +160,7 @@ InterfaceBank BuildInterfaces(std::size_t count, const std::vector<ConditionalFa
         std::vector<int> polygons;
     };
     std::vector<std::vector<Group>> groups(count);
-    for (std::size_t id = 1; id < count; ++id) {
-        groups[id].push_back({0, {}});
-    }
+    for (std::size_t id = 1; id < count; ++id) groups[id].push_back({0, {}});
     for (const auto& face : faces) {
         auto& list = groups.at(face.interface_id);
         auto group = std::find_if(list.begin(), list.end(),
@@ -188,37 +186,25 @@ InterfaceBank BuildInterfaces(std::size_t count, const std::vector<ConditionalFa
 // FUNCTION: WIZ8 0x00447660
 unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
 {
-    if (poly_type < 0 || poly_type > 2) {
-        throw std::runtime_error("invalid WGD poly type");
-    }
+    if (poly_type < 0 || poly_type > 2) throw std::runtime_error("invalid WGD poly type");
     wiz8::BinaryReader reader(file);
     const auto vertex_count = reader.record<int>();
     const auto face_count = reader.record<int>();
     if (vertex_count < 0 || face_count < 0 || vertex_count > 200000 || face_count > 200000 ||
         VerticesCount() > std::numeric_limits<int>::max() - vertex_count ||
-        SurfacesCount() > std::numeric_limits<int>::max() - face_count) {
+        SurfacesCount() > std::numeric_limits<int>::max() - face_count)
         throw std::runtime_error("invalid WGD record count");
-    }
-    if (!vertex_count && !face_count) {
-        return 0;
-    }
-    if (!vertex_count || !face_count) {
-        throw std::runtime_error("incomplete WGD bank counts");
-    }
-    if (poly_type == 0 && (VerticesCount() || SurfacesCount())) {
+    if (!vertex_count && !face_count) return 0;
+    if (!vertex_count || !face_count) throw std::runtime_error("incomplete WGD bank counts");
+    if (poly_type == 0 && (VerticesCount() || SurfacesCount()))
         throw std::runtime_error("primary WGD bank already loaded");
-    }
     reader.require(std::size_t(vertex_count) * 12 +
                    std::size_t(face_count) * (poly_type ? 0x78 : 0x34) + 24);
 
     std::vector<srVector3T<float>> vertices;
     std::vector<W8GDSurface> surfaces;
-    if (VerticesCount()) {
-        vertices = m_pVertices;
-    }
-    if (SurfacesCount()) {
-        surfaces = m_pSurfaces;
-    }
+    if (VerticesCount()) vertices = m_pVertices;
+    if (SurfacesCount()) surfaces = m_pSurfaces;
     auto names = interface_names;
     std::vector<ConditionalFace> conditional;
     // Preserve the earlier secondary banks when rebuilding the interface table.
@@ -226,23 +212,20 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         const auto& interface = m_pInterfaces[id];
         for (int state = 0; state < interface.state_count; ++state) {
             const auto& group = m_pStates[interface.iStates + state];
-            for (int poly = 0; poly < group.poly_count; ++poly) {
+            for (int poly = 0; poly < group.poly_count; ++poly)
                 conditional.push_back({id, m_piCondPolys[group.poly_first + poly], group.group});
-            }
         }
     }
     auto input_vertices = reader.array<srVector3T<float>>(vertex_count);
-    if (!std::isfinite(g_world_scale) || g_world_scale <= 0) {
+    if (!std::isfinite(g_world_scale) || g_world_scale <= 0)
         throw std::runtime_error("invalid world scale");
-    }
     auto bank_min = input_vertices.front() * g_world_scale;
     auto bank_max = bank_min;
     for (const auto& vertex : input_vertices) {
         const auto transformed = vertex * g_world_scale;
         for (int axis = 0; axis < 3; ++axis) {
-            if (!std::isfinite((&transformed.x)[axis])) {
+            if (!std::isfinite((&transformed.x)[axis]))
                 throw std::runtime_error("nonfinite WGD vertex");
-            }
             (&bank_min.x)[axis] = std::min((&bank_min.x)[axis], (&transformed.x)[axis]);
             (&bank_max.x)[axis] = std::max((&bank_max.x)[axis], (&transformed.x)[axis]);
         }
@@ -251,14 +234,10 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
     surfaces.reserve(surfaces.size() + face_count);
     for (int index = 0; index < face_count; ++index) {
         const auto header = reader.record<W8GDFaceHeader>();
-        if (header.version != 2) {
-            throw std::runtime_error("wrong WGD version");
-        }
-        for (int vertex : header.vertex_indices) {
-            if (vertex < 0 || vertex >= vertex_count) {
+        if (header.version != 2) throw std::runtime_error("wrong WGD version");
+        for (int vertex : header.vertex_indices)
+            if (vertex < 0 || vertex >= vertex_count)
                 throw std::runtime_error("invalid WGD vertex index");
-            }
-        }
         const auto data = reader.record<W8GDFaceData>();
         W8GDSurface surface{};
         surface.contact_margin = data.contact_margin;
@@ -268,11 +247,9 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         surface.footstep_surface = data.surface;
         surface.flags = data.type == 1 ? W8_GD_SURFACE_WALKABLE | W8_GD_SURFACE_PATHFINDING : 0;
         unsigned axis = 0;
-        for (unsigned candidate = 1; candidate < 3; ++candidate) {
-            if (fabs((&header.plane.x)[candidate]) > fabs((&header.plane.x)[axis])) {
+        for (unsigned candidate = 1; candidate < 3; ++candidate)
+            if (fabs((&header.plane.x)[candidate]) > fabs((&header.plane.x)[axis]))
                 axis = candidate;
-            }
-        }
         surface.flags |= axis;
         for (int corner = 0; corner < 3; ++corner) {
             surface.vertex_indices[corner] = header.vertex_indices[corner] + VerticesCount();
@@ -282,9 +259,8 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         ClassifySurfacePlane(vertices.data(), &surface);
         if (poly_type) {
             const auto extended = reader.record<W8GDExtendedFace>();
-            if (!memchr(extended.name, '\0', sizeof(extended.name))) {
+            if (!memchr(extended.name, '\0', sizeof(extended.name)))
                 throw std::runtime_error("unterminated WGD interface name");
-            }
             auto name = std::find(names.begin(), names.end(), extended.name);
             if (name == names.end()) {
                 names.emplace_back(extended.name);
@@ -292,9 +268,7 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
             }
             surface.trigger_index = int(name - names.begin()) + 1;
             conditional.push_back({surface.trigger_index, int(surface.index), extended.group});
-            if (extended.group) {
-                surface.flags |= W8_GD_SURFACE_CONDITIONAL_DISABLED;
-            }
+            if (extended.group) surface.flags |= W8_GD_SURFACE_CONDITIONAL_DISABLED;
         }
         surfaces.push_back(surface);
     }
@@ -302,10 +276,8 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
     const auto upper = reader.record<srVector3T<float>>();
     for (int axis = 0; axis < 3; ++axis) {
         if (!std::isfinite((&lower.x)[axis] * g_world_scale) ||
-            !std::isfinite((&upper.x)[axis] * g_world_scale) ||
-            (&lower.x)[axis] > (&upper.x)[axis]) {
+            !std::isfinite((&upper.x)[axis] * g_world_scale) || (&lower.x)[axis] > (&upper.x)[axis])
             throw std::runtime_error("nonfinite WGD bounds");
-        }
         (&bank_min.x)[axis] = std::min((&bank_min.x)[axis], (&lower.x)[axis] * g_world_scale);
         (&bank_max.x)[axis] = std::max((&bank_max.x)[axis], (&upper.x)[axis] * g_world_scale);
         if (VerticesCount()) {
@@ -484,9 +456,8 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* vertices, float value,
                                  const signed char* face)
 {
     const int environment_id = EnvironsCount();
-    if (!face || *face < 0 || *face >= 12) {
+    if (!face || *face < 0 || *face >= 12)
         throw std::runtime_error("invalid linked environment face");
-    }
     int index;
     int vertex_base;
 
@@ -624,39 +595,33 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     auto vertices = reader.array<srVector3T<float>>(header.vertex_count);
     std::vector<W8GDSurface> surfaces;
     surfaces.reserve(header.surface_count);
-    for (const auto& image : reader.array<wiz8::retail::GDSurface>(header.surface_count)) {
+    for (const auto& image : reader.array<wiz8::retail::GDSurface>(header.surface_count))
         wiz8::retail::decode_image(image, surfaces.emplace_back());
-    }
     auto interfaces = reader.array<W8GDInterface>(header.interface_count);
     auto states = reader.array<W8GDInterfaceState>(header.state_count);
     auto cond_polys = reader.array<int>(header.cond_poly_count);
     auto environs = reader.array<W8EnvironRecord>(header.environ_count);
     for (const auto& surface : surfaces) {
-        for (int vertex : surface.vertex_indices) {
-            if (vertex < 0 || vertex >= header.vertex_count) {
+        for (int vertex : surface.vertex_indices)
+            if (vertex < 0 || vertex >= header.vertex_count)
                 throw std::runtime_error("invalid processed vertex index");
-            }
-        }
     }
     for (std::size_t id = 1; id < interfaces.size(); ++id) {
         const auto& interface = interfaces[id];
         if (interface.id != int(id) || interface.iStates < 0 || interface.state_count < 0 ||
             interface.iStates > header.state_count ||
-            interface.state_count > header.state_count - interface.iStates) {
+            interface.state_count > header.state_count - interface.iStates)
             throw std::runtime_error("invalid processed interface states");
-        }
     }
     for (const auto& state : states) {
         if (state.poly_first < 0 || state.poly_count < 0 ||
             state.poly_first > header.cond_poly_count ||
-            state.poly_count > header.cond_poly_count - state.poly_first) {
+            state.poly_count > header.cond_poly_count - state.poly_first)
             throw std::runtime_error("invalid processed polygon slice");
-        }
         for (int poly = 0; poly < state.poly_count; ++poly) {
             const auto index = cond_polys[state.poly_first + poly];
-            if (index < 0 || index >= header.surface_count) {
+            if (index < 0 || index >= header.surface_count)
                 throw std::runtime_error("invalid processed conditional surface");
-            }
         }
     }
     std::vector<bool> pending_bits(header.trigger_count);
@@ -669,9 +634,8 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     }
 
     std::vector<std::unique_ptr<W8EnvironRecord>> environment_objects;
-    for (const auto& environ : environs) {
+    for (const auto& environ : environs)
         environment_objects.push_back(std::make_unique<W8EnvironRecord>(environ));
-    }
     const auto active_environment =
         std::find_if(m_ppEnvirons.begin(), m_ppEnvirons.end(),
                      [](const auto& environment) { return environment.get() == g_environ; });
@@ -992,19 +956,13 @@ void W8GameData::CompileGameData()
     for (const auto old_index : order.indices) {
         auto& surface = m_pSurfaces[old_index];
         surface.index = polygon_count;
-        if (!(surface.flags & W8_GD_SURFACE_WALKABLE)) {
-            surface.slope = 0;
-        }
+        if (!(surface.flags & W8_GD_SURFACE_WALKABLE)) surface.slope = 0;
         InitializeCompiledSurface(new_surfaces + polygon_count, &surface, polygon_count);
-        for (int edge = 0; edge < 3; ++edge) {
+        for (int edge = 0; edge < 3; ++edge)
             LinkSurfaceEdge(polygon_count, edge, &edge_table, new_surfaces, multiplier,
                             new_vertices);
-        }
-        for (int conditional = 0; conditional < CondPolysCount(); ++conditional) {
-            if (m_piCondPolys[conditional] == old_index) {
-                cond_polys[conditional] = polygon_count;
-            }
-        }
+        for (int conditional = 0; conditional < CondPolysCount(); ++conditional)
+            if (m_piCondPolys[conditional] == old_index) cond_polys[conditional] = polygon_count;
         ++polygon_count;
     }
     const int walkable_count = order.walkable_count;
@@ -1118,9 +1076,7 @@ unsigned char W8GameData::WriteGameData(wiz8::File* handle)
     handle->write(&header, sizeof(header));
     handle->write(m_pVertices.data(),
                   static_cast<std::size_t>(VerticesCount()) * sizeof(srVector3T<float>));
-    for (const auto& surface : m_pSurfaces) {
-        wiz8::retail::write(*handle, surface);
-    }
+    for (const auto& surface : m_pSurfaces) wiz8::retail::write(*handle, surface);
     handle->write(m_pInterfaces.data(),
                   static_cast<std::size_t>(InterfacesCount()) * sizeof(W8GDInterface));
     handle->write(m_pStates.data(),

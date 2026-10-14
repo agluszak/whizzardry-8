@@ -49,17 +49,12 @@ struct srBoundingBox {
 
     bool intersectsSphere(const glm::vec3& center, float radius) const
     {
-        if (!(radius >= 0)) {
-            return false;
-        }
+        if (!(radius >= 0)) return false;
         const auto offset = center - glm::clamp(center, minimum, maximum);
         return glm::dot(offset, offset) <= radius * radius;
     }
 
-    glm::vec3 center() const
-    {
-        return (minimum + maximum) * 0.5f;
-    }
+    glm::vec3 center() const { return (minimum + maximum) * 0.5f; }
 
     glm::vec3 corner(unsigned index) const
     {
@@ -94,16 +89,12 @@ struct srBoundingBox {
 template<class Point>
 inline srBoundingBox boundingBox(std::span<const Point> points)
 {
-    if (points.empty()) {
-        return {};
-    }
+    if (points.empty()) return {};
     const auto coordinates = [](const Point& point) {
         return glm::vec3(point.x, point.y, point.z);
     };
     const auto first = coordinates(points.front());
     srBoundingBox result{first, first};
-    for (const auto& point : points.subspan(1)) {
-        result.include(coordinates(point));
-    }
+    for (const auto& point : points.subspan(1)) result.include(coordinates(point));
     return result;
 }

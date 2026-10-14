@@ -20,10 +20,7 @@ public:
     srModel& operator=(const srModel& other);
 
     // FUNCTION: SURRENDER 0x1003C6F0
-    static const char* sGetClassName()
-    {
-        return "srModel";
-    }
+    static const char* sGetClassName() { return "srModel"; }
 
     virtual ~srModel() override;
 

@@ -199,15 +199,11 @@ bool W8CharacterSummaryDialog::ProcessInput()
         .unhandled =
             [this, &keep_open](const InputEvent& input) {
                 keep_open = HandleInputEvent(&input);
-                if (!keep_open) {
-                    EndModalInput();
-                }
+                if (!keep_open) EndModalInput();
                 return InputRoute::Stop;
             },
     });
-    if (!keep_open) {
-        EndModalInput();
-    }
+    if (!keep_open) EndModalInput();
     return keep_open;
 }
 

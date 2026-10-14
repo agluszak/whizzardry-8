@@ -14,9 +14,7 @@ int main(int argc, char** argv)
     try {
         if (argc == 2 && std::string_view(argv[1]) == "--print-user-root") {
             const auto root = w8_native::path_roots().user;
-            if (root.empty()) {
-                return 1;
-            }
+            if (root.empty()) return 1;
             printf("%s\n", root.c_str());
             return 0;
         }

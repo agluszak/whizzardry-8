@@ -191,9 +191,7 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
     if (trigger != 0) {
         W8Prop* prop = trigger->GetProp();
         if (prop != 0) {
-            if (const auto center = prop->GetCenterPosition()) {
-                *position = *center;
-            }
+            if (const auto center = prop->GetCenterPosition()) *position = *center;
         }
     }
 }

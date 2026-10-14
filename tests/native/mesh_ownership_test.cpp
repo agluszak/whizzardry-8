@@ -63,9 +63,7 @@ static bool zeroNormals()
     std::array<srVector3, 2> normals;
     normals[0].Set(0, 0, 0);
     normals[1].Set(0, 0, 2);
-    for (auto& normal : normals) {
-        normal.Normalize();
-    }
+    for (auto& normal : normals) normal.Normalize();
     REQUIRE(normals[0] == srVector3(0, 0, 0));
     REQUIRE(normals[1] == srVector3(0, 0, 1));
     return true;
@@ -103,12 +101,8 @@ static bool lazyTables()
     auto* locations = mesh.getVertexLoc();
     REQUIRE((locations == mesh.vertex_locations.data() && mesh.vertex_locations.size() == 3));
     REQUIRE(mesh.getVertexLoc() == locations);
-    for (const auto& value : mesh.vertex_locations) {
-        REQUIRE(value == glm::vec3(0, 0, 0));
-    }
-    for (const auto& value : mesh.vertex_normals) {
-        REQUIRE(value == glm::vec3(0, 0, 0));
-    }
+    for (const auto& value : mesh.vertex_locations) REQUIRE(value == glm::vec3(0, 0, 0));
+    for (const auto& value : mesh.vertex_normals) REQUIRE(value == glm::vec3(0, 0, 0));
     auto* corners = mesh.getPolyVertex();
     corners[0].x = 0;
     corners[0].y = 1;
@@ -152,18 +146,14 @@ static bool uvGrowth()
     mesh.setUVCount(12);
     uv = mesh.getVertexTexCoords(1, 1, 0);
     REQUIRE((mesh.texcoords[1][1].size() == 12 && uv[0].x == 0.25f && uv[0].y == 0.75f));
-    for (int index = 3; index < 12; ++index) {
-        REQUIRE((uv[index].x == 0 && uv[index].y == 0));
-    }
+    for (int index = 3; index < 12; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
     REQUIRE(mesh.getTriMesh().texcoords[1][1] == uv);
     REQUIRE(mesh.getVertexTexCoords(0, 0, 0) == nullptr);
     mesh.setUVCount(1);
     REQUIRE((mesh.getUVCount() == 3 && mesh.texcoords[1][1].size() == 3));
     mesh.setUVCount(6);
     uv = mesh.getVertexTexCoords(1, 1, 0);
-    for (int index = 3; index < 6; ++index) {
-        REQUIRE((uv[index].x == 0 && uv[index].y == 0));
-    }
+    for (int index = 3; index < 6; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
 
     // A cleared table may still have allocation capacity; it is nevertheless absent/null.
     srMeshModel no_vertices;

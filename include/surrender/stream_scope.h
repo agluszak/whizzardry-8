@@ -11,10 +11,7 @@ public:
     }
     srDumpStreamScope(const srDumpStreamScope&) = delete;
     srDumpStreamScope& operator=(const srDumpStreamScope&) = delete;
-    ~srDumpStreamScope()
-    {
-        stream_.flags(flags_);
-    }
+    ~srDumpStreamScope() { stream_.flags(flags_); }
 
 private:
     std::ios_base& stream_;

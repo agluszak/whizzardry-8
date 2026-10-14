@@ -75,10 +75,7 @@ struct W8GDSurface {
     float slope; /* face slope; generated surfaces derive it from plane.normal.y */
 
     /* The plane's unit normal. */
-    const srVector3T<float>* Normal() const
-    {
-        return &plane.normal;
-    }
+    const srVector3T<float>* Normal() const { return &plane.normal; }
 
     /* The returned contact carries the position and travelled distance.
        A hit also stores the surface's contact limit in distance. */
@@ -155,28 +152,19 @@ inline std::optional<PlaneContact> planeContact(const glm::vec4& plane, const Pl
                                                 PlaneContactMode mode)
 {
     const glm::vec3 normal(plane);
-    if (!(glm::dot(normal, segment.direction) <= 0)) {
-        return std::nullopt;
-    }
+    if (!(glm::dot(normal, segment.direction) <= 0)) return std::nullopt;
     const float front = glm::dot(normal, segment.start) + plane.w;
-    if (!(front > 0 && front <= segment.limit)) {
-        return std::nullopt;
-    }
+    if (!(front > 0 && front <= segment.limit)) return std::nullopt;
     // GD surface traces retain the positive front distance within the skin;
     // mesh probes and occlusion report the same contact at zero distance.
-    if (front < 1) {
+    if (front < 1)
         return PlaneContact{segment.start, mode == PlaneContactMode::SurfaceCollision ? front : 0};
-    }
     const float clearance = mode == PlaneContactMode::Occlusion ? 5.0f : 1.0f;
     const float back = glm::dot(normal, segment.end) + plane.w;
-    if (back >= clearance) {
-        return std::nullopt;
-    }
+    if (back >= clearance) return std::nullopt;
     const float exit = -back;
     if (mode == PlaneContactMode::Occlusion) {
-        if (exit < clearance) {
-            return std::nullopt;
-        }
+        if (exit < clearance) return std::nullopt;
     } else if (!(exit >= clearance || segment.limit < segment.length)) {
         return PlaneContact{segment.end, segment.length};
     }

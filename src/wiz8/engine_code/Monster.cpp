@@ -311,9 +311,7 @@ const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
 static void EnsureMonsterBaseSkin(W8Monster* monster, const char* monster_name, int& damage_stage,
                                   bool& skins_started)
 {
-    if (skins_started) {
-        return;
-    }
+    if (skins_started) return;
     damage_stage = monster->AddDamageStage(monster_name, 0);
     std::vector<stModelInstance*> instances;
     monster->CollectModelInstances(instances);
@@ -604,13 +602,12 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                     }
                 } else {
                     W8SoundEventKind sound_type = W8_SOUND_EVENT_UNRECOGNIZED;
-                    if (_stricmp(command, "SOUND_FRAME") == 0) {
+                    if (_stricmp(command, "SOUND_FRAME") == 0)
                         sound_type = W8_SOUND_EVENT_FRAME;
-                    } else if (_stricmp(command, "SOUND_CYCLE") == 0) {
+                    else if (_stricmp(command, "SOUND_CYCLE") == 0)
                         sound_type = W8_SOUND_EVENT_CYCLE;
-                    } else if (_stricmp(command, "SOUND_FOOTSTEP") == 0) {
+                    else if (_stricmp(command, "SOUND_FOOTSTEP") == 0)
                         sound_type = W8_SOUND_EVENT_FOOTSTEP;
-                    }
 
                     if (sound_type != W8_SOUND_EVENT_UNRECOGNIZED) {
                         char cycle_name[256];
@@ -674,9 +671,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 }
             }
         }
-        if (handle) {
-            handle->close();
-        }
+        if (handle) handle->close();
         handle.reset();
     }
 
@@ -714,9 +709,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     }
     if (target_height != 0.0f) {
         target_height *= g_world_scale;
-        if (target_height < 250.0f) {
-            target_height = 250.0f;
-        }
+        if (target_height < 250.0f) target_height = 250.0f;
         (*monster)->movement.height_offset = target_height;
     }
     if (camera_height != 0.0f) {
@@ -738,12 +731,8 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         representation->random_idle_fps_min = idle_fps_start;
         representation->random_idle_fps_max = idle_fps_end;
     }
-    if (missile_start > 0) {
-        (*monster)->missile_frame = missile_start;
-    }
-    if (spell_start > 0) {
-        (*monster)->spell_frame = spell_start;
-    }
+    if (missile_start > 0) (*monster)->missile_frame = missile_start;
+    if (spell_start > 0) (*monster)->spell_frame = spell_start;
     if (has_lod_range) {
         representation->lod_near = lod_range_start * g_world_scale;
         representation->lod_far = lod_range_end * g_world_scale;
@@ -768,9 +757,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         if (shadow_width < 0.0f) {
             shadow_width = (*monster)->movement.collision_radius * 0.002f;
         }
-        if (shadow_depth == 0.0f) {
-            shadow_depth = shadow_width;
-        }
+        if (shadow_depth == 0.0f) shadow_depth = shadow_width;
         (*monster)->CreateGroundShadow(shadow_width * g_world_scale, shadow_depth * g_world_scale);
     }
     representation->left_handed = left_handed;
@@ -787,26 +774,21 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     (*monster)->SetCycle(1);
     (*monster)->SetSubCycle(0);
     const auto bounds = (*monster)->GetAnimationBounds();
-    if (!bounds) {
-        return false;
-    }
+    if (!bounds) return false;
     (*monster)->SetBounds(*bounds);
-    if (movement_rate < 0.1f) {
-        movement_rate = 2.0f;
-    }
+    if (movement_rate < 0.1f) movement_rate = 2.0f;
     (*monster)->SetMovementScale(movement_rate);
     (*monster)->SetTurnRate(rotation_rate * static_cast<float>(g_motion_full_turn_radians));
 
     int navigation_mode = 1;
-    if (flies) {
+    if (flies)
         navigation_mode = 2;
-    } else if (swims) {
+    else if (swims)
         navigation_mode = 3;
-    } else if (quadruped) {
+    else if (quadruped)
         navigation_mode = 5;
-    } else if (crawls) {
+    else if (crawls)
         navigation_mode = 6;
-    }
     (*monster)->SetNavigationMode(navigation_mode);
     if (spice_monster) {
         /* 0x004C1CC5..0x004C1CD7: byte stores to +0x332, +0xa0 (navigator
@@ -1614,9 +1596,8 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
     std::optional<float> parameter;
     if (open != expression.npos) {
         const auto start = expression.find_first_not_of(",)", open + 1);
-        if (start != expression.npos) {
+        if (start != expression.npos)
             parameter = std::strtof(std::string(expression.substr(start)).c_str(), nullptr);
-        }
     }
 
     if (CompareTextIgnoreAsciiCase(name.substr(0, 9), "PARTYNEAR") == 0) {
@@ -1780,9 +1761,7 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
     }
     if (AnimationIsRunning(animation) != 0) {
         const auto center = GetAnimationCenter();
-        if (!center) {
-            return false;
-        }
+        if (!center) return false;
         *position = *center;
         return true;
     }
@@ -1867,15 +1846,11 @@ void W8Monster::ProcessScript()
     stop = false;
     command_count = 0;
     while (script != 0 && script_wait == MONSCR_NONE && !stop) {
-        if (script_line >= static_cast<int>(script->lines.size())) {
-            break;
-        }
+        if (script_line >= static_cast<int>(script->lines.size())) break;
         std::istringstream tokens(script->lines[script_line++].text);
         std::string token;
         W8MonsterScriptCommand command;
-        if (!(tokens >> token)) {
-            continue;
-        }
+        if (!(tokens >> token)) continue;
 
         command = MONSCR_NONE;
         for (int index = 0; index < MONSCR_COUNT; ++index) {
@@ -1894,9 +1869,7 @@ void W8Monster::ProcessScript()
         }
 
         const auto resolveNamedPosition = [&](srVector3T<float>& position) {
-            if (ResolveScriptPosition(token.c_str(), &position)) {
-                return true;
-            }
+            if (ResolveScriptPosition(token.c_str(), &position)) return true;
             ShutdownWithErrorBox(fmt::format("MonScript {} Line {:d}: Unknown location {}",
                                              script->getName(),
                                              script->GetSourceLine(script_line - 1), token));
@@ -2075,9 +2048,7 @@ void W8Monster::ProcessScript()
                     invert = true;
                     tokens >> token;
                 }
-                if (!tokens) {
-                    break;
-                }
+                if (!tokens) break;
                 value = EvaluateScriptCondition(token);
                 script_conditions.insert(script_conditions.begin(), invert ? !value : value);
                 break;
@@ -2104,13 +2075,12 @@ void W8Monster::ProcessScript()
                 unsigned char disposition = 0xff;
                 tokens >> token;
                 if (tokens) {
-                    if (_stricmp(token.c_str(), "DISP_NEUTRAL") == 0) {
+                    if (_stricmp(token.c_str(), "DISP_NEUTRAL") == 0)
                         disposition = 0;
-                    } else if (_stricmp(token.c_str(), "DISP_HOSTILE") == 0) {
+                    else if (_stricmp(token.c_str(), "DISP_HOSTILE") == 0)
                         disposition = 1;
-                    } else if (_stricmp(token.c_str(), "DISP_FRIENDLY") == 0) {
+                    else if (_stricmp(token.c_str(), "DISP_FRIENDLY") == 0)
                         disposition = 2;
-                    }
                     monster_info = FindMonster(location_id);
                     if (monster_info != 0) {
                         W8MonsterGroup* group =
@@ -2139,14 +2109,10 @@ void W8Monster::ProcessScript()
                 float distance;
                 float variation;
                 tokens >> token;
-                if (!tokens) {
-                    break;
-                }
+                if (!tokens) break;
                 distance = static_cast<float>(atof(token.c_str())) * g_world_scale;
                 tokens >> token;
-                if (!tokens) {
-                    break;
-                }
+                if (!tokens) break;
                 variation = static_cast<float>(atof(token.c_str())) * g_world_scale;
                 home = formation;
                 if (IsZeroVector(&home) != 0) {
@@ -2191,9 +2157,7 @@ void W8Monster::ProcessScript()
                     if (_stricmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
                         ClearMainGameTargetState();
                         W8MonsterGroup* group = FindFirstMonsterByID(0x68);
-                        if (group != 0) {
-                            SetMonsterGroupHostility(group, 1, false);
-                        }
+                        if (group != 0) SetMonsterGroupHostility(group, 1, false);
                         group = FindFirstMonsterByID(0x13e);
                         if (group != 0) {
                             SetMonsterGroupHostility(group, 1, false);
@@ -2202,9 +2166,7 @@ void W8Monster::ProcessScript()
                     } else if (_stricmp(token.c_str(), "ENDSAVANTWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         Trigger* trigger = FindTriggerByName("Path3Trigger");
-                        if (trigger != 0) {
-                            trigger->Run(-1);
-                        }
+                        if (trigger != 0) trigger->Run(-1);
                     } else if (_stricmp(token.c_str(), "UNLOCKUI") == 0 ||
                                _stricmp(token.c_str(), "ENDGARIWALK") == 0) {
                         ClearMainGameTargetState();
@@ -2224,9 +2186,7 @@ void W8Monster::ProcessScript()
                         ClearMainGameTargetState();
                     } else if (_stricmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
                         W8NpcState* npc = GetNpcStateByKind(0x8d);
-                        if (npc != 0) {
-                            QueueNpcScriptNotice(npc, 0, 6, false, 0);
-                        }
+                        if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
                         monster_info = FindMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
                             srVector3T<float> party = cameraLocation();
@@ -2239,23 +2199,13 @@ void W8Monster::ProcessScript()
                 int value = 0;
                 float distance = 0.0f;
                 tokens >> token;
-                if (!tokens) {
-                    break;
-                }
+                if (!tokens) break;
                 value = atoi(token.c_str());
-                if (value != 0) {
-                    tokens >> token;
-                }
-                if (!tokens) {
-                    break;
-                }
+                if (value != 0) tokens >> token;
+                if (!tokens) break;
                 distance = static_cast<float>(atof(token.c_str())) * g_world_scale;
-                if (distance != 0.0f) {
-                    tokens >> token;
-                }
-                if (!tokens) {
-                    break;
-                }
+                if (distance != 0.0f) tokens >> token;
+                if (!tokens) break;
                 sound = new stSound3D(token.c_str(), 0);
                 if (sound != 0) {
                     srVector3T<float> position = GetPosition();
@@ -2263,9 +2213,7 @@ void W8Monster::ProcessScript()
                     sound->setLocation(static_cast<double>(position.x),
                                        static_cast<double>(position.y),
                                        static_cast<double>(position.z));
-                    if (distance != 0.0f) {
-                        sound->falloff = distance;
-                    }
+                    if (distance != 0.0f) sound->falloff = distance;
                     if (sound->Play(false, false) == 0) {
                         delete sound;
                         sound = 0;
@@ -2864,9 +2812,7 @@ bool W8Monster::GetPatrolPoint(srVector3T<float>* point)
 // FUNCTION: WIZ8 0x004ca4f0
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster)
 {
-    if (!monster) {
-        return std::nullopt;
-    }
+    if (!monster) return std::nullopt;
     auto bounds = monster->GetAnimationBounds();
     if (bounds) {
         const auto position = monster->GetPosition().glmValue();
@@ -2880,9 +2826,7 @@ std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster)
 void W8Monster::TrackSound(wiz8::sound::Playback playback)
 {
     if (sounds.size() > 6) {
-        for (const auto& sound : sounds) {
-            wiz8::sound::stop(sound);
-        }
+        for (const auto& sound : sounds) wiz8::sound::stop(sound);
         sounds.clear();
     }
     sounds.push_back(std::move(playback));
@@ -4724,9 +4668,7 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
                 for (list_index = 0; list_index < 3; ++list_index) {
                     for (const auto& owned_mesh : animation->meshes[list_index]) {
                         auto* mesh = owned_mesh.get();
-                        if (!mesh) {
-                            continue;
-                        }
+                        if (!mesh) continue;
                         const int frame_count = AniMeshValue(mesh);
                         for (int frame = 0; frame < frame_count; ++frame) {
                             instances.push_back(GetAniMeshFrame(mesh, frame));
@@ -4877,12 +4819,11 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
                 SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
                                       SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
                 SDL_DestroySurface};
-            if (text_surface) {
+            if (text_surface)
                 DrawText(*text_surface, g_monster_damage_font,
                          {0x80 - g_monster_damage_font.textWidth(text) / 2,
                           0x80 - g_monster_damage_font.height() / 2},
                          text);
-            }
         }
 
         GetMappedPosition(&position);
@@ -5027,9 +4968,8 @@ void W8Monster::RefreshStandingHeight()
     srVector3T<float> camera_location;
     camera_location = glm::vec3(g_world->camera->getLocation());
     SelectLOD(&camera_location);
-    if (const auto bounds = GetAnimationBounds()) {
+    if (const auto bounds = GetAnimationBounds())
         representation->standing_height = bounds->maximum.y;
-    }
     if (previous_cycle != -1) {
         SetCycle(previous_cycle);
     }

@@ -114,9 +114,7 @@ W8CampScreenState::~W8CampScreenState()
 {
     item_range.reset();
     dialog.reset();
-    for (auto& range : spell_ranges) {
-        range.reset();
-    }
+    for (auto& range : spell_ranges) range.reset();
     stats_range.reset();
     stats_controls.reset();
     character_info.reset();
@@ -399,9 +397,7 @@ UiResult HandleCampSpellList(const UiPointerEvent& event, int realm)
     int row = (event.local.y - 1) / 13;
     const int visible = std::min(8, int(g_review_character->skill_unlocks[0x1c + realm]) -
                                         int(g_camp_screen->learned_spells.scroll[realm]));
-    if (!event.inside || row < 0 || row >= visible) {
-        row = -1;
-    }
+    if (!event.inside || row < 0 || row >= visible) row = -1;
     if (row != g_camp_screen->selected_spell_row || event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave) {
         g_camp_screen->selected_spell_row = row;
@@ -890,9 +886,7 @@ void W8CampCharacterInfo::SetActive(bool enabled)
 {
     m_active = enabled;
     input.setEnabled(enabled);
-    if (enabled) {
-        SetCombatView(m_combat_view);
-    }
+    if (enabled) SetCombatView(m_combat_view);
 }
 
 void W8CampCharacterInfo::SetCombatView(bool enabled)
@@ -928,20 +922,15 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
           m_backgroundImage == 2))) {
         SetCombatView(false);
     }
-    if (!m_active) {
-        return;
-    }
+    if (!m_active) return;
     redraw |= full_redraw || m_dirty;
-    if (redraw) {
+    if (redraw)
         CatalogArtwork::Load(0x122, 0).drawAndInvalidate(target, m_backgroundImage, 0x136, 0);
-    }
     m_stats_tab->m_dirty |= redraw;
     m_combat_tab->m_dirty |= redraw;
     m_stats_tab->Draw(target);
     m_combat_tab->Draw(target);
-    if (!redraw) {
-        return;
-    }
+    if (!redraw) return;
     m_dirty = false;
     InvalidateCampPanel();
     DrawRcsText(g_localized_strings[0x935], 0x15e, 0x84, 0x4e,
@@ -996,9 +985,7 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
             !g_review_character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].identified;
         for (unsigned int hand = 0; hand < 2; ++hand) {
             W8HandAttack* attack = &g_review_character->Hand[hand];
-            if (!attack->in_play) {
-                continue;
-            }
+            if (!attack->in_play) continue;
             int x = hand ? 600 : 0x1d6;
             if (g_review_character->EquippedItem[hand + 6].iItemNo != -1 &&
                 (!g_review_character->EquippedItem[hand + 6].identified ||
@@ -1026,12 +1013,8 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
             unsigned int damage_bonus = GetCharacterHandDamageBonus(g_review_character, hand);
             unsigned int minimum = (dice.Minimum() * (100 + damage_bonus) + 50) / 100;
             unsigned int maximum = (dice.Maximum() * (100 + damage_bonus) + 50) / 100;
-            if (minimum < 2) {
-                minimum = 1;
-            }
-            if (maximum < 2) {
-                maximum = 1;
-            }
+            if (minimum < 2) minimum = 1;
+            if (maximum < 2) maximum = 1;
             int hit_bonus = attack->hit_bonus + g_review_character->bonus.hit_bonus;
             int skill_bonus =
                 (attack->attack_score < 0 ? attack->attack_score - 2 : attack->attack_score + 2) /
@@ -1080,9 +1063,8 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         for (unsigned int component = 0; component < 12; ++component) {
             if (component == 11 &&
-                g_review_character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] == 0) {
+                g_review_character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] == 0)
                 continue;
-            }
             int y = (component % 6) * 14 + 0x22;
             int label_x = component / 6 ? 0x1ef : 0x15e;
             int value_x = component / 6 ? 600 : 0x1c7;
@@ -1183,11 +1165,10 @@ unsigned char CampScreenEnter(void)
     g_camp_screen->item_range = std::make_unique<W8RangeControl>(0x263, 0xc1, 0x275, 0x1a1);
     g_camp_screen->item_range->on_change = [](auto* range) {
         g_camp_screen->item_scroll = range->m_value << 1;
-        if (IsKeyHeld(VK_CONTROL)) {
+        if (IsKeyHeld(VK_CONTROL))
             g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
-        } else {
+        else
             g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
-        }
     };
     for (int range_index = 0; range_index < 6; ++range_index) {
         const int x = (range_index % 3) * 0xd5;
@@ -1278,7 +1259,7 @@ void CampScreenFrame(void)
     SDL_Point point;
     SGPMouseGetPos(&point);
     UpdateUiPointer(point.x, point.y);
-    if (!g_camp_screen->dialog) {
+    if (!g_camp_screen->dialog)
         PumpUiInput({.unhandled =
                          [&](const InputEvent& input) {
                              if (input.type == InputEventType::KeyDown) {
@@ -1318,7 +1299,6 @@ void CampScreenFrame(void)
                              return InputRoute::Handled;
                          },
                      .track_hover = false});
-    }
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
         !TimeUntilDeadline(g_camp_screen->animation_timer)) {
         for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {

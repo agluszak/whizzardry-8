@@ -247,9 +247,7 @@ bool NpcKnowsFact(W8NpcState* npc, W8FactId fact)
 // FUNCTION: WIZ8 0x0050b800
 W8NpcState* GetNpcState(int index)
 {
-    if (index < 0 || static_cast<std::size_t>(index) >= g_npc_states.size()) {
-        return nullptr;
-    }
+    if (index < 0 || static_cast<std::size_t>(index) >= g_npc_states.size()) return nullptr;
     auto* npc = g_npc_states[index];
     return npc && !npc->binding_unavailable ? npc : nullptr;
 }
@@ -1180,9 +1178,7 @@ try {
     for (index = 0; index < count; ++index) {
         npc = g_npc_states[index];
         wiz8::retail::write(file, *npc);
-        if (npc->character) {
-            wiz8::retail::write_sized(file, *npc->character);
-        }
+        if (npc->character) wiz8::retail::write_sized(file, *npc->character);
     }
     return SaveNpcItemLists(file);
 } catch (const std::exception&) {
@@ -1405,9 +1401,7 @@ static void InitializeNpcItemTable(W8NpcState* npc)
 void ReleaseNpcBinding(int value)
 {
     auto* npc = GetNpcState(value);
-    if (!npc) {
-        return;
-    }
+    if (!npc) return;
     npc->has_monster = false;
     ReleaseNpcScriptFile(npc->script_file);
     npc->script_file = 0;
@@ -1442,18 +1436,11 @@ void LoadNpcStates(wiz8::File& file)
     struct StateRollback {
         std::vector<W8NpcState*> previous;
         bool committed = false;
-        StateRollback()
-        {
-            previous.swap(g_npc_states);
-        }
+        StateRollback() { previous.swap(g_npc_states); }
         ~StateRollback()
         {
-            if (!committed) {
-                previous.swap(g_npc_states);
-            }
-            for (auto* state : previous) {
-                DestroyNpcState(state);
-            }
+            if (!committed) previous.swap(g_npc_states);
+            for (auto* state : previous) DestroyNpcState(state);
         }
     } rollback;
     file.read_exact(&version, 1);
@@ -1477,9 +1464,7 @@ void LoadNpcStates(wiz8::File& file)
         if (has_character) {
             // Version 3 sizes the character block; older saves store 0x185c bytes.
             size = 0x185c;
-            if (version >= 3) {
-                file.read_exact(&size, sizeof(size));
-            }
+            if (version >= 3) file.read_exact(&size, sizeof(size));
             if (size > wiz8::retail::kCharacterBytes) {
                 throw std::runtime_error("invalid NPC character size");
             }

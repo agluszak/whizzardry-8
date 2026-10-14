@@ -44,11 +44,10 @@ template<class T> void pointer_slot(std::unique_ptr<T>& live, std::span<const st
 template<class Owner> void presence_slot(const Owner& live, std::span<std::byte> bytes)
 {
     std::uint32_t present;
-    if constexpr (requires { live.has_value(); }) {
+    if constexpr (requires { live.has_value(); })
         present = live.has_value();
-    } else {
+    else
         present = !live.empty();
-    }
     std::memcpy(bytes.data(), &present, sizeof(present));
 }
 template<class Owner> void presence_slot(Owner&, std::span<const std::byte>) {}
@@ -71,11 +70,10 @@ template<> struct Record<W8CombatSlot> {
         value(&runtime.iGroupID, bytes.subspan(offsetof(Disk, iGroupID), 4));
         value(&runtime.point, bytes.subspan(offsetof(Disk, point), sizeof(Disk::point)));
         // The item marker is a saved address; loaders rebuild the item.
-        if constexpr (std::is_const_v<Runtime>) {
+        if constexpr (std::is_const_v<Runtime>)
             std::fill_n(bytes.begin() + offsetof(Disk, item_marker), 4, std::byte{});
-        } else {
+        else
             runtime.pPCItem = nullptr;
-        }
     }
 };
 template<> struct Record<W8PartySlotRow> {
@@ -127,11 +125,10 @@ template<> struct Record<W8PartySlotRow> {
             // An item's saved address is transient. Preserve the kind word;
             // loading global status rebuilds the pending item from origin/slot.
             if (item_use) {
-                if constexpr (std::is_const_v<Runtime>) {
+                if constexpr (std::is_const_v<Runtime>)
                     std::fill(field.begin() + 4, field.end(), std::byte{});
-                } else {
+                else
                     live.item_use.item = nullptr;
-                }
             }
         };
         detail(runtime.pending_action_detail,
@@ -969,23 +966,20 @@ template<> struct Record<W8GlobalStatus> {
 
 template<class T> void decode(std::span<const std::byte> disk, T& runtime)
 {
-    if (disk.size() > sizeof(typename Record<T>::Disk)) {
+    if (disk.size() > sizeof(typename Record<T>::Disk))
         throw std::runtime_error("Oversized retail record");
-    }
     // Old saves omit trailing fields. Zero-extend the disk image, never the
     // native object (which owns strings and has a different layout).
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
-    if (!disk.empty()) {
-        std::memcpy(image.data(), disk.data(), disk.size());
-    }
+    if (!disk.empty()) std::memcpy(image.data(), disk.data(), disk.size());
     T decoded{};
     Record<T>::fields(
         decoded, std::span<const std::byte>(image),
         [](auto* destination, auto bytes) { std::memcpy(destination, bytes.data(), bytes.size()); },
         [](std::string& destination, auto bytes, Encoding encoding) {
-            if (encoding == Encoding::utf16) {
+            if (encoding == Encoding::utf16)
                 destination = text::from_utf16le(bytes);
-            } else {
+            else {
                 const auto* data = reinterpret_cast<const char*>(bytes.data());
                 const auto* end = static_cast<const char*>(std::memchr(data, 0, bytes.size()));
                 destination.assign(data, end ? end - data : bytes.size());
@@ -1000,21 +994,19 @@ template<class T> auto encode(const T& runtime)
         runtime, std::span<std::byte>(image),
         [](const auto* source, auto bytes) { std::memcpy(bytes.data(), source, bytes.size()); },
         [](const std::string& source, auto bytes, Encoding encoding) {
-            if (encoding == Encoding::utf16) {
+            if (encoding == Encoding::utf16)
                 text::to_utf16le(source, bytes);
-            } else {
+            else
                 text::write_utf8_field(
                     source, std::span(reinterpret_cast<char*>(bytes.data()), bytes.size()));
-            }
         });
     return image;
 }
 template<class T> void read_exact(File& file, T& runtime,
                                   std::size_t bytes = sizeof(typename Record<T>::Disk))
 {
-    if (bytes > sizeof(typename Record<T>::Disk)) {
+    if (bytes > sizeof(typename Record<T>::Disk))
         throw std::runtime_error("Oversized retail record");
-    }
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
     file.read_exact(image.data(), bytes);
     decode<T>(std::span(image).first(bytes), runtime);
@@ -1041,9 +1033,7 @@ template<class T> ReadResult read(File& file, T& runtime)
 {
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
     auto result = file.read(image.data(), image.size());
-    if (result.bytes == image.size()) {
-        decode<T>(image, runtime);
-    }
+    if (result.bytes == image.size()) decode<T>(image, runtime);
     return result;
 }
 template<class T> void write(File& file, const T& runtime)
@@ -1055,9 +1045,8 @@ template<class T> void write(File& file, const T& runtime)
 template<class T> void read_exact(W8Chunk& chunk, T& runtime,
                                   std::size_t bytes = sizeof(typename Record<T>::Disk))
 {
-    if (bytes > sizeof(typename Record<T>::Disk)) {
+    if (bytes > sizeof(typename Record<T>::Disk))
         throw std::runtime_error("Oversized retail record");
-    }
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
     chunk.ReadBytes(image.data(), bytes);
     decode<T>(std::span(image).first(bytes), runtime);

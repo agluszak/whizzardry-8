@@ -741,9 +741,7 @@ void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail)
 // FUNCTION: WIZ8 0x004ed260
 void CombatLog(std::string_view text)
 {
-    if (g_combat_log_enabled) {
-        ShowNotice(W8_FONT_PALETTE_BROWN, text);
-    }
+    if (g_combat_log_enabled) ShowNotice(W8_FONT_PALETTE_BROWN, text);
 }
 
 /* Start a fresh round: lift the one action that does not survive it and clear

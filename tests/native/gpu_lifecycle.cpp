@@ -19,10 +19,7 @@ struct VideoSession {
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     }
-    ~VideoSession()
-    {
-        SDL_Quit();
-    }
+    ~VideoSession() { SDL_Quit(); }
 };
 using Device = std::unique_ptr<SDL_GPUDevice, decltype(&SDL_DestroyGPUDevice)>;
 Device CreateDevice()

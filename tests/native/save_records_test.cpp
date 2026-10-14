@@ -306,9 +306,7 @@ static void unicode_file_contracts()
     // pointer word must never contain a live allocation address.
     std::array<std::byte, 8 + 0x24> header{};
     file->read_exact(header.data(), header.size());
-    for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) {
-        REQUIRE(header[i] == std::byte{});
-    }
+    for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) REQUIRE(header[i] == std::byte{});
     file->seek(0, wiz8::SeekOrigin::begin);
     REQUIRE(LoadMessageStorage(*file));
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
@@ -415,9 +413,7 @@ static void path_record_contracts()
                 const float scale[] = {2, 3, 4};
                 file->write(point, sizeof(point));
                 file->write(angle_axis, sizeof(angle_axis));
-                if (version == 2) {
-                    file->write(scale, sizeof(scale));
-                }
+                if (version == 2) file->write(scale, sizeof(scale));
             }
         }
         auto file = wiz8::open_file(filename);
@@ -428,18 +424,14 @@ static void path_record_contracts()
         REQUIRE((path->nodes[1].x == 500 && path->total_length == 500));
         REQUIRE((path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1)));
         REQUIRE((path->scales.size() == (version == 2 ? 2 : 0)));
-        if (version == 2) {
-            REQUIRE((path->scales[1].y == 3));
-        }
+        if (version == 2) REQUIRE((path->scales[1].y == 3));
         path->timed = true;
         auto copy = std::make_unique<W8PathAI>(*path);
         auto restarted = path->Clone();
         REQUIRE((!static_cast<W8PathAI*>(restarted.get())->timed));
         REQUIRE((copy->timed && copy->nodes.data() != path->nodes.data()));
         REQUIRE((copy->rotations.data() != path->rotations.data()));
-        if (version == 2) {
-            REQUIRE((copy->scales.data() != path->scales.data()));
-        }
+        if (version == 2) REQUIRE((copy->scales.data() != path->scales.data()));
         copy->nodes[0].x = 99;
         REQUIRE((path->nodes[0].x == 0));
         PathAIClearOwned(copy.get());
@@ -494,9 +486,7 @@ static void animation_record_contracts()
             }
             const unsigned char zero = 0;
             file->write(&zero, 1); // No lights.
-            if (!flag) {
-                file->write(&zero, 1); // No standalone path.
-            }
+            if (!flag) file->write(&zero, 1); // No standalone path.
             file->write(&zero, 1); // Version 10's reserved byte.
         }
         auto file = wiz8::open_file(filename);
@@ -702,9 +692,7 @@ static void encounter_table_contracts()
             file->write(time, sizeof(time));
             file->write(challenge, sizeof(challenge));
             file->write(scripts, sizeof(scripts));
-            if (version == 2) {
-                file->write(&flags, sizeof(flags));
-            }
+            if (version == 2) file->write(&flags, sizeof(flags));
         }
         REQUIRE(InitializeEncounterTables());
         REQUIRE(g_encounter_names == std::vector<std::string>{"Wilderness"});
@@ -1069,9 +1057,7 @@ static void packed_camera_angles()
     W8CameraAngleRecord yaw, pitch;
     memcpy(yaw, packed.state.yaw, sizeof(yaw));
     memcpy(pitch, packed.state.pitch, sizeof(pitch));
-    for (unsigned i = 0; i < 6; ++i) {
-        REQUIRE((yaw[i] == 0 && pitch[i] == 0));
-    }
+    for (unsigned i = 0; i < 6; ++i) REQUIRE((yaw[i] == 0 && pitch[i] == 0));
     yaw[0] = 0.5f;
     pitch[0] = 0.25f;
     yaw[5] = 123.0f;
@@ -1128,10 +1114,7 @@ struct SaveFixture {
         asset_roots.configure({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
     }
 
-    ~SaveFixture()
-    {
-        wiz8::clear_asset_archives();
-    }
+    ~SaveFixture() { wiz8::clear_asset_archives(); }
 };
 
 TEST_CASE("Packed camera angles", "[save][records]")
@@ -1149,9 +1132,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
     NpcGlobalGuard globals;
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
-    for (unsigned char index = 0; index < 3; ++index) {
-        database[index].kind = index;
-    }
+    for (unsigned char index = 0; index < 3; ++index) database[index].kind = index;
     g_npc_records = database;
     // All three database nodes are supplied by the serialized states below.
     gXStatus.uiNpcsInDatabase = 3;
@@ -1244,11 +1225,10 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         for (int index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index];
             REQUIRE((npc->record == &database[index] && npc->items.empty()));
-            if (index < 2) {
+            if (index < 2)
                 REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
-            } else {
+            else
                 REQUIRE(!npc->character);
-            }
         }
         file.reset();
         const auto previous = g_npc_states;
@@ -1260,12 +1240,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             write(bad, malformed == 0 ? UINT32_MAX : 1u);
             wiz8::retail::NpcState disk{};
             disk.name_style = malformed == 1 ? 255 : 0;
-            if (malformed != 2) {
-                write(bad, disk);
-            }
-            if (malformed == 3) {
-                write(bad, UINT32_MAX); // Missing stock entries.
-            }
+            if (malformed != 2) write(bad, disk);
+            if (malformed == 3) write(bad, UINT32_MAX); // Missing stock entries.
             bad.close();
             file = wiz8::open_host_file(path);
             bool rejected = false;

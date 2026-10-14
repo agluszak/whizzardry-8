@@ -87,11 +87,10 @@
 // Sets or clears one flag bit from a retail integer or float condition.
 static void assignFlag(unsigned int& flags, unsigned int flag, bool on)
 {
-    if (on) {
+    if (on)
         flags |= flag;
-    } else {
+    else
         flags &= ~flag;
-    }
 }
 #include "layouts/world.h"
 #include "surrender/srClock.h"
@@ -981,9 +980,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
             center.Set(position.x, position.y, position.z);
         } else {
             const auto prop_center = m_pProp->GetCenterPosition();
-            if (!prop_center) {
-                return false;
-            }
+            if (!prop_center) return false;
             center = *prop_center;
         }
 
@@ -1037,9 +1034,7 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
             return false;
         }
         const auto center = m_pProp->GetCenterPosition();
-        if (!center) {
-            return false;
-        }
+        if (!center) return false;
         position = *center;
     } else {
         position.Set(this->position.x, this->position.y, this->position.z);
@@ -1538,9 +1533,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, fire_linked != 0);
         assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
         assignFlag(trigger->flags, W8_TRIGGER_KEEP_ON_FINISH, keep_on_finish != 0);
-        if (plane == 1) {
-            trigger->flags |= W8_TRIGGER_PLANE;
-        }
+        if (plane == 1) trigger->flags |= W8_TRIGGER_PLANE;
         trigger->m_pacRecipients = new char[strlen(recipients) + 1];
         strcpy(trigger->m_pacRecipients, recipients);
         /* Retail 0x00442483 hands plane triggers to the game data whenever it
@@ -1689,21 +1682,11 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         }
 
         trigger->trigger_kind = ((packed_flags & 1) != 0 || searchable == 1) ? 1 : 2;
-        if ((packed_flags & 2) != 0) {
-            trigger->flags |= W8_TRIGGER_CAN_RUN_LINKED;
-        }
-        if ((packed_flags & 4) != 0) {
-            trigger->flags |= W8_TRIGGER_ONCE;
-        }
-        if ((packed_flags & 8) != 0) {
-            trigger->flags |= W8_TRIGGER_EXCLUSIVE;
-        }
-        if ((packed_flags & 0x10) != 0) {
-            trigger->flags |= W8_TRIGGER_REACTIVATE_LINKED;
-        }
-        if ((packed_flags & 0x20) != 0) {
-            trigger->flags |= 0x400000;
-        }
+        if ((packed_flags & 2) != 0) trigger->flags |= W8_TRIGGER_CAN_RUN_LINKED;
+        if ((packed_flags & 4) != 0) trigger->flags |= W8_TRIGGER_ONCE;
+        if ((packed_flags & 8) != 0) trigger->flags |= W8_TRIGGER_EXCLUSIVE;
+        if ((packed_flags & 0x10) != 0) trigger->flags |= W8_TRIGGER_REACTIVATE_LINKED;
+        if ((packed_flags & 0x20) != 0) trigger->flags |= 0x400000;
 
         if (recipients[0] != 0) {
             trigger->m_pacRecipients = new char[strlen(recipients) + 1];
@@ -1727,9 +1710,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         assignFlag(trigger->flags, W8_TRIGGER_CONSUME_ITEM, consume_item != 0);
         assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_ACTION, animate_action != 0);
         assignFlag(trigger->flags, W8_TRIGGER_ALTERNATE_TOGGLES, alternate_toggles != 0);
-        if (trigger->alternate_action != 0) {
-            trigger->flags |= W8_TRIGGER_HAS_ALTERNATE;
-        }
+        if (trigger->alternate_action != 0) trigger->flags |= W8_TRIGGER_HAS_ALTERNATE;
 
         unsigned char value_b0;
         unsigned char animate_states;

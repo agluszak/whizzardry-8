@@ -17,7 +17,7 @@ BraceWrapping:
   BeforeCatch: false
   BeforeWhile: false
   BeforeLambdaBody: false
-InsertBraces: true
+InsertBraces: false
 IndentAccessModifiers: false
 AccessModifierOffset: -4
 PointerAlignment: Left
@@ -29,9 +29,9 @@ AlignConsecutiveDeclarations: None
 AlignTrailingComments:
   Kind: Leave
 ReflowComments: false
-AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
 SpaceAfterTemplateKeyword: false
 BreakTemplateDeclarations: Leave
 FixNamespaceComments: false

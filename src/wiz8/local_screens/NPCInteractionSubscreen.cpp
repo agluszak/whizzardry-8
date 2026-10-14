@@ -113,9 +113,7 @@ std::string NpcFieldText()
 
 void SetNpcFieldText(std::string_view text)
 {
-    if (auto* fields = TextFieldGroup::Focused()) {
-        fields->SetText(0, text);
-    }
+    if (auto* fields = TextFieldGroup::Focused()) fields->SetText(0, text);
 }
 
 bool NpcEditingText()
@@ -132,9 +130,8 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
     npc_quote_input = std::make_unique<UiLayer>(0x25);
     npc_quote_input->add(
         SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1}, [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left) {
+            if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
                 AfterUiDispatch([] { TryFinishNpcVoicePlayback(true); });
-            }
             return UiResult::Handled;
         });
 }
@@ -249,9 +246,7 @@ NpcDialogueUi::~NpcDialogueUi() = default;
 
 void SetNpcDialogueInputEnabled(int group, bool enabled)
 {
-    if (!g_npc_interaction_state->ui) {
-        return;
-    }
+    if (!g_npc_interaction_state->ui) return;
     auto& ui = *g_npc_interaction_state->ui;
     (group == 0   ? ui.transcript_input
      : group == 1 ? ui.trade_input
@@ -265,30 +260,22 @@ static void SetNpcActionVisible(int index, bool visible)
     auto& action = ui.actions[index];
     action.visible = visible;
     action.dirty = true;
-    if (action.target) {
-        action.target->setEnabled(visible && ui.panels[action.panel].active);
-    }
+    if (action.target) action.target->setEnabled(visible && ui.panels[action.panel].active);
 }
 
 static void SetNpcActionEnabled(int index, bool enabled)
 {
     auto& action = g_npc_interaction_state->ui->actions[index];
-    if (action.enabled == enabled) {
-        return;
-    }
+    if (action.enabled == enabled) return;
     action.enabled = enabled;
     action.dirty = true;
-    if (action.frames[4] != -1) {
-        action.text.SetRenderMode(enabled ? 4 : 7);
-    }
+    if (action.frames[4] != -1) action.text.SetRenderMode(enabled ? 4 : 7);
 }
 
 static void SetNpcActionPressed(int index, bool selected)
 {
     auto& action = g_npc_interaction_state->ui->actions[index];
-    if (action.policy.primary_toggle == ButtonToggle::None) {
-        return;
-    }
+    if (action.policy.primary_toggle == ButtonToggle::None) return;
     action.interaction.pressed = action.interaction.selected = selected;
     action.dirty = true;
 }
@@ -296,14 +283,11 @@ static void SetNpcActionPressed(int index, bool selected)
 static void SetNpcActionHelp(int index, int message)
 {
     auto* target = g_npc_interaction_state->ui->actions[index].target;
-    if (!target) {
-        return;
-    }
-    if (message < 0 || !g_settings.tooltips_enabled) {
+    if (!target) return;
+    if (message < 0 || !g_settings.tooltips_enabled)
         target->setTooltip({});
-    } else {
+    else
         target->setTooltip([message] { return g_localized_strings[message]; });
-    }
 }
 
 static void SetNpcPanelActive(int index, bool active)
@@ -314,9 +298,7 @@ static void SetNpcPanelActive(int index, bool active)
     panel.active = active;
     panel.dirty = true;
     for (int i = 0; i < 39; ++i) {
-        if (ui.actions[i].panel != index) {
-            continue;
-        }
+        if (ui.actions[i].panel != index) continue;
         SetNpcActionVisible(i, active && !(i >= 25 && i <= 30 &&
                                            g_npc_interaction_state->dialogue_layout !=
                                                W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX));
@@ -329,9 +311,8 @@ static void SetNpcPanelActive(int index, bool active)
         if (active) {
             g_npc_text_fields.emplace(1);
             g_npc_text_fields->Add(0x1e5, 0x170, 0x7a, 0x12, 0x7f, "", 0xbe, 0xf, true);
-        } else if (g_npc_text_fields) {
+        } else if (g_npc_text_fields)
             g_npc_text_fields->Remove(0);
-        }
     }
 }
 
@@ -361,9 +342,7 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
         action.policy.primary_toggle =
             index == 15 ? ButtonToggle::Release : ButtonToggle::StayLatched;
     }
-    if (index == 0 || index == 38) {
-        return; // Paint-only captions.
-    }
+    if (index == 0 || index == 38) return; // Paint-only captions.
     auto& input = index >= 9 && index <= 23    ? ui.transcript_input
                   : index >= 24 && index <= 37 ? ui.trade_input
                                                : ui.options_input;
@@ -374,16 +353,13 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
             auto& action = ui.actions[index];
             if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
                 action.dirty = true;
-                if (event.action == UiPointerAction::Leave) {
-                    action.interaction.leave(action.policy);
-                }
+                if (event.action == UiPointerAction::Leave) action.interaction.leave(action.policy);
                 if (index == 9) {
                     auto& transcript = *ui.transcript;
-                    if (event.action == UiPointerAction::Enter) {
+                    if (event.action == UiPointerAction::Enter)
                         transcript.HighlightFirstEntry();
-                    } else {
+                    else
                         transcript.text_area.ClearSelection();
-                    }
                     transcript.InvalidateLayout();
                 }
                 return UiResult::Handled;
@@ -397,16 +373,13 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
             if (event.action == UiPointerAction::Down || event.action == UiPointerAction::Repeat) {
                 action.interaction.press(button, action.policy);
                 action.dirty = true;
-                if (event.button == UiPointerButton::Left && action.down) {
+                if (event.button == UiPointerButton::Left && action.down)
                     AfterUiDispatch(action.down);
-                }
             } else if (event.action == UiPointerAction::Up) {
                 if (action.interaction.release(button, action.policy).activate) {
                     const auto callback =
                         event.button == UiPointerButton::Left ? action.primary : action.secondary;
-                    if (callback) {
-                        AfterUiDispatch(callback);
-                    }
+                    if (callback) AfterUiDispatch(callback);
                 }
                 action.dirty = true;
             }
@@ -418,15 +391,11 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
 static bool NpcPanelDirty(int index)
 {
     const auto& ui = *g_npc_interaction_state->ui;
-    if (ui.panels[index].dirty || (index == 2 && ui.transcript->m_dirty)) {
-        return true;
-    }
-    for (const auto& action : ui.actions) {
+    if (ui.panels[index].dirty || (index == 2 && ui.transcript->m_dirty)) return true;
+    for (const auto& action : ui.actions)
         if (action.panel == index && action.visible &&
-            (action.dirty || action.text.m_geometryDirty)) {
+            (action.dirty || action.text.m_geometryDirty))
             return true;
-        }
-    }
     return false;
 }
 
@@ -434,43 +403,33 @@ static void PaintNpcPanel(int index, SDL_Surface& target, bool force)
 {
     auto& ui = *g_npc_interaction_state->ui;
     auto& panel = ui.panels[index];
-    if (!panel.active) {
-        return;
-    }
+    if (!panel.active) return;
     force |= NpcPanelDirty(index);
-    if (index == 2) {
+    if (index == 2)
         ui.transcript->Redraw(target, force);
-    } else if (force) {
+    else if (force) {
         const int frame = index == 0 && g_npc_interaction_state->dialogue_layout ==
                                             W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
                               ? 17
                               : panel.background;
         CatalogArtwork::Load(0x1a9, 0).drawAndInvalidate(target, frame, panel.origin.x,
                                                          panel.origin.y);
-        if (index == 6) {
+        if (index == 6)
             CatalogArtwork::Load(0x1a9, 0).draw(
                 target, 16, 0x1df, g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
-        }
     }
-    if (!force) {
-        return;
-    }
+    if (!force) return;
     for (int id = 0; id < 39; ++id) {
         auto& action = ui.actions[id];
-        if (action.panel != index || !action.visible) {
-            continue;
-        }
+        if (action.panel != index || !action.visible) continue;
         const bool checkbox = id == 15 || (id >= 17 && id <= 21);
         const bool hover = action.target && action.target->hovered();
         const bool pressed = action.interaction.pressed;
         int frame = !action.enabled ? action.frames[4] : action.frames[pressed ? 1 : 0];
-        if (action.enabled && hover && action.frames[pressed ? 3 : 2] != -1) {
+        if (action.enabled && hover && action.frames[pressed ? 3 : 2] != -1)
             frame = action.frames[pressed ? 3 : 2];
-        }
         const auto& sprites = id == 24 ? ui.item_preview : action.sprites;
-        if (id == 24 && sprites) {
-            frame = 0;
-        }
+        if (id == 24 && sprites) frame = 0;
         const auto bounds = action.bounds;
         if (sprites && frame != -1) {
             const int measured = id == 24                 ? 0
@@ -490,9 +449,8 @@ static void PaintNpcPanel(int index, SDL_Surface& target, bool force)
         }
         action.text.RenderToTarget(pressed && !checkbox ? 1 : 0, true, target);
         action.text.m_geometryDirty = false;
-        if (!action.enabled && sprites && frame == -1) {
+        if (!action.enabled && sprites && frame == -1)
             ShadowRect(target, {bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
-        }
         action.dirty = false;
     }
     panel.dirty = false;
@@ -509,16 +467,12 @@ static void DisableNpcTradeActions()
 static std::optional<std::string> ParseKeywordToken(std::string_view& line)
 {
     const auto start = line.find_first_not_of(' ');
-    if (start == std::string_view::npos) {
-        return {};
-    }
+    if (start == std::string_view::npos) return {};
     line.remove_prefix(start);
     const auto end = line.find_first_of("/\r\n");
     auto word = line.substr(0, end);
     const auto last = word.find_last_not_of(' ');
-    if (last == std::string_view::npos) {
-        return {};
-    }
+    if (last == std::string_view::npos) return {};
     word = word.substr(0, last + 1);
     line = end == std::string_view::npos ? std::string_view{} : line.substr(end + 1);
     return std::string(word);
@@ -528,28 +482,20 @@ static std::optional<std::string> ParseKeywordToken(std::string_view& line)
 static bool LoadKeywordFile(std::string_view path, KeywordFile& file)
 try {
     auto input = wiz8::open_file(path);
-    if (input->size() < 0 || input->size() > 16 * 1024 * 1024) {
-        return false;
-    }
+    if (input->size() < 0 || input->size() > 16 * 1024 * 1024) return false;
     const auto bytes = input->read_text();
-    if (bytes.find('\0') != std::string::npos) {
-        return false;
-    }
+    if (bytes.find('\0') != std::string::npos) return false;
     std::istringstream stream(bytes);
     std::string line;
     std::getline(stream, line);
     KeywordFile pending;
     while (std::getline(stream, line)) {
         // Retail's line limit and eleven-character metadata prefix are format constraints.
-        if (wiz8::text::to_utf16(line).size() >= 1000) {
-            return false;
-        }
+        if (wiz8::text::to_utf16(line).size() >= 1000) return false;
         std::string_view remaining(line);
         remaining.remove_prefix(wiz8::text::codepoint_prefix(remaining, 11));
         std::vector<std::string> words;
-        while (auto word = ParseKeywordToken(remaining)) {
-            words.push_back(std::move(*word));
-        }
+        while (auto word = ParseKeywordToken(remaining)) words.push_back(std::move(*word));
         pending.push_back(std::move(words));
     }
     file = std::move(pending);
@@ -569,9 +515,8 @@ void ReloadKeywordLists(void)
     ClearKeywordLists();
     KeywordFile english, translated;
     if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", english) ||
-        !LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated)) {
+        !LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated))
         return;
-    }
     g_keyword_lists.push_back(std::move(english));
     g_keyword_lists.push_back(std::move(translated));
     g_keyword_lists_loaded = true;
@@ -582,14 +527,11 @@ std::string TranslateDialogueKeyword(std::string_view source)
     if (g_keyword_lists_loaded) {
         const auto& translated = g_keyword_lists[1];
         const auto& english = g_keyword_lists[0];
-        for (std::size_t row = 0; row < translated.size(); ++row) {
-            for (std::size_t word = 0; word < translated[row].size(); ++word) {
+        for (std::size_t row = 0; row < translated.size(); ++row)
+            for (std::size_t word = 0; word < translated[row].size(); ++word)
                 if (CompareTextIgnoreAsciiCase(source, translated[row][word]) == 0 &&
-                    row < english.size() && word < english[row].size()) {
+                    row < english.size() && word < english[row].size())
                     return english[row][word];
-                }
-            }
-        }
     }
     return std::string(source);
 }
@@ -1356,36 +1298,26 @@ bool IsPortraitObscuredByNpcDialogue(unsigned int party_slot)
    screen is not suppressing panel invalidation. */
 void InvalidateMainGameActionPanelRect(const W8ControlsRect*)
 {
-    if (!g_npc_interaction_state->scripted_dialogue && g_npc_interaction_state->ui) {
+    if (!g_npc_interaction_state->scripted_dialogue && g_npc_interaction_state->ui)
         g_npc_interaction_state->ui->panels[1].dirty = true;
-    }
 }
 
 void ActivateNpcDialoguePanels(bool force)
 {
-    if (g_npc_interaction_state->scripted_dialogue || !g_npc_interaction_state->ui) {
-        return;
-    }
+    if (g_npc_interaction_state->scripted_dialogue || !g_npc_interaction_state->ui) return;
     for (int index = 0; index < 7; ++index) {
         const bool redraw_scroll = index == 1 && g_npc_interaction_state->ui->panels[1].active &&
                                    (force || NpcPanelDirty(1));
         PaintNpcPanel(index, GetFrameBufferSurface(), force);
-        if (redraw_scroll) {
-            RedrawTextBoxScrollChrome();
-        }
+        if (redraw_scroll) RedrawTextBoxScrollChrome();
     }
 }
 
 bool HasNpcDialogueDirtyPanels()
 {
-    if (g_npc_interaction_state->scripted_dialogue || !g_npc_interaction_state->ui) {
-        return false;
-    }
-    for (int index = 0; index < 7; ++index) {
-        if (g_npc_interaction_state->ui->panels[index].active && NpcPanelDirty(index)) {
-            return true;
-        }
-    }
+    if (g_npc_interaction_state->scripted_dialogue || !g_npc_interaction_state->ui) return false;
+    for (int index = 0; index < 7; ++index)
+        if (g_npc_interaction_state->ui->panels[index].active && NpcPanelDirty(index)) return true;
     return false;
 }
 
@@ -1468,21 +1400,17 @@ UiResult HandleNpcTextBox(const UiPointerEvent& event)
 {
     const auto point = event.position;
     if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left &&
-        event.clicks == 2) {
+        event.clicks == 2)
         AfterUiDispatch([point] { NpcDialogueTextBoxDoubleClick(point.x, point.y); });
-    }
     if (event.action == UiPointerAction::Up && event.inside) {
-        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
             AfterUiDispatch([point] { NpcDialogueTextBoxLeftUp(point.x, point.y); });
-        }
-        if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
+        if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK))
             AfterUiDispatch([point] { NpcDialogueTextBoxRightUp(point.x, point.y); });
-        }
     }
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter &&
-        event.action != UiPointerAction::Leave) {
+        event.action != UiPointerAction::Leave)
         return UiResult::Handled;
-    }
     int y, line;
     if (event.action == UiPointerAction::Leave) {
         ClearNoticeWordHover(3, true);
@@ -3223,9 +3151,7 @@ void HandleNpcDialogueInput(void)
     int matches;
 
     field_text = NpcFieldText();
-    if (auto* fields = TextFieldGroup::Focused()) {
-        fields->ClearFocus();
-    }
+    if (auto* fields = TextFieldGroup::Focused()) fields->ClearFocus();
     StripNpcKeywordPunctuation(field_text);
     if (field_text.size() == 0 && g_npc_scripting.reply == W8NpcReplyState::none) {
         return;
@@ -3463,9 +3389,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
         }
         if (NpcEditingText()) {
             SetNpcFieldText("");
-            if (auto* fields = TextFieldGroup::Focused()) {
-                fields->ClearFocus();
-            }
+            if (auto* fields = TextFieldGroup::Focused()) fields->ClearFocus();
             return;
         }
         if (g_npc_scripting.reply != W8NpcReplyState::none || !IsMessageBoxLineQueueEmpty()) {
@@ -3513,9 +3437,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
         if (NpcEditingText()) {
             HandleNpcDialogueInput();
         } else {
-            if (auto* fields = TextFieldGroup::Focused()) {
-                fields->Focus(0);
-            }
+            if (auto* fields = TextFieldGroup::Focused()) fields->Focus(0);
         }
         return;
     default:
@@ -3587,17 +3509,14 @@ try {
     for (int index = 0; index < record_count; ++index) {
         int text_length;
         file.read_exact(&text_length, sizeof(text_length));
-        if (text_length < 0 || text_length >= 100) {
-            return 0;
-        }
+        if (text_length < 0 || text_length >= 100) return 0;
         auto record = std::make_unique<W8DialogueTranscriptRecord>();
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         file.read_exact(bytes.data(), bytes.size());
         record->text = wiz8::text::from_utf16le(bytes);
         if (bytes[bytes.size() - 1] != std::byte{} || bytes[bytes.size() - 2] != std::byte{} ||
-            wiz8::text::to_utf16(record->text).size() != std::size_t(text_length)) {
+            wiz8::text::to_utf16(record->text).size() != std::size_t(text_length))
             return false;
-        }
         file.read_exact(&record->category, sizeof(record->category));
         pending.push_back(std::move(record));
     }
@@ -3607,9 +3526,8 @@ try {
         file.read_exact(&category_filter, sizeof(category_filter));
         file.read_exact(&sorted, sizeof(sorted));
         if (category_filter < W8_DIALOGUE_CATEGORY_ALL ||
-            category_filter > W8_DIALOGUE_CATEGORY_MISC || sorted > 1) {
+            category_filter > W8_DIALOGUE_CATEGORY_MISC || sorted > 1)
             return 0;
-        }
     }
     auto& transcript = g_npc_interaction_state->dialogue_transcript;
     transcript.reserve(record_count);
@@ -3634,9 +3552,7 @@ try {
         W8DialogueTranscriptRecord* record =
             g_npc_interaction_state->dialogue_transcript[index].get();
         const int text_length = wiz8::text::to_utf16(record->text).size();
-        if (text_length >= 100) {
-            return false;
-        }
+        if (text_length >= 100) return false;
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         wiz8::text::to_utf16le(record->text, bytes);
         file.write(&text_length, sizeof(text_length));
@@ -4156,9 +4072,7 @@ static void SetNpcDialogueHidden(char value)
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
-        if (auto* fields = TextFieldGroup::Focused()) {
-            fields->SetBlocksMouse(0, true);
-        }
+        if (auto* fields = TextFieldGroup::Focused()) fields->SetBlocksMouse(0, true);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, false);
         DisableNpcTradeActions();
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_6, false);
@@ -4178,9 +4092,7 @@ static void SetNpcDialogueHidden(char value)
         SetNpcPanelActive(3, true);
         g_npc_interaction_state->ui->transcript->Expand();
         SyncNpcDialogueTranscriptScrollButtons();
-        if (auto* fields = TextFieldGroup::Focused()) {
-            fields->SetBlocksMouse(0, false);
-        }
+        if (auto* fields = TextFieldGroup::Focused()) fields->SetBlocksMouse(0, false);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, true);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_2, true);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_3, true);
@@ -4408,15 +4320,11 @@ static void HandleNpcDialogueDeparture(unsigned char value)
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font)
 {
     std::string shortened(text);
-    if (static_cast<unsigned int>(font.textWidth(shortened)) <= width) {
-        return shortened;
-    }
+    if (static_cast<unsigned int>(font.textWidth(shortened)) <= width) return shortened;
     while (!shortened.empty()) {
         shortened.resize(wiz8::text::previous_grapheme(shortened, shortened.size()));
         const auto candidate = shortened + "...";
-        if (static_cast<unsigned int>(font.textWidth(candidate)) <= width) {
-            return candidate;
-        }
+        if (static_cast<unsigned int>(font.textWidth(candidate)) <= width) return candidate;
     }
     return {};
 }

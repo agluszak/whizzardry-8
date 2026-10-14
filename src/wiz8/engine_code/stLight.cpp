@@ -117,9 +117,8 @@ stLight& stLight::operator=(const stLight& other)
 void stLight::traverse(srNode::TraverseInfo& info)
 {
     traverseEffect(info, [&] {
-        if (fabs(intensity) <= g_double_one_ten_thousandth || (g_light_update_flags & 1) == 0) {
+        if (fabs(intensity) <= g_double_one_ten_thousandth || (g_light_update_flags & 1) == 0)
             return EffectTraversal::childrenOnly;
-        }
         return m_definition ? EffectTraversal::active : EffectTraversal::skipSubtree;
     });
 }

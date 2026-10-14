@@ -344,12 +344,8 @@ JournalScreen::JournalScreen()
 void JournalScreen::Draw(SDL_Surface& target)
 {
     bool redraw_buttons = m_dirty;
-    for (auto& button : m_buttons) {
-        redraw_buttons = button->m_dirty || redraw_buttons;
-    }
-    if (m_dirty) {
-        DrawContent(target);
-    }
+    for (auto& button : m_buttons) redraw_buttons = button->m_dirty || redraw_buttons;
+    if (m_dirty) DrawContent(target);
     if (redraw_buttons) {
         CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(target, 1, 0, 0x1b4);
         m_bar.drawAndInvalidate(target, 0, 0x66, 0x1bb);
@@ -397,9 +393,7 @@ void JournalScreen::Activate(JournalAction action)
 // FUNCTION: WIZ8 0x005bddd0
 unsigned char JournalScreenInitialize(void)
 {
-    if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) {
-        return 0;
-    }
+    if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) return 0;
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
     return 1;
 }

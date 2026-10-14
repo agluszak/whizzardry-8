@@ -40,18 +40,12 @@ public:
     void render(srGERD& renderer, class srCamera* camera);
     void resetStatistics();
     // FUNCTION: SURRENDER 0x10056C10
-    static const char* sGetClassName()
-    {
-        return "srScene";
-    }
+    static const char* sGetClassName() { return "srScene"; }
     void setAmbientLight(float red, float green, float blue);
     void setAmbientLight(const glm::vec3& color);
     void setFogColor(float red, float green, float blue);
     // FUNCTION: SURRENDER 0x10056D40 SYMBOL
-    void setFogColor(const glm::vec3& color)
-    {
-        fog_color = color;
-    }
+    void setFogColor(const glm::vec3& color) { fog_color = color; }
 
 protected:
     srFlags<e_enable> enabled;       /* 0x138 */

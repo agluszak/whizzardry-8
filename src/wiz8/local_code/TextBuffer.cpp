@@ -289,13 +289,9 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
             DrawText(target, *m_font, {x + x_offset, y + y_offset}, line,
                      {.mono = m_alternateRenderer != 0});
 
-            if (end == std::string_view::npos) {
-                break;
-            }
+            if (end == std::string_view::npos) break;
             y += GetLineHeight();
-            if (m_layoutBounds.bottom <= y) {
-                break;
-            }
+            if (m_layoutBounds.bottom <= y) break;
             remaining.remove_prefix(end + 1);
         }
 
@@ -333,13 +329,9 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
         const int x = GetHorizontalPosition(m_font->textWidth(line));
         DrawText(target, *m_font, {x + offset, y + offset}, line);
 
-        if (end == std::string_view::npos) {
-            break;
-        }
+        if (end == std::string_view::npos) break;
         y += GetLineHeight();
-        if (m_layoutBounds.bottom <= y) {
-            break;
-        }
+        if (m_layoutBounds.bottom <= y) break;
         remaining.remove_prefix(end + 1);
     }
 

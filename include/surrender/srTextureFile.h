@@ -19,10 +19,7 @@ public:
     srTextureFile& operator=(const srTextureFile& other);
 
     // FUNCTION: SURRENDER 0x1005FF10
-    static const char* sGetClassName()
-    {
-        return "srTextureFile";
-    }
+    static const char* sGetClassName() { return "srTextureFile"; }
 
     const std::string& getFileName() const;
     void setFileName(std::string file_name);

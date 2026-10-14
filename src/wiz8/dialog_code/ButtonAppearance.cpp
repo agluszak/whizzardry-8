@@ -37,9 +37,7 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
                                  std::int32_t off_normal, std::int32_t off_hilite,
                                  std::int32_t on_normal, std::int32_t on_hilite)
 {
-    if (filename.empty()) {
-        return {};
-    }
+    if (filename.empty()) return {};
     return Load(g_image_assets.sprites(filename), grayed, off_normal, off_hilite, on_normal,
                 on_hilite);
 }
@@ -50,16 +48,13 @@ ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites, std
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
     if (!sprites || std::all_of(frames.begin(), frames.end(),
-                                [](int frame) { return frame == BUTTON_NO_IMAGE; })) {
+                                [](int frame) { return frame == BUTTON_NO_IMAGE; }))
         return {};
-    }
 
     auto image = std::make_shared<ButtonGraphics>();
     image->sprites = std::move(sprites);
     for (const int index : frames) {
-        if (index == BUTTON_NO_IMAGE) {
-            continue;
-        }
+        if (index == BUTTON_NO_IMAGE) continue;
         if (index < 0 || static_cast<std::size_t>(index) >= image->object().frames.size()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d", index);
             return {};
@@ -84,14 +79,10 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
                                        std::int16_t background_frame, std::int16_t offset_x,
                                        std::int16_t offset_y, bool optional_highlights = false)
 {
-    if (filenames[0].empty() || filenames[1].empty()) {
-        return {};
-    }
+    if (filenames[0].empty() || filenames[1].empty()) return {};
     auto image = std::make_shared<GenericButtonImages>();
     for (std::size_t index = 0; index < filenames.size(); ++index) {
-        if (filenames[index].empty()) {
-            continue;
-        }
+        if (filenames[index].empty()) continue;
         auto& object = image->frames[index];
         object = g_image_assets.sprites(filenames[index]);
         const bool valid =
@@ -111,9 +102,7 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
         }
     }
     const auto pixel = image->frames[0]->frames[8].paletteIndexAt(0, 0);
-    if (!pixel) {
-        return {};
-    }
+    if (!pixel) return {};
     image->fill_color = image->frames[0]->colors[*pixel];
     image->background_frame = background_frame;
     image->offset_x = offset_x;
@@ -157,15 +146,12 @@ void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearanc
     const bool overlay = appearance.quick_image
                              ? DrawQuickButton(target, &appearance, bounds, state)
                              : DrawGenericButton(target, &appearance, bounds, state);
-    if (!appearance.string.empty()) {
-        DrawTextOnButton(target, &appearance, bounds, state);
-    }
+    if (!appearance.string.empty()) DrawTextOnButton(target, &appearance, bounds, state);
     if (overlay) {
-        if (appearance.string.empty()) {
+        if (appearance.string.empty())
             HatchRect(target, bounds);
-        } else {
+        else
             ShadowRect(target, bounds);
-        }
     }
 }
 
@@ -174,20 +160,17 @@ static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b, cons
                             const ButtonVisualState& state)
 {
     bool overlay = false;
-    if (!b->quick_image) {
-        return overlay;
-    }
+    if (!b->quick_image) return overlay;
     const auto& image = *b->quick_image;
     const bool pressed = state.pressed;
     std::int32_t frame = state.menu_artwork ? BUTTON_NO_IMAGE : 0;
     if (state.enabled) {
         const auto normal = pressed ? image.OnNormal : image.OffNormal;
         const auto hilite = pressed ? image.OnHilite : image.OffHilite;
-        if (state.hovered && hilite != BUTTON_NO_IMAGE) {
+        if (state.hovered && hilite != BUTTON_NO_IMAGE)
             frame = hilite;
-        } else if (normal != BUTTON_NO_IMAGE) {
+        else if (normal != BUTTON_NO_IMAGE)
             frame = normal;
-        }
     } else if (image.Grayed != BUTTON_NO_IMAGE) {
         frame = image.Grayed;
     } else {
@@ -212,9 +195,7 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b, con
     SDL_Rect clip{bounds.x + 3, bounds.y + 2, bounds.w - 6, bounds.h - 4};
     SDL_Rect previous;
     SDL_GetSurfaceClipRect(&target, &previous);
-    if (!SDL_GetRectIntersection(&clip, &previous, &clip)) {
-        return;
-    }
+    if (!SDL_GetRectIntersection(&clip, &previous, &clip)) return;
     ScopedClipRect clipping(target, clip);
     SDL_Point origin{bounds.x + 3 + (bounds.w - 6 - b->usFont->textWidth(b->string)) / 2,
                      bounds.y + 1 + (bounds.h - b->usFont->height()) / 2};
@@ -225,12 +206,9 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b, con
     TextOptions options;
     options.colors.background = b->usFont->color(0);
     options.colors.foreground = b->usFont->color(static_cast<std::uint8_t>(b->sForeColor));
-    if (b->sShadowColor != -1) {
+    if (b->sShadowColor != -1)
         options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(b->sShadowColor));
-    }
-    if (options.colors.shadow == 0 && b->sShadowColor > 0) {
-        options.colors.shadow = 1;
-    }
+    if (options.colors.shadow == 0 && b->sShadowColor > 0) options.colors.shadow = 1;
     options.mono = !b->fMultiColor;
     DrawText(target, *b->usFont, origin, b->string, options);
 }
@@ -238,9 +216,7 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b, con
 static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b,
                               const SDL_Rect& bounds, const ButtonVisualState& state)
 {
-    if (!b->generic_image) {
-        return false;
-    }
+    if (!b->generic_image) return false;
     const auto& image = *b->generic_image;
     const bool overlay = !state.enabled && !image.frames[2];
     const int normal = state.pressed ? 1 : 0;

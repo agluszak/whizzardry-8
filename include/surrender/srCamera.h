@@ -65,10 +65,7 @@ public:
     void setProjectionType(e_project projection);
     void normalizeViewPlane();
     // FUNCTION: SURRENDER 0x10048020
-    static const char* sGetClassName()
-    {
-        return "srCamera";
-    }
+    static const char* sGetClassName() { return "srCamera"; }
     void setEnvironmentScale(float near_scale, float far_scale);
     void setFocalLength(double focal_length, double aspect_ratio);
     void setFOV(double field_of_view, double aspect_ratio);

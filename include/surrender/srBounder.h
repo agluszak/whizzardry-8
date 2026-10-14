@@ -15,10 +15,7 @@ public:
     srBounder& operator=(const srBounder& other);
 
     // FUNCTION: SURRENDER 0x1004B070
-    static const char* sGetClassName()
-    {
-        return "srBounder";
-    }
+    static const char* sGetClassName() { return "srBounder"; }
 
     /* Empty derived destruction is the implicit srNode-base teardown. */
 

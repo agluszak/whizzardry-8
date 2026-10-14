@@ -79,10 +79,7 @@ public:
     void SetActive(bool enabled);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void SetCombatView(bool enabled);
-    void InvalidateAll()
-    {
-        m_dirty = true;
-    }
+    void InvalidateAll() { m_dirty = true; }
     UiLayer input;
     bool m_combat_view = true;
     bool m_active = false;

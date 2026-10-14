@@ -19,9 +19,7 @@ template<class T, class U>
 bool erase_first(std::vector<T>& values, const U& value)
 {
     const auto found = std::ranges::find(values, value);
-    if (found == values.end()) {
-        return false;
-    }
+    if (found == values.end()) return false;
     values.erase(found);
     return true;
 }

@@ -38,10 +38,7 @@ enum W8MeshModelFlag {
 // VTABLE: WIZ8 0x005ec4b0 srClassSupport<stMeshModel, srMeshModel, 65539>
 class stMeshModel : public srClassSupport<stMeshModel, srMeshModel, 0x10003> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stMeshModel";
-    }
+    static const char* sGetClassName() { return "stMeshModel"; }
 
     stMeshModel(w8_long polygons, w8_long vertices);
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
@@ -131,14 +128,8 @@ public:
             stMeshModel* first;
             std::size_t index;
         };
-        iterator begin() const
-        {
-            return {first, 0};
-        }
-        iterator end() const
-        {
-            return {first, first ? first->parts.size() + 1 : 0};
-        }
+        iterator begin() const { return {first, 0}; }
+        iterator end() const { return {first, first ? first->parts.size() + 1 : 0}; }
 
     private:
         stMeshModel* first;

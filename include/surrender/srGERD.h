@@ -80,10 +80,7 @@ public:
             int direct_vertex_indices;
             const glm::mat4* project_clip_near;
             float sort_bias;
-            w8_ulong triangleCount() const
-            {
-                return static_cast<w8_ulong>(indices.size());
-            }
+            w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
         };
 
         struct Parameters {
@@ -111,10 +108,7 @@ public:
                 return texture0 == other.texture0 && texture1 == other.texture1 &&
                        shader.value == other.shader.value;
             }
-            bool operator!=(const TextureSetKey& other) const
-            {
-                return !(*this == other);
-            }
+            bool operator!=(const TextureSetKey& other) const { return !(*this == other); }
         };
         struct TextureSetHash {
             size_t operator()(const TextureSetKey& key) const noexcept
@@ -471,28 +465,16 @@ public:
     void setExclusionMask(w8_ulong mask);
     // FUNCTION: SURRENDER 0x1001BB70 SYMBOL
     // RECOMP: ?getMaxTextureStages@srGERD@@QBEJXZ
-    w8_long getMaxTextureStages() const
-    {
-        return device.info.max_texture_stages;
-    }
+    w8_long getMaxTextureStages() const { return device.info.max_texture_stages; }
     // FUNCTION: SURRENDER 0x1001CF10 SYMBOL
     // RECOMP: ?getMaxPickStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxPickStackDepth() const
-    {
-        return 0x20;
-    }
+    w8_long getMaxPickStackDepth() const { return 0x20; }
     // FUNCTION: SURRENDER 0x1001CF20 SYMBOL
     // RECOMP: ?getMaxModelviewStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxModelviewStackDepth() const
-    {
-        return 0x20;
-    }
+    w8_long getMaxModelviewStackDepth() const { return 0x20; }
     // FUNCTION: SURRENDER 0x1001CF30 SYMBOL
     // RECOMP: ?getMaxProjectionStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxProjectionStackDepth() const
-    {
-        return 0x20;
-    }
+    w8_long getMaxProjectionStackDepth() const { return 0x20; }
     bool pushMatrix();
     void popMatrix();
     void pushEnable();
@@ -619,17 +601,11 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BB80 SYMBOL
     // RECOMP: ?isPickStackEmpty@srGERD@@QBEHXZ
-    int isPickStackEmpty() const
-    {
-        return pick.pick_depth == 0;
-    }
+    int isPickStackEmpty() const { return pick.pick_depth == 0; }
 
     // FUNCTION: SURRENDER 0x1001BAE0 SYMBOL
     // RECOMP: ?isEnabled@srGERD@@QBEHW4e_enable@1@@Z
-    int isEnabled(e_enable option) const
-    {
-        return (enable_flags.value & (1UL << option)) != 0;
-    }
+    int isEnabled(e_enable option) const { return (enable_flags.value & (1UL << option)) != 0; }
 
     // FUNCTION: SURRENDER 0x1001BB90 SYMBOL
     // RECOMP: ?setCullMode@srGERD@@QAEXW4e_cullMode@1@@Z
@@ -661,10 +637,7 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BEE0 SYMBOL
     // RECOMP: ?getVertexArrayMask@srGERD@@QBE?AV?$srFlags@W4e_vertexArray@srRendererDefs@@@@XZ
-    srFlags<srRendererDefs::e_vertexArray> getVertexArrayMask() const
-    {
-        return vertex_arrays.mask;
-    }
+    srFlags<srRendererDefs::e_vertexArray> getVertexArrayMask() const { return vertex_arrays.mask; }
 
     void setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
                            const void* values);

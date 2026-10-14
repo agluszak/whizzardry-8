@@ -31,33 +31,23 @@ try {
     int count;
     handle->seek(-8, wiz8::SeekOrigin::end);
     handle->read_exact(&count, 4);
-    if (index < 0 || count < 0 || index >= count) {
-        return {};
-    }
+    if (index < 0 || count < 0 || index >= count) return {};
     int entry_offset;
     handle->seek(-static_cast<std::int64_t>((count - index) * 4LL + 8), wiz8::SeekOrigin::end);
     handle->read_exact(&entry_offset, 4);
-    if (entry_offset < 5) {
-        return {};
-    }
+    if (entry_offset < 5) return {};
     handle->seek(entry_offset, wiz8::SeekOrigin::begin);
     unsigned int first, second;
     handle->read_exact(&first, 4);
     handle->read_exact(&second, 4);
     int length;
     handle->read_exact(&length, 4);
-    if (length < 0 || length > 2000) {
-        return {};
-    }
+    if (length < 0 || length > 2000) return {};
     std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
     handle->read_exact(bytes.data(), bytes.size());
     const auto text = wiz8::text::from_utf16le(bytes, header[4] != 0);
-    if (metadata_00) {
-        *metadata_00 = first;
-    }
-    if (metadata_04) {
-        *metadata_04 = second;
-    }
+    if (metadata_00) *metadata_00 = first;
+    if (metadata_04) *metadata_04 = second;
     return text;
 } catch (const std::exception&) {
     return {};
@@ -82,13 +72,12 @@ static std::string ImportLocalizedPattern(std::string text)
          it != std::sregex_iterator(); ++it) {
         const auto& match = *it;
         result.append(text, position, match.position() - position);
-        if (match.str() == "%%") {
+        if (match.str() == "%%")
             result += "%%";
-        } else if (match[3].matched) {
+        else if (match[3].matched)
             result += "%" + match[2].str() + "ll" + match[3].str();
-        } else {
+        else
             result += "%" + match[1].str() + "s";
-        }
         position = match.position() + match.length();
     }
     result.append(text, position);
@@ -101,17 +90,14 @@ void LoadLocalizedStrings(std::string_view path)
     auto handle = wiz8::open_file(path);
     int count;
     handle->read_exact(&count, 4);
-    if (count <= 0 || count > 100000) {
-        throw std::runtime_error("Invalid localization entry count");
-    }
+    if (count <= 0 || count > 100000) throw std::runtime_error("Invalid localization entry count");
     std::vector<std::string> pending;
     pending.reserve(count);
     for (int index = 0; index < count; ++index) {
         int byte_count;
         handle->read_exact(&byte_count, 4);
-        if (byte_count < 0 || byte_count > 1024 * 1024 || byte_count % 2) {
+        if (byte_count < 0 || byte_count > 1024 * 1024 || byte_count % 2)
             throw std::runtime_error("Invalid localization text length");
-        }
         std::vector<std::byte> bytes(byte_count);
         handle->read_exact(bytes.data(), bytes.size());
         pending.push_back(ImportLocalizedPattern(wiz8::text::from_utf16le(bytes, true)));

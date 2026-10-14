@@ -78,9 +78,7 @@ void Font::resetPalette()
 
 std::uint16_t Font::createShades(std::uint32_t glow)
 {
-    if (!glyphs) {
-        return false;
-    }
+    if (!glyphs) return false;
     shades.clear();
     shades.resize(16);
     switch (glow) {
@@ -118,9 +116,7 @@ std::uint16_t Font::createShades(std::uint32_t glow)
 
 std::uint16_t Font::setShade(std::uint32_t shade)
 {
-    if (shade != kNormalShade && (shade >= shades.size() || !shades[shade])) {
-        return false;
-    }
+    if (shade != kNormalShade && (shade >= shades.size() || !shades[shade])) return false;
     currentShade = shade;
     return true;
 }
@@ -133,9 +129,7 @@ std::uint16_t Font::color(std::uint8_t index) const
 bool Font::load(std::string_view filename)
 {
     auto sheet = g_image_assets.sprites(filename);
-    if (!sheet) {
-        return false;
-    }
+    if (!sheet) return false;
     clear();
     glyphs = std::move(sheet);
     return true;
@@ -143,9 +137,7 @@ bool Font::load(std::string_view filename)
 
 static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
-    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size()) {
-        return 0;
-    }
+    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size()) return 0;
     const auto& glyph = sprites.frames[ssIndex];
     return glyph.width + glyph.offset.x;
 }
@@ -160,15 +152,11 @@ std::int16_t Font::codepointPrefixWidth(std::string_view string, std::uint32_t u
 
 std::int16_t Font::prefixWidth(std::string_view string, std::size_t byte_end) const
 {
-    if (!glyphs || glyphs->frames.empty()) {
-        return 0;
-    }
+    if (!glyphs || glyphs->frames.empty()) return 0;
     std::uint32_t width = 0;
     for (std::size_t offset = 0; offset < string.size() && offset < byte_end;) {
         const auto glyph = GetIndex(wiz8::text::next(string, offset));
-        if (offset > byte_end) {
-            break;
-        }
+        if (offset > byte_end) break;
         width += GetWidth(*glyphs, glyph);
     }
     return static_cast<std::int16_t>(width);
@@ -181,18 +169,14 @@ std::int16_t Font::textWidth(std::string_view string) const
 
 static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
-    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size()) {
-        return 0;
-    }
+    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size()) return 0;
     const auto& glyph = sprites.frames[ssIndex];
     return glyph.height + glyph.offset.y;
 }
 
 std::uint16_t Font::height() const
 {
-    if (!glyphs || glyphs->frames.empty()) {
-        return 0;
-    }
+    if (!glyphs || glyphs->frames.empty()) return 0;
     return static_cast<std::uint16_t>(GetHeight(*glyphs, 0));
 }
 
@@ -201,9 +185,8 @@ std::uint16_t Font::height() const
 std::int16_t GetIndex(char32_t siChar)
 {
     const auto glyph = std::find(g_font_translation.begin(), g_font_translation.end(), siChar);
-    if (glyph != g_font_translation.end()) {
+    if (glyph != g_font_translation.end())
         return static_cast<std::int16_t>(glyph - g_font_translation.begin());
-    }
     const auto fallback = std::find(g_font_translation.begin(), g_font_translation.end(), '?');
     return fallback == g_font_translation.end()
                ? 0
@@ -223,9 +206,7 @@ SDL_Point Font::centeredPosition(const SDL_Rect& bounds, std::string_view text) 
 void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
               TextOptions options)
 {
-    if (!font.glyphs) {
-        return;
-    }
+    if (!font.glyphs) return;
     SDL_Rect clip{};
     SDL_GetSurfaceClipRect(&target, &clip);
     const auto& sprites = *font.glyphs;
@@ -233,9 +214,7 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
     int y = at.y;
     for (std::size_t offset = 0; offset < text.size();) {
         const auto glyph = GetIndex(wiz8::text::next(text, offset));
-        if (glyph < 0 || static_cast<std::size_t>(glyph) >= sprites.frames.size()) {
-            continue;
-        }
+        if (glyph < 0 || static_cast<std::size_t>(glyph) >= sprites.frames.size()) continue;
         if (options.wrap && SpriteIsClipped(sprites, glyph, x, y, clip)) {
             x = at.x;
             y += GetHeight(sprites, glyph);

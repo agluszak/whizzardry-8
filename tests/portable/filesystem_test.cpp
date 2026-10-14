@@ -34,16 +34,11 @@ struct TemporaryDirectory {
         std::random_device random;
         for (unsigned i = 0; i < 100; ++i) {
             path = fs::temp_directory_path() / ("wiz8-api-" + std::to_string(random()));
-            if (fs::create_directory(path)) {
-                return;
-            }
+            if (fs::create_directory(path)) return;
         }
         throw std::runtime_error("create test directory");
     }
-    ~TemporaryDirectory()
-    {
-        fs::remove_all(path);
-    }
+    ~TemporaryDirectory() { fs::remove_all(path); }
 };
 void fixture(const fs::path& path, const std::string& text)
 {
@@ -113,9 +108,7 @@ static void exercise_filesystem(bool default_roots)
         const auto roots = w8_native::path_roots();
         REQUIRE(
             fs::equivalent(path_from_utf8(roots.user), old.empty() ? pref : path_from_utf8(old)));
-        if (isolated_pref) {
-            REQUIRE(read_all(*open_file("C:/Saves/old.sav")) == "old-save");
-        }
+        if (isolated_pref) REQUIRE(read_all(*open_file("C:/Saves/old.sav")) == "old-save");
         SDL_Quit();
         return;
     }
@@ -224,12 +217,11 @@ static void exercise_filesystem(bool default_roots)
     fixture(outside / "CaseSensitive.bin", "exact host");
     std::error_code case_error;
     const bool case_insensitive_host = fs::exists(outside / "casesensitive.BIN", case_error);
-    if (case_insensitive_host) {
+    if (case_insensitive_host)
         REQUIRE(read_all(*open_host_file(outside / "casesensitive.BIN")) == "exact host");
-    } else {
+    else
         REQUIRE_THROWS_AS(([&] { open_host_file(outside / "casesensitive.BIN"); })(),
                           std::exception);
-    }
     REQUIRE_THROWS_AS(([&] { open_file(path_to_utf8(outside / "new"), OpenMode::replace); })(),
                       std::exception);
     REQUIRE_THROWS_AS(([&] { open_file(path_to_utf8(assets / "Data" / "Mixed.BIN")); })(),
@@ -254,9 +246,8 @@ static void exercise_filesystem(bool default_roots)
     REQUIRE(read_all(*open_file("Data/Copy.bin")) == "retail");
     REQUIRE_THROWS_AS(([] { copy_file("Data/Copy.bin", "Data/Copy.bin", CopyMode::replace); })(),
                       std::exception);
-    for (const auto& entry : fs::directory_iterator(user / "Data")) {
+    for (const auto& entry : fs::directory_iterator(user / "Data"))
         REQUIRE(path_to_utf8(entry.path().filename()).rfind(".wiz8-copy-", 0) != 0);
-    }
 
     // Symlink creation may need host privileges (notably on Windows); no runtime
     // OS branch. If supported, both virtual and host write aliases are blocked.
@@ -271,9 +262,8 @@ static void exercise_filesystem(bool default_roots)
             std::exception);
         REQUIRE_THROWS_AS(([] { remove_file("alias/Mixed.BIN"); })(), std::exception);
         REQUIRE(contents(assets / "Data" / "Mixed.BIN") == "retail");
-    } else {
+    } else
         std::fprintf(stderr, "Symlink checks unavailable: %s\n", error.message().c_str());
-    }
     error.clear();
     fs::create_directory_symlink(outside, user / "escape", error);
     if (!error) {
@@ -283,10 +273,9 @@ static void exercise_filesystem(bool default_roots)
     }
     error.clear();
     fs::create_directory_symlink(outside, assets / "escape", error);
-    if (!error) {
+    if (!error)
         REQUIRE_THROWS_AS(([&] { open_host_file(assets / "escape" / "new", OpenMode::replace); })(),
                           std::exception);
-    }
     const auto synthetic_pref = temporary.path / "preferences" / "Whizzardry" / "whizzardry8";
     const auto synthetic_legacy = temporary.path / "preferences" / "whizzardry8";
     REQUIRE(w8_native::existing_legacy_user_root(path_to_utf8(synthetic_pref)).empty());

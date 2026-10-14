@@ -365,14 +365,8 @@ public:
     short ProjectLinkedRegionsForLocation(srVector3T<float>* location,
                                           unsigned short* region_list); /* 0x00431050 */
 
-    bool HasLoadError() const
-    {
-        return (m_spatial.flags & 0x80000000) != 0;
-    }
-    w8_ulong GetMeshCount() const
-    {
-        return m_spatial.submesh_count;
-    }
+    bool HasLoadError() const { return (m_spatial.flags & 0x80000000) != 0; }
+    w8_ulong GetMeshCount() const { return m_spatial.submesh_count; }
 
 public:
     // Shared spatial queries borrow region volumes owned by this tree.

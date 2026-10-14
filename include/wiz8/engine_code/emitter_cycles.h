@@ -11,13 +11,12 @@
 
 inline void SelectInitialEmitterLod(W8EmitterHost& host, signed char cycle)
 {
-    if (host.SetCycleFrameLod(cycle, 0, 2)) {
+    if (host.SetCycleFrameLod(cycle, 0, 2))
         host.m_bLOD = 2;
-    } else if (host.SetCycleFrameLod(cycle, 0, 1)) {
+    else if (host.SetCycleFrameLod(cycle, 0, 1))
         host.m_bLOD = 1;
-    } else {
+    else
         host.m_bLOD = 0;
-    }
 }
 
 inline void StartEmitterCycle(W8EmitterHost& host, const W8AnimObj& animation, signed char cycle)

@@ -212,9 +212,7 @@ void DestroyGameplayObjects(void)
         delete owned;
         gXStatus.character_event_queue = 0;
     }
-    for (auto& slot : gXStatus.monster_manager_entries) {
-        slot.mouth_gap = {};
-    }
+    for (auto& slot : gXStatus.monster_manager_entries) slot.mouth_gap = {};
     if (gXStatus.gameplay_timer) {
         delete gXStatus.gameplay_timer;
         gXStatus.gameplay_timer = 0;

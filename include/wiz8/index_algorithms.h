@@ -27,17 +27,14 @@ void InsertUniqueIndexValue(Index& index, typename Index::key_type key,
                             typename Index::mapped_type value)
 {
     const auto [first, last] = index.equal_range(key);
-    if (std::find_if(first, last, [&](const auto& item) { return item.second == value; }) == last) {
+    if (std::find_if(first, last, [&](const auto& item) { return item.second == value; }) == last)
         InsertIndexValue(index, key, value);
-    }
 }
 
 template<class Index, class Key>
 auto NextIndexValue(Index& index, Key key, typename Index::iterator previous)
 {
-    if (previous == index.end()) {
-        return index.equal_range(key).first;
-    }
+    if (previous == index.end()) return index.equal_range(key).first;
     const auto next = std::next(previous);
     return next != index.end() && next->first == key ? next : index.end();
 }
@@ -55,16 +52,12 @@ void RemoveIndexValue(Index& index, Key key, Value value)
     const auto [first, last] = index.equal_range(key);
     const auto found =
         std::find_if(first, last, [&](const auto& item) { return item.second == value; });
-    if (found != last) {
-        index.erase(found);
-    }
+    if (found != last) index.erase(found);
 }
 
 template<class Index, class Key>
 void RemoveIndexValue(Index& index, Key key)
 {
     const auto [first, last] = index.equal_range(key);
-    if (first != last) {
-        index.erase(first);
-    }
+    if (first != last) index.erase(first);
 }

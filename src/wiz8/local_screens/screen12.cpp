@@ -62,9 +62,7 @@ void ExitScreenFrame(void)
     PumpUiInput({
         .unhandled =
             [](const InputEvent& input) {
-                if (input.type == InputEventType::KeyDown) {
-                    gfProgramIsRunning = 0;
-                }
+                if (input.type == InputEventType::KeyDown) gfProgramIsRunning = 0;
                 return InputRoute::Handled;
             },
         .track_hover = false,

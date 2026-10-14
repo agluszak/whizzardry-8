@@ -102,16 +102,12 @@ void UpdatePartyMovementPanel(void)
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
     movement->visible_button = visible;
-    for (int index = 0; index < 2; ++index) {
-        movement->buttons[index]->SetVisible(index == visible);
-    }
+    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
 }
 
 void DisablePartyMovementRegions(void)
 {
-    if (movement) {
-        movement->input.setEnabled(false);
-    }
+    if (movement) movement->input.setEnabled(false);
 }
 
 void DrawPartyMovementPanel(void)
@@ -136,12 +132,8 @@ void DrawPartyMovementPanel(void)
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
     movement->visible_button = visible;
-    for (int index = 0; index < 2; ++index) {
-        movement->buttons[index]->SetVisible(index == visible);
-    }
-    if (visible == 1) {
-        movement->buttons[1]->SetEnabled(g_combat_state->round_active);
-    }
+    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
+    if (visible == 1) movement->buttons[1]->SetEnabled(g_combat_state->round_active);
     panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
     if (panel_live) {
         CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);

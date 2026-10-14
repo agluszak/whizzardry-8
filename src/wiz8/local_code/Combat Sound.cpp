@@ -46,9 +46,7 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     std::string zSoundFileName;
     wiz8::sound::Playback handle;
 
-    if (sound_name.empty()) {
-        return;
-    }
+    if (sound_name.empty()) return;
     const auto variant = variant_count > 1 ? fmt::format("{}", Random(variant_count) + 1) : "";
     zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}{}.wav", sound_name, variant);
     if (![&]() {
@@ -81,25 +79,17 @@ try {
     decltype(g_material_impact_sounds) impacts;
     std::string line;
     auto trim = [&] {
-        if (const auto comment = line.find('*'); comment != line.npos) {
-            line.resize(comment);
-        }
+        if (const auto comment = line.find('*'); comment != line.npos) line.resize(comment);
         line.resize(line.find_last_not_of(" \t\r\n\v\f") + 1);
     };
     std::size_t row = 0;
     while (row < attacks.size() && std::getline(input, line)) {
         trim();
-        if (const auto marker = line.find('#'); marker != line.npos) {
-            line.resize(marker);
-        }
+        if (const auto marker = line.find('#'); marker != line.npos) line.resize(marker);
         trim();
-        if (!line.empty()) {
-            attacks[row++] = line;
-        }
+        if (!line.empty()) attacks[row++] = line;
     }
-    if (row != attacks.size()) {
-        return false;
-    }
+    if (row != attacks.size()) return false;
     row = 0;
     int column = -1;
     while (std::getline(input, line)) {
@@ -109,12 +99,8 @@ try {
             continue;
         }
         trim();
-        if (line.empty()) {
-            continue;
-        }
-        if (row >= impacts.size() || column < 0 || column >= 12) {
-            return false;
-        }
+        if (line.empty()) continue;
+        if (row >= impacts.size() || column < 0 || column >= 12) return false;
         impacts[row++][column] = line;
     }
     g_weapon_attack_sounds = std::move(attacks);
@@ -135,9 +121,8 @@ void ReleaseHitSoundDatabase(void)
 // FUNCTION: WIZ8 0x00549EB0
 std::string_view GetMaterialImpactSound(int weapon_class, int target_material)
 {
-    if (weapon_class < 0 || weapon_class >= 28 || target_material < 0 || target_material >= 12) {
+    if (weapon_class < 0 || weapon_class >= 28 || target_material < 0 || target_material >= 12)
         return "HIT";
-    }
     const auto& sound = g_material_impact_sounds[weapon_class][target_material];
     return sound.empty() ? g_material_impact_sounds[0][target_material] : sound;
 }

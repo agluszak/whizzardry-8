@@ -60,21 +60,16 @@ using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8
 template<class T>
 static T* MipeCategoryValue(const std::vector<W8MipeCategoryEntry>* rows, int index)
 {
-    if (!rows || index < 0 || index >= static_cast<int>(rows->size())) {
-        return nullptr;
-    }
+    if (!rows || index < 0 || index >= static_cast<int>(rows->size())) return nullptr;
     const auto* value = std::get_if<T*>(&(*rows)[index]);
     return value ? *value : nullptr;
 }
 
 static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>* rows, int index)
 {
-    if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index)) {
-        return monster->name;
-    }
-    if (auto* item = MipeCategoryValue<W8ItemDatabaseRecord>(rows, index)) {
+    if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index)) return monster->name;
+    if (auto* item = MipeCategoryValue<W8ItemDatabaseRecord>(rows, index))
         return item->display_name;
-    }
     return {};
 }
 

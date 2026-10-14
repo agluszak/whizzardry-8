@@ -87,21 +87,12 @@ public:
 // FUNCTION: SURRENDER 0x100598F0 SYMBOL
 // RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
 
-    w8_long getHeight() const
-    {
-        return height;
-    }
+    w8_long getHeight() const { return height; }
 // FUNCTION: SURRENDER 0x100599E0 SYMBOL
 // RECOMP: ?getPitch@srColorSurfaceIFace@@QBEJXZ
 
-    w8_long getPitch() const
-    {
-        return pitch;
-    }
-    const srPixelConvert::PixelFormat& getPixelFormat() const
-    {
-        return pixel_format;
-    }
+    w8_long getPitch() const { return pitch; }
+    const srPixelConvert::PixelFormat& getPixelFormat() const { return pixel_format; }
 
     SurfaceDesc getSurfaceDesc() const
     {
@@ -115,17 +106,11 @@ public:
 // FUNCTION: SURRENDER 0x10059A60 SYMBOL
 // RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
 
-    w8_long getWidth() const
-    {
-        return width;
-    }
+    w8_long getWidth() const { return width; }
 // FUNCTION: SURRENDER 0x10059A90 SYMBOL
 // RECOMP: ?setFilter@srColorSurfaceIFace@@QAEXPAVsrFilter@@@Z
 
-    void setFilter(srFilter* filter)
-    {
-        this->filter = filter;
-    }
+    void setFilter(srFilter* filter) { this->filter = filter; }
     SR_DLL_IMPORT void setHClampMode(int enabled);
     SR_DLL_IMPORT void setVClampMode(int enabled);
 

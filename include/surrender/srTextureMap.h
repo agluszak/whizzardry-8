@@ -16,10 +16,7 @@ public:
 
     // FUNCTION: SURRENDER 0x10060770 SYMBOL
     // RECOMP: ?sGetClassName@srTextureMap@@SAPBDXZ
-    static const char* sGetClassName()
-    {
-        return "srTextureMap";
-    }
+    static const char* sGetClassName() { return "srTextureMap"; }
     srTextureMap& operator=(const srTextureMap& other);
     virtual void dump(std::ostream& stream) override;
 

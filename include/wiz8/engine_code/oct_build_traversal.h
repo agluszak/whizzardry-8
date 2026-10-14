@@ -12,17 +12,11 @@ bool InsertBuildSurfaceChildren(W8OctSpatialState* parent, W8OctSpatialState& ch
     bool inserted = false;
     for (unsigned octant = 0; octant < 8; ++octant) {
         child.setChildBounds(*parent, octant, extent);
-        if (!overlaps(child)) {
-            continue;
-        }
+        if (!overlaps(child)) continue;
         auto*& node = parent->m_root->children[octant];
-        if (!node) {
-            node = create_node();
-        }
+        if (!node) node = create_node();
         child.m_root = node;
-        if (insert_child(child)) {
-            inserted = true;
-        }
+        if (insert_child(child)) inserted = true;
     }
     return inserted;
 }

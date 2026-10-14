@@ -70,27 +70,20 @@ constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed}
 // the party has no saves.
 unsigned char DrawMainMenuItem(short item, short state)
 {
-    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) {
-        return 0;
-    }
-    if (item == 2 && !g_main_menu_has_save_games) {
-        state = 3;
-    }
+    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return 0;
+    if (item == 2 && !g_main_menu_has_save_games) state = 3;
 
     const auto& bounds = main_menu_item_bounds[item];
-    if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size()) {
+    if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
         CatalogArtwork::Load(main_menu_sprite_objects[state], 0)
             .draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
-    }
     InvalidateRegion(0x98, bounds.y, 0x1f2, bounds.y + bounds.h - 1);
     return 1;
 }
 
 static void DrawMainMenuItems()
 {
-    for (short item = 0; item < 6; ++item) {
-        DrawMainMenuItem(item, 0);
-    }
+    for (short item = 0; item < 6; ++item) DrawMainMenuItem(item, 0);
     DrawMainMenuItem(g_main_menu_selected_item, 1);
 }
 
@@ -138,24 +131,20 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
     const bool available = item != 2 || g_main_menu_has_save_games;
     switch (event.action) {
     case UiPointerAction::Enter:
-        if (available) {
-            SelectMainMenuItem(item);
-        }
+        if (available) SelectMainMenuItem(item);
         break;
     case UiPointerAction::Leave:
         DrawMainMenuItem(g_main_menu_selected_item, 0);
         g_main_menu_selected_item = -1;
         break;
     case UiPointerAction::Down:
-        if (available && event.button == UiPointerButton::Left) {
+        if (available && event.button == UiPointerButton::Left)
             DrawMainMenuItem(g_main_menu_selected_item, 2);
-        }
         break;
     case UiPointerAction::Up:
         if (!available || event.button != UiPointerButton::Left ||
-            !(event.captured_buttons & SDL_BUTTON_LMASK)) {
+            !(event.captured_buttons & SDL_BUTTON_LMASK))
             break;
-        }
         DrawMainMenuItem(g_main_menu_selected_item, event.inside ? 1 : 0);
         if (event.inside) {
             AfterUiDispatch([item] { ActivateMainMenuItem(item); });

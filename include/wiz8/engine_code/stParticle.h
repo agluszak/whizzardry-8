@@ -25,10 +25,7 @@ class File;
 
 class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stParticle";
-    }
+    static const char* sGetClassName() { return "stParticle"; }
     stParticle(srNode* parent, int count); /* 0x00497AF0 */
     stParticle(const stParticle& other);   /* 0x00498180 */
     void SetActive(unsigned char active);

@@ -20,11 +20,10 @@ inline glm::ivec3 remapTriangle(glm::ivec3 triangle, std::span<const w8_ulong> i
 {
     for (int corner = 0; corner < 3; ++corner) {
         const auto index = static_cast<w8_ulong>(triangle[corner]);
-        if (index < indices.size()) {
+        if (index < indices.size())
             triangle[corner] = indices[index];
-        } else if (!retain_external) {
+        else if (!retain_external)
             throw std::out_of_range("Mesh corner index out of range");
-        }
     }
     return triangle;
 }
@@ -48,17 +47,13 @@ std::vector<glm::vec3> vertexNormalSums(std::span<const glm::ivec3> triangles,
     for (std::size_t polygon = 0; polygon < triangles.size(); ++polygon) {
         const auto& triangle = triangles[polygon];
         const glm::vec3 normal(normals[polygon]);
-        for (const auto vertex : {triangle.x, triangle.y, triangle.z}) {
+        for (const auto vertex : {triangle.x, triangle.y, triangle.z})
             sums[shade_indices.empty() ? vertex : shade_indices[vertex]] += normal;
-        }
     }
-    if (shade_indices.empty()) {
-        return sums;
-    }
+    if (shade_indices.empty()) return sums;
     std::vector<glm::vec3> result(vertex_count);
-    for (std::size_t vertex = 0; vertex < vertex_count; ++vertex) {
+    for (std::size_t vertex = 0; vertex < vertex_count; ++vertex)
         result[vertex] = sums[shade_indices[vertex]];
-    }
     return result;
 }
 } // namespace srMeshMath

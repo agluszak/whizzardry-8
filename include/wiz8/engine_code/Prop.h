@@ -96,10 +96,7 @@ public:
     W8Prop();                   /* 0x0044BC00 */
     virtual ~W8Prop() override; /* complete destructor 0x0044BEC0 */
 
-    W8PropRepresentation* Rep() const
-    {
-        return static_cast<W8PropRepresentation*>(m_pRep);
-    }
+    W8PropRepresentation* Rep() const { return static_cast<W8PropRepresentation*>(m_pRep); }
 
     void DetachAnimationInstances(W8World* world);
     void UpdatePropAnimation();

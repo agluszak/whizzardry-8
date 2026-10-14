@@ -33,9 +33,7 @@ std::uint32_t Random(std::uint32_t uiRange)
 {
     // Always return 0, if no range given (it's not an error)
 
-    if (uiRange == 0) {
-        return (0);
-    }
+    if (uiRange == 0) return (0);
     return ScaleRoll(rand(), uiRange);
 }
 

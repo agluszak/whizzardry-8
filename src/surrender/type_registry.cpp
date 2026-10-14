@@ -202,13 +202,9 @@ const char* srRegistry::getClassName(ClassNode* node)
 
 int srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
 {
-    if (!base) {
-        return 0;
-    }
+    if (!base) return 0;
     for (; derived; derived = derived->parent) {
-        if (derived == base) {
-            return 1;
-        }
+        if (derived == base) return 1;
     }
     return 0;
 }

@@ -321,9 +321,8 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
       frame_bounds(other.frame_bounds)
 {
     for (int group = 0; group < 3; ++group) {
-        if (other.entries[group]) {
+        if (other.entries[group])
             entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
-        }
         meshes[group].reserve(other.meshes[group].size());
         for (const auto& mesh : other.meshes[group]) {
             meshes[group].push_back(mesh ? std::make_unique<W8AniMesh>(*mesh) : nullptr);
@@ -331,9 +330,7 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
         paths[group].reserve(other.paths[group].size());
         for (const auto& source : other.paths[group]) {
             auto copy = source ? std::make_unique<W8PathAI>(*source) : nullptr;
-            if (copy) {
-                copy->timed = false;
-            }
+            if (copy) copy->timed = false;
             paths[group].push_back(std::move(copy));
         }
     }
@@ -350,45 +347,31 @@ std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char 
                                               unsigned int frame)
 {
     if (!animation || list_index < 0 ||
-        std::cmp_greater_equal(list_index, std::size(animation->entries))) {
+        std::cmp_greater_equal(list_index, std::size(animation->entries)))
         return std::nullopt;
-    }
     frame &= 0xff;
     if (frame < animation->frame_bounds.size() && animation->frame_bounds[frame].known) {
         const auto& bounds = animation->frame_bounds[frame];
         return srBoundingBox{bounds.minimum.glmValue(), bounds.maximum.glmValue()};
     }
-    if (!animation->path_lists) {
-        return GetAniMeshBounds(animation->entries[list_index].get());
-    }
-    if (frame >= animation->frame_count) {
-        return std::nullopt;
-    }
-    if (animation->frame_bounds.size() < animation->frame_count) {
+    if (!animation->path_lists) return GetAniMeshBounds(animation->entries[list_index].get());
+    if (frame >= animation->frame_count) return std::nullopt;
+    if (animation->frame_bounds.size() < animation->frame_count)
         animation->frame_bounds.resize(animation->frame_count);
-    }
     auto* first_mesh = AnimObjEntry(animation, list_index, 0);
-    if (!first_mesh) {
-        return std::nullopt;
-    }
+    if (!first_mesh) return std::nullopt;
     auto bounds = GetAniMeshBounds(first_mesh);
-    if (!bounds) {
-        return std::nullopt;
-    }
+    if (!bounds) return std::nullopt;
     const auto count = animation->meshes[list_index].size();
     for (std::size_t index = 0; index < count; ++index) {
         if (index != 0) {
             const auto mesh_bounds = GetAniMeshBounds(AnimObjEntry(animation, list_index, index));
-            if (!mesh_bounds) {
-                return std::nullopt;
-            }
+            if (!mesh_bounds) return std::nullopt;
             bounds->include(*mesh_bounds);
         }
         auto* instance =
             AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
-        if (!instance) {
-            return std::nullopt;
-        }
+        if (!instance) return std::nullopt;
         if (auto* path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index))) {
             const float saved = PathAIGetValue(path);
             PathAISetValue(path, static_cast<float>(index));

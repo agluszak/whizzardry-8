@@ -121,10 +121,7 @@ public:
     ~W8CharacterStatsRow();
     void Collapse();
     void CollapseIfNotHovered();
-    void Invalidate()
-    {
-        m_dirty = true;
-    }
+    void Invalidate() { m_dirty = true; }
     void BuildSubpanel();
     void SetValue(int index);
     void SetEnabled(bool enabled);

@@ -56,10 +56,7 @@ class W8GroundShadowMapper : public srVertexProcessor {
 public:
     /* Retail ICF folds this onto W8NormalTexcoordMapper::isActive at
        0x004D6190. */
-    virtual int isActive(srVertexPipe&) override
-    {
-        return 1;
-    }
+    virtual int isActive(srVertexPipe&) override { return 1; }
     virtual void process(srVertexPipe& pipe) override;
 
     std::optional<GroundShadowProjection> projection;
@@ -79,15 +76,12 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += pipe.vertex_count;
     pipe.lazy_setup_mask |= 1 << CHANNEL_ST0;
 
-    if (pipe.vertex_count == 0) {
-        return;
-    }
+    if (pipe.vertex_count == 0) return;
     const std::span<const w8_ulong> indices(pipe.avt + pipe.sub_batch_offset, pipe.vertex_count);
     const std::span<glm::vec2> output(
         pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset, pipe.vertex_count);
-    for (std::size_t i = 0; i < output.size(); ++i) {
+    for (std::size_t i = 0; i < output.size(); ++i)
         output[i] = projection->coordinates(vertices[indices[i]]);
-    }
 }
 
 // VTABLE: WIZ8 0x005ed3f8
@@ -160,17 +154,12 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
     position.y += g_world_scale;
     const float radius = std::max(width, depth);
     const auto polygons = g_octree->polygonsNearPoint(position, radius, radius * 2 + g_world_scale);
-    if (polygons.empty()) {
-        return;
-    }
+    if (polygons.empty()) return;
 
     const struct OffsetScope {
         srGERD& renderer;
         w8_long previous;
-        ~OffsetScope()
-        {
-            renderer.setPolygonOffset(previous);
-        }
+        ~OffsetScope() { renderer.setPolygonOffset(previous); }
     } offset{renderer, renderer.getPolygonOffset()};
     renderer.setPolygonOffset(2);
     g_ground_shadow_material_parameters.projection.emplace(position, width, depth, angle);

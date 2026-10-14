@@ -374,13 +374,9 @@ static int FindNpcReplyQuote(std::string_view text)
 std::string GetNpcQuoteText(W8NpcState* npc, int type)
 {
     const W8NpcScriptFile* script = npc->script_file;
-    if (type < 0 || type >= static_cast<int>(script->quote_count)) {
-        return {};
-    }
+    if (type < 0 || type >= static_cast<int>(script->quote_count)) return {};
     const auto& record = script->quotes[type];
-    if (record.subquotes.empty() || record.subquotes[0].empty()) {
-        return {};
-    }
+    if (record.subquotes.empty() || record.subquotes[0].empty()) return {};
     return record.subquotes[0];
 }
 

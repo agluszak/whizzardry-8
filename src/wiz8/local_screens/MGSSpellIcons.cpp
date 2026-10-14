@@ -43,13 +43,9 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
 {
     layer = std::make_unique<UiLayer>(0x28);
     for (const auto& slot : slots) {
-        if (!slot.active) {
-            continue;
-        }
+        if (!slot.active) continue;
         const int icon = g_effect_visual_table[slot.effect_id].hud_icon;
-        if (icon < 0) {
-            continue;
-        }
+        if (icon < 0) continue;
         CatalogArtwork::Load(icon, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, origin.x,
                                                         origin.y);
         auto& target =
@@ -60,9 +56,7 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
                                duration = slot.duration;
                                return UiResult::Handled;
                            }
-                           if (event.action == UiPointerAction::Leave) {
-                               return UiResult::Handled;
-                           }
+                           if (event.action == UiPointerAction::Leave) return UiResult::Handled;
                            if (event.action == UiPointerAction::Move && duration != slot.duration) {
                                duration = slot.duration;
                                ResetUiHelp(false);
@@ -92,9 +86,7 @@ void RefreshCombatEffectHud()
 {
     left_icons.reset();
     right_icons.reset();
-    if (!gXStatus.fCombatMode) {
-        return;
-    }
+    if (!gXStatus.fCombatMode) return;
     PaintEffectStrip(left_icons, g_combat_state->effect_slots, {0x81, 0x14}, 0x15, 0x14, false);
     PaintEffectStrip(right_icons, g_combat_state->effect_slots0, {0x1eb, 0x14}, -0x15, 0x14, true);
     left_icons->setEnabled(!g_level_block->portrait_refresh_pending[0]);

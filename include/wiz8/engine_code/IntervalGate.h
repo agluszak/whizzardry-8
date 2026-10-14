@@ -17,10 +17,7 @@ public:
     /* 0x0043A500 */
     void Arm();                          /* 0x0043A530 */
     unsigned int PollElapsedIntervals(); /* 0x0043A5D0 */
-    bool IsFinished() const
-    {
-        return m_finished;
-    }
+    bool IsFinished() const { return m_finished; }
     /* Every waiter polls an unfinished gate before testing it again; the
        level scripts and the camera's manual-input hold expand this body. */
     bool PollFinished()

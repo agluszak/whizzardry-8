@@ -96,9 +96,8 @@ enum { NUM_RPC_RACES = 5 };
 // FUNCTION: WIZ8 0x005d6fb0
 W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
 {
-    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
+    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index)
         m_buttons.emplace_back(InputLayer());
-    }
     int index;
 
     SetExtent(0x180, 0x11d);
@@ -154,9 +153,7 @@ int W8AssayDialog::CreateControls()
             m_buttons[3].SetPressed(true);
             return 0;
         }
-        for (auto& button : m_buttons) {
-            button.Reset();
-        }
+        for (auto& button : m_buttons) button.Reset();
     }
     m_error = 7;
     return 7;
@@ -166,9 +163,7 @@ int W8AssayDialog::CreateControls()
 void W8AssayDialog::DestroyControls()
 {
     W8DialogBase::DestroyControls();
-    for (auto& button : m_buttons) {
-        button.Reset();
-    }
+    for (auto& button : m_buttons) button.Reset();
     DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
 }
 

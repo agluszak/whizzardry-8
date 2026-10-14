@@ -322,9 +322,7 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
         const auto projection = world->camera->project(glm::dvec3(corners[index].glmValue()));
-        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) {
-            return;
-        }
+        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) return;
         const auto projected = projection.position;
         screen[index][0] =
             static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);

@@ -413,9 +413,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     stMeshModel* first_model = model;
 
     const auto bounds = model->getBounds();
-    if (!model->isVisible(renderer)) {
-        return;
-    }
+    if (!model->isVisible(renderer)) return;
 
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
@@ -451,26 +449,18 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         srNode* child = this;
         for (auto* linked = first_model; linked; linked = linked->Next()) {
             draw(linked, linked == first_model);
-            if (child && child->testFlag(FLAG_TERMINATE)) {
-                break;
-            }
-            if (child) {
-                child = child->getChild();
-            }
+            if (child && child->testFlag(FLAG_TERMINATE)) break;
+            if (child) child = child->getChild();
         }
     };
     const auto selectPolygons = [&](stMeshModel& linked, srMeshModel::TriMesh& selected,
                                     bool replace_damage_texture) {
-        if (selected.active_polygons) {
-            return;
-        }
+        if (selected.active_polygons) return;
         const int table = damage_stage >= 0 ? damage_stage_tables.at(damage_stage) : -1;
-        if (replace_damage_texture && damage_stage >= 0) {
+        if (replace_damage_texture && damage_stage >= 0)
             selected.poly_textures[0][0] = linked.GetTextureTable(table);
-        }
-        if (const auto active = linked.GetActivePolygons(table, true)) {
+        if (const auto active = linked.GetActivePolygons(table, true))
             selected.active_polygons = active;
-        }
     };
     const auto submit = [&](stMeshModel& linked, const srMeshModel::TriMesh& submitted,
                             std::span<const glm::vec3> normals) {
@@ -564,9 +554,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                     if (expand == 0) {
                         std::copy_n(mesh.positions, mesh.vertex_count, g_vertex_scratch.begin());
                     } else {
-                        for (std::size_t i = 0; i < g_vertex_scratch.size(); ++i) {
+                        for (std::size_t i = 0; i < g_vertex_scratch.size(); ++i)
                             g_vertex_scratch[i] = expand * mesh.normals[i] + mesh.positions[i];
-                        }
                     }
                     mesh.positions = g_vertex_scratch.data();
                     mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);

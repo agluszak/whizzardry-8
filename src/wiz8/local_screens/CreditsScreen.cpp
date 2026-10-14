@@ -48,26 +48,16 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
         std::array<std::byte, 2> unit{};
         const auto result = handle->read(unit.data(), unit.size());
         if (!result.bytes) {
-            if (bytes.empty()) {
-                return {};
-            }
+            if (bytes.empty()) return {};
             break;
         }
-        if (result.bytes != 2) {
-            throw std::runtime_error("Truncated UTF-16LE line");
-        }
-        if (unit[0] == std::byte{10} && unit[1] == std::byte{}) {
-            break;
-        }
-        if (bytes.size() >= 254) {
-            throw std::runtime_error("Oversized credits line");
-        }
+        if (result.bytes != 2) throw std::runtime_error("Truncated UTF-16LE line");
+        if (unit[0] == std::byte{10} && unit[1] == std::byte{}) break;
+        if (bytes.size() >= 254) throw std::runtime_error("Oversized credits line");
         bytes.insert(bytes.end(), unit.begin(), unit.end());
     }
     auto text = wiz8::text::from_utf16le(bytes);
-    if (!text.empty() && text.back() == '\r') {
-        text.pop_back();
-    }
+    if (!text.empty() && text.back() == '\r') text.pop_back();
     return text;
 }
 
@@ -90,14 +80,10 @@ try {
     }();
     if (handle != 0) {
         std::optional<std::string> line_result;
-        if (handle->size() % 2) {
-            throw std::runtime_error("Truncated credits character");
-        }
+        if (handle->size() % 2) throw std::runtime_error("Truncated credits character");
         std::uint16_t marker;
         handle->read_exact(&marker, sizeof(marker));
-        if (marker != 0xfeff) {
-            handle->seek(0, wiz8::SeekOrigin::begin);
-        }
+        if (marker != 0xfeff) handle->seek(0, wiz8::SeekOrigin::begin);
         while (!(handle->tell() >= handle->size())) {
             if (((line_result = ReadRetailTextLine(handle.get())) &&
                  (line = std::move(*line_result), true)) &&
@@ -130,9 +116,7 @@ try {
                 pending.push_back(std::move(entry));
             }
         }
-        if (handle) {
-            handle->close();
-        }
+        if (handle) handle->close();
         handle.reset();
     }
     g_credit_line = 0;
@@ -165,9 +149,8 @@ void CreditsScreenFrame(void)
     // No clickable controls: dismiss directly on a key or mouse release.
     while (DequeueEvent(&input) == 1) {
         if (input.type == InputEventType::KeyDown || input.type == InputEventType::LeftButtonUp ||
-            input.type == InputEventType::RightButtonUp) {
+            input.type == InputEventType::RightButtonUp)
             RequestScreenTransition();
-        }
     }
 
     int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;

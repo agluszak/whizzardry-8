@@ -87,9 +87,7 @@ void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
     m_y = y;
-    if (m_body) {
-        m_body->setShape(SDL_Rect{x, y, m_width + 1, m_height + 1});
-    }
+    if (m_body) m_body->setShape(SDL_Rect{x, y, m_width + 1, m_height + 1});
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
@@ -137,9 +135,7 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    if (m_body) {
-        m_input.remove(*m_body);
-    }
+    if (m_body) m_input.remove(*m_body);
     m_body =
         &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, UI_PRIORITY_BACKGROUND);
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
@@ -151,9 +147,7 @@ int W8DialogBase::CreateControls()
 void W8DialogBase::DestroyControls()
 {
     EndModalInput();
-    if (m_body) {
-        m_input.remove(*m_body);
-    }
+    if (m_body) m_input.remove(*m_body);
     m_body = nullptr;
     m_border.reset();
     m_text.clear();
@@ -199,9 +193,7 @@ bool W8DialogBase::ProcessInput()
                 return InputRoute::Handled;
             },
     });
-    if (!m_keep_open) {
-        EndModalInput();
-    }
+    if (!m_keep_open) EndModalInput();
     return m_keep_open;
 }
 

@@ -34,37 +34,23 @@ template<class T> class srVector3T {
 public:
     // Value copies keep packed storage independent of GLM alignment.
     srVector3T(const glm::vec<3, T>& value) : x(value.x), y(value.y), z(value.z) {}
-    glm::vec<3, T> glmValue() const
-    {
-        return {x, y, z};
-    }
+    glm::vec<3, T> glmValue() const { return {x, y, z}; }
 
-    T Length() const
-    {
-        return glm::length(glmValue());
-    }
+    T Length() const { return glm::length(glmValue()); }
     T LengthSquared() const
     {
         const auto v = glmValue();
         return glm::dot(v, v);
     }
     // Zero vectors retain their components, including signed zeros.
-    srVector3T* Normalize()
-    {
-        return SetLength(1);
-    }
+    srVector3T* Normalize() { return SetLength(1); }
     srVector3T* SetLength(double length)
     {
         const auto v = glmValue();
-        if (glm::dot(v, v) != 0) {
-            *this = glm::normalize(v) * static_cast<T>(length);
-        }
+        if (glm::dot(v, v) != 0) *this = glm::normalize(v) * static_cast<T>(length);
         return this;
     }
-    srVector3T* Unitize()
-    {
-        return Normalize();
-    }
+    srVector3T* Unitize() { return Normalize(); }
     srVector3T& Transform(const glm::mat<3, 3, T>& matrix);
     srVector3T* RotateAboutX(double sine, double cosine);
     srVector3T* RotateAboutY(double sine, double cosine);
@@ -73,10 +59,7 @@ public:
     srVector3T<T>();
     srVector3T<T>(T source_0, T source_1, T source_2) : x(source_0), y(source_1), z(source_2) {}
 
-    glm::vec<2, T> xz() const
-    {
-        return glm::vec<2, T>(x, z);
-    }
+    glm::vec<2, T> xz() const { return glm::vec<2, T>(x, z); }
 
     void SetZero();
     srVector3T<T>* Set(double source_0, double source_1, double source_2);

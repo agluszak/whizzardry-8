@@ -62,14 +62,8 @@ static void assertion(const char* expression, const char* path, w8_long line, co
 }
 static int destroyed_nodes = 0;
 struct ClientNode : srNode {
-    bool transformDirty() const
-    {
-        return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0;
-    }
-    ~ClientNode() override
-    {
-        ++destroyed_nodes;
-    }
+    bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
+    ~ClientNode() override { ++destroyed_nodes; }
 };
 struct ClientMaterial : srMaterial {
     ~ClientMaterial() override {}
@@ -93,9 +87,8 @@ static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
 static int surface_storage()
 {
     std::array<unsigned char, 40> pixels;
-    for (std::size_t index = 0; index < pixels.size(); ++index) {
+    for (std::size_t index = 0; index < pixels.size(); ++index)
         pixels[index] = static_cast<unsigned char>(index * 7);
-    }
     const auto original = pixels;
     auto palette = std::make_shared<srPalette>();
     const auto references = palette.use_count();
@@ -132,11 +125,8 @@ static int surface_storage()
                             [](auto value) { return value == 0; }));
         assigned.fill(0xff336699);
         REQUIRE(assigned.rescale(3, 2));
-        for (int y = 0; y < 2; ++y) {
-            for (int x = 0; x < 3; ++x) {
-                REQUIRE(assigned.getPixelRaw(x, y) == 0xff336699);
-            }
-        }
+        for (int y = 0; y < 2; ++y)
+            for (int x = 0; x < 3; ++x) REQUIRE(assigned.getPixelRaw(x, y) == 0xff336699);
         REQUIRE(assigned.changePixelFormat(format, 1));
         REQUIRE((assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633));
         REQUIRE(assigned.getPixel(0, 0) == 0xff336699);
@@ -228,10 +218,9 @@ TEST_CASE("imports_test")
         srModeler modeler;
         srModeler::Triangle triangle;
         for (int row = 0; row < 2; ++row) {
-            for (int vertex = 0; vertex < 3; ++vertex) {
+            for (int vertex = 0; vertex < 3; ++vertex)
                 triangle.vertices[vertex].position =
                     glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
-            }
             modeler.addTriangle(triangle);
         }
         REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{0.f, 12.f}));
@@ -343,12 +332,9 @@ TEST_CASE("imports_test")
                 // Keep the comparison order for NaNs in recovered bounds.
                 for (int c = 0; c < 3; ++c) {
                     if (v[c] >= lower[c]) {
-                        if (v[c] > upper[c]) {
-                            upper[c] = v[c];
-                        }
-                    } else {
+                        if (v[c] > upper[c]) upper[c] = v[c];
+                    } else
                         lower[c] = v[c];
-                    }
                 }
             }
             (vectors.minimum) = lower;
@@ -427,9 +413,7 @@ TEST_CASE("imports_test")
         // Exercise a branching symbol tree, as used by octree alpha bits.
         const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
         srHuffman::Sampler tree_sampler;
-        for (auto value : values) {
-            tree_sampler.insert(value);
-        }
+        for (auto value : values) tree_sampler.insert(value);
         srHuffman::Compressor compressor(tree_sampler);
         auto encoded = srIO::own(SDL_IOFromDynamicMem());
         {
@@ -438,9 +422,7 @@ TEST_CASE("imports_test")
             bits.put(compressor.code_width, 6);
             bits.put(sizeof(values) / sizeof(values[0]), 32);
             compressor.storeSymbolTable(bits);
-            for (auto value : values) {
-                compressor.compressSymbol(bits, value);
-            }
+            for (auto value : values) compressor.compressSymbol(bits, value);
             bits.flush();
         }
         // Captured from main's pre-consolidation stream/Huffman implementation.
@@ -459,9 +441,7 @@ TEST_CASE("imports_test")
         srHuffman::BitIStream bits(input.get());
         srHuffman::Decompressor decoder(bits);
         REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
-        for (auto value : values) {
-            REQUIRE(decoder.decompressSymbol() == value);
-        }
+        for (auto value : values) REQUIRE(decoder.decompressSymbol() == value);
     }
     srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7);
     REQUIRE(assertions == 1);
