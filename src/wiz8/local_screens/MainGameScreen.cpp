@@ -178,10 +178,6 @@ std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 std::unique_ptr<ModalContent> g_modal_owner;
 // GLOBAL: WIZ8 0x0068edd4
 std::unique_ptr<ModalContent> g_pending_main_game_dialog;
-namespace {
-bool g_modal_processing = false;
-std::vector<std::unique_ptr<ModalContent>> g_retired_modals;
-}
 
 // GLOBAL: WIZ8 0x0068edb0
 static uint64_t g_mouselook_last_tick;
@@ -4699,14 +4695,16 @@ apply_mode_tail:
 
 bool ProcessModalOwner()
 {
-    // A completion callback may open another modal; only close the one that
-    // was running, never its replacement.
-    ModalContent* const running = g_modal_owner.get();
-    g_modal_processing = true;
-    const bool keep_open = running->ProcessInput();
-    g_modal_processing = false;
-    g_retired_modals.clear();
-    if (keep_open || g_modal_owner.get() != running) return false;
+    {
+        // A completion callback may open another modal. The transaction keeps
+        // the running one alive until it returns; only close it, never its
+        // replacement.
+        const UiTransaction transaction;
+        ModalContent* const running = g_modal_owner.get();
+        if (running->ProcessInput() || g_modal_owner.get() != running) {
+            return false;
+        }
+    }
     g_modal_owner = std::move(g_pending_main_game_dialog);
     if (g_modal_owner) g_modal_owner->RequestModalRedraw();
     return true;
@@ -4715,9 +4713,8 @@ bool ProcessModalOwner()
 /* Take the screen for a modal owner and put its region up. */
 void OpenModal(std::unique_ptr<ModalContent> owner)
 {
-    auto previous = std::exchange(g_modal_owner, std::move(owner));
     // The replaced modal may be the one whose ProcessInput() opened this one.
-    if (previous && g_modal_processing) g_retired_modals.push_back(std::move(previous));
+    DestroyAfterUiDispatch(std::exchange(g_modal_owner, std::move(owner)));
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the

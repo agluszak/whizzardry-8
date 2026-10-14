@@ -1684,6 +1684,18 @@ TEST_CASE("assert-message", "[.death]")
     FAIL("srAssertFail did not abort");
 }
 
+TEST_CASE("assert-button-self-destroy", "[.death]")
+{
+    UiLayer layer;
+    Font font{};
+    auto button = std::make_unique<W8ButtonWidget>(layer);
+    button->ConfigureTextButton(
+        "close", font, 0, 0, 10, 10, 40, 20, [&](W8ButtonWidget*) { button.reset(); }, 0);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    FAIL("Destroying a button from its own callback did not abort");
+}
+
 TEST_CASE("Image assets share normalized paths and retain resources across clearing", "[owner][image]")
 {
     initialize_test_framebuffer();

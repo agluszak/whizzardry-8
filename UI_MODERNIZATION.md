@@ -32,18 +32,21 @@ live layers and maintains hover, capture, modal scopes and the tooltip timer.
   `SyncMainGameModeRegions` re-enables the layers that mode uses, including the
   fixed interface buttons in `MainGameButtons`.
 - `UiResult::Pass` delegates to screen policy, not to lower targets.
-- `AfterUiDispatch` commits target removal, owner destruction and screen transitions
-  after the outermost dispatch transaction. The pump then yields, preserving queued
-  events for the next owner. Removing a target or layer from inside a dispatch is
-  also safe on its own: the target and its handler are retired and freed when the
-  outermost dispatch ends. Button callbacks may destroy their button; the button
-  touches no members afterwards.
+- A `UiTransaction` spans one input step: a pointer dispatch, a `PumpUiInput`
+  drain with its screen policy, or a modal's `ProcessInput()`. Transactions nest.
+  When the outermost one ends, the actions queued with `AfterUiDispatch` run, then
+  the objects retired with `DestroyAfterUiDispatch` are destroyed. This is the
+  only deferral mechanism: owner destruction and screen transitions are actions,
+  and removed hit targets and replaced modals are retired, so no object is freed
+  while its own callback is on the stack. The pump yields once an action is
+  queued, preserving the remaining events for the next owner. A button asserts
+  that no callback destroys it directly.
 - The dispatcher owns hover, press and release sounds. Buttons only silence them
   (`PushButtonSoundScheme(0, true)`) or play the repeat release, which has no
   dispatcher event.
-- `OpenModal` is safe from inside the current modal's `ProcessInput()`; the
-  replaced modal is destroyed after that call returns, and `ProcessModalOwner()`
-  closes only the modal it ran, never its replacement.
+- `ProcessModalOwner()` runs the modal's input step as one transaction, so
+  `OpenModal` from inside the current modal retires it until `ProcessInput()`
+  returns; only the modal that ran is closed, never its replacement.
 - Tooltip providers read current state when delayed help is displayed.
 
 The numeric region registry, templates, IDs, slot recycling, binding generations,

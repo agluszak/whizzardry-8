@@ -107,7 +107,7 @@ int W8NpcDialog::CreateControls()
                 line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_bounds.x + x),
                 static_cast<short>(m_bounds.y + 0x23), m_text_width, 0x14, [this, index](W8ButtonWidget*) {
                     m_selected_option = index;
-                    AfterUiDispatch([this] { m_keep_open = false; });
+                    m_keep_open = false;
                 }, index);
             x += m_text_width + 10;
         }
@@ -126,7 +126,7 @@ int W8NpcDialog::CreateControls()
             g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5, static_cast<short>(m_bounds.x + x),
             static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14, [this](W8ButtonWidget*) {
                 m_selected_option = 0;
-                AfterUiDispatch([this] { m_keep_open = false; });
+                m_keep_open = false;
             }, 0);
         m_buttons[1] = std::make_unique<W8ButtonWidget>(m_input);
         m_buttons[1]->ConfigureTextButton(g_localized_strings[0x7e0], g_wiz_text_mono_font, 4, 5,
@@ -134,7 +134,7 @@ int W8NpcDialog::CreateControls()
                                           static_cast<short>(m_bounds.y + 0x1e), m_text_width, 0x14,
                                           [this](W8ButtonWidget*) {
                                               m_selected_option = 1;
-                                              AfterUiDispatch([this] { m_keep_open = false; });
+                                              m_keep_open = false;
                                           }, 1);
         line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_scripting.price_check->price);
         bounds.left = m_bounds.x + 10;
@@ -209,22 +209,31 @@ void W8NpcDialog::DrawModal(SDL_Surface& target)
 bool W8NpcDialog::ProcessInput()
 {
     m_input.setModal(true);
-    if (m_keep_open) PumpUiInput({
-        .before = [this](const InputEvent& input) {
-            if (IsTypingEvent(input) && m_input_group && m_input_group->HandleInput(input)) {
-                return InputRoute::Handled;
-            }
-            if (input.type == InputEventType::KeyDown &&
-                (input.key == VK_RETURN || input.key == VK_ESCAPE) &&
-                m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-                m_cancelled = input.key == VK_ESCAPE;
-                if (!m_cancelled) m_input_text = m_input_group->Text(m_input_field);
-                m_keep_open = false;
-                return InputRoute::Stop;
-            }
-            return InputRoute::Pass;
-        },
-    });
+    if (m_keep_open)
+        PumpUiInput({
+            .before =
+                [this](const InputEvent& input) {
+                    if (IsTypingEvent(input) && m_input_group &&
+                        m_input_group->HandleInput(input)) {
+                        return InputRoute::Handled;
+                    }
+                    if (input.type == InputEventType::KeyDown &&
+                        (input.key == VK_RETURN || input.key == VK_ESCAPE) &&
+                        m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
+                        m_cancelled = input.key == VK_ESCAPE;
+                        if (!m_cancelled)
+                            m_input_text = m_input_group->Text(m_input_field);
+                        m_keep_open = false;
+                        return InputRoute::Stop;
+                    }
+                    return InputRoute::Pass;
+                },
+            // A chosen option closes the reply; later events belong to its successor.
+            .consumed =
+                [this](const InputEvent&) {
+                    return m_keep_open ? InputRoute::Handled : InputRoute::Stop;
+                },
+        });
     if (!m_keep_open) {
         // Restore the previous editor before delivering the reply. Destruction
         // during screen teardown must not submit an unfinished reply.

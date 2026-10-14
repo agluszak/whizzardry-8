@@ -12,6 +12,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/ui_input.h"
+#include "Types.h"
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
@@ -143,7 +144,8 @@ W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(layer) {}
 
 W8ButtonWidget::~W8ButtonWidget()
 {
-    *m_alive = false;
+    // Owners destroy buttons through AfterUiDispatch, never from their callbacks.
+    Assert(m_handling_pointer == 0);
     if (m_target) {
         m_layer.remove(*m_target);
     }
@@ -248,8 +250,16 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
 {
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback)
         return UiResult::Handled;
-    // Callbacks may destroy this button. Members are not touched afterwards.
-    const auto alive = m_alive;
+    // Callbacks may reconfigure this button, so each one is copied before it
+    // runs. They never destroy it: owners do that through AfterUiDispatch.
+    ++m_handling_pointer;
+    const struct Handling {
+        int& depth;
+        ~Handling()
+        {
+            --depth;
+        }
+    } handling{m_handling_pointer};
     // The dispatcher owns hover, press and release sounds. Controller-style
     // buttons silence the next one while disabled.
     const bool backend_sound = event.action == UiPointerAction::Enter ||
@@ -266,7 +276,6 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     }
     if (event.action == UiPointerAction::Enter && on_hover) {
         on_hover(true);
-        if (!*alive) return UiResult::Handled;
     }
     if (!m_enabled) return UiResult::Handled;
     const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
@@ -308,6 +317,8 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     // Only repeats are silent in the dispatcher.
     if (response.activate && event.action == UiPointerAction::Repeat) PlayButtonSound(3);
     if (response.activate && callback) callback(this);
-    if (*alive && double_click_callback) double_click_callback(this);
+    if (double_click_callback) {
+        double_click_callback(this);
+    }
     return UiResult::Handled;
 }
