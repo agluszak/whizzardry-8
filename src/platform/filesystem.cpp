@@ -46,7 +46,7 @@ void before_operation(FileOperation operation)
         operation_hook(operation);
     }
 }
-} // namespace wiz8::testing
+}
 #endif
 namespace fs = std::filesystem;
 namespace wiz8 {

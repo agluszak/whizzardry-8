@@ -181,7 +181,7 @@ bool LoadCycles(const std::filesystem::path& path)
     }
     return true;
 }
-} // namespace
+}
 
 TEST_CASE("serialized_mesh_test")
 {

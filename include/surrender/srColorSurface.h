@@ -79,7 +79,8 @@ private:
     SR_DLL_IMPORT void convertFromARGB8888(void* pixels, const w8_ulong* source, w8_ulong count);
     SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
 
-    template<class Pixel> void transferColumn(std::span<Pixel> pixels, w8_long x, w8_long y);
+    template<class Pixel>
+    void transferColumn(std::span<Pixel> pixels, w8_long x, w8_long y);
     void allocate();
     void adopt(SDL_Surface* storage);
     /* Caller memory or a shared surface cannot be reallocated. */

@@ -43,7 +43,7 @@ InputEvent PointerMotion(SDL_Point point)
             .buttons = (input.left_button ? SDL_BUTTON_LMASK : 0u) |
                        (input.right_button ? SDL_BUTTON_RMASK : 0u)};
 }
-} // namespace
+}
 
 // One dispatcher borrows live layers. Layers own targets, and destruction
 // removes every borrowed pointer, including suspended modal capture.
@@ -224,7 +224,7 @@ UiState& State()
     static UiState state;
     return state;
 }
-} // namespace
+}
 
 UiTransaction::UiTransaction()
 {

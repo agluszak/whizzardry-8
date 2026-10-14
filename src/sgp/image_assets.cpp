@@ -26,7 +26,7 @@ std::string cache_key(std::string_view path)
     }
     return key;
 }
-} // namespace
+}
 
 ImageAssets g_image_assets;
 

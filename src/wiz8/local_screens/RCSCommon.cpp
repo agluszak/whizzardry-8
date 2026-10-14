@@ -99,7 +99,7 @@ struct CampButtons {
     bool dirty = true;
 };
 std::unique_ptr<CampButtons> camp_buttons;
-} // namespace
+}
 
 /* The level-line format the header draws - name, level and the
    profession's level-band title. */

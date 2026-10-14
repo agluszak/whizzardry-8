@@ -5,4 +5,4 @@ namespace allocation_failures {
 extern thread_local int after;
 extern thread_local bool mallocFails;
 extern thread_local bool reallocFails;
-} // namespace allocation_failures
+}

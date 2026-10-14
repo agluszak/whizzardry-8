@@ -481,7 +481,8 @@ bool Trigger::Save(wiz8::File& hFile)
 }
 
 /* One door flag is stored as a byte whose low bit is the flag. */
-template<class File> static bool readDoorFlag(File& file)
+template<class File>
+static bool readDoorFlag(File& file)
 {
     unsigned char flag = 0;
     file.read_exact(&flag, 1);

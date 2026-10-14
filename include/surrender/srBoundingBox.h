@@ -73,7 +73,8 @@ struct srBoundingBox {
                 corner(6), corner(5), corner(1), corner(4)};
     }
 
-    template<class TransformPoint> srBoundingBox transformedBy(TransformPoint transform) const
+    template<class TransformPoint>
+    srBoundingBox transformedBy(TransformPoint transform) const
     {
         const glm::vec3 first = transform(minimum);
         srBoundingBox result{first, first};
@@ -90,7 +91,8 @@ struct srBoundingBox {
     }
 };
 
-template<class Point> inline srBoundingBox boundingBox(std::span<const Point> points)
+template<class Point>
+inline srBoundingBox boundingBox(std::span<const Point> points)
 {
     if (points.empty()) {
         return {};

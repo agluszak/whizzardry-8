@@ -76,7 +76,7 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
     }
     return options;
 }
-} // namespace
+}
 
 wiz8::Application::Application(std::span<const std::string_view> arguments)
 {

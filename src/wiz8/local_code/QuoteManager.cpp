@@ -892,7 +892,7 @@ struct PartyQuoteInput {
 };
 // Quotes persist while switching between camp and the live game.
 std::unique_ptr<PartyQuoteInput> party_quote_input;
-} // namespace
+}
 
 static void ReleasePartyQuoteInput()
 {

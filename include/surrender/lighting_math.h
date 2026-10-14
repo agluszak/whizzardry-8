@@ -73,4 +73,4 @@ inline void accumulateLight(std::span<glm::vec<Components, float>> destination,
     }
 }
 
-} // namespace srLightingMath
+}

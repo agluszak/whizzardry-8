@@ -37,7 +37,8 @@ struct Archive {
 std::mutex mutex;
 std::vector<Archive> archives;
 
-template<std::size_t N> std::string_view disk_text(const char (&text)[N])
+template<std::size_t N>
+std::string_view disk_text(const char (&text)[N])
 {
     const auto* end = static_cast<const char*>(std::memchr(text, 0, N));
     if (!end) {
@@ -57,7 +58,7 @@ std::string key(std::string_view text)
     }
     return result;
 }
-} // namespace
+}
 
 void mount_slf(std::string_view game_path, bool patch)
 {

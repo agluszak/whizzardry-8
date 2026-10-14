@@ -34,3 +34,5 @@ AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 SpaceAfterTemplateKeyword: false
+BreakTemplateDeclarations: Leave
+FixNamespaceComments: false

@@ -989,7 +989,7 @@ void generic_button_images()
 
     g_image_assets.clear();
 }
-} // namespace
+}
 
 TEST_CASE("Screen stack ownership", "[owner]")
 {
@@ -1402,7 +1402,7 @@ struct ChainedModal final : ModalContent {
     bool* destroyed;
     int* later_use;
 };
-} // namespace
+}
 
 TEST_CASE("A modal opened from a completion callback survives its predecessor's close",
           "[owner][modal]")
@@ -1725,7 +1725,7 @@ void assertion_message_handler(const char* expression, const char*, w8_long, con
     std::fprintf(stderr, "Assertion failed: %s\n", expression);
     std::abort();
 }
-} // namespace
+}
 
 TEST_CASE("assert-message", "[.death]")
 {

@@ -371,7 +371,7 @@ DecodedImage load_sti(wiz8::File& file)
     }
     return bitmap_from_pixels(header.usWidth, header.usHeight, format, pixels);
 }
-} // namespace
+}
 
 std::optional<DecodedImage> LoadImage(std::string_view filename)
 {

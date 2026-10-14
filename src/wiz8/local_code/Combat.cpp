@@ -364,7 +364,8 @@ bool CombatMayAdvanceContinuously(void)
 }
 
 /* True when some monster in combat satisfies the predicate. */
-template<class Predicate> static bool AnyCombatMonster(Predicate predicate)
+template<class Predicate>
+static bool AnyCombatMonster(Predicate predicate)
 {
     for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
         const W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);

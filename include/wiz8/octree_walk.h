@@ -61,7 +61,8 @@ struct W8OctreeWalk {
 
     /* Return false from visit to stop at the first blocking cell. A copy of
        the cursor keeps the walk reusable and callers' starting cells intact. */
-    template<class Visit> void visitCells(Visit visit) const
+    template<class Visit>
+    void visitCells(Visit visit) const
     {
         auto current = cell;
         int error_a = error0, error_b = error1;

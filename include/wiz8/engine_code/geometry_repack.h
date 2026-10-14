@@ -15,7 +15,8 @@ using CornerIndices = std::array<w8_ulong, 3>;
 
 // Build tables keep index zero as a sentinel and one extra allocation slot.
 // Own replacements until all allocations succeed, then transfer to the context.
-template<class Record> auto copyTable(std::span<const Record> records)
+template<class Record>
+auto copyTable(std::span<const Record> records)
 {
     static_assert(std::is_trivially_copyable_v<Record>);
     std::unique_ptr<Record, decltype(&std::free)> table(

@@ -104,7 +104,7 @@ struct UseItemView {
     std::array<bool, 3> dirty{true, true, true};
 };
 std::unique_ptr<UseItemView> use_item;
-} // namespace
+}
 
 void EnableUseItemSelectInput()
 {

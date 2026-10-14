@@ -21,7 +21,7 @@ SDL_Rect sprite_rect(const SpriteFrame& frame, int x, int y, bool mirror)
             frame.height};
 }
 
-} // namespace
+}
 
 void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame_index, int x,
                 int y, SpriteDraw options)

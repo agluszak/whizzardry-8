@@ -61,7 +61,7 @@ constexpr std::array<SDL_Rect, 6> main_menu_item_bounds = {{
     {279, 423, 86, 45},
 }};
 constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
-} // namespace
+}
 
 // The original six item rectangles are now screen-owned data, not global
 // region registrations. The load-game item uses the disabled sprite when

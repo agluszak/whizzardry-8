@@ -77,7 +77,7 @@ static_assert(sizeof(SubEntry) == 8);
 static_assert(sizeof(Entry) == 0x12);
 static_assert(sizeof(Quote) == 0x0c);
 static_assert(sizeof(Header) == 0x0e);
-} // namespace wiz8::retail::nsf
+}
 
 struct W8NpcQuoteSubEntry {
     int operand{};

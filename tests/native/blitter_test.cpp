@@ -169,7 +169,7 @@ bool matches_legacy_golden(const SDL_Surface& image, const SDL_Rect& rect, std::
                   static_cast<unsigned>(hash));
     return expected == actual;
 }
-} // namespace
+}
 
 TEST_CASE("sprite draws distinguish opaque index zero from transparent runs", "[blit]")
 {

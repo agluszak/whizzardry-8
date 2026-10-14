@@ -118,7 +118,7 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
     image->offset_y = offset_y;
     return image;
 }
-} // namespace
+}
 
 bool InitializeButtonImageManager()
 {

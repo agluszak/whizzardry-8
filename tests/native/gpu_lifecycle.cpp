@@ -37,7 +37,7 @@ Device CreateDevice()
         SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "unknown"));
     return device;
 }
-} // namespace
+}
 
 TEST_CASE("SDL video startup and shutdown without GPU")
 {

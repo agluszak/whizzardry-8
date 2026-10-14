@@ -92,7 +92,8 @@ protected:
     enum class EffectTraversal { active, childrenOnly, skipSubtree };
     void traverseEffect(TraverseInfo& info);
 
-    template<class Activity> void traverseEffect(TraverseInfo& info, Activity activity)
+    template<class Activity>
+    void traverseEffect(TraverseInfo& info, Activity activity)
     {
         if (next_sibling_) {
             next_sibling_->traverse(info);
@@ -157,19 +158,22 @@ public:
     SR_DLL_IMPORT double getLocationX() const;
     SR_DLL_IMPORT double getLocationY() const;
     SR_DLL_IMPORT double getLocationZ() const;
-    template<class Matrix = glm::dmat3> Matrix getRotation() const
+    template<class Matrix = glm::dmat3>
+    Matrix getRotation() const
     {
         return Matrix(rotation);
     }
     SR_DLL_IMPORT glm::dvec3 getScale() const;
 
-    template<class Scalar> struct Coordinates {
+    template<class Scalar>
+    struct Coordinates {
         glm::mat<3, 3, Scalar> rotation;
         glm::vec<3, Scalar> location;
         glm::vec<3, Scalar> scale;
     };
 
-    template<class Scalar = double> Coordinates<Scalar> getWorldSpaceCoordinates() const
+    template<class Scalar = double>
+    Coordinates<Scalar> getWorldSpaceCoordinates() const
     {
         return {getWorldSpaceRotation<glm::mat<3, 3, Scalar>>(),
                 glm::vec<3, Scalar>(getWorldSpaceLocation()),
@@ -177,7 +181,8 @@ public:
     }
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceDOF() const;
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceLocation() const;
-    template<class Matrix = glm::dmat4> Matrix getWorldSpaceMatrix() const
+    template<class Matrix = glm::dmat4>
+    Matrix getWorldSpaceMatrix() const
     {
         checkTransformation();
         if constexpr (std::is_same_v<typename Matrix::value_type, float>) {
@@ -187,7 +192,8 @@ public:
         }
     }
 
-    template<class Matrix = glm::dmat3> Matrix getWorldSpaceRotation() const
+    template<class Matrix = glm::dmat3>
+    Matrix getWorldSpaceRotation() const
     {
         const auto world = getWorldSpaceMatrix<glm::mat<4, 3, typename Matrix::value_type>>();
         Matrix result(world);

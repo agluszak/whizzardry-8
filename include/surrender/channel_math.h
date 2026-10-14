@@ -74,4 +74,4 @@ inline void add(std::span<float> values, float offset)
     }
 }
 
-} // namespace srChannelMath
+}

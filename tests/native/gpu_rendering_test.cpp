@@ -57,7 +57,7 @@ struct Fixture {
         return pixel & 0xffffff;
     }
 };
-} // namespace
+}
 
 TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
 {

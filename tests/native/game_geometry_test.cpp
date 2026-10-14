@@ -1365,7 +1365,7 @@ struct SharedClock {
         g_shared_timer_base = saved;
     }
 };
-} // namespace
+}
 
 TEST_CASE_METHOD(SurRenderTestFixture,
                  "Prop position and delta queries preserve animation stepping",
@@ -2062,7 +2062,7 @@ public:
         info.entries.push_back({this, PROCESS_RENDER});
     }
 };
-} // namespace
+}
 
 TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled descent",
           "[geometry][rendering]")

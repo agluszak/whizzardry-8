@@ -95,7 +95,7 @@ struct ConditionIcons {
     bool active = false;
 };
 std::unique_ptr<ConditionIcons> condition_icons;
-} // namespace
+}
 // GLOBAL: WIZ8 0x0064C664
 char s_general_magic_sound[] = "Data\\Spells\\Sounds\\GeneralMagic.wav";
 

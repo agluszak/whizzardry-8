@@ -49,7 +49,7 @@ struct PartyMovementPanel {
     int visible_button = 1;
 };
 std::unique_ptr<PartyMovementPanel> movement;
-} // namespace
+}
 
 // GLOBAL: WIZ8 0x005EECD0
 const float g_movement_fatigue_tick_scale = 0.0004f;

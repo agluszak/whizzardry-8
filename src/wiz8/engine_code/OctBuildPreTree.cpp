@@ -152,7 +152,7 @@ PackedSurfaceRun packLeafSurfaces(W8OctBuildNode& node, short mode, w8_ulong* st
     node.surface_arrays[mode] = nullptr;
     return {offset, cursor};
 }
-} // namespace
+}
 
 // FUNCTION: WIZ8 0x004af8f0
 std::vector<void*> W8OctBuildNode::linkedSurfaces(short current_depth, short target_depth,

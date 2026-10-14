@@ -261,7 +261,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resource
 }
 
 // A cloned resource must own its animations and light vectors after its source is released.
-template<class Host> static void CheckEmitterCloneLifetime()
+template<class Host>
+static void CheckEmitterCloneLifetime()
 {
     auto source = std::make_unique<Host>();
     source->value_0ac = 11;

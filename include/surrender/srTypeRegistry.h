@@ -101,7 +101,8 @@ protected:
 };
 
 /* Supplies format identity and cloning for a concrete scene/data type. */
-template<class Derived, class Base, w8_ulong ClassID> class srClassSupport : public Base {
+template<class Derived, class Base, w8_ulong ClassID>
+class srClassSupport : public Base {
 public:
     typedef Derived RegistryClass;
     enum { CLASS_ID = ClassID };

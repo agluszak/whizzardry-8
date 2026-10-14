@@ -53,7 +53,7 @@
 namespace {
 std::unique_ptr<W8FactDatabaseRecord[]> fact_records;
 std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
-} // namespace
+}
 
 /* NPC.DBS records carry an optional sub-list, stored after the record when its
    leading count exceeds one and its 0x9D flag is clear: a count, then that many

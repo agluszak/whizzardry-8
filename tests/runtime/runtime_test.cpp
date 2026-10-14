@@ -1735,7 +1735,8 @@ static void CheckGameErrors()
     REQUIRE(g_logged_errors.empty());
 }
 
-template<class Scenario> void RunScenario(Scenario scenario)
+template<class Scenario>
+void RunScenario(Scenario scenario)
 {
     RequireAssets();
     scenario();

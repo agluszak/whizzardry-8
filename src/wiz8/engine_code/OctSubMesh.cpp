@@ -83,7 +83,8 @@ static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values, const
                            [](const srVector3& value) { return value.glmValue(); });
 }
 
-template<class T> static void ReleaseMeshArray(T*& values)
+template<class T>
+static void ReleaseMeshArray(T*& values)
 {
     std::free(values);
     values = nullptr;

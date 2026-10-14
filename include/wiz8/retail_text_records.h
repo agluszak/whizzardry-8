@@ -1008,8 +1008,8 @@ template<class T> auto encode(const T& runtime)
         });
     return image;
 }
-template<class T>
-void read_exact(File& file, T& runtime, std::size_t bytes = sizeof(typename Record<T>::Disk))
+template<class T> void read_exact(File& file, T& runtime,
+                                  std::size_t bytes = sizeof(typename Record<T>::Disk))
 {
     if (bytes > sizeof(typename Record<T>::Disk)) {
         throw std::runtime_error("Oversized retail record");
@@ -1019,9 +1019,9 @@ void read_exact(File& file, T& runtime, std::size_t bytes = sizeof(typename Reco
     decode<T>(std::span(image).first(bytes), runtime);
 }
 // Read a count-prefixed table without publishing partially decoded records.
-template<class T>
-std::unique_ptr<T[]> read_database(File& file, unsigned int& count,
-                                   std::size_t maximum = std::numeric_limits<unsigned int>::max())
+template<class T> std::unique_ptr<T[]>
+read_database(File& file, unsigned int& count,
+              std::size_t maximum = std::numeric_limits<unsigned int>::max())
 {
     file.read_exact(&count, sizeof(count));
     const auto remaining = file.size() - file.tell();
@@ -1051,8 +1051,8 @@ template<class T> void write(File& file, const T& runtime)
     file.write(image.data(), image.size());
 }
 // Chunk-bounded record transfer: a record never reads past its chunk.
-template<class T>
-void read_exact(W8Chunk& chunk, T& runtime, std::size_t bytes = sizeof(typename Record<T>::Disk))
+template<class T> void read_exact(W8Chunk& chunk, T& runtime,
+                                  std::size_t bytes = sizeof(typename Record<T>::Disk))
 {
     if (bytes > sizeof(typename Record<T>::Disk)) {
         throw std::runtime_error("Oversized retail record");

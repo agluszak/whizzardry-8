@@ -42,7 +42,8 @@ auto NextIndexValue(Index& index, Key key, typename Index::iterator previous)
     return next != index.end() && next->first == key ? next : index.end();
 }
 
-template<class Index, class Key> auto LookupIndexValue(const Index& index, Key key)
+template<class Index, class Key>
+auto LookupIndexValue(const Index& index, Key key)
 {
     const auto [first, last] = index.equal_range(key);
     return first == last ? typename Index::mapped_type{} : first->second;
@@ -59,7 +60,8 @@ void RemoveIndexValue(Index& index, Key key, Value value)
     }
 }
 
-template<class Index, class Key> void RemoveIndexValue(Index& index, Key key)
+template<class Index, class Key>
+void RemoveIndexValue(Index& index, Key key)
 {
     const auto [first, last] = index.equal_range(key);
     if (first != last) {

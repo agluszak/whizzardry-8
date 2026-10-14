@@ -5,7 +5,8 @@
 #include "glm/ext/vector_float3.hpp"
 
 namespace srSegmentMath {
-template<glm::length_t Dimensions> struct Projection {
+template<glm::length_t Dimensions>
+struct Projection {
     glm::vec<Dimensions, float> point;
     float fraction;
     float distance;

@@ -21,7 +21,7 @@ std::uint16_t& pixel(SDL_Surface& image, int x, int y)
 {
     return static_cast<std::uint16_t*>(image.pixels)[y * image.pitch / 2 + x];
 }
-} // namespace
+}
 
 TEST_CASE("SDL image blits use color keys, mirroring, and destination clip rectangles", "[surface]")
 {

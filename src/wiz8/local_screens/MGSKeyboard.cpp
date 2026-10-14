@@ -686,7 +686,7 @@ struct KeyboardMenu {
     bool dirty = true;
 };
 std::unique_ptr<KeyboardMenu> keyboard_menu;
-} // namespace
+}
 
 static void KeyboardMenuSelectAttack(void);
 static void KeyboardMenuSelectBerserk(void);

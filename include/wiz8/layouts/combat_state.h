@@ -33,7 +33,7 @@ enum W8MissileHitResult {
 
 /* One party slot row. */
 struct W8PartySlotRow {
-    bool fOccupied; /* Historical offset 0x00 */
+    bool fOccupied;
     W8ActionKind pending_action;
     int attack_mode[4];
     /* Historical offset 0x15: the pending action's own two-word block, the same shape a chosen
@@ -84,7 +84,7 @@ struct W8PartySlotRow {
        restores, cleared by the level-entry reset. Gates the RPC banter
        event clock and the bonded-attribute penalty. */
     bool npc_bound;
-    unsigned int pending_event_type; /* Historical offset 0xff: last queued portrait event type */
+    unsigned int pending_event_type;
     /* Historical offset 0x103: portrait advance is only allowed while this is set. */
     unsigned char portrait_advance;
     bool action_is_berserk;
@@ -106,9 +106,9 @@ struct W8CombatHandRecord {
 
 /* One combat participant's row, one per character. */
 struct W8CombatCharacterRow {
-    unsigned int phase; /* Historical offset 0x00: combat phase; cleared when the character dies */
+    unsigned int phase;
     unsigned char unknown_04[0x30];
-    bool dead; /* Historical offset 0x34: raised when the character dies */
+    bool dead;
     unsigned char padding_35[3];
     /* Historical offset 0x38: the two hand values GetCharacterTurnValue reuses once this row's
        turn is already set up. */
@@ -120,9 +120,9 @@ struct W8CombatCharacterRow {
        when a swing resolves better than the stored one, at which point the
        hand's skills and the character's dual-wield flag are refreshed. */
     W8CombatHandRecord hand_records[2];
-    unsigned int uiSwingsRemaining; /* Historical offset 0x68 */
-    int current_hand; /* Historical offset 0x6c: indexes the slot row's attack modes */
-    W8EquipSlot current_equip_slot; /* Historical offset 0x70: indexes the character's equipment */
+    unsigned int uiSwingsRemaining;
+    int current_hand;
+    W8EquipSlot current_equip_slot;
     /* Historical offset 0x74: the paired weapon slot GetPairedEquipSlot answered for
        current_equip_slot, -1 when nothing is paired with it. */
     W8EquipSlot paired_equip_slot;
@@ -185,7 +185,7 @@ struct W8CombatCharacterRow {
        practice credit to exactly those three entries and clears them. */
     unsigned char skill_use_flags[0x29];
     unsigned char padding_d1[3];
-}; /* Historical offset 0xd4 */
+};
 
 /* The combat state, allocated when combat starts. */
 struct W8CombatState {
@@ -200,7 +200,7 @@ struct W8CombatState {
     /* Historical offset 0x004: current round number - incremented at each round boundary,
        shown in the round notices and gating the round-one specials. */
     unsigned int round_count;
-    unsigned int round_counter; /* Historical offset 0x008: bounded combat phase, 1..100 */
+    unsigned int round_counter;
     /* Historical offset 0x00c: the combat outcome the end-of-combat pass reports - zero while no
        result is recorded, otherwise the kill count formatted next to
        "kill"/"kills". */
@@ -211,7 +211,7 @@ struct W8CombatState {
     /* Historical offset 0x014: flat bonus experience accumulated by hostility events, added to
        the pool at award time. */
     int experience_bonus;
-    W8CombatCharacterRow characters[8]; /* Historical offset 0x018, 0xd4 stride */
+    W8CombatCharacterRow characters[8];
     /* Historical offset 0x6b8: the attack announcement the monster-attack message builder
        sprintf's into and ShowNotice displays; 0x78 wide chars. */
     std::string attack_message;
@@ -221,29 +221,28 @@ struct W8CombatState {
     /* Historical offset 0x7ac: the pacing clock the scheduler arms as a w8_get_ticks deadline
        before the scheduled actor's action may execute. */
     uint64_t action_clock;
-    int eCombatActionStatus; /* Historical offset 0x7b0 */
-    int iActionChar; /* Historical offset 0x7b4: -1 when nobody's turn */
-    struct W8MonsterInfo* pActionMonsterInfo; /* Historical offset 0x7b8 */
+    int eCombatActionStatus;
+    int iActionChar;
+    struct W8MonsterInfo* pActionMonsterInfo;
     wiz8::sound::Playback hit_sound;
     bool hit_sound_active;
-    W8EffectSlot effect_slots[9]; /* Historical offset 0x7c1, 0x11 stride */
-    W8EffectSlot effect_slots0[6]; /* Historical offset 0x85a..0x8bf */
-    W8Missile*
-        engaged_missile; /* Historical offset 0x8c0: live missile that blocks ending combat */
+    W8EffectSlot effect_slots[9];
+    W8EffectSlot effect_slots0[6];
+    W8Missile* engaged_missile;
     /* Historical offset 0x8c4: staged hit result of the in-flight missile (0 = pending, 1 = hit, 2 = deflected) */
     char missile_hit_result; /* W8MissileHitResult */
     W8CombatSlot TargetHit;
     unsigned char padding_8e5[3];
-    int pending_deaths[8]; /* Historical offset 0x8e8 */
-    int pending_death_count; /* Historical offset 0x908 */
-    W8PartyAction uiNextPartyAction; /* Historical offset 0x90c */
-    W8PartyAction uiCurrentPartyAction; /* Historical offset 0x910 */
-    unsigned int uiPartyActionPhase; /* Historical offset 0x914 */
-    W8PartyActionStatus uiCurrentPartyActionStatus; /* Historical offset 0x918 */
+    int pending_deaths[8];
+    int pending_death_count;
+    W8PartyAction uiNextPartyAction;
+    W8PartyAction uiCurrentPartyAction;
+    unsigned int uiPartyActionPhase;
+    W8PartyActionStatus uiCurrentPartyActionStatus;
     /* Historical offset 0x91c: countdown used to pace synthetic movement progress when
        continuous combat is enabled and the world did not advance this frame. */
     uint64_t party_movement_clock;
-    W8PartyFormationState saved_formation; /* Historical offset 0x920 */
+    W8PartyFormationState saved_formation;
     /* Historical offset 0x9a4: the running attack's target did not see it coming - the monster
        stands behind the character or the target monster is looking away. The
        announcement appends the caught-unaware text. */
@@ -303,9 +302,9 @@ struct W8CombatState {
     /* Historical offset 0xa61: remembered search-mode state; the combat teardown toggles search
        mode back on when it reads nonzero. */
     unsigned char search_mode_saved;
-    bool combat_ready; /* Historical offset 0xa62: party combat-ready bit */
+    bool combat_ready;
     unsigned char padding_a63;
-}; /* Historical offset 0xa64 */
+};
 
 extern std::unique_ptr<W8CombatState> g_combat_state;
 

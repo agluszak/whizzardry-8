@@ -14,4 +14,4 @@ struct AssetEntry {
     DiskFileTime modified;
 };
 std::optional<AssetEntry> archive_entry(std::string_view game_path);
-} // namespace wiz8
+}

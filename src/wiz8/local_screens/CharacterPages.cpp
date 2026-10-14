@@ -29,7 +29,7 @@ template<class T> T ReadStatValue(const void* address)
     std::memcpy(&value, address, sizeof(value));
     return value;
 }
-} // namespace
+}
 
 // GLOBAL: WIZ8 0x006483d0
 W8PortraitDescriptor g_portrait_descriptors[80] = {

@@ -30,7 +30,7 @@ SDL_Rect surface_bounds(const SDL_Surface& surface)
     return {0, 0, surface.w, surface.h};
 }
 
-} // namespace
+}
 
 ScopedClipRect::ScopedClipRect(SDL_Surface& surface, const SDL_Rect& clip) : surface_(&surface)
 {

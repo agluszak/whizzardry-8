@@ -181,7 +181,7 @@ InterfaceBank BuildInterfaces(std::size_t count, const std::vector<ConditionalFa
     }
     return bank;
 }
-} // namespace
+}
 
 // FUNCTION: WIZ8 0x00447660
 unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)

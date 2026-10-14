@@ -75,7 +75,7 @@ UiResult HandleTextScroll(const UiPointerEvent& event, bool up);
 UiResult HandleTextThumb(const UiPointerEvent& event);
 UiResult HandleTextBody(const UiPointerEvent& event);
 UiResult HandleTextChannel(const UiPointerEvent& event, int channel);
-} // namespace
+}
 
 /* The TEXT chunk's 0x24-byte form is separate from the live message record:
    its first word is a UTF-16 unit count. The obsolete list-pointer word
@@ -1271,7 +1271,7 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
     RedrawTextBox();
     return UiResult::Handled;
 }
-} // namespace
+}
 
 unsigned char HandleDialogueTextInput(const InputEvent* input_event)
 {

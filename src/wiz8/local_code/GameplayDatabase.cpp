@@ -58,7 +58,7 @@ namespace {
 std::unique_ptr<W8ItemDatabaseRecord[]> item_records;
 std::vector<std::string> item_table_categories;
 std::vector<W8ItemTableRecord> item_tables;
-} // namespace
+}
 
 // FUNCTION: WIZ8 0x0054a400
 bool InitializeItemDatabase(void)

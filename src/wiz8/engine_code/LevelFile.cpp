@@ -169,8 +169,8 @@ void TransferRecords(IO& io, Values& values, Transfer&& transfer)
     }
 }
 
-template<class Record, class Transfer>
-bool ReadRecord(wiz8::File& file, Record& record, Transfer&& transfer)
+template<class Record, class Transfer> bool ReadRecord(wiz8::File& file, Record& record,
+                                                       Transfer&& transfer)
 try {
     Record loaded{};
     LevelReader io{file};
@@ -625,8 +625,8 @@ enum class FrameKind { morph, transform };
 
 /* A channel's frames. A morph whose first frame is an LOD mesh stores only
    that frame; transforms store every frame. */
-template<class IO, class Frames>
-void TransferFrames(IO& io, Frames& frames, int count, FrameKind kind)
+template<class IO, class Frames> void TransferFrames(IO& io, Frames& frames, int count,
+                                                     FrameKind kind)
 {
     io.records(frames, count);
     for (auto& frame : frames) {

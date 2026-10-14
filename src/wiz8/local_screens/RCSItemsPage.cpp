@@ -78,7 +78,7 @@ struct CampItemControls {
     bool dirty = true;
 };
 std::unique_ptr<CampItemControls> item_controls;
-} // namespace
+}
 
 void SetCampItemHelp(std::string text)
 {

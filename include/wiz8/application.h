@@ -36,4 +36,4 @@ private:
     bool game_started_ = false;
     size_t initialized_screens_ = 0;
 };
-} // namespace wiz8
+}

@@ -78,7 +78,7 @@ struct FormationPanel {
 std::unique_ptr<FormationPanel> formation;
 constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
                                    .controller_activation = true};
-} // namespace
+}
 
 static UiResult HandleFormationCell(const UiPointerEvent& event, int cell);
 static UiResult HandleFormationBackground(const UiPointerEvent& event);

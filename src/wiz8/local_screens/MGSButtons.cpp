@@ -103,7 +103,7 @@ struct SubMenu {
     std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
 };
 std::unique_ptr<SubMenu> submenu;
-} // namespace
+}
 
 void DestroySubMenuPanel()
 {

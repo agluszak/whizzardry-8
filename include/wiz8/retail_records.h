@@ -179,23 +179,21 @@ struct FactDatabaseRecord {
 static_assert(std::is_trivially_copyable_v<FactDatabaseRecord>);
 static_assert(sizeof(FactDatabaseRecord) == 0x1d8, "FactDatabaseRecord_size_must_be_0x1d8");
 struct NpcCharacterTemplate {
-    std::array<std::byte, 20> name;       /* 0x000, record 0x0c4 */
-    std::array<std::byte, 12> name_part_2; /* 0x014, record 0x0d8 */
+    std::array<std::byte, 20> name;
+    std::array<std::byte, 12> name_part_2;
     unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
-    W8Profession
-        profession; /* 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
-    W8Race race; /* 0x068, record 0x12c */
-    int table_value; /* 0x06c, record 0x130 */
-    unsigned int level; /* 0x070, record 0x134: starting profession level */
-    int attributes[7]; /* 0x074, record 0x138: W8CharacterAttribute::value per attribute */
-    int skills[0x29]; /* 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
-    unsigned char
-        spells[0x72]; /* 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
-    unsigned short equipment_present[12]; /* 0x1a6, record 0x26a: zero leaves the slot empty */
-    unsigned short equipment_ids[12]; /* 0x1be, record 0x282: Items.dbs index, 0xffff empty */
-    unsigned short backpack_present[8]; /* 0x1d6, record 0x29a */
-    unsigned short backpack_ids[8]; /* 0x1e6, record 0x2aa */
-    signed char gender; /* 0x1f6, record 0x2ba: copied into the character's own sex field */
+    W8Profession profession;
+    W8Race race;
+    int table_value;
+    unsigned int level;
+    int attributes[7];
+    int skills[0x29];
+    unsigned char spells[0x72];
+    unsigned short equipment_present[12];
+    unsigned short equipment_ids[12];
+    unsigned short backpack_present[8];
+    unsigned short backpack_ids[8];
+    signed char gender;
     short wanted_item_ids[3];
     unsigned char unknown_1fd[9];
 };
@@ -277,7 +275,7 @@ struct NpcDatabaseRecord {
     /* 0x2eb: the purse the NPC carries; the party gets it when the NPC's
        monster dies. */
     int gold;
-    unsigned char combat_script_notice_enabled; /* 0x2ef: hostile-NPC combat notice */
+    unsigned char combat_script_notice_enabled;       /* 0x2ef: hostile-NPC combat notice */
     unsigned char allow_dismissed_departure_dialogue; /* 0x2f0: permits dismissed-NPC dialogue */
     unsigned char unknown_2f1[0x18];
 };
@@ -293,9 +291,9 @@ struct LevelDatabaseRecord {
        read by UpdateRandomEncounterBudget and the sixth by the culling pass. */
     int maximum_random_encounters; /* 0x3c */
     int minimum_random_encounters; /* 0x40 */
-    int maximum_encounter_budget; /* 0x44 */
-    int minimum_encounter_budget; /* 0x48 */
-    int encounter_budget_period; /* 0x4c: elapsed-time divisor */
+    int maximum_encounter_budget;  /* 0x44 */
+    int minimum_encounter_budget;  /* 0x48 */
+    int encounter_budget_period;   /* 0x4c: elapsed-time divisor */
     int encounter_culling_seconds; /* 0x50 */
     /* 0x54: float divisor the surprise transition uses when scaling game time
        and monster-generator duration. */
@@ -335,8 +333,8 @@ struct MonsterRecord {
     /* 0x0d0: W8MonsterRecordFlag mask; retain the serialized byte width. */
     unsigned char flags;
     unsigned char attribute_values[5]; /* 0x0d1 */
-    W8Dice hit_points; /* 0x0d6: rolled into uiHPMax/hp_current */
-    W8Dice stamina_dice; /* 0x0da: initializes maximum and current stamina */
+    W8Dice hit_points;                 /* 0x0d6: rolled into uiHPMax/hp_current */
+    W8Dice stamina_dice;               /* 0x0da: initializes maximum and current stamina */
     unsigned char unknown_0de[2];
     /* 0x0e0/0x0e1: the percentage chances the AI casts a spell or flees each
        round; a monster with a usable attack ignores them and always tries. */
@@ -380,7 +378,7 @@ struct MonsterRecord {
     unsigned char unknown_17d[4];
     unsigned int experience; /* 0x181: base experience value */
     unsigned char unknown_185[2];
-    short record_id; /* 0x187: equals the zero-based database index */
+    short record_id;       /* 0x187: equals the zero-based database index */
     char cycle_name[0x30]; /* 0x189: GrCycle lookup key */
     /* 0x1b9: prefer ranged actions instead of closing/backing off. */
     unsigned char prefer_ranged_actions;
@@ -418,12 +416,12 @@ struct MonsterRecord {
     /* 0x251: monster level shown by MonsterInfo and related UI. */
     unsigned char display_level;
     unsigned char unknown_252;
-    int model_index; /* 0x253 */
+    int model_index;           /* 0x253 */
     int alternate_model_index; /* 0x257: alternate selected value */
-    int hostility_radius; /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
-    int faction_id; /* 0x25f: W8Faction value, domain 0..20 */
-    int material; /* 0x263: Monster Editor Material selector */
-    unsigned char deleted; /* 0x267: LoadMonsterGroup skips the record */
+    int hostility_radius;      /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
+    int faction_id;            /* 0x25f: W8Faction value, domain 0..20 */
+    int material;              /* 0x263: Monster Editor Material selector */
+    unsigned char deleted;     /* 0x267: LoadMonsterGroup skips the record */
     unsigned char significant_kill;
     unsigned char unknown_269;
     /* 0x26a: unborn monsters enter the birth/encounter lists before acting. */
@@ -459,7 +457,7 @@ struct Character {
     unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
     /* 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
-    W8Profession iProfession; /* 0x0069 */
+    W8Profession iProfession;         /* 0x0069 */
     W8Profession original_profession; /* 0x006d */
     /* 0x0071: indexes the race resistance table. */
     W8Race iRace;
@@ -476,7 +474,7 @@ struct Character {
        by the character rebuild; all three accesses are four-byte stores. */
     int unknown_007d;
     int personality; /* indexes the state-5 descriptor text */
-    int voice; /* selected by the character voice control */
+    int voice;       /* selected by the character voice control */
     /* 0x0089: the experience level; averaged across occupied slots. */
     unsigned int uiExpLevel;
     int profession_levels[W8_PROFESSION_COUNT]; /* 0x008d */
@@ -527,11 +525,11 @@ struct Character {
     /* 0x0b0d..0x0b20: the two pools with a ceiling each, plus the adjustment
        damage is booked against before hit points are recalculated. A character
        whose hp_current is zero is treated as out of the fight everywhere. */
-    int uiHPMax; /* 0x0b0d */
-    unsigned int hp_current; /* 0x0b11 */
-    int hp_adjustment; /* 0x0b15 */
-    int uiStaminaMax; /* 0x0b19 */
-    int stamina; /* 0x0b1d */
+    int uiHPMax;                  /* 0x0b0d */
+    unsigned int hp_current;      /* 0x0b11 */
+    int hp_adjustment;            /* 0x0b15 */
+    int uiStaminaMax;             /* 0x0b19 */
+    int stamina;                  /* 0x0b1d */
     unsigned int fatigue_penalty; /* 0x0b21: taken off the stamina ceiling */
     /* 0x0b25 and 0x0b45: the spell-point pools, one per spell realm. */
     int sp_max[W8_SPELL_REALM_COUNT]; /* 0x0b25 */
@@ -555,10 +553,10 @@ struct Character {
     float stamina_regen_accumulator;
     float spell_regen_rates[12];
     unsigned char unknown_0ba9[0x10];
-    unsigned int inventory_weight; /* 0x0bb9 */
-    unsigned int party_weight_share; /* 0x0bbd */
+    unsigned int inventory_weight;     /* 0x0bb9 */
+    unsigned int party_weight_share;   /* 0x0bbd */
     unsigned int total_carried_weight; /* 0x0bc1 */
-    unsigned int carrying_capacity; /* 0x0bc5; displayed divided by 10 */
+    unsigned int carrying_capacity;    /* 0x0bc5; displayed divided by 10 */
     /* 0x0bc9: the load category, zero through four, which scales what an
        action costs in fatigue. FatigueCharacter's error text calls it that. */
     W8LoadCategory load_category;
@@ -624,7 +622,7 @@ struct Character {
     W8WorldCameraState saved_location; /* 0x17d7 */
     /* 0x1813: which level that anchor belongs to. The recall compares it
        against g_status.current_level and takes a different path when they differ. */
-    int saved_level; /* 0x1813 */
+    int saved_level;                          /* 0x1813 */
     W8CharacterConditionRecord conditions[4]; /* 0x1817 .. 0x185a */
     /* 0x185b: the deep-fatigue effect is already on this character, which is
        what stops FatigueCharacter re-applying it every turn. */

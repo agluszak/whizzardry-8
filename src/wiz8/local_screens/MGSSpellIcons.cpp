@@ -73,7 +73,7 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
         origin.x += step;
     }
 }
-} // namespace
+}
 
 void DestroySpellIconHudControls()
 {
