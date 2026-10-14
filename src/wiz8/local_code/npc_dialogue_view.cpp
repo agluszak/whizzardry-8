@@ -1,7 +1,5 @@
 #include "wiz8/local_code/npc_dialogue_view.h"
 
-#include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -10,7 +8,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "audio_resources.h"
 #include "compat/native.h"
 #include "cursor.h"
 #include "layouts/screen_state.h"
@@ -64,8 +61,7 @@ bool IsNpcVoicePlaying(void)
 
 void ResetNpcPresentation(void)
 {
-    StopNpcVoice(g_speech);
-    g_speech = {};
+    ResetNpcSpeech(g_speech);
     g_presentation = W8NpcPresentation::none;
 }
 
@@ -219,30 +215,21 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
         }
         if (!voiced) {
             HoldNpcSpeech(g_speech, wiz8::text::grapheme_count(display_text) * 60 + 2000);
-            entry = GetNpcGroupEntry(speaker);
-            if (entry != 0) {
-                SetPartyPortraitEventState(speaker->group_index, true, current_quote, display_text,
-                                           1);
-                entry->voice_sound_handle = nullptr;
-                entry->voice_time_remaining_ms = g_speech.hold_ms;
-            }
-        } else {
-            entry = GetNpcGroupEntry(speaker);
-            if (entry != 0) {
-                SetPartyPortraitEventState(speaker->group_index, true, current_quote, display_text,
-                                           1);
-                entry->voice_sound_handle = g_speech.voice_handle;
-                const auto playback_time = wiz8::sound::playback_time(g_speech.voice_handle)
-                                               .value_or(wiz8::sound::PlaybackTime{});
-                entry->voice_time_remaining_ms = playback_time.total_ms;
-                gXStatus.monster_manager_entries[speaker->group_index].mouth_gap =
-                    LoadMouthGapTrack(voice_path);
+        }
+        /* A party member speaks through its portrait; anyone else through
+           the dialogue speech's own mouth-gap track. */
+        entry = GetNpcGroupEntry(speaker);
+        if (entry != 0) {
+            SetPartyPortraitEventState(speaker->group_index, true, current_quote, display_text, 1);
+            BeginPortraitVoice(speaker->group_index, g_speech.voice.playback(), voice_path,
+                               g_speech.hold_ms);
+            if (voiced) {
                 g_status.buffers.XChar[speaker->group_index].pending_event_type = current_quote;
                 entry->pending_event_type = current_quote;
                 g_npc_interaction_state->last_notice_npc_kind = speaker->partner_index;
-            } else {
-                g_speech.gap_track = LoadMouthGapTrack(voice_path);
             }
+        } else if (voiced) {
+            g_speech.gap_track = LoadMouthGapTrack(voice_path);
         }
         g_presentation = W8NpcPresentation::quote;
         return W8NpcSubquoteOutcome::presented;
@@ -272,17 +259,12 @@ static void FinishNpcVoicePlayback(bool resume_script)
     if (monster != 0) {
         monster->StopTalking();
     }
-    W8MonsterManagerEntry* entry = GetNpcGroupEntry(speaker);
-    if (entry != 0) {
-        if (entry->active_character_event == 0) {
-            SetPartyPortraitEventState(speaker->group_index, false, -1, {}, 1);
-        } else {
-            gXStatus.character_event_queue->CompleteActiveEvent(entry->active_character_event);
-        }
+    if (GetNpcGroupEntry(speaker) != 0) {
+        FinishPortraitSpeech(speaker->group_index);
         SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
     }
     g_presentation = W8NpcPresentation::none;
-    g_speech.voice_handle = nullptr;
+    g_speech.voice.Stop();
     g_npc_dialogue.SpeechFinished();
     if (g_npc_dialogue.reply() == W8NpcReplyState::none && resume_script) {
         if (speaker != 0 && speaker->script_file != 0 &&
