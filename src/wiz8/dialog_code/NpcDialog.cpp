@@ -141,7 +141,7 @@ int W8NpcDialog::CreateControls()
                                               m_selected_option = 1;
                                               m_keep_open = false;
                                           }});
-        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_scripting.price_check->price);
+        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_dialogue.price_check()->price);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 10;
         bounds.right = m_bounds.x + m_bounds.w - 10;
