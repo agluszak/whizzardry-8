@@ -37,11 +37,12 @@ enum W8SplitDialogResult {
 /* The small numeric entry field embedded by the split dialogs. */
 class W8DialogNumericInput {
 public:
-    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font,
-                         W8DialogBase* dialog, W8ButtonWidget* button);
+    W8DialogNumericInput(UiLayer& layer, const W8ControlsRect* bounds, int value, Font& font,
+                         std::function<void(int)> on_change);
     void SetValue(int value);
-    void SetActive(bool active);
-    void SetActive(bool active, const SDL_Point* point);
+    void StopEditing();
+    void StartEditing(SDL_Point point);
+    void ProcessInput(const std::function<void(const InputEvent&)>& unhandled);
     void Draw(SDL_Surface& target);
     bool HandleInput(const InputEvent* input);
 
@@ -54,13 +55,9 @@ public:
     Font* m_font;
     int m_value;
     bool m_dirty;
-    bool m_active;
     /* The stack total for the split dialogs; -1 is "no maximum". */
     unsigned int m_maximum;
-    W8DialogBase* m_dialog;
-    W8ButtonWidget* m_button;
-    /* Echoed back as the argument of m_dialog->OnNumericInputChanged. */
-    int m_control_id;
+    std::function<void(int)> m_on_change;
 };
 
 // VTABLE: WIZ8 0x005ef7c8
@@ -125,7 +122,6 @@ public:
     virtual ~W8SplitAmountDialog() override;
     virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
-    virtual void OnNumericInputChanged(int value) override;
 
 private:
     /* Create and place the six dialog buttons. */
@@ -155,9 +151,7 @@ private:
        amount still remaining. */
     std::array<std::unique_ptr<W8TextBuffer>, 3> m_text_buffers;
     std::unique_ptr<W8DialogNumericInput> m_split_input;
-    /* The numeric field while the cursor or keyboard owns it. */
-    W8DialogNumericInput* m_active_field;
-    int m_remaining; /* total minus the field value */
+    int Remaining() const { return m_total - m_taken; }
     int m_taken;     /* the field value */
     int m_total;
     W8SplitDialogResult m_result; /* 1 confirms, 2 cancels */
@@ -225,7 +219,6 @@ public:
     virtual ~W8SplitItemDialog() override;
     virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
-    virtual void OnNumericInputChanged(int value) override;
 
 private:
     /* Create and place the arrow, frame, accept and cancel
@@ -255,8 +248,6 @@ public:
     std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */
     std::array<std::unique_ptr<W8TextBuffer>, 14> m_texts;
     std::unique_ptr<W8DialogNumericInput> m_count_input;
-    /* The numeric field while a click or keypress owns it. */
-    W8DialogNumericInput* m_active_input;
     int m_remaining; /* the count left in the source stack */
     int split_count;
     int m_stack_total; /* stack_count when the dialog opened */

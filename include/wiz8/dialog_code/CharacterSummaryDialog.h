@@ -10,7 +10,6 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/MonsterManager.h"
 
-class W8DialogNumericInput;
 class W8TextBuffer;
 
 /* The character-summary popup temporarily installs the character as party
@@ -23,7 +22,6 @@ public:
     virtual void Draw(SDL_Surface& target) override;
 
     virtual bool ProcessInput() override;
-    virtual void OnNumericInputChanged(int value) override;
 
     void DrawPortraitAnimationFrame(SDL_Surface& target);
 
@@ -33,10 +31,6 @@ private:
 
     bool m_voice_started;
     std::unique_ptr<W8TextBuffer> m_quote_text;
-    W8DialogNumericInput* m_numeric_input;
-    int m_remaining;
-    int m_taken;
-    int m_total;
     int m_field_070;
     W8Character* m_character;
     W8Character m_saved_character;

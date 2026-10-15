@@ -1252,12 +1252,13 @@ TEST_CASE("Split fields share editing and restore focus after rejecting excessiv
     outer.Add(0, 0, 80, 20, 0, "name", 20, 2, false);
     outer.Focus(0);
     W8DialogBase dialog;
-    W8ButtonWidget button(dialog.InputLayer());
     W8ControlsRect bounds{10, 10, 110, 30};
-    W8DialogNumericInput amount(0, &bounds, 12, font, &dialog, &button);
+    int changed = 0;
+    W8DialogNumericInput amount(dialog.InputLayer(), &bounds, 12, font,
+                                [&](int value) { changed = value; });
     amount.m_maximum = 200;
     const SDL_Point point{110, 20};
-    amount.SetActive(true, &point);
+    amount.StartEditing(point);
     // An active numeric editor must receive pointer hits in its dialog layer.
     REQUIRE(UiTargetAt({95, 20}) != nullptr);
     const InputEvent digit{.type = InputEventType::Text, .text = U'3'};
@@ -1273,7 +1274,8 @@ TEST_CASE("Split fields share editing and restore focus after rejecting excessiv
     REQUIRE(amount.m_value == 12);
     const InputEvent escape{.type = InputEventType::KeyDown, .key = SDLK_ESCAPE};
     REQUIRE(amount.HandleInput(&escape));
-    REQUIRE_FALSE(amount.m_active);
+    REQUIRE(changed == 12);
+    REQUIRE_FALSE(amount.HandleInput(&digit));
     REQUIRE(TextFieldGroup::Focused() == &outer);
     REQUIRE(outer.Editing());
 }

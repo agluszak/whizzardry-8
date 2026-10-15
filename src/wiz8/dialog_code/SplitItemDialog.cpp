@@ -96,7 +96,6 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     }
     m_item = item;
     split_result = W8_SPLIT_RESULT_PENDING;
-    m_active_input = 0;
 
     split_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
@@ -227,13 +226,16 @@ bool W8SplitItemDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
 
-    m_active_input = 0;
     bounds.left = g_split_count_field_bounds.left + m_x;
     bounds.top = g_split_count_field_bounds.top + m_y;
     bounds.right = g_split_count_field_bounds.right + m_x;
     bounds.bottom = g_split_count_field_bounds.bottom + m_y;
     m_count_input = std::make_unique<W8DialogNumericInput>(
-        0, &bounds, split_count, g_wiz_text_font_secondary, this, &m_buttons[3]);
+        InputLayer(), &bounds, split_count, g_wiz_text_font_secondary, [this](int value) {
+            split_count = value;
+            m_remaining = m_stack_total - value;
+            UpdateTotals();
+        });
     m_count_input->m_maximum = m_stack_total;
     return true;
 }
@@ -361,7 +363,6 @@ void W8SplitItemDialog::UpdateTotals()
     m_count_input->SetValue(split_count);
     m_buttons[3].m_dirty = true;
     m_count_input->m_dirty = true;
-    m_count_input->m_button->m_dirty = true;
     text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
                                      g_item_weight_display_scale);
     m_texts[7]->SetText(text, g_wiz_text_font_secondary);
@@ -376,20 +377,10 @@ void W8SplitItemDialog::UpdateTotals()
 }
 
 // FUNCTION: WIZ8 0x005DDFA0
-void W8SplitItemDialog::OnNumericInputChanged(int value)
-{
-    if (value != 0) {
-        return;
-    }
-    split_count = m_count_input->m_value;
-    m_remaining = m_stack_total - m_count_input->m_value;
-    UpdateTotals();
-}
-
 // FUNCTION: WIZ8 0x005DE120
 bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (m_count_input && m_count_input->HandleInput(input)) return true;
+    if (m_count_input->HandleInput(input)) return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         const SDL_Keycode key = input->key;
         if (key == '\r') {
@@ -407,7 +398,7 @@ bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 bool W8SplitItemDialog::ProcessInput()
 {
     BeginModalInput();
-    ProcessNumericDialogInputEvents(this, m_active_input, &W8SplitItemDialog::HandleInputEvent);
+    m_count_input->ProcessInput([this](const InputEvent& input) { HandleInputEvent(&input); });
     if (!m_keep_open) {
         EndModalInput();
     }
@@ -444,8 +435,7 @@ void W8SplitItemDialog::OnCountFieldClick()
     }
     point.x -= g_split_count_field_bounds.left;
     point.y -= g_split_count_field_bounds.top;
-    m_count_input->SetActive(true, &point);
-    m_active_input = m_count_input.get();
+    m_count_input->StartEditing(point);
 }
 
 std::function<void()> W8SplitItemDialog::TakeCompletion(bool completed)

@@ -167,8 +167,6 @@ bool W8DialogBase::ProcessInput()
 
 /* Retail ICF shares this one-argument no-op with the retained widget Redraw
    body at 0x005B1BE0; this override has no separate retail address marker. */
-void W8DialogBase::OnNumericInputChanged(int) {}
-
 // FUNCTION: WIZ8 0x005ad270
 void W8DialogBase::OnRightButtonDown()
 {
