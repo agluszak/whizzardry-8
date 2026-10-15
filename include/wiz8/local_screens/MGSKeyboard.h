@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
+
+#include <SDL3/SDL_keycode.h>
 
 #include "compat/compiler.h"
 #include "input.h"

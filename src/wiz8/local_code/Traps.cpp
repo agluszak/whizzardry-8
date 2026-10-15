@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <fmt/format.h>
 
 #include "compat/native.h"

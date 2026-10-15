@@ -1,6 +1,8 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -8,6 +10,7 @@
 #include <utility>
 
 #include <SDL3/SDL_endian.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>

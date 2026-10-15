@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -9,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "fact_state.h"

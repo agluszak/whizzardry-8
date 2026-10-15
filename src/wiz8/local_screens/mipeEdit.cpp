@@ -2,6 +2,7 @@
 #include <string>
 #include <string_view>
 
+#include <SDL3/SDL_keycode.h>
 #include <fmt/format.h>
 
 #include "input.h"

@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>

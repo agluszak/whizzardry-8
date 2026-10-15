@@ -1,12 +1,12 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdlib>
 #include <memory>
 #include <string>
 #include <string_view>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>

@@ -1,6 +1,10 @@
 #include "wiz8/key_bindings.h"
 
+#include <cstdint>
 #include <initializer_list>
+#include <string_view>
+
+#include <SDL3/SDL_keycode.h>
 
 #include "input.h"
 

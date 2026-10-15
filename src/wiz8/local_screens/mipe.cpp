@@ -9,6 +9,7 @@
 #include <variant>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 

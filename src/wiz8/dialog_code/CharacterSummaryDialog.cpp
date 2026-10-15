@@ -1,8 +1,8 @@
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 
-#include <cctype>
 #include <cstring>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_surface.h>
 
 #include "character_event_queue.h"

@@ -10,6 +10,7 @@
 #include <string_view>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
