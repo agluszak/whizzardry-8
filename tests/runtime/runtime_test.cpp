@@ -923,7 +923,7 @@ void InventoryChestScenario()
     game.frame();
     REQUIRE(gXStatus.world_update_blocked);
     auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner.get());
-    REQUIRE_FALSE(picker->items.empty());
+    REQUIRE_FALSE(picker->entries.empty());
     const auto click_button = [&](int index) {
         auto& button = *picker->m_buttons[index];
         game.click_at(button.Bounds().x + button.Bounds().w / 2,
@@ -934,8 +934,8 @@ void InventoryChestScenario()
     const auto pool = std::vector<W8ItemInstance>(std::begin(g_status.party_item_pool),
                                                   std::end(g_status.party_item_pool));
     const auto pool_count = g_status.party_item_count;
-    const auto original_item = picker->items.front()->item;
-    const auto picker_count = picker->items.size();
+    const auto original_item = picker->entries.front().item->item;
+    const auto picker_count = picker->entries.size();
     int stack_id = -1, nonstack_id = -1;
     for (unsigned i = 0; i < gXStatus.uiItemsInDatabase; ++i) {
         const auto& record = g_item_records[i];
@@ -947,7 +947,7 @@ void InventoryChestScenario()
     }
     REQUIRE(stack_id >= 0);
     REQUIRE(nonstack_id >= 0);
-    auto& remainder = picker->items.front()->item;
+    auto& remainder = picker->entries.front().item->item;
     ReplaceOrCreateItem(&remainder, stack_id, true, false, false);
     remainder.stack_count = 5;
     W8ItemInstance filler{};
@@ -957,10 +957,10 @@ void InventoryChestScenario()
     g_status.party_item_pool[0] = remainder;
     const auto maximum = g_item_records[stack_id].maximum_quantity;
     g_status.party_item_pool[0].stack_count = maximum - 2;
-    std::fill(picker->flags.begin(), picker->flags.end(), 0);
-    picker->flags.front() = 1;
+    for (auto& entry : picker->entries) entry.selected = false;
+    picker->entries.front().selected = true;
     click_button(1);
-    REQUIRE(picker->items.size() == picker_count);
+    REQUIRE(picker->entries.size() == picker_count);
     REQUIRE(g_status.party_item_count == 500);
     REQUIRE(g_status.party_item_pool[0].stack_count == maximum);
     REQUIRE(remainder.stack_count == 3);
@@ -970,7 +970,7 @@ void InventoryChestScenario()
     std::copy(pool.begin(), pool.end(), std::begin(g_status.party_item_pool));
     g_status.party_item_count = pool_count;
     RedistributePartyEncumbrance();
-    std::fill(picker->flags.begin(), picker->flags.end(), 0);
+    for (auto& entry : picker->entries) entry.selected = false;
     click_button(0); // Select all.
     click_button(1); // Take selected items into the party pool.
     game.wait("close-chest-picker", [] { return g_modal_owner == nullptr; });
