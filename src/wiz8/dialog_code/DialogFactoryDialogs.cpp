@@ -80,7 +80,7 @@ int W8ListBoxDialog::GetVisibleLineCount()
         return 0;
     }
     return m_area_button.Bounds().h /
-           static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
+           static_cast<int>(static_cast<unsigned int>(g_wiz_dialog_font.height()));
 }
 
 /* Both selection directions clamp the requested top row independently of
@@ -183,15 +183,15 @@ void W8ListBoxDialog::Configure()
     m_text_button.Configure(
         ButtonAppearance{.generic_image = edge_inlay ? edge_inlay : DefaultGenericButtonImage(),
                          .string = std::string(m_text),
-                         .usFont = &(*g_dialog_interface_font),
-                         .sForeColor = g_dialog_font_foreground,
-                         .sShadowColor = g_dialog_font_background},
-        {m_x + 9, m_y + 9, m_width - 0x12, g_dialog_interface_font->height() * 0x96 / 100},
+                         .usFont = &g_wiz_dialog_font,
+                         .sForeColor = 255,
+                         .sShadowColor = 0},
+        {m_x + 9, m_y + 9, m_width - 0x12, g_wiz_dialog_font.height() * 0x96 / 100},
         {.priority = UI_PRIORITY_HIGHEST - 1});
     if (!m_text.empty()) {
         SetText(m_text);
     }
-    m_text_button.SetMultiColor(g_dialog_font_enabled);
+    m_text_button.SetMultiColor(true);
     area_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {},
                                          "Data\\Dialogs\\DialogInlay.STI", {},
                                          "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
@@ -201,9 +201,9 @@ void W8ListBoxDialog::Configure()
     m_area_button.Configure(
         ButtonAppearance{.generic_image = area_inlay ? area_inlay : DefaultGenericButtonImage(),
                          .string = std::string({}),
-                         .usFont = &(*g_dialog_interface_font),
-                         .sForeColor = g_dialog_font_foreground,
-                         .sShadowColor = g_dialog_font_background},
+                         .usFont = &g_wiz_dialog_font,
+                         .sForeColor = 255,
+                         .sShadowColor = 0},
         {m_text_button.Bounds().x, m_text_button.Bounds().y + m_text_button.Bounds().h + 4,
          m_text_button.Bounds().w, 0x14},
         {.on_click = [this](W8ButtonWidget*) { OnTextAreaClick(); },
@@ -241,9 +241,9 @@ void W8ListBoxDialog::Configure()
                 ButtonAppearance{.generic_image = third_btn_inlay ? third_btn_inlay
                                                                   : DefaultGenericButtonImage(),
                                  .string = std::string({}),
-                                 .usFont = &(*g_dialog_interface_font),
-                                 .sForeColor = g_dialog_font_foreground,
-                                 .sShadowColor = g_dialog_font_background},
+                                 .usFont = &g_wiz_dialog_font,
+                                 .sForeColor = 255,
+                                 .sShadowColor = 0},
                 {0, 0, 1, 1},
                 {.on_click = [this](W8ButtonWidget*) { OnSliderTrackClick(); },
                  .policy = {.activation = ButtonActivation::Press, .repeat = true},
@@ -254,9 +254,9 @@ void W8ListBoxDialog::Configure()
                     ButtonAppearance{.generic_image =
                                          edge_inlay ? edge_inlay : DefaultGenericButtonImage(),
                                      .string = std::string({}),
-                                     .usFont = &(*g_dialog_interface_font),
-                                     .sForeColor = g_dialog_font_foreground,
-                                     .sShadowColor = g_dialog_font_background},
+                                     .usFont = &g_wiz_dialog_font,
+                                     .sForeColor = 255,
+                                     .sShadowColor = 0},
                     {m_x + 9, m_y + m_height - m_ok_button.Bounds().h * 0x96 / 100 - 9,
                      m_width - 0x12, m_ok_button.Bounds().h * 0x96 / 100},
                     {.priority = UI_PRIORITY_HIGHEST - 1});
@@ -307,12 +307,11 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
         -6 - m_text_button.Bounds().y - m_text_button.Bounds().h + m_second_text_button.Bounds().y;
     unsigned int visible_lines;
     if (static_cast<int>(m_lines.size()) <
-        height / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()))) {
+        height / static_cast<int>(static_cast<unsigned int>(g_wiz_dialog_font.height()))) {
         m_scrollable = false;
         visible_lines = static_cast<int>(m_lines.size());
     } else {
-        int rows =
-            height / static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
+        int rows = height / static_cast<int>(static_cast<unsigned int>(g_wiz_dialog_font.height()));
         if (static_cast<int>(m_lines.size()) > rows) {
             width = width + (-7 - m_up_button.Bounds().w);
             m_scrollable = true;
@@ -371,15 +370,15 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
             line = m_first_visible_line + index;
             const std::string& text = m_lines[line];
             if (line == m_selected_line) {
-                const int top = m_y + g_dialog_interface_font->height() * index + 2 + dy;
+                const int top = m_y + g_wiz_dialog_font.height() * index + 2 + dy;
                 const SDL_Rect selection{m_x + 3 + dx, top, width - 6,
-                                         g_dialog_interface_font->height() - 2};
+                                         g_wiz_dialog_font.height() - 2};
                 SDL_FillSurfaceRect(&target, &selection, Get16BPPColor(m_fill_colour));
             }
-            DrawText(target, *g_dialog_interface_font,
-                     {m_x + 3 + dx,
-                      static_cast<int>(g_dialog_interface_font->height()) * index + m_y + 2 + dy},
-                     text);
+            DrawText(
+                target, g_wiz_dialog_font,
+                {m_x + 3 + dx, static_cast<int>(g_wiz_dialog_font.height()) * index + m_y + 2 + dy},
+                text);
         }
     }
 }
