@@ -2,6 +2,7 @@
 
 #include "layouts/main_game_screen.h"
 #include "surrender/srMath.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

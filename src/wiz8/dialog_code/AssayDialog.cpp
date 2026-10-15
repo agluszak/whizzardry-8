@@ -16,6 +16,7 @@
 #include "local_code/TextBuffer.h"
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"

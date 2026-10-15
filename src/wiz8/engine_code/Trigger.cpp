@@ -12,6 +12,7 @@
 #include <ranges>
 #include <source_location>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -75,7 +76,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/sr_api.h"

@@ -12,6 +12,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper

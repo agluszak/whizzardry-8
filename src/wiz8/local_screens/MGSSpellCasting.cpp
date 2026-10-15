@@ -58,7 +58,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
