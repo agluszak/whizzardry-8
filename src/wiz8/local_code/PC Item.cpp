@@ -3145,8 +3145,8 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        return !gXStatus.fCombatMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
-               !gXStatus.fTrapInteract;
+        return !gXStatus.fCombatMode && !gXStatus.fCampMode && !LockInteractionSuspended() &&
+               !TrapInteractionSuspended();
     }
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
         record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
@@ -3175,8 +3175,8 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        if (gXStatus.fCombatMode || gXStatus.fCampMode || gXStatus.fLockInteract ||
-            gXStatus.fTrapInteract) {
+        if (gXStatus.fCombatMode || gXStatus.fCampMode || LockInteractionSuspended() ||
+            TrapInteractionSuspended()) {
             ShowNoticeLine(g_localized_strings[0x7a6], callback, true, false);
             return true;
         }

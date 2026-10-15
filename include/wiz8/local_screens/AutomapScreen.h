@@ -26,10 +26,6 @@ struct W8AutomapNote {
     std::string text;
 };
 
-extern W8MainUiMode g_ui_mode_current;
-extern W8MainUiMode g_ui_mode_saved;
-void SetCurrentAutomapUiMode(W8MainUiMode value);
-void SetSavedAutomapUiMode(W8MainUiMode value);
 
 /* The sixteen chrome buttons; a slot stays empty when its artwork is missing. */
 struct AutomapButtons {

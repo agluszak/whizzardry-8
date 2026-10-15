@@ -262,7 +262,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         return true;
     }
 
-    lock_or_trap = gXStatus.fLockInteract || gXStatus.fTrapInteract;
+    lock_or_trap = LockInteractionSuspended() || TrapInteractionSuspended();
 
     switch (usable_when) {
     case W8_SPELL_USABLE_ANY_TIME:
@@ -284,12 +284,12 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         return !lock_or_trap;
     case W8_SPELL_USABLE_ON_LOCK_OR_TRAP:
         if (spell_id != W8_SPELL_KNOCK_KNOCK) {
-            return spell_id == W8_SPELL_DIVINE_TRAP ? gXStatus.fTrapInteract : 0;
+            return spell_id == W8_SPELL_DIVINE_TRAP ? TrapInteractionSuspended() : 0;
         }
-        if (gXStatus.fLockInteract) {
+        if (LockInteractionSuspended()) {
             return true;
         }
-        return gXStatus.fTrapInteract;
+        return TrapInteractionSuspended();
     default:
         srAssertFail("FALSE", MAGIC_CPP, 4228, "SpellUsableNow: ERROR - Invalid uiSpellUsableWhen");
         return allow_out_of_combat;

@@ -288,10 +288,10 @@ void CloseSpellCastingView(void)
         if (IsWorldCursorVisible()) {
             ToggleWorldCursor();
         }
-        if (gXStatus.fLockInteract && !IsScreenTransitionPending()) {
+        if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);
         }
-        if (gXStatus.fTrapInteract && !IsScreenTransitionPending()) {
+        if (TrapInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenTrapInteraction(0);
         }
         if (interact_id != W8_DIALOGUE_LAYOUT_UNSET && !IsScreenTransitionPending()) {
@@ -541,8 +541,8 @@ static void RebuildSpellCastingList(int spell_id)
                     !IsTeleportCastMissingAnchor(gpSCSV->caster, id)) {
                     if (IsSpellBlockedForCharacter(gpSCSV->caster, id)) {
                         if (pass == 1 &&
-                            ((!gXStatus.fCampMode && !gXStatus.fLockInteract &&
-                              !gXStatus.fTrapInteract) ||
+                            ((!gXStatus.fCampMode && !LockInteractionSuspended() &&
+                              !TrapInteractionSuspended()) ||
                              SpellUsableNow(id, false)) &&
                             gpSCSV->uiSpellsInList + 1 <= 0x15e) {
                             AppendSpellCastingListEntry(id, spell, 4);
@@ -557,8 +557,8 @@ static void RebuildSpellCastingList(int spell_id)
                         }
                     }
                 } else if (pass == 1 &&
-                           ((!gXStatus.fCampMode && !gXStatus.fLockInteract &&
-                             !gXStatus.fTrapInteract) ||
+                           ((!gXStatus.fCampMode && !LockInteractionSuspended() &&
+                             !TrapInteractionSuspended()) ||
                             SpellUsableNow(id, false)) &&
                            gpSCSV->uiSpellsInList + 1 <= 0x15e) {
                     AppendSpellCastingListEntry(id, spell, 0);
@@ -1044,12 +1044,6 @@ static void SelectSpellCastingListRow(int index)
     SelectSpellPowerLevel(-1);
     UpdateSpellPowerPips();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-}
-
-// FUNCTION: WIZ8 0x005A1330
-void SetSpellCastingMode(W8MainUiMode value)
-{
-    gpSCSV->saved_game_mode = value;
 }
 
 // FUNCTION: WIZ8 0x005A1350

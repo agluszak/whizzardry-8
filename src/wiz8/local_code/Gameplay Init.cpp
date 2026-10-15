@@ -146,7 +146,6 @@ try {
     auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
     level_records = std::move(records);
     g_level_records = level_records.get();
-    gXStatus.uiLevelsInDatabase = count;
     return 1;
 } catch (const std::exception&) {
     return 0;
@@ -157,7 +156,6 @@ void DestroyLevelDatabase(void)
 {
     level_records.reset();
     g_level_records = nullptr;
-    gXStatus.uiLevelsInDatabase = 0;
 }
 
 /* Reset the status and its fixed eight-slot character banks. */

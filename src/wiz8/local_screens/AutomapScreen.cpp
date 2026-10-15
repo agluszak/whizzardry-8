@@ -984,10 +984,6 @@ void SetAutomapButtonMode(int update)
 
 // GLOBAL: WIZ8 0x0064b914
 float g_automap_grid_cell_size = 2000.0f;
-// GLOBAL: WIZ8 0x0068f2b0
-W8MainUiMode g_ui_mode_current;
-// GLOBAL: WIZ8 0x0068f2c4
-W8MainUiMode g_ui_mode_saved;
 
 void SetAutomapGridCellSize(float value)
 {
@@ -997,16 +993,6 @@ void SetAutomapGridCellSize(float value)
 float GetAutomapGridCellSize(void)
 {
     return g_automap_grid_cell_size;
-}
-
-void SetCurrentAutomapUiMode(W8MainUiMode value)
-{
-    g_ui_mode_current = value;
-}
-
-void SetSavedAutomapUiMode(W8MainUiMode value)
-{
-    g_ui_mode_saved = value;
 }
 /* Park the automap camera over the requested point with its xz clamped into
    the explored bounds, reselect the layer underneath and refresh the mesh. */

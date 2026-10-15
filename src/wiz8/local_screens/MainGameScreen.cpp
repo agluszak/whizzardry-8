@@ -344,10 +344,6 @@ void CancelMouselook()
     }
 }
 
-/* Open the lock interaction over a trigger, or re-raise its panels while one
-   is suspended; outside those paths a random party member eats the trigger's
-   event and the failure sound plays. */
-
 static void QueueInteractionNotice(int event_type)
 {
     W8CharacterEvent* event = ApplyItemEffectToRandomCharacter(
@@ -367,26 +363,27 @@ static void EnableActionPanelRegions()
     }
 }
 
+bool LockInteractionSuspended()
+{
+    return g_lock_interaction && !gXStatus.fLockInteractMode;
+}
+
+bool TrapInteractionSuspended()
+{
+    return g_main_game_screen && !gXStatus.fTrapInteractMode;
+}
+
+/* Open the lock interaction over a trigger, or re-raise its panels while one
+   is suspended; outside those paths a random party member eats the trigger's
+   event and the failure sound plays. */
 int OpenLockInteraction(Trigger* trigger)
 {
-    W8Character* character;
-    W8LockTumblerPanel* panel;
-    int count;
-    W8MainUiMode mode;
-    int skill;
-    int i;
-    unsigned int force;
-    bool can_cast;
-
-    if (gXStatus.fTrapInteractMode || gXStatus.fTrapInteract) {
+    // A trap interaction, active or suspended, excludes a lock interaction.
+    if (g_main_game_screen) {
         return 0;
     }
-    if (gXStatus.fLockInteractMode || (gXStatus.fLockInteract && trigger != 0)) {
-        QueueInteractionNotice(g_lock_notice_event);
-        wiz8::sound::play(s_lock_open_fail);
-        return 1;
-    }
-    if (gXStatus.fCombatMode) {
+    const bool resume = LockInteractionSuspended();
+    if (gXStatus.fLockInteractMode || (resume && trigger != 0) || gXStatus.fCombatMode) {
         QueueInteractionNotice(g_lock_notice_event);
         wiz8::sound::play(s_lock_open_fail);
         return 1;
@@ -396,49 +393,23 @@ int OpenLockInteraction(Trigger* trigger)
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
-    mode = g_settings.main_ui_mode;
+    const W8MainUiMode mode = g_settings.main_ui_mode;
     SetMainGameOverlayViewport(mode);
-    g_ui_mode_current = mode;
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    if (!gXStatus.fLockInteract) {
+    if (resume) {
+        g_lock_interaction->EnablePanels(1);
+        g_lock_interaction->m_tumbler_panel->InvalidateAll();
+        RefreshLockInteractionControls();
+    } else {
         QueueInteractionNotice(g_lock_notice_event);
         wiz8::sound::play(s_lock_open_fail);
         g_lock_interaction = std::make_unique<W8LockInteraction>(trigger);
-        gXStatus.fLockInteract = false;
-        return 1;
     }
-    g_lock_interaction->EnablePanels(1);
-    g_lock_interaction->m_tumbler_panel->InvalidateAll();
-    g_lock_interaction->m_info_panel->RefreshInfo();
-    g_lock_interaction->actions_dirty = true;
-    skill = GetPartySlotLocksTrapsLevel(g_status.selected_character);
-    panel = g_lock_interaction->m_tumbler_panel.get();
-    for (i = 0; i < panel->m_tumbler_count; ++i) {
-        panel->m_tumblers[i].m_enabled = skill > -1;
-    }
-    character = &g_status.buffers.Char[g_status.selected_character];
-    if (!IsPartySlotEligible(g_status.selected_character) || character->spell_learned[0x27] != 1) {
-        can_cast = false;
-    } else {
-        GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
-        can_cast = CanCharacterCastSpell(character, W8_SPELL_KNOCK_KNOCK);
-    }
-    g_lock_interaction->m_spell_button->SetEnabled(can_cast);
-    if (!IsPartySlotEligible(g_status.selected_character) || character->stamina < 0x50 ||
-        character->attributes[W8_ATTRIBUTE_STRENGTH].effective <= 0x32) {
-        force = 0xffffffff;
-    } else {
-        count = g_settings.difficulty + g_lock_interaction->m_tumbler_count - 1;
-        ClampInteger(&count, 2, 8);
-        force = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
-                static_cast<unsigned int>(IntegerPower(2, count - 2));
-    }
-    g_lock_interaction->m_force_button->SetEnabled(static_cast<int>(force) >= 0);
-    gXStatus.fLockInteract = false;
+    g_lock_interaction->return_mode = mode;
     return 1;
 }
 
@@ -456,22 +427,21 @@ void RedrawLockInteractionPanels(void)
 }
 
 /* Leave lock interact mode. With `suspend` clear the interaction object is
-   destroyed outright; otherwise its panels go inactive while fLockInteract
-   stays set so the session can resume. Either path re-syncs the text box and
-   UI mode and repaints the portrait, status and action regions. */
+   destroyed outright; otherwise it stays alive with its panels inactive so the
+   session can resume. Either path returns to the UI mode the interaction was
+   opened from and repaints the portrait, status and action regions. */
 void EndLockInteractMode(char suspend)
 {
-    W8LockInteraction* interaction = g_lock_interaction.get();
+    const W8MainUiMode return_mode = g_lock_interaction->return_mode;
     gXStatus.fLockInteractMode = false;
     if (suspend != 0) {
-        interaction->EnablePanels(0);
-        gXStatus.fLockInteract = true;
+        g_lock_interaction->EnablePanels(0);
     } else {
         g_lock_interaction.reset();
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    ApplyMainGameModeFlag(g_ui_mode_current, true);
+    ApplyMainGameModeFlag(return_mode, true);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -1993,24 +1963,6 @@ void W8MainGameScreen::ApplyInspectSuccess()
     }
 }
 
-static void BeginTrapTargetAction()
-{
-    W8MainGameScreen* screen;
-    W8MainGameTextPanel* panel;
-    screen = g_main_game_screen.get();
-    gXStatus.fTrapInteractMode = false;
-    panel = screen->m_text_panel.get();
-    panel->EnableInput(false);
-    panel->m_key_handler->m_range.SetActive(false);
-    screen->input.setEnabled(false);
-    gXStatus.fTrapInteract = true;
-    SelectTextBox(0);
-    ApplyMainGameModeFlag(g_ui_mode_saved, true);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-}
-
 void W8MainGameScreen::CastTrapSpell()
 {
     int slot = g_status.selected_character;
@@ -2045,13 +1997,13 @@ void W8MainGameScreen::CastTrapSpell()
         return;
     }
     spell = CanCharacterCastSpell(&g_status.buffers.Char[slot], W8_SPELL_DIVINE_TRAP) ? 0x12 : 0x27;
-    BeginTrapTargetAction();
+    EndTrapInteractMode(1);
     BeginSpellCast(spell, -1, W8_DIALOGUE_LAYOUT_UNSET);
 }
 
 void W8MainGameScreen::UseTrapItem()
 {
-    BeginTrapTargetAction();
+    EndTrapInteractMode(1);
     OpenUseItemSelectView(g_status.selected_character);
 }
 
@@ -2060,16 +2012,15 @@ void W8MainGameScreen::UseTrapItem()
    random party member eats the detection event and the detect sound plays. */
 int OpenTrapInteraction(Trigger* trigger)
 {
-    W8MainGameScreen* screen;
-    W8MainGameTextPanel* panel;
-    W8MainUiMode mode;
     unsigned int event_type;
 
-    if (gXStatus.fLockInteractMode || gXStatus.fLockInteract) {
+    // A lock interaction, active or suspended, excludes a trap interaction.
+    if (g_lock_interaction) {
         return 0;
     }
-    if (gXStatus.fTrapInteractMode || (gXStatus.fTrapInteract && trigger != 0)) {
-        if (g_main_game_screen != 0 && g_main_game_screen->m_disarm_state == 9) {
+    const bool resume = TrapInteractionSuspended();
+    if (gXStatus.fTrapInteractMode || (resume && trigger != 0)) {
+        if (g_main_game_screen->m_disarm_state == 9) {
             return 1;
         }
         QueueInteractionNotice(g_trap_notice_event);
@@ -2086,31 +2037,25 @@ int OpenTrapInteraction(Trigger* trigger)
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
-    mode = g_settings.main_ui_mode;
-    g_ui_mode_saved = mode;
+    const W8MainUiMode mode = g_settings.main_ui_mode;
     SetMainGameOverlayViewport(mode);
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    if (gXStatus.fTrapInteract) {
-        screen = g_main_game_screen.get();
-        panel = screen->m_text_panel.get();
-        panel->EnableInput(true);
-        panel->m_key_handler->m_range.SetActive(true);
-        screen->input.setEnabled(true);
-        screen->m_text_panel->InvalidateAll();
-        screen->m_status_panel->RefreshStatusTexts();
-        screen->actions_dirty = true;
+    if (resume) {
+        g_main_game_screen->EnablePanelInput(true);
+        g_main_game_screen->m_text_panel->InvalidateAll();
         g_main_game_screen->RefreshActionPanel();
-        gXStatus.fTrapInteract = false;
+        g_main_game_screen->return_mode = mode;
         return 1;
     }
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
     }
     g_main_game_screen = std::make_unique<W8MainGameScreen>(trigger);
+    g_main_game_screen->return_mode = mode;
     if (trigger->lock_state.last_interaction_clock == -1 ||
         0x3840 < static_cast<unsigned int>(g_status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
@@ -2122,7 +2067,6 @@ int OpenTrapInteraction(Trigger* trigger)
     }
     trigger->lock_state.last_interaction_clock = g_status.world_clock;
     wiz8::sound::play(s_trap_detect);
-    gXStatus.fTrapInteract = false;
     return 1;
 }
 
@@ -2139,26 +2083,22 @@ void RedrawTrapInteractionPanels(void)
     g_main_game_screen->DrawActions(GetFrameBufferSurface());
 }
 
-/* Leave trap interact mode. With `suspend` clear the main game screen object
-   is destroyed outright; otherwise its text/key-handler/action panels go
-   inactive while fTrapInteract stays set so the session can resume. Either
-   path re-syncs the text box and UI mode and repaints the affected regions. */
+/* Leave trap interact mode. With `suspend` clear the interaction object is
+   destroyed outright; otherwise it stays alive with its panels inactive so the
+   session can resume. Either path returns to the UI mode the interaction was
+   opened from and repaints the affected regions. */
 void EndTrapInteractMode(char suspend)
 {
+    const W8MainUiMode return_mode = g_main_game_screen->return_mode;
     gXStatus.fTrapInteractMode = false;
     if (suspend != 0) {
-        W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel.get();
-        W8MainGameScreen* screen = g_main_game_screen.get();
-        panel->EnableInput(false);
-        panel->m_key_handler->m_range.SetActive(false);
-        screen->input.setEnabled(false);
-        gXStatus.fTrapInteract = true;
+        g_main_game_screen->EnablePanelInput(false);
     } else {
         g_main_game_screen.reset();
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    ApplyMainGameModeFlag(g_ui_mode_saved, true);
+    ApplyMainGameModeFlag(return_mode, true);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -2450,12 +2390,13 @@ void ResetMainGameScreenState(void)
     if (g_level_block) {
         *g_level_block = W8LevelRuntimeBlock{};
         TurnPartyToImmediate(g_status.party_facing, 0);
-        g_level_block->inspector_enabled = false;
         gXStatus.fSpellCastMode = false;
         gXStatus.fNpcDialogueMode = false;
         gXStatus.fItemSelectMode = false;
         gXStatus.fLockInteractMode = false;
         gXStatus.fTrapInteractMode = false;
+        g_lock_interaction.reset();
+        g_main_game_screen.reset();
         gXStatus.fReviewCharacterMode = false;
         gXStatus.fSurprisePossible = false;
         gXStatus.world_update_blocked = false;
@@ -2614,10 +2555,10 @@ unsigned char MainGameScreenEnter(void)
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     SetPrimarySurfaceTextureHint2Enabled(true);
-    if (gXStatus.fLockInteract) {
+    if (LockInteractionSuspended()) {
         OpenLockInteraction(0);
     }
-    if (gXStatus.fTrapInteract) {
+    if (TrapInteractionSuspended()) {
         OpenTrapInteraction(0);
     }
     if (gXStatus.item_drag_active) {
@@ -2851,7 +2792,6 @@ update_screen:
         }
     }
     if (IsScreenTransitionPending()) {
-        g_level_block->transition_pending = true;
         DrawMainGameScreen();
         return;
     }
@@ -3443,15 +3383,8 @@ void DrawMainGameScreen(void)
         RedrawPortraitQuoteBubbles();
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
-        if (g_level_block->mouselook_debug != 0) {
-            ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
-            g_smfnt_font.resetPalette();
-            DrawTextAndInvalidate(
-                GetFrameBufferSurface(), g_smfnt_font, {0xdc, 0x1e},
-                fmt::format("{:.3f}, {:.3f}", g_mouselook_pending_pitch, g_mouselook_pending_yaw));
-        }
         if (w8_get_ticks() - g_level_block->tick > 499) {
-            if (g_level_block->inspector_enabled && !gXStatus.fSpellCastMode &&
+            if (VideoInspectorIsEnabled() && !gXStatus.fSpellCastMode &&
                 !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
                 !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
                 DrawVideoInspector(0xdc, 0x32);
@@ -3759,9 +3692,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     g_main_game_mode = W8_MAIN_GAME_PORTRAIT_REFRESH;
     g_level_block->highlight_override = -1;
     g_level_block->portrait_refresh_pending[party_slot] = 1;
-    g_level_block->portrait_strip_dirty = true;
     g_level_block->portrait_refresh_image[party_slot] = 0x69;
-    g_level_block->portrait_refresh_mode[party_slot] = 6;
     RequestRedraw(1u << (party_slot & 0x1f));
     g_main_game_state->edge_targets[party_slot]->setEnabled(false);
     if (!gXStatus.monster_manager_entries[party_slot].keyboard_menu_open) {
@@ -3851,8 +3782,6 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
             }
         }
     }
-
-    g_level_block->hover_overlay_row_count = row_count;
     g_level_block->dialogue_x = left;
     g_level_block->dialogue_y = top;
     g_level_block->dialogue_height = content_height * 2;
@@ -4631,9 +4560,7 @@ void ClearPortraitRefreshSlot(int slot)
     if (g_level_block->main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[slot] != 0) {
         g_level_block->portrait_refresh_pending[slot] = 0;
-        g_level_block->portrait_strip_dirty = true;
         gXStatus.monster_manager_entries[slot].portrait_refresh_pinned = false;
-        g_level_block->portrait_refresh_mode[slot] = 0;
         g_level_block->portrait_refresh_image[slot] = 0;
         row = &g_main_game_invalidate_rects[slot];
         EraseRegion(row->left - 1, row->top, row->right + 1, row->bottom);
@@ -4726,36 +4653,27 @@ apply_mode_tail:
     g_settings.main_ui_mode = mode;
     g_level_block->main_ui_mode = mode;
     ClearUiHover();
-    if (!gXStatus.fSpellCastMode) {
-        if (!gXStatus.fNpcDialogueMode) {
-            if (!gXStatus.fItemSelectMode) {
-                if (!gXStatus.fLockInteractMode) {
-                    if (gXStatus.fTrapInteractMode) {
-                        SetSavedAutomapUiMode(g_settings.main_ui_mode);
-                    }
-                } else {
-                    SetCurrentAutomapUiMode(g_settings.main_ui_mode);
-                }
-            } else {
-                SetUseItemSelectReturnMode(g_settings.main_ui_mode);
-            }
+    // The open view or interaction returns to the mode selected while it is up.
+    if (gXStatus.fSpellCastMode) {
+        gpSCSV->saved_game_mode = mode;
+    } else if (!gXStatus.fNpcDialogueMode) {
+        if (gXStatus.fItemSelectMode) {
+            g_use_item_select_return_mode = mode;
+        } else if (gXStatus.fLockInteractMode && g_lock_interaction) {
+            g_lock_interaction->return_mode = mode;
+        } else if (gXStatus.fTrapInteractMode && g_main_game_screen) {
+            g_main_game_screen->return_mode = mode;
         }
-    } else {
-        SetSpellCastingMode(g_settings.main_ui_mode);
     }
     if (g_level_block->portrait_mode == 0) {
         g_level_block->portrait_hover_x_origin = 0x69;
-        g_level_block->portrait_layout_inset = 6;
     } else {
         g_level_block->portrait_hover_x_origin = 0;
-        g_level_block->portrait_layout_inset = 0;
     }
     if (g_level_block->action_panel_visible == 0) {
         g_level_block->portrait_y_shift = 0x76;
-        g_level_block->action_panel_layout_inset = 6;
     } else {
         g_level_block->portrait_y_shift = 0;
-        g_level_block->action_panel_layout_inset = 0;
     }
     RequestRedraw(W8_MAIN_REDRAW_ALL);
     ResetUiInput();
@@ -6697,8 +6615,7 @@ void ResumeMainGameWorld(void)
             }
             SetEnvironmentTimeEnabled(true);
             MonsterResumeAllNavigators();
-            if (!gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-                !gXStatus.fLockInteract && !gXStatus.fTrapInteract) {
+            if (!g_lock_interaction && !g_main_game_screen) {
                 ClearLevelMovementStopped();
             }
         }

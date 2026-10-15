@@ -232,11 +232,11 @@ void CloseUseItemSelectView(void)
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         ResumeMainGameWorld();
         ClearItemDrag();
-        if (gXStatus.fLockInteract && !IsScreenTransitionPending()) {
+        if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);
             return;
         }
-        if (gXStatus.fTrapInteract && !IsScreenTransitionPending()) {
+        if (TrapInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenTrapInteraction(0);
             return;
         }
@@ -314,11 +314,6 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     UseItemSelectScrollUp();
 }
 
-// FUNCTION: WIZ8 0x0059CF30
-void SetUseItemSelectReturnMode(W8MainUiMode value)
-{
-    g_use_item_select_return_mode = value;
-}
 // FUNCTION: WIZ8 0x0059CF40
 void InvalidateUseItemSelectPanel(void)
 {
@@ -549,10 +544,10 @@ static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
         if (gXStatus.fCampMode) {
             return true;
         }
-        if (gXStatus.fLockInteract) {
+        if (LockInteractionSuspended()) {
             return true;
         }
-        if (gXStatus.fTrapInteract) {
+        if (TrapInteractionSuspended()) {
             return true;
         }
         if (pass != 1) {

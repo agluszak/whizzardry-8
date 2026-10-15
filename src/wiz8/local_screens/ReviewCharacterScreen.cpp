@@ -2359,7 +2359,6 @@ void BeginEndgameSequence(void)
     }
     ResetUiInput();
     VideoRemoveToolTip();
-    g_level_block->transition_pending = true;
     g_level_block->review_transition_active = true;
     BeginScreenFade(fade_to_black, 0, fade_code, ShowEndingScreen, true, endgame_variant);
 }
@@ -2470,7 +2469,6 @@ void BeginPartyDeath(void)
     StartMusicResource("CombatLose.MPL", 0, 1);
     ResetUiInput();
     VideoRemoveToolTip();
-    g_level_block->transition_pending = true;
     BeginScreenFade(1, 0, 0x7d0, DrawPartyDeathScreen, true, 0);
     g_level_block->review_transition_active = true;
 }
