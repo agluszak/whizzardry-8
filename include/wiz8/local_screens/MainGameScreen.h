@@ -262,6 +262,7 @@ public:
     unsigned char m_tumbler_locked[8]; /* pin kept when the slot is released */
     int m_slot_attempts[8];            /* pick attempts per party slot */
     W8GameTimer m_timer;               /* state-8 completion delay */
+    W8MainUiMode return_mode = W8_MAIN_UI_MODE_PORTRAITS;
 };
 
 class W8MainGameScreen {
@@ -294,6 +295,7 @@ public:
     int m_target_difficulty;
     wiz8::sound::Playback m_sound_handle;
     W8GameTimer m_timer;
+    W8MainUiMode return_mode = W8_MAIN_UI_MODE_PORTRAITS;
 };
 
 extern std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
@@ -502,6 +504,9 @@ void EndTrapInteractMode(char suspend);
 int GetPartySlotLocksTrapsLevel(int slot);
 int OpenLockInteraction(Trigger* trigger);
 int OpenTrapInteraction(Trigger* trigger);
+/* The interaction exists but is suspended while a spell or item targets it. */
+bool LockInteractionSuspended();
+bool TrapInteractionSuspended();
 /* When a slot's committed action cannot execute, re-choose a
    fallback hand, breath or character attack, or reroute spell/item aiming. */
 void FallbackFromUnreachableAction(int party_slot);

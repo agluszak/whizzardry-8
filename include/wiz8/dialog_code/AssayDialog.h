@@ -25,8 +25,6 @@ public:
     W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_Point origin);
     virtual ~W8AssayDialog() override;
     virtual void Draw(SDL_Surface& target) override;
-    virtual void OnRightButtonUp() override;
-    virtual void OnMouseWheel(int delta) override;
 
 private:
     void PopulateText();

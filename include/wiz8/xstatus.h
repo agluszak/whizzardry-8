@@ -26,110 +26,105 @@ struct W8WorldItem;
 struct W8CharacterEventQueue;
 class W8GameTimer;
 
-// Live state, not a disk record. Offset comments refer to retail layout.
+// Live gameplay state, not a disk record.
 struct W8XStatus {
-    W8MonsterManagerEntry monster_manager_entries[8]; /* 0x000: 0x006836B8 */
-    unsigned int uiItemsInDatabase;                   /* 0x8c0: 0x00683F78 */
-    unsigned int uiItemTablesInDatabase;              /* 0x8c4 */
-    unsigned int uiItemTableCategories;               /* 0x8c8 */
-    unsigned int uiMonstersInDatabase;                /* 0x8cc */
-    unsigned int uiNpcsInDatabase;                    /* 0x8d0 */
-    unsigned int uiFactsInDatabase;                   /* 0x8d4 */
-    unsigned int uiLevelsInDatabase;                  /* 0x8d8 */
-    bool fCombatMode;                                 /* 0x8dc: 0x00683F94 */
-    bool fSpellCastMode;                              /* 0x8dd: 0x00683F95 */
-    bool fItemSelectMode;                             /* 0x8de: 0x00683F96 */
-    bool fNpcDialogueMode;                            /* 0x8df: 0x00683F97 */
-    bool fLockInteractMode;                           /* 0x8e0: 0x00683F98 */
-    bool fTrapInteractMode;                           /* 0x8e1: 0x00683F99 */
-    bool fReviewCharacterMode;                        /* 0x8e2: 0x00683F9A */
-    bool fCampMode;                                   /* 0x8e3: 0x00683F9B */
-    bool fLockInteract; /* 0x8e4: lock session; admits lock spells */
-    bool fTrapInteract; /* 0x8e5: trap session; admits trap spells */
-    /* 0x026: dialogue NPC state needs re-syncing once the frame settles. */
+    W8MonsterManagerEntry monster_manager_entries[8];
+    unsigned int uiItemsInDatabase;
+    unsigned int uiItemTablesInDatabase;
+    unsigned int uiItemTableCategories;
+    unsigned int uiMonstersInDatabase;
+    unsigned int uiNpcsInDatabase;
+    unsigned int uiFactsInDatabase;
+    bool fCombatMode;
+    bool fSpellCastMode;
+    bool fItemSelectMode;
+    bool fNpcDialogueMode;
+    bool fLockInteractMode;
+    bool fTrapInteractMode;
+    bool fReviewCharacterMode;
+    bool fCampMode;
+    /* Dialogue NPC state needs re-syncing once the frame settles. */
     bool dialogue_sync_pending;
-    /* 0x027: re-check level-up notices when the UI is idle again. */
+    /* Re-check level-up notices when the UI is idle again. */
     bool level_up_notice;
-    bool fEncumbranceDirty; /* 0x8e8: pending party-weight recalc */
-    int active_monster_count; /* 0x8e9 */
-    /* 0x8ed: active in-combat monsters with DISP_HOSTILE, recomputed by
+    bool fEncumbranceDirty; /* Pending party-weight recalc */
+    int active_monster_count;
+    /* Active in-combat monsters with DISP_HOSTILE, recomputed by
        RecountCombatMonsters; nonzero starts combat and blocks ending it.
-       Retail compares it unsigned (JA/JBE/SETA), never signed. */
+       Compared unsigned. */
     unsigned int hostile_monster_count;
-    int item_manager_pending; /* 0x8f1 */
-    /* 0x8f5 / 0x901: live and unborn monster lists (0x00683FAD) plus their owning storage. */
+    int item_manager_pending;
+    /* Live and unborn monster lists plus their owning storage. */
     W8MonsterRoster monster_roster;
-    std::vector<W8MonsterGroup*> monster_groups; /* 0x8f9: 0x00683FB1 */
-    std::vector<W8WorldItem*> world_items; /* 0x8fd */
-    std::vector<W8MonsterGroup*> encounter_groups; /* 0x905 */
-    unsigned char unknown_049[4];
-    bool fSurprisePossible; /* 0x90d: 0x00683FC5 */
-    /* 0x90e: set when surprise starts with no character engaged; phase 1 waits
+    std::vector<W8MonsterGroup*> monster_groups;
+    std::vector<W8WorldItem*> world_items;
+    std::vector<W8MonsterGroup*> encounter_groups;
+    bool fSurprisePossible;
+    /* Set when surprise starts with no character engaged; phase 1 waits
        only while this is clear. */
     bool surprise_unengaged;
-    /* 0x90f: uiTurnsElapsed deadline the phase-1 hold compares against. */
+    /* uiTurnsElapsed deadline the phase-1 hold compares against. */
     unsigned int surprise_deadline_turns;
-    /* 0x913: 0 = fade in, 1 = hold, 2 = fade out / resolve. */
+    /* 0 = fade in, 1 = hold, 2 = fade out / resolve. */
     unsigned short surprise_phase;
-    bool fPartyMovementUi; /* 0x915: 0x00683FCD; region set 0x1c / panels */
-    bool fPartyMovementMode; /* 0x916: 0x00683FCE */
-    float flPartyMoveDistLimit; /* 0x917 */
-    /* 0x91b: accumulated party movement distance; the combat movement update
+    bool fPartyMovementUi;
+    bool fPartyMovementMode;
+    float flPartyMoveDistLimit;
+    /* Accumulated party movement distance; the combat movement update
        converts it into the remaining percentage displayed by the panel. */
     float party_move_distance;
-    /* 0x91f: 0x00683FD7. InitializeGameplayRuntimeObjects stores the queue
-       here; a standalone BSS pointer at this address is the same member. */
+    /* Stored by InitializeGameplayRuntimeObjects. */
     W8CharacterEventQueue* character_event_queue;
-    int iCurrentCursor; /* 0x923 */
-    int current_cursor_frame; /* 0x927 */
-    uint64_t current_cursor_time; /* 0x92b */
-    W8TargetNeed iTargetingMode; /* 0x92f: 0x00683FE7 */
-    /* 0x933: the formation screen's edit buffer - MGSFormation snapshots the
+    int iCurrentCursor;
+    int current_cursor_frame;
+    uint64_t current_cursor_time;
+    W8TargetNeed iTargetingMode;
+    /* The formation screen's edit buffer - MGSFormation snapshots the
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    std::vector<int> target_markers; /* 0x9b7: 0x0068406F */
-    srVector3T<float> target_position; /* 0x9c7: 0x0068407F */
-    W8CombatSlot shared_target; /* 0x9d3: 0x0068408B */
-    W8ActionDetailBlock shared_action_detail; /* 0x9f3: 0x006840AB */
-    int picked_monster; /* 0x9fb: 0x006840B3 */
-    int picked_group; /* 0x9ff: 0x006840B7 */
-    /* 0xa03: one-shot latch set when the combat/party panels refresh; the next
+    std::vector<int> target_markers;
+    srVector3T<float> target_position;
+    W8CombatSlot shared_target;
+    W8ActionDetailBlock shared_action_detail;
+    int picked_monster;
+    int picked_group;
+    /* One-shot latch set when the combat/party panels refresh; the next
        UpdateMonsterSight pass consumes and clears it. */
     bool sight_refresh_pending;
-    bool world_update_blocked; /* 0xa04: 0x006840BC */
-    /* 0xa05: user-pause latch set by ToggleMainGamePause alongside
+    bool world_update_blocked;
+    /* User-pause latch set by ToggleMainGamePause alongside
        PauseMainGameWorld; cleared by the resume paths. */
     bool world_paused;
-    unsigned short review_character_slot; /* 0xa06: 0x006840BE */
-    int held_item_source; /* 0xa08: 0x006840C0 */
-    unsigned char held_item_origin; /* 0xa0c: 0x006840C4 */
-    unsigned short held_item_slot; /* 0xa0d: 0x006840C5 */
-    W8MonsterRecord* monster_record_cache[1000]; /* 0xa0f: 0x006840C7 */
-    W8GameTimer* gameplay_timer; /* 0x19af: 0x00685067 */
-    bool save_notice_shown; /* 0x19b3: 0x0068506B */
-    bool npc_combat_notice_pending; /* 0x19b4: 0x0068506C */
-    bool deferred_skill_notices; /* 0x19b5: 0x0068506D */
-    /* 0x19b6: a container offered more than one item, so the item-choice
+    unsigned short review_character_slot;
+    int held_item_source;
+    unsigned char held_item_origin;
+    unsigned short held_item_slot;
+    W8MonsterRecord* monster_record_cache[1000];
+    W8GameTimer* gameplay_timer;
+    bool save_notice_shown;
+    bool npc_combat_notice_pending;
+    bool deferred_skill_notices;
+    /* A container offered more than one item, so the item-choice
        dialog is pending; blocks the magic-effects tick until it opens. */
     bool item_pick_pending;
-    /* 0x19b7: raised by BeginNpcScriptedScene until EndScriptedPortraitPick;
+    /* Raised by BeginNpcScriptedScene until EndScriptedPortraitPick;
        gates the dialogue-cursor and NPC-script input paths. */
     bool scripted_scene;
-    /* 0x19b8: which Assay dialog tab is shown - set selects the profession
+    /* Which Assay dialog tab is shown - set selects the profession
        icons/button, clear selects the race side. */
     bool assay_professions_tab;
-    bool item_drag_active; /* 0x19b9: 0x00685071 */
-    W8ItemInstance* dragged_item; /* 0x19ba: 0x00685072 */
-    unsigned char dragged_item_origin; /* 0x19be: 0x00685076 */
-    signed char dragged_character_slot; /* 0x19bf: 0x00685077 */
-    uint64_t spell_cooldown_clocks[14]; /* 0x19c0: 0x00685078 */
-    uint64_t combat_countdown; /* 0x19f8: 0x006850B0 */
-    unsigned char combat_difficulty; /* 0x19fc: 0x006850B4 */
-    bool party_moving; /* 0x19fd: 0x006850B5 */
-    int saved_encounter_budget; /* 0x19fe: 0x006850B6 */
-    int mipe_cube_serial; /* 0x1a02: 0x006850BA */
-    int hostile_group_count; /* 0x1a06: 0x006850BE */
+    bool item_drag_active;
+    W8ItemInstance* dragged_item;
+    unsigned char dragged_item_origin;
+    signed char dragged_character_slot;
+    uint64_t spell_cooldown_clocks[14];
+    uint64_t combat_countdown;
+    unsigned char combat_difficulty;
+    bool party_moving;
+    int saved_encounter_budget;
+    int mipe_cube_serial;
+    int hostile_group_count;
 };
 
 extern W8XStatus gXStatus;

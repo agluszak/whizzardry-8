@@ -61,7 +61,6 @@ void InvalidateSpellCastingDescription(void);
 void SelectSpellPowerLevel(int power_level);
 void ResetSpellCastingSelection(void);
 void CommitSpellCastingSelection(void);
-void SetSpellCastingMode(W8MainUiMode value);
 int GetSpellCastingSelection(void);
 
 class W8DialogBase;

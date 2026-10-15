@@ -53,6 +53,7 @@ W8StatInfoDialogBase::W8StatInfoDialogBase()
     SetOrigin(0x9c, 0x69);
     SetExtent(0x14a, 0x10e);
     SetBackground(g_info_dialog_background, 0);
+    UseInfoPopupInput(scrollbar);
 }
 
 // FUNCTION: WIZ8 0x005df9d0
@@ -89,27 +90,6 @@ void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
     std::int16_t width = g_wiz_text_font_secondary.textWidth(title);
     DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
              title);
-}
-
-void W8StatInfoDialogBase::OnRightButtonUp()
-{
-    if (m_right_button_down) {
-        m_keep_open = false;
-    }
-}
-
-// FUNCTION: WIZ8 0x005dfbb0
-void W8StatInfoDialogBase::OnMouseWheel(int delta)
-{
-    if (delta > 0) {
-        for (int step = 0; step < delta; ++step) {
-            scrollbar.ScrollUp();
-        }
-    } else if (delta < 0) {
-        for (int step = 0; step < -delta; ++step) {
-            scrollbar.ScrollDown();
-        }
-    }
 }
 
 // FUNCTION: WIZ8 0x005dfdb0

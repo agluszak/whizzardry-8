@@ -413,8 +413,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_OPTIONS:
         if (gXStatus.fNpcDialogueMode || CanOpenNpcDialogue() || gXStatus.fLockInteractMode ||
-            gXStatus.fTrapInteractMode || gXStatus.fCampMode || gXStatus.fLockInteract ||
-            gXStatus.fTrapInteract) {
+            gXStatus.fTrapInteractMode || gXStatus.fCampMode || LockInteractionSuspended() ||
+            TrapInteractionSuspended()) {
             break;
         }
         if (!CanInterruptLevelMovement()) {

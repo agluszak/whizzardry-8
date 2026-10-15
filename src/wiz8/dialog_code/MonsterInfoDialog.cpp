@@ -60,6 +60,7 @@ W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(locati
     SetOrigin(0x9c, 0x31);
     SetExtent(0x14a, 0x10e);
     SetBackground(g_info_dialog_background, 0);
+    UseInfoPopupInput(m_scroll_bar);
     if (!PopulateText()) {
         throw std::runtime_error("Cannot configure dialog controls");
     }
@@ -435,20 +436,6 @@ bool W8MonsterInfoDialog::PopulateText()
         m_text_area.AddEntry("Combat Strategy", strategy, 5, 0xf, 0);
     }
     return true;
-}
-
-// FUNCTION: WIZ8 0x005d6e60
-void W8MonsterInfoDialog::OnRightButtonUp()
-{
-    if (m_right_button_down) {
-        m_keep_open = false;
-    }
-}
-
-// FUNCTION: WIZ8 0x005d6e70
-void W8MonsterInfoDialog::OnMouseWheel(int delta)
-{
-    m_scroll_bar.ScrollBy(delta);
 }
 
 // FUNCTION: WIZ8 0x005d6080

@@ -10,7 +10,6 @@ extern W8MainUiMode g_use_item_select_return_mode;
 extern W8ItemInstance* g_use_item_selected;
 extern W8ItemInstance* g_use_item_select_override_item;
 
-void SetUseItemSelectReturnMode(W8MainUiMode value);
 void EnableUseItemSelectInput();
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);

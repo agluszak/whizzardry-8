@@ -13,6 +13,7 @@
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -46,7 +47,6 @@ W8DialogBase::W8DialogBase()
     m_height = 100;
     m_background_flags = 0;
     m_keep_open = true;
-    m_right_button_down = false;
     m_body =
         &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, UI_PRIORITY_BACKGROUND);
 }
@@ -145,16 +145,17 @@ bool W8DialogBase::ProcessInput()
         .consumed =
             [this](const InputEvent& input) {
                 if (input.type == InputEventType::RightButtonDown) {
-                    OnRightButtonDown();
-                } else if (input.type == InputEventType::RightButtonUp) {
-                    OnRightButtonUp();
+                    m_right_button_down = true;
+                } else if (input.type == InputEventType::RightButtonUp && m_info_scroll_bar &&
+                           m_right_button_down) {
+                    m_keep_open = false;
                 }
                 return InputRoute::Handled;
             },
         .unhandled =
             [this](const InputEvent& input) {
                 if (input.type == InputEventType::MouseWheel) {
-                    OnMouseWheel(input.wheel);
+                    if (m_info_scroll_bar) m_info_scroll_bar->ScrollBy(input.wheel);
                 } else if (input.type == InputEventType::KeyDown && input.key == SDLK_ESCAPE) {
                     m_keep_open = false;
                 }
@@ -164,19 +165,3 @@ bool W8DialogBase::ProcessInput()
     if (!m_keep_open) EndModalInput();
     return m_keep_open;
 }
-
-// FUNCTION: WIZ8 0x005d6fa0
-
-/* Retail ICF shares this one-argument no-op with the retained widget Redraw
-   body at 0x005B1BE0; this override has no separate retail address marker. */
-// FUNCTION: WIZ8 0x005ad270
-void W8DialogBase::OnRightButtonDown()
-{
-    m_right_button_down = true;
-}
-
-// FUNCTION: WIZ8 0x005b1bf0
-void W8DialogBase::OnRightButtonUp() {}
-
-/* Retail ICF shares this no-op with the retained body at 0x005B1BE0. */
-void W8DialogBase::OnMouseWheel(int) {}

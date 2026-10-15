@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
@@ -26,7 +27,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 
@@ -124,7 +124,6 @@ public:
     short input_type = 0;
     std::size_t capacity = 0; // UTF-16 code units, the retail name/editor limit
     std::string text;
-    bool enabled = true;
     bool use_inactive_color = false;
     bool blocks_mouse = false;
     std::size_t cursor = 0;
@@ -142,8 +141,9 @@ public:
 
 UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 {
-    if ((enabled && !blocks_mouse) &&
-        (event.action != UiPointerAction::Up || event.captured_buttons))
+    // Fields of an older group stay visible but ignore the mouse.
+    if (!group.Active()) return UiResult::Pass;
+    if (!blocks_mouse && (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave ||
         event.action == UiPointerAction::Move) {
@@ -202,7 +202,6 @@ void W8TextField::MouseClicked(const UiPointerEvent& event)
     }
     if (event.action != UiPointerAction::Up) return;
     if (group.focused_ != this) {
-        if (!enabled) return;
         group.FocusField(*this);
         return;
     }
@@ -213,67 +212,42 @@ void W8TextField::MouseClicked(const UiPointerEvent& event)
     }
 }
 
-TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : layer_(layer), previous_(g_ui.focus)
+namespace {
+// Live groups in creation order; the newest receives keyboard input.
+std::vector<TextFieldGroup*>& LiveGroups()
+{
+    static std::vector<TextFieldGroup*> groups;
+    return groups;
+}
+}
+
+TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : layer_(layer)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
-    if (previous_) previous_->Suspend();
-    g_ui.focus = this;
+    LiveGroups().push_back(this);
     SetNativeTextInputEnabled(false);
 }
 
 TextFieldGroup::~TextFieldGroup()
 {
-    focused_ = suspended_focus_ = nullptr;
-    fields_.clear();
-    if (g_ui.focus == this) {
-        g_ui.focus = previous_;
-        if (previous_)
-            previous_->Resume();
-        else
-            SetNativeTextInputEnabled(false);
-        return;
-    }
-    for (auto* group = g_ui.focus; group; group = group->previous_) {
-        if (group->previous_ == this) {
-            group->previous_ = previous_;
-            break;
-        }
-    }
+    const bool active = Active();
+    std::erase(LiveGroups(), this);
+    if (!active) return;
+    const auto* next = Focused();
+    SetNativeTextInputEnabled(next && next->editing_ && next->focused_);
 }
 
 TextFieldGroup* TextFieldGroup::Focused()
 {
-    return g_ui.focus;
-}
-
-void TextFieldGroup::Suspend()
-{
-    for (auto& field : fields_) {
-        field->target.setEnabled(false);
-        field->enabled = false;
-    }
-    suspended_focus_ = focused_;
-    focused_ = nullptr;
-}
-
-void TextFieldGroup::Resume()
-{
-    for (auto& field : fields_) {
-        field->target.setEnabled(true);
-        field->enabled = true;
-    }
-    focused_ = suspended_focus_  ? suspended_focus_
-               : fields_.empty() ? nullptr
-                                 : fields_.front().get();
-    suspended_focus_ = nullptr;
-    SetNativeTextInputEnabled(editing_ && focused_);
+    const auto& groups = LiveGroups();
+    return groups.empty() ? nullptr : groups.back();
 }
 
 void TextFieldGroup::SetEditing(bool editing)
 {
     editing_ = editing;
-    SetNativeTextInputEnabled(editing && focused_);
+    if (Active()) SetNativeTextInputEnabled(editing && focused_);
 }
 
 void TextFieldGroup::UseGameStyle()
@@ -318,7 +292,6 @@ void TextFieldGroup::Remove(int id)
         focused_ = nullptr;
         SetEditing(false);
     }
-    if (found->get() == suspended_focus_) suspended_focus_ = nullptr;
     fields_.erase(found);
     if (fields_.empty()) SetEditing(false);
 }
@@ -356,7 +329,7 @@ void TextFieldGroup::FocusField(W8TextField& field)
 void TextFieldGroup::Focus(int id)
 {
     auto* field = Find(id);
-    if (!field || field == focused_ || !field->enabled) return;
+    if (!field || field == focused_ || !Active()) return;
     FocusField(*field);
 }
 
@@ -373,9 +346,8 @@ void TextFieldGroup::FocusNext()
     for (std::size_t step = 0; step < fields_.size(); ++step) {
         if (++position == fields_.end()) position = fields_.begin();
         auto& candidate = **position;
-        if (!candidate.enabled) continue;
         FocusField(candidate);
-        // Retail: wrapping back to the only enabled field ends editing.
+        // Retail: wrapping back to the only field ends editing.
         if (&candidate == previous) SetEditing(false);
         return;
     }
@@ -482,7 +454,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
 {
     const bool committed = event.type == InputEventType::Text;
     const auto& input = event;
-    if (!editing_ || !focused_ || !IsTypingEvent(input)) return false;
+    if (!Active() || !editing_ || !focused_ || !IsTypingEvent(input)) return false;
     if (!committed && (input.key == SDLK_ESCAPE || input.key == SDLK_RETURN ||
                        input.key == SDLK_TAB || (input.modifiers & ALT_DOWN) != 0 ||
                        ((input.modifiers & CTRL_DOWN) != 0 && input.key != SDLK_DELETE &&
@@ -707,7 +679,7 @@ void TextFieldGroup::RenderFocused(SDL_Surface& target)
 void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
 {
     auto& font = *style_.font;
-    const bool disabled = !field.enabled;
+    const bool disabled = !Active();
     const auto options = FieldTextOptions(font, disabled ? 0 : style_.fore_color,
                                           disabled ? 0 : style_.shadow_color, 0);
     const unsigned short font_height = font.height();
@@ -732,10 +704,13 @@ void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
 
 void TextFieldGroup::RenderAll(SDL_Surface& target)
 {
-    for (auto* group = previous_; group; group = group->previous_)
+    // Older groups stay visible underneath this one, disabled.
+    for (auto* group : LiveGroups()) {
+        if (group == this) break;
         for (auto& field : group->fields_) group->RenderInactive(*field, target);
+    }
     for (auto& field : fields_) {
-        if (field.get() == focused_)
+        if (field.get() == focused_ && Active())
             RenderFocused(target);
         else
             RenderInactive(*field, target);

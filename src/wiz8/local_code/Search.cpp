@@ -40,6 +40,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
@@ -213,8 +214,9 @@ void RunSearchPulse(void)
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
         g_search_pulse_clock = w8_get_ticks() + (500);
         if (GetEnvironmentFlag() != 0 && !gXStatus.world_update_blocked &&
-            !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fLockInteract &&
-            !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
+            !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
+            !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
+            !TrapInteractionSuspended()) {
             if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 &&
                 g_status.search_mode != 0) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,

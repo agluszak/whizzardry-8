@@ -341,7 +341,7 @@ void RedrawOptionsDiskButton(void)
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0x1c2);
     g_main_game_state->hud_buttons.options_disk.m_dirty = true;
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-        !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract) {
+        !gXStatus.fCampMode && !LockInteractionSuspended() && !TrapInteractionSuspended()) {
         enabled = true;
     } else {
         enabled = false;
@@ -1100,8 +1100,8 @@ void UpdateMainGameButtons(void)
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
     enabled = !gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode &&
-              !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
-              !gXStatus.fTrapInteract;
+              !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !LockInteractionSuspended() &&
+              !TrapInteractionSuspended();
     g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
     g_main_game_state->hud_buttons.options_disk.Refresh();
     UpdateCombatStanceButtons();

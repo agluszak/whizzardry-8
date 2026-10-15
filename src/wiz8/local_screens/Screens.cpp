@@ -309,11 +309,7 @@ void InitializeMainGameLevelBlock(void)
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->redraw_flags = static_cast<unsigned int>(-1);
     }
-    g_level_block->transition_pending = false;
     g_level_block->camera_mode = 7;
-    g_level_block->portrait_strip_dirty = false;
-    g_level_block->flag3 = false;
-    g_level_block->value_194 = -1;
     g_level_block->highlight_override = -1;
     g_level_block->condition_hover_party_slot = -1;
     g_level_block->enchantment_hover_party_slot = -1;
@@ -326,7 +322,6 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->held_item_display = -1;
     g_level_block->highlight_row = -1;
     g_level_block->highlight_graphic = 0;
-    g_level_block->value_198 = 0x35;
     g_level_block->portrait_overlay_party_slot = -1;
     g_level_block->condition_orb_party_slot = -1;
     g_level_block->enchantment_orb_party_slot = -1;
@@ -343,7 +338,6 @@ void InitializeMainGameLevelBlock(void)
     for (slot = 0; slot < 8; ++slot) {
         g_level_block->portrait_refresh_pending[slot] = 0;
         g_level_block->portrait_refresh_image[slot] = 0;
-        g_level_block->portrait_refresh_mode[slot] = 0;
     }
     g_level_block->combat_end_notification = -1;
     previous_mode = g_settings.main_ui_mode;
@@ -353,19 +347,13 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->world_update_timer = w8_get_ticks() + (0);
     g_level_block->countdown0 = w8_get_ticks() + (60000);
     g_level_block->countdown1 = w8_get_ticks() + (0);
-    g_level_block->countdown2 = w8_get_ticks() + (0xfa);
-    g_level_block->flag4 = true;
     g_level_block->text_box_visible = true;
     g_level_block->mipe_editing = false;
-    g_level_block->value_278 = 0;
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
     g_main_game_state->monster_list->setEnabled(false);
     g_level_block->action_group = -1;
-    g_level_block->value_2ac = 0;
-    g_level_block->value_2b4 = 0;
-    g_level_block->value_2b0 = 0;
     g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
     g_level_block->refresh_combat_panel = 1;
     g_level_block->combat_panel_timer = w8_get_ticks() + (0);
@@ -379,7 +367,6 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->hovered_text_lines[slot_index] = -1;
         g_level_block->selected_text_lines[slot_index] = -1;
     }
-    g_level_block->unknown_2e4[0] = 0;
     g_level_block->text_box_font = &g_wiz_text_font_secondary;
     g_level_block->palette = g_wiz_text_font_secondary.glyphs->colors;
     g_level_block->selection_kind = W8_ACTION_NONE;

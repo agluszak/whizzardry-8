@@ -15,6 +15,7 @@
 class W8DialogBase;
 class W8ButtonWidget;
 class W8DialogTextArea;
+class W8DialogScrollBar;
 
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
@@ -37,9 +38,6 @@ public:
     virtual void SetExtent(int width, int height);
     virtual void SetBackground(const char* path, int flags);
     bool ProcessInput() override;
-    virtual void OnRightButtonDown();
-    virtual void OnRightButtonUp();
-    virtual void OnMouseWheel(int delta);
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */
@@ -51,6 +49,9 @@ protected:
     void EndModalInput();
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);
     void ScrollTextArea(W8DialogTextArea& area, int first_visible_line);
+    /* Information popups close when a right click on them is released and
+       scroll their text with wheel input no control consumed. */
+    void UseInfoPopupInput(W8DialogScrollBar& scroll_bar) { m_info_scroll_bar = &scroll_bar; }
 
     HitTarget* m_body = nullptr;
     std::string m_text;
@@ -72,6 +73,7 @@ public:
     std::function<void()> on_close;
     std::function<void()> cleanup; // Resource restoration, including cancellation.
 
-protected:
-    bool m_right_button_down;
+private:
+    W8DialogScrollBar* m_info_scroll_bar = nullptr;
+    bool m_right_button_down = false;
 };

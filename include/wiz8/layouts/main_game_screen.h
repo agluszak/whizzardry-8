@@ -73,35 +73,27 @@ static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
-    unsigned char flags[3];
     unsigned int redraw_flags;
     /* Snapshot of redraw_flags taken before the two redraw passes; the second
        pass consumes this copy while the live word may still change. */
     unsigned int saved_redraw_flags;
     W8MainUiMode main_ui_mode;
     int camera_mode;
-    bool portrait_strip_dirty;
     unsigned char portrait_refresh_pending[8];
-    unsigned char padding_111[3];
     int portrait_refresh_image[8];
-    int portrait_refresh_mode[8];
     bool pick_changed;
     unsigned char action_panel_visible;
     bool formation_board_visible;
     unsigned char radar_map_visible;
-    /* Historical offset 0x158: portraits UI mode selected; picks the portrait-hover layout. */
+    /* Portraits UI mode selected; picks the portrait-hover layout. */
     unsigned char portrait_mode;
     unsigned char text_scroll_drag_idle;
-    unsigned char padding_15a[2];
-    /* Historical offset 0x15c: the x origin the mode-6 hover panel anchors the slot's portrait
+    /* The x origin the mode-6 hover panel anchors the slot's portrait
        column position against. */
     int portrait_hover_x_origin;
-    /* Historical offset 0x160/0x164/0x168: layout offsets ApplyMainGameModeFlag writes when the
-       action panel or portrait chrome is down (0x76/6 and 0x69/6); cleared to
-       zero while the matching panel is up. */
+    /* Portrait hover-panel y offset ApplyMainGameModeFlag sets to 0x76 while the
+       action panel is down and clears while it is up. */
     int portrait_y_shift;
-    int portrait_layout_inset;
-    int action_panel_layout_inset;
     int highlight_override;
     int condition_hover_party_slot;
     int enchantment_hover_party_slot;
@@ -109,40 +101,32 @@ struct W8LevelRuntimeBlock {
     int vitals_hover_party_slot;
     int combat_action_hover_party_slot;
     int assay_hover_party_slot;
-    /* Historical offset 0x188: PortraitAssaySidebarInput hover zone — 1 upper weapon
+    /* PortraitAssaySidebarInput hover zone — 1 upper weapon
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     int portrait_assay_hover_mode;
     int formation_highlight_party_slot;
     int held_item_display;
-    int value_194;
-    int value_198;
-    int value_19c;
     int text_content_region;
     int dialogue_content_region;
     unsigned int text_lines[12];
-    /* Historical offset 0x1d8/0x1e8: wrapped-line starts for hover and selection highlighting.
+    /* Wrapped-line starts for hover and selection highlighting.
        NPC dialogue uses box 2 for the hovered row and selected trade item. */
     int hovered_text_lines[4];
     int selected_text_lines[4];
     int portrait_overlay_party_slot;
-    /* Historical offset 0x204 / 0x208: party slot whose condition / enchantment orb is held or
+    /* Party slot whose condition / enchantment orb is held or
        drag-hovering; PortraitConditionOrbInput and
        PortraitEnchantmentOrbInput own them (-1 while idle). */
     int condition_orb_party_slot;
     int enchantment_orb_party_slot;
     int condition_highlight_party_slot;
-    bool flag3;
-    unsigned char padding_211[3];
     uint64_t clock;
     unsigned char portrait_flash;
-    unsigned char padding_219[3];
-    /* Historical offset 0x21c: content row count captured by the mode-6 hover overlay draw. */
-    int hover_overlay_row_count;
     int dialogue_x;
     unsigned int dialogue_y; /* ClearSurfaceRect's unsigned top/bottom */
     unsigned int dialogue_height;
-    int dialogue_row_y; /* Historical offset 0x22c: first content row's y; the highlight
-                                  sprite hangs off it at highlight_row * 0x12 */
+    /* First content row's y; the highlight sprite hangs off it at highlight_row * 0x12. */
+    int dialogue_row_y;
     int dialogue_text_x;
     int dialogue_text_width;
     int dialogue_width;
@@ -154,38 +138,27 @@ struct W8LevelRuntimeBlock {
     stModelInstance2D* highlight_graphic;
     unsigned int world_update_flags;
     unsigned int camera_motion_flags;
-    /* Historical offset 0x24c: mouselook debug overlay; draws the pending pitch/yaw readout. */
-    unsigned char mouselook_debug;
-    /* Historical offset 0x24d: video inspector overlay enabled when no modal mode owns input. */
-    bool inspector_enabled;
-    unsigned char padding_24e[2];
     uint64_t character_update_timer;
     uint64_t world_update_timer;
     uint64_t countdown0;
     uint64_t countdown1;
     bool transition_active;
-    bool transition_pending;
-    unsigned char padding_262[2];
     int highlighted_item;
     int selected_item;
-    uint64_t countdown2;
-    bool flag4;
-    /* Historical offset 0x271: text box visible; toggled by the keyboard shortcut and raised
+    /* Text box visible; toggled by the keyboard shortcut and raised
        by spell/item/dialogue screens that need it. */
     bool text_box_visible;
     bool mipe_editing;
-    unsigned char padding_273;
     uint64_t tick;
-    int value_278;
     int pending_level;
     int pending_entry_id;
     int group_list_rows;
     int group_list_width;
     int action_group;
-    /* Historical offset 0x290: result of HighlightMonsterAsTarget for the current pick; [0]
+    /* Result of HighlightMonsterAsTarget for the current pick; [0]
        drives the group tint and the target cursor shape. */
     unsigned char target_highlight_ok[0x10];
-    /* Historical offset 0x2a0..0x2a8: the formation board's three stModelInstance2D-family
+    /* The formation board's three stModelInstance2D-family
        sprites - the board art with slot markers baked in, the rotating compass
        needle tracking party_facing against party_heading, and a lazily
        created overlay.  All are produced by CreateSpriteFromSurface in MGSFormation.cpp
@@ -193,15 +166,9 @@ struct W8LevelRuntimeBlock {
     stModelInstance2D* formation_board_sprite;
     stModelInstance2D* formation_compass_sprite;
     stModelInstance2D* formation_overlay_sprite;
-    int value_2ac;
-    int value_2b0;
-    int value_2b4;
-    unsigned char unknown_2b8[8];
     unsigned char refresh_combat_panel;
-    unsigned char padding_2c1[3];
     uint64_t combat_panel_timer;
     unsigned char refresh_party_panel;
-    unsigned char padding_2c9;
     short combat_end_notification;
     int text_box_left;
     int text_box_top;
@@ -209,37 +176,31 @@ struct W8LevelRuntimeBlock {
     int text_box_bottom;
     int move_percent;
     int move_percent_shown;
-    unsigned char unknown_2e4[4];
     Font* text_box_font;
     Palette16 palette;
     W8ActionKind selection_kind;
     int pending_action;
     bool selection_settled;
-    unsigned char padding_2f9[3];
     uint64_t tooltip_since;
     bool tooltip_pending;
-    unsigned char padding_301[3];
     int tooltip_subject;
     int tooltip_kind;
     uint64_t countdown3;
     int combat_slot;
-    /* Historical offset 0x314: the keyboard-action menu is open; set before BuildKeyboardMenu,
+    /* The keyboard-action menu is open; set before BuildKeyboardMenu,
        cleared by CloseKeyboardMenu. */
     bool keyboard_menu_open;
-    unsigned char padding_315[3];
     int hover_combat_slot;
-    /* Historical offset 0x31c: keyboard-menu cursor-left grace countdown armed; expires into
+    /* Keyboard-menu cursor-left grace countdown armed; expires into
        CloseKeyboardMenu. */
     unsigned char cursor_grace;
-    unsigned char padding_31d[3];
     uint64_t countdown4;
-    /* Historical offset 0x324: PortraitSelectInput right-button hold armed for camp. */
+    /* PortraitSelectInput right-button hold armed for camp. */
     bool portrait_right_hold_armed;
     unsigned char formation_board_alternate;
     unsigned char radar_map_alternate;
     bool review_transition_active;
-    /* Historical offset 0x328: the review-screen transition finished; gates its early-out. */
+    /* The review-screen transition finished; gates its early-out. */
     bool review_transition_done;
-    unsigned char padding_329[3];
     uint64_t countdown5;
 };

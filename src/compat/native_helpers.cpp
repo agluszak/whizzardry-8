@@ -28,14 +28,6 @@ char* w8_strupr(char* text)
     return text;
 }
 
-char* w8_strlwr(char* text)
-{
-    for (char* cursor = text; *cursor != 0; ++cursor) {
-        *cursor = (char)tolower((unsigned char)*cursor);
-    }
-    return text;
-}
-
 void w8_splitpath(const char* path, char* drive, char* directory, char* name, char* extension)
 {
     const bool has_drive = path[0] != 0 && path[1] == ':';

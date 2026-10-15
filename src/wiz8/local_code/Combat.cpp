@@ -268,7 +268,6 @@ bool StartCombat(int surprise)
     ResetPartyCombatRows();
     DetectMonsterGroups();
     RequestRedrawParty();
-    memset(gXStatus.unknown_049, 0xff, sizeof(gXStatus.unknown_049));
     CopyPartyFormationState(&gXStatus.edited_formation, &g_status.formation);
     SaveCombatFormation();
     g_combat_state->search_mode_saved = g_status.search_mode;

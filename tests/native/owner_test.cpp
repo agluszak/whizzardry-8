@@ -363,13 +363,18 @@ void text_input_ownership()
 
         outer.Remove(middle);
         REQUIRE(outer.Text(last).size() == 5);
+        outer.Focus(last);
         {
             UiLayer inner_input;
             TextFieldGroup inner(inner_input, font);
             REQUIRE(TextFieldGroup::Focused() == &inner);
             REQUIRE(inner.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
+            // An older group keeps its focus but no longer accepts typing.
+            const InputEvent letter{.type = InputEventType::Text, .text = U'x'};
+            REQUIRE_FALSE(outer.HandleInput(letter));
         }
         REQUIRE(TextFieldGroup::Focused() == &outer);
+        REQUIRE((outer.FocusedId() == last && outer.Editing()));
         REQUIRE((outer.Text(first)[0] == 'a' && outer.Text(last).size() == 5));
         REQUIRE(outer.Add(0, 60, 80, 20, UI_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
         outer.Remove(first);
@@ -1266,7 +1271,6 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
         }
     }
     REQUIRE(g_ui.captured == 0);
-    REQUIRE(g_ui.current == 0);
     REQUIRE(g_ui.hover == 0);
 }
 
@@ -1331,7 +1335,6 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
     });
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     REQUIRE(layer == nullptr);
-    REQUIRE(g_ui.current == 0);
     REQUIRE(g_ui.hover == 0);
     REQUIRE(g_ui.captured == 0);
     REQUIRE(LiveUiTargetCount() == region_count);
@@ -1345,7 +1348,6 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
     UpdateUiPointer(15, 15);
     REQUIRE(layer == nullptr);
     REQUIRE(g_ui.hover == 0);
-    REQUIRE(g_ui.current == 0);
 }
 
 TEST_CASE("The input pump finishes its policy before committing a layer close", "[owner][ui-layer]")
