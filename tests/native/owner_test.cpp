@@ -656,26 +656,26 @@ void generic_button_images()
         REQUIRE_FALSE(button.m_dirty);
         REQUIRE(TakeUiUpload().w == 0);
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
-        // The commit helper must also keep auxiliary painting independent.
+        // Auxiliary painting leaves a pending screen update intact.
         button.m_dirty = true;
-        button.DrawAndInvalidate(target);
+        button.Draw(target);
         REQUIRE(button.m_dirty);
         REQUIRE(TakeUiUpload().w == 0);
         auto& framebuffer = GetFrameBufferSurface();
-        button.DrawAndInvalidate(framebuffer);
+        button.Refresh();
         REQUIRE_FALSE(button.m_dirty);
         const auto committed = TakeUiUpload();
         REQUIRE(SDL_RectsEqual(&committed, &button.Bounds()));
         REQUIRE(surface_pixel(framebuffer, 2, 3) == frame_colors[2]);
         REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0));
-        button.DrawAndInvalidate(framebuffer);
+        button.Refresh();
         REQUIRE(surface_pixel(framebuffer, 2, 3) == 0);
         REQUIRE(TakeUiUpload().w == 0);
-        button.DrawAndInvalidate(framebuffer, true);
+        button.Refresh(true);
         REQUIRE(surface_pixel(framebuffer, 2, 3) == frame_colors[2]);
         REQUIRE(TakeUiUpload().w == button.Bounds().w);
         button.SetVisible(false);
-        button.DrawAndInvalidate(framebuffer);
+        button.Refresh();
         REQUIRE_FALSE(button.m_dirty);
         REQUIRE(TakeUiUpload().w == 0);
         if (previous_upload.w > 0) {
@@ -1684,21 +1684,21 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(auxiliary);
         TakeUiUpload();
         InvalidateRegion(4, 4, 5, 5);
-        bar.Draw(*auxiliary, false);
+        bar.Draw(*auxiliary);
         REQUIRE(bar.m_dirty);
         const auto pending = TakeUiUpload();
         REQUIRE((pending.x == 4 && pending.y == 4 && pending.w == 1 && pending.h == 1));
-        bar.Draw(GetFrameBufferSurface(), false);
+        bar.Refresh();
         REQUIRE_FALSE(bar.m_dirty);
         const auto uploaded = TakeUiUpload();
         REQUIRE((uploaded.x == 100 && uploaded.y == 20 && uploaded.w == 5 && uploaded.h == 100));
         // A fresh auxiliary canvas still needs the clean scrollbar's artwork.
         REQUIRE(SDL_FillSurfaceRect(auxiliary.get(), nullptr, 0x07e0));
-        bar.Draw(*auxiliary, false);
+        bar.Draw(*auxiliary);
         REQUIRE(surface_pixel(*auxiliary, 100, 20) != 0x07e0);
         REQUIRE_FALSE(bar.m_dirty);
         REQUIRE(TakeUiUpload().w == 0);
-        bar.Draw(GetFrameBufferSurface(), false);
+        bar.Refresh();
         REQUIRE(TakeUiUpload().w == 0);
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, 101, 116, true);
@@ -1778,7 +1778,15 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         list.SetBackground("background.sti", 0);
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         list.Configure();
-        list.Draw(GetFrameBufferSurface());
+        auto canvas = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_RGB565);
+        REQUIRE(canvas);
+        TakeUiUpload();
+        list.Draw(*canvas);
+        list.Draw(*canvas);
+        REQUIRE(TakeUiUpload().w == 0);
+        REQUIRE(list.m_area_button.m_dirty);
+        list.RefreshModal();
+        REQUIRE(TakeUiUpload().w > 0);
         list.InputLayer().setModal(true);
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
@@ -1809,7 +1817,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         short_list.SetBackground("background.sti", 0);
         short_list.m_lines.emplace_back("X");
         short_list.Configure();
-        short_list.Draw(GetFrameBufferSurface());
+        short_list.RefreshModal();
         REQUIRE_FALSE(short_list.m_scrollable);
         for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
                                    &short_list.m_slider_button, &short_list.m_third_text_button}) {

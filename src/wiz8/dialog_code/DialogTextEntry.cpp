@@ -37,7 +37,8 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     m_entry_highlighted = false;
     m_marked = false;
     m_category = category;
-    SetLayoutBounds(bounds, true, true);
+    SetClipBounds(*bounds);
+    SetLayoutBounds(bounds, true);
     SetLayoutMode(layout_mode);
     m_shorten_mask = shorten;
     m_prefix_length = prefix.empty() ? 0 : prefix.size() + 2;
@@ -67,11 +68,12 @@ int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int 
 }
 
 // FUNCTION: WIZ8 0x005d1170
-void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
+
+void W8DialogTextEntry::Paint(SDL_Surface& target)
 {
     int width = m_layoutBounds.right - m_layoutBounds.left;
     int prefix_remaining = m_prefix_length;
-    if (m_buffer.empty() || (!force && !m_geometryDirty)) {
+    if (m_buffer.empty()) {
         return;
     }
     std::string shortened;
@@ -97,10 +99,10 @@ void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
             }
         }
     }
+    const auto previous_palette = m_font->palette();
     m_font->setPalette(palette);
-    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
-                  m_pendingBounds.right - m_pendingBounds.left,
-                  m_pendingBounds.bottom - m_pendingBounds.top};
+    SDL_Rect clip{m_clipBounds.left, m_clipBounds.top, m_clipBounds.right - m_clipBounds.left,
+                  m_clipBounds.bottom - m_clipBounds.top};
     ScopedClipRect clipping(target, clip);
     int y = GetVerticalPosition();
     for (;;) {
@@ -111,9 +113,7 @@ void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
         if (m_layoutBounds.bottom <= y) break;
         remaining.remove_prefix(end + 1);
     }
-    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
-                     m_layoutBounds.bottom);
-    m_geometryDirty = false;
+    m_font->setPalette(previous_palette);
 }
 
 // FUNCTION: WIZ8 0x005d14b0

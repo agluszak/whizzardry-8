@@ -312,13 +312,10 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
 {
     const std::array buttons{m_previous.get(), m_next.get(), m_exit.get(), m_accept.get(),
                              m_reset.get()};
-    for (const auto* button : buttons) m_navigation_dirty |= button->m_dirty;
+    for (auto* button : buttons) m_navigation_dirty |= button->TakeDirty();
     if (!m_navigation_dirty) return;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(target, 4, 0, 0x1c2);
-    for (auto* button : buttons) {
-        button->DrawAndInvalidate(target, true);
-        button->m_dirty = false;
-    }
+    for (auto* button : buttons) button->Draw(target);
     m_navigation_dirty = false;
 }
 
@@ -492,7 +489,8 @@ void W8CharacterScreen::DrawHeader()
                               GetFrameBufferSurface());
         }
         bounds.top += 0xe;
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         text.RenderString(
             fmt::format("{} {}",
                         g_localized_strings[g_gender_name_message_rows[m_character.gender][0]],
@@ -503,7 +501,8 @@ void W8CharacterScreen::DrawHeader()
             &bounds, g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
             g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         text.RenderString(
             fmt::format(
                 "{} {:d} ({})", g_localized_strings[0x6b9], m_character.uiExpLevel,
@@ -746,7 +745,7 @@ void CharacterScreenFrame(void)
     if (screen->m_header_dirty) screen->DrawHeader();
     screen->m_pages[screen->m_page_index]->Redraw(GetFrameBufferSurface(), false);
     screen->DrawNavigation(GetFrameBufferSurface());
-    if (screen->m_dialog != 0) screen->m_dialog->Draw(GetFrameBufferSurface());
+    if (screen->m_dialog != 0) screen->m_dialog->RefreshModal();
     RenderFrame();
 }
 

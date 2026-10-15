@@ -973,7 +973,8 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
         if (flag != 0) {
             bounds.right -= width;
             bounds.left -= width;
-            text->SetLayoutBounds(&bounds, true, true);
+            text->SetClipBounds(bounds);
+            text->SetLayoutBounds(&bounds, true);
         }
         SDL_Surface& framebuffer = GetFrameBufferSurface();
         const SDL_Rect fill{bounds.left, bounds.top, width, height};
@@ -1099,7 +1100,7 @@ void RefreshCampActionPanel(bool invalidate)
 {
     for (const auto& button : item_controls->actions) {
         button->m_dirty |= invalidate;
-        button->DrawAndInvalidate(GetFrameBufferSurface());
+        button->Refresh();
     }
 }
 
@@ -1168,7 +1169,7 @@ void RefreshItemsTabPanel(bool invalidate)
 {
     for (const auto& button : item_controls->filters) {
         button->m_dirty |= invalidate;
-        button->DrawAndInvalidate(GetFrameBufferSurface());
+        button->Refresh();
     }
 }
 
@@ -1217,7 +1218,7 @@ void RefreshCampSecondaryPanel(bool invalidate)
         CatalogArtwork::Load(0x120, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x13c, 7);
         for (const auto& tab : item_controls->tabs) {
             tab->m_dirty = true;
-            tab->DrawAndInvalidate(GetFrameBufferSurface());
+            tab->Refresh();
         }
         item_controls->dirty = false;
     }

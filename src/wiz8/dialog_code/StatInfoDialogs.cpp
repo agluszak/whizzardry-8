@@ -72,16 +72,13 @@ void W8StatInfoDialogBase::Configure()
 // FUNCTION: WIZ8 0x005dfae0
 void W8StatInfoDialogBase::Draw(SDL_Surface& target)
 {
-    if (m_dirty) {
-        textarea.m_dirty = true;
-        scrollbar.m_dirty = true;
-        button.m_dirty = true;
-        W8DialogBase::Draw(target);
-        DrawTitle(target);
-    }
-    textarea.Draw(target, false);
-    scrollbar.Draw(target, false);
-    button.DrawAndInvalidate(target);
+
+    W8DialogBase::Draw(target);
+    DrawTitle(target);
+
+    textarea.Paint(target);
+    scrollbar.Draw(target);
+    button.Draw(target);
 }
 
 // FUNCTION: WIZ8 0x005dfb40
@@ -195,4 +192,12 @@ W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIn
     m_title_id = g_character_description_first_ids[16 + uiIndex];
     m_detail_id = g_attr_table1[uiIndex];
     Configure();
+}
+
+bool W8StatInfoDialogBase::TakeDirty()
+{
+    const bool text = textarea.TakeDirty();
+    const bool scroll = scrollbar.TakeDirty();
+    const bool button_dirty = button.TakeDirty();
+    return W8DialogBase::TakeDirty() || text || scroll || button_dirty;
 }

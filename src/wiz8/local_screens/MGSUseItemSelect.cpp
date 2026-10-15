@@ -339,7 +339,7 @@ void UpdateUseItemSelect(bool active)
         if (panel == 0) {
             use_item->caption.RenderToTarget(0, true, target);
             for (auto& button : use_item->pools) {
-                button->DrawAndInvalidate(target, true);
+                button->Refresh(true);
             }
         } else if (panel == 1)
             RedrawTextBoxScrollChrome();
@@ -351,8 +351,8 @@ void UpdateUseItemSelect(bool active)
                              0x16c + (index / 3) * 17);
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
             use_item->filter->m_dirty = use_item->close->m_dirty = true;
-            use_item->filter->DrawAndInvalidate(target);
-            use_item->close->DrawAndInvalidate(target);
+            use_item->filter->Refresh();
+            use_item->close->Refresh();
             if (use_item->item_image)
                 DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
             use_item->quantity.RenderToTarget(0, true, target);

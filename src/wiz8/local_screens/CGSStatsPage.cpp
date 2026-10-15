@@ -250,8 +250,8 @@ void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
     }
     m_decrement->m_dirty |= force;
     m_increment->m_dirty |= force;
-    m_decrement->DrawAndInvalidate(target);
-    m_increment->DrawAndInvalidate(target);
+    m_decrement->Refresh();
+    m_increment->Refresh();
     if (!m_choices) m_dirty = false;
 }
 
@@ -595,7 +595,8 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
             bounds.bottom = top + 0x8a;
             bounds.left = left + 0xf9;
             bounds.right = left + 0x10f;
-            text.SetLayoutBounds(&bounds, true, true);
+            text.SetClipBounds(bounds);
+            text.SetLayoutBounds(&bounds, true);
             text.RenderString(fmt::format("{:d}", m_creation_state->attribute_points_remaining),
                               g_wiz_text_font_secondary, false, target);
         }
@@ -635,7 +636,8 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
             }
             int line_height = (available_count < 8) + 0xd;
             if (m_character->iProfession != W8_PROFESSION_NONE) {
-                text.SetLayoutBounds(&bounds, true, true);
+                text.SetClipBounds(bounds);
+                text.SetLayoutBounds(&bounds, true);
                 text.RenderString(
                     fmt::format("{} {}",
                                 g_localized_strings
@@ -735,7 +737,8 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
                 bounds.top = (first_column ? 0x157 : 0x171) + top;
                 bounds.bottom = bounds.top + 0xe;
                 bounds.right = bounds.left + 0x21;
-                text.SetLayoutBounds(&bounds, true, true);
+                text.SetClipBounds(bounds);
+                text.SetLayoutBounds(&bounds, true);
                 int value = m_character->resistances[realm].total - 0x19;
                 std::string value_text =
                     value == 0 ? std::string(g_dash) : fmt::format("{:+d}", value);
@@ -785,7 +788,8 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
             bounds.right = left + 0x11c;
             bounds.top = top + 0x179;
             bounds.bottom = top + 0x185;
-            text.SetLayoutBounds(&bounds, true, true);
+            text.SetClipBounds(bounds);
+            text.SetLayoutBounds(&bounds, true);
             text.RenderString(fmt::format("{:d}", m_creation_state->skill_points_total),
                               g_wiz_text_font_secondary, false, target);
         }
@@ -801,7 +805,8 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (m_prepared) {
         W8ControlsRect bounds = {4, 0xec, 0xc2, 0x162};
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         int text_id;
         if (m_mode == 0) {
             text_id = 0xe5;
@@ -826,13 +831,15 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_contentDirty) {
         W8ControlsRect bounds = {0x8f, 0x162, 0xbf, 0x179};
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x162);
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
                           g_options_detail_font, true, target);
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x184);
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         int total = m_creation_state->attribute_points_total;
         std::string points_text =
             total < 1

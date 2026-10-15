@@ -252,7 +252,7 @@ void MainMenuScreenFrame()
         RequestExitScreen();
     }
     if (main_menu_dialog != nullptr) {
-        main_menu_dialog->Draw(GetFrameBufferSurface());
+        main_menu_dialog->RefreshModal();
         if (!main_menu_dialog->ProcessInput()) {
             RetireModal(std::move(main_menu_dialog), false);
             g_main_menu_redraw = true;
@@ -321,7 +321,7 @@ void MainMenuScreenFrame()
 
     if (g_main_menu_redraw || main_menu_dialog != nullptr) {
         if (main_menu_dialog != nullptr) {
-            main_menu_dialog->Draw(GetFrameBufferSurface());
+            main_menu_dialog->RefreshModal();
         }
         ResetTransientRenderScenes();
         g_main_menu_redraw = false;

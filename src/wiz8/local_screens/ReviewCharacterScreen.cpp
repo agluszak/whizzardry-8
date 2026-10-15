@@ -934,8 +934,8 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
         CatalogArtwork::Load(0x122, 0).drawAndInvalidate(target, m_backgroundImage, 0x136, 0);
     m_stats_tab->m_dirty |= redraw;
     m_combat_tab->m_dirty |= redraw;
-    m_stats_tab->DrawAndInvalidate(target);
-    m_combat_tab->DrawAndInvalidate(target);
+    m_stats_tab->Refresh();
+    m_combat_tab->Refresh();
     if (!redraw) return;
     m_dirty = false;
     InvalidateCampPanel();
@@ -1452,7 +1452,7 @@ void DrawCampScreen(void)
 done:
     RedrawPortraitQuoteBubbles();
     if (state->dialog != 0) {
-        state->dialog->Draw(GetFrameBufferSurface());
+        state->dialog->RefreshModal();
     }
     RenderFrame();
 }

@@ -42,7 +42,7 @@ public:
     void SetValue(int value);
     void SetActive(bool active);
     void SetActive(bool active, const SDL_Point* point);
-    void Draw(SDL_Surface& target, bool force);
+    void Draw(SDL_Surface& target);
     bool HandleInput(const InputEvent* input);
 
 private:
@@ -66,14 +66,15 @@ public:
 // VTABLE: WIZ8 0x005ef7c8
 class W8ListBoxDialog : public W8DialogBase {
 public:
+    bool TakeDirty() override;
     W8ListBoxDialog();
     void Configure();
     virtual void Draw(SDL_Surface& target) override;
 
-    virtual void SetText(std::string_view text) override;
     virtual bool ProcessInput() override;
 
 private:
+    void UpdateLayout();
     /* Text-area button height divided by the dialog font height. */
     int GetVisibleLineCount();
     /* Select a text line and scroll it into the visible range. */
@@ -95,8 +96,7 @@ private:
 public:
     std::vector<std::string> m_lines;
     SDL_Color m_fill_colour; /* highlight fill colour */
-    W8ButtonWidget m_text_button{InputLayer()};
-    W8ButtonWidget m_second_text_button{InputLayer()};
+    SDL_Rect m_heading_bounds{}, m_footer_bounds{};
     GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
     W8ButtonWidget m_area_button{InputLayer()}; /* scrolling text area */
     W8ButtonWidget m_up_button{InputLayer()};
@@ -116,6 +116,7 @@ public:
 // VTABLE: WIZ8 0x005ef9f0
 class W8SplitAmountDialog : public W8DialogBase {
 public:
+    bool TakeDirty() override;
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(int)> on_complete;
     /* The split-size entry point; the pool total seeds both the
@@ -128,6 +129,8 @@ public:
 
 private:
     /* Create and place the six dialog buttons. */
+    ButtonAppearance m_frame;
+    SDL_Rect m_frame_bounds{};
     bool CreateButtons();
     /* Create the three text buffers above the numeric field. */
     void CreateTextBuffers();
@@ -147,7 +150,7 @@ private:
     void ActivateField();
 
 private:
-    std::array<std::unique_ptr<W8ButtonWidget>, 6> m_buttons;
+    std::array<std::unique_ptr<W8ButtonWidget>, 5> m_buttons;
     /* The labels named by g_split_amount_string_ids; [2] shows the
        amount still remaining. */
     std::array<std::unique_ptr<W8TextBuffer>, 3> m_text_buffers;
@@ -165,6 +168,7 @@ private:
 // VTABLE: WIZ8 0x005ef810
 class W8TriggerItemPickerDialog : public W8DialogBase {
 public:
+    bool TakeDirty() override;
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(W8WorldItem*)> on_complete;
     W8TriggerItemPickerDialog();
@@ -177,6 +181,7 @@ public:
     void SetItemGroup(W8WorldItem* group);
 
 private:
+    void UpdateLayout();
     bool CreateButtons();
     /* Clamp and apply the first visible item row. Fewer than five items force
        the first row. Out-of-range input is ignored, not clamped. */
@@ -210,6 +215,7 @@ public:
 // VTABLE: WIZ8 0x005efb78
 class W8SplitItemDialog : public W8DialogBase {
 public:
+    bool TakeDirty() override;
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(int)> on_complete;
     W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count, SDL_Point origin);
@@ -256,7 +262,6 @@ public:
 private:
     W8ItemSplitMode m_mode; /* 0 inventory, 1 and 2 trade modes */
     W8ItemInstance* m_item;
-    bool m_first_draw; /* draw the item icon once */
 };
 
 extern const W8SplitDialogResult g_amount_split_confirm_result;

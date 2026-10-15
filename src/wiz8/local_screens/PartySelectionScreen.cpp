@@ -561,9 +561,9 @@ void W8PartySelectionController::DrawOptions(SDL_Surface& target)
             CatalogArtwork::Load(0x102, 0).draw(target, 1, 0x90 + (0x160 - size.x) / 2, 0xa8);
         }
     }
-    for (auto& button : difficulty_buttons) button->DrawAndInvalidate(target);
-    npc_toggle->DrawAndInvalidate(target);
-    ironman_toggle->DrawAndInvalidate(target);
+    for (auto& button : difficulty_buttons) button->Refresh();
+    npc_toggle->Refresh();
+    ironman_toggle->Refresh();
 }
 
 bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
@@ -836,7 +836,8 @@ void W8PartySelectionController::Setup()
     }
     npc_toggle->SetPressed(g_settings.simplified_npc_interaction);
     W8ControlsRect bounds{0x7b, 6, 0x205, 0x23};
-    title.SetLayoutBounds(&bounds, true, true);
+    title.SetClipBounds(bounds);
+    title.SetLayoutBounds(&bounds, true);
     SetMode(W8_PARTY_SELECT_CHARACTERS);
     SetSelection(0, false, true);
 }
@@ -1132,9 +1133,9 @@ void W8PartySelectionController::DrawPartySelectionComposition()
     DrawOptions(target);
     DrawCharacters(target);
     DrawSlots(target);
-    for (auto& button : advance) button->DrawAndInvalidate(target);
+    for (auto& button : advance) button->Refresh();
     DrawImportList(target);
-    for (auto& button : actions) button->DrawAndInvalidate(target);
+    for (auto& button : actions) button->Refresh();
     title.RenderToTarget(0, false, target);
     if (m_dialog) m_dialog->Draw(target);
     if (name_input) name_input->RenderAll(target);

@@ -402,7 +402,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
         W8MessageDialogBase* dialog = CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
         OpenModal(std::unique_ptr<ModalContent>(dialog));
-        g_modal_owner->DrawModal(GetFrameBufferSurface());
+        g_modal_owner->RefreshModal();
     }
 }
 

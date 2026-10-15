@@ -146,7 +146,7 @@ void W8CampStatsControls::Redraw(SDL_Surface& target, bool force)
 {
     for (const auto& button : m_buttons) {
         button->m_dirty |= force;
-        button->DrawAndInvalidate(target);
+        button->Refresh();
     }
 }
 
@@ -1083,7 +1083,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     W8CharacterPage::Redraw(target, full_redraw);
     for (auto& button : m_buttons) {
         button->m_dirty |= redraw || full_redraw;
-        button->DrawAndInvalidate(target);
+        button->Refresh();
     }
     if (redraw || full_redraw || m_choices_dirty) {
         for (int index = 0; index < 11; ++index) {
@@ -1152,7 +1152,8 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
             bounds.right = bounds.left + 0x80;
             bounds.top = W8CharacterPage::bounds.y + 0x106 + (index / 3) * 0xe;
             bounds.bottom = bounds.top + 0xe;
-            text.SetLayoutBounds(&bounds, true, true);
+            text.SetClipBounds(bounds);
+            text.SetLayoutBounds(&bounds, true);
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
             text.RenderString(g_localized_strings[*message_id], g_wiz_text_font_secondary, true,
                               target);
@@ -1193,7 +1194,8 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.bottom = W8CharacterPage::bounds.y + 0x16a;
         bounds.left = W8CharacterPage::bounds.x + 0x70;
         bounds.right = W8CharacterPage::bounds.x + 0x150;
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         text.SetText(element.GetQuoteText(), g_wiz_text_font_secondary);
         text.FillBounds(target, 0x8000);
         text.RenderToTarget(0, true, target);
@@ -1383,7 +1385,8 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = 0xbf;
         bounds.bottom = 0x179;
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x162);
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
                           g_options_detail_font, true, target);
         m_prepared = false;
@@ -1393,7 +1396,8 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
         W8TextBuffer text;
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x184);
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
                                       m_creation_state->skill_points_total),
                           g_options_detail_font, true, target);

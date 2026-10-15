@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <string_view>
+#include <utility>
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
@@ -45,10 +46,10 @@ public:
     W8ButtonWidget& operator=(const W8ButtonWidget&) = delete;
     // Paint only, including clean buttons. Never commits an on-screen update.
     void Draw(SDL_Surface& target) const;
-    // Commit a dirty (or forced) framebuffer update. Auxiliary targets are
-    // painted unconditionally without invalidation or changing screen dirtiness.
+    // Commit a dirty (or forced) framebuffer update.
     // The owner restores backing artwork before requesting a forced repaint.
-    void DrawAndInvalidate(SDL_Surface& target, bool force = false);
+    void Refresh(bool force = false);
+    bool TakeDirty() { return std::exchange(m_dirty, false); }
     void Reset();
     bool IsConfigured() const { return m_target != nullptr; }
     const SDL_Rect& Bounds() const { return m_bounds; }

@@ -84,18 +84,9 @@ void W8CharacterSummaryDialog::CreateQuoteText()
 // FUNCTION: WIZ8 0x005e07b0
 void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 {
-    if (m_dirty) {
-        m_quote_text->SetGeometryDirty();
-        W8DialogBase::Draw(target);
-    }
-    if (m_quote_text != 0) {
-        m_quote_text->RenderToTarget(0, false, target);
-    }
+    W8DialogBase::Draw(target);
+    m_quote_text->Paint(target);
     RenderPartyPortrait(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 1, 0);
-    if (!m_portrait_clock_started) {
-        m_portrait_clock_started = true;
-        m_portrait_clock = w8_get_ticks();
-    }
 }
 
 // FUNCTION: WIZ8 0x005e0830
@@ -142,6 +133,10 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
 // FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
+    if (!m_portrait_clock_started) {
+        m_portrait_clock_started = true;
+        m_portrait_clock = w8_get_ticks();
+    }
     BeginModalInput();
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;

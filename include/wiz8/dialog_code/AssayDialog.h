@@ -21,6 +21,7 @@ enum { W8_ASSAY_BUTTON_COUNT = 0x25, W8_ASSAY_TEXT_BUFFER_COUNT = 5 };
 // VTABLE: WIZ8 0x005ef988
 class W8AssayDialog : public W8DialogBase {
 public:
+    bool TakeDirty() override;
     W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_Point origin);
     virtual ~W8AssayDialog() override;
     virtual void Draw(SDL_Surface& target) override;
@@ -44,7 +45,6 @@ private:
                                     "Data\\Dialogs\\popup_iteminfo.sti", 4,
                                     [this](int first) { ScrollTextArea(m_text_area, first); }}};
     W8ItemInstance* m_item;
-    bool m_item_portrait_dirty;
     W8DialogTextArea m_text_area;
     W8Character* m_character;
 };

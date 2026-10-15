@@ -133,7 +133,7 @@ void RefreshSubMenuPanel(bool invalidate)
         for (auto& button : submenu->buttons) button->m_dirty = true;
         submenu->dirty = false;
     }
-    for (auto& button : submenu->buttons) button->DrawAndInvalidate(target);
+    for (auto& button : submenu->buttons) button->Refresh();
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -347,7 +347,7 @@ void RedrawOptionsDiskButton(void)
         enabled = false;
     }
     g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
-    g_main_game_state->hud_buttons.options_disk.DrawAndInvalidate(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.options_disk.Refresh();
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
@@ -385,7 +385,7 @@ void UpdateCombatStanceButtons(void)
         enabled = false;
     }
     g_main_game_state->hud_buttons.combat_stance[stance].SetEnabled(enabled);
-    g_main_game_state->hud_buttons.combat_stance[stance].DrawAndInvalidate(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.combat_stance[stance].Refresh();
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
@@ -556,7 +556,7 @@ void UpdateRoofButtons(void)
     g_main_game_state->hud_buttons.roof[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
     for (auto& button : g_main_game_state->hud_buttons.roof) {
-        button.DrawAndInvalidate(GetFrameBufferSurface());
+        button.Refresh();
     }
 }
 
@@ -714,7 +714,7 @@ void RedrawLayoutArrowButtons(void)
         g_main_game_state->hud_buttons.layout_arrows[3].SetVisible(false);
         draw_button = &g_main_game_state->hud_buttons.layout_arrows[0];
     }
-    draw_button->DrawAndInvalidate(GetFrameBufferSurface());
+    draw_button->Refresh();
 
     if (g_level_block->action_panel_visible == 0) {
         g_main_game_state->hud_buttons.layout_arrows[4].SetVisible(true);
@@ -725,17 +725,17 @@ void RedrawLayoutArrowButtons(void)
         g_main_game_state->hud_buttons.layout_arrows[4].SetVisible(false);
         draw_button = &g_main_game_state->hud_buttons.layout_arrows[1];
     }
-    draw_button->DrawAndInvalidate(GetFrameBufferSurface());
+    draw_button->Refresh();
 
     if (g_level_block->formation_board_visible) {
         g_main_game_state->hud_buttons.layout_arrows[2].SetVisible(true);
         g_main_game_state->hud_buttons.layout_arrows[5].SetVisible(false);
-        g_main_game_state->hud_buttons.layout_arrows[2].DrawAndInvalidate(GetFrameBufferSurface());
+        g_main_game_state->hud_buttons.layout_arrows[2].Refresh();
         return;
     }
     g_main_game_state->hud_buttons.layout_arrows[5].SetVisible(true);
     g_main_game_state->hud_buttons.layout_arrows[2].SetVisible(false);
-    g_main_game_state->hud_buttons.layout_arrows[5].DrawAndInvalidate(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.layout_arrows[5].Refresh();
 }
 
 // FUNCTION: WIZ8 0x005982D0
@@ -948,7 +948,7 @@ void UpdateSubMenuPanelButtons(void)
     }
 
     for (auto& button : g_main_game_state->hud_buttons.submenu_panel) {
-        button.DrawAndInvalidate(GetFrameBufferSurface());
+        button.Refresh();
     }
 }
 
@@ -966,7 +966,7 @@ static void UpdateSubMenuScrollButtons()
         }
     }
     for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
-        button.DrawAndInvalidate(GetFrameBufferSurface());
+        button.Refresh();
     }
 }
 
@@ -988,7 +988,7 @@ void RedrawSubMenuButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_main_game_state->hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
-        button.DrawAndInvalidate(GetFrameBufferSurface());
+        button.Refresh();
     }
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
@@ -1095,7 +1095,7 @@ void UpdateMainGameButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_main_game_state->hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
-        button.DrawAndInvalidate(GetFrameBufferSurface());
+        button.Refresh();
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
@@ -1103,7 +1103,7 @@ void UpdateMainGameButtons(void)
               !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
               !gXStatus.fTrapInteract;
     g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
-    g_main_game_state->hud_buttons.options_disk.DrawAndInvalidate(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.options_disk.Refresh();
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
 }

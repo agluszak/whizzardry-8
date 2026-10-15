@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
@@ -19,6 +20,7 @@
 #include "local_code/TextBuffer.h"
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
+#include "sprite.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
@@ -106,10 +108,9 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_P
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
-    m_item_portrait_dirty = false;
+
     m_character = character;
     m_item = item;
-    m_item_portrait_dirty = true;
     PopulateText();
     m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
                            m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
@@ -503,40 +504,14 @@ void W8AssayDialog::PopulateText()
 // FUNCTION: WIZ8 0x005d9200
 void W8AssayDialog::Draw(SDL_Surface& target)
 {
-    int index;
-
-    if (m_dirty) {
-        m_item_portrait_dirty = true;
-        m_text_area.m_dirty = true;
-        m_scroll_bar.m_dirty = true;
-        for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-            m_buttons[index].m_dirty = true;
-        }
-        for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
-            m_text_buffers[index]->SetGeometryDirty();
-        }
-        W8DialogBase::Draw(target);
-    }
-    if (m_item_portrait_dirty) {
-        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
-                                m_x + 0x45, m_y + 0xe);
-        if (!m_item->identified) {
-            CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(target, 0, m_x + 0x45, m_y + 0xe);
-        }
-        m_item_portrait_dirty = false;
-    }
-    for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-        if (m_buttons[index].IsConfigured()) {
-            m_buttons[index].DrawAndInvalidate(target);
-        }
-    }
-    for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
-        if (m_text_buffers[index] != 0) {
-            m_text_buffers[index]->RenderToTarget(0, false, target);
-        }
-    }
-    m_text_area.Draw(target, false);
-    m_scroll_bar.Draw(target, false);
+    W8DialogBase::Draw(target);
+    DrawSprite(target, g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45, m_y + 0xe);
+    if (!m_item->identified) CatalogArtwork::Load(0x11b, 0).draw(target, 0, m_x + 0x45, m_y + 0xe);
+    for (auto& button : m_buttons) button.Draw(target);
+    for (auto& text : m_text_buffers)
+        if (text) text->Paint(target);
+    m_text_area.Paint(target);
+    m_scroll_bar.Draw(target);
 }
 
 /* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;
@@ -945,4 +920,15 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
         }
         m_buttons[button_index].m_dirty = true;
     }
+}
+
+bool W8AssayDialog::TakeDirty()
+{
+    bool dirty = W8DialogBase::TakeDirty();
+    for (auto& button : m_buttons) dirty |= button.TakeDirty();
+    for (auto& text : m_text_buffers)
+        if (text) dirty |= std::exchange(text->m_geometryDirty, false);
+    dirty |= m_text_area.TakeDirty();
+    dirty |= m_scroll_bar.TakeDirty();
+    return dirty;
 }

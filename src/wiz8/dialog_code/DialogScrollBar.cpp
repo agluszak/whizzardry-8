@@ -103,24 +103,28 @@ void W8DialogScrollBar::UpdateThumb()
 }
 
 // FUNCTION: WIZ8 0x005e10b0
-void W8DialogScrollBar::Draw(SDL_Surface& target, bool force)
+void W8DialogScrollBar::Draw(SDL_Surface& target)
 {
-    const bool framebuffer = &target == &GetFrameBufferSurface();
-    if (!m_visible) {
-        return;
-    }
-    if (framebuffer && !force && !m_dirty && !m_up_button.m_dirty && !m_down_button.m_dirty &&
-        !m_track_button.m_dirty && !m_thumb_button.m_dirty) {
-        return;
-    }
-    // Recompose the entire track before the thumb so its old position is erased.
-    m_track_button.DrawAndInvalidate(target, true);
-    m_up_button.DrawAndInvalidate(target, true);
-    m_down_button.DrawAndInvalidate(target, true);
-    m_thumb_button.DrawAndInvalidate(target, true);
-    if (framebuffer) {
-        m_dirty = false;
-    }
+    if (!m_visible) return;
+    m_track_button.Draw(target);
+    m_up_button.Draw(target);
+    m_down_button.Draw(target);
+    m_thumb_button.Draw(target);
+}
+
+bool W8DialogScrollBar::TakeDirty()
+{
+    bool dirty = std::exchange(m_dirty, false);
+    for (auto* button : {&m_track_button, &m_up_button, &m_down_button, &m_thumb_button})
+        dirty |= button->TakeDirty();
+    return dirty;
+}
+
+void W8DialogScrollBar::Refresh()
+{
+    if (!TakeDirty() || !m_visible) return;
+    Draw(GetFrameBufferSurface());
+    InvalidateRegion(m_track_button.Bounds());
 }
 
 void W8DialogScrollBar::ScrollBy(int delta)

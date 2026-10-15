@@ -598,7 +598,7 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
 void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!full_redraw && !button.m_dirty) return;
-    button.DrawAndInvalidate(target, true);
+    button.Refresh(true);
     if (!button.IsEnabled() || m_save == 0) {
         return;
     }
@@ -1363,20 +1363,20 @@ void W8OptionsScreen::Redraw()
         if (button.m_dirty && item == m_selected_panel)
             CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(
                 GetFrameBufferSurface(), g_options_menu_rows[item].item_id, 12, 15);
-        button.DrawAndInvalidate(GetFrameBufferSurface());
+        button.Refresh();
     }
     if (m_navigation_visible &&
         (m_navigation_dirty || m_navigation[0]->m_dirty || m_navigation[1]->m_dirty)) {
         auto& target = GetFrameBufferSurface();
         CatalogArtwork::Load(0xf3, 0).drawAndInvalidate(target, 0, 0x11b, m_navigation_y);
         for (auto& button : m_navigation) {
-            button->DrawAndInvalidate(target, true);
+            button->Refresh(true);
         }
         m_page_text->RenderToTarget(0, true, target);
         m_navigation_dirty = false;
     }
     if (m_active_modal != 0) {
-        m_active_modal->Draw(GetFrameBufferSurface());
+        m_active_modal->RefreshModal();
     }
     if (m_text_editor != 0) {
         m_text_editor->m_fields.RenderAll(GetFrameBufferSurface());
@@ -1669,7 +1669,7 @@ void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
     }
     for (auto& button : m_buttons) {
         button->m_dirty |= repaint;
-        button->DrawAndInvalidate(target);
+        button->Refresh();
     }
     for (auto& slider : m_owned_sliders) slider->Redraw(target, repaint);
     m_dirty = false;
@@ -1729,7 +1729,8 @@ void W8OptionsScreen::UpdateNavigation()
     }
     const auto size = CatalogArtwork::Load(0xf3, 0).size(0);
     const W8ControlsRect bounds{0x11b, m_navigation_y + 1, 0x11b + size.x, m_navigation_y + size.y};
-    m_page_text->SetLayoutBounds(&bounds, true, true);
+    m_page_text->SetClipBounds(bounds);
+    m_page_text->SetLayoutBounds(&bounds, true);
     m_page_text->SetText(fmt::format("{:d} / {:d}", current + 1, count), g_options_detail_font);
     m_navigation_dirty = true;
 }

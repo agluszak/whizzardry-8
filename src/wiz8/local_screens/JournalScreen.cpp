@@ -349,15 +349,13 @@ JournalScreen::JournalScreen()
 void JournalScreen::Draw(SDL_Surface& target)
 {
     bool redraw_buttons = m_dirty;
-    for (auto& button : m_buttons) redraw_buttons = button->m_dirty || redraw_buttons;
+    for (auto& button : m_buttons) redraw_buttons |= button->TakeDirty();
     if (m_dirty) DrawContent(target);
     if (redraw_buttons) {
         CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(target, 1, 0, 0x1b4);
         m_bar.drawAndInvalidate(target, 0, 0x66, 0x1bb);
-        for (auto& button : m_buttons) {
-            button->DrawAndInvalidate(target, true);
-        }
-        m_page_text->RenderToTarget(0, true, target);
+        for (auto& button : m_buttons) button->Draw(target);
+        m_page_text->Paint(target);
     }
     m_dirty = false;
 }

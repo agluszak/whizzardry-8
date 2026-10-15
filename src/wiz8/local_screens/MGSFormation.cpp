@@ -276,7 +276,7 @@ void RefreshFormationPanel(bool force)
 {
     if (!formation) return;
     bool dirty = force || formation->dirty;
-    for (const auto& button : formation->actions) dirty = dirty || button->m_dirty;
+    for (auto& button : formation->actions) dirty |= button->TakeDirty();
     if (!dirty) return;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0x9e, 0).drawAndInvalidate(target, 0, 0xd6, 0x3c);
@@ -298,9 +298,7 @@ void RefreshFormationPanel(bool force)
         arrows.draw(target, arrow, 0xd6 + position.x, 0x3c + position.y);
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
-    for (auto& button : formation->actions) {
-        button->DrawAndInvalidate(target, true);
-    }
+    for (auto& button : formation->actions) button->Draw(target);
     formation->dirty = false;
 }
 

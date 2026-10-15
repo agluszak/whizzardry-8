@@ -14,6 +14,7 @@ class W8StatInfoDialogBase : public W8DialogBase {
 public:
     W8StatInfoDialogBase();
     virtual void Draw(SDL_Surface& target) override;
+    bool TakeDirty() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
     virtual void DrawTitle(SDL_Surface& target);

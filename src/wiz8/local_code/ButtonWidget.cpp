@@ -32,17 +32,13 @@ void W8ButtonWidget::Draw(SDL_Surface& target) const
     }
 }
 
-void W8ButtonWidget::DrawAndInvalidate(SDL_Surface& target, bool force)
+void W8ButtonWidget::Refresh(bool force)
 {
-    if (&target != &GetFrameBufferSurface()) {
-        Draw(target);
-        return;
-    }
     if (!m_dirty && !force) {
         return;
     }
     if (m_target && m_visible) {
-        Draw(target);
+        Draw(GetFrameBufferSurface());
         InvalidateRegion(Bounds());
     }
     m_dirty = false;

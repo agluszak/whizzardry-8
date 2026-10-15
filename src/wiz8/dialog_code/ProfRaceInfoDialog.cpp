@@ -102,35 +102,32 @@ void W8ProfRaceInfoDialogBase::Configure()
 // FUNCTION: WIZ8 0x005DED60
 void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
 {
-    if (m_dirty) {
-        m_text_area.m_dirty = true;
-        m_scroll_bar.m_dirty = true;
-        m_button.m_dirty = true;
-        W8DialogBase::Draw(target);
-        m_uiArtwork->drawAndInvalidate(target, m_uiSummaryImage, m_x + 0xd, m_y + 0xd);
-        DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18,
-                     g_localized_strings[m_uiNameId], g_options_detail_font);
-        DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc,
-                     g_localized_strings[m_uiHeadingId], g_wiz_text_font_secondary);
-        int top = 0x37;
-        for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
-            DrawTextLine(target, g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
-                         g_localized_strings[g_character_description_first_ids[attribute]],
-                         g_wiz_text_font_secondary);
-            std::string minimum;
-            if (m_minimums[attribute] == -1) {
-                minimum = "?";
-            } else {
-                minimum = fmt::format("{:d}", m_minimums[attribute]);
-            }
-            DrawTextLine(target, g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
-                         g_wiz_text_font_secondary);
-            top += 0xe;
+
+    W8DialogBase::Draw(target);
+    m_uiArtwork->draw(target, m_uiSummaryImage, m_x + 0xd, m_y + 0xd);
+    DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18,
+                 g_localized_strings[m_uiNameId], g_options_detail_font);
+    DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc,
+                 g_localized_strings[m_uiHeadingId], g_wiz_text_font_secondary);
+    int top = 0x37;
+    for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
+        DrawTextLine(target, g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
+                     g_localized_strings[g_character_description_first_ids[attribute]],
+                     g_wiz_text_font_secondary);
+        std::string minimum;
+        if (m_minimums[attribute] == -1) {
+            minimum = "?";
+        } else {
+            minimum = fmt::format("{:d}", m_minimums[attribute]);
         }
+        DrawTextLine(target, g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
+                     g_wiz_text_font_secondary);
+        top += 0xe;
     }
-    m_text_area.Draw(target, false);
-    m_scroll_bar.Draw(target, false);
-    m_button.DrawAndInvalidate(target);
+
+    m_text_area.Paint(target);
+    m_scroll_bar.Draw(target);
+    m_button.Draw(target);
 }
 
 // FUNCTION: WIZ8 0x005DEEE0
@@ -305,4 +302,12 @@ bool W8RaceInfoDialog::PopulateText()
         listed = true;
     }
     return true;
+}
+
+bool W8ProfRaceInfoDialogBase::TakeDirty()
+{
+    const bool text = m_text_area.TakeDirty();
+    const bool scroll = m_scroll_bar.TakeDirty();
+    const bool button = m_button.TakeDirty();
+    return W8DialogBase::TakeDirty() || text || scroll || button;
 }

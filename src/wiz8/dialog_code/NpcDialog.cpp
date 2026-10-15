@@ -191,33 +191,24 @@ bool W8NpcDialog::Configure()
 // FUNCTION: WIZ8 0x005DAE00
 void W8NpcDialog::DrawModal(SDL_Surface& target)
 {
-    int index;
     if (!m_keep_open) return;
-    if (m_dirty) {
-        for (index = 0; index < 2; ++index) {
-            if (m_text_buffers[index] != 0) {
-                m_text_buffers[index]->SetGeometryDirty();
-            }
-        }
-        for (index = 0; index < 3; ++index) {
-            if (m_buttons[index] != 0) {
-                m_buttons[index]->m_dirty = true;
-            }
-        }
-        DrawButtonAppearance(target, m_background, m_bounds, {});
-        InvalidateRegion(m_bounds.x, m_bounds.y, m_bounds.x + m_bounds.w, m_bounds.y + m_bounds.h);
-        m_dirty = false;
-    }
-    for (index = 0; index < 3; ++index) {
-        if (m_buttons[index] != 0) {
-            m_buttons[index]->DrawAndInvalidate(target);
-        }
-    }
-    for (index = 0; index < 2; ++index) {
-        if (m_text_buffers[index] != 0) {
-            m_text_buffers[index]->RenderToTarget(0, false, target);
-        }
-    }
+    DrawButtonAppearance(target, m_background, m_bounds, {});
+    for (auto& button : m_buttons)
+        if (button) button->Draw(target);
+    for (auto& text : m_text_buffers)
+        if (text) text->Paint(target);
+}
+
+void W8NpcDialog::RefreshModal()
+{
+    bool dirty = std::exchange(m_dirty, false);
+    for (auto& button : m_buttons)
+        if (button) dirty |= button->TakeDirty();
+    for (auto& text : m_text_buffers)
+        if (text) dirty |= std::exchange(text->m_geometryDirty, false);
+    if (!dirty) return;
+    DrawModal(GetFrameBufferSurface());
+    InvalidateRegion(m_bounds);
 }
 
 // FUNCTION: WIZ8 0x005DAE90

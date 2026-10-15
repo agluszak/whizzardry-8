@@ -141,7 +141,7 @@ void DrawPartyMovementPanel(void)
     panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
     if (panel_live) {
         CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
-        movement->buttons[visible]->DrawAndInvalidate(GetFrameBufferSurface(), true);
+        movement->buttons[visible]->Refresh(true);
         movement->dirty = false;
     }
     right = 0x1b9 - g_level_block->move_percent * 0xf6 / 100;
