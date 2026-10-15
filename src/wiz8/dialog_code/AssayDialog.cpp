@@ -107,7 +107,7 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_P
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
-    UseInfoPopupInput(m_scroll_bar);
+    UseInfoPopup({m_text_area, m_scroll_bar});
 
     m_character = character;
     m_item = item;
@@ -913,7 +913,5 @@ bool W8AssayDialog::TakeDirty()
     for (auto& button : m_buttons) dirty |= button.TakeDirty();
     for (auto& text : m_text_buffers)
         if (text) dirty |= std::exchange(text->m_geometryDirty, false);
-    dirty |= m_text_area.TakeDirty();
-    dirty |= m_scroll_bar.TakeDirty();
     return dirty;
 }

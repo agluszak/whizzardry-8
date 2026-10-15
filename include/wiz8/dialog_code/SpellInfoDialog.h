@@ -14,7 +14,6 @@ class W8SpellInfoDialog : public W8DialogBase {
 public:
     W8SpellInfoDialog(unsigned int spell);
     virtual void Draw(SDL_Surface& target) override;
-    bool TakeDirty() override;
     bool ProcessInput() override;
 
 private:

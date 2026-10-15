@@ -39,7 +39,6 @@ class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
     virtual void Draw(SDL_Surface& target) override;
-    bool TakeDirty() override;
 
 protected:
     void Configure();

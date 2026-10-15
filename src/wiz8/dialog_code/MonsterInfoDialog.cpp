@@ -60,7 +60,7 @@ W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(locati
     SetOrigin(0x9c, 0x31);
     SetExtent(0x14a, 0x10e);
     SetBackground(g_info_dialog_background, 0);
-    UseInfoPopupInput(m_scroll_bar);
+    UseInfoPopup({m_text_area, m_scroll_bar, &m_button});
     if (!PopulateText()) {
         throw std::runtime_error("Cannot configure dialog controls");
     }
@@ -453,12 +453,4 @@ void W8MonsterInfoDialog::Draw(SDL_Surface& target)
     m_text_area.Paint(target);
     m_scroll_bar.Draw(target);
     m_button.Draw(target);
-}
-
-bool W8MonsterInfoDialog::TakeDirty()
-{
-    const bool text = m_text_area.TakeDirty();
-    const bool scroll = m_scroll_bar.TakeDirty();
-    const bool button = m_button.TakeDirty();
-    return W8DialogBase::TakeDirty() || text || scroll || button;
 }
