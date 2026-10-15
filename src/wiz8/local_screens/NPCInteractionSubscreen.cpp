@@ -3846,13 +3846,10 @@ void DrainNpcDialogueDeferralInput(void)
 void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
 {
     W8MonsterInfo* monster_info;
-    W8NpcDialog* dialog;
 
     if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue) {
         SetNpcDialoguePanelVisible(0);
     }
-    dialog = new W8NpcDialog(request, aux_data, OnNpcDialogClosed);
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
     std::optional<W8NpcPriceCheck> price_check;
     if (request->kind == W8_NPC_ENTRY_PRICE_CHECK ||
         request->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
@@ -3872,6 +3869,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
                                       request->kind != W8_NPC_ENTRY_ALWAYS_PRICE_CHECK};
     }
     g_npc_dialogue.ReplyDialogOpened(price_check);
+    OpenModal(std::make_unique<W8NpcDialog>(request, aux_data, OnNpcDialogClosed));
     SetTargetCursor(W8_CURSOR_NONE);
 }
 
