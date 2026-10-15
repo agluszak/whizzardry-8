@@ -102,12 +102,8 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     if (!CreateButtons()) {
         throw std::runtime_error("Cannot configure dialog controls");
     }
-    if (!CreateTextBuffers()) {
-        throw std::runtime_error("Cannot configure dialog controls");
-    }
-    if (!CreateNumericInput()) {
-        throw std::runtime_error("Cannot configure dialog controls");
-    }
+    CreateTextBuffers();
+    CreateNumericInput();
     UpdateTotals();
 }
 
@@ -176,7 +172,7 @@ bool W8SplitItemDialog::CreateButtons()
 }
 
 // FUNCTION: WIZ8 0x005DD750
-bool W8SplitItemDialog::CreateTextBuffers()
+void W8SplitItemDialog::CreateTextBuffers()
 {
     int count;
     int index;
@@ -219,11 +215,10 @@ bool W8SplitItemDialog::CreateTextBuffers()
             "{} ({})", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
             g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
         g_wiz_text_font_secondary);
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005DDA60
-bool W8SplitItemDialog::CreateNumericInput()
+void W8SplitItemDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
 
@@ -235,7 +230,6 @@ bool W8SplitItemDialog::CreateNumericInput()
     m_count_input = std::make_unique<W8DialogNumericInput>(
         0, &bounds, split_count, g_wiz_text_font_secondary, this, &m_buttons[3]);
     m_count_input->m_maximum = m_stack_total;
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005DDB60

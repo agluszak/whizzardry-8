@@ -99,6 +99,7 @@ void W8DialogTextEntry::Paint(SDL_Surface& target)
             }
         }
     }
+    const auto previous_palette = m_font->palette();
     m_font->setPalette(palette);
     SDL_Rect clip{m_clipBounds.left, m_clipBounds.top, m_clipBounds.right - m_clipBounds.left,
                   m_clipBounds.bottom - m_clipBounds.top};
@@ -112,6 +113,7 @@ void W8DialogTextEntry::Paint(SDL_Surface& target)
         if (m_layoutBounds.bottom <= y) break;
         remaining.remove_prefix(end + 1);
     }
+    m_font->setPalette(previous_palette);
 }
 
 // FUNCTION: WIZ8 0x005d14b0
