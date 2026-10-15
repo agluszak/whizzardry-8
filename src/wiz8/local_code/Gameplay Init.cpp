@@ -428,7 +428,5 @@ void ResetGameplaySettings(void)
         DisableRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
         DisableRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_CACHE);
     }
-    if (GetRendererFamily() != 1) {
-        DisableRenderOption(W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
-    }
+    DisableRenderOption(W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
 }

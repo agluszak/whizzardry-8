@@ -128,14 +128,9 @@ struct W8ControlsRect;
 void SetFullscreenSceneLast(unsigned char value); /* 0x004298E0 */
 stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
                                               bool fullscreen);
-/* 0x004253F0: the render-target sprite factory CreateSpriteFromSurface wraps; the
-   radar overlay is created through it directly. */
-stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
-                                                int square, int, char overlay);
-/* 0x004255C0: wrap the sprite-surface factory - image is a video surface
-   handle (or a negative target id), rect an optional source rectangle. */
-stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode,
-                                           int unused, int overlay);
+/* Copies an optional source rectangle into a square or ordinary overlay. */
+stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
+                                           int square, int overlay);
 /* 0x004257D0: position a 2D node without pixel snapping. */
 void Position2DNodeUnsnapped(srNode* node, int x, int y);
 /* 0x004264F0: write the display-state byte of a 2D model instance. */
@@ -289,7 +284,6 @@ bool IsCursorImageInsideViewport(void); /* 0x00428030 */
 
 void SetDisplayGamma(float value);
 unsigned int GetTotalPhysicalMemory(void);
-int GetRendererFamily(void);
 
 /* Delete a scene object and clear the slot that owned it. */
 template<class T> inline void ReleaseRendererObject(T*& object)
