@@ -37,8 +37,9 @@ Do not reuse Conan dependencies from a different build configuration.
 SDL_mixer 3.2.4, utfcpp 4.0.6 and utf8proc 2.10.0 are still downloaded at
 CMake configure time from verified release archives; Catch2 is pinned to an
 exact Git commit. ConanCenter does not currently have the required
-SDL_mixer and utf8proc versions. A Conan lockfile with recipe revisions must
-still be generated and committed before claiming locked dependency resolution.
+SDL_mixer and utf8proc versions. The committed `conan.lock` pins Conan recipe revisions for the validated Linux
+dependency graph. The FetchContent sources remain separately pinned by their
+archive hashes or exact Git commits.
 
 The macOS and Windows CMake presets remain available, but their Conan host
 profiles and builds have not yet been verified. The initial Conan integration
