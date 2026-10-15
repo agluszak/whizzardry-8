@@ -130,7 +130,6 @@ W8CampStatsControls::W8CampStatsControls()
     }
     m_buttons[2]->SetPressed(g_camp_screen->effect_items_only);
     input.add(SDL_Rect{0x15d, 0xbe, 260, 248}, [](const UiPointerEvent& event) {
-        PushButtonSoundScheme(0, true);
         if (event.action != UiPointerAction::Wheel) return UiResult::Pass;
         g_camp_screen->stats_range->AdjustValue(event.wheel);
         return UiResult::Handled;
@@ -877,7 +876,7 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, int category)
             ++occurrence;
         }
     }
-    PushButtonSoundScheme(0, true);
+
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move ||
         event.action == UiPointerAction::Leave) {
         const int hover = event.inside && skill != -1 ? row : -1;
@@ -945,6 +944,8 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         m_choices[index] =
             &input.add(SDL_Rect{x, y, voice ? 73 : 128, voice ? 15 : 14},
                        [this, index, voice](const UiPointerEvent& event) {
+                           if (event.action != UiPointerAction::Up || event.captured_buttons)
+                               PlayButtonSound(event.action);
                            m_choices_dirty = true;
                            if (event.action == UiPointerAction::Up && event.inside &&
                                event.button == UiPointerButton::Left && event.captured_buttons) {

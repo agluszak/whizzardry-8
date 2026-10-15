@@ -853,13 +853,15 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
     const bool pool = origin == W8_ITEM_ORIGIN_PARTY_POOL;
     auto& target = *(pool ? g_camp_screen->pool_targets[slot]
                           : g_camp_screen->inventory_targets[slot + (equipped ? 8 : 0)]);
-    if (item->iItemNo == -1 &&
+    const bool interactive = !(
+        item->iItemNo == -1 &&
         (!g_status.item_in_cursor ||
          (equipped && (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
                        !CanEquipItemInSlot(g_review_character, g_status.item_in_hand.iItemNo,
                                            static_cast<unsigned char>(slot), true) ||
-                       !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo)))))
-        PushButtonSoundScheme(0, true);
+                       !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo)))));
+    if (interactive && (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
         if (item->iItemNo != -1 || g_status.item_in_cursor)
             g_camp_screen->item_redraw_flags |=
@@ -1041,7 +1043,9 @@ void CreateCampItemControls()
     }
     const auto label = [](SDL_Rect bounds, std::function<void()> action, int help) {
         auto& target = item_controls->secondary.add(bounds, [action](const UiPointerEvent& event) {
-            if (event.button != UiPointerButton::Right) PushButtonSoundScheme(0, true);
+            if ((event.button == UiPointerButton::Right) &&
+                (event.action != UiPointerAction::Up || event.captured_buttons))
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Up && event.inside &&
                 event.button == UiPointerButton::Right && event.captured_buttons)
                 AfterUiDispatch(action);

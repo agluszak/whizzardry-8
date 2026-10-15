@@ -131,6 +131,8 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
     npc_quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
     npc_quote_input->add(
         SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1}, [](const UiPointerEvent& event) {
+            if (event.action != UiPointerAction::Up || event.captured_buttons)
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
                 AfterUiDispatch([] { TryFinishNpcVoicePlayback(true); });
             return UiResult::Handled;
@@ -351,6 +353,8 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
         [index](const UiPointerEvent& event) {
             auto& ui = *g_npc_interaction_state->ui;
             auto& action = ui.actions[index];
+            if ((action.enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
                 action.dirty = true;
                 if (event.action == UiPointerAction::Leave) action.interaction.leave(action.policy);
@@ -365,7 +369,7 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
                 return UiResult::Handled;
             }
             if (!action.enabled) {
-                PushButtonSoundScheme(0, true);
+
                 return UiResult::Handled;
             }
             const auto button =

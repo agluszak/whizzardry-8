@@ -280,13 +280,7 @@ void InitTextBoxRegions()
             });
         ui.targets[4 + tab]->setTooltip([tab] { return g_localized_strings[33 + tab]; });
     }
-    ui.targets[7] = &ui.tabs.add(
-        SDL_Rect{128, 358, 384, 93},
-        [](const UiPointerEvent&) {
-            PushButtonSoundScheme(0, true);
-            return UiResult::Handled;
-        },
-        -1);
+    ui.targets[7] = &ui.tabs.add(SDL_Rect{128, 358, 384, 93}, {}, -1);
     ui.body.setEnabled(false);
     ui.tabs.setEnabled(false);
 }
@@ -892,7 +886,7 @@ void ScrollTextBoxDown(int lines)
 namespace {
 UiResult HandleTextThumb(const UiPointerEvent& event)
 {
-    PushButtonSoundScheme(0, true);
+
     if (!(event.buttons & SDL_BUTTON_LMASK)) {
         g_level_block->text_scroll_drag_idle = 1;
         return UiResult::Handled;
@@ -923,7 +917,8 @@ UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
     const bool enabled = up ? g_level_block->text_lines[box] != 0
                             : g_level_block->text_lines[box] + GetTextBoxVisibleLineCount() <
                                   g_status.text_box_lines_shown[box];
-    if (!enabled) PushButtonSoundScheme(0, true);
+    if ((enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     if (enabled &&
         (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
         const bool hover = event.action == UiPointerAction::Enter;
@@ -950,7 +945,7 @@ UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
 
 UiResult HandleTextBody(const UiPointerEvent& event)
 {
-    PushButtonSoundScheme(0, true);
+
     if (event.action == UiPointerAction::Wheel) {
         if (event.wheel < 0)
             ScrollTextBoxDown(-event.wheel);
@@ -970,7 +965,7 @@ UiResult HandleTextBody(const UiPointerEvent& event)
 
 UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
 {
-    PushButtonSoundScheme(0, true);
+
     if (event.action != UiPointerAction::Up || !event.inside ||
         event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK))
         return UiResult::Handled;
@@ -1253,8 +1248,8 @@ char TextBoxHandleKey(const InputEvent* event)
     handled = panel->m_key_handler->HandleKey(event->key);
 
     if (handled != 0 && panel->m_selection != before) {
-        ResetButtonSoundScheme();
-        PlayButtonSound(3);
+
+        PlayButtonSound(UiPointerAction::Up);
     }
     return handled;
 }

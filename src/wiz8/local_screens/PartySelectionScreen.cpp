@@ -38,6 +38,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -686,6 +687,8 @@ void W8PartySelectionController::Setup()
         rows[row] = &input.add(
             SDL_Rect{0x148, 0x31 + row * 0x2a, row_size.x + 1, row_size.y + 1},
             [this, row](const UiPointerEvent& event) {
+                if (event.action != UiPointerAction::Up || event.captured_buttons)
+                    PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Enter ||
                     event.action == UiPointerAction::Leave) {
                     hovered_row = event.action == UiPointerAction::Enter ? row : -1;
@@ -713,6 +716,8 @@ void W8PartySelectionController::Setup()
         slots[row] = &input.add(
             SDL_Rect{x, y, slot_size.x + 1, slot_size.y + 1},
             [this, row](const UiPointerEvent& event) {
+                if (event.action != UiPointerAction::Up || event.captured_buttons)
+                    PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Enter ||
                     event.action == UiPointerAction::Leave) {
                     hovered_slot = event.action == UiPointerAction::Enter ? row : -1;
@@ -752,6 +757,8 @@ void W8PartySelectionController::Setup()
     }
     import_list = &input.add(SDL_Rect{0x148, 0x31, 0x9e, 0xfb}, [this](
                                                                     const UiPointerEvent& event) {
+        if (event.action != UiPointerAction::Up || event.captured_buttons)
+            PlayButtonSound(event.action);
         if (event.action == UiPointerAction::Leave)
             import_hovered = -1;
         else if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move)

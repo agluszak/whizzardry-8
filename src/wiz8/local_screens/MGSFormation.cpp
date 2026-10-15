@@ -191,6 +191,8 @@ void CreateFormationBoardOverlay(void)
 
 UiResult HandleFormationBoard(const UiPointerEvent& event)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
         !gXStatus.fReviewCharacterMode)
@@ -390,9 +392,12 @@ static void DropFormationSlot(int cell);
 // FUNCTION: WIZ8 0x005b29d0
 static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 {
+    if ((g_formation_cell_slots[id] != -1) &&
+        (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
     if (g_formation_cell_slots[id] == -1) {
-        PushButtonSoundScheme(0, true);
+
         if (event.action != UiPointerAction::Up || event.button != UiPointerButton::Left ||
             g_formation_drag_cell == -1)
             return UiResult::Handled;
@@ -457,7 +462,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 static UiResult HandleFormationBackground(const UiPointerEvent& event)
 {
     if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
-    PushButtonSoundScheme(0, true);
+
     if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left) {
         if (g_formation_drag_cell != -1) DropFormationSlot(-1);
         return UiResult::Handled;

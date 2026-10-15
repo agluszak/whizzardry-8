@@ -58,7 +58,6 @@
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -747,7 +746,7 @@ void generic_button_images()
         {.on_click = [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); },
          .priority = UI_PRIORITY_NORMAL}));
     closing_dialog->SetPosition(12, 13);
-    PushButtonSoundScheme(0, true);
+
     {
         dispatch_mouse(InputEventType::LeftButtonDown, 12, 13, true, false, 1);
         dispatch_mouse(InputEventType::LeftButtonUp, 12, 13, false, false, 1);
@@ -1545,7 +1544,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     g_localized_strings.emplace_back("Button tooltip");
     UiLayer layer;
     Font font{};
-    PushButtonSoundScheme(0, true);
+
     int activations = 0;
     {
         W8ButtonWidget button(layer);
@@ -1688,7 +1687,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     button_image_fixture(assets, "track.sti", 1, false, 5, 100);
     g_image_assets.clear();
     ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
-    PushButtonSoundScheme(0, true);
+
     std::vector<int> positions;
     {
         UiLayer input;
@@ -2119,7 +2118,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     ResetUiInput();
     const auto layers = LiveUiLayerCount();
     const auto targets = LiveUiTargetCount();
-    PushButtonSoundScheme(0, true);
+
     {
         MainGameScreenState screen;
         auto& hud = screen.hud_buttons;
