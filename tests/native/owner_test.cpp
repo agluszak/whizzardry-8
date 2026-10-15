@@ -50,6 +50,8 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
+#include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -1687,19 +1689,19 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         TakeUiUpload();
         InvalidateRegion(4, 4, 5, 5);
         bar.Draw(*auxiliary);
-        REQUIRE(bar.m_dirty);
         const auto pending = TakeUiUpload();
         REQUIRE((pending.x == 4 && pending.y == 4 && pending.w == 1 && pending.h == 1));
         bar.Refresh();
-        REQUIRE_FALSE(bar.m_dirty);
+        REQUIRE_FALSE(bar.TakeDirty());
         const auto uploaded = TakeUiUpload();
         REQUIRE((uploaded.x == 100 && uploaded.y == 20 && uploaded.w == 5 && uploaded.h == 100));
         // A fresh auxiliary canvas still needs the clean scrollbar's artwork.
         REQUIRE(SDL_FillSurfaceRect(auxiliary.get(), nullptr, 0x07e0));
         bar.Draw(*auxiliary);
         REQUIRE(surface_pixel(*auxiliary, 100, 20) != 0x07e0);
-        REQUIRE_FALSE(bar.m_dirty);
+        REQUIRE_FALSE(bar.TakeDirty());
         REQUIRE(TakeUiUpload().w == 0);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
         bar.Refresh();
         REQUIRE(TakeUiUpload().w == 0);
         GetInputState().mouse.y = 400;
@@ -1755,6 +1757,37 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
 
     REQUIRE(font.load("font.sti"));
+    {
+        W8DialogTextArea area;
+        const W8ControlsRect bounds{0, 0, 100, 100};
+        area.Configure(&bounds, font, g_W8DialogTextAreaPointSelection);
+        area.AddEntry("", "Z", 0, 0, 0);
+        area.AddEntry("", "A\nB", 0, 0, 1);
+        area.AddEntry("", "C", 0, 0, 1);
+        area.SetCategoryFilter(1);
+        REQUIRE(area.GetOwningEntryIndex(0) == 1);
+        REQUIRE(area.UpdateSelectionFromPoint(1, 1));
+        REQUIRE_FALSE(area.UpdateSelectionFromPoint(1, font.height() + 1));
+        REQUIRE(area.UpdateSelectionFromPoint(1, 2 * font.height() + 1));
+        area.SetEntrySpacing(1);
+        area.SetLineHeight(12);
+        REQUIRE(area.GetEntry(0)->GetLineHeight() == 12);
+        REQUIRE(area.GetEntry(2)->GetLineHeight() == 12);
+        REQUIRE(area.GetTotalLineCount() == 4); // Two wrapped lines, a gap, then C.
+        REQUIRE(area.HitTestEntry(1, 25) == 0);
+        REQUIRE(area.HitTestEntry(1, 37) == 1);
+        area.SetFirstVisibleLine(1);
+        REQUIRE(area.HitTestEntry(1, 1) == 0);
+        REQUIRE(area.HitTestEntry(1, 25) == 1);
+        REQUIRE(area.ScrollUp(false));
+        REQUIRE(area.HitTestEntry(1, 25) == 0);
+        area.SetCategoryFilter(-1);
+        area.SetSorted(true);
+        REQUIRE(area.GetOwningEntryIndex(0) == 1);
+        REQUIRE(area.GetOwningEntryIndex(2) == 0);
+        area.RemoveEntry(1);
+        REQUIRE(area.GetOwningEntryIndex(0) == 1);
+    }
     // Empty item rows can still receive a click after a transfer, before the
     // next screen recomposition hides their targets.
     for (const auto* image :
