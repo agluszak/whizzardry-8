@@ -8,7 +8,6 @@
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 
-#include "compat/native.h"
 #include "input.h"
 #include "surrender/srDD_SDLGPU.h"
 
