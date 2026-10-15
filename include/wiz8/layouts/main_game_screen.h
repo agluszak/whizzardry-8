@@ -1,5 +1,4 @@
 #include <string>
-#include <vector>
 
 #include "Font.h"
 #pragma once
@@ -11,7 +10,6 @@
 class stTextureAnim;
 class stModelInstance2D;
 
-#include <cstddef>
 #include <memory>
 
 /* One animated cursor resource the main-game / camp screens can install. The
@@ -72,25 +70,6 @@ enum W8MainGameRedrawFlag {
 static const unsigned int W8_MAIN_REDRAW_FRAME = 0x80000000U;
 static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 
-/* The dormant typed-dialogue input state hung off the level block: a plain
-   heap object, not an srClass derivative. */
-struct W8DialogueTextState {
-    std::string text;
-    std::string first_line_prefix;
-    void (*completion_callback)();
-    std::vector<std::size_t> line_offsets{0};
-    unsigned int line_count;
-    int notice_channel;
-    short text_box;
-    short unknown_22;
-    unsigned int wrap_width;
-    std::size_t cursor;
-    unsigned char cursor_dirty;
-    bool dirty;
-    unsigned char padding_2e[2];
-    unsigned int saved_scroll_line;
-};
-
 struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
@@ -145,10 +124,6 @@ struct W8LevelRuntimeBlock {
        NPC dialogue uses box 2 for the hovered row and selected trade item. */
     int hovered_text_lines[4];
     int selected_text_lines[4];
-    bool dialogue_text_input_open;
-    unsigned char padding_1f9[3];
-    /* Never set in this build; the editor path that consumes it is dormant. */
-    std::unique_ptr<W8DialogueTextState> dialogue_text_input;
     int portrait_overlay_party_slot;
     /* Historical offset 0x204 / 0x208: party slot whose condition / enchantment orb is held or
        drag-hovering; PortraitConditionOrbInput and

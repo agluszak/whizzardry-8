@@ -88,8 +88,6 @@ void SetTextBoxMuteInput(bool enabled);
 void ResetEditorStatusLine(short line);
 /* The font currently bound to the main text box. */
 Font& GetTextBoxFont(void);
-/* Repaint dirty dialogue text-input lines and the caret. */
-void RedrawDialogueTextInput(void);
 /* Clear one text_lines slot on the level block. */
 void ClearTextLineEntry(int index);
 
@@ -97,7 +95,6 @@ void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
    runs persisted around the game-status record. */
 unsigned char SaveTextBoxState(wiz8::File* file);
-unsigned char HandleDialogueTextInput(const InputEvent* input);
 char TextBoxHandleKey(const InputEvent* event);
 int GetSelectedTextLine(int index);
 void ClearSelectedTextLine(int index);

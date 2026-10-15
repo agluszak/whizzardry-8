@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
-#include <iterator>
 #include <memory>
 #include <span>
 #include <string>
@@ -14,7 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -29,12 +27,10 @@
 #include "input.h"
 #include "layouts/character.h"
 #include "layouts/main_game_screen.h"
-#include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
 #include "local_code/RangeControl.h"
 #include "random.h"
 #include "timer.h"
-#include "utf8/checked.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -194,7 +190,6 @@ void ResetEditorStatusLine(short line)
     g_level_block->selected_text_lines[line] = -1;
     g_level_block->text_content_region = kUpArrowDisabled;
     g_level_block->dialogue_content_region = kDownArrowDisabled;
-    g_level_block->dialogue_text_input_open = false;
     RedrawTextBox();
 }
 
@@ -602,24 +597,9 @@ void AppendTextBoxLine(std::string_view text, short text_box)
 
 void ScrollDialogueTextBoxToLine(void)
 {
-    W8DialogueTextState* input;
     int offset;
 
     if (IsNpcDialogueTextInputActive()) {
-        return;
-    }
-    if (g_level_block->dialogue_text_input_open &&
-        (input = g_level_block->dialogue_text_input.get()) != 0 &&
-        g_status.text_line_cursor == input->text_box) {
-        if (gXStatus.fNpcDialogueMode) {
-            offset = g_npc_interaction_state->text_box_collapsed ? 1 : 7;
-        } else {
-            offset = !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode && !gXStatus.fCampMode
-                         ? 1
-                         : 7;
-        }
-        ScrollTextBoxTo(g_status.text_box_lines_shown[g_status.text_line_cursor] +
-                        input->line_count - offset);
         return;
     }
     if (gXStatus.fNpcDialogueMode) {
@@ -736,26 +716,6 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     }
 }
 
-/* The dirty byte of the dormant typed-dialogue input state, or nothing when
-   no input is open. */
-unsigned char GetOpenDialogueFlag(void)
-{
-    if (g_level_block->dialogue_text_input_open && g_level_block->dialogue_text_input != 0) {
-        return g_level_block->dialogue_text_input->dirty;
-    }
-    return 0;
-}
-
-/* Retail expands this scan in the editor handlers without a separate emission. */
-static unsigned int FindDialogueTextLine(const W8DialogueTextState* input)
-{
-    unsigned int line = 1;
-    while (line < input->line_count && input->cursor >= input->line_offsets[line]) {
-        ++line;
-    }
-    return line;
-}
-
 /* Retail returns 7 when the text box is in a multi-line mode (spell / item /
    camp / NPC dialogue with the transcript collapsed); otherwise 1. The image
    retains this out-of-line emission while VC6 inlines it at other callers. */
@@ -790,26 +750,12 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
     HighlightTextBoxRange(g_status.buffers.XChar[party_slot].party_order_index, 0, stop, context);
 }
 
-/* Retail expands this calculation at its callers and has no separate emission. */
-static unsigned int GetTextBoxLineCount(short text_box)
-{
-    unsigned int count = g_status.text_box_lines_shown[text_box];
-    if (g_level_block->dialogue_text_input_open && g_level_block->dialogue_text_input != 0 &&
-        g_level_block->dialogue_text_input->text_box == text_box) {
-        count += g_level_block->dialogue_text_input->line_count;
-    }
-    return count;
-}
-
-/* Whether more lines sit below the visible window on the cursor's text box,
-   including the dormant typed-dialogue editor's extra rows when it is open on
-   that box. */
 bool CurrentDialogueLineHasContent(void)
 {
     short text_box = g_status.text_line_cursor;
 
     return g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-           GetTextBoxLineCount(text_box);
+           g_status.text_box_lines_shown[text_box];
 }
 
 void AdvanceNoticeLine(short text_box)
@@ -850,7 +796,7 @@ void AdvanceNoticeLine(short text_box)
                 ScrollTextBoxTo(shown - 7);
             }
         } else if (!IsNpcDialogueTextInputActive()) {
-            ScrollTextBoxTo(GetTextBoxLineCount(g_status.text_line_cursor) -
+            ScrollTextBoxTo(g_status.text_box_lines_shown[g_status.text_line_cursor] -
                             GetTextBoxVisibleLineCount());
         }
     }
@@ -860,33 +806,26 @@ void AdvanceNoticeLine(short text_box)
 void ScrollTextBoxTo(int line)
 {
     short text_box = g_status.text_line_cursor;
-    unsigned int input_lines;
-    if (!g_level_block->dialogue_text_input_open || g_level_block->dialogue_text_input == 0 ||
-        g_level_block->dialogue_text_input->text_box != text_box) {
-        input_lines = 0;
-    } else {
-        input_lines = g_level_block->dialogue_text_input->line_count;
-    }
     unsigned int count = g_status.text_box_lines_shown[text_box];
     unsigned int visible = GetTextBoxVisibleLineCount();
-    if (input_lines + count <= visible) {
+    if (count <= visible) {
         return;
     }
     unsigned int previous = g_level_block->text_lines[text_box];
     unsigned int target = static_cast<unsigned int>(line);
-    if (target + visible <= count + input_lines) {
+    if (target + visible <= count) {
         if (target > 349) {
             target = 350;
         }
         g_level_block->text_lines[text_box] = target;
     } else {
-        g_level_block->text_lines[text_box] = (count - visible) + input_lines;
+        g_level_block->text_lines[text_box] = count - visible;
     }
     if (g_level_block->text_lines[text_box] != previous) {
         g_level_block->text_content_region =
             g_level_block->text_lines[text_box] != 0 ? kUpArrowEnabled : kUpArrowDisabled;
         g_level_block->dialogue_content_region =
-            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() < count + input_lines
+            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() < count
                 ? kDownArrowEnabled
                 : kDownArrowDisabled;
         RedrawTextBox();
@@ -912,7 +851,7 @@ void ScrollTextBoxUp(int lines)
     if (current == previous) {
         return;
     }
-    if (current + GetTextBoxVisibleLineCount() < GetTextBoxLineCount(text_box)) {
+    if (current + GetTextBoxVisibleLineCount() < g_status.text_box_lines_shown[text_box]) {
         g_level_block->dialogue_content_region = kDownArrowEnabled;
     }
     if (current == 0) {
@@ -924,7 +863,7 @@ void ScrollTextBoxUp(int lines)
 void ScrollTextBoxDown(int lines)
 {
     short text_box = g_status.text_line_cursor;
-    unsigned int count = GetTextBoxLineCount(text_box);
+    unsigned int count = g_status.text_box_lines_shown[text_box];
     unsigned int visible = GetTextBoxVisibleLineCount();
     unsigned int previous = g_level_block->text_lines[text_box];
     if (previous + visible >= count) {
@@ -950,184 +889,6 @@ void ScrollTextBoxDown(int lines)
     RedrawTextBox();
 }
 
-/* Draw the dormant typed-dialogue editor's caret: a vertical bar on the row
-   holding the insertion point, offset by the first-line prefix and the
-   pixel length of the text before the cursor. */
-static void DrawDialogueTextCursor(int x, int y)
-{
-    W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
-    unsigned int line = FindDialogueTextLine(input);
-    unsigned int hidden = 0;
-    short text_box = g_status.text_line_cursor;
-    if (g_status.text_box_lines_shown[text_box] < g_level_block->text_lines[text_box]) {
-        hidden = g_level_block->text_lines[text_box] - g_status.text_box_lines_shown[text_box];
-    }
-    if (line <= hidden) {
-        return;
-    }
-
-    int x_offset = 0;
-    if (line == 1 && !input->first_line_prefix.empty()) {
-        x_offset = g_level_block->text_box_font->textWidth(input->first_line_prefix);
-    }
-    unsigned int start = input->line_offsets[line - 1];
-    x_offset += g_level_block->text_box_font->prefixWidth(
-        std::string_view(input->text).substr(start), input->cursor - start);
-
-    int y_line = y + (line - hidden - 1) * 0xb;
-    if (y_line < g_level_block->text_box_bottom) {
-        unsigned int bottom = g_level_block->text_box_bottom;
-        unsigned int y_end = y_line + g_level_block->text_box_font->height();
-        if (bottom <= y_end) {
-            y_end = bottom;
-        }
-        int x_cursor = x + x_offset + 1;
-        const SDL_Rect cursor{x_cursor, y_line, 1, static_cast<int>(y_end - y_line + 1)};
-        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, 0xff00);
-    }
-}
-
-/* Print the dormant typed-dialogue editor's wrapped lines starting at
-   first_line, temporarily terminating each row at the next line's start
-   offset; tracks the widest row and invalidates the printed rectangle. */
-void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
-{
-    auto* input = g_level_block->dialogue_text_input.get();
-    const int first_y = y;
-    int maximum_width = 0;
-    for (std::size_t line = first_line; line < input->line_offsets.size(); ++line) {
-        auto start = input->line_offsets[line];
-        auto end = line + 1 < input->line_offsets.size() ? input->line_offsets[line + 1]
-                                                         : input->text.size();
-        auto text = std::string_view(input->text).substr(start, end - start);
-        int draw_x = x;
-        if (line == 0 && !input->first_line_prefix.empty()) {
-            DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y},
-                     input->first_line_prefix);
-            draw_x += g_level_block->text_box_font->textWidth(input->first_line_prefix);
-        }
-        DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, text);
-        maximum_width =
-            std::max(maximum_width, draw_x - x + g_level_block->text_box_font->textWidth(text));
-        y += 11;
-        if (y >= g_level_block->text_box_bottom) break;
-    }
-    InvalidateRegion(x, first_y, x + maximum_width, y);
-}
-
-/* Repaint the dormant typed-dialogue editor over the text box: the wrapped
-   lines when the input is dirty, then the cursor. */
-void RedrawDialogueTextInput(void)
-{
-    W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
-    if ((input->dirty || input->cursor_dirty != 0)) {
-        short text_box = g_status.text_line_cursor;
-        int offset = g_status.text_box_lines_shown[text_box] - g_level_block->text_lines[text_box];
-        if (offset < 7) {
-            {
-                SDL_Rect clip{g_level_block->text_box_left, g_level_block->text_box_top,
-                              g_level_block->text_box_right - g_level_block->text_box_left,
-                              g_level_block->text_box_bottom - g_level_block->text_box_top};
-                ScopedClipRect clipping(GetFrameBufferSurface(), clip);
-                g_level_block->text_box_font->setPalette(g_level_block->palette);
-
-                int y = g_level_block->text_box_top + offset * 0xb;
-                if (y < g_level_block->text_box_top) {
-                    y = g_level_block->text_box_top;
-                }
-                if (!input->dirty) {
-                    if (input->cursor_dirty != 0) {
-                        DrawDialogueTextCursor(g_level_block->text_box_left, y);
-                    }
-                } else {
-                    unsigned int first_line = 0;
-                    if (offset < 0) {
-                        first_line = g_level_block->text_lines[text_box] -
-                                     g_status.text_box_lines_shown[text_box];
-                    }
-                    DrawDialogueTextInputLines(g_level_block->text_box_left, y, first_line);
-                    input->dirty = false;
-                    DrawDialogueTextCursor(g_level_block->text_box_left, y);
-                }
-
-                g_level_block->text_box_font->setPalette(g_level_block->palette);
-            }
-        }
-    }
-}
-
-// Retail allocation routines 0x0058D7E0 / 0x0058D890 are replaced by
-// std::string and std::vector ownership, with no engine capacity bookkeeping.
-void ReleaseDialogueTextInput(void)
-{
-    g_level_block->dialogue_text_input.reset();
-}
-
-void InvalidateDialogueTextCursor(void)
-{
-    g_level_block->dialogue_text_input->dirty = true;
-    RequestRedraw(W8_MAIN_REDRAW_FRAME);
-
-    W8ControlsRect bounds;
-    bounds.left = g_level_block->text_box_left;
-    bounds.top = g_status.text_box_lines_shown[g_status.text_line_cursor] -
-                 g_level_block->text_lines[g_status.text_line_cursor] + g_level_block->text_box_top;
-    bounds.right =
-        g_level_block->text_box_font->textWidth(g_level_block->dialogue_text_input->text) +
-        bounds.left;
-    bounds.bottom = g_level_block->text_box_font->height() + bounds.top;
-    InvalidateMainGameActionPanelRect(&bounds);
-}
-
-static void RewrapDialogueTextFromLine(unsigned int)
-{
-    auto& input = *g_level_block->dialogue_text_input;
-    input.line_offsets = {0};
-    auto line_start = std::size_t{0};
-    auto last_break = std::size_t{0};
-    for (std::size_t position = 0; position < input.text.size();) {
-        auto end = wiz8::text::next_grapheme(input.text, position);
-        auto width = g_level_block->text_box_font->textWidth(
-            std::string_view(input.text).substr(line_start, end - line_start));
-        if (line_start == 0)
-            width += g_level_block->text_box_font->textWidth(input.first_line_prefix);
-        if (width > static_cast<int>(input.wrap_width) && position > line_start) {
-            line_start = last_break > line_start ? last_break : position;
-            input.line_offsets.push_back(line_start);
-        }
-        if (input.text[position] == ' ') last_break = end;
-        position = end;
-    }
-    input.line_count = input.line_offsets.size();
-}
-
-static void InsertDialogueTextCharacter(char32_t character)
-{
-    if (!g_level_block->dialogue_text_input_open || !g_level_block->dialogue_text_input) return;
-    auto& input = *g_level_block->dialogue_text_input;
-    std::string bytes;
-    utf8::append(character, std::back_inserter(bytes));
-    input.text.insert(input.cursor, bytes);
-    input.cursor += bytes.size();
-    RewrapDialogueTextFromLine(1);
-    InvalidateDialogueTextCursor();
-}
-
-void DeleteDialogueTextCharacter(SDL_Keycode key)
-{
-    auto& input = *g_level_block->dialogue_text_input;
-    if (key == SDLK_BACKSPACE && input.cursor) {
-        const auto previous = wiz8::text::previous_grapheme(input.text, input.cursor);
-        input.text.erase(previous, input.cursor - previous);
-        input.cursor = previous;
-    } else if (key == SDLK_DELETE && input.cursor < input.text.size()) {
-        const auto next = wiz8::text::next_grapheme(input.text, input.cursor);
-        input.text.erase(input.cursor, next - input.cursor);
-    }
-    RewrapDialogueTextFromLine(1);
-    InvalidateDialogueTextCursor();
-}
-
 namespace {
 UiResult HandleTextThumb(const UiPointerEvent& event)
 {
@@ -1140,7 +901,7 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
         return UiResult::Handled;
     const short box = g_status.text_line_cursor;
     const int visible = GetTextBoxVisibleLineCount();
-    const int count = static_cast<int>(GetTextBoxLineCount(box));
+    const int count = static_cast<int>(g_status.text_box_lines_shown[box]);
     if (count <= visible) return UiResult::Handled;
     const auto position = std::clamp(event.local.y + 1, 0, 46);
     const int previous = static_cast<int>(g_level_block->text_lines[box]);
@@ -1161,7 +922,7 @@ UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
     const short box = g_status.text_line_cursor;
     const bool enabled = up ? g_level_block->text_lines[box] != 0
                             : g_level_block->text_lines[box] + GetTextBoxVisibleLineCount() <
-                                  GetTextBoxLineCount(box);
+                                  g_status.text_box_lines_shown[box];
     if (!enabled) PushButtonSoundScheme(0, true);
     if (enabled &&
         (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
@@ -1217,91 +978,13 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
     const auto scroll = g_level_block->text_lines[channel];
     g_level_block->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
     g_level_block->dialogue_content_region =
-        scroll + GetTextBoxVisibleLineCount() < GetTextBoxLineCount(channel) ? kDownArrowEnabled
-                                                                             : kDownArrowDisabled;
+        scroll + GetTextBoxVisibleLineCount() < g_status.text_box_lines_shown[channel]
+            ? kDownArrowEnabled
+            : kDownArrowDisabled;
     if (channel == 3) ScrollTextBoxTo(std::max(0, int(g_status.text_box_lines_shown[channel]) - 7));
     RedrawTextBox();
     return UiResult::Handled;
 }
-}
-
-unsigned char HandleDialogueTextInput(const InputEvent* input_event)
-{
-    if (!g_level_block->dialogue_text_input_open ||
-        (input_event->modifiers & (CTRL_DOWN | ALT_DOWN)) != 0) {
-        return 0;
-    }
-    W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
-    if (input_event->type == InputEventType::Text) {
-        if (input_event->text >= 32) InsertDialogueTextCharacter(input_event->text);
-        return 1;
-    }
-    if (input_event->type != InputEventType::KeyDown &&
-        input_event->type != InputEventType::KeyRepeat) {
-        return 1;
-    }
-    SDL_Keycode key = input_event->key;
-    switch (key) {
-    case SDLK_BACKSPACE:
-    case SDLK_DELETE:
-        DeleteDialogueTextCharacter(key);
-        return 1;
-    case SDLK_RETURN:
-    case SDLK_ESCAPE:
-        if (input->completion_callback != 0) {
-            input->completion_callback();
-        }
-        g_level_block->dialogue_text_input_open = false;
-        g_level_block->text_lines[input->text_box] = input->saved_scroll_line;
-        if (input->text[0] != 0) {
-            ShowNotice(input->notice_channel, input->text, input->text_box, input->wrap_width);
-        }
-        ReleaseDialogueTextInput();
-        RedrawTextBox();
-        return 1;
-    case SDLK_SPACE:
-        InsertDialogueTextCharacter(' ');
-        return 1;
-    case SDLK_END: {
-        size_t length = input->text.size();
-        if (input->cursor < length) {
-            input->cursor = length;
-            InvalidateDialogueTextCursor();
-        }
-        return 1;
-    }
-    case SDLK_HOME:
-        if (input->cursor != 0) {
-            input->cursor = 0;
-            InvalidateDialogueTextCursor();
-        }
-        return 1;
-    case SDLK_LEFT:
-        if (input->cursor != 0) {
-            input->cursor = wiz8::text::previous_grapheme(input->text, input->cursor);
-            InvalidateDialogueTextCursor();
-        }
-        return 1;
-    case SDLK_RIGHT:
-        if (input->cursor < input->text.size()) {
-            input->cursor = wiz8::text::next_grapheme(input->text, input->cursor);
-            InvalidateDialogueTextCursor();
-        }
-        return 1;
-    default:
-        break;
-    }
-
-    char character =
-        TranslateKeyToCharacter(key, static_cast<unsigned char>(input_event->modifiers));
-    if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z') ||
-        (character >= 'a' && character <= 'z') || (character >= '!' && character <= '/') ||
-        (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||
-        (character >= '{' && character <= '}')) {
-        InsertDialogueTextCharacter(character);
-        return 1;
-    }
-    return 0;
 }
 
 /* The text box's mode, and the setter that also records a value when one is
@@ -1375,7 +1058,6 @@ void RedrawTextBoxBody(bool skip_invalidate)
     short text_box;
     unsigned int shown;
     unsigned int scroll;
-    unsigned int editor_lines;
     unsigned int rows;
     unsigned int row;
     int y_offset;
@@ -1395,17 +1077,10 @@ void RedrawTextBoxBody(bool skip_invalidate)
         return;
     }
 
-    if (!g_level_block->dialogue_text_input_open || g_level_block->dialogue_text_input == 0 ||
-        g_level_block->dialogue_text_input->text_box != text_box) {
-        editor_lines = 0;
-    } else {
-        editor_lines = g_level_block->dialogue_text_input->line_count;
-    }
-
     g_level_block->text_lines[4 + text_box] = FindStoppedTextLine();
 
     scroll = g_level_block->text_lines[text_box];
-    rows = (shown - scroll) + editor_lines;
+    rows = shown - scroll;
     if (rows < 7) {
         if (rows == 0) {
             return;
@@ -1416,7 +1091,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
 
     if (g_level_block->action_panel_visible == 0 && !g_level_block->mipe_editing) {
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
-                          GetTextBoxLineCount(text_box);
+                          g_status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
             TimeUntilDeadline(g_message_storage[text_box][scroll + rows - 1].clock) == 0) {
             return;
@@ -1500,7 +1175,7 @@ void RedrawTextBoxScrollChrome(void)
             break;
         }
 
-        line_count = GetTextBoxLineCount(text_box);
+        line_count = g_status.text_box_lines_shown[text_box];
         visible = GetTextBoxVisibleLineCount();
         if (scroll + static_cast<unsigned int>(visible) < line_count) {
             if (g_level_block->dialogue_content_region == kDownArrowDisabled) {
@@ -1537,9 +1212,6 @@ void RedrawTextBoxScrollChrome(void)
     InvalidateRegion(g_level_block->text_box_right + 5, 0x16b, g_level_block->text_box_right + 0x1e,
                      0x1c1);
     RedrawTextBoxBody(false);
-    if (g_level_block->dialogue_text_input_open && g_level_block->dialogue_text_input != 0) {
-        g_level_block->dialogue_text_input->dirty = true;
-    }
 }
 
 /* Invalidate the text and action panels around a status-panel text refresh. */
@@ -1641,16 +1313,8 @@ void SelectTextBox(short text_box)
         g_level_block->text_content_region = kUpArrowDisabled;
     }
 
-    bool can_scroll;
-    if (!g_level_block->dialogue_text_input_open || g_level_block->dialogue_text_input == 0 ||
-        g_level_block->dialogue_text_input->text_box != text_box) {
-        can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                     g_status.text_box_lines_shown[text_box];
-    } else {
-        can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                     g_level_block->dialogue_text_input->line_count +
-                         g_status.text_box_lines_shown[text_box];
-    }
+    const bool can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
+                            g_status.text_box_lines_shown[text_box];
     g_level_block->dialogue_content_region = can_scroll ? kDownArrowEnabled : kDownArrowDisabled;
 }
 
