@@ -1051,7 +1051,7 @@ static int WeldVertex(std::unordered_multimap<unsigned int, int>* table,
     unsigned int cell_x;
     unsigned int cell_y;
     unsigned int cell_z;
-    unsigned int key;
+    SDL_Keycode key;
     unsigned int start_x;
     unsigned int start_y;
     unsigned int start_z;
@@ -1752,7 +1752,6 @@ void W8Octree::OctBuildOptions(char* stem)
     char spare_state[8];
     char edit_buffer[20];
     char edit_char[8];
-    InputEvent atom;
     int edit_mode;
     int line;
 
@@ -1832,63 +1831,68 @@ void W8Octree::OctBuildOptions(char* stem)
                                       {1, 0x184 + line * 0xd}, display, text_options);
             }
             InvalidateRegion(0, 0x183, 0x27f, 0x1df);
-            while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
+            auto next_input = PollInputEvent();
+            while (gfProgramIsRunning && !next_input) {
                 RenderFrame();
                 RenderFrame();
                 PumpGameEvents(true);
+                next_input = PollInputEvent();
             }
             if (!gfProgramIsRunning) {
                 goto accepted;
             }
+            const InputEvent atom = *next_input;
             if (atom.type != InputEventType::KeyDown) {
                 continue;
             }
-            if (atom.key == VK_ESCAPE) {
+            if (atom.key == SDLK_ESCAPE) {
                 ShutdownWithErrorBox("Cancelled--Program exiting.\n");
                 goto accepted;
             }
-            if (atom.key == VK_RETURN) {
+            if (atom.key == SDLK_RETURN) {
                 break;
             }
             if (edit_mode == 0) {
-                switch (toupper(atom.key)) {
-                case 0x41:
+                switch (
+                    (atom.key <= 0x7f ? toupper(static_cast<unsigned char>(atom.key)) : atom.key)) {
+                case 'A':
                     edit_mode = 3;
                     break;
-                case 0x43:
+                case 'C':
                     edit_mode = 4;
                     break;
-                case 0x44:
+                case 'D':
                     if (g_option_pathing) {
                         edit_mode = 6;
                     }
                     break;
-                case 0x48:
+                case 'H':
                     if (g_option_pathing) {
                         edit_mode = 5;
                     }
                     break;
-                case 0x4c:
+                case 'L':
                     ToggleOption(g_option_logging, log_state);
                     break;
-                case 0x4d:
+                case 'M':
                     ToggleOption(g_option_mesh_linking, mesh_state);
                     break;
-                case 0x4e:
+                case 'N':
                     edit_mode = 1;
                     break;
-                case 0x50:
+                case 'P':
                     ToggleOption(g_option_pathing, pathing_state);
                     break;
-                case 0x52:
+                case 'R':
                     ToggleOption(g_option_rename_alphas, rename_state);
                     break;
-                case 0x53:
+                case 'S':
                     edit_mode = 2;
                     break;
                 }
             } else {
-                char key = static_cast<char>(toupper(atom.key));
+                char key = static_cast<char>(
+                    (atom.key <= 0x7f ? toupper(static_cast<unsigned char>(atom.key)) : atom.key));
                 if ((key < '0' || '9' < key) && key != '.') {
                     if (key == '\b') {
                         edit_buffer[strlen(edit_buffer) - 1] = '\0';

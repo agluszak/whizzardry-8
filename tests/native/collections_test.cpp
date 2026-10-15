@@ -129,16 +129,15 @@ static bool keyboardBindingReplacement()
     ScopedTemporaryDirectory temporary{"wiz8-keyboard"};
     const auto& root = temporary.path;
     const auto path = root / "bindings.bin";
-    const std::array<MGSKeyBinding, 3> bindings{{
-        {'A', 0, 1, W8_MGS_COMMAND_CANCEL},
-        {'B', 0, 1, W8_MGS_COMMAND_MOVE_FORWARD},
-        {'C', 0, 1, W8_MGS_COMMAND_CANCEL},
+    // Three retail ten-byte records; the last replaces the first command.
+    const std::array<std::uint8_t, 34> records{{
+        3, 0, 0, 0,   'A', 0, 0, 0,   1, 0, 0, 0, 0, 0, 'B', 0, 0,
+        0, 1, 0, 200, 0,   0, 0, 'C', 0, 0, 0, 1, 0, 0, 0,   0, 0,
     }};
+    static_assert(W8_MGS_COMMAND_CANCEL == 0 && W8_MGS_COMMAND_MOVE_FORWARD == 200);
     {
         auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
-        const int count = bindings.size();
-        file->write(&count, sizeof(count));
-        file->write(bindings.data(), sizeof(bindings));
+        file->write(records.data(), records.size());
     }
     MGSKeyboard keyboard;
     REQUIRE(keyboard.GetBinding(0) == nullptr);
@@ -150,15 +149,45 @@ static bool keyboardBindingReplacement()
     // ordered bindings. The command index must refer to that replacement.
     REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_MOVE_FORWARD) == 0);
     REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_CANCEL) == 1);
-    REQUIRE((keyboard.GetBinding(0)->key == 'B' && keyboard.GetBinding(1)->key == 'C'));
+    REQUIRE((keyboard.GetBinding(0)->key == SDLK_B && keyboard.GetBinding(1)->key == SDLK_C));
     REQUIRE(keyboard.GetBinding(-1) == nullptr);
     REQUIRE(keyboard.GetBinding(2) == keyboard.GetBinding(0));
-    GetInputState().keys['A'] = true;
+    GetInputState().keys.insert(SDLK_A);
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    GetInputState().keys['A'] = false;
-    GetInputState().keys['C'] = true;
+    GetInputState().keys.erase(SDLK_A);
+    GetInputState().keys.insert(SDLK_C);
     REQUIRE(keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    GetInputState().keys['C'] = false;
+    GetInputState().keys.erase(SDLK_C);
+    keyboard.GetBinding(0)->key = SDLK_KP_ENTER;
+    keyboard.GetBinding(0)->modifiers = SHIFT_DOWN | CTRL_DOWN;
+    keyboard.GetBinding(1)->key = SDLK_UNKNOWN;
+    keyboard.GetBinding(1)->unmapped_retail_key = 0x1234;
+    {
+        auto file = wiz8::open_host_file(root / "saved.bin", wiz8::OpenMode::replace);
+        REQUIRE(keyboard.Save(*file));
+    }
+    {
+        auto file = wiz8::open_host_file(root / "saved.bin");
+        std::array<std::uint8_t, 24> saved{};
+        file->read_exact(saved.data(), saved.size());
+        const std::array<std::uint8_t, 24> expected{{
+            2, 0, 0, 0, 108, 0, 3, 0, 1, 0, 200, 0, 0, 0, 0x34, 0x12, 0, 0, 1, 0, 0, 0, 0, 0,
+        }};
+        REQUIRE(saved == expected);
+    }
+    {
+        auto file = wiz8::open_host_file(root / "saved.bin");
+        MGSKeyboard restored;
+        REQUIRE(restored.Load(*file, true));
+        const InputEvent press{.type = InputEventType::KeyDown,
+                               .modifiers = SHIFT_DOWN | CTRL_DOWN,
+                               .key = SDLK_KP_ENTER};
+        REQUIRE(restored.FindCommandForEvent(&press) == W8_MGS_COMMAND_MOVE_FORWARD);
+        REQUIRE(restored.GetBinding(1)->key == SDLK_UNKNOWN);
+        REQUIRE(restored.GetBinding(1)->unmapped_retail_key == 0x1234);
+        const InputEvent no_key{.type = InputEventType::KeyDown};
+        REQUIRE(restored.FindCommandForEvent(&no_key) == W8_MGS_COMMAND_NONE);
+    }
     keyboard.Clear();
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));

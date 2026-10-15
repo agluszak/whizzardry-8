@@ -529,8 +529,8 @@ bool PumpUiInput(const UiInputPolicy& policy)
         if (changed) return false;
     }
     bool drained = false;
-    InputEvent input;
-    while (DequeueEvent(&input)) {
+    while (auto next_input = PollInputEvent()) {
+        const InputEvent input = *next_input;
         drained = true;
         bool stop;
         {

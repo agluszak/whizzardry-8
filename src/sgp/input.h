@@ -4,10 +4,10 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-11.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include <array>
-#include <bitset>
 #include <cstdint>
-#include <string_view>
+#include <deque>
+#include <optional>
+#include <unordered_set>
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
@@ -23,34 +23,6 @@
 inline constexpr std::uint16_t SHIFT_DOWN = 0x01;
 inline constexpr std::uint16_t CTRL_DOWN = 0x02;
 inline constexpr std::uint16_t ALT_DOWN = 0x04;
-
-/* Virtual-key codes: the game's keyboard vocabulary. Key bindings store these
-   values in save files and MGSKeyboard.ini names them. */
-inline constexpr std::uint16_t VK_BACK = 0x08;
-inline constexpr std::uint16_t VK_TAB = 0x09;
-inline constexpr std::uint16_t VK_RETURN = 0x0D;
-inline constexpr std::uint16_t VK_SHIFT = 0x10;
-inline constexpr std::uint16_t VK_CONTROL = 0x11;
-inline constexpr std::uint16_t VK_MENU = 0x12;
-inline constexpr std::uint16_t VK_PAUSE = 0x13;
-inline constexpr std::uint16_t VK_CAPITAL = 0x14;
-inline constexpr std::uint16_t VK_ESCAPE = 0x1B;
-inline constexpr std::uint16_t VK_SPACE = 0x20;
-inline constexpr std::uint16_t VK_PRIOR = 0x21;
-inline constexpr std::uint16_t VK_NEXT = 0x22;
-inline constexpr std::uint16_t VK_END = 0x23;
-inline constexpr std::uint16_t VK_HOME = 0x24;
-inline constexpr std::uint16_t VK_LEFT = 0x25;
-inline constexpr std::uint16_t VK_UP = 0x26;
-inline constexpr std::uint16_t VK_RIGHT = 0x27;
-inline constexpr std::uint16_t VK_DOWN = 0x28;
-inline constexpr std::uint16_t VK_SNAPSHOT = 0x2C;
-inline constexpr std::uint16_t VK_INSERT = 0x2D;
-inline constexpr std::uint16_t VK_DELETE = 0x2E;
-inline constexpr std::uint16_t VK_NUMPAD0 = 0x60;
-inline constexpr std::uint16_t VK_NUMPAD_ENTER = 0x6C;
-inline constexpr std::uint16_t VK_F1 = 0x70;
-inline constexpr std::uint16_t VK_F12 = 0x7B;
 
 enum class InputEventType : std::uint8_t {
     KeyDown,
@@ -79,7 +51,7 @@ struct InputEvent {
     InputEventType type = InputEventType::MouseMove;
     std::uint64_t timestamp = 0;
     std::uint16_t modifiers = 0;
-    std::uint16_t key = 0;
+    SDL_Keycode key = SDLK_UNKNOWN;
     char32_t text = 0;
     SDL_Point position{};
     int wheel = 0;
@@ -93,7 +65,7 @@ struct InputEvent {
 };
 
 struct InputState {
-    std::bitset<256> keys;
+    std::unordered_set<SDL_Keycode> keys;
     std::uint16_t modifiers = 0;
     SDL_Point mouse{320, 240};
     bool left_button = false;
@@ -102,19 +74,23 @@ struct InputState {
     std::uint64_t right_repeat_at = 0;
     bool mouse_move_events = false;
     bool received = false;
+
+private:
+    std::deque<InputEvent> events;
+    friend void PostInputEvent(InputEvent event);
+    friend std::optional<InputEvent> PollInputEvent();
 };
 
 InputState& GetInputState();
 
-bool InitializeInputManager();
 void SetInputWindow(SDL_Window* window);
 void HandleInputEvent(const SDL_Event& event);
-void QueueEvent(InputEventType type, SDL_Point position, std::uint16_t key = 0);
-bool DequeueEvent(InputEvent* event);
+void PostInputEvent(InputEvent event);
+std::optional<InputEvent> PollInputEvent();
 
-inline bool IsKeyHeld(std::uint16_t key)
+inline bool IsKeyHeld(SDL_Keycode key)
 {
-    return key < 256 && GetInputState().keys[key];
+    return GetInputState().keys.contains(key);
 }
 inline bool IsLeftButtonHeld()
 {
@@ -139,11 +115,8 @@ void FreeMouseCursor();
 void SetNativeTextInputEnabled(bool enabled);
 bool NativeTextInputEnabled();
 
-/* Key bindings: retail key names, and the US-layout key/character table. */
-std::uint16_t KeyFromBindingName(std::string_view name);
-std::uint16_t GameKeyFromSdl(SDL_Scancode scancode, SDL_Keycode key);
-std::uint16_t TranslateKeyToCharacter(std::uint16_t key, std::uint16_t modifiers);
-std::uint16_t TranslateCharacterToKey(std::uint16_t character);
+/* US-layout fallback for legacy text controls without SDL text input. */
+std::uint16_t TranslateKeyToCharacter(SDL_Keycode key, std::uint16_t modifiers);
 
 /* Pointer button presses, releases and repeats (not moves, wheel or double-clicks). */
 inline bool IsMouseButtonEvent(const InputEvent& event)

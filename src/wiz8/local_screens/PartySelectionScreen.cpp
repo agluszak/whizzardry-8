@@ -567,14 +567,14 @@ void W8PartySelectionController::DrawOptions(SDL_Surface& target)
 bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
 {
     if (!name_input || !IsTypingEvent(input)) return false;
-    if (input.key != VK_ESCAPE && input.key != VK_RETURN) {
+    if (input.key != SDLK_ESCAPE && input.key != SDLK_RETURN) {
         const char32_t character = TypedCharacter(input);
         if (character && character < 0x80 && strchr("\\/:*?\"<>|", int(character))) return true;
         name_input->HandleInput(input);
         OnToggle(name_input->ByteLength(0) != 0);
-    } else if (input.key == VK_ESCAPE || name_input->ByteLength(0)) {
+    } else if (input.key == SDLK_ESCAPE || name_input->ByteLength(0)) {
         SetTargetCursor(W8_CURSOR_NONE);
-        AfterUiDispatch([this, cancelled = input.key == VK_ESCAPE] { OnDecision(cancelled); });
+        AfterUiDispatch([this, cancelled = input.key == SDLK_ESCAPE] { OnDecision(cancelled); });
     }
     return true;
 }
@@ -1341,10 +1341,10 @@ void PartySelectionScreenFrame(void)
             if (!controller->HandleNameInput(input) && (input.type == InputEventType::KeyDown ||
                                                         input.type == InputEventType::KeyRepeat)) {
                 switch (input.key) {
-                case VK_RETURN:
+                case SDLK_RETURN:
                     controller->TogglePartyMemberSelection();
                     break;
-                case VK_ESCAPE:
+                case SDLK_ESCAPE:
                     switch (controller->m_mode) {
                     case W8_PARTY_SELECT_CHARACTERS:
                     case W8_PARTY_SELECT_IMPORT:
@@ -1364,13 +1364,13 @@ void PartySelectionScreenFrame(void)
                         break;
                     }
                     break;
-                case VK_UP:
+                case SDLK_UP:
                     if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
                         controller->m_selected_row > 0) {
                         controller->SetSelection(controller->m_selected_row - 1, false, true);
                     }
                     break;
-                case VK_DOWN:
+                case SDLK_DOWN:
                     if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
                         controller->m_selected_row <
                             static_cast<int>(
@@ -1379,7 +1379,7 @@ void PartySelectionScreenFrame(void)
                         controller->SetSelection(controller->m_selected_row + 1, false, true);
                     }
                     break;
-                case VK_DELETE:
+                case SDLK_DELETE:
                     if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
                         controller->m_character) {
                         controller->OnPrimary(controller->m_delete_button);

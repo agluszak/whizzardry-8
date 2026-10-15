@@ -241,8 +241,9 @@ W8World* CreateWorld()
 // FUNCTION: WIZ8 0x0044F400
 void UpdateWorlds(void)
 {
-    g_navigator_vertical_enabled = !(IsKeyHeld(VK_CONTROL) && g_combat_state != 0 &&
-                                     (g_combat_state->round_active || gXStatus.fPartyMovementMode));
+    g_navigator_vertical_enabled =
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
+          (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
     {
         int count = static_cast<int>(g_worlds.size());

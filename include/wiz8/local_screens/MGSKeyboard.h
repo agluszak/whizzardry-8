@@ -1,3 +1,4 @@
+#include <SDL3/SDL_keycode.h>
 #pragma once
 
 #include <memory>
@@ -12,17 +13,14 @@ namespace wiz8 {
 class File;
 }
 
-#pragma pack(push, 1)
 struct MGSKeyBinding {
-    unsigned short key;
+    SDL_Keycode key;
     unsigned short modifiers;
-    /* Always written 1 when LoadDefaults creates the binding; never read. */
     unsigned short active;
     W8MGSCommand command;
+    // Preserve an unsupported retail key until the user rebinds it.
+    std::uint16_t unmapped_retail_key = 0;
 };
-#pragma pack(pop)
-
-static_assert(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
 
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {

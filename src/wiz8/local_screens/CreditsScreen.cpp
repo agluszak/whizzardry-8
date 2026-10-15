@@ -147,7 +147,8 @@ void CreditsScreenFrame(void)
     InputEvent input;
 
     // No clickable controls: dismiss directly on a key or mouse release.
-    while (DequeueEvent(&input) == 1) {
+    while (auto next_input = PollInputEvent()) {
+        input = *next_input;
         if (input.type == InputEventType::KeyDown || input.type == InputEventType::LeftButtonUp ||
             input.type == InputEventType::RightButtonUp)
             RequestScreenTransition();

@@ -220,8 +220,8 @@ bool W8MessageDialogBase::HandleInput(const InputEvent* input)
     }
 
     if (allow_cancel) {
-        int key = toupper(input->key);
-        if (key == VK_ESCAPE) {
+        const SDL_Keycode key = input->key;
+        if (key == SDLK_ESCAPE) {
             accepted = false;
             is_open = false;
             return false;

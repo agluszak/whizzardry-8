@@ -1322,39 +1322,39 @@ void W8MainGameTextKeyHandler::SetSelectedLine(int line)
     if (on_selection) on_selection();
 }
 
-char W8MainGameTextKeyHandler::HandleKey(unsigned short key)
+char W8MainGameTextKeyHandler::HandleKey(SDL_Keycode key)
 {
     int line;
 
     switch (key) {
-    case 0x26:
+    case SDLK_UP:
         SetSelectedLine(m_selected_line - 1 < 0 ? 0 : m_selected_line - 1);
         return 1;
-    case 0x28:
+    case SDLK_DOWN:
         line = m_selected_line + 1;
         if (m_line_count - 1 < line) {
             line = m_line_count - 1;
         }
         SetSelectedLine(line);
         return 1;
-    case 0x21:
+    case SDLK_PAGEUP:
         line = m_selected_line - 5;
         if (line < 0) {
             line = 0;
         }
         SetSelectedLine(line);
         return 1;
-    case 0x22:
+    case SDLK_PAGEDOWN:
         line = m_selected_line + 5;
         if (m_line_count - 1 < line) {
             line = m_line_count - 1;
         }
         SetSelectedLine(line);
         return 1;
-    case 0x24:
+    case SDLK_HOME:
         SetSelectedLine(0);
         return 1;
-    case 0x23:
+    case SDLK_END:
         SetSelectedLine(m_line_count - 1);
         return 1;
     default:
@@ -2880,7 +2880,7 @@ update_screen:
     if (!g_camera_path_active) {
         if (g_mouselook_active) {
             if (g_mouselook_left_held) {
-                if (!IsKeyHeld(VK_SHIFT)) {
+                if (((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
                     g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
                 } else {
                     g_level_block->camera_motion_flags |=
@@ -5107,7 +5107,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
         if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && !targeting &&
             IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
             g_level_block->portrait_right_hold_armed = false;
-            if (!g_status.item_in_cursor || IsKeyHeld(VK_CONTROL)) {
+            if (!g_status.item_in_cursor || ((GetInputState().modifiers & CTRL_DOWN) != 0)) {
                 AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
                 return UiResult::Handled;
             }
@@ -5560,14 +5560,16 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (g_level_block->highlighted_item != -1 && !gXStatus.fSpellCastMode &&
             !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-            (g_settings.ctrl_right_click_info == 0 || IsKeyHeld(VK_CONTROL))) {
+            (g_settings.ctrl_right_click_info == 0 ||
+             ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             AfterUiDispatch([=] { OpenMonsterInfoDialog(g_level_block->highlighted_item); });
             return UiResult::Handled;
         }
         if (!g_status.item_in_cursor && g_level_block->selected_item != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-            (g_settings.ctrl_right_click_info == 0 || IsKeyHeld(VK_CONTROL))) {
+            (g_settings.ctrl_right_click_info == 0 ||
+             ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             W8WorldItem* world_item = ItemInfo(ItemIndex(g_level_block->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(&world_item->item, -1);
@@ -5695,7 +5697,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         } else if (!g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dd]);
             assign = false;
-        } else if (IsKeyHeld(VK_SHIFT)) {
+        } else if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
             for (slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     g_status.buffers.Char[slot].hp_current != 0) {

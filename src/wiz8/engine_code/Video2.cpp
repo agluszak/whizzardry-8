@@ -1698,7 +1698,7 @@ void DrawVideoInspector(int left, unsigned int top)
             float scaled;
 
             position = cameraLocation();
-            if (IsKeyHeld(0x70)) {
+            if (IsKeyHeld(SDLK_F1)) {
                 position.x *= g_world_cursor_scale;
                 scaled = position.y * g_world_cursor_scale;
                 position.y = position.z * g_world_cursor_scale;

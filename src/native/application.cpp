@@ -99,7 +99,6 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         if (options.no_octree) NoOct();
         if (!options.video_config.empty()) VideoSetConfigFile(options.video_config.c_str());
         wiz8::refresh_asset_archives();
-        if (!InitializeInputManager()) throw std::runtime_error("Input initialization failed");
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
         ConfigureFontRendering(CreateEnglishTransTable());
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))

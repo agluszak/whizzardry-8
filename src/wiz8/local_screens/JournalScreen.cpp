@@ -460,12 +460,12 @@ void JournalScreenFrame(void)
 
     PumpUiInput({.unhandled = [&](const InputEvent& input) {
         if (input.type == InputEventType::KeyDown) {
-            if (input.key == VK_ESCAPE) {
+            if (input.key == SDLK_ESCAPE) {
                 AfterUiDispatch([] { RequestScreenTransition(); });
-            } else if (input.key == VK_LEFT && g_journal_page > 0) {
+            } else if (input.key == SDLK_LEFT && g_journal_page > 0) {
                 --g_journal_page;
                 g_journal_panel->Refresh();
-            } else if (input.key == VK_RIGHT &&
+            } else if (input.key == SDLK_RIGHT &&
                        g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
                 ++g_journal_page;
                 g_journal_panel->Refresh();

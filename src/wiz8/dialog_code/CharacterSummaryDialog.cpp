@@ -158,11 +158,11 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
         }
     }
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
-        switch (toupper(input->key)) {
-        case VK_BACK:
-        case VK_RETURN:
-        case VK_ESCAPE:
-        case VK_SPACE:
+        switch (input->key) {
+        case SDLK_BACKSPACE:
+        case SDLK_RETURN:
+        case SDLK_ESCAPE:
+        case SDLK_SPACE:
             m_keep_open = false;
             break;
         }

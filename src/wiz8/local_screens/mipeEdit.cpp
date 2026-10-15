@@ -84,14 +84,14 @@ void CommitMipeEditFields(W8TriggerActionData* data, signed char bVarSet);
    scroll/adjust, Backspace and printable keys edit type-6 text, Enter commits
    to the prop's trigger action data and Escape cancels the selection. */
 // FUNCTION: WIZ8 0x005c3880
-void HandleMipeEditPropKey(unsigned short key)
+void HandleMipeEditPropKey(SDL_Keycode key)
 {
     W8MipeState* state = g_mipe_state.get();
     W8MipeEditField* fields = state->edit_fields;
     W8MipeEditField* field;
     Trigger* trigger;
 
-    if (key == 8) {
+    if (key == SDLK_BACKSPACE) {
         if (state->edit_selection != -1) {
             field = &fields[static_cast<int>(state->edit_selection)];
             if (field->type == 6 && !field->text.empty()) {
@@ -101,20 +101,18 @@ void HandleMipeEditPropKey(unsigned short key)
         }
         return;
     }
-    if (((key > 0x40 && key < 0x5b) || (key > 0x2f && key < 0x3a) || key == 0x20) &&
+    if (((key >= SDLK_A && key <= SDLK_Z) || (key > 0x2f && key < 0x3a) || key == SDLK_SPACE) &&
         state->edit_selection != -1) {
         field = &fields[static_cast<int>(state->edit_selection)];
         if (field->type == 6) {
-            if (key != 0x20 && !IsKeyHeld(VK_SHIFT) && (key < 0x30 || key > 0x39)) {
-                key += 0x20;
-            }
+            key = TranslateKeyToCharacter(key, GetInputState().modifiers);
             field->text.push_back(static_cast<char>(key));
             MIPE_REDRAW_EDIT_FIELDS();
         }
         return;
     }
     switch (key) {
-    case 0x26:
+    case SDLK_UP:
         if (state->edit_selection == -1) {
             if (g_mipe_table_base != 0) {
                 --g_mipe_table_base;
@@ -131,7 +129,7 @@ void HandleMipeEditPropKey(unsigned short key)
         }
         MIPE_REDRAW_EDIT_FIELDS();
         break;
-    case 0x28:
+    case SDLK_DOWN:
         if (state->edit_selection == -1) {
             if (g_mipe_table_base < state->edit_field_count - 1) {
                 ++g_mipe_table_base;
@@ -148,16 +146,16 @@ void HandleMipeEditPropKey(unsigned short key)
         }
         MIPE_REDRAW_EDIT_FIELDS();
         break;
-    case 0x30:
-    case 0x31:
-    case 0x32:
-    case 0x33:
-    case 0x34:
-    case 0x35:
-    case 0x36:
-    case 0x37:
-    case 0x38:
-    case 0x39:
+    case SDLK_0:
+    case SDLK_1:
+    case SDLK_2:
+    case SDLK_3:
+    case SDLK_4:
+    case SDLK_5:
+    case SDLK_6:
+    case SDLK_7:
+    case SDLK_8:
+    case SDLK_9:
         if (state->edit_selection == -1) {
             state->edit_selection = static_cast<signed char>(key - 0x30);
             g_mipe_edit_accum = 0.0f;
@@ -184,13 +182,13 @@ void HandleMipeEditPropKey(unsigned short key)
         }
         MIPE_REDRAW_EDIT_FIELDS();
         break;
-    case 0x2e:
+    case SDLK_DELETE:
         if (g_mipe_edit_decimal == -1) {
             g_mipe_edit_decimal = 0;
             MIPE_REDRAW_EDIT_FIELDS();
         }
         break;
-    case 0xd:
+    case SDLK_RETURN:
         trigger = state->prop->GetTrigger();
         if (trigger != 0) {
             CommitMipeEditFields(trigger->m_pActionData, 0);
@@ -198,7 +196,7 @@ void HandleMipeEditPropKey(unsigned short key)
         state->edit_selection = -1;
         MIPE_REDRAW_EDIT_FIELDS();
         break;
-    case 0x1b:
+    case SDLK_ESCAPE:
         state->edit_selection = -1;
         MIPE_REDRAW_EDIT_FIELDS();
         break;

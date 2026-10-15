@@ -71,7 +71,7 @@ TEST_CASE("game graphics")
     REQUIRE(SDL_Init(SDL_INIT_VIDEO));
 
     wiz8::mount_slf("Data\\Data.slf");
-    REQUIRE(InitializeInputManager());
+    GetInputState() = {};
     g_fullscreen = 0;
     Initialize16BitPixelFormatMasks();
     REQUIRE(CreateWizardryWindow());

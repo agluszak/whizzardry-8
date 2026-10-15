@@ -223,9 +223,9 @@ bool W8NpcDialog::ProcessInput()
                         return InputRoute::Handled;
                     }
                     if (input.type == InputEventType::KeyDown &&
-                        (input.key == VK_RETURN || input.key == VK_ESCAPE) &&
+                        (input.key == SDLK_RETURN || input.key == SDLK_ESCAPE) &&
                         m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-                        m_cancelled = input.key == VK_ESCAPE;
+                        m_cancelled = input.key == SDLK_ESCAPE;
                         if (!m_cancelled) m_input_text = m_input_group->Text(m_input_field);
                         m_keep_open = false;
                         return InputRoute::Stop;

@@ -482,11 +482,11 @@ bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
     if (m_count_input && m_count_input->HandleInput(input)) return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
-        int key = toupper(input->key);
+        const SDL_Keycode key = input->key;
         if (key == '\r') {
             split_result = W8_SPLIT_RESULT_CONFIRMED;
             m_keep_open = false;
-        } else if (key == 0x1b) {
+        } else if (key == SDLK_ESCAPE) {
             m_keep_open = false;
             return m_keep_open;
         }

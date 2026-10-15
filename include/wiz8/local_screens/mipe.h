@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 
 #include "input.h"
@@ -77,7 +78,7 @@ extern int g_mipe_table_base;
 
 /* mipeEdit.cpp: prop field-editor key handler, fed MSG wParam key values by
    mipe.cpp's mode-0xd dispatcher. */
-void HandleMipeEditPropKey(unsigned short key);
+void HandleMipeEditPropKey(SDL_Keycode key);
 
 void ShowMonsterSpeedStatus(void);
 void ShowCubeParameters(void);

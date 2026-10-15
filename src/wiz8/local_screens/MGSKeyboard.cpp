@@ -29,6 +29,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/key_bindings.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -102,8 +103,9 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
     int index;
     for (index = 0; index < count; ++index) {
         MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->active != 0 && event->type == InputEventType::KeyDown &&
-            binding->modifiers == event->modifiers && binding->key == event->key) {
+        if (binding->active != 0 && binding->key != SDLK_UNKNOWN &&
+            event->type == InputEventType::KeyDown && binding->modifiers == event->modifiers &&
+            binding->key == event->key) {
             return binding->command;
         }
     }
@@ -133,13 +135,13 @@ bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
     const auto* binding = found->second;
     if (IsKeyHeld(binding->key)) {
         unsigned short modifiers = 0;
-        if (IsKeyHeld(VK_SHIFT)) {
+        if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
             modifiers |= SHIFT_DOWN;
         }
-        if (IsKeyHeld(VK_MENU)) {
+        if (((GetInputState().modifiers & ALT_DOWN) != 0)) {
             modifiers |= ALT_DOWN;
         }
-        if (IsKeyHeld(VK_CONTROL)) {
+        if (((GetInputState().modifiers & CTRL_DOWN) != 0)) {
             modifiers |= CTRL_DOWN;
         }
         if (modifiers == binding->modifiers) {
@@ -152,11 +154,9 @@ bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale
    presses do not fire against the freshly entered screen state. */
 // FUNCTION: WIZ8 0x0055D3C0
-void DrainInputEventQueue(void)
+void DrainInputEventQueue()
 {
-    InputEvent event;
-
-    while (DequeueEvent(&event)) {
+    while (PollInputEvent()) {
     }
 }
 
@@ -170,15 +170,28 @@ void MGSKeyboard::Clear()
 // FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
 try {
-    int count;
-
     if (clear) {
         Clear();
     }
-    handle.read_exact(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
+    std::array<std::uint8_t, 4> header{};
+    handle.read_exact(header.data(), header.size());
+    const std::uint32_t count = std::uint32_t(header[0]) | (std::uint32_t(header[1]) << 8) |
+                                (std::uint32_t(header[2]) << 16) | (std::uint32_t(header[3]) << 24);
+    if (count > (handle.size() - handle.tell()) / 10) return false;
+    for (std::uint32_t index = 0; index < count; ++index) {
         auto binding = std::make_unique<MGSKeyBinding>();
-        handle.read_exact(binding.get(), sizeof(*binding));
+        std::array<std::uint8_t, 10> record{};
+        handle.read_exact(record.data(), record.size());
+        const auto read16 = [&](int offset) {
+            return std::uint16_t(record[offset] | (std::uint16_t(record[offset + 1]) << 8));
+        };
+        const auto retail_key = read16(0);
+        binding->key = KeyFromRetailBinding(retail_key);
+        if (binding->key == SDLK_UNKNOWN) binding->unmapped_retail_key = retail_key;
+        binding->modifiers = read16(2);
+        binding->active = read16(4);
+        binding->command =
+            static_cast<W8MGSCommand>(std::uint32_t(read16(6)) | (std::uint32_t(read16(8)) << 16));
 
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
@@ -187,7 +200,6 @@ try {
         }
         auto* borrowed = binding.get();
         m_bindings.push_back(std::move(binding));
-        // Copy the packed disk field before unordered_map binds its arguments.
         m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
     }
     return 1;
@@ -198,10 +210,25 @@ try {
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    handle.write(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
-        handle.write(m_bindings[index].get(), sizeof(MGSKeyBinding));
+    const auto count = static_cast<std::uint32_t>(m_bindings.size());
+    const std::array<std::uint8_t, 4> header{std::uint8_t(count), std::uint8_t(count >> 8),
+                                             std::uint8_t(count >> 16), std::uint8_t(count >> 24)};
+    handle.write(header.data(), header.size());
+    for (std::uint32_t index = 0; index < count; ++index) {
+        const auto& binding = *m_bindings[index];
+        std::array<std::uint8_t, 10> record{};
+        const auto write16 = [&](int offset, std::uint16_t value) {
+            record[offset] = std::uint8_t(value);
+            record[offset + 1] = std::uint8_t(value >> 8);
+        };
+        write16(0, binding.key == SDLK_UNKNOWN ? binding.unmapped_retail_key
+                                               : KeyToRetailBinding(binding.key));
+        write16(2, binding.modifiers);
+        write16(4, binding.active);
+        const auto command = static_cast<std::uint32_t>(binding.command);
+        write16(6, std::uint16_t(command));
+        write16(8, std::uint16_t(command >> 16));
+        handle.write(record.data(), record.size());
     }
     return 1;
 }
@@ -241,7 +268,8 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
         return 1;
     }
     if (IsRecordModeActive()) {
-        if (!IsKeyHeld(VK_CONTROL) && HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
+        if (((GetInputState().modifiers & CTRL_DOWN) == 0) &&
+            HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
             ApplyRecordModeLine();
             return 1;
         }
@@ -636,8 +664,8 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_DEBUG_INJECT_CLICK:
         if (IsCursorImageInsideViewport()) {
             const SDL_Point position = GetGameMousePosition();
-            QueueEvent(InputEventType::LeftButtonDown, position);
-            QueueEvent(InputEventType::LeftButtonUp, position);
+            PostInputEvent({.type = InputEventType::LeftButtonDown, .position = position});
+            PostInputEvent({.type = InputEventType::LeftButtonUp, .position = position});
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:

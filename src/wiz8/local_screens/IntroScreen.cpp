@@ -90,12 +90,12 @@ static void AdvanceIntroScreen(void);
 // FUNCTION: WIZ8 0x005ae6f0
 void IntroScreenFrame(void)
 {
-    InputEvent input;
 
-    while (DequeueEvent(&input) == 1) {
+    while (auto next_input = PollInputEvent()) {
+        const InputEvent input = *next_input;
         switch (input.type) {
         case InputEventType::KeyDown:
-            if (input.key != VK_ESCAPE) break;
+            if (input.key != SDLK_ESCAPE) break;
             AdvanceIntroScreen();
             return;
         case InputEventType::LeftButtonUp:

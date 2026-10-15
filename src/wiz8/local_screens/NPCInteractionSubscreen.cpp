@@ -1506,7 +1506,7 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
         if (word == 0 || word->keyword != W8_NOTICE_WORD_HOVERED) {
             return;
         }
-        if (!IsKeyHeld(VK_SHIFT)) {
+        if (((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
             ResetUsedNoticeWords(3, true);
             word_text.clear();
             SetNpcFieldText(word_text);
@@ -1519,7 +1519,7 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
         if (slot == -1) {
             return;
         }
-        UpdateNpcTradeSelection(slot, IsKeyHeld(VK_SHIFT) ? 1 : 0, 1);
+        UpdateNpcTradeSelection(slot, ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0, 1);
         return;
     default:
         break;
@@ -1544,7 +1544,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         if (slot == -1) {
             return;
         }
-        UpdateNpcTradeSelection(slot, IsKeyHeld(VK_SHIFT) ? 1 : 0, 1);
+        UpdateNpcTradeSelection(slot, ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0, 1);
         item = ResolveNpcTradeRow(slot, false, 0, 1);
         if (item == 0) {
             return;
@@ -1589,7 +1589,7 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
         if (word == 0) {
             return;
         }
-        if (!IsKeyHeld(VK_SHIFT)) {
+        if (((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
             ResetUsedNoticeWords(3, true);
             word_text.clear();
             SetNpcFieldText(word_text);
@@ -3359,25 +3359,25 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
         return;
     }
     state = g_npc_interaction_state;
-    if (state->modal_dialog_open && event->key != VK_ESCAPE) {
+    if (state->modal_dialog_open && event->key != SDLK_ESCAPE) {
         return;
     }
     switch (event->key) {
-    case 0x26:
+    case SDLK_UP:
         if (state->dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             return;
         }
         ScrollTextBoxUp(1);
         NpcDialogueTextBoxWheelAt(0, event->position.y, true);
         return;
-    case 0x28:
+    case SDLK_DOWN:
         if (state->dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             return;
         }
         ScrollTextBoxDown(1);
         NpcDialogueTextBoxWheelAt(0, event->position.y, true);
         return;
-    case 0x1b:
+    case SDLK_ESCAPE:
         if (state->dialogue_hidden != 0) {
             SetNpcDialogueHidden(0);
             return;
@@ -3433,7 +3433,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
         default:
             return;
         }
-    case 0xd:
+    case SDLK_RETURN:
         if (NpcEditingText()) {
             HandleNpcDialogueInput();
         } else {
@@ -3800,9 +3800,10 @@ void DrainNpcDialogueDeferralInput(void)
     }
     SGPMouseGetPos(&mouse);
     UpdateUiPointer(mouse.x, mouse.y);
-    while (DequeueEvent(&input) == 1) {
+    while (auto next_input = PollInputEvent()) {
+        input = *next_input;
         if (input.type == InputEventType::KeyDown) {
-            if (input.key == VK_ESCAPE) {
+            if (input.key == SDLK_ESCAPE) {
                 if (g_npc_interaction_state->dialogue_hidden == 0) {
                     if (!IsNpcScriptSessionActive()) {
                         switch (g_npc_interaction_state->dialogue_layout) {
@@ -4356,7 +4357,8 @@ void FlushInputWhileWorldCursorGate(void)
     }
     SGPMouseGetPos(&mouse);
     UpdateUiPointer(mouse.x, mouse.y);
-    while (DequeueEvent(&input) == 1) {
+    while (auto next_input = PollInputEvent()) {
+        input = *next_input;
     }
 }
 

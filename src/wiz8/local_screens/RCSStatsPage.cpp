@@ -1031,7 +1031,7 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
         return;
     }
     if (!m_text_fields) return;
-    if (input->key == VK_TAB) {
+    if (input->key == SDLK_TAB) {
         m_text_fields->FocusNext();
         return;
     }

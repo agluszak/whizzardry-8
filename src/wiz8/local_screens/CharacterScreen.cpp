@@ -719,15 +719,16 @@ void CharacterScreenFrame(void)
             .unhandled =
                 [screen](const InputEvent& input) {
                     if (input.type == InputEventType::KeyDown) {
-                        if (input.key == VK_RETURN || input.key == VK_RIGHT || input.key == 0x4e) {
+                        if (input.key == SDLK_RETURN || input.key == SDLK_RIGHT ||
+                            input.key == SDLK_N) {
                             screen->AdvancePage(true);
-                        } else if (input.key == VK_ESCAPE) {
+                        } else if (input.key == SDLK_ESCAPE) {
                             if (screen->m_mode == 1 && !screen->m_exit->IsEnabled()) {
                                 RequestScreenTransition();
                             } else {
                                 screen->ShowMessage(g_localized_strings[0xd3], 1, 2);
                             }
-                        } else if ((input.key == VK_LEFT || input.key == 0x42) &&
+                        } else if ((input.key == SDLK_LEFT || input.key == SDLK_B) &&
                                    screen->m_page_index != 3) {
                             int index = screen->m_page_index - 1;
                             while (index >= 0 && !screen->m_page_enabled[index]) --index;

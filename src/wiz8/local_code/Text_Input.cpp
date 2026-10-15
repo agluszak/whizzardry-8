@@ -536,11 +536,11 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     const auto& input = normalized;
     if (!editing_ || !focused_ ||
         (input.type != InputEventType::KeyDown && input.type != InputEventType::KeyRepeat) ||
-        input.key == VK_ESCAPE || input.key == VK_RETURN || input.key == VK_TAB ||
+        input.key == SDLK_ESCAPE || input.key == SDLK_RETURN || input.key == SDLK_TAB ||
         (input.modifiers & ALT_DOWN) != 0 ||
-        ((input.modifiers & CTRL_DOWN) != 0 && input.key != VK_DELETE && input.key != VK_RIGHT &&
-         input.key != VK_LEFT) ||
-        (input.key > 0x6f && input.key < 0x7c)) {
+        ((input.modifiers & CTRL_DOWN) != 0 && input.key != SDLK_DELETE &&
+         input.key != SDLK_RIGHT && input.key != SDLK_LEFT) ||
+        (input.key >= SDLK_F1 && input.key <= SDLK_F12)) {
         return false;
     }
     auto& field = *focused_;
@@ -553,7 +553,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     };
     const std::size_t selection_end = field.selection_end;
     switch (input.key) {
-    case 0x25: /* Left */
+    case SDLK_LEFT: /* Left */
         if (shift) {
             extend_selection();
             if (field.cursor != 0) {
@@ -571,7 +571,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         }
         field.Relayout();
         return true;
-    case 0x27: /* Right */
+    case SDLK_RIGHT: /* Right */
         if (shift) {
             extend_selection();
             if (field.cursor < field.text.size()) {
@@ -589,7 +589,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         }
         field.Relayout();
         return true;
-    case 0x23: /* End */
+    case SDLK_END: /* End */
         if (shift)
             extend_selection();
         else
@@ -598,7 +598,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         if (shift) field.selection_end = field.cursor;
         field.Relayout();
         return true;
-    case 0x24: /* Home */
+    case SDLK_HOME: /* Home */
         if (shift) {
             extend_selection();
             field.selection_end = 0;
@@ -608,7 +608,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         field.cursor = 0;
         field.Relayout();
         return true;
-    case 0x2e: /* Delete */
+    case SDLK_DELETE: /* Delete */
         if ((input.modifiers & CTRL_DOWN) != 0) {
             field.text.clear();
             field.selection_start = field.selection_end = 0;
@@ -628,7 +628,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         if (field.selection_start != selection_end)
             DeleteSelection(field.selection_start, selection_end);
         return true;
-    case 8: /* Backspace */
+    case SDLK_BACKSPACE: /* Backspace */
         if (!field.selecting) {
             if (field.cursor != 0) {
                 const auto old_position = field.cursor;
@@ -645,9 +645,8 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     default:
         break;
     }
-    char32_t character = committed ? event.text
-                                   : TranslateKeyToCharacter(static_cast<unsigned short>(input.key),
-                                                             input.modifiers);
+    char32_t character =
+        committed ? event.text : TranslateKeyToCharacter(input.key, input.modifiers);
     if (!committed && NativeTextInputEnabled()) return true;
     if (character == 0) return true;
     if (field.selecting) {

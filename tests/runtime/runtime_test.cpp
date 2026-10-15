@@ -375,23 +375,16 @@ public:
     }
 
     /* Presses or releases the key bound to a main-game command, with its
-       modifiers, as SDL key events (bindings hold virtual-key codes). */
+       modifiers, as SDL key events (bindings hold SDL keycodes). */
     void command_key(W8MGSCommand command, bool down)
     {
         const int index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
         const MGSKeyBinding* binding = index >= 0 ? g_mgs_keyboard->GetBinding(index) : nullptr;
         if (!binding || !binding->key)
             Fail("command", "no key bound to command " + std::to_string(int(command)));
-        SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
-        for (int candidate = 1; candidate < SDL_SCANCODE_COUNT && scancode == SDL_SCANCODE_UNKNOWN;
-             ++candidate) {
-            const auto code = static_cast<SDL_Scancode>(candidate);
-            if (GameKeyFromSdl(code, SDL_GetKeyFromScancode(code, SDL_KMOD_NONE, false)) ==
-                binding->key)
-                scancode = code;
-        }
+        const SDL_Scancode scancode = SDL_GetScancodeFromKey(binding->key, nullptr);
         if (scancode == SDL_SCANCODE_UNKNOWN)
-            Fail("command", "no SDL key produces virtual key " + std::to_string(binding->key));
+            Fail("command", "no SDL scancode for binding " + std::to_string(binding->key));
         const struct {
             unsigned short flag;
             SDL_Scancode scancode;
