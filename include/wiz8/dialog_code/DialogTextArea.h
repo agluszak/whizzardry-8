@@ -62,7 +62,7 @@ private:
     {
         return m_all_lines[m_visible_lines[index]].get();
     }
-    unsigned int FindVisibleEntryAtLine(unsigned int target, unsigned int spacing);
+    unsigned int FindVisibleEntryAtLine(int target);
 
     W8ControlsRect m_bounds; /* passed to entry construction */
     Font* m_font;
@@ -78,8 +78,7 @@ public:
     bool m_dirty;
 
 private:
-    bool m_selection_dirty; /* repaint after a selection change */
-    int m_entry_spacing;
+    int m_entry_spacing_lines;
     int m_behavior_flags;
     int m_line_height_override;
     int m_selected_visible_entry;

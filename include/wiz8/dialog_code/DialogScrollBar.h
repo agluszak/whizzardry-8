@@ -32,9 +32,6 @@ public:
 private:
     bool m_visible;
 
-public:
-    bool m_dirty; /* owning dialogs set this before Draw */
-private:
     int m_entry_count = 1;
     int m_first_visible_entry = 0;
     int m_entry_height = 1;
