@@ -565,7 +565,6 @@ public:
     e_hintMode getHint(e_hint hint) const;
     void setHint(e_hint hint, e_hintMode mode);
     e_antiAlias getAntiAlias() const;
-    void extCommand(w8_ulong command, void* data, w8_ulong size);
     void disable(e_enable option);
     void enable(e_enable option);
     srShader getShader() const;
@@ -591,7 +590,6 @@ public:
     srTextureIFace::e_filter getTextureDefaultMinFilter() const;
     srTextureIFace::e_mipmap getTextureDefaultMipmap() const;
     w8_long getTextureReduction() const;
-    void invalidateResidentPalette(srPalette* palette);
     void setGlobalPalette(const srPalette& palette);
     w8_long getMaxTextureWidth() const;
     w8_long getMaxTextureHeight() const;
@@ -673,18 +671,23 @@ public:
     }
 
 private:
-    /* Pooled device-texture record. allocTexture links chunks through the first word and keys the
-       hash by the texture-interface id; the embedded srDD::Texture is handed to the device. */
+    struct TextureCacheData {
+        srDD::Texture gpu;
+        float priority = 0.5f;
+        w8_ulong last_use = 0, size = 0;
+        w8_ulong width = 0, height = 0, first_level = 0, last_level = 0;
+        w8_ulong deleted = 0, resident = 0;
+    };
     struct Texture {
         Texture* prev;
         Texture* next;
         w8_ulong id;
-        /* evaluateTexturePixelFormat copies the matched device format here. */
-        srPixelConvert::PixelFormat pixel_format;
+        srPixelConvert::PixelFormat pixel_format =
+            srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB32);
         std::vector<unsigned char> surface_data;
-        std::shared_ptr<srPalette> palette;
         std::string name;
-        srDD::Texture device;
+        TextureCacheData device;
+        std::span<unsigned char> mipPixels(w8_ulong level);
     };
 
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
@@ -700,7 +703,6 @@ private:
     srGERD& operator=(const srGERD& other);
     srDD* getDD() const;
 
-    void fenceVertexArrays();
     void dumpTextureCache(std::ostream& stream);
     void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
                     srRendererDefs::e_type type, w8_ulong stride, const void* values);
@@ -745,12 +747,10 @@ private:
     void allocTextureData(Texture& texture);
     void deleteTexture(Texture& texture);
     void removeDeletedTextures();
-    void invalidatePalette();
     void releaseTextureSurfaceData(Texture& texture);
     void setTextureParameters(w8_ulong stage, const srTextureIFace::Parameters& parameters);
-    void evaluateTextureDimensions(srDD::Texture& device,
+    void evaluateTextureDimensions(TextureCacheData& device,
                                    const srTextureIFace::Dimensions& dimensions);
-    void evaluateTexturePixelFormat(Texture& texture, const srTextureIFace::Dimensions& dimensions);
     void releaseTextureMemory(w8_long bytes);
     w8_ulong getTextureBytesNeeded(Texture& texture) const;
     Texture* findLowestPriority();
@@ -761,10 +761,9 @@ private:
     void initTexCache();
     void closeTexCache();
     void initDDInfo();
-    void initTextureFormats();
+    void uploadTexture(Texture& texture);
     void initDisplayModeList();
     void initGlobalPalette();
-    w8_ulong getDDAPIVersion() const;
     void initClearColors();
     void initView();
     void initLights();
@@ -772,14 +771,12 @@ private:
     void initTextureParameterMatrix();
     void deleteDeletedRenderers();
     e_error openWindowInternal(const OpenInfo& info);
-    srDD::e_error _lockBuffer();
-    srDD::e_error _unlockBuffer();
+    void _lockBuffer();
+    void _unlockBuffer();
     std::optional<srPixelConvert::PixelFormat> getPixelFormat() const;
     void accumAlloc();
     short accumConvert(float value) const;
     void accumClear();
-    static srDD::PixelFormat convertPixelFormat(const srPixelConvert::PixelFormat& format);
-    static srPixelConvert::PixelFormat convertPixelFormat(const srDD::PixelFormat& device);
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
     RendererEntry* createRenderer(int sorted);
@@ -815,10 +812,9 @@ private:
     struct Device {
         srDD* dd;
         srDD::Info info;
-        /* getDriverInfo target; getDDAPIVersion/getDriverID/getDriverName
+        /* getDriverInfo target; getDriverID/getDriverName
            (pre-context) and getApiVersion read its trailing fields. */
         srDD::DriverInfo driver_info;
-        std::vector<srPixelConvert::PixelFormat> texture_formats;
         std::vector<srDD::WindowInfo> display_modes;
         /* setHint/getHint index this by e_hint. */
         e_hintMode hints[1];
@@ -886,7 +882,12 @@ private:
     };
 
     struct ClearState {
-        srDD::ClearValues clear_values;
+        struct {
+            glm::vec4 color;
+            glm::vec4 accum;
+            double depth;
+            w8_ulong stencil;
+        } clear_values;
         unsigned char unknown_2c_[4];
     };
 
@@ -990,17 +991,13 @@ private:
        first entry and _unlockBuffer unlocks when this returns to zero. */
     w8_long buffer_lock_count;
     ClearState clear_state;
-    /* Grayscale ramp built by initGlobalPalette and handed to
-       srDD::setGlobalPalette; matchPalette compares it as srARGB. */
+    // Grayscale ramp used by the CPU palette matching path.
     srARGB global_palette[0x100];
     /* Bound Texture per stage, swapped by changeTexture. */
     Texture* texture_slots[2];
     /* Per-stage packed device parameters written by setTextureParameters. */
     srDD::TexParms texture_parms[2];
-    /* Device palette record handed to bindPalette/deletePalette. */
-    srDD::Palette device_palette;
     TextureState texture_state;
-    std::shared_ptr<srPalette> palette;
     e_polygonMode polygon_mode;
     w8_long polygon_offset;
     glm::vec4 fog_color;
