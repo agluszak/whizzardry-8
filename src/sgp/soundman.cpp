@@ -24,6 +24,7 @@
 
 #include "compat/native.h"
 #include "random.h"
+#include "wiz8/ascii.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/native_audio.h"
@@ -95,7 +96,7 @@ std::string resolve_path(std::string_view path)
 {
     if (path.empty()) return {};
     std::string filename(path);
-    _strupr(filename.data());
+    wiz8::uppercase_ascii(filename.data());
     if (const auto status = wiz8::file_status(filename);
         status && status->info.type == SDL_PATHTYPE_FILE)
         return filename;

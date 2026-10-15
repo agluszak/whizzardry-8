@@ -14,7 +14,6 @@
 
 #include "AnimRep.hpp"
 #include "Monster.h"
-#include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -32,6 +31,7 @@
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -200,7 +200,7 @@ int FindItemTableByName(const char* name)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (_stricmp(name, g_item_tables[index].name) == 0) {
+        if (wiz8::iequals(name, g_item_tables[index].name)) {
             return index;
         }
     }
@@ -335,7 +335,7 @@ int FindItemRecordByName(const char* name)
     for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
-            if (_stricmp(g_item_records[index].display_name.c_str(), name) == 0) {
+            if (wiz8::iequals(g_item_records[index].display_name.c_str(), name)) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {

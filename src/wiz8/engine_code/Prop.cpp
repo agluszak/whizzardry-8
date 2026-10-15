@@ -28,6 +28,7 @@
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/ascii.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -165,7 +166,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
-            if (prop->m_name != 0 && _stricmp(prop->m_name, name) == 0) {
+            if (prop->m_name != 0 && wiz8::iequals(prop->m_name, name)) {
                 return prop;
             }
         }

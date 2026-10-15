@@ -95,6 +95,7 @@ static void assignFlag(unsigned int& flags, unsigned int flag, bool on)
 #include "layouts/world.h"
 #include "surrender/srClock.h"
 #include "surrender/srNode.h"
+#include "wiz8/ascii.h"
 
 class W8DialogBase;
 
@@ -139,7 +140,7 @@ Trigger* FindTriggerByName(const char* name)
             continue;
         }
         for (Trigger* trigger : world->triggers | std::views::reverse) {
-            if (_stricmp(trigger->name, name) == 0) {
+            if (wiz8::iequals(trigger->name, name)) {
                 return trigger;
             }
         }
@@ -1197,7 +1198,7 @@ void SetTriggerVariableByName(const char* name, int value)
     int index;
 
     for (index = 0; index < count; ++index) {
-        if (_stricmp(g_location_variable_names[index], name) == 0 &&
+        if (wiz8::iequals(g_location_variable_names[index], name) &&
             g_location_variable_levels[index] == g_status.current_level) {
             break;
         }
@@ -1363,8 +1364,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         handle->read_exact(recipients, sizeof(recipients));
         handle->read_exact(sound, sizeof(sound));
         sprintf(trigger->action_data, "data\\sound\\%s", sound);
-        _strupr(trigger->name);
-        _strupr(recipients);
+        wiz8::uppercase_ascii(trigger->name);
+        wiz8::uppercase_ascii(recipients);
 
         if (version > 1) {
             char surface_id[0x40];
@@ -1452,8 +1453,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         handle->read_exact(&enabled, 1);
         handle->read_exact(trigger->name, sizeof(trigger->name));
         handle->read_exact(recipients, sizeof(recipients));
-        _strupr(trigger->name);
-        _strupr(recipients);
+        wiz8::uppercase_ascii(trigger->name);
+        wiz8::uppercase_ascii(recipients);
         if (version > 1) {
             handle->read_exact(&plane, 1);
             handle->read_exact(trigger->representation_vectors,
@@ -1645,9 +1646,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         handle->read_exact(&animate_action, 1);
         handle->read_exact(sound, sizeof(sound));
         sprintf(trigger->action_data, "data\\sound\\%s", sound);
-        _strupr(trigger->name);
-        _strupr(recipients);
-        _strupr(location_variable);
+        wiz8::uppercase_ascii(trigger->name);
+        wiz8::uppercase_ascii(recipients);
+        wiz8::uppercase_ascii(location_variable);
 
         if (version > 1) {
             handle->read_exact(&trigger->m_lData1, 4);
@@ -1708,8 +1709,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         handle->read_exact(required_states, sizeof(required_states));
         handle->read_exact(state_to_modify, sizeof(state_to_modify));
         handle->read_exact(&value_b4, 1);
-        _strupr(required_states);
-        _strupr(state_to_modify);
+        wiz8::uppercase_ascii(required_states);
+        wiz8::uppercase_ascii(state_to_modify);
         if (required_states[0] != 0) {
             trigger->m_pacRequiredStates = new char[strlen(required_states) + 1];
             if (trigger->m_pacRequiredStates == 0) {
@@ -1743,7 +1744,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         handle->read_exact(&trigger->range_maximum, 4);
         handle->read_exact(trigger->inline_action_data, sizeof(trigger->inline_action_data));
         handle->read_exact(&unused_value, 4);
-        _strupr(trigger->inline_action_data);
+        wiz8::uppercase_ascii(trigger->inline_action_data);
         trigger->range_minimum *= 500.0f;
         trigger->range_maximum *= 500.0f;
         if (version > 2) {
@@ -2411,7 +2412,7 @@ void Trigger::Run(int source)
         }
 
         case 0x0e:
-            if (m_pacRecipients == 0 || _stricmp(m_pacRecipients, "party") != 0) {
+            if (m_pacRecipients == 0 || !wiz8::iequals(m_pacRecipients, "party")) {
                 break;
             }
             ApplyItemEffectToRandomCharacter(Random(2) != 0 ? g_condition_reaction
@@ -3608,7 +3609,7 @@ int GetLocationVarIDByName(const char* name)
     int variable_id;
 
     for (variable_id = 0; variable_id < variable_count; ++variable_id) {
-        if (_stricmp(g_location_variable_names[variable_id], name) == 0) {
+        if (wiz8::iequals(g_location_variable_names[variable_id], name)) {
             if (g_location_variable_levels[variable_id] == g_status.current_level) {
                 return variable_id;
             }
@@ -3631,7 +3632,7 @@ void CreateLocationVar(const char* name, int value)
     }
     variable_count = static_cast<int>(g_location_variable_names.size());
     for (index = 0; index < variable_count; ++index) {
-        if (_stricmp(g_location_variable_names[index], name) == 0 &&
+        if (wiz8::iequals(g_location_variable_names[index], name) &&
             g_location_variable_levels[index] == g_status.current_level) {
             break;
         }
@@ -3663,7 +3664,7 @@ int GetLocationVarValueByName(const char* name)
 
     variable_count = static_cast<int>(g_location_variable_names.size());
     for (index = 0; index < variable_count; ++index) {
-        if (_stricmp(g_location_variable_names[index], name) == 0 &&
+        if (wiz8::iequals(g_location_variable_names[index], name) &&
             g_location_variable_levels[index] == g_status.current_level) {
             break;
         }

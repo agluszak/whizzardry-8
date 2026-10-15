@@ -25,7 +25,6 @@
 #include "OctPreTree.h"
 #include "ReadMesh.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "geometry.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -33,6 +32,7 @@
 #include "glm/geometric.hpp"
 #include "index_algorithms.h"
 #include "surrender/srMath.h"
+#include "wiz8/ascii.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/Octree.h"
@@ -1397,7 +1397,7 @@ OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem>
         const W8LevelParticleRecord& particle = system.particle;
         char name[64];
         strcpy(name, particle.name);
-        _strupr(name);
+        wiz8::uppercase_ascii(name);
         if (strncmp(name, "CLOUD", 5) == 0) {
             continue;
         }

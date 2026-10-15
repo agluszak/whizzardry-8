@@ -14,7 +14,6 @@
 #include <wiz8/asset_paths.h>
 
 #include "ReadMesh.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -28,6 +27,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -226,7 +226,7 @@ static int LevelFindIDByLocationCode(const char* location_code)
     int level_id;
 
     for (level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
-        if (_stricmp(g_level_folders[level_id].location_code, location_code) == 0) {
+        if (wiz8::iequals(g_level_folders[level_id].location_code, location_code)) {
             return level_id;
         }
     }

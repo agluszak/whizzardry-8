@@ -6,7 +6,6 @@
 #include <string_view>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/fwd.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/audio_resources.h"

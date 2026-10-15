@@ -12,7 +12,6 @@
 
 #include "Navigator.h"
 #include "Types.h"
-#include "compat/native.h"
 #include "conditions.h"
 #include "equipment_slots.h"
 #include "glm/ext/vector_float4.hpp"
@@ -24,6 +23,7 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
 #include "surrender/srMath.h"
+#include "wiz8/ascii.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Cursor3d.h"
@@ -245,7 +245,7 @@ signed char FindFactionByName(const char* name)
     signed char faction;
 
     for (faction = 0; faction < W8_FACTION_COUNT; ++faction) {
-        if (_stricmp(g_faction_names[faction], name) == 0) {
+        if (wiz8::iequals(g_faction_names[faction], name)) {
             return faction;
         }
     }

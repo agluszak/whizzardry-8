@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -31,6 +30,7 @@
 #include "surrender/srShader.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/triangle_projection.h"
+#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Item.h"
@@ -170,7 +170,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
-            if (!light || _strnicmp(node->getName().c_str(), "Sun", 3) == 0) continue;
+            if (!light || wiz8::iequals_prefix(node->getName().c_str(), "Sun", 3)) continue;
             const float range = static_cast<float>(
                 g_light_range_attenuation_numerator /
                 (light->opengl_attenuation.y * g_light_range_attenuation_denominator));

@@ -8,7 +8,6 @@ struct srBoundingBox;
 #include <vector>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "surrender/srMath.h"
 

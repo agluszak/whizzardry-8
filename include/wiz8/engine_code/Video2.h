@@ -11,7 +11,6 @@
 #include <SDL3/SDL_video.h>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "himage.h"

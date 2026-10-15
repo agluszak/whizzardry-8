@@ -21,6 +21,7 @@
 #include "random.h"
 #include "soundman.h"
 #include "surrender/srMath.h"
+#include "wiz8/ascii.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
@@ -420,7 +421,7 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
     for (; index < count; ++index) {
         W8AmbientSound* candidate = GetWorldAmbientSound(g_world, index);
         if (candidate != 0 && candidate != this && candidate->shared != 0 &&
-            _stricmp(candidate->config.wave_name, match_name) == 0) {
+            wiz8::iequals(candidate->config.wave_name, match_name)) {
             return candidate;
         }
     }
@@ -670,7 +671,7 @@ static W8AmbientSound* FindAmbientSoundByName(const char* name)
 
     for (index = 0; index < count; ++index) {
         W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
-        if (sound->pacSoundName != 0 && _stricmp(sound->pacSoundName, name) == 0) {
+        if (sound->pacSoundName != 0 && wiz8::iequals(sound->pacSoundName, name)) {
             return sound;
         }
     }
@@ -919,7 +920,7 @@ void LoadAmbientSoundList(wiz8::File& handle)
         length = static_cast<int>(g_world->plsAmbientSounds.size());
         for (scan = 0; scan < length; ++scan) {
             W8AmbientSound* sound = GetWorldAmbientSound(g_world, scan);
-            if (sound->pacSoundName != 0 && _stricmp(sound->pacSoundName, name) == 0) {
+            if (sound->pacSoundName != 0 && wiz8::iequals(sound->pacSoundName, name)) {
                 if (sound != 0) {
                     if (stopped_flag == 0) {
                         PositionAmbientSoundByName(0, name);

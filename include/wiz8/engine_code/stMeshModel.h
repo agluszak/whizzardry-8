@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"

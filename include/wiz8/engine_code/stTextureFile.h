@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTypeRegistry.h"

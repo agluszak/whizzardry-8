@@ -18,7 +18,6 @@
 #include "GrCycle.h"
 #include "Navigator.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -28,6 +27,7 @@
 #include "retail_records.h"
 #include "surrender/srClock.h"
 #include "surrender/srMath.h"
+#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -243,8 +243,8 @@ const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
 static int missileCycleIndex(const char* pac_name)
 {
     for (int index = 0; index < 2; ++index) {
-        if (_strnicmp(pac_name, g_missile_cycle_names[index],
-                      strlen(g_missile_cycle_names[index])) == 0)
+        if (wiz8::iequals_prefix(pac_name, g_missile_cycle_names[index],
+                                 strlen(g_missile_cycle_names[index])))
             return index;
     }
     return -1;
@@ -507,12 +507,12 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
             pacName[0] = 0;
             pacFileName[0] = '\0';
             sscanf(line, "%s %s", pacName, pacFileName);
-            if (_stricmp("align_camera", pacName) != 0) {
-                if (_stricmp("explode_ground", pacName) == 0) {
+            if (!wiz8::iequals("align_camera", pacName)) {
+                if (wiz8::iequals("explode_ground", pacName)) {
                     explode_ground = true;
-                } else if (_stricmp("align_explosion", pacName) == 0) {
+                } else if (wiz8::iequals("align_explosion", pacName)) {
                     align_explosion = true;
-                } else if (_stricmp("gravity", pacName) == 0) {
+                } else if (wiz8::iequals("gravity", pacName)) {
                     gravity = true;
                 } else if (strcmp("velocity", pacName) == 0) {
                     sscanf(line, "%s %f", pacName, &velocity);
@@ -526,8 +526,8 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                             srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                         }
                         for (index = 0; index < 2; ++index) {
-                            if (_strnicmp(pacName, g_missile_cycle_names[index],
-                                          strlen(g_missile_cycle_names[index])) == 0) {
+                            if (wiz8::iequals_prefix(pacName, g_missile_cycle_names[index],
+                                                     strlen(g_missile_cycle_names[index]))) {
                                 loaded_cycle = *ppMissile;
                                 loaded = LoadGrCycle(context, pacFileName, &loaded_cycle, index, 1,
                                                      "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
@@ -538,11 +538,11 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                             }
                         }
                     }
-                    if (_stricmp(pacName, "SOUND_FRAME") == 0) {
+                    if (wiz8::iequals(pacName, "SOUND_FRAME")) {
                         sound_kind = W8_SOUND_EVENT_FRAME;
                     } else {
-                        if (_stricmp(pacName, "SOUND_CYCLE") != 0) {
-                            if (_stricmp(pacName, "SHAKE_FRAME") == 0) {
+                        if (!wiz8::iequals(pacName, "SOUND_CYCLE")) {
+                            if (wiz8::iequals(pacName, "SHAKE_FRAME")) {
                                 duration = 1.0f;
                                 seconds = 10.0f;
                                 intensity = 1.0f;
@@ -582,7 +582,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                     snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV",
                              pacFileName);
                     sound = std::make_unique<W8SoundEvent>(sound_kind, cycle, frame, 0, wave_path,
-                                                           _stricmp(pacLoop, "LOOP") == 0);
+                                                           wiz8::iequals(pacLoop, "LOOP"));
                     if (sound != 0) {
                         (*ppMissile)->AddSoundEvent(std::move(sound));
                     }

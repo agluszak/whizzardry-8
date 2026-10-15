@@ -13,7 +13,6 @@
 
 #include <glm/gtc/matrix_access.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -37,6 +36,7 @@
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
+#include "wiz8/ascii.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -753,7 +753,7 @@ unsigned char stParticle::ReplaceTexture(const char* old_name,
                                          std::shared_ptr<srTextureIFace> replacement)
 {
     if ((sr_cast<stTextureFile>(texture) || sr_cast<stTextureAnim>(texture)) &&
-        _stricmp(texture->getName().c_str(), old_name) == 0) {
+        wiz8::iequals(texture->getName().c_str(), old_name)) {
         SetTexture(std::move(replacement));
         return 1;
     }

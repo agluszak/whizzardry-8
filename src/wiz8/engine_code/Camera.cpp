@@ -3,13 +3,13 @@
 #include <vector>
 
 #include "Navigator.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "message_box.h"
 #include "surrender/srCamera.h"
 #include "surrender/srMath.h"
+#include "wiz8/ascii.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -52,7 +52,7 @@ void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
     if (count != 0) {
         for (int index = 0; index < static_cast<int>(count); ++index) {
             W8CameraPath* path = GetWorldCameraPath(world, index);
-            if (_stricmp(path->name0, name) == 0) {
+            if (wiz8::iequals(path->name0, name)) {
                 UpdateCameraPathState(world, path, active);
                 return;
             }
@@ -93,15 +93,15 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     path->active = false;
     SetEnvironmentLoadFlag(g_saved_environment_flag);
     if (g_status.current_level == 1) {
-        if (_stricmp(path->name0, "Camera01") == 0) {
+        if (wiz8::iequals(path->name0, "Camera01")) {
             g_npc_dialogue.Queue(W8NpcPortraitString{0x721});
             g_npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
             return;
         }
-        if (_stricmp(path->name0, "Camera02") == 0) {
+        if (wiz8::iequals(path->name0, "Camera02")) {
             npc = GetNpcStateByKind(0x33);
         } else {
-            if (_stricmp(path->name0, "Camera03") != 0) {
+            if (!wiz8::iequals(path->name0, "Camera03")) {
                 return;
             }
             group = FindFirstMonsterByID(0x18c);
@@ -130,8 +130,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
         }
         return;
     }
-    if (g_status.current_level == 4 && _stricmp(path->name0, "CameraPath2") != 0) {
-        if (_stricmp(path->name0, "CameraPath3") == 0) {
+    if (g_status.current_level == 4 && !wiz8::iequals(path->name0, "CameraPath2")) {
+        if (wiz8::iequals(path->name0, "CameraPath3")) {
             ClearMainGameTargetState();
             group = FindFirstMonsterByID(0x1b4);
             if (group != 0) {
@@ -139,7 +139,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
                 return;
             }
-        } else if (_stricmp(path->name0, "CameraPath4") == 0) {
+        } else if (wiz8::iequals(path->name0, "CameraPath4")) {
             ResetLevelDataVectors();
             return;
         }

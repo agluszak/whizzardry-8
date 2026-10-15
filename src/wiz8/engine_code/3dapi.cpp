@@ -12,7 +12,6 @@
 
 #include "camera_motion.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "environment_colour.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -25,6 +24,7 @@
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
+#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -557,7 +557,7 @@ stParticle* FindParticleByName(W8World* world, const char* name)
         for (int index = 0; index < count; ++index) {
             stParticle* particle = world->particles[index].get();
 
-            if (_stricmp(particle->getName().c_str(), name) == 0) {
+            if (wiz8::iequals(particle->getName().c_str(), name)) {
                 return particle;
             }
         }
@@ -833,7 +833,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
     if (name == 0) {
         return false;
     }
-    if (_stricmp("PARTY", name) == 0) {
+    if (wiz8::iequals("PARTY", name)) {
         *position = cameraLocation();
         return true;
     }
@@ -841,7 +841,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
     int count = static_cast<int>(g_world->named_positions.size());
     for (int index = 0; index < count; ++index) {
         const W8NamedPosition* entry = &g_world->named_positions[index];
-        if (_stricmp(name, entry->name) == 0) {
+        if (wiz8::iequals(name, entry->name)) {
             *position = entry->position;
             if (angle != 0) {
                 *angle = entry->angle;

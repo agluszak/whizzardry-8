@@ -68,6 +68,7 @@
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 #include "wiz8/application.h"
+#include "wiz8/ascii.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
@@ -554,7 +555,7 @@ try {
         !OpenRendererWindow())
         return 0;
     srAssertSetFunc(AssertFailureHandler);
-    s_setup_disables_audio = _strnicmp(audio_setting, "none", 4) == 0;
+    s_setup_disables_audio = wiz8::iequals_prefix(audio_setting, "none", 4);
     return 1;
 } catch (const std::exception&) {
     return false;
@@ -1871,7 +1872,7 @@ unsigned char InitializeRendererSceneObjects(void)
 
     strncpy(renderer_name, g_gerd->getName().c_str(), 127);
     renderer_name[127] = 0;
-    _strupr(renderer_name);
+    wiz8::uppercase_ascii(renderer_name);
     if (strstr(renderer_name, "GLIDE")) {
         g_surface_node->enableTextureUpdateFlags(stSurface2D::UPDATE_FULL_TILE);
     }
