@@ -144,8 +144,7 @@ UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 {
     // Fields of an older group stay visible but ignore the mouse.
     if (!group.Active()) return UiResult::Pass;
-    if (!blocks_mouse &&
-        (event.action != UiPointerAction::Up || event.captured_buttons))
+    if (!blocks_mouse && (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave ||
         event.action == UiPointerAction::Move) {

@@ -26,7 +26,6 @@ struct W8AutomapNote {
     std::string text;
 };
 
-
 /* The sixteen chrome buttons; a slot stays empty when its artwork is missing. */
 struct AutomapButtons {
     UiLayer input;

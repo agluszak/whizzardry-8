@@ -980,7 +980,8 @@ void RefreshCampItemActions(bool invalidate)
                     control->SetEnabled(false);
                     continue;
                 }
-                if (gXStatus.fCampMode || LockInteractionSuspended() || TrapInteractionSuspended()) {
+                if (gXStatus.fCampMode || LockInteractionSuspended() ||
+                    TrapInteractionSuspended()) {
                     control->SetEnabled(false);
                     continue;
                 }
