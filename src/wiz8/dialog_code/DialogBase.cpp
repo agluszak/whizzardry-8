@@ -17,6 +17,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/modal_content.h"
 #include "wiz8/ui_input.h"
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
