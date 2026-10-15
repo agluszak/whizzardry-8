@@ -202,7 +202,11 @@ jobs:
         run: rm -rf "$RUNNER_TEMP/wiz8-native-game"
       - name: Show compiler cache stats
         if: always()
-        run: ccache --show-stats || true
+        run: |
+          echo '### ccache (${{ matrix.preset }})' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ccache --show-stats 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   clang-tidy:
     runs-on: ubuntu-26.04
