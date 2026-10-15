@@ -97,7 +97,6 @@ public:
     // RECOMP: ?sGetClassName@srTextureIFace@@SAPBDXZ
     static const char* sGetClassName() { return "srTextureIFace"; }
 
-    /* srTextureFile's vftable is this interface exactly. */
     virtual w8_ulong getTextureFrameHandle() = 0;
     virtual float getPriority() = 0;
     virtual Dimensions getDimensions() = 0;
