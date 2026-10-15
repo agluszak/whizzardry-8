@@ -32,6 +32,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -162,6 +163,8 @@ static void CreateUseItemSelectControls(void)
     use_item->quantity.SetLayoutMode(g_W8TextBufferAlignBottom | g_W8TextBufferAlignRight);
     auto& item =
         use_item->input.add(SDL_Rect{0x1e1, 0x16b, 45, 53}, [](const UiPointerEvent& event) {
+            if (event.action != UiPointerAction::Up || event.captured_buttons)
+                PlayButtonSound(event.action);
             const auto mask =
                 event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
             if (event.action == UiPointerAction::Up && event.inside &&

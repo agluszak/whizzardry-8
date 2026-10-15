@@ -65,7 +65,6 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/learned_spells.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -397,7 +396,7 @@ void DrawCampResistances(void)
    row opens its spell info dialog. */
 UiResult HandleCampSpellList(const UiPointerEvent& event, int realm)
 {
-    PushButtonSoundScheme(0, true);
+
     int row = (event.local.y - 1) / 13;
     const int visible = std::min(8, int(g_review_character->skill_unlocks[0x1c + realm]) -
                                         int(g_camp_screen->learned_spells.scroll[realm]));
@@ -878,11 +877,7 @@ W8CampCharacterInfo::W8CampCharacterInfo()
     m_combat_tab = button(10, 0x95f, true);
     constexpr SDL_Point positions[] = {{0x1d6, 0x4c}, {0x258, 0x4c}, {0x1d6, 0x3e}, {0x258, 0x3e}};
     for (int index = 0; index < 4; ++index) {
-        m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13},
-                                     [](const UiPointerEvent&) {
-                                         PushButtonSoundScheme(0, true);
-                                         return UiResult::Handled;
-                                     });
+        m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13}, {});
         m_values[index]->setTooltip([this, index] { return m_help[index]; });
     }
     input.setEnabled(false);

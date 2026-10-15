@@ -96,7 +96,8 @@ void W8RangeControl::SetActive(bool active)
 UiResult W8RangeControl::HandlePointer(int part, const UiPointerEvent& event)
 {
     m_dirty = true;
-    if (!m_enabled || part == 2) PushButtonSoundScheme(0, true);
+    if ((m_enabled && part < 2) && (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     if (!m_enabled) return UiResult::Handled;
     if (event.action == UiPointerAction::Wheel) {
         AdjustValue(event.wheel);

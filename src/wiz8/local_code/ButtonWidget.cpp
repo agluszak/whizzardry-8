@@ -233,22 +233,8 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         int& depth;
         ~Handling() { --depth; }
     } handling{m_handling_pointer};
-    // The dispatcher owns hover, press and release sounds. Controller-style
-    // buttons silence the next one while disabled.
-    const bool backend_sound = event.action == UiPointerAction::Enter ||
-                               event.action == UiPointerAction::Leave ||
-                               event.action == UiPointerAction::Down ||
-                               (event.action == UiPointerAction::Up && event.captured_buttons != 0);
-    if (m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState && !m_enabled &&
-        backend_sound) {
-        PushButtonSoundScheme(0, true);
-    }
     if (event.action == UiPointerAction::Leave) {
-        if (m_interaction.leave(m_setup.policy) &&
-            m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState &&
-            m_setup.policy.repeat) {
-            PushButtonSoundScheme(0, true);
-        }
+        m_interaction.leave(m_setup.policy);
         m_dirty = true;
         if (const auto hover = m_setup.on_hover) {
             hover(false);
@@ -266,6 +252,7 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     const bool was_pressed = m_interaction.pressed;
     switch (event.action) {
     case UiPointerAction::Enter:
+        PlayButtonSound(UiPointerAction::Enter);
         m_dirty = true;
         return UiResult::Handled;
     case UiPointerAction::Move:
@@ -275,19 +262,20 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         return UiResult::Handled;
     case UiPointerAction::Down:
         response = m_interaction.press(mask, m_setup.policy);
+        PlayButtonSound(UiPointerAction::Down);
         break;
     case UiPointerAction::Up:
         if (!event.inside) {
+            if (event.captured_buttons & mask) PlayButtonSound(UiPointerAction::Up);
             m_interaction.leave(m_setup.policy);
             m_dirty = true;
             return UiResult::Handled;
         }
         if (!(event.captured_buttons & mask)) return UiResult::Handled;
         response = m_interaction.release(mask, m_setup.policy);
-        if (response.repeated_release &&
-            m_setup.policy.input_rule == ButtonInputRule::PrimaryPressedState) {
-            PushButtonSoundScheme(0, true);
-        }
+        if (!response.repeated_release ||
+            m_setup.policy.input_rule != ButtonInputRule::PrimaryPressedState)
+            PlayButtonSound(UiPointerAction::Up);
         break;
     case UiPointerAction::Repeat:
         if (!(event.captured_buttons & mask)) return UiResult::Handled;
@@ -302,8 +290,8 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         event.clicks >= 2 &&
         (m_setup.policy.primary_toggle == ButtonToggle::None || m_interaction.pressed);
     const auto double_click_callback = double_click ? m_setup.on_double_click : W8ButtonCallback{};
-    // Only repeats are silent in the dispatcher.
-    if (response.activate && event.action == UiPointerAction::Repeat) PlayButtonSound(3);
+    if (response.activate && event.action == UiPointerAction::Repeat)
+        PlayButtonSound(UiPointerAction::Up);
     if (response.activate && callback) callback(this);
     if (double_click_callback) {
         double_click_callback(this);

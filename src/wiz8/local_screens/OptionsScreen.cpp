@@ -719,6 +719,8 @@ void W8OptionsKeyboardPanel::Populate()
         key->target = &m_input.add(
             SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
             [this, key](const UiPointerEvent& event) {
+                if (event.action != UiPointerAction::Up || event.captured_buttons)
+                    PlayButtonSound(event.action);
                 const ButtonPolicy policy{.primary_toggle = ButtonToggle::StayLatched,
                                           .input_rule = ButtonInputRule::PrimaryPressedState};
                 m_dirty = true;
@@ -1203,9 +1205,9 @@ void W8OptionsScreen::CreateControls()
                 SDL_Rect{bounds.left, bounds.top, bounds.right - bounds.left + 1,
                          bounds.bottom - bounds.top + 1},
                 [this, item, press = ButtonInteraction{}](const UiPointerEvent& event) mutable {
-                    if (event.action == UiPointerAction::Enter ||
-                        event.action == UiPointerAction::Leave)
-                        PushButtonSoundScheme(0, true);
+                    if (event.action != UiPointerAction::Enter &&
+                        (event.action != UiPointerAction::Up || event.captured_buttons))
+                        PlayButtonSound(event.action);
                     if (event.action == UiPointerAction::Leave) press.leave({});
                     if (event.button == UiPointerButton::Left &&
                         event.action == UiPointerAction::Down)
@@ -1513,7 +1515,7 @@ void W8OptionsSlider::SetEnabled(bool enabled)
 
 UiResult W8OptionsSlider::HandlePointer(const UiPointerEvent& event)
 {
-    PushButtonSoundScheme(0, true);
+
     if (!m_enabled) return UiResult::Handled;
     const int x = event.position.x - g_cursor_hotspot_x - m_origin.x;
     switch (event.action) {

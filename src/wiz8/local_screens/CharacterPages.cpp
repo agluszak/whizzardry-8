@@ -15,6 +15,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Strings.h"
@@ -105,6 +106,8 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     m_increment = button(split + 0x3d, 0x1e, 1);
     m_help =
         &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13}, [this](const UiPointerEvent& event) {
+            if (event.action != UiPointerAction::Up || event.captured_buttons)
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Up && event.inside &&
                 event.button == UiPointerButton::Right && event.captured_buttons && on_info)
                 AfterUiDispatch(on_info);

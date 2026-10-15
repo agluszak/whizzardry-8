@@ -66,7 +66,9 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
             const int entry =
                 (event.position.y - m_bounds.y) / 13 + m_scroll_offset + m_first_entry;
             const bool valid = entry >= m_first_entry && entry < m_first_entry + m_entry_count;
-            if (event.action == UiPointerAction::Enter || !valid) PushButtonSoundScheme(0, true);
+            if ((valid) && (event.action != UiPointerAction::Enter &&
+                            (event.action != UiPointerAction::Up || event.captured_buttons)))
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Leave) {
                 m_hovered_entry = -1;
                 m_dirty = true;

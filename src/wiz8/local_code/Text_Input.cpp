@@ -23,6 +23,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/ui_input.h"
@@ -141,6 +142,9 @@ public:
 
 UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 {
+    if ((enabled && !blocks_mouse) &&
+        (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave ||
         event.action == UiPointerAction::Move) {
         MouseMoved(event.action, event.position.x, event.buttons);
