@@ -28,6 +28,7 @@ class WhizzardryDependencies(ConanFile):
         # the whole unrelated sound-server dependency graph.
         self.options["sdl"].pulseaudio = False
         self.options["sdl"].sndio = False
+        self.options["sdl"].dbus = False
         # Keep JPEG and PNG; avoid heavyweight optional image codecs.
         self.options["sdl_image"].with_avif = False
         self.options["sdl_image"].with_libtiff = False
