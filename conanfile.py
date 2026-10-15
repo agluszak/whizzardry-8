@@ -24,6 +24,10 @@ class WhizzardryDependencies(ConanFile):
         self.tool_requires("glslang/1.4.313.0")
 
     def configure(self):
+        # Keep JPEG and PNG; avoid duplicate libjpeg providers from other codecs.
+        self.options["sdl_image"].with_avif = False
+        self.options["sdl_image"].with_libtiff = False
+        self.options["sdl_image"].with_libwebp = False
         # Do not bring in codec libraries which the game never calls. The
         # built-in FFmpeg video/audio decoders and demuxers remain enabled.
         self.options["ffmpeg"].with_programs = False
