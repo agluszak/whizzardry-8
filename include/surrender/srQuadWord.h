@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 /* SurRender's 64-bit value type: two 32-bit words. */
 class srQuadWord {
 public:
@@ -8,7 +10,7 @@ public:
 
     /* The timer bodies store ftol results straight into a quad word; this is
        the low/high word store that lowers to. */
-    srQuadWord& operator=(unsigned __int64 value)
+    srQuadWord& operator=(std::uint64_t value)
     {
         lo = static_cast<unsigned int>(value);
         hi = static_cast<unsigned int>(value >> 0x20);
@@ -19,7 +21,7 @@ public:
     {
         /* The word pair is only four-byte aligned, including in retail
            srTimer. */
-        const unsigned __int64 bits = (static_cast<unsigned __int64>(hi) << 32) | lo;
+        const std::uint64_t bits = (static_cast<std::uint64_t>(hi) << 32) | lo;
         return static_cast<unsigned int>(bits >> 32) * 4294967296.0 +
                static_cast<unsigned int>(bits);
     }
@@ -49,7 +51,7 @@ public:
 
     srQuadWord operator*(unsigned int factor) const
     {
-        unsigned __int64 product = (((unsigned __int64)hi << 32) | lo) * factor;
+        std::uint64_t product = (((std::uint64_t)hi << 32) | lo) * factor;
         srQuadWord result;
         result.lo = static_cast<unsigned int>(product);
         result.hi = static_cast<unsigned int>(product >> 32);
@@ -58,9 +60,9 @@ public:
 
     srQuadWord operator/(const srQuadWord& divisor) const
     {
-        unsigned __int64 dividend = ((unsigned __int64)hi << 32) | lo;
-        unsigned __int64 divisor64 = ((unsigned __int64)divisor.hi << 32) | divisor.lo;
-        unsigned __int64 quotient = dividend / divisor64;
+        std::uint64_t dividend = ((std::uint64_t)hi << 32) | lo;
+        std::uint64_t divisor64 = ((std::uint64_t)divisor.hi << 32) | divisor.lo;
+        std::uint64_t quotient = dividend / divisor64;
         srQuadWord result;
         result.lo = static_cast<unsigned int>(quotient);
         result.hi = static_cast<unsigned int>(quotient >> 32);

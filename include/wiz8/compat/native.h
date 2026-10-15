@@ -31,16 +31,8 @@
 #endif
 
 #ifndef _WIN32
-#define __cdecl
-#define __stdcall
-#define __fastcall
-#define __int64 long long
-
 #define _stricmp strcasecmp
 #define _strnicmp strncasecmp
-#define _snprintf snprintf
-#define _vsnprintf vsnprintf
-#define _finite(value) isfinite(value)
 #endif
 
 #define _MAX_PATH 260

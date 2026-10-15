@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -292,7 +293,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 }
 
 // FUNCTION: WIZ8 0x0046ffa0
-int __fastcall IsZeroVector(const srVector3T<float>* vector)
+int IsZeroVector(const srVector3T<float>* vector)
 {
     if (vector->x == g_float_zero && vector->y == g_float_zero && vector->z == g_float_zero) {
         return 1;
@@ -722,7 +723,7 @@ void stMeshModel::SetAmbientColor(const glm::vec3& color)
 static inline char CompressNormalByte(float value)
 {
     // Invalid imported geometry must not trigger an undefined float-to-byte cast.
-    if (!_finite(value)) {
+    if (!std::isfinite(value)) {
         return 0;
     }
     return static_cast<char>(value);

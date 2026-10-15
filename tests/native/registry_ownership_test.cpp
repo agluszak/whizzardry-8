@@ -17,21 +17,21 @@
 class srCore srCore;
 srCore::srCore() = default;
 srCore::~srCore() = default;
-int __cdecl srInit()
+int srInit()
 {
     srCore.registry_ = std::make_unique<srRegistry>();
     return 1;
 }
-int __cdecl srExit()
+int srExit()
 {
     srCore.registry_.reset();
     return 1;
 }
-w8_long __cdecl srDebugPrintf(w8_ulong, const char*, ...)
+w8_long srDebugPrintf(w8_ulong, const char*, ...)
 {
     return 0;
 }
-void __cdecl srAssertFail(const char* expression, const char* path, w8_long line, const char*, ...)
+void srAssertFail(const char* expression, const char* path, w8_long line, const char*, ...)
 {
     std::fprintf(stderr, "%s:%d: %s\n", path, line, expression);
     std::abort();

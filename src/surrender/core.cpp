@@ -28,7 +28,7 @@
 #include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
-void __cdecl _srLibraryInit(void)
+void _srLibraryInit(void)
 {
     if (srAssertGetFunc() == 0) {
         srAssertSetFunc(srDefaultAssertFailFunc);
@@ -55,7 +55,7 @@ std::string_view srCore::getVersion() const
 }
 
 // FUNCTION: SURRENDER 0x10015040
-int __cdecl srInit()
+int srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
@@ -124,7 +124,7 @@ void srCore::supportMultiThread(int enabled)
 }
 
 // FUNCTION: SURRENDER 0x100157A0
-int __cdecl srExit()
+int srExit()
 {
     if (srCore.initialized != 0) {
         srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");

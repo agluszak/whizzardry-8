@@ -14,19 +14,18 @@
 // class srModelInstance
 class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100> {
 public:
-    SR_DLL_IMPORT virtual ~srModelInstance() override;
-    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr,
-                                  Ownership ownership = Ownership::parent);
+    virtual ~srModelInstance() override;
+    srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
 
-    SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
+    srModelInstance& operator=(const srModelInstance& other);
 
     // FUNCTION: SURRENDER 0x1004FFE0
     static const char* sGetClassName() { return "srModelInstance"; }
 
-    SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
-    SR_DLL_IMPORT virtual void traverse(TraverseInfo& info) override;
-    SR_DLL_IMPORT virtual void process(const ProcessInfo& info, e_processType type) override;
-    SR_DLL_IMPORT virtual BoundInfo getLocalBounds() override;
+    virtual void dump(std::ostream& stream) override;
+    virtual void traverse(TraverseInfo& info) override;
+    virtual void process(const ProcessInfo& info, e_processType type) override;
+    virtual BoundInfo getLocalBounds() override;
 
     // The instance shares ownership of its model; renderers borrow it.
     srModel* getModel() const { return model_.get(); }

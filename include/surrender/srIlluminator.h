@@ -13,16 +13,16 @@ class srIlluminator : public srClassSupport<srIlluminator, srNode, 0x1200>,
                       public srVertexProcessor {
 public:
     using srVertexProcessor::process;
-    SR_DLL_IMPORT srIlluminator(srNode* parent = 0, Ownership ownership = Ownership::parent);
+    srIlluminator(srNode* parent = 0, Ownership ownership = Ownership::parent);
     ~srIlluminator() override = default;
     srIlluminator(const srIlluminator&) = default;
 
-    SR_DLL_IMPORT srIlluminator& operator=(const srIlluminator& other);
-    static SR_DLL_IMPORT const char* sGetClassName();
-    virtual SR_DLL_IMPORT void traverse(TraverseInfo& info) override;
-    virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type) override;
-    SR_DLL_IMPORT w8_ulong getGroupMask() const;
-    SR_DLL_IMPORT void setGroupMask(w8_ulong mask);
+    srIlluminator& operator=(const srIlluminator& other);
+    static const char* sGetClassName();
+    virtual void traverse(TraverseInfo& info) override;
+    virtual void process(const ProcessInfo& info, e_processType type) override;
+    w8_ulong getGroupMask() const;
+    void setGroupMask(w8_ulong mask);
 
     w8_ulong group_mask;       /* 0x13c */
     glm::vec3 eye_location;    /* 0x140 */

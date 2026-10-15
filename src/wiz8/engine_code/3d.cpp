@@ -642,7 +642,7 @@ W8GameData* g_octree_game_data;
 /* The octree builds read the level data through this slot; the recovered
    caller passes the W8GameData object it just read. */
 // FUNCTION: WIZ8 0x0046D7D0
-void __stdcall SetOctreeGameData(W8GameData* value)
+void SetOctreeGameData(W8GameData* value)
 {
     g_octree_game_data = value;
 }

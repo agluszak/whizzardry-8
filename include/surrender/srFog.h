@@ -13,26 +13,26 @@
 // class srFog
 class srFog : public srClassSupport<srFog, srIlluminator, 0x1210> {
 public:
-    SR_DLL_IMPORT srFog(srNode* parent = 0);
+    srFog(srNode* parent = 0);
 
     // FUNCTION: SURRENDER 0x1004C1A0
     static const char* sGetClassName() { return "srFog"; }
-    SR_DLL_IMPORT void setDensity(float density);
-    SR_DLL_IMPORT float getDensity() const;
-    SR_DLL_IMPORT void setRange(double start, double end);
-    SR_DLL_IMPORT std::pair<double, double> getRange() const;
+    void setDensity(float density);
+    float getDensity() const;
+    void setRange(double start, double end);
+    std::pair<double, double> getRange() const;
 
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT void verify(srRuntimeClass::e_verify mode) override;
+    virtual void dump(std::ostream& stream) override;
+    virtual void verify(srRuntimeClass::e_verify mode) override;
 
-    virtual SR_DLL_IMPORT ~srFog() override;
+    virtual ~srFog() override;
 
     srFog& operator=(const srFog&) = default;
 
 public:
     using srClassSupport<srFog, srIlluminator, 0x1210>::process;
-    virtual SR_DLL_IMPORT int isActive(srVertexPipe& pipe) override;
-    virtual SR_DLL_IMPORT void process(srVertexPipe& pipe) override;
+    virtual int isActive(srVertexPipe& pipe) override;
+    virtual void process(srVertexPipe& pipe) override;
 
     double fog_start; /* 0x150 */
     double fog_end;   /* 0x158 */

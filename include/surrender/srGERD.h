@@ -35,7 +35,7 @@ class srVertexProcessor;
 struct srVertexArray;
 
 // VTABLE: SURRENDER 0x100766B0 srGERD
-class SR_DLL_IMPORT srGERD : public srRuntimeClass {
+class srGERD : public srRuntimeClass {
 public:
     struct Pick {
         /* Normalized pick point the caller fills: x and y are the cursor's

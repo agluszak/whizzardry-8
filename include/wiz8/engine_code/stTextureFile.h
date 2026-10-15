@@ -13,7 +13,7 @@ namespace wiz8 {
 class File;
 }
 
-std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*);
+std::unique_ptr<srColorSurface> LoadSurface(wiz8::File* handle, w8_long*);
 
 /* Wizardry's virtual-file-backed texture, parallel to SR.DLL's srTextureFile
    (id 0x2112). It overrides the same texture-interface methods SR does;

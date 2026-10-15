@@ -48,20 +48,20 @@ class srRuntimeClass {
 public:
     enum e_verify { VERIFY_DEFAULT = 0 };
 
-    virtual SR_DLL_IMPORT const char* getClassName() const;
-    virtual SR_DLL_IMPORT w8_ulong getClassID() const;
-    virtual SR_DLL_IMPORT srRegistry::ClassNode* getClassNode() const;
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream);
-    virtual SR_DLL_IMPORT void verify(e_verify mode);
+    virtual const char* getClassName() const;
+    virtual w8_ulong getClassID() const;
+    virtual srRegistry::ClassNode* getClassNode() const;
+    virtual void dump(std::ostream& stream);
+    virtual void verify(e_verify mode);
 
-    static SR_DLL_IMPORT srRegistry::ClassNode* sGetClassNode();
+    static srRegistry::ClassNode* sGetClassNode();
 
-    SR_DLL_IMPORT void setName(std::string name);
-    SR_DLL_IMPORT const std::string& getName() const;
-    SR_DLL_IMPORT int isNamed() const;
-    SR_DLL_IMPORT int matchClassID(w8_ulong class_id) const;
+    void setName(std::string name);
+    const std::string& getName() const;
+    int isNamed() const;
+    int matchClassID(w8_ulong class_id) const;
 
-    virtual SR_DLL_IMPORT ~srRuntimeClass() = default;
+    virtual ~srRuntimeClass() = default;
 
 protected:
     srRuntimeClass() = default;
@@ -70,7 +70,7 @@ protected:
     srRuntimeClass& operator=(const srRuntimeClass&) { return *this; }
 
 private:
-    static SR_DLL_IMPORT w8_ulong sGetClassID();
+    static w8_ulong sGetClassID();
 
     std::string name;
 };
@@ -79,18 +79,18 @@ class srClass : public srRuntimeClass {
 public:
     typedef srClass RegistryClass;
 
-    static SR_DLL_IMPORT const char* sGetClassName();
-    static SR_DLL_IMPORT srRegistry::ClassNode* sGetClassNode();
+    static const char* sGetClassName();
+    static srRegistry::ClassNode* sGetClassNode();
 
     /* Assignment copies only the instance name. */
-    SR_DLL_IMPORT srClass& operator=(const srClass& other);
+    srClass& operator=(const srClass& other);
 
-    virtual SR_DLL_IMPORT srRegistry::ClassNode* getClassNode() const override;
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT void verify(srRuntimeClass::e_verify mode) override;
+    virtual srRegistry::ClassNode* getClassNode() const override;
+    virtual void dump(std::ostream& stream) override;
+    virtual void verify(srRuntimeClass::e_verify mode) override;
 
 protected:
-    SR_DLL_IMPORT srClass();
+    srClass();
     srClass(const srClass& other) : srRuntimeClass(other) { *this = other; }
 };
 

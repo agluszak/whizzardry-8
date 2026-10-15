@@ -381,7 +381,7 @@ public:
        activation; traceSphereHit and GameData skip navigators with it zero. */
     bool active;
     unsigned char padding_089[3];
-    void(__cdecl* movement_callback)(W8Navigator* navigator);
+    void (*movement_callback)(W8Navigator* navigator);
     /* Trace-hit exclusion mask: traceSphereHit skips monsters whose
        (trace_mask & flags) is nonzero; configureStartupRange raises bit 0. */
     unsigned int trace_mask;

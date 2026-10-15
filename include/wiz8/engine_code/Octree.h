@@ -542,7 +542,7 @@ extern OctPreTree* g_oct_pre_tree;
 void NoOct(void);
 extern bool g_octree_disabled;
 
-bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement);
+bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
 extern w8_ulong* g_octree_state;
 extern stModelInstance* g_octree_trace_node;
@@ -562,5 +562,4 @@ extern bool g_render_untextured;
 
 int CheckLevelAssetSet(const char* level_path);
 
-w8_ulong* __fastcall PackColourToLong(w8_ulong* color, double alpha, double red, double green,
-                                      double blue);
+w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue);

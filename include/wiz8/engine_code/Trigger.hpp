@@ -184,7 +184,7 @@ enum W8TriggerRepresentationKind {
 
 class Trigger : public srClassSupport<Trigger, srClass, 0x10008> {
 public:
-    typedef bool(__cdecl* ActivationCallback)(Trigger* trigger);
+    typedef bool(* ActivationCallback)(Trigger* trigger);
 
     static const char* sGetClassName() { return "Trigger"; }
 

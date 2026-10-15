@@ -622,7 +622,7 @@ public:
 
 /* Move an integer path cell one compass step; directions outside the
    eight-value range wrap once. */
-void __stdcall StepPathCell(int* x, int* z, int direction);
+void StepPathCell(int* x, int* z, int direction);
 
 extern W8PathingService* g_pathing;
 extern unsigned short g_path_reserve;

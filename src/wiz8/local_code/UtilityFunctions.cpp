@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -180,8 +181,8 @@ char* TitleCaseString(char* string)
 // FUNCTION: WIZ8 0x00517c60
 float NormalizeAngle(float angle)
 {
-    if (!_finite(angle)) {
-        srAssertFail("_finite(flAngle)",
+    if (!std::isfinite(angle)) {
+        srAssertFail("std::isfinite(flAngle)",
                      "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x13b, 0);
     }
 

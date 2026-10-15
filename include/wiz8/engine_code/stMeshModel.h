@@ -189,7 +189,7 @@ extern std::vector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */
 extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
 
 /* True when all three components of the vector are zero. */
-int __fastcall IsZeroVector(const srVector3T<float>* vector);
+int IsZeroVector(const srVector3T<float>* vector);
 /* Release least-recently-used decompressed frame caches until `needed` bytes
    have been freed; 0 when the registry cannot supply them. A requesting model
    is retained because its renderer may already hold borrowed frame pointers. */

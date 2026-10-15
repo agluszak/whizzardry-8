@@ -2504,7 +2504,7 @@ void BindEveryPartyItem(void)
    finally by uses. Every comparison is the reverse of the usual sense, so the
    pool ends up in descending order. */
 // FUNCTION: WIZ8 0x00520600
-int __cdecl CompareItemsForPool(const void* first, const void* second)
+int CompareItemsForPool(const void* first, const void* second)
 {
     const W8ItemInstance* a = (const W8ItemInstance*)first;
     const W8ItemInstance* b = (const W8ItemInstance*)second;

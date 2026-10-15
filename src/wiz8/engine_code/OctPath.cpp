@@ -1654,7 +1654,7 @@ void W8PathingService::ReduceWaypointCosts(unsigned int waypoint, float amount)
    the eight-value range wrap once; values still outside it leave the cell
    untouched. The jump-table order is north through north-west. */
 // FUNCTION: WIZ8 0x004622d0
-void __stdcall StepPathCell(int* x, int* z, int direction)
+void StepPathCell(int* x, int* z, int direction)
 {
     if (direction < 0) {
         direction += 8;

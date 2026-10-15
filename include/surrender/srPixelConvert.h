@@ -79,10 +79,10 @@ public:
         srPalette* palette;
         const PixelFormat* format;
     };
-    typedef void(__cdecl* ConversionFunc)(const ConversionInfo& info);
+    typedef void (*ConversionFunc)(const ConversionInfo& info);
 
     static e_surfaceType mapPixelFormat(const PixelFormat& format);
-    static SR_DLL_IMPORT PixelFormat pixelFormat(e_surfaceType type);
+    static PixelFormat pixelFormat(e_surfaceType type);
     struct ConversionFunctions {
         ConversionFunc write = nullptr;
         ConversionFunc read = nullptr;
@@ -92,4 +92,4 @@ public:
 
 /* Builds the conversion lookup tables (channel expansion/reduction ramps,
    dither cube, channel weights, decode/grayscale palettes) at library init. */
-void __cdecl initPixelTables(void);
+void initPixelTables(void);

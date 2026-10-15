@@ -176,33 +176,31 @@ public:
         static void setupLUT(LUT& lut, const srARGB& color);
     };
 
-    static SR_DLL_IMPORT const char* sGetClassName();
+    static const char* sGetClassName();
 
-    SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
+    srPalette(srARGB* colors = 0, w8_long color_count = 1);
 
-    SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
+    srPalette& operator=(const srPalette& other);
 
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
+    virtual void dump(std::ostream& stream) override;
 
-    SR_DLL_IMPORT srARGB getColor(w8_long index) const;
-    SR_DLL_IMPORT const srARGB* getPaletteDataPtr();
-    SR_DLL_IMPORT w8_long getPaletteSize() const;
-    SR_DLL_IMPORT int matchPalette(const srARGB* const colors, w8_long color_count) const;
-    SR_DLL_IMPORT unsigned char quantize(const srARGB& color);
-    SR_DLL_IMPORT void quantize(unsigned char* const indices, const srARGB* const colors,
-                                w8_long color_count);
-    SR_DLL_IMPORT void releaseQuantizer();
-    SR_DLL_IMPORT void setColor(w8_long index, const srARGB& color);
-    SR_DLL_IMPORT void setColors(w8_long destination_index, const srARGB* const colors,
-                                 w8_long color_count);
-    SR_DLL_IMPORT void update();
+    srARGB getColor(w8_long index) const;
+    const srARGB* getPaletteDataPtr();
+    w8_long getPaletteSize() const;
+    int matchPalette(const srARGB* const colors, w8_long color_count) const;
+    unsigned char quantize(const srARGB& color);
+    void quantize(unsigned char* const indices, const srARGB* const colors, w8_long color_count);
+    void releaseQuantizer();
+    void setColor(w8_long index, const srARGB& color);
+    void setColors(w8_long destination_index, const srARGB* const colors, w8_long color_count);
+    void update();
 
 public:
     // FUNCTION: SURRENDER 0x10004610
-    virtual SR_DLL_IMPORT ~srPalette() override = default;
+    virtual ~srPalette() override = default;
 
 private:
-    SR_DLL_IMPORT void updateQuantizer();
+    void updateQuantizer();
 
     w8_ulong flags;
     std::vector<srARGB> colors;

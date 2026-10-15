@@ -288,15 +288,15 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
                  "support. We apologize for this inconvenience.\n\n");
     char* details = text + strlen(text);
     if (message != 0 && *message != '\0') {
-        _snprintf(details, 0x6d3,
-                  "Debug assertion in module %s line %d failed:\n\n"
-                  "Expression [ %s ] evaluates to false.\n\n%s\n",
-                  file, line, expression, message);
+        std::snprintf(details, 0x6d3,
+                      "Debug assertion in module %s line %d failed:\n\n"
+                      "Expression [ %s ] evaluates to false.\n\n%s\n",
+                      file, line, expression, message);
     } else {
-        _snprintf(details, 0x6d3,
-                  "Debug assertion in module %s line %d failed:\n\n"
-                  "Expression [ %s ] evaluates to false.\n",
-                  file, line, expression);
+        std::snprintf(details, 0x6d3,
+                      "Debug assertion in module %s line %d failed:\n\n"
+                      "Expression [ %s ] evaluates to false.\n",
+                      file, line, expression);
     }
     g_pending_screen_state.id = W8_SCREEN_NONE;
     ShutdownWithErrorBox(text);
@@ -700,7 +700,7 @@ void UpdateRenderElapsedTime(void);
 /* Saturate the three components of a renderer colour in place and return it.
    The reviewed body performs these three scalar saturations in order. */
 // FUNCTION: WIZ8 0x004299b0
-srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
+srVector3T<float>* SaturateColor(srVector3T<float>* color)
 {
     if (color->x <= 0.0f)
         color->x = 0.0f;
@@ -2130,8 +2130,7 @@ const double g_double_three_quarters = 0.75;
 /* Pack normalized alpha/red/green/blue into the surface's high-to-low
    bytes, using the current x87 rounding mode. */
 // FUNCTION: WIZ8 0x00429700
-void __fastcall PackColourBytes(unsigned char* colour, double alpha, double red, double green,
-                                double blue)
+void PackColourBytes(unsigned char* colour, double alpha, double red, double green, double blue)
 {
     colour[3] = static_cast<unsigned char>(srFloatToInt(alpha * g_color_byte_scale));
     colour[2] = static_cast<unsigned char>(srFloatToInt(red * g_color_byte_scale));

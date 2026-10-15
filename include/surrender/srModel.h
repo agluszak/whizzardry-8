@@ -13,7 +13,7 @@ class srGERD;
 
 // VTABLE: SURRENDER 0x10076D08 srModel
 // class srModel
-class SR_DLL_IMPORT srModel : public srClassSupport<srModel, srClass, 0x2000> {
+class srModel : public srClassSupport<srModel, srClass, 0x2000> {
 public:
     srModel();
 
