@@ -11,7 +11,6 @@
    original relative order: W8GrObject is
    W8GrCycle's first base and W8Navigator its second. */
 
-#include <memory>
 #include <vector>
 
 #include "compat/compiler.h"
