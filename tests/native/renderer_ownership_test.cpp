@@ -36,7 +36,6 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srStatisticsManager.h"
-#include "surrender/srTextureFile.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -1055,7 +1054,7 @@ TEST_CASE("renderer_ownership_test")
     }
 }
 
-TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache policy")
+TEST_CASE("Counted mipmap chains copy adjacent levels and stop at missing destinations")
 {
     SurRenderTestFixture runtime;
     constexpr w8_ulong color = 0xff102030;
@@ -1063,13 +1062,6 @@ TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache po
         auto pixels = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, 8, 8);
         pixels->fill(color);
         return pixels;
-    };
-    struct PreparedFile : srTextureFile {
-        PreparedFile(std::unique_ptr<srColorSurfaceIFace> pixels, int cache)
-            : srTextureFile({}, cache)
-        {
-            surface = std::move(pixels);
-        }
     };
     srColorSurface first(srPixelConvert::SURFACE_BGRA32, 4, 4);
     srColorSurface second(srPixelConvert::SURFACE_BGRA32, 2, 2);
@@ -1082,24 +1074,11 @@ TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache po
     REQUIRE(second.getPixel(1, 1) == color);
     REQUIRE(third.getPixel(0, 0) == color);
 
-    PreparedFile uncached(source(), 0);
-    uncached.getMipmapData({3, {}});
-    REQUIRE(uncached.isSurfaceLoaded());
-    uncached.getMipmapData(request);
-    REQUIRE_FALSE(uncached.isSurfaceLoaded());
-    PreparedFile cached(source(), 1);
-    cached.getMipmapData(request);
-    REQUIRE(cached.isSurfaceLoaded());
-
     third.fill(0xffabcdef);
     destinations[1] = nullptr;
-    cached.getMipmapData(request);
+    map.getMipmapData(request);
     REQUIRE(first.getPixel(0, 0) == color);
     REQUIRE(third.getPixel(0, 0) == 0xffabcdef);
-    destinations[0] = nullptr;
-    PreparedFile missing_first(source(), 0);
-    missing_first.getMipmapData(request);
-    REQUIRE(missing_first.isSurfaceLoaded());
 }
 
 TEST_CASE("Picking honors counted selections, direct indices, nearest depth and atomic validation")

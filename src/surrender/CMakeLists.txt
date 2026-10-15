@@ -29,7 +29,6 @@ set(SURRENDER_SOURCES
     pixel_convert.cpp
     renderer.cpp
     texture.cpp
-    texture_file.cpp
     texture_map.cpp
     statistics.cpp
     triangulator.cpp
