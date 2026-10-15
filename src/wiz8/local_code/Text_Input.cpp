@@ -15,7 +15,6 @@
 #include <SDL3/SDL_surface.h>
 
 #include "Font.h"
-#include "Types.h"
 #include "compat/native.h"
 #include "himage.h"
 #include "image.h"
