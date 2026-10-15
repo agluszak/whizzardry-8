@@ -5,7 +5,7 @@
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_input.h"
 
@@ -20,7 +20,7 @@
 void W8ListBoxDialog::OnTextAreaClick()
 {
     const SDL_Point cursor = UiPointerPosition();
-    const int height = g_dialog_interface_font->height();
+    const int height = g_wiz_dialog_font.height();
     if (height == 0) return;
     const int line = (cursor.y - m_area_button.Bounds().y) / height + m_first_visible_line;
     if (line == m_selected_line) {
@@ -46,7 +46,7 @@ void W8ListBoxDialog::OnDown()
 void W8ListBoxDialog::OnOk()
 {
     m_keep_open = false;
-    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005cd130
@@ -54,7 +54,7 @@ void W8ListBoxDialog::OnCancel()
 {
     m_keep_open = false;
     SetCurrentLine(-1);
-    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005cd1e0

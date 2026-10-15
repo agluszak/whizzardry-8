@@ -15,8 +15,6 @@ public:
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(bool)> on_complete;
     W8MessageDialogBase();
-    virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw(SDL_Surface& target) override;
 
     virtual bool ProcessInput() override;
@@ -38,6 +36,9 @@ public:
        Please Wait screen's frame handler, which is what puts them here. */
     bool accepted; /* cleared; a derived close passes it on */
     bool is_open;  /* set, and gates the close path */
+
+private:
+    void Configure();
 
 protected:
     // FUNCTION: WIZ8 0x005d32c0 (confirm), 0x005d3370 (cancel)

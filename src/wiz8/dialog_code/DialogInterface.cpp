@@ -2,19 +2,9 @@
 
 #include <string_view>
 
-#include "Font.h"
 #include "dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-
-// GLOBAL: WIZ8 0x0064fde8
-Font* g_dialog_interface_font = nullptr;
-// GLOBAL: WIZ8 0x0069ca32
-bool g_dialog_font_enabled;
-// GLOBAL: WIZ8 0x0064fdec
-unsigned char g_dialog_font_foreground = 255;
-// GLOBAL: WIZ8 0x0064fded
-unsigned char g_dialog_font_background = 255;
 
 // FUNCTION: WIZ8 0x005cf280
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character)
@@ -36,15 +26,6 @@ W8MessageDialogBase* CreateMessageDialog()
 }
 
 // FUNCTION: WIZ8 0x005cf250
-void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
-                         unsigned char background)
-{
-    g_dialog_interface_font = &font;
-    g_dialog_font_enabled = enabled;
-    g_dialog_font_foreground = foreground;
-    g_dialog_font_background = background;
-}
-
 // FUNCTION: WIZ8 0x005CF4F0
 void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text)
 {

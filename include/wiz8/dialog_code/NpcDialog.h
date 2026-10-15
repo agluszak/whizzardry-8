@@ -34,11 +34,10 @@ public:
     virtual bool ProcessInput() override;
 
 private:
-    int CreateControls();
+    bool Configure();
     UiLayer m_input;
     SDL_Rect m_bounds{};
     ButtonAppearance m_background;
-    bool m_initialized = false;
     bool m_dirty = true;
     bool m_keep_open = true;
     std::function<void(W8NpcDialog&)> m_closed;

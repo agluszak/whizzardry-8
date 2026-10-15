@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 
 #include <cstring>
+#include <memory>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_surface.h>
@@ -35,24 +36,15 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0), m_taken(0),
+    : m_voice_started(0), m_quote_text(nullptr), m_numeric_input(0), m_remaining(0), m_taken(0),
       m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
       m_portrait_clock_started(0)
 {
     SetExtent(0x171, 0x60);
     SetBackground("Data\\Dialogs\\popup_quote.sti", 0);
-}
+    SetOrigin(0x87, 0xc0);
+    CreateQuoteText();
 
-// FUNCTION: WIZ8 0x005e0410
-W8CharacterSummaryDialog::~W8CharacterSummaryDialog()
-{
-    DestroyControls();
-}
-
-// FUNCTION: WIZ8 0x005e04e0
-int W8CharacterSummaryDialog::CreateControls()
-{
-    W8DialogBase::CreateControls();
     m_field_070 = 0;
     m_use_original_character = 0;
     m_saved_character = *g_status.buffers.Char;
@@ -63,19 +55,11 @@ int W8CharacterSummaryDialog::CreateControls()
     ResetGameplaySlot(0);
     g_status.buffers.Char[0].fInParty = true;
     g_status.buffers.XChar[0].npc_index = -1;
-    if (!CreateQuoteText()) {
-        m_error = 7;
-        return 7;
-    }
-    return 0;
 }
 
-// FUNCTION: WIZ8 0x005e0590
-void W8CharacterSummaryDialog::DestroyControls()
+// FUNCTION: WIZ8 0x005e0410
+W8CharacterSummaryDialog::~W8CharacterSummaryDialog()
 {
-    W8DialogBase::DestroyControls();
-    delete m_quote_text;
-    m_quote_text = 0;
     gXStatus.character_event_queue->CompleteAllActiveEvents();
     if (!m_use_original_character) {
         *g_status.buffers.Char = m_saved_character;
@@ -85,37 +69,22 @@ void W8CharacterSummaryDialog::DestroyControls()
 }
 
 // FUNCTION: WIZ8 0x005e0600
-bool W8CharacterSummaryDialog::CreateQuoteText()
+void W8CharacterSummaryDialog::CreateQuoteText()
 {
-    W8TextBuffer** buffers[] = {&m_quote_text};
-
-    for (int index = 0; index < 1; ++index) {
-        W8ControlsRect absolute = {g_character_summary_quote_bounds[index].left + m_x,
-                                   g_character_summary_quote_bounds[index].top + m_y,
-                                   g_character_summary_quote_bounds[index].right + m_x,
-                                   g_character_summary_quote_bounds[index].bottom + m_y};
-        W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
-        W8CharacterEvent event(character, g_effect0, 0, g_character_event_no_flags,
-                               g_character_event_full_volume);
-        *buffers[index] =
-            new W8TextBuffer(&absolute, event.GetQuoteText(), g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        if (*buffers[index] == 0) {
-            delete m_quote_text;
-            m_quote_text = 0;
-            return false;
-        }
-    }
-    return true;
+    const auto& offset = g_character_summary_quote_bounds[0];
+    W8ControlsRect bounds{offset.left + m_x, offset.top + m_y, offset.right + m_x,
+                          offset.bottom + m_y};
+    W8CharacterEvent event(m_character, g_effect0, 0, g_character_event_no_flags,
+                           g_character_event_full_volume);
+    m_quote_text =
+        std::make_unique<W8TextBuffer>(&bounds, event.GetQuoteText(), g_wiz_text_font_secondary,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 }
 
 // FUNCTION: WIZ8 0x005e07b0
 void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 {
-    if (m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+    if (m_dirty) {
         m_quote_text->SetGeometryDirty();
         W8DialogBase::Draw(target);
     }

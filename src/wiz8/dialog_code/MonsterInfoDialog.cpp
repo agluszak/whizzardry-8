@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -59,33 +60,18 @@ W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(locati
     SetOrigin(0x9c, 0x31);
     SetExtent(0x14a, 0x10e);
     SetBackground(g_info_dialog_background, 0);
-}
-
-// FUNCTION: WIZ8 0x005d5f90
-int W8MonsterInfoDialog::CreateControls()
-{
-    W8DialogBase::CreateControls();
     if (!PopulateText()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
 
-    W8DialogScrollBar::Resources resources;
-    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
-    resources.track_path = g_info_dialog_background;
-    resources.track_frame = 1;
-    resources.on_scroll = [this](int first_visible_entry) {
-        ScrollTextArea(m_text_area, first_visible_entry);
-    };
-    m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x26, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb9);
 
     CreateCloseButton(m_button, 0x11a, 0xe6);
-    return 0;
 }
 
+// FUNCTION: WIZ8 0x005d5f90
 /* GppStringList indices naming the seven classes the monster's
    name line falls into by how far its level sits above the party average. */
 // GLOBAL: WIZ8 0x0064f614
@@ -468,10 +454,7 @@ void W8MonsterInfoDialog::OnMouseWheel(int delta)
 // FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw(SDL_Surface& target)
 {
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+    if (m_dirty) {
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;

@@ -1672,11 +1672,13 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     std::vector<int> positions;
     {
         UiLayer input;
-        W8DialogScrollBar bar(input);
         const W8DialogScrollBar::Resources resources{
             "arrows.sti", "track.sti", 0,
             [&positions](int position) { positions.push_back(position); }};
-        REQUIRE(bar.CreateControls(&resources));
+        const auto targets = LiveUiTargetCount();
+        REQUIRE_THROWS(W8DialogScrollBar(input, {"arrows.sti", "missing.sti", 0, {}}));
+        REQUIRE(LiveUiTargetCount() == targets);
+        W8DialogScrollBar bar(input, resources);
         bar.SetLayout(100, 20, 20, 5, 10, 30);
         auto auxiliary = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_RGB565);
         REQUIRE(auxiliary);
@@ -1716,8 +1718,9 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(positions.back() == 6);
     }
 
-    Font font{};
-    auto* old_font = std::exchange(g_dialog_interface_font, &font);
+    auto old_font = std::move(g_wiz_dialog_font);
+    auto& font = g_wiz_dialog_font;
+    REQUIRE(font.load("font.sti"));
     class MessageDialog final : public W8MessageDialogBase {
     public:
         using W8MessageDialogBase::m_cancel_button;
@@ -1729,7 +1732,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         dialog.SetExtent(100, 80);
         dialog.SetBackground("background.sti", 0);
         dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
-        REQUIRE(dialog.CreateControls() == 0);
         auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
         {
             // A dialog opened on top owns the modal scope: the one beneath
@@ -1760,7 +1762,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
     {
         W8TriggerItemPickerDialog picker;
-        REQUIRE(picker.CreateControls() == 0);
         for (int row = 0; row < 4; ++row) {
             auto& button = *picker.m_buttons[5 + row];
             button.SetPosition(20, 20);
@@ -1776,7 +1777,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         list.SetExtent(100, 80);
         list.SetBackground("background.sti", 0);
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
-        REQUIRE(list.CreateControls() == 0);
+        list.Configure();
         list.Draw(GetFrameBufferSurface());
         list.InputLayer().setModal(true);
         GetInputState().mouse.y = 400;
@@ -1807,7 +1808,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         short_list.SetExtent(100, 80);
         short_list.SetBackground("background.sti", 0);
         short_list.m_lines.emplace_back("X");
-        REQUIRE(short_list.CreateControls() == 0);
+        short_list.Configure();
         short_list.Draw(GetFrameBufferSurface());
         REQUIRE_FALSE(short_list.m_scrollable);
         for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
@@ -1816,7 +1817,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             REQUIRE_FALSE(button->m_dirty);
         }
     }
-    g_dialog_interface_font = old_font;
+    g_wiz_dialog_font = std::move(old_font);
     g_image_assets.clear();
 }
 

@@ -11,7 +11,6 @@
 class W8MonsterInfoDialog : public W8DialogBase {
 public:
     W8MonsterInfoDialog(int location_id);
-    virtual int CreateControls() override;
     virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
@@ -20,7 +19,10 @@ private:
     bool PopulateText();
 
     int m_location_id;
-    W8DialogScrollBar m_scroll_bar{InputLayer()};
+    W8DialogScrollBar m_scroll_bar{InputLayer(),
+                                   {"Data\\Main Interface\\main_scroll.sti",
+                                    "Data\\Dialogs\\popup_monsterinfo.sti", 1,
+                                    [this](int first) { ScrollTextArea(m_text_area, first); }}};
     W8ButtonWidget m_button{InputLayer()};
     W8DialogTextArea m_text_area;
 };

@@ -53,6 +53,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/text_input.h"
@@ -1347,7 +1348,7 @@ void PartySelectionScreenFrame(void)
         controller->m_dialog->ProcessInput();
         if (!controller->m_dialog->is_open) {
             bool result = controller->m_dialog->accepted;
-            controller->m_dialog.reset();
+            RetireModal(std::move(controller->m_dialog), false);
             controller->InvalidatePartySelectionComposition();
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);
         }

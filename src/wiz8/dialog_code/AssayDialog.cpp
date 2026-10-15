@@ -1,10 +1,13 @@
 #include "wiz8/dialog_code/AssayDialog.h"
 
 #include <cstring>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
@@ -95,79 +98,35 @@ static std::string g_assay_entry_text;
 enum { NUM_RPC_RACES = 5 };
 
 // FUNCTION: WIZ8 0x005d6fb0
-W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
+W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_Point origin)
 {
+    SetOrigin(origin.x, origin.y);
     for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index)
         m_buttons.emplace_back(InputLayer());
-    int index;
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
-    for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
-        m_text_buffers[index] = 0;
-    }
     m_item_portrait_dirty = false;
     m_character = character;
     m_item = item;
+    m_item_portrait_dirty = true;
+    PopulateText();
+    m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
+                           m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
+                           g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
+    if (!PopulateRequirements()) throw std::runtime_error("Cannot configure assay controls");
+    CreateTextBuffers();
+    m_buttons[0].SetVisible(gXStatus.assay_professions_tab);
+    SetProfessionIconsVisible(gXStatus.assay_professions_tab);
+    m_buttons[1].SetVisible(!gXStatus.assay_professions_tab);
+    SetRaceIconsVisible(!gXStatus.assay_professions_tab);
+    m_buttons[gXStatus.assay_professions_tab ? 2 : 3].SetPressed(true);
 }
 
 // FUNCTION: WIZ8 0x005d7090
-W8AssayDialog::~W8AssayDialog()
-{
-    DestroyControls();
-}
-
-// FUNCTION: WIZ8 0x005d7160
-int W8AssayDialog::CreateControls()
-{
-    W8DialogBase::CreateControls();
-    m_item_portrait_dirty = true;
-    if (!PopulateText()) {
-        m_error = 7;
-        return 7;
-    }
-    // GLOBAL: WIZ8 0x0064f908
-    const W8DialogScrollBar::Resources scroll_resources{
-        "Data\\Main Interface\\main_scroll.sti", "Data\\Dialogs\\popup_iteminfo.sti", 4,
-        [this](int first_visible_entry) {
-            m_text_area.SetFirstVisibleLine(first_visible_entry);
-            m_buttons[4].m_dirty = true;
-            m_text_area.m_dirty = true;
-        }};
-    if (m_scroll_bar.CreateControls(&scroll_resources)) {
-        m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
-                               m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
-                               g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
-        if (!PopulateRequirements()) {
-            m_error = 7;
-            return 7;
-        }
-        if (CreateTextBuffers()) {
-            m_buttons[0].SetVisible(gXStatus.assay_professions_tab);
-            SetProfessionIconsVisible(gXStatus.assay_professions_tab);
-            m_buttons[1].SetVisible(!gXStatus.assay_professions_tab);
-            SetRaceIconsVisible(!gXStatus.assay_professions_tab);
-            if (gXStatus.assay_professions_tab) {
-                m_buttons[2].SetPressed(true);
-                return 0;
-            }
-            m_buttons[3].SetPressed(true);
-            return 0;
-        }
-        for (auto& button : m_buttons) button.Reset();
-    }
-    m_error = 7;
-    return 7;
-}
+W8AssayDialog::~W8AssayDialog() = default;
 
 // FUNCTION: WIZ8 0x005d72b0
-void W8AssayDialog::DestroyControls()
-{
-    W8DialogBase::DestroyControls();
-    for (auto& button : m_buttons) button.Reset();
-    DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
-}
-
 static void AppendAssayEntryText(std::string_view text)
 {
     g_assay_entry_text += text;
@@ -193,7 +152,7 @@ static int AppendAssayRequirements(const W8ItemRequirement* requirement, int cou
 }
 
 // FUNCTION: WIZ8 0x005d7310
-bool W8AssayDialog::PopulateText()
+void W8AssayDialog::PopulateText()
 {
     W8ControlsRect bounds;
     const W8ItemDatabaseRecord* record;
@@ -534,7 +493,6 @@ bool W8AssayDialog::PopulateText()
         m_text_area.AddEntry(g_localized_strings[0x90f], description, 10, 0xf, 0);
     }
     m_text_area.m_dirty = true;
-    return true;
 }
 
 /* The SurRender headers pull <iostream>, so retail emitted the VC6 stream
@@ -547,10 +505,7 @@ void W8AssayDialog::Draw(SDL_Surface& target)
 {
     int index;
 
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+    if (m_dirty) {
         m_item_portrait_dirty = true;
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
@@ -794,6 +749,7 @@ bool W8AssayDialog::PopulateRequirements()
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
+        if (!m_buttons[index].IsConfigured()) return false;
         m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
                                      m_y + g_assay_button_offsets[index].y);
     }
@@ -801,7 +757,7 @@ bool W8AssayDialog::PopulateRequirements()
 }
 
 // FUNCTION: WIZ8 0x005d8fb0
-bool W8AssayDialog::CreateTextBuffers()
+void W8AssayDialog::CreateTextBuffers()
 {
     int index;
     W8ControlsRect bounds;
@@ -814,13 +770,9 @@ bool W8AssayDialog::CreateTextBuffers()
         bounds.top = m_y + g_assay_text_buffer_offsets[index].top;
         bounds.right = m_x + g_assay_text_buffer_offsets[index].right;
         bounds.bottom = m_y + g_assay_text_buffer_offsets[index].bottom;
-        m_text_buffers[index] = new W8TextBuffer(
+        m_text_buffers[index] = std::make_unique<W8TextBuffer>(
             &bounds, g_localized_strings[g_assay_text_buffer_string_ids[index]],
             g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        if (m_text_buffers[index] == 0) {
-            DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
-            return false;
-        }
     }
 
     m_text_buffers[0]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
@@ -838,7 +790,6 @@ bool W8AssayDialog::CreateTextBuffers()
         text = fmt::format("{:.1f}", GetItemUnitWeight(item) * g_item_weight_display_scale);
     }
     m_text_buffers[4]->SetText(text, g_wiz_text_font_secondary);
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005d9330

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -67,10 +68,11 @@ static int g_split_text_string_ids[14] = {
 static DesignRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 
 // FUNCTION: WIZ8 0x005DCED0
-W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count)
+W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count,
+                                     SDL_Point origin)
 {
+    SetOrigin(origin.x, origin.y);
     for (int index = 0; index < 10; ++index) m_buttons.emplace_back(InputLayer());
-    int index;
 
     SetExtent(0x142, 0xbd);
     if (mode == W8_ITEM_SPLIT_SELL || mode == W8_ITEM_SPLIT_BUY) {
@@ -79,9 +81,6 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
         SetBackground("Data\\Dialogs\\popup_splititem.sti", 1);
     }
     m_mode = mode;
-    for (index = 0; index < 14; ++index) {
-        m_texts[index] = 0;
-    }
     m_remaining = item->stack_count;
     m_stack_total = item->stack_count;
     if (count == -1) {
@@ -99,75 +98,18 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     split_result = W8_SPLIT_RESULT_PENDING;
     m_active_input = 0;
     m_first_draw = false;
-}
-
-// FUNCTION: WIZ8 0x005DD030
-W8SplitItemDialog::~W8SplitItemDialog()
-{
-    DestroyControls();
-}
-
-/* Shared cleanup in failure paths and DestroyControls. The helper name
-   is descriptive; its mode-dependent extent and delete order come from retail. */
-void W8SplitItemDialog::DestroyButtons()
-{
-    int count;
-    count = 0;
-    if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
-        count = 8;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
-        count = 10;
-    }
-    for (int index = 0; index < count; ++index) m_buttons[index].Reset();
-}
-
-/* Shared cleanup in failure paths and DestroyControls. The helper name
-   is descriptive; its mode-dependent extent and delete order come from retail. */
-void W8SplitItemDialog::DestroyTextBuffers()
-{
-    int count;
-    count = 0;
-    if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
-        count = 10;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
-        count = 14;
-    }
-    DestroyDialogTextBuffers(m_texts, count);
-}
-
-// FUNCTION: WIZ8 0x005DD130
-int W8SplitItemDialog::CreateControls()
-{
-    W8DialogBase::CreateControls();
     m_first_draw = true;
     split_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
-    if (!CreateTextBuffers()) {
-        DestroyButtons();
-        m_error = 7;
-        return 7;
-    }
-    if (!CreateNumericInput()) {
-        DestroyButtons();
-        DestroyTextBuffers();
-        m_error = 7;
-        return 7;
-    }
+    CreateTextBuffers();
+    CreateNumericInput();
     UpdateTotals();
-    return 0;
 }
 
-// FUNCTION: WIZ8 0x005DD3C0
-void W8SplitItemDialog::DestroyControls()
-{
-    W8DialogBase::DestroyControls();
-    DestroyButtons();
-    DestroyTextBuffers();
-    m_count_input.reset();
-}
+// FUNCTION: WIZ8 0x005DD030
+W8SplitItemDialog::~W8SplitItemDialog() = default;
 
 // FUNCTION: WIZ8 0x005DD480
 bool W8SplitItemDialog::CreateButtons()
@@ -231,7 +173,7 @@ bool W8SplitItemDialog::CreateButtons()
 }
 
 // FUNCTION: WIZ8 0x005DD750
-bool W8SplitItemDialog::CreateTextBuffers()
+void W8SplitItemDialog::CreateTextBuffers()
 {
     int count;
     int index;
@@ -249,13 +191,9 @@ bool W8SplitItemDialog::CreateTextBuffers()
         bounds.top = g_split_text_bounds[index].top + m_y;
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
-        m_texts[index] = new W8TextBuffer(
+        m_texts[index] = std::make_unique<W8TextBuffer>(
             &bounds, g_localized_strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        if (m_texts[index] == 0) {
-            DestroyTextBuffers();
-            return false;
-        }
     }
     m_texts[2]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
     m_texts[7]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
@@ -278,11 +216,10 @@ bool W8SplitItemDialog::CreateTextBuffers()
             "{} ({})", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
             g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
         g_wiz_text_font_secondary);
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005DDA60
-bool W8SplitItemDialog::CreateNumericInput()
+void W8SplitItemDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
 
@@ -294,7 +231,6 @@ bool W8SplitItemDialog::CreateNumericInput()
     m_count_input = std::make_unique<W8DialogNumericInput>(
         0, &bounds, split_count, g_wiz_text_font_secondary, this, &m_buttons[3]);
     m_count_input->m_maximum = m_stack_total;
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005DDB60
@@ -316,10 +252,7 @@ void W8SplitItemDialog::Draw(SDL_Surface& target)
     } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         text_count = 14;
     }
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+    if (m_dirty) {
         m_first_draw = true;
         for (index = 0; index < button_count; ++index) {
             m_buttons[index].m_dirty = true;
@@ -522,9 +455,6 @@ bool W8SplitItemDialog::ProcessInput()
 
 /* Move `count` items between the split and the remaining stack; a negative
    count moves them back. Both sides stay within the stack. */
-// FUNCTION: WIZ8 0x005DE350
-// FUNCTION: WIZ8 0x005DE4E0
-// FUNCTION: WIZ8 0x005DE670
 // FUNCTION: WIZ8 0x005DE810
 void W8SplitItemDialog::StepSplit(int count)
 {
@@ -533,7 +463,6 @@ void W8SplitItemDialog::StepSplit(int count)
     UpdateTotals();
 }
 
-// FUNCTION: WIZ8 0x005DE9B0
 // FUNCTION: WIZ8 0x005DE9D0
 void W8SplitItemDialog::Finish(W8SplitDialogResult result)
 {

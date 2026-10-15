@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
@@ -253,7 +254,7 @@ void MainMenuScreenFrame()
     if (main_menu_dialog != nullptr) {
         main_menu_dialog->Draw(GetFrameBufferSurface());
         if (!main_menu_dialog->ProcessInput()) {
-            main_menu_dialog.reset();
+            RetireModal(std::move(main_menu_dialog), false);
             g_main_menu_redraw = true;
             CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
             DrawMainMenuItems();
@@ -330,7 +331,7 @@ void MainMenuScreenFrame()
 
 unsigned char MainMenuScreenLeave(int)
 {
-    main_menu_dialog.reset();
+    RetireModal(std::move(main_menu_dialog), false);
     main_menu_input.reset();
     ReleaseCatalogArtwork();
     return 1;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 #include "compat/compiler.h"
 #include "input.h"
@@ -19,8 +20,6 @@ class W8CharacterSummaryDialog : public W8DialogBase {
 public:
     explicit W8CharacterSummaryDialog(W8Character* character);
     virtual ~W8CharacterSummaryDialog() override;
-    virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw(SDL_Surface& target) override;
 
     virtual bool ProcessInput() override;
@@ -29,11 +28,11 @@ public:
     void DrawPortraitAnimationFrame(SDL_Surface& target);
 
 private:
-    bool CreateQuoteText();
+    void CreateQuoteText();
     bool HandleInputEvent(const InputEvent* input);
 
     bool m_voice_started;
-    W8TextBuffer* m_quote_text;
+    std::unique_ptr<W8TextBuffer> m_quote_text;
     W8DialogNumericInput* m_numeric_input;
     int m_remaining;
     int m_taken;

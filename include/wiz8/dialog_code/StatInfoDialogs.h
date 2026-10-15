@@ -13,7 +13,6 @@
 class W8StatInfoDialogBase : public W8DialogBase {
 public:
     W8StatInfoDialogBase();
-    virtual int CreateControls() override;
     virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
@@ -21,7 +20,11 @@ public:
     virtual bool PopulateText();
 
 protected:
-    W8DialogScrollBar scrollbar{InputLayer()};
+    void Configure();
+    W8DialogScrollBar scrollbar{InputLayer(),
+                                {"Data\\Main Interface\\main_scroll.sti",
+                                 "Data\\Dialogs\\popup_monsterinfo.sti", 1,
+                                 [this](int first) { ScrollTextArea(textarea, first); }}};
     W8ButtonWidget button{InputLayer()};
     W8DialogTextArea textarea;
     unsigned int m_title_id;  /* g_localized_strings index, DrawTitle */

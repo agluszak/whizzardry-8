@@ -1,6 +1,8 @@
 #include "wiz8/dialog_code/DialogScrollBar.h"
 
 #include <algorithm>
+#include <stdexcept>
+#include <utility>
 
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -20,50 +22,42 @@
    stListBox.cpp. */
 
 // FUNCTION: WIZ8 0x005e0ca0
-bool W8DialogScrollBar::CreateControls(const Resources* resources)
+W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer, Resources resources)
+    : m_up_button(layer), m_down_button(layer), m_thumb_button(layer), m_track_button(layer)
 {
-    if (m_initialized) return true;
     const bool configured =
         // FUNCTION: WIZ8 0x005e1280
-        m_up_button.Configure(ButtonGraphics::Load(resources->arrows_path, 3, 0, 1, 2, 2),
+        m_up_button.Configure(ButtonGraphics::Load(resources.arrows_path, 3, 0, 1, 2, 2),
                               {.on_click = [this](W8ButtonWidget*) { ScrollUp(); },
                                .priority = UI_PRIORITY_HIGHEST - 1}) &&
         // FUNCTION: WIZ8 0x005e1320
-        m_down_button.Configure(ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10),
+        m_down_button.Configure(ButtonGraphics::Load(resources.arrows_path, 11, 8, 9, 10, 10),
                                 {.on_click = [this](W8ButtonWidget*) { ScrollDown(); },
                                  .priority = UI_PRIORITY_HIGHEST - 1}) &&
-        m_thumb_button.Configure(ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6),
+        m_thumb_button.Configure(ButtonGraphics::Load(resources.arrows_path, 7, 4, 5, 6, 6),
                                  {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         // FUNCTION: WIZ8 0x005e13d0
         m_track_button.Configure(
-            ButtonGraphics::Load(resources->track_path, BUTTON_NO_IMAGE, resources->track_frame,
-                                 BUTTON_NO_IMAGE, resources->track_frame, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load(resources.track_path, BUTTON_NO_IMAGE, resources.track_frame,
+                                 BUTTON_NO_IMAGE, resources.track_frame, BUTTON_NO_IMAGE),
             {.on_click =
                  [this](W8ButtonWidget* button) { ScrollToMouse(button->GetMousePosition().y); },
              .priority = UI_PRIORITY_HIGHEST - 2});
-    if (!configured) {
-        m_up_button.Reset();
-        m_down_button.Reset();
-        m_thumb_button.Reset();
-        m_track_button.Reset();
-        return false;
-    }
+    if (!configured) throw std::runtime_error("Cannot load dialog scrollbar artwork");
     m_up_button.Policy().activation = m_down_button.Policy().activation =
         m_track_button.Policy().activation = ButtonActivation::Press;
     m_up_button.Policy().repeat = m_down_button.Policy().repeat = m_track_button.Policy().repeat =
         true;
-    m_on_scroll = resources->on_scroll;
-    m_initialized = true;
+    m_on_scroll = std::move(resources.on_scroll);
     m_visible = false;
     m_dirty = true;
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005e0eb0
 void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visible_entry,
                                   int entry_height, int view_height)
 {
-    if (m_initialized) {
+    {
         int track_width = m_track_button.Bounds().w;
         int arrow_width = m_up_button.Bounds().w;
         m_track_button.SetPosition(static_cast<short>(x), static_cast<short>(y));
@@ -93,7 +87,7 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
 // FUNCTION: WIZ8 0x005e1000
 void W8DialogScrollBar::UpdateThumb()
 {
-    if (m_initialized && m_entry_count != -1 && m_first_visible_entry != -1) {
+    {
         int x = m_track_bounds.left +
                 (m_track_bounds.right - m_track_bounds.left - m_thumb_button.Bounds().w) / 2;
         int offset = 0;
@@ -112,7 +106,7 @@ void W8DialogScrollBar::UpdateThumb()
 void W8DialogScrollBar::Draw(SDL_Surface& target, bool force)
 {
     const bool framebuffer = &target == &GetFrameBufferSurface();
-    if (!m_initialized || !m_visible) {
+    if (!m_visible) {
         return;
     }
     if (framebuffer && !force && !m_dirty && !m_up_button.m_dirty && !m_down_button.m_dirty &&
@@ -186,18 +180,3 @@ void W8DialogScrollBar::ScrollToMouse(int mouse_y)
 }
 
 // FUNCTION: WIZ8 0x005e0c40
-W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer)
-    : m_up_button(layer), m_down_button(layer), m_thumb_button(layer), m_track_button(layer)
-{
-    m_initialized = false;
-    m_visible = false;
-    m_entry_count = 1;
-    m_first_visible_entry = 0;
-    m_entry_height = -1;
-    m_view_height = -1;
-    m_dirty = false;
-    m_track_bounds.left = 0;
-    m_track_bounds.top = 0;
-    m_track_bounds.right = 0;
-    m_track_bounds.bottom = 0;
-}
