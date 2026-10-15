@@ -70,7 +70,7 @@ int W8ListBoxDialog::GetVisibleLineCount()
         return 0;
     }
     return m_area_button.Bounds().h /
-           static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
+           static_cast<int>(static_cast<unsigned int>(g_wiz_dialog_font.height()));
 }
 
 /* Both selection directions clamp the requested top row independently of
@@ -170,8 +170,7 @@ void W8ListBoxDialog::Configure()
                                          "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path,
                                          static_cast<short>(m_background_flags), 0, 0);
     if (!edge_inlay) throw std::runtime_error("Cannot load list inlay");
-    m_heading_bounds = {m_x + 9, m_y + 9, m_width - 18,
-                        g_dialog_interface_font->height() * 150 / 100};
+    m_heading_bounds = {m_x + 9, m_y + 9, m_width - 18, g_wiz_dialog_font.height() * 150 / 100};
     area_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {},
                                          "Data\\Dialogs\\DialogInlay.STI", {},
                                          "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
@@ -181,9 +180,9 @@ void W8ListBoxDialog::Configure()
     m_area_button.Configure(
         ButtonAppearance{.generic_image = area_inlay ? area_inlay : DefaultGenericButtonImage(),
                          .string = std::string({}),
-                         .usFont = &(*g_dialog_interface_font),
-                         .sForeColor = g_dialog_font_foreground,
-                         .sShadowColor = g_dialog_font_background},
+                         .usFont = &g_wiz_dialog_font,
+                         .sForeColor = 255,
+                         .sShadowColor = 0},
         {m_heading_bounds.x, m_heading_bounds.y + m_heading_bounds.h + 4, m_heading_bounds.w, 0x14},
         {.on_click = [this](W8ButtonWidget*) { OnTextAreaClick(); },
          .policy = {.activation = ButtonActivation::Press},
@@ -220,9 +219,9 @@ void W8ListBoxDialog::Configure()
                 ButtonAppearance{.generic_image = third_btn_inlay ? third_btn_inlay
                                                                   : DefaultGenericButtonImage(),
                                  .string = std::string({}),
-                                 .usFont = &(*g_dialog_interface_font),
-                                 .sForeColor = g_dialog_font_foreground,
-                                 .sShadowColor = g_dialog_font_background},
+                                 .usFont = &g_wiz_dialog_font,
+                                 .sForeColor = 255,
+                                 .sShadowColor = 0},
                 {0, 0, 1, 1},
                 {.on_click = [this](W8ButtonWidget*) { OnSliderTrackClick(); },
                  .policy = {.activation = ButtonActivation::Press, .repeat = true},
@@ -261,10 +260,10 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     DrawButtonAppearance(target,
                          {.generic_image = edge_inlay,
                           .string = m_text,
-                          .usFont = g_dialog_interface_font,
-                          .fMultiColor = g_dialog_font_enabled,
-                          .sForeColor = g_dialog_font_foreground,
-                          .sShadowColor = g_dialog_font_background},
+                          .usFont = &g_wiz_dialog_font,
+                          .fMultiColor = true,
+                          .sForeColor = 255,
+                          .sShadowColor = 0},
                          m_heading_bounds, {});
     DrawButtonAppearance(target, {.generic_image = edge_inlay}, m_footer_bounds, {});
     m_area_button.Draw(target);
@@ -285,13 +284,12 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     const int visible = std::min(GetVisibleLineCount(), int(m_lines.size()) - m_first_visible_line);
     for (int row = 0; row < visible; ++row) {
         const int line = m_first_visible_line + row;
-        const int y = rect.y + 2 + g_dialog_interface_font->height() * row;
+        const int y = rect.y + 2 + g_wiz_dialog_font.height() * row;
         if (line == m_selected_line) {
-            const SDL_Rect selection{rect.x + 3, y, rect.w - 6,
-                                     g_dialog_interface_font->height() - 2};
+            const SDL_Rect selection{rect.x + 3, y, rect.w - 6, g_wiz_dialog_font.height() - 2};
             SDL_FillSurfaceRect(&target, &selection, Get16BPPColor(m_fill_colour));
         }
-        DrawText(target, *g_dialog_interface_font, {rect.x + 3, y}, m_lines[line]);
+        DrawText(target, g_wiz_dialog_font, {rect.x + 3, y}, m_lines[line]);
     }
 }
 
@@ -301,7 +299,7 @@ void W8ListBoxDialog::UpdateLayout()
     int dy = m_heading_bounds.y + m_heading_bounds.h + 4 - m_y;
     int width = m_heading_bounds.w;
     int height = -6 - m_heading_bounds.y - m_heading_bounds.h + m_footer_bounds.y;
-    const int rows = height / g_dialog_interface_font->height();
+    const int rows = height / g_wiz_dialog_font.height();
     m_scrollable = static_cast<int>(m_lines.size()) > rows;
     if (m_scrollable) width -= 7 + m_up_button.Bounds().w;
     m_area_button.Resize(width, height);
