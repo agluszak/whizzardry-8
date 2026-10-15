@@ -447,6 +447,7 @@ unsigned char JournalScreenEnter(void)
 // FUNCTION: WIZ8 0x005be0b0
 unsigned char JournalScreenLeave(int)
 {
+    if (!g_journal_panel) return 1; // Already released when it was suspended.
     g_journal_panel.reset();
     g_journal_entries.clear();
     if (gXStatus.fCampMode) {

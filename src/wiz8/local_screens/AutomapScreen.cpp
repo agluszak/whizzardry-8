@@ -919,6 +919,7 @@ void RestoreAutomapWorldSettings(void)
 
 unsigned char AutomapScreenLeave(int)
 {
+    if (!g_automap_state) return 1; // Already released when it was suspended.
     SetNativeTextInputEnabled(false);
     RestoreAutomapWorldSettings();
     g_automap_state.reset();

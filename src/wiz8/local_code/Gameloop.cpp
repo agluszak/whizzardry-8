@@ -204,8 +204,6 @@ void GameLoop(void)
 // FUNCTION: WIZ8 0x004e34b0
 void GameloopExit(unsigned char release_screens)
 {
-    W8ScreenId state;
-
     // Complete voice events before leaving gameplay unloads its UI.
     if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();
 
@@ -220,35 +218,18 @@ void GameloopExit(unsigned char release_screens)
     if (!release_screens) {
         return;
     }
-    for (;;) {
-        if (g_current_screen_state.id != W8_SCREEN_NONE) {
-            g_previous_screen_id = g_current_screen_state.id;
-            g_screen_handlers[g_current_screen_state.id].leave(1);
-            g_current_screen_state.id = W8_SCREEN_NONE;
-        }
-        if (g_screen_return_stack.empty()) {
-            break;
-        }
-        g_pending_screen_state = g_screen_return_stack.back();
+    // Discard the current screen, then every suspended one without
+    // re-entering it: a full leave releases what a suspended screen retains.
+    if (g_current_screen_state.id != W8_SCREEN_NONE) {
+        g_screen_handlers[g_current_screen_state.id].leave(1);
+    }
+    while (!g_screen_return_stack.empty()) {
+        g_current_screen_state = g_screen_return_stack.back();
         g_screen_return_stack.pop_back();
-        if (g_pending_screen_state.id != W8_SCREEN_NONE) {
-            if (g_current_screen_state.id != W8_SCREEN_NONE) {
-                srAssertFail("gCurrentScreen.iScreenId == NO_SCREEN",
-                             "C:\\Projects\\Wizardry 8\\Local Code\\Gameloop.cpp", 0x276, 0);
-            }
-            state = g_pending_screen_state.id;
-            g_current_screen_state = g_pending_screen_state;
-            if (!EnterScreen(state)) {
-                g_current_screen_state.id = W8_SCREEN_NONE;
-            } else {
-                g_pending_screen_state.id = W8_SCREEN_NONE;
-#ifdef WIZ8_RUNTIME_TESTS
-                RuntimeObserve(RUNTIME_SCREEN_CHANGED, g_previous_screen_id, state, -1);
-                if (state == W8_SCREEN_MAIN_GAME) {
-                    RuntimeObserve(RUNTIME_MAIN_GAME_ENTERED, state, 0, 0);
-                }
-#endif
-            }
+        if (g_current_screen_state.id != W8_SCREEN_NONE) {
+            g_screen_handlers[g_current_screen_state.id].leave(1);
         }
     }
+    g_current_screen_state.id = W8_SCREEN_NONE;
+    g_pending_screen_state.id = W8_SCREEN_NONE;
 }

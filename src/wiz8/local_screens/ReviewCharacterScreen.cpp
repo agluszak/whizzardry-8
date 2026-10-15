@@ -1324,6 +1324,7 @@ void CampScreenFrame(void)
 
 unsigned char CampScreenLeave(int)
 {
+    if (!g_camp_screen) return 1; // Already released when it was suspended.
     DeactivateCampPage();
     g_smfnt_font.resetPalette();
     g_calligraphy_font.resetPalette();

@@ -1751,6 +1751,7 @@ void W8OptionsScreen::OnDialogClosed(bool accepted, int)
    display and region systems to their common screen boundary. */
 unsigned char OptionsScreenLeave(int)
 {
+    if (!g_options_screen) return 1; // Already released when it was suspended.
     g_options_values.applying = 1;
     g_options_values.TransferSettings();
     g_options_screen.reset();
