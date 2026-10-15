@@ -1,6 +1,5 @@
 #include "jpeg_validate.h"
 
-#include <jmorecfg.h>
 #include <jpeglib.h>
 #include <setjmp.h>
 #include <stdint.h>
