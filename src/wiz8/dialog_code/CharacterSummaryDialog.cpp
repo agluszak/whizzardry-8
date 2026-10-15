@@ -20,7 +20,9 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/mouth_gap.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/portrait_animation.h"
 #include "wiz8/ui_input.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle

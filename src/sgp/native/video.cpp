@@ -1,6 +1,7 @@
 #include "compat/video.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <system_error>
 
