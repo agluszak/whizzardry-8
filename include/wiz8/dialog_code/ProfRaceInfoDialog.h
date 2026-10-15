@@ -44,7 +44,7 @@ public:
 
 protected:
     void Configure();
-    virtual void PopulateText();
+    virtual bool PopulateText();
 
 private:
     /* Renders one text line at a dialog-relative rectangle through a scratch

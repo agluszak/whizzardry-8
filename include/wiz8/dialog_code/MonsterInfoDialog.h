@@ -16,7 +16,7 @@ public:
     virtual void OnMouseWheel(int delta) override;
 
 private:
-    void PopulateText();
+    bool PopulateText();
 
     int m_location_id;
     W8DialogScrollBar m_scroll_bar{InputLayer(),
