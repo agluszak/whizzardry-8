@@ -2775,6 +2775,14 @@ update_screen:
             }
         }
     }
+    if (g_level_block->portrait_flash != 0 && TimeUntilDeadline(g_level_block->clock) == 0) {
+        g_level_block->portrait_flash = 0;
+        RequestPartySlotRedraw(g_status.selected_character);
+    }
+    if (g_status.text_box_lines_shown[g_status.text_line_cursor] <
+        g_status.text_box_lines_used[g_status.text_line_cursor]) {
+        AdvanceNoticeLine(g_status.text_line_cursor);
+    }
     if (IsScreenTransitionPending()) {
         DrawMainGameScreen();
         return;
@@ -2959,6 +2967,9 @@ render_world:
             }
             SelectPartyCharacter(next);
         }
+    }
+    if (!IsScreenTransitionPending() && (!gXStatus.world_paused || gXStatus.fCombatMode)) {
+        UpdateWorlds();
     }
     DrawMainGameScreen();
 }
@@ -3298,9 +3309,9 @@ finish_mode_overlays:
     }
 }
 
-/* Finish the main-game frame: sync facing/radar, advance notices, repaint the
-   requested regions and invalidate their rectangles, paint overlays, and
-   present. MainGameScreenFrame calls it at its end and on a pending transition. */
+/* Draw the main-game frame: sync facing and radar, repaint the requested
+   regions and invalidate their rectangles, paint overlays, and present.
+   MainGameScreenFrame calls it after its update and on a pending transition. */
 void DrawMainGameScreen(void)
 {
     int stopped_line;
@@ -3308,15 +3319,6 @@ void DrawMainGameScreen(void)
 
     SyncPartyFacingFromCamera();
     UpdateRadarBlips();
-    if (g_level_block->portrait_flash != 0 && TimeUntilDeadline(g_level_block->clock) == 0) {
-        g_level_block->portrait_flash = 0;
-        RequestPartySlotRedraw(g_status.selected_character);
-    }
-    if (g_status.text_box_lines_shown[g_status.text_line_cursor] <
-            g_status.text_box_lines_used[g_status.text_line_cursor] &&
-        ScreenLifecycleSuccess() != 0) {
-        AdvanceNoticeLine(g_status.text_line_cursor);
-    }
     if (g_level_block->action_panel_visible == 0 && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gXStatus.fSpellCastMode &&
         !gXStatus.fItemSelectMode) {
@@ -3380,9 +3382,6 @@ void DrawMainGameScreen(void)
         }
         if (g_level_block->radar_map_visible != 0) {
             EnsureRadarMapOverlay();
-        }
-        if (!gXStatus.world_paused || gXStatus.fCombatMode) {
-            UpdateWorlds();
         }
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
