@@ -1757,6 +1757,7 @@ int HandleMonsterGeneratorEditKey(SDL_Keycode key)
         return 0;
     case SDLK_1:
         g_mipe_mode = 0x19;
+        SetNativeTextInputEnabled(true);
         ResetEditorStatusLine(-1);
         ShowNotice(W8_FONT_PALETTE_PINK, "Enter the name for this generator:");
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_mipe_state->generator->name);
@@ -2211,18 +2212,7 @@ void HandleMipeItemTableKey(SDL_Keycode key)
    early Escape block unwinds the mode stack, the combat-timer shortcut keeps
    only 'V'/'X' live, and the mode switch routes everything else into the
    per-mode handlers above. */
-static unsigned char DispatchMipeInput(const InputEvent* event);
-
 unsigned char HandleMipeKey(const InputEvent* event)
-{
-    const auto handled = DispatchMipeInput(event);
-    const bool text_row = g_mipe_mode == 0xe && g_mipe_state->edit_selection >= 0 &&
-                          g_mipe_state->edit_fields[g_mipe_state->edit_selection].type == 6;
-    SetNativeTextInputEnabled(g_mipe_mode == 0x19 || text_row);
-    return handled;
-}
-
-static unsigned char DispatchMipeInput(const InputEvent* event)
 {
     bool handled;
     SDL_Keycode key;
@@ -2369,6 +2359,7 @@ static unsigned char DispatchMipeInput(const InputEvent* event)
                                         ShowWorldCursor();
                                         ShowMonsterGeneratorStatus();
                                     } else if (g_mipe_mode == 0x19) {
+                                        SetNativeTextInputEnabled(false);
                                         g_mipe_mode = 0x16;
                                         ShowWorldCursor();
                                         ShowMonsterGeneratorEditor();

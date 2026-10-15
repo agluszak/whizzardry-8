@@ -158,6 +158,7 @@ void HandleMipeEditPropKey(SDL_Keycode key)
             field = &fields[static_cast<int>(state->edit_selection)];
             g_mipe_edit_decimal = -1;
             if (field->type == 6) {
+                SetNativeTextInputEnabled(true);
                 field->text.clear();
             }
         } else {
@@ -190,10 +191,12 @@ void HandleMipeEditPropKey(SDL_Keycode key)
             CommitMipeEditFields(trigger->m_pActionData, 0);
         }
         state->edit_selection = -1;
+        SetNativeTextInputEnabled(false);
         MIPE_REDRAW_EDIT_FIELDS();
         break;
     case SDLK_ESCAPE:
         state->edit_selection = -1;
+        SetNativeTextInputEnabled(false);
         MIPE_REDRAW_EDIT_FIELDS();
         break;
     }
@@ -202,7 +205,10 @@ void HandleMipeEditPropKey(SDL_Keycode key)
 void HandleMipeEditPropText(char32_t character)
 {
     auto& state = *g_mipe_state;
-    if (state.edit_selection < 0 || character < 32) return;
+    if (state.edit_selection < 0 ||
+        !(character == U' ' || (character >= U'0' && character <= U'9') ||
+          IsUppercaseCharacter(character) || IsLowercaseCharacter(character)))
+        return;
     auto& field = state.edit_fields[state.edit_selection];
     if (field.type != 6) return;
     utf8::append(character, std::back_inserter(field.text));
