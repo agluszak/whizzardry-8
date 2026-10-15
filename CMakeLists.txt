@@ -51,16 +51,26 @@ add_compile_definitions($<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
 
 find_package(SDL3 3.4 CONFIG REQUIRED)
 find_package(SDL3_image 3.4 CONFIG REQUIRED)
-find_package(SDL3_mixer 3.2.4 CONFIG REQUIRED)
+find_package(glm 1.0.3 CONFIG REQUIRED)
+find_package(fmt 11.2.0 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
-# GLM's headers are shared by game calculations and renderer storage adapters.
-if(POLICY CMP0135)
-    cmake_policy(SET CMP0135 NEW)
-endif()
+# Conan supplies SDL3, SDL3_image, GLM, fmt, FFmpeg, zlib, JPEG and glslang.
+# The remaining fetched sources are hash- or commit-pinned until their
+# exact upstream versions have ConanCenter recipes.
 include(FetchContent)
-# Treat fetched headers as system headers: their warnings are not ours to fix
-# and must not fail WIZ8_WARNINGS_AS_ERRORS builds.
+
+# ConanCenter has SDL_mixer 3.2.0, but we require its 3.2.4 bug fixes.
+set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
+set(SDLMIXER_SAMPLES OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_TESTS OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(sdl3_mixer
+    URL https://github.com/libsdl-org/SDL_mixer/releases/download/release-3.2.4/SDL3_mixer-3.2.4.tar.gz
+    URL_HASH SHA256=182a07c745375e113dc740d43964ff21b0be29f29f59876c4dbc4db3d32f6901)
+FetchContent_MakeAvailable(sdl3_mixer)
+
+# Suppress third-party warnings in our -Werror builds.
 function(wiz8_system_headers)
     foreach(dependency IN LISTS ARGN)
         get_target_property(aliased ${dependency} ALIASED_TARGET)
@@ -72,29 +82,13 @@ function(wiz8_system_headers)
             INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${directories}")
     endforeach()
 endfunction()
-set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(glm
-    URL https://codeload.github.com/g-truc/glm/tar.gz/refs/tags/1.0.3
-    URL_HASH SHA256=6775e47231a446fd086d660ecc18bcd076531cfedd912fbd66e576b118607001
-)
-FetchContent_MakeAvailable(glm)
-wiz8_system_headers(glm::glm-header-only)
-# Native text facilities: typed runtime printf formatting, Unicode conversion,
-# and Unicode grapheme boundaries. Pin downloads to reproducible releases.
-set(FMT_TEST OFF CACHE BOOL "" FORCE)
-set(UTF8_TESTS OFF CACHE BOOL "" FORCE)
-set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(fmt
-    URL https://codeload.github.com/fmtlib/fmt/tar.gz/refs/tags/11.2.0
-    URL_HASH SHA256=bc23066d87ab3168f27cef3e97d545fa63314f5c79df5ea444d41d56f962c6af)
 FetchContent_Declare(utf8cpp
     URL https://codeload.github.com/nemtrif/utfcpp/tar.gz/refs/tags/v4.0.6
     URL_HASH SHA256=6920a6a5d6a04b9a89b2a89af7132f8acefd46e0c2a7b190350539e9213816c0)
 FetchContent_Declare(utf8proc
     URL https://codeload.github.com/JuliaStrings/utf8proc/tar.gz/refs/tags/v2.10.0
     URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136)
-FetchContent_MakeAvailable(fmt utf8cpp utf8proc)
+FetchContent_MakeAvailable(utf8cpp utf8proc)
 wiz8_system_headers(fmt::fmt utf8cpp utf8proc)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
@@ -128,15 +122,8 @@ if(BUILD_TESTING)
     include("${catch2_SOURCE_DIR}/extras/Catch.cmake")
     add_subdirectory(tests/portable)
 endif()
-find_package(ZLIB REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
-    libavcodec
-    libavformat
-    libavutil
-    libswresample
-    libswscale
-)
+find_package(ZLIB CONFIG REQUIRED)
+find_package(FFMPEG CONFIG REQUIRED)
 
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
