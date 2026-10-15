@@ -226,6 +226,18 @@ jobs:
       # Include-cleaner must analyze direct includes, not headers supplied by
       # the game's PCH. Keep unity off for both checks so the database covers
       # every first-party translation unit.
+      # Bootstrap the committed recipe-revision lock from an actual Conan
+      # dependency resolution; skip once conan.lock exists in the repository.
+      - name: Export Conan lockfile
+        if: matrix.check == 'include-hygiene' && hashFiles('conan.lock') == ''
+        run: |
+          conan profile detect --force
+          conan lock create . \
+            -pr:h conan/profiles/linux-clang22 -pr:b default \
+            -s:h build_type=Debug --lockfile-out="$RUNNER_TEMP/conan-generated.lock"
+          echo CONAN_LOCK_BEGIN
+          cat "$RUNNER_TEMP/conan-generated.lock"
+          echo CONAN_LOCK_END
       - name: Resolve Conan dependencies for analysis
         run: |
           conan profile detect --force
