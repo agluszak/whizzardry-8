@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 
+#include "surrender/srNode.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/layouts/world.h"
