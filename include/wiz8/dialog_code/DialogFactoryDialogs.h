@@ -133,9 +133,9 @@ private:
     SDL_Rect m_frame_bounds{};
     bool CreateButtons();
     /* Create the three text buffers above the numeric field. */
-    bool CreateTextBuffers();
+    void CreateTextBuffers();
     /* Create the numeric entry field and its backing button. */
-    bool CreateNumericInput();
+    void CreateNumericInput();
     /* Enable the plus/minus buttons from the current split. */
     void UpdateButtonStates();
     /* Push the split into the text buffers and the numeric field. */
@@ -232,9 +232,9 @@ private:
        buttons; eight for inventory splits, ten in trade modes. */
     bool CreateButtons();
     /* Create the label text buffers and fill the item-name rows. */
-    bool CreateTextBuffers();
+    void CreateTextBuffers();
     /* Create the count entry field over its backing button. */
-    bool CreateNumericInput();
+    void CreateNumericInput();
     /* Refresh the two trade-price labels in trade modes. */
     void UpdateCostLabels();
     /* Enable the minus/plus arrows while each side has count. */

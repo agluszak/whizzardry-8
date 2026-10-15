@@ -69,7 +69,7 @@ W8CharacterSummaryDialog::~W8CharacterSummaryDialog()
 }
 
 // FUNCTION: WIZ8 0x005e0600
-bool W8CharacterSummaryDialog::CreateQuoteText()
+void W8CharacterSummaryDialog::CreateQuoteText()
 {
     const auto& offset = g_character_summary_quote_bounds[0];
     W8ControlsRect bounds{offset.left + m_x, offset.top + m_y, offset.right + m_x,
@@ -79,7 +79,6 @@ bool W8CharacterSummaryDialog::CreateQuoteText()
     m_quote_text =
         std::make_unique<W8TextBuffer>(&bounds, event.GetQuoteText(), g_wiz_text_font_secondary,
                                        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005e07b0
