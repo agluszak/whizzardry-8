@@ -86,29 +86,13 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
 // FUNCTION: WIZ8 0x005dbe00
 void W8SpellInfoDialog::Draw(SDL_Surface& target)
 {
-    int steps;
-    W8SpellRealm realm;
-    W8SpellRealmAnimation* animation;
-
-    if (m_dirty) {
-        m_text_area.m_dirty = true;
-        m_scroll_bar.m_dirty = true;
-        m_button.m_dirty = true;
-        W8DialogBase::Draw(target);
-        DrawLabels(target);
-    }
-    m_text_area.Draw(target, false);
-    m_scroll_bar.Draw(target, false);
-    m_button.DrawAndInvalidate(target);
-    steps = static_cast<int>(m_timer.GetProgress());
-    if (steps > 0) {
-        realm = g_spell_records[m_spell].realm;
-        animation = &g_spell_realm_animations[realm];
-        m_animation_frame += steps;
-        m_animation_frame %= animation->frame_count;
-        CatalogArtwork::Load(animation->image, 0)
-            .drawAndInvalidate(target, m_animation_frame, m_x + 0xe, m_y + 0xe);
-    }
+    W8DialogBase::Draw(target);
+    DrawLabels(target);
+    m_text_area.Paint(target);
+    m_scroll_bar.Draw(target);
+    m_button.Draw(target);
+    const auto& animation = g_spell_realm_animations[g_spell_records[m_spell].realm];
+    CatalogArtwork::Load(animation.image, 0).draw(target, m_animation_frame, m_x + 0xe, m_y + 0xe);
 }
 
 // FUNCTION: WIZ8 0x005dbee0
@@ -313,4 +297,23 @@ void W8SpellInfoDialog::OnRightButtonUp()
 void W8SpellInfoDialog::OnMouseWheel(int delta)
 {
     m_scroll_bar.ScrollBy(delta);
+}
+
+bool W8SpellInfoDialog::TakeDirty()
+{
+    const bool text = m_text_area.TakeDirty();
+    const bool scroll = m_scroll_bar.TakeDirty();
+    const bool button = m_button.TakeDirty();
+    return W8DialogBase::TakeDirty() || text || scroll || button;
+}
+
+bool W8SpellInfoDialog::ProcessInput()
+{
+    const int steps = static_cast<int>(m_timer.GetProgress());
+    if (steps > 0) {
+        const auto& animation = g_spell_realm_animations[g_spell_records[m_spell].realm];
+        m_animation_frame = (m_animation_frame + steps) % animation.frame_count;
+        m_dirty = true;
+    }
+    return W8DialogBase::ProcessInput();
 }

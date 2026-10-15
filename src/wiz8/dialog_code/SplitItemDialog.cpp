@@ -97,8 +97,7 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     m_item = item;
     split_result = W8_SPLIT_RESULT_PENDING;
     m_active_input = 0;
-    m_first_draw = false;
-    m_first_draw = true;
+
     split_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
         throw std::runtime_error("Cannot configure dialog controls");
@@ -242,56 +241,12 @@ bool W8SplitItemDialog::CreateNumericInput()
 // FUNCTION: WIZ8 0x005DDB60
 void W8SplitItemDialog::Draw(SDL_Surface& target)
 {
-    int index;
-    int button_count;
-    int text_count;
-
-    button_count = 0;
-    if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
-        button_count = 8;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
-        button_count = 10;
-    }
-    text_count = 0;
-    if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
-        text_count = 10;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
-        text_count = 14;
-    }
-    if (m_dirty) {
-        m_first_draw = true;
-        for (index = 0; index < button_count; ++index) {
-            m_buttons[index].m_dirty = true;
-        }
-        for (index = 0; index < text_count; ++index) {
-            m_texts[index]->SetGeometryDirty();
-        }
-        m_count_input->m_dirty = true;
-        m_count_input->m_button->m_dirty = true;
-        W8DialogBase::Draw(target);
-    }
-    if (m_first_draw) {
-        DrawSpriteAndInvalidate(target, g_item_video_objects.Sprites(m_item->iItemNo), 0,
-                                m_x + 0x18, m_y + 0xe);
-        m_first_draw = false;
-    }
-    if (m_buttons[3].m_dirty) {
-        m_count_input->m_dirty = true;
-        m_count_input->m_button->m_dirty = true;
-    }
-    for (index = 0; index < button_count; ++index) {
-        if (m_buttons[index].IsConfigured()) {
-            m_buttons[index].DrawAndInvalidate(target);
-        }
-    }
-    for (index = 0; index < text_count; ++index) {
-        if (m_texts[index] != 0) {
-            m_texts[index]->RenderToTarget(0, false, target);
-        }
-    }
-    if (m_count_input != 0) {
-        m_count_input->Draw(target, false);
-    }
+    W8DialogBase::Draw(target);
+    DrawSprite(target, g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18, m_y + 0xe);
+    for (auto& button : m_buttons) button.Draw(target);
+    for (auto& text : m_texts)
+        if (text) text->Paint(target);
+    m_count_input->Draw(target);
 }
 
 // FUNCTION: WIZ8 0x005DDCC0
@@ -498,4 +453,14 @@ std::function<void()> W8SplitItemDialog::TakeCompletion(bool completed)
     W8DialogBase::TakeCompletion(completed);
     if (!completed || split_result != W8_SPLIT_RESULT_CONFIRMED || !on_complete) return {};
     return [callback = std::exchange(on_complete, {}), result = split_count] { callback(result); };
+}
+
+bool W8SplitItemDialog::TakeDirty()
+{
+    bool dirty = W8DialogBase::TakeDirty();
+    for (auto& button : m_buttons) dirty |= button.TakeDirty();
+    for (auto& text : m_texts)
+        if (text) dirty |= std::exchange(text->m_geometryDirty, false);
+    dirty |= std::exchange(m_count_input->m_dirty, false);
+    return dirty;
 }

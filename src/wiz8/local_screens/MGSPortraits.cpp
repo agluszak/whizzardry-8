@@ -620,7 +620,8 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             bounds.top = menu_y + 0x3e;
             bounds.bottom = menu_y + 0x46;
             text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-            text.SetLayoutBounds(&bounds, true, true);
+            text.SetClipBounds(bounds);
+            text.SetLayoutBounds(&bounds, true);
             g_smfnt_font.resetPalette();
             text.SetText(fmt::format("{:d}", character->hp_current), g_smfnt_font);
             InvalidateRegion(bounds.left, bounds.top + 1, bounds.right, bounds.bottom);
@@ -1167,7 +1168,7 @@ void UpdatePortraitAdvanceButtons()
         auto& button = *portrait_buttons->buttons[slot];
         button.SetVisible(IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
                           g_status.buffers.XChar[slot].portrait_advance);
-        button.DrawAndInvalidate(GetFrameBufferSurface());
+        button.Refresh();
     }
 }
 

@@ -713,7 +713,7 @@ void SetSpellCastingPanelsActive(bool active)
         if (panel == 0) {
             for (int realm = 0; realm < 6; ++realm) {
                 auto& button = *view.realm_buttons[realm];
-                button.DrawAndInvalidate(target, true);
+                button.Refresh(true);
                 const int offset = button.IsPressed() ? 1 : 0;
                 view.realm_text[realm].RenderText(target, offset, offset, true);
                 const auto& animation = g_spell_realm_animations[realm];
@@ -731,9 +731,9 @@ void SetSpellCastingPanelsActive(bool active)
                 const auto& f = view.power_frames[pip];
                 view.power_controls[pip]->SetImage(ButtonGraphics::Load(
                     CatalogArtwork::Load(0x192, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]));
-                view.power_controls[pip]->DrawAndInvalidate(target);
+                view.power_controls[pip]->Refresh();
             }
-            view.cancel->DrawAndInvalidate(target, true);
+            view.cancel->Refresh(true);
             view.spell_name.RenderToTarget(0, true, target);
         }
         view.dirty[panel] = false;

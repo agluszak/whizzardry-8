@@ -21,7 +21,9 @@ public:
     void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height,
                    int view_height);
     void UpdateThumb();
-    void Draw(SDL_Surface& target, bool force);
+    void Draw(SDL_Surface& target);
+    void Refresh();
+    bool TakeDirty();
     void ScrollUp();
     void ScrollBy(int delta);
     void ScrollDown();

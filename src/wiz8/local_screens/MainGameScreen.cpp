@@ -1243,7 +1243,7 @@ void W8LockInteraction::DrawActions(SDL_Surface& target)
         for (auto& button : buttons) button->m_dirty = true;
         actions_dirty = false;
     }
-    for (auto& button : buttons) button->DrawAndInvalidate(target);
+    for (auto& button : buttons) button->Refresh();
 }
 
 W8MainGameTextKeyHandler::W8MainGameTextKeyHandler()
@@ -1427,7 +1427,8 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     m_text_bounds.top = 0x166 + 0x29;
     m_text_bounds.right = 0xd3 + 0x84;
     m_text_bounds.bottom = 0x166 + 0x33;
-    m_text_buffer.SetLayoutBounds(&m_text_bounds, true, true);
+    m_text_buffer.SetClipBounds(m_text_bounds);
+    m_text_buffer.SetLayoutBounds(&m_text_bounds, true);
     m_key_handler->m_range.SetActive(true);
     InvalidateAll();
     for (index = 0; index < 8; ++index) {
@@ -1660,7 +1661,7 @@ void W8MainGameScreen::DrawActions(SDL_Surface& target)
         for (auto& button : m_action_controls) button->m_dirty = true;
         actions_dirty = false;
     }
-    for (auto& button : m_action_controls) button->DrawAndInvalidate(target);
+    for (auto& button : m_action_controls) button->Refresh();
 }
 
 void W8MainGameScreen::SelectTextEntry(int index)
@@ -2218,7 +2219,12 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
             artwork.drawAndInvalidate(target, 4, 0x1dc, line_height - margin + top);
         }
     }
-    text_area.Draw(target, full_redraw);
+    const bool text_dirty = text_area.TakeDirty();
+    if (full_redraw || text_dirty) {
+        text_area.Paint(target);
+        const auto& bounds = text_area.m_bounds;
+        InvalidateRegion(bounds.left, bounds.top, bounds.right, bounds.bottom);
+    }
     m_dirty = false;
 }
 
@@ -3413,7 +3419,7 @@ void DrawMainGameScreen(void)
     g_level_block->saved_redraw_flags = 0;
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
-            g_modal_owner->DrawModal(GetFrameBufferSurface());
+            g_modal_owner->RefreshModal();
         }
         if (g_level_block->combat_end_notification != -1) {
             UpdateSubMenuAutoClose();

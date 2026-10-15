@@ -63,17 +63,20 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     m_y = 0x2b + y;
     int split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
-    m_label.SetLayoutBounds(&bounds, true, true);
+    m_label.SetClipBounds(bounds);
+    m_label.SetLayoutBounds(&bounds, true);
     m_label.SetText({}, g_wiz_text_font_secondary);
     m_label.SetLayoutMode(g_W8TextBufferAlignLeft);
     bounds.left = split;
     bounds.right = split + 0x17;
-    m_first_text.SetLayoutBounds(&bounds, true, true);
+    m_first_text.SetClipBounds(bounds);
+    m_first_text.SetLayoutBounds(&bounds, true);
     m_first_text.SetText({}, g_wiz_text_font_secondary);
     m_first_text.SetLayoutMode(g_W8TextBufferAlignRight);
     bounds.left = split + 0x2a;
     bounds.right = split + 0x39;
-    m_second_text.SetLayoutBounds(&bounds, true, true);
+    m_second_text.SetClipBounds(bounds);
+    m_second_text.SetLayoutBounds(&bounds, true);
     m_second_text.SetText({}, g_wiz_text_font_secondary);
     m_second_text.SetLayoutMode(g_W8TextBufferAlignRight);
 
@@ -180,8 +183,8 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         m_label.RenderToTarget(0, true, target);
         m_dirty = false;
     }
-    m_increment->DrawAndInvalidate(target);
-    m_decrement->DrawAndInvalidate(target);
+    m_increment->Refresh();
+    m_decrement->Refresh();
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 

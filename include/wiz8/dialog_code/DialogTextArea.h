@@ -28,7 +28,8 @@ public:
     W8DialogTextArea();
     ~W8DialogTextArea() = default;
     void Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags);
-    void Draw(SDL_Surface& target, bool force);
+    void Paint(SDL_Surface& target);
+    bool TakeDirty();
     void SetFirstVisibleLine(int line);
     int GetTotalLineCount();
     unsigned int GetLineHeight();

@@ -33,10 +33,12 @@ public:
     void FillBounds(SDL_Surface& target, int colour);
     void RenderText(SDL_Surface& target, int x_offset, int y_offset, bool force);
     void RenderToTarget(int offset, bool force, SDL_Surface& target);
+    void Paint(SDL_Surface& target, int offset = 0);
     void UpdateLayout();
     void SetLayoutMode(unsigned int layout_mode);
+    void SetClipBounds(const W8ControlsRect& bounds) { m_clipBounds = bounds; }
     void SetText(std::string_view text, Font& font);
-    void SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending, bool update_layout);
+    void SetLayoutBounds(const W8ControlsRect* bounds, bool update_layout = true);
 
     void RenderString(std::string_view text, Font& font, bool force, SDL_Surface& target)
     {
@@ -47,7 +49,8 @@ public:
     void RenderString(const W8ControlsRect* bounds, std::string_view text, Font& font, bool force,
                       SDL_Surface& target)
     {
-        SetLayoutBounds(bounds, true, true);
+        SetClipBounds(*bounds);
+        SetLayoutBounds(bounds, true);
         RenderString(text, font, force, target);
     }
 
@@ -57,7 +60,7 @@ public:
         m_layoutBounds.top = top;
         m_layoutBounds.right = right;
         m_layoutBounds.bottom = bottom;
-        m_pendingBounds = m_layoutBounds;
+        m_clipBounds = m_layoutBounds;
     }
 
     bool HasBuffer() const { return !m_buffer.empty(); }
@@ -74,10 +77,12 @@ public:
     W8TextBuffer& operator=(const W8TextBuffer&) = default;
     virtual ~W8TextBuffer();
 
+private:
+    void PaintLines(SDL_Surface& target, SDL_Point offset, bool highlighted, bool mono);
+
 protected:
     W8ControlsRect m_layoutBounds;  /* current absolute layout bounds */
-    W8ControlsRect m_pendingBounds; /* mirrored pending bounds */
-    int m_field_24;                 /* the constructor steps over this one */
+    W8ControlsRect m_clipBounds; /* clip remains fixed while layout scrolls */
     Font* m_font;                     /* font used for uncached line height */
 public:
     /* The tooltip builder in Video2.cpp reads the finished layout directly. */
@@ -96,18 +101,7 @@ public:
        when it changes modes; retain that observed public storage access. */
     bool m_geometryDirty;
     unsigned char m_alternateRenderer;
-    unsigned char pad_42[2];
     int m_renderMode;     /* 4 initially */
     int m_fontStateIndex; /* -1 skips the state-table override */
     bool m_highlighted;
 };
-
-inline void DestroyDialogTextBuffers(W8TextBuffer** buffers, int count)
-{
-    for (int index = 0; index < count; ++index) {
-        if (buffers[index] != 0) {
-            delete buffers[index];
-            buffers[index] = 0;
-        }
-    }
-}

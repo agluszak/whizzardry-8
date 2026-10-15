@@ -44,7 +44,7 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
     unsigned int index;
 
     W8DialogBase::Draw(target);
-    m_message_button.DrawAndInvalidate(target, true);
+    m_message_button.Draw(target);
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
@@ -65,9 +65,9 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
         }
     }
     if (m_show_confirm) {
-        m_confirm_button.DrawAndInvalidate(target, true);
+        m_confirm_button.Draw(target);
         if (allow_cancel) {
-            m_cancel_button.DrawAndInvalidate(target, true);
+            m_cancel_button.Draw(target);
         }
     }
 }
@@ -267,4 +267,12 @@ std::function<void()> W8MessageDialogBase::TakeCompletion(bool completed)
     return [callback = std::exchange(on_complete, {}), result = completed && accepted] {
         callback(result);
     };
+}
+
+bool W8MessageDialogBase::TakeDirty()
+{
+    bool dirty = W8DialogBase::TakeDirty();
+    for (auto* button : {&m_message_button, &m_confirm_button, &m_cancel_button})
+        dirty |= button->TakeDirty();
+    return dirty;
 }

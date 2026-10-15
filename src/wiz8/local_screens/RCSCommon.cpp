@@ -434,7 +434,7 @@ void UpdateRcsLevelUpPanel(void)
         header_buttons->level_up->SetVisible(true);
         RedrawRcsLevelUpPanel();
     }
-    header_buttons->level_up->DrawAndInvalidate(GetFrameBufferSurface());
+    header_buttons->level_up->Refresh();
 }
 
 // FUNCTION: WIZ8 0x005b6950
@@ -489,7 +489,7 @@ void UpdateRcsDismissPanel(void)
     } else if (header_buttons->dismiss->IsVisible()) {
         header_buttons->dismiss->SetVisible(false);
     }
-    header_buttons->dismiss->DrawAndInvalidate(GetFrameBufferSurface());
+    header_buttons->dismiss->Refresh();
 }
 
 /* Release the formation board, compass and overlay sprites. */
@@ -780,7 +780,8 @@ void DrawCampVitals(void)
     bounds.right = 0x121;
     bounds.top = 0xd;
     bounds.bottom = 0x17;
-    text.SetLayoutBounds(&bounds, true, true);
+    text.SetClipBounds(bounds);
+    text.SetLayoutBounds(&bounds, true);
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (!g_status.game_started) {
         text.SetFontStateIndex(8);
@@ -795,7 +796,8 @@ void DrawCampVitals(void)
         bounds.right = 0x120;
         bounds.top = 0x49;
         bounds.bottom = 0x51;
-        text.SetLayoutBounds(&bounds, true, false);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, false);
         text.SetFontStateIndex(-1);
         formatted = fmt::format("{:d}", g_review_character->hp_current);
         text.RenderString(formatted, g_smfnt_font, false, GetFrameBufferSurface());
@@ -1034,11 +1036,11 @@ void RefreshCampItemActions(bool invalidate)
         CatalogArtwork::Load(0x110, 0).drawAndInvalidate(target, 0, 0, 0x1c2);
         for (const auto& button : camp_buttons->pages) {
             button->m_dirty = true;
-            button->DrawAndInvalidate(target);
+            button->Refresh();
         }
         for (const auto& button : camp_buttons->actions) {
             button->m_dirty = true;
-            button->DrawAndInvalidate(target);
+            button->Refresh();
         }
         camp_buttons->dirty = false;
     }

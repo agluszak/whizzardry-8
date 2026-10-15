@@ -16,6 +16,7 @@ public:
     std::function<void(bool)> on_complete;
     W8MessageDialogBase();
     virtual void Draw(SDL_Surface& target) override;
+    bool TakeDirty() override;
 
     virtual bool ProcessInput() override;
     virtual bool HandleInput(const InputEvent* input);

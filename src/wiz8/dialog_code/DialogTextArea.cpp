@@ -54,15 +54,22 @@ void W8DialogTextArea::Configure(const W8ControlsRect* bounds, Font& font, unsig
     m_behavior_flags = flags;
     m_font = &font;
     for (const auto& entry : m_all_lines) {
-        entry->m_pendingBounds = m_bounds;
+        entry->m_clipBounds = m_bounds;
     }
 }
 
 // FUNCTION: WIZ8 0x005d1900
-void W8DialogTextArea::Draw(SDL_Surface& target, bool force)
+
+bool W8DialogTextArea::TakeDirty()
+{
+    const bool selection = std::exchange(m_selection_dirty, false);
+    return std::exchange(m_dirty, false) || selection;
+}
+
+void W8DialogTextArea::Paint(SDL_Surface& target)
 {
     unsigned int font_height = m_font->height();
-    if (force || m_dirty || m_selection_dirty) {
+    {
         W8ControlsRect bounds;
         if (m_relayout_needed) {
             bounds.left = m_bounds.left;
@@ -74,14 +81,12 @@ void W8DialogTextArea::Draw(SDL_Surface& target, bool force)
             if (m_relayout_needed) {
                 unsigned int height = GetLineHeight();
                 bounds.bottom = bounds.top + m_visible_lines[index]->m_lineCount * height;
-                m_visible_lines[index]->SetLayoutBounds(&bounds, false, false);
+                m_visible_lines[index]->SetLayoutBounds(&bounds, false);
                 bounds.top = bounds.bottom + m_entry_spacing;
             }
-            m_visible_lines[index]->Draw(target, force || m_dirty);
+            m_visible_lines[index]->Paint(target);
         }
         m_relayout_needed = false;
-        m_dirty = false;
-        m_selection_dirty = false;
     }
 }
 

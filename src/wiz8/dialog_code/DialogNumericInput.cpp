@@ -66,9 +66,8 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     m_dirty = m_button->m_dirty = true;
 }
 
-void W8DialogNumericInput::Draw(SDL_Surface& target, bool force)
+void W8DialogNumericInput::Draw(SDL_Surface& target)
 {
-    if (!force && !m_dirty) return;
     const auto text = std::to_string(m_value);
     m_font->setShade(Font::kNormalShade);
     const SDL_Rect clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
@@ -76,14 +75,13 @@ void W8DialogNumericInput::Draw(SDL_Surface& target, bool force)
     ScopedClipRect clipping(target, clip);
     const int top = m_bounds.top + std::max(0, (clip.h - m_font->height()) / 2);
     const int left = std::max(m_bounds.left, m_bounds.right - m_font->textWidth(text));
-    DrawTextAndInvalidate(target, *m_font, {left, top}, text);
+    DrawText(target, *m_font, {left, top}, text);
     if (m_editor) {
         const int x = m_bounds.right -
                       m_font->textWidth(std::string_view(text).substr(m_editor->Cursor())) - 1;
         const SDL_Rect caret{x, top, 1, std::min(m_bounds.bottom - top, int(m_font->height())) + 1};
         SDL_FillSurfaceRect(&target, &caret, 0xffff);
     }
-    m_dirty = false;
 }
 
 bool W8DialogNumericInput::HandleInput(const InputEvent* input)

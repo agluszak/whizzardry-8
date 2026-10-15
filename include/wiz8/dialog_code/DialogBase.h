@@ -30,6 +30,7 @@ public:
     void DrawModal(SDL_Surface& target) override { Draw(target); }
     void RequestModalRedraw() override { m_dirty = true; }
     virtual void Draw(SDL_Surface& target);
+    void RefreshModal() override;
 
     virtual void SetText(std::string_view text);
     virtual void SetOrigin(int x, int y);
@@ -50,6 +51,7 @@ public:
     bool m_dirty;
 
 protected:
+    virtual bool TakeDirty();
     void BeginModalInput();
     void EndModalInput();
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);

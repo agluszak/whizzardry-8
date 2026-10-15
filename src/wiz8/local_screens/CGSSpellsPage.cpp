@@ -230,7 +230,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = 0xbf;
         bounds.bottom = 0x18a;
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x173);
-        text.SetLayoutBounds(&bounds, true, true);
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
                                       m_creation_state->spell_points_total),
                           g_options_detail_font, true, target);
@@ -247,7 +248,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             bounds.top = W8CharacterPage::bounds.y + 0x0f + (realm / 2) * 0x82;
             bounds.right = bounds.left + 0x3c;
             bounds.bottom = bounds.top + 0x0e;
-            text.SetLayoutBounds(&bounds, true, true);
+            text.SetClipBounds(bounds);
+            text.SetLayoutBounds(&bounds, true);
             text.SetFontStateIndex(1);
             text.RenderString(fmt::format("{}:", g_localized_strings[0xf2]),
                               g_wiz_text_font_secondary, false, target);
@@ -260,7 +262,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
             bounds.left += 0x58;
             bounds.right = bounds.left + 0x53;
-            text.SetLayoutBounds(&bounds, true, true);
+            text.SetClipBounds(bounds);
+            text.SetLayoutBounds(&bounds, true);
             text.SetFontStateIndex(1);
             text.RenderString(fmt::format("{}:", g_localized_strings[0xf3]),
                               g_wiz_text_font_secondary, false, target);

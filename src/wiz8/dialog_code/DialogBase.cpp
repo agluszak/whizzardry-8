@@ -65,12 +65,26 @@ std::function<void()> W8DialogBase::TakeCompletion(bool)
 }
 
 // FUNCTION: WIZ8 0x005dc890
+void ModalContent::RefreshModal()
+{
+    DrawModal(GetFrameBufferSurface());
+}
+
+bool W8DialogBase::TakeDirty()
+{
+    return std::exchange(m_dirty, false);
+}
+
+void W8DialogBase::RefreshModal()
+{
+    if (!TakeDirty()) return;
+    Draw(GetFrameBufferSurface());
+    InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
+}
+
 void W8DialogBase::Draw(SDL_Surface& target)
 {
-    if (!m_dirty) return;
     DrawButtonAppearance(target, {.generic_image = m_border}, {m_x, m_y, m_width, m_height}, {});
-    InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
-    m_dirty = false;
 }
 
 // FUNCTION: WIZ8 0x005dc940

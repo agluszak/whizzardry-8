@@ -454,19 +454,24 @@ void W8MonsterInfoDialog::OnMouseWheel(int delta)
 // FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw(SDL_Surface& target)
 {
-    if (m_dirty) {
-        m_text_area.m_dirty = true;
-        m_scroll_bar.m_dirty = true;
-        m_button.m_dirty = true;
-        W8DialogBase::Draw(target);
-        g_wiz_text_font_secondary.resetPalette();
-        W8MonsterInfo* monster_info = FindMonster(m_location_id);
-        auto name = GetMonsterName(monster_info, 0, 0);
-        std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
-        DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
-                 name);
-    }
-    m_text_area.Draw(target, false);
-    m_scroll_bar.Draw(target, false);
-    m_button.DrawAndInvalidate(target);
+
+    W8DialogBase::Draw(target);
+    g_wiz_text_font_secondary.resetPalette();
+    W8MonsterInfo* monster_info = FindMonster(m_location_id);
+    auto name = GetMonsterName(monster_info, 0, 0);
+    std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
+             name);
+
+    m_text_area.Paint(target);
+    m_scroll_bar.Draw(target);
+    m_button.Draw(target);
+}
+
+bool W8MonsterInfoDialog::TakeDirty()
+{
+    const bool text = m_text_area.TakeDirty();
+    const bool scroll = m_scroll_bar.TakeDirty();
+    const bool button = m_button.TakeDirty();
+    return W8DialogBase::TakeDirty() || text || scroll || button;
 }

@@ -200,7 +200,7 @@ void PleaseWaitScreenFrame(void)
 {
     if (g_load_descriptor->waiting) {
         if (g_swap_disc_dialog->is_open) {
-            g_swap_disc_dialog->Draw(GetFrameBufferSurface());
+            g_swap_disc_dialog->RefreshModal();
             if (!g_swap_disc_dialog->ProcessInput()) {
                 if (!g_swap_disc_dialog->accepted) {
                     RetireModal(std::move(g_swap_disc_dialog), false);

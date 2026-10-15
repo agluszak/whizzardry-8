@@ -12,5 +12,6 @@ public:
     virtual std::function<void()> TakeCompletion(bool completed) { return {}; }
     virtual bool ProcessInput() = 0;
     virtual void DrawModal(SDL_Surface& target) = 0;
+    virtual void RefreshModal();
     virtual void RequestModalRedraw() = 0;
 };
