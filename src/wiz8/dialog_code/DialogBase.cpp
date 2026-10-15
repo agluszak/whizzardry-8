@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/DialogBase.h"
 
+#include <functional>
 #include <string>
 #include <string_view>
 #include <utility>

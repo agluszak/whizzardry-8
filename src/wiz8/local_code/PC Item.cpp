@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -12,7 +13,6 @@
 #include <fmt/printf.h>
 
 #include "compat/native.h"
-#include "dialog_code/DialogBase.h"
 #include "dice.h"
 #include "equipment_slots.h"
 #include "image_assets.h"

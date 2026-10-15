@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/Screens.h"
 
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string_view>
 #include <vector>
