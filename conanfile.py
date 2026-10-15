@@ -29,6 +29,12 @@ class WhizzardryDependencies(ConanFile):
         self.options["ffmpeg"].with_programs = False
         self.options["ffmpeg"].with_sdl = False
         self.options["ffmpeg"].with_asm = False
+        self.options["ffmpeg"].with_libalsa = False
+        self.options["ffmpeg"].with_pulse = False
+        self.options["ffmpeg"].with_vaapi = False
+        self.options["ffmpeg"].with_vdpau = False
+        self.options["ffmpeg"].with_xcb = False
+        self.options["ffmpeg"].with_xlib = False
         self.options["ffmpeg"].with_freetype = False
         self.options["ffmpeg"].with_fontconfig = False
         self.options["ffmpeg"].with_libaom = False
