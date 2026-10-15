@@ -19,7 +19,6 @@
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_video_object_vector.h"

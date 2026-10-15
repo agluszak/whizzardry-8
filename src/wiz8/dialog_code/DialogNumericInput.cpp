@@ -17,7 +17,6 @@
 #include "input.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 

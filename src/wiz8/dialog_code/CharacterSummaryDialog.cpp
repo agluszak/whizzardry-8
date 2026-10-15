@@ -15,8 +15,6 @@
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/GameplayInit.h"
