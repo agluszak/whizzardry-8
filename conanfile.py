@@ -11,6 +11,10 @@ from conan.tools.env import VirtualBuildEnv, VirtualRunEnv
 class WhizzardryDependencies(ConanFile):
     settings = "os", "arch", "compiler", "build_type"
 
+    # glslangValidator does not optimize the generated shaders. Avoid building
+    # SPIRV-Tools (and its build dependencies) only for this optional feature.
+    default_build_options = {"glslang/*:enable_optimizer": False}
+
     def requirements(self):
         self.requires("sdl/3.4.14")
         self.requires("sdl_image/3.4.4")
