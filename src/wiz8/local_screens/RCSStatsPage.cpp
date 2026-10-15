@@ -1035,7 +1035,7 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
         return;
     }
 
-    const char32_t character = TypedCharacter(*input);
+    const char32_t character = input->type == InputEventType::Text ? input->text : 0;
     if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
         return;
     }

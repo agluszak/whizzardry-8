@@ -571,7 +571,7 @@ bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
 {
     if (!name_input || !IsTypingEvent(input)) return false;
     if (input.key != SDLK_ESCAPE && input.key != SDLK_RETURN) {
-        const char32_t character = TypedCharacter(input);
+        const char32_t character = input.type == InputEventType::Text ? input.text : 0;
         if (character && character < 0x80 && strchr("\\/:*?\"<>|", int(character))) return true;
         name_input->HandleInput(input);
         OnToggle(name_input->Text(0).size() != 0);

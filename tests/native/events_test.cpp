@@ -217,8 +217,8 @@ TEST_CASE("events_test")
     expect(events[1], InputEventType::KeyUp, SDLK_KP_1);
     REQUIRE(KeyFromBindingName("*") == SDLK_KP_MULTIPLY);
     REQUIRE(KeyFromBindingName("-") == SDLK_MINUS);
-    REQUIRE(TranslateKeyToCharacter('1', SHIFT_DOWN) == '!');
-    REQUIRE(TranslateKeyToCharacter(SDLK_APOSTROPHE, SHIFT_DOWN) == '"');
+    REQUIRE(KeyFromBindingName("!") == SDLK_1);
+    REQUIRE(KeyFromBindingName("\"") == SDLK_APOSTROPHE);
     REQUIRE(KeyFromBindingName("NUM_ENTER") == SDLK_KP_ENTER);
     REQUIRE(KeyFromBindingName("q") == SDLK_Q);
     REQUIRE(KeyFromBindingName("QQ") == 0);
@@ -253,7 +253,6 @@ TEST_CASE("events_test")
     events = input();
     REQUIRE(events.size() == 8);
     expect(events[0], InputEventType::KeyDown, SDLK_A, SHIFT_DOWN);
-    REQUIRE(TranslateKeyToCharacter(events[0].key, events[0].modifiers) == 'A');
     expect(events[2], InputEventType::KeyDown, SDLK_B);
     expect(events[4], InputEventType::KeyDown, SDLK_BACKSPACE);
     expect(events[6], InputEventType::KeyDown, SDLK_RETURN);
@@ -286,13 +285,11 @@ TEST_CASE("events_test")
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
     drain_events();
     events = input();
-    REQUIRE(events.size() == 3);
+    REQUIRE(events.size() == 2);
     expect(events[0], InputEventType::LeftButtonDown, 0);
     expect(events[1], InputEventType::LeftButtonUp, 0);
-    expect(events[2], InputEventType::LeftButtonDoubleClick, 0);
     REQUIRE(events[0].buttons == SDL_BUTTON_LMASK);
     REQUIRE(events[1].buttons == 0);
-    REQUIRE(events[2].buttons == 0);
     for (const auto& event : events) REQUIRE(event.clicks == 2);
 
     // Closely spaced clicks are not double-clicks unless SDL identifies them.
@@ -424,18 +421,19 @@ TEST_CASE("events_test")
     drain_events();
     REQUIRE(!gfProgramIsRunning);
     gfIgnoreMessages = false;
-    // A release and its double-click event both survive a full input burst.
+    // Both normal button events retain SDL click counts after a full input burst.
     for (unsigned i = 0; i < 300; ++i)
         PostInputEvent({.type = InputEventType::MouseMove, .position = {int(i), 0}});
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480, 2);
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
     drain_events();
     events = input();
-    REQUIRE(events.size() == 303);
+    REQUIRE(events.size() == 302);
     for (unsigned i = 0; i < 300; ++i) REQUIRE(events[i].position.x == int(i));
     expect(events[300], InputEventType::LeftButtonDown, 0);
     expect(events[301], InputEventType::LeftButtonUp, 0);
-    expect(events[302], InputEventType::LeftButtonDoubleClick, 0);
+    REQUIRE(events[300].clicks == 2);
+    REQUIRE(events[301].clicks == 2);
     REQUIRE_FALSE(IsLeftButtonHeld());
     key(SDL_EVENT_KEY_DOWN, SDLK_UNKNOWN);
     drain_events();

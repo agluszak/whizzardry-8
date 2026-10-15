@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -18,6 +19,7 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/world.h"
+#include "utf8/checked.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -51,6 +53,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/sr_api.h"
+#include "wiz8/unicode.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
@@ -168,6 +171,7 @@ void ToggleMipePanel(void)
             }
         }
         g_mipe_monster_entries.clear();
+        SetNativeTextInputEnabled(false);
         g_mipe_state.reset();
         SetWorldCursorNodesVisible(g_mipe_trigger_display);
         return;
@@ -1971,26 +1975,22 @@ void HandleMipeGeneratorTableKey(SDL_Keycode key)
 }
 
 /* Character entry for the generator name, capped at the 32-byte field. */
-void EditMonsterGeneratorName(SDL_Keycode key)
+void EditMonsterGeneratorName(const InputEvent& event)
 {
-    std::string name;
-    int length;
-
-    name = g_mipe_state->generator->name;
-    length = name.size();
-    if (key == SDLK_BACKSPACE) {
-        if (0 < length) {
-            name[length - 1] = '\0';
-        }
-    } else if ((((0x2f < key) && (key < 0x3a)) || ((SDLK_A <= key) && (key <= SDLK_Z))) &&
-               (length < 0x1f)) {
-        key = TranslateKeyToCharacter(key, GetInputState().modifiers);
-        name[length] = static_cast<char>(key);
-        name[length + 1] = '\0';
+    std::string name = g_mipe_state->generator->name;
+    if (event.IsKeyPress() && event.key == SDLK_BACKSPACE && !name.empty()) {
+        name.resize(wiz8::text::previous_grapheme(name, name.size()));
+    } else if (event.type == InputEventType::Text &&
+               ((event.text >= U'0' && event.text <= U'9') || IsUppercaseCharacter(event.text) ||
+                IsLowercaseCharacter(event.text))) {
+        std::string inserted;
+        utf8::append(event.text, std::back_inserter(inserted));
+        if (name.size() + inserted.size() <= 31) name += inserted;
     }
+    wiz8::text::write_utf8_field(name, g_mipe_state->generator->name);
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK, "Enter the name for this generator:");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_mipe_state->generator->name);
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, name);
 }
 
 /* Mode-0x1b key handler: the selected prop trigger's locks & traps editor.
@@ -2211,7 +2211,18 @@ void HandleMipeItemTableKey(SDL_Keycode key)
    early Escape block unwinds the mode stack, the combat-timer shortcut keeps
    only 'V'/'X' live, and the mode switch routes everything else into the
    per-mode handlers above. */
+static unsigned char DispatchMipeInput(const InputEvent* event);
+
 unsigned char HandleMipeKey(const InputEvent* event)
+{
+    const auto handled = DispatchMipeInput(event);
+    const bool text_row = g_mipe_mode == 0xe && g_mipe_state->edit_selection >= 0 &&
+                          g_mipe_state->edit_fields[g_mipe_state->edit_selection].type == 6;
+    SetNativeTextInputEnabled(g_mipe_mode == 0x19 || text_row);
+    return handled;
+}
+
+static unsigned char DispatchMipeInput(const InputEvent* event)
 {
     bool handled;
     SDL_Keycode key;
@@ -2224,6 +2235,25 @@ unsigned char HandleMipeKey(const InputEvent* event)
     if (g_mipe_state->dragging) {
         return 1;
     }
+    const bool text_row = g_mipe_mode == 0xe && g_mipe_state->edit_selection >= 0 &&
+                          g_mipe_state->edit_fields[g_mipe_state->edit_selection].type == 6;
+    if (event->type == InputEventType::Text) {
+        if (g_mipe_mode == 0x19)
+            EditMonsterGeneratorName(*event);
+        else if (text_row)
+            HandleMipeEditPropText(event->text);
+        return 1;
+    }
+    if ((text_row || g_mipe_mode == 0x19) && event->IsKeyPress() && event->key == SDLK_BACKSPACE) {
+        if (text_row)
+            HandleMipeEditPropKey(event->key);
+        else
+            EditMonsterGeneratorName(*event);
+        return 1;
+    }
+    if ((text_row || g_mipe_mode == 0x19) && event->type == InputEventType::KeyUp &&
+        event->key == SDLK_BACKSPACE)
+        return 1;
     key = event->key;
     if (key == SDLK_ESCAPE) {
         if (event->type == InputEventType::KeyUp || event->type == InputEventType::KeyRepeat) {
@@ -2648,7 +2678,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, fmt::format("{:d}", g_random_encounter_limit));
         return handled;
     case 0x19:
-        EditMonsterGeneratorName(key);
+        // Text and deletion are handled above; key release inserts nothing.
         return handled;
     case 0x1a:
         switch (key) {
