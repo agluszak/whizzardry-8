@@ -51,7 +51,6 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -88,7 +87,7 @@ int GetSpellCastingPowerIndex(void)
 static void CreateSpellCastingViewControls(void);
 static void SelectSpellPowerPip7(void);
 static void SelectSpellPowerPip8(void);
-static void SpellCastingDialogResult(W8DialogBase* dialog);
+static void SpellCastingDialogResult(bool accepted);
 static void PreviewSpellPowerPipHover(int power_level);
 void UpdateSpellRealmPointDisplays(void);
 static void UpdateSpellPowerPips(void);
@@ -742,7 +741,7 @@ void SetSpellCastingPanelsActive(bool active)
 }
 
 // FUNCTION: WIZ8 0x005A02F0
-void SpellCastingNoticeClosed(W8DialogBase* dialog)
+void SpellCastingNoticeClosed(bool)
 {
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
@@ -916,12 +915,12 @@ static void PreviewSpellPowerPipHover(int power_level)
 /* The confirmation dialog's destroy callback: a cancelled dialog unwinds the
    whole spell selection. */
 // FUNCTION: WIZ8 0x005A0AE0
-static void SpellCastingDialogResult(W8DialogBase* dialog)
+static void SpellCastingDialogResult(bool accepted)
 {
     int index;
 
     index = gpSCSV->uiSpellIndex;
-    if (GetDialogResult(dialog)) {
+    if (accepted) {
         gpSCSV->dialog_confirmed = true;
         return;
     }
@@ -972,10 +971,12 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
             const auto spell = gpSCSV->uiSpells[line];
             AfterUiDispatch([spell] {
-                g_saved_target_cursor = gXStatus.iCurrentCursor;
                 auto dialog = std::make_unique<W8SpellInfoDialog>(spell);
                 dialog->SetText("");
-                dialog->m_destroy_callback = RestoreTargetCursor;
+                dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
+                    SetTargetCursor(cursor);
+                    RequestRedraw(W8_MAIN_REDRAW_ALL);
+                };
                 OpenModal(std::move(dialog));
             });
         }

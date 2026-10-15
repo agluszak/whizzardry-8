@@ -2147,23 +2147,27 @@ TEST_CASE("Button release and repeat rules preserve independent and primary stat
     REQUIRE(interaction.release(SDL_BUTTON_RMASK, primary).activate);
 }
 
-TEST_CASE("Dialog completion captures context and runs before derived teardown", "[owner]")
+TEST_CASE("Dialog completion extracts a result before retirement and preserves replacements",
+          "[owner]")
 {
     UiStateSnapshot saved_state;
-    int completions = 0;
-    {
-        W8ListBoxDialog list;
-        list.m_lines = {"Completion must see these live members"};
-        list.m_destroy_callback = [&completions](W8DialogBase* base) {
-            const auto& list = *static_cast<W8ListBoxDialog*>(base);
-            REQUIRE(list.m_lines ==
-                    std::vector<std::string>{"Completion must see these live members"});
-            ++completions;
-            // Resetting the stored callback cannot destroy the currently
-            // executing closure, nor cause a second base-class notification.
-            base->m_destroy_callback = {};
-            base->m_destroy_callback = [&completions](W8DialogBase*) { completions += 100; };
-        };
-    }
-    REQUIRE(completions == 1);
+    bool accepted = false;
+    ModalContent* replacement = nullptr;
+    auto dialog = std::make_unique<W8MessageDialogBase>();
+    dialog->accepted = true;
+    dialog->is_open = false;
+    g_pending_main_game_dialog = std::make_unique<W8ListBoxDialog>();
+    auto* suspended = g_pending_main_game_dialog.get();
+    dialog->on_complete = [&](bool result) {
+        accepted = result;
+        REQUIRE(g_modal_owner.get() == suspended);
+        auto next = std::make_unique<W8ListBoxDialog>();
+        replacement = next.get();
+        OpenModal(std::move(next));
+    };
+    g_modal_owner = std::move(dialog);
+    REQUIRE_FALSE(ProcessModalOwner());
+    REQUIRE(accepted);
+    REQUIRE(g_modal_owner.get() == replacement);
+    OpenModal(nullptr);
 }

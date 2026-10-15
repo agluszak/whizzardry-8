@@ -66,7 +66,7 @@
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 
-static void OnNpcTravelConfirmationClosed(W8DialogBase* dialog);
+static void OnNpcTravelConfirmationClosed(bool accepted);
 
 class W8DialogBase;
 
@@ -774,9 +774,9 @@ void W8NpcDialogue::RunNextAction()
 }
 
 // FUNCTION: WIZ8 0x0052a1b0
-static void OnNpcTravelConfirmationClosed(W8DialogBase* dialog)
+static void OnNpcTravelConfirmationClosed(bool accepted)
 {
-    if (GetDialogResult(dialog)) {
+    if (accepted) {
         QueueNpcTravelRefusals(g_pending_npc_travel_level);
     }
 }

@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
@@ -60,7 +62,6 @@ W8ListBoxDialog::W8ListBoxDialog()
 // FUNCTION: WIZ8 0x005cbce0
 W8ListBoxDialog::~W8ListBoxDialog()
 {
-    NotifyDestroyed();
     DestroyControls();
 }
 
@@ -767,12 +768,6 @@ W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
     m_first_item = 0;
 }
 
-// FUNCTION: WIZ8 0x005cd820
-W8TriggerItemPickerDialog::~W8TriggerItemPickerDialog()
-{
-    NotifyDestroyed();
-}
-
 /* Configure the thirteen owned buttons. Buttons 5..8 are item rows and
    9..12 are the scroll bar. */
 // FUNCTION: WIZ8 0x005cd8d0
@@ -1349,4 +1344,20 @@ void W8TriggerItemPickerDialog::DestroyControls()
     for (auto& button : m_buttons) {
         button.reset();
     }
+}
+
+std::function<void()> W8SplitAmountDialog::TakeCompletion(bool completed)
+{
+    W8DialogBase::TakeCompletion(completed);
+    if (!completed || m_result != W8_SPLIT_RESULT_CONFIRMED || !on_complete) return {};
+    return [callback = std::exchange(on_complete, {}), result = m_taken] { callback(result); };
+}
+
+std::function<void()> W8TriggerItemPickerDialog::TakeCompletion(bool completed)
+{
+    W8DialogBase::TakeCompletion(completed);
+    if (!on_complete) return {};
+    return [callback = std::exchange(on_complete, {}), result = ReturnItemsToGroup()] {
+        callback(result);
+    };
 }

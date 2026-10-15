@@ -50,7 +50,9 @@ and have no fixed event-count limit. Attaching or detaching the input window res
   dispatcher event.
 - `ProcessModalOwner()` runs the modal's input step as one transaction, so
   `OpenModal` from inside the current modal retires it until `ProcessInput()`
-  returns; only the modal that ran is closed, never its replacement.
+  returns; only the modal that ran is closed, never its replacement. Dialog owners
+  extract typed completion values, disable input, retire the closing object and
+  then deliver the callback. Destructors release resources; they do not deliver results.
 - Tooltip providers read current state when delayed help is displayed.
 
 The numeric region registry, templates, IDs, slot recycling, binding generations,
