@@ -371,7 +371,7 @@ static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 {
     W8CharacterEventQueue* queue = gXStatus.character_event_queue;
 
-    if (entry->sound_end_handled || queue == 0) {
+    if (queue == 0) {
         return;
     }
 #ifdef WIZ8_RUNTIME_TESTS
@@ -384,8 +384,8 @@ static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 // FUNCTION: WIZ8 0x0052C810
 W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_type,
                                    unsigned int flags, int queue_mode, int volume)
-    : sound_end_handled(0), character(character), event_type(event_type), queue_mode(queue_mode),
-      flags(flags), volume(volume), dispatch_delay_ms(0)
+    : character(character), event_type(event_type), queue_mode(queue_mode), flags(flags),
+      volume(volume), dispatch_delay_ms(0)
 {
     item.iItemNo = -1;
     switch (event_type) {
@@ -412,7 +412,6 @@ W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_ty
 
 W8CharacterEvent::~W8CharacterEvent()
 {
-    sound_end_handled = true;
     wiz8::sound::stop(voice_playback);
 }
 
@@ -579,7 +578,6 @@ void W8CharacterEvent::Complete()
     party_slot = CharacterPointerToPartySlot(character);
     slot = &gXStatus.monster_manager_entries[party_slot];
     sound_was_active = slot->portrait_event_active;
-    sound_end_handled = true;
     wiz8::sound::stop(voice_playback);
     slot->active_character_event = 0;
     if (sound_was_active) {
@@ -716,8 +714,6 @@ unsigned char W8CharacterEvent::PlayEventSound()
     int npc_index = g_status.buffers.XChar[party_slot].npc_index;
     std::string sound_path;
     std::string npc_sound_name;
-    wiz8::sound::Playback sound_handle;
-    W8MonsterManagerEntry* record;
     W8NpcState* npc;
 
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0) {
@@ -734,30 +730,24 @@ unsigned char W8CharacterEvent::PlayEventSound()
                                      npc_sound_name, sound_event);
         }
     }
-    sound_handle = wiz8::sound::play(
+    wiz8::sound::stop(voice_playback);
+    voice_playback = wiz8::sound::play(
         sound_path, {.volume = std::uint32_t((volume * (g_settings.voice_volume & 0xff)) / 0x7f),
                      .on_finished = [this] { CharacterEventSoundEndCallback(this); }});
-    voice_playback = sound_handle;
-    record = &gXStatus.monster_manager_entries[party_slot];
-    record->voice_sound_handle = sound_handle;
-    if (sound_handle == nullptr) {
-        if (event_type > 0x91) {
-            char fallback_text[] = FALLBACK_VOICE_TEXT;
-            record->portrait.voice_remaining_ms = ComputePortraitMessageDuration(fallback_text);
-        } else {
-            record->portrait.voice_remaining_ms = ComputePortraitMessageDuration(g_character_text);
-        }
-        return 1;
-    }
-    const auto playback_time =
-        wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
-    record->portrait.voice_remaining_ms = playback_time.total_ms;
-    record->mouth_gap = LoadMouthGapTrack(sound_path);
+    BeginPortraitVoice(party_slot, voice_playback, sound_path,
+                       ComputePortraitMessageDuration(event_type > 0x91
+                                                          ? std::string_view(FALLBACK_VOICE_TEXT)
+                                                          : std::string_view(g_character_text)));
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle),
-                   static_cast<int>(record->mouth_gap.ranges.size()));
-    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
-                   playback_time.current_ms);
+    if (voice_playback) {
+        const auto playback_time =
+            wiz8::sound::playback_time(voice_playback).value_or(wiz8::sound::PlaybackTime{});
+        RuntimeObserve(
+            RUNTIME_VOICE_STARTED, party_slot, true,
+            static_cast<int>(gXStatus.monster_manager_entries[party_slot].mouth_gap.ranges.size()));
+        RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
+                       playback_time.current_ms);
+    }
 #endif
     return 1;
 }
@@ -931,6 +921,30 @@ void EnablePartyPortraitEvent(unsigned int slot)
 void DisablePartyPortraitEvent(unsigned int slot)
 {
     if (party_quote_input && slot < 8) party_quote_input->targets[slot]->setEnabled(false);
+}
+
+void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& voice,
+                        std::string_view voice_path, unsigned int unvoiced_ms)
+{
+    W8MonsterManagerEntry& record = gXStatus.monster_manager_entries[party_slot];
+    record.voice_sound_handle = voice;
+    if (voice == nullptr) {
+        record.portrait.voice_remaining_ms = unvoiced_ms;
+        return;
+    }
+    record.portrait.voice_remaining_ms =
+        wiz8::sound::playback_time(voice).value_or(wiz8::sound::PlaybackTime{}).total_ms;
+    record.mouth_gap = LoadMouthGapTrack(voice_path);
+}
+
+void FinishPortraitSpeech(unsigned int party_slot)
+{
+    W8MonsterManagerEntry& record = gXStatus.monster_manager_entries[party_slot];
+    if (record.active_character_event == 0) {
+        SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
+    } else {
+        gXStatus.character_event_queue->CompleteActiveEvent(record.active_character_event);
+    }
 }
 
 /* Turn a party-slot portrait/voice event on or off, optionally
@@ -1855,12 +1869,7 @@ int UpdateCharacterEventState(void)
         if (record->portrait_event_active) {
             if (record->voice_sound_handle == nullptr) {
                 if (record->portrait.voice_remaining_ms == 0) {
-                    if (record->active_character_event == 0) {
-                        SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
-                    } else {
-                        gXStatus.character_event_queue->CompleteActiveEvent(
-                            record->active_character_event);
-                    }
+                    FinishPortraitSpeech(party_slot);
                 }
             } else {
 #ifdef WIZ8_RUNTIME_TESTS

@@ -14,13 +14,10 @@
 
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)
 {
+    wiz8::sound::stop(speech.voice_handle);
     speech.voice_handle =
         wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.voice_volume * 70 / 100),
-                                 .on_finished = [&speech, on_finished = std::move(on_finished)] {
-                                     if (!speech.stopping) {
-                                         on_finished();
-                                     }
-                                 }});
+                                 .on_finished = std::move(on_finished)});
     speech.voice_started_at = w8_get_ticks();
     speech.voice_playing = speech.voice_handle != nullptr;
     return speech.voice_playing;
@@ -28,15 +25,9 @@ bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void
 
 void StopNpcVoice(W8NpcSpeech& speech)
 {
-    if (!speech.voice_playing) {
-        return;
-    }
     speech.voice_playing = false;
-    if (speech.voice_handle != nullptr) {
-        speech.stopping = true;
-        wiz8::sound::stop(speech.voice_handle);
-        speech.stopping = false;
-    }
+    wiz8::sound::stop(speech.voice_handle);
+    speech.voice_handle.reset();
     speech.gap_track = {};
 }
 

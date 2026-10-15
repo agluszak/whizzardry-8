@@ -45,6 +45,7 @@ struct AudioPlayback {
     std::atomic<bool> stopped = false;
     w8_native::Track track;
     std::function<void()> on_finished;
+    Group group = Group::effects;
     std::uint64_t started_at = 0;
     std::uint32_t volume = 127;
     std::uint32_t rate = 44100;
@@ -63,19 +64,6 @@ struct Service {
     // Retains fire-and-forget playback until completion; callers may share the same objects.
     std::vector<Playback> active;
 } service_state;
-
-const char* tag_of(Group group)
-{
-    switch (group) {
-    case Group::effects:
-        return "effects";
-    case Group::ambient:
-        return "ambient";
-    case Group::music:
-        return "music";
-    }
-    return "effects";
-}
 
 bool live(const Playback& playback)
 {
@@ -143,9 +131,10 @@ Playback create_playback(Group group)
     finish_stopped();
     if (!service_state.enabled) return {};
     auto playback = std::make_shared<AudioPlayback>();
+    playback->group = group;
     playback->owner = w8_native::retain_audio_mixer();
     playback->track.reset(MIX_CreateTrack(playback->owner.get()));
-    if (!playback->track || !MIX_TagTrack(playback->track.get(), tag_of(group)) ||
+    if (!playback->track ||
         !MIX_SetTrackStoppedCallback(
             playback->track.get(),
             [](void* data, MIX_Track*) {
@@ -358,12 +347,11 @@ bool is_file_playing(std::string_view path)
 bool stop(const Playback& playback, std::uint32_t fade_out_ms)
 {
     const bool was_playing = is_playing(playback);
+    if (playback) playback->on_finished = {};
     if (was_playing && fade_out_ms != 0) {
         auto* track = playback->track.get();
         return MIX_StopTrack(track, MIX_TrackMSToFrames(track, fade_out_ms));
     }
-    // A stopped track can still own a deferred callback. Drain it before the
-    // caller releases its callback data, even after natural EOF.
     finish(playback);
     return was_playing;
 }
@@ -371,19 +359,11 @@ bool stop(const Playback& playback, std::uint32_t fade_out_ms)
 // FUNCTION: WIZ8 0x00409020
 bool stop_group(Group group)
 {
-    auto owner = w8_native::retain_audio_mixer();
-    if (!service_state.enabled || !owner) return false;
-    const auto* tag = tag_of(group);
-    std::unique_ptr<MIX_Track*, decltype(&SDL_free)> tracks(
-        MIX_GetTaggedTracks(owner.get(), tag, nullptr), SDL_free);
-    if (!tracks) return false;
-    bool playing = false;
-    for (auto** track = tracks.get(); *track; ++track) playing |= MIX_TrackPlaying(*track);
-    // Retain this batch before dispatch: callbacks may start another tagged track.
     const auto batch = service_state.active;
-    if (!MIX_StopTag(owner.get(), tag, 0)) return false;
-    for (const auto& playback : batch)
-        if (playback->stopped.load(std::memory_order_acquire)) finish(playback);
+    bool playing = false;
+    for (const auto& playback : batch) {
+        if (playback->group == group) playing |= stop(playback);
+    }
     return playing;
 }
 

@@ -43,10 +43,6 @@ struct W8CharacterEvent {
     W8CharacterEvent(const W8CharacterEvent&) = delete;
     W8CharacterEvent& operator=(const W8CharacterEvent&) = delete;
 
-    /* 0x00: set before the sound is stopped on synchronous shutdown; the
-       sound-end callback bails when it is set. */
-    bool sound_end_handled;
-    unsigned char padding_01[3];
     W8Character* character;
     unsigned int event_type;
     /* 0x0c: queue category passed as the fourth argument. */
@@ -73,8 +69,8 @@ struct W8CharacterEvent {
     int dispatch_delay_ms;
     uint64_t dispatch_delay_start;
 
-    /* The event owns the playback whose callback borrows this entry. The
-       portrait's shared handle can change independently of this lifetime. */
+    /* The event owns its voice; the portrait's shared handle can change
+       independently of the event lifetime. */
     wiz8::sound::Playback voice_playback;
 
     void DelayDispatch(int milliseconds)

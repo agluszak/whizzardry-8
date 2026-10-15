@@ -15,7 +15,7 @@
    one mixer track. Game policy (ambient scheduling, distance volume, music
    transitions) lives with its callers. */
 namespace wiz8::sound {
-// Mixer tags; retail used priority 0xfffffff0 for every ambient sound.
+// Playback groups allow independent stopping of effects, ambient sounds and music.
 enum class Group : std::uint8_t { effects, ambient, music };
 
 struct PlayOptions {
@@ -58,7 +58,8 @@ void release_cache();
 
 bool is_playing(const Playback& playback);
 bool is_file_playing(std::string_view path);
-// Returns whether the playback was audible; a fade keeps it playing until silent.
+// Stops playback without calling on_finished (including deferred completion).
+// Returns whether it was audible; a fade keeps it playing until silent.
 bool stop(const Playback& playback, std::uint32_t fade_out_ms = 0);
 bool stop_group(Group group);
 
