@@ -65,7 +65,6 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/learned_spells.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -397,7 +396,7 @@ void DrawCampResistances(void)
    row opens its spell info dialog. */
 UiResult HandleCampSpellList(const UiPointerEvent& event, int realm)
 {
-    PushButtonSoundScheme(0, true);
+
     int row = (event.local.y - 1) / 13;
     const int visible = std::min(8, int(g_review_character->skill_unlocks[0x1c + realm]) -
                                         int(g_camp_screen->learned_spells.scroll[realm]));
@@ -878,11 +877,7 @@ W8CampCharacterInfo::W8CampCharacterInfo()
     m_combat_tab = button(10, 0x95f, true);
     constexpr SDL_Point positions[] = {{0x1d6, 0x4c}, {0x258, 0x4c}, {0x1d6, 0x3e}, {0x258, 0x3e}};
     for (int index = 0; index < 4; ++index) {
-        m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13},
-                                     [](const UiPointerEvent&) {
-                                         PushButtonSoundScheme(0, true);
-                                         return UiResult::Handled;
-                                     });
+        m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13}, {});
         m_values[index]->setTooltip([this, index] { return m_help[index]; });
     }
     input.setEnabled(false);
@@ -1168,7 +1163,8 @@ unsigned char CampScreenEnter(void)
     CreateCampHeaderButtons();
     g_camp_screen->page = W8_CAMP_PAGE_ITEMS;
     g_camp_screen->info_page = W8_CAMP_INFO_PAGE_ITEMS;
-    g_camp_screen->item_range = std::make_unique<W8RangeControl>(0x263, 0xc1, 0x275, 0x1a1);
+    g_camp_screen->item_range =
+        std::make_unique<W8RangeControl>(g_camp_screen->scroll_input, 0x263, 0xc1, 0x275, 0x1a1);
     g_camp_screen->item_range->on_change = [](auto* range) {
         g_camp_screen->item_scroll = range->m_value << 1;
         if (((GetInputState().modifiers & CTRL_DOWN) != 0))
@@ -1180,7 +1176,8 @@ unsigned char CampScreenEnter(void)
         const int x = (range_index % 3) * 0xd5;
         const int y = (range_index / 3) * 0x8c;
         auto& range = g_camp_screen->spell_ranges[range_index];
-        range = std::make_unique<W8RangeControl>(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
+        range = std::make_unique<W8RangeControl>(g_camp_screen->scroll_input, x + 0xbb, y + 0xc3,
+                                                 x + 0xcd, y + 0x129);
         range->on_change = [range_index](auto* scroll) {
             g_camp_screen->learned_spells.scroll[range_index] = scroll->m_value;
             g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << range_index;
@@ -1189,7 +1186,8 @@ unsigned char CampScreenEnter(void)
     g_camp_screen->effect_list.clear();
     g_camp_screen->effect_items_only = true;
     g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-    g_camp_screen->stats_range = std::make_unique<W8RangeControl>(0x264, 0xbe, 0x276, 0x1b5);
+    g_camp_screen->stats_range =
+        std::make_unique<W8RangeControl>(g_camp_screen->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
     g_camp_screen->stats_range->on_change = [](auto* range) {
         g_camp_screen->effect_scroll = range->m_value;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;

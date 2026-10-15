@@ -33,8 +33,6 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     m_lineCount = 0;
     m_geometryDirty = true;
     m_text_palette = text_palette;
-    m_selected = false;
-    m_entry_highlighted = false;
     m_marked = false;
     m_category = category;
     SetClipBounds(*bounds);
@@ -47,7 +45,7 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
 }
 
 int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int prefix_remaining,
-                                int y)
+                                int y, bool selected)
 {
     int x = GetHorizontalPosition(m_font->textWidth(line));
     if (prefix_remaining > 0) {
@@ -55,7 +53,7 @@ int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int 
             const auto prefix = line.substr(0, prefix_remaining);
             DrawText(target, *m_font, {x, y}, prefix);
             x += m_font->textWidth(prefix);
-            if (!m_selected) {
+            if (!selected) {
                 m_font->setPalette(m_text_palette < 15 ? g_font_state_palettes[m_text_palette]
                                                        : g_wiz_text_font_secondary.glyphs->colors);
             }
@@ -69,7 +67,7 @@ int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int 
 
 // FUNCTION: WIZ8 0x005d1170
 
-void W8DialogTextEntry::Paint(SDL_Surface& target)
+void W8DialogTextEntry::Paint(SDL_Surface& target, bool selected, bool highlighted)
 {
     int width = m_layoutBounds.right - m_layoutBounds.left;
     int prefix_remaining = m_prefix_length;
@@ -83,10 +81,10 @@ void W8DialogTextEntry::Paint(SDL_Surface& target)
         remaining = shortened;
     }
     Palette16 palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
-    if (!m_entry_highlighted) {
+    if (!highlighted) {
         if (m_marked) {
             palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
-        } else if (m_selected) {
+        } else if (selected) {
             palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE];
         } else {
             palette = g_wiz_text_font_secondary.glyphs->colors;
@@ -107,7 +105,8 @@ void W8DialogTextEntry::Paint(SDL_Surface& target)
     int y = GetVerticalPosition();
     for (;;) {
         const auto end = remaining.find('\n');
-        prefix_remaining = DrawLine(target, remaining.substr(0, end), prefix_remaining, y);
+        prefix_remaining =
+            DrawLine(target, remaining.substr(0, end), prefix_remaining, y, selected);
         if (end == std::string_view::npos) break;
         y += GetLineHeight();
         if (m_layoutBounds.bottom <= y) break;
@@ -117,10 +116,3 @@ void W8DialogTextEntry::Paint(SDL_Surface& target)
 }
 
 // FUNCTION: WIZ8 0x005d14b0
-void W8DialogTextEntry::SetSelected(bool selected)
-{
-    if (m_selected != selected) {
-        m_selected = selected;
-        m_geometryDirty = true;
-    }
-}

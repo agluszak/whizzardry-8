@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
@@ -26,15 +27,21 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "catch2/catch_message.hpp"
+#include "input.h"
 #include "native/audio_test.h"
 #include "native/movie_audio.h"
 #include "scoped_asset_roots.h"
 #include "soundman.h"
 #include "temporary_directory.h"
 #include "wiz8/audio_resources.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/slf.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 static unsigned callbacks = 0;
 static void word(std::vector<unsigned char>& data, unsigned value, int bytes)
@@ -726,4 +733,51 @@ TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until ser
     REQUIRE(calls == 1);
     wiz8::sound::service();
     REQUIRE(calls == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Button feedback preserves repeat and disabled silence",
+                 "[audio][ui]")
+{
+    const auto directory = asset / "Data" / "Sound" / "Misc";
+    std::filesystem::create_directories(directory);
+    for (const auto* name :
+         {"Interface Click 01.wav", "Interface Click 02.wav", "Interface Whoosh 01 Soft.wav"})
+        write(directory / name, wave);
+    startOfflineAudio();
+    ResetUiInput();
+    UiLayer layer;
+    W8ButtonWidget button(layer);
+    int activations = 0;
+    REQUIRE(button.Configure(
+        ButtonAppearance{}, {10, 10, 40, 20},
+        {.on_click = [&](W8ButtonWidget*) { ++activations; },
+         .policy = {.repeat = true, .input_rule = ButtonInputRule::PrimaryPressedState}}));
+    const std::string_view release = "Data\\Sound\\Misc\\Interface Click 01.wav";
+    const std::string_view press = "Data\\Sound\\Misc\\Interface Click 02.wav";
+    auto dispatch = [&](InputEventType type, bool held) {
+        InputEvent input{};
+        input.type = type;
+        input.position = {15, 15};
+        input.buttons = held ? SDL_BUTTON_LMASK : 0;
+        DispatchUiInput(&input);
+    };
+    dispatch(InputEventType::LeftButtonDown, true);
+    REQUIRE(wiz8::sound::is_file_playing(press));
+    for (int i = 0; i < 2; ++i) {
+        wiz8::sound::stop_group(wiz8::sound::Group::effects);
+        dispatch(InputEventType::LeftButtonRepeat, true);
+        REQUIRE(wiz8::sound::is_file_playing(release));
+    }
+    REQUIRE(activations == 2);
+    wiz8::sound::stop_group(wiz8::sound::Group::effects);
+    dispatch(InputEventType::LeftButtonUp, false);
+    REQUIRE_FALSE(wiz8::sound::is_file_playing(release));
+    REQUIRE(activations == 2);
+    button.SetEnabled(false);
+    dispatch(InputEventType::LeftButtonDown, true);
+    dispatch(InputEventType::LeftButtonRepeat, true);
+    dispatch(InputEventType::LeftButtonUp, false);
+    REQUIRE_FALSE(wiz8::sound::is_file_playing(press));
+    REQUIRE_FALSE(wiz8::sound::is_file_playing(release));
+    REQUIRE(activations == 2);
 }

@@ -39,6 +39,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
@@ -83,12 +84,12 @@ int g_empty_hand_catalog_ids[32] = {
 // GLOBAL: WIZ8 0x0069B940
 namespace {
 struct PortraitButtons {
-    UiLayer input{0x05};
+    UiLayer input{UiLayerOrder::PortraitButtons};
     std::array<std::unique_ptr<W8ButtonWidget>, 8> buttons;
 };
 std::unique_ptr<PortraitButtons> portrait_buttons;
 struct ConditionIcons {
-    UiLayer input{0x06};
+    UiLayer input{UiLayerOrder::PortraitStatus};
     struct Icon {
         HitTarget* target;
         SDL_Point position;
@@ -1208,6 +1209,8 @@ void CreateConditionButtons()
         icon.target = &condition_icons->input.add(
             SDL_Rect{icon.position.x, icon.position.y, 20, 20},
             [slot](const UiPointerEvent& event) {
+                if (event.action != UiPointerAction::Up || event.captured_buttons)
+                    PlayButtonSound(event.action);
                 condition_icons->icons[slot].dirty = true;
                 if (event.action == UiPointerAction::Leave ||
                     (event.action == UiPointerAction::Up &&

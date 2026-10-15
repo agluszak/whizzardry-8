@@ -24,6 +24,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 #ifdef WIZ8_RUNTIME_TESTS
@@ -864,12 +865,14 @@ finish_without_dispatch:
 
 namespace {
 struct PartyQuoteInput {
-    UiLayer input{0x1d};
+    UiLayer input{UiLayerOrder::PartyQuotes};
     std::array<HitTarget*, 8> targets;
     PartyQuoteInput()
     {
         for (int slot = 0; slot < 8; ++slot) {
             targets[slot] = &input.add(SDL_Rect{0, 0, 1, 1}, [slot](const UiPointerEvent& event) {
+                if (event.action != UiPointerAction::Up || event.captured_buttons)
+                    PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Up && event.inside &&
                     event.button == UiPointerButton::Left &&
                     (event.captured_buttons & SDL_BUTTON_LMASK)) {

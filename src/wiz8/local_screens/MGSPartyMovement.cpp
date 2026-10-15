@@ -43,7 +43,7 @@
 
 namespace {
 struct PartyMovementPanel {
-    UiLayer input{0x1c};
+    UiLayer input{UiLayerOrder::PartyMovement};
     std::array<std::unique_ptr<W8ButtonWidget>, 2> buttons;
     std::unique_ptr<W8TextBuffer> caption;
     uint64_t animation_clock = 0;

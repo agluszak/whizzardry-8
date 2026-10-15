@@ -603,11 +603,11 @@ W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* p
                       auto& pin = m_tumblers[i];
                       if (event.action == UiPointerAction::Enter ||
                           event.action == UiPointerAction::Leave) {
-                          PushButtonSoundScheme(0, true);
+
                           pin.m_hovered = event.action == UiPointerAction::Enter;
                           pin.m_dirty = true;
                       } else if (event.button == UiPointerButton::Left) {
-                          PushButtonSoundScheme(0, true);
+
                           if (event.action == UiPointerAction::Up && event.inside &&
                               pin.m_enabled && !m_animating && !pin.m_pin_set)
                               AfterUiDispatch([&owner, i] { owner.OnTumblerPicked(i); });
@@ -1254,6 +1254,8 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler()
     };
     m_range.SetRange(0, m_line_count - m_visible_lines);
     input.add(SDL_Rect{0x161, 0x16b, 0x6f, 0x55}, [this](const UiPointerEvent& event) {
+        if (event.action != UiPointerAction::Up || event.captured_buttons)
+            PlayButtonSound(event.action);
         if (event.action == UiPointerAction::Leave)
             m_hover_line = -1;
         else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter)
@@ -1397,6 +1399,8 @@ W8MainGameTextPanel::W8MainGameTextPanel()
         cells[index].target = &input.add(
             SDL_Rect{0xe0 + (index % 4) * 30, 0x16e + (index / 4) * 50, size.x + 1, size.y + 1},
             [this, index](const UiPointerEvent& event) {
+                if (event.action != UiPointerAction::Up || event.captured_buttons)
+                    PlayButtonSound(event.action);
                 auto& cell = cells[index];
                 const ButtonPolicy policy{.primary_toggle = ButtonToggle::Release,
                                           .input_rule = ButtonInputRule::PrimaryPressedState};
@@ -1406,12 +1410,12 @@ W8MainGameTextPanel::W8MainGameTextPanel()
                 if (event.action == UiPointerAction::Down &&
                     event.button == UiPointerButton::Left) {
                     cell.interaction.press(SDL_BUTTON_LMASK, policy);
-                    PlayButtonSound(0);
+                    PlayButtonSound(UiPointerAction::Enter);
                 } else if (event.action == UiPointerAction::Up &&
                            event.button == UiPointerButton::Left && event.inside) {
                     if (cell.interaction.release(SDL_BUTTON_LMASK, policy).activate) {
                         cell.blocked = true;
-                        PlayButtonSound(1);
+
                         AfterUiDispatch([this, index] {
                             if (m_screen) m_screen->SelectTextEntry(index);
                         });
@@ -2179,6 +2183,8 @@ W8NpcDialogueTextController::W8NpcDialogueTextController()
                             g_W8DialogTextAreaNoWrap);
     text_area.SetLineHeight(scroll_height);
     expanded_target = &input.add(SDL_Rect{0, 0, 1, 1}, [this](const UiPointerEvent& event) {
+        if (event.action != UiPointerAction::Up || event.captured_buttons)
+            PlayButtonSound(event.action);
         if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left &&
             (event.captured_buttons & SDL_BUTTON_LMASK))
             AfterUiDispatch([this, point = event.position] {
@@ -2478,7 +2484,7 @@ MainGameScreenState::MainGameScreenState()
     for (int slot = 0; slot < 8; ++slot) {
         const int row = slot / 2;
         const bool right = slot % 2;
-        portraits[slot] = std::make_unique<UiLayer>(0x07 + slot);
+        portraits[slot] = std::make_unique<UiLayer>(PortraitSlotOrder(slot));
         auto& input = *portraits[slot];
         auto& targets = portrait_targets[slot];
         const auto add = [&](int index, HitShape shape, auto handler, int help = -1) {
@@ -2497,11 +2503,7 @@ MainGameScreenState::MainGameScreenState()
         add(1, UiCircle{{right ? 544 : 95, orb_y[row]}, 8}, PortraitEnchantmentOrbInput, 26);
         add(2, SDL_Rect{right ? 535 : 23, portrait_y[row], 82, portrait_h[row]},
             PortraitSelectInput);
-        targets[3] = &input.add(SDL_Rect{right ? 539 : 21, 91 + row * 85, right ? 74 : 85, 11},
-                                [](const UiPointerEvent&) {
-                                    PushButtonSoundScheme(0, true);
-                                    return UiResult::Handled;
-                                });
+        targets[3] = &input.add(SDL_Rect{right ? 539 : 21, 91 + row * 85, right ? 74 : 85, 11}, {});
         add(4, SDL_Rect{right ? 621 : 4, sidebar_y[row], right ? 15 : 16, 49},
             PortraitAssaySidebarInput, 28);
         add(5, SDL_Rect{right ? 517 : 109, sidebar_y[row], 15, 49}, PortraitOverlayHoverInput, 24);
@@ -2521,10 +2523,7 @@ MainGameScreenState::MainGameScreenState()
     radar_target->setTooltip([] { return g_localized_strings[31]; });
     auto& board = formation.add(UiCircle{{564, 402}, 40}, HandleFormationBoard);
     board.setTooltip([] { return g_localized_strings[32]; });
-    formation.add(SDL_Rect{512, 358, 106, 93}, [](const UiPointerEvent&) {
-        PushButtonSoundScheme(0, true);
-        return UiResult::Handled;
-    });
+    formation.add(SDL_Rect{512, 358, 106, 93}, {});
     monster_list = &world.add(SDL_Rect{0, 0, 1, 1}, MonsterListInput);
     monster_list->setTooltip([] { return g_localized_strings[36]; });
     world_view = &world.add(SDL_Rect{0, 0, 1, 1}, WorldViewInput);
@@ -4898,6 +4897,9 @@ void SyncMainGameModeRegions(void)
    cursor. Skips the slot parked in gXStatus.review_character_slot. */
 UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
+    if (event.action != UiPointerAction::Enter &&
+        (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     int slot = id;
     bool targeting = false;
     bool aim_ok = false;
@@ -5090,7 +5092,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                         }
                         target.setTooltip([text = help_text] { return std::string(text); });
                     }
-                    PushButtonSoundScheme(0, true);
+
                     g_level_block->portrait_right_hold_armed = false;
                     if (IsNpcDialogueCursorActive() == 0) {
                         SetTooltipSubject(0, slot);
@@ -5151,9 +5153,9 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
     int slot = id;
     W8Character* character = &g_status.buffers.Char[slot];
 
-    if ((character->*effect) == none) {
-        PushButtonSoundScheme(0, true);
-    }
+    if (((character->*effect) != none) &&
+        (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
 
     if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Down)) {
         if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
@@ -5230,6 +5232,9 @@ UiResult PortraitEnchantmentOrbInput(const UiPointerEvent& event, HitTarget& tar
    item; click opens Assay or binds items with Shift. */
 UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
+    if (event.action != UiPointerAction::Enter &&
+        (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     int previous_mode = g_level_block->portrait_assay_hover_mode;
     int slot = id;
     W8Character* character;
@@ -5281,7 +5286,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
         }
         if (event.action != UiPointerAction::Leave) {
             if (event.action == UiPointerAction::Enter) {
-                PushButtonSoundScheme(0, true);
+
                 SetTooltipSubject(5, slot);
             }
         } else {
@@ -5317,6 +5322,9 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
    set portrait_overlay_party_slot, leave and up dismiss the mode-6 plate. */
 UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
+    if (event.action != UiPointerAction::Enter &&
+        (event.action != UiPointerAction::Up || event.captured_buttons))
+        PlayButtonSound(event.action);
     int slot = id;
 
     if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Down)) {
@@ -5331,7 +5339,7 @@ UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& targe
                 if (event.action != UiPointerAction::Enter) {
                     return UiResult::Pass;
                 }
-                PushButtonSoundScheme(0, true);
+
                 SetTooltipSubject(4, slot);
                 if (!IsLeftButtonHeld()) {
                     return UiResult::Pass;
@@ -5361,6 +5369,8 @@ UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& targe
    unreachable. */
 UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
     int slot = id;
     if (!IsPartySlotEligible(slot)) {
         return UiResult::Pass;
@@ -5447,6 +5457,8 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
    the map button art. */
 UiResult RadarMapButtonInput(const UiPointerEvent& event)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
 
     if ((event.button == UiPointerButton::Left) ||
         (event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
@@ -5507,7 +5519,6 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     W8TargetNeed needed;
     int slot;
 
-    PushButtonSoundScheme(0, true);
     if (gXStatus.fReviewCharacterMode || g_camera_path_active) {
         return UiResult::Pass;
     }
@@ -5746,6 +5757,8 @@ UiResult WorldViewInput(const UiPointerEvent& event)
    SetCombatAction, left-up aims, right-up posts the group info notice. */
 UiResult MonsterListInput(const UiPointerEvent& event)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
     int row = -1;
     W8MonsterGroup* group = 0;
     int group_id = -1;

@@ -50,7 +50,6 @@ W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer, Resources resources)
         true;
     m_on_scroll = std::move(resources.on_scroll);
     m_visible = false;
-    m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005e0eb0
@@ -79,8 +78,8 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
         m_up_button.SetEnabled(scrollable);
         m_down_button.SetEnabled(scrollable);
         m_thumb_button.SetVisible(scrollable);
+        m_track_button.m_dirty |= !m_visible;
         m_visible = true;
-        m_dirty = true;
     }
 }
 
@@ -98,7 +97,6 @@ void W8DialogScrollBar::UpdateThumb()
         }
         m_thumb_button.SetPosition(static_cast<short>(x),
                                    static_cast<short>(m_track_bounds.top + offset));
-        m_dirty = true;
     }
 }
 
@@ -114,7 +112,7 @@ void W8DialogScrollBar::Draw(SDL_Surface& target)
 
 bool W8DialogScrollBar::TakeDirty()
 {
-    bool dirty = std::exchange(m_dirty, false);
+    bool dirty = false;
     for (auto* button : {&m_track_button, &m_up_button, &m_down_button, &m_thumb_button})
         dirty |= button->TakeDirty();
     return dirty;

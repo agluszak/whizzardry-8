@@ -41,6 +41,7 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/learned_spells.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -89,13 +90,13 @@
 // GLOBAL: WIZ8 0x0069c404
 namespace {
 struct CampHeaderButtons {
-    UiLayer input{0x28};
+    UiLayer input{UiLayerOrder::GameplayOverlays};
     std::unique_ptr<W8ButtonWidget> level_up;
     std::unique_ptr<W8ButtonWidget> dismiss;
 };
 std::unique_ptr<CampHeaderButtons> header_buttons;
 struct CampButtons {
-    UiLayer input{0x2d};
+    UiLayer input{UiLayerOrder::CampButtons};
     std::array<std::unique_ptr<W8ButtonWidget>, 5> pages;
     std::array<std::unique_ptr<W8ButtonWidget>, W8_CAMP_ACTION_BUTTON_COUNT> actions;
     bool dirty = true;
@@ -280,6 +281,8 @@ static void OpenLevelUpCharacterScreen(void)
 
 UiResult HandleCampDismissPortrait(const UiPointerEvent& event)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
         g_camp_screen->portrait_hovered[0] = event.action == UiPointerAction::Enter;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
@@ -292,6 +295,8 @@ UiResult HandleCampDismissPortrait(const UiPointerEvent& event)
 
 UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
         g_camp_screen->redraw_flags |= 1u << target_slot;
         if ((g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
@@ -353,6 +358,8 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
 
 UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
         g_camp_screen->redraw_flags |= 0x200;
     if (event.action == UiPointerAction::Up && event.inside &&
@@ -370,6 +377,8 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
 
 UiResult HandleCampProfessionHistory(const UiPointerEvent& event)
 {
+    if (event.action != UiPointerAction::Up || event.captured_buttons)
+        PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
         g_camp_screen->redraw_flags |= 0x200;
     if (event.button == UiPointerButton::Left) {

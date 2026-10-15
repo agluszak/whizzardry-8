@@ -20,7 +20,7 @@ inline constexpr int W8_SPELL_POWER_PIP_COUNT = 9;
 
 /* The view owns its input and controls for exactly as long as it is open. */
 struct W8SpellCastingView {
-    UiLayer input{0x19};
+    UiLayer input{UiLayerOrder::SpellCasting};
     HitTarget* name_target = nullptr;
     W8Character* caster;
     W8SpellRealm iSpellRealm; /* selected realm, -1 when none */

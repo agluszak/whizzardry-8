@@ -127,7 +127,8 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
     m_value = &owner.input.add(
         SDL_Rect{m_x + 0x1c, m_y + 4, 127, 23}, [this](const UiPointerEvent& event) {
             m_dirty = true;
-            if (!m_enabled) PushButtonSoundScheme(0, true);
+            if ((m_enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Up && event.inside && event.captured_buttons) {
                 if (event.button == UiPointerButton::Right && m_index >= 0)
                     AfterUiDispatch([this] { m_owner.OnRowInfoRequested(this, m_index); });
@@ -179,7 +180,7 @@ void W8CharacterStatsRow::Step(int direction)
 
 void W8CharacterStatsRow::BuildSubpanel()
 {
-    m_choices = std::make_unique<UiLayer>(0x32);
+    m_choices = std::make_unique<UiLayer>(UiLayerOrder::CharacterChoices);
     m_choice_targets.clear();
     for (int index = 0; index < m_count; ++index) {
         const int top = index == 0 ? 0 : index * 22 + 2;
@@ -188,7 +189,9 @@ void W8CharacterStatsRow::BuildSubpanel()
             SDL_Rect{m_x + 0x9e, m_y + 1 + top, 127, height + 1},
             [this, index](const UiPointerEvent& event) {
                 m_dirty = true;
-                if (!m_table[index].enabled) PushButtonSoundScheme(0, true);
+                if ((m_table[index].enabled) &&
+                    (event.action != UiPointerAction::Up || event.captured_buttons))
+                    PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Up && event.inside && event.captured_buttons) {
                     if (event.button == UiPointerButton::Right)
                         AfterUiDispatch([this, index] { m_owner.OnRowInfoRequested(this, index); });

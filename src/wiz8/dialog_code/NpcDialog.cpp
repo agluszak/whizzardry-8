@@ -173,7 +173,7 @@ bool W8NpcDialog::Configure()
             &bounds, line, g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-        m_input_group->SetScheme(1);
+        m_input_group->UseGameStyle();
         m_input_field = m_input_group->Add(m_bounds.x + (m_bounds.w - 0x8c) / 2, m_bounds.y + 0x23,
                                            0x8c, 0x10, 0x7f, "", 0x28, 0xf, true);
         m_input_group->Focus(m_input_field);

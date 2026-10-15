@@ -128,9 +128,11 @@ static std::unique_ptr<UiLayer> npc_quote_input;
 
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 {
-    npc_quote_input = std::make_unique<UiLayer>(0x25);
+    npc_quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
     npc_quote_input->add(
         SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1}, [](const UiPointerEvent& event) {
+            if (event.action != UiPointerAction::Up || event.captured_buttons)
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
                 AfterUiDispatch([] { TryFinishNpcVoicePlayback(true); });
             return UiResult::Handled;
@@ -308,7 +310,8 @@ static void SetNpcPanelActive(int index, bool active)
     }
     if (index == 6 && (!active || !was_active)) {
         if (active) {
-            g_npc_text_fields.emplace(1);
+            g_npc_text_fields.emplace(ui.options_input, g_wiz_text_mono_font);
+            g_npc_text_fields->UseGameStyle();
             g_npc_text_fields->Add(0x1e5, 0x170, 0x7a, 0x12, 0x7f, "", 0xbe, 0xf, true);
         } else if (g_npc_text_fields)
             g_npc_text_fields->Remove(0);
@@ -350,6 +353,8 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
         [index](const UiPointerEvent& event) {
             auto& ui = *g_npc_interaction_state->ui;
             auto& action = ui.actions[index];
+            if ((action.enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
+                PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
                 action.dirty = true;
                 if (event.action == UiPointerAction::Leave) action.interaction.leave(action.policy);
@@ -364,7 +369,7 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
                 return UiResult::Handled;
             }
             if (!action.enabled) {
-                PushButtonSoundScheme(0, true);
+
                 return UiResult::Handled;
             }
             const auto button =
@@ -1237,6 +1242,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     ApplyMainGameModeFlag(gXStatus.fCampMode ? g_settings.main_ui_mode
                                              : g_npc_interaction_state->saved_main_ui_mode,
                           true);
+    g_npc_text_fields.reset();
     g_npc_interaction_state->ui.reset();
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -1244,7 +1250,6 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
-    g_npc_text_fields.reset();
     ResumeMainGameWorld();
     if (!skip_exit_actions) {
         if (!g_npc_interaction_state->held_item_pending) {
@@ -4169,7 +4174,7 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
     int index;
 
     if (auto* fields = TextFieldGroup::Focused()) {
-        fields->SetScheme(1);
+        fields->UseGameStyle();
     }
     RestoreCurrentNpcQuoteBubble();
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {

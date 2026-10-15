@@ -18,7 +18,6 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -150,7 +149,7 @@ struct UiState {
         const bool inside = target && contains(*target, input.position);
         if (g_ui.hover && (g_ui.hover != target || !inside)) {
             leave(input);
-            PlayButtonSound(1);
+
             // A leave callback may release capture or request a new owner.
             if (!pending_actions.empty() || (g_ui.captured == target && !inside)) return;
             target = live(g_ui.captured) ? g_ui.captured : at(input.position);
@@ -161,7 +160,7 @@ struct UiState {
             g_ui.hover = target;
             send(*target, input, UiPointerAction::Enter);
             g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
-            PlayButtonSound(0);
+
         } else
             send(*target, input, UiPointerAction::Move);
     }
@@ -287,14 +286,14 @@ void HitTarget::useTextCursor()
     text_cursor_ = true;
 }
 
-UiLayer::UiLayer(int order) : order_(order)
+UiLayer::UiLayer(UiLayerOrder order) : order_(order)
 {
     auto& layers = State().layers;
     const auto pos =
         std::ranges::upper_bound(layers, order, {}, [](auto* layer) { return layer->order_; });
     layers.insert(pos, this);
 }
-UiLayer::UiLayer(UiLayerMode mode, int order) : UiLayer(order)
+UiLayer::UiLayer(UiLayerMode mode, UiLayerOrder order) : UiLayer(order)
 {
     setModal(mode == UiLayerMode::Modal);
 }
@@ -447,23 +446,19 @@ bool DispatchUiInput(const InputEvent* input)
     state.hideTooltip();
     g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
     const auto mask = button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
-    int sound = -1;
     if (action == UiPointerAction::Down) {
         if (!target->passive_) {
             target->captured_buttons_ |= mask;
             g_ui.captured = target;
         }
         g_ui.current = g_ui.hover = target;
-        if (!target->passive_) sound = 2;
-    } else if (action == UiPointerAction::Up && (target->capturedButtons() & mask))
-        sound = 3;
+    }
     const bool handled = state.send(*target, *input, action, button) == UiResult::Handled;
     // Removal clears the borrowed pointer; never inspect a destroyed target.
     if (action == UiPointerAction::Up && g_ui.captured == target) {
         target->captured_buttons_ &= ~mask;
         if (!target->captured_buttons_) g_ui.captured = nullptr;
     }
-    if (sound != -1) PlayButtonSound(sound);
     return handled;
 }
 
@@ -537,8 +532,7 @@ bool PumpUiInput(const UiInputPolicy& policy)
             const UiTransaction transaction;
             auto route = policy.before ? policy.before(input) : InputRoute::Pass;
             if (route == InputRoute::Pass) {
-                const bool consumed =
-                    (!policy.ui_accepts || policy.ui_accepts(input)) && DispatchUiInput(&input);
+                const bool consumed = DispatchUiInput(&input);
                 const auto& next = consumed ? policy.consumed : policy.unhandled;
                 route = next ? next(input) : InputRoute::Handled;
             }

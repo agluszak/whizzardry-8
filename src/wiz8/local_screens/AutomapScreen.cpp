@@ -153,7 +153,7 @@ static std::unique_ptr<W8AutomapState> g_automap_state;
 std::unique_ptr<srColorSurface> g_automap_surface;
 
 void AutomapZoomInButton(void);
-void AutomapZoomOutButton(void);
+static void ZoomAutomapOut();
 void AutomapSelectNoteToolButton(void);
 void AutomapSelectEraseToolButton(void);
 void AutomapCyclePageButton(void);
@@ -173,11 +173,21 @@ int g_automap_button_tooltips[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1
    already-recovered bodies at the retail callback addresses. */
 // GLOBAL: WIZ8 0x0064b7e4
 void (*g_automap_button_callbacks[16])(void) = {
-    AutomapZoomInButton,         AutomapZoomOutButton,         ResetAutomapZoom,
-    AutomapSelectNoteToolButton, AutomapSelectEraseToolButton, AutomapCyclePageButton,
-    AutomapCyclePageButton,      AutomapCyclePageButton,       AutomapLayerDownButton,
-    AutomapLayerUpButton,        AutomapPanNorthButton,        AutomapPanSouthButton,
-    AutomapPanWestButton,        AutomapPanEastButton,         RestoreAutomapCameraPosition,
+    AutomapZoomInButton,
+    ZoomAutomapOut,
+    ResetAutomapZoom,
+    AutomapSelectNoteToolButton,
+    AutomapSelectEraseToolButton,
+    AutomapCyclePageButton,
+    AutomapCyclePageButton,
+    AutomapCyclePageButton,
+    AutomapLayerDownButton,
+    AutomapLayerUpButton,
+    AutomapPanNorthButton,
+    AutomapPanSouthButton,
+    AutomapPanWestButton,
+    AutomapPanEastButton,
+    RestoreAutomapCameraPosition,
     AutomapExitButton,
 };
 /* Catalog entries supplying filenames and state-frame offsets for each button. */
@@ -487,49 +497,28 @@ void AutomapZoomInButton(void)
     ZoomAutomapIn(&center);
 }
 
-/* Mirror of the right-click zoom-out path: one step when the camera is below
-   the full top height, otherwise restore the full explored span. The one-step
-   arm inlines SetAutomapToolCursor the same way retail does. */
-void AutomapZoomOutButton(void)
+/* Zoom out one step or restore the full explored span. */
+static void ZoomAutomapOut()
 {
     if (g_automap_position.y < g_automap_top_y) {
         if (g_automap_zoom_mode == 1) {
             g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
-            srVector3T<float> position(g_automap_bounds_min.x + g_automap_bounds_max.x,
-                                       g_automap_bounds_max.y + g_automap_bounds_min.y,
-                                       g_automap_bounds_min.z + g_automap_bounds_max.z);
-            position = position * 0.5;
+            srVector3T<float> position = (g_automap_bounds_max + g_automap_bounds_min) / 2.0;
             position.y = g_automap_top_y;
             SetAutomapCameraPoint(&position);
             SetAutomapToolCursor(g_automap_tool);
             SetAutomapButtonMode(0);
         } else {
             float ground_y = g_automap_position.y - g_automap_zoom;
-            float height = g_automap_top_y - (g_automap_top_y - ground_y) * g_float_half;
+            float height = g_automap_top_y - (g_automap_top_y - ground_y) * 0.5f;
             if (g_automap_position.y <= height) {
                 g_automap_position.y = height;
-                if (g_automap_buttons) {
-                    g_automap_buttons->buttons[0]->SetEnabled(true);
-                    g_automap_buttons->buttons[1]->SetEnabled(true);
-                    g_automap_buttons->buttons[0]->m_dirty = true;
-                    g_automap_buttons->buttons[0]->Draw(GetFrameBufferSurface());
-                    g_automap_buttons->buttons[1]->m_dirty = true;
-                    g_automap_buttons->buttons[1]->Draw(GetFrameBufferSurface());
-                }
+                SetAutomapButtonMode(1);
                 g_automap_zoom = g_automap_position.y - ground_y;
-                g_automap_zoom_mode = 1;
                 SetAutomapCameraPoint(&g_automap_position);
                 SetAutomapToolCursor(g_automap_tool);
             } else {
-                g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
-                srVector3T<float> position(g_automap_bounds_min.x + g_automap_bounds_max.x,
-                                           g_automap_bounds_max.y + g_automap_bounds_min.y,
-                                           g_automap_bounds_min.z + g_automap_bounds_max.z);
-                position = position * 0.5;
-                position.y = g_automap_top_y;
-                SetAutomapCameraPoint(&position);
-                SetAutomapToolCursor(g_automap_tool);
-                SetAutomapButtonMode(0);
+                ResetAutomapZoom();
             }
         }
     }
@@ -818,7 +807,7 @@ void AutomapScreenFrame(void)
                     SDL_Point point;
                     SGPMouseGetPos(&point);
                     UpdateUiPointer(point.x, point.y);
-                    return InputRoute::Pass;
+                    return IsMouseButtonEvent(input) ? InputRoute::Pass : InputRoute::Handled;
                 }
                 if (!g_automap_cursor_inside) {
                     g_automap_cursor_inside = true;
@@ -848,30 +837,7 @@ void AutomapScreenFrame(void)
                     }
                 } else if (input.type == InputEventType::RightButtonUp) {
                     if (g_automap_tool == 0) {
-                        if (g_automap_position.y < g_automap_top_y) {
-                            if (g_automap_zoom_mode == 1) {
-                                g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
-                                srVector3T<float> position =
-                                    (g_automap_bounds_max + g_automap_bounds_min) / 2.0;
-                                position.y = g_automap_top_y;
-                                SetAutomapCameraPoint(&position);
-                                SetAutomapToolCursor(g_automap_tool);
-                                SetAutomapButtonMode(0);
-                            } else {
-                                float ground_y = g_automap_position.y - g_automap_zoom;
-                                float height =
-                                    g_automap_top_y - (g_automap_top_y - ground_y) * 0.5f;
-                                if (g_automap_position.y <= height) {
-                                    g_automap_position.y = height;
-                                    SetAutomapButtonMode(1);
-                                    g_automap_zoom = g_automap_position.y - ground_y;
-                                    SetAutomapCameraPoint(&g_automap_position);
-                                    SetAutomapToolCursor(g_automap_tool);
-                                } else {
-                                    ResetAutomapZoom();
-                                }
-                            }
-                        }
+                        ZoomAutomapOut();
                     } else {
                         g_automap_tool = 0;
                         SetAutomapToolCursor(0);
@@ -904,7 +870,6 @@ void AutomapScreenFrame(void)
                 }
                 return InputRoute::Handled;
             },
-        .ui_accepts = IsMouseButtonEvent,
         .track_hover = false,
     });
     bool moved = false;

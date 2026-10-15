@@ -48,12 +48,11 @@ enum class InputRoute { Pass, Handled, Stop };
 /* How a screen or modal routes its frame's input. Each queued event is
    offered once: `before` may claim it ahead of the UI (gameplay pointer
    capture, a focused text field); otherwise the active input layers (the
-   innermost modal scope, else the screen) dispatches it when `ui_accepts`
-   allows, and `consumed` or `unhandled` applies the caller's policy.
+   innermost modal scope, else the screen) dispatches it, then `consumed`
+   or `unhandled` applies the caller's policy.
    Pass and Handled continue draining; Stop leaves the rest for next frame. */
 struct UiInputPolicy {
     std::function<InputRoute(const InputEvent&)> before;
-    std::function<bool(const InputEvent&)> ui_accepts;
     std::function<InputRoute(const InputEvent&)> consumed;
     std::function<InputRoute(const InputEvent&)> unhandled;
     /* Refresh pointer hover from the current mouse position before draining. */

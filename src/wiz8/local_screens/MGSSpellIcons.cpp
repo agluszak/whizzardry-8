@@ -15,7 +15,6 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
@@ -41,7 +40,7 @@ std::string EffectHelp(const W8EffectSlot& slot, bool show_duration)
 void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectSlot> slots,
                       SDL_Point origin, int step, int size, bool show_duration)
 {
-    layer = std::make_unique<UiLayer>(0x28);
+    layer = std::make_unique<UiLayer>(UiLayerOrder::GameplayOverlays);
     for (const auto& slot : slots) {
         if (!slot.active) continue;
         const int icon = g_effect_visual_table[slot.effect_id].hud_icon;
@@ -51,7 +50,6 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
         auto& target =
             layer->add(SDL_Rect{origin.x, origin.y, size + 1, size + 1},
                        [&slot, duration = slot.duration](const UiPointerEvent& event) mutable {
-                           PushButtonSoundScheme(0, true);
                            if (event.action == UiPointerAction::Enter) {
                                duration = slot.duration;
                                return UiResult::Handled;
