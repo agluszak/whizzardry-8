@@ -9,14 +9,10 @@ class File;
 
 namespace srImage {
 // Surface allocation requires srInit().
-// Stream overloads borrow the stream. Loading starts at zero; description queries restore its cursor.
+// Stream overloads borrow the stream. Loading starts at zero.
 std::unique_ptr<srColorSurfaceIFace> load(const char* path, SDL_IOStream* stream);
 std::unique_ptr<srColorSurfaceIFace> load(const char* path, wiz8::File& file);
 std::unique_ptr<srColorSurfaceIFace> load(const char* path);
-bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path,
-              SDL_IOStream* stream);
-bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, wiz8::File& file);
-void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path);
 void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, int quality = 100);
 void save(const char* path, wiz8::File& file, srColorSurfaceIFace& surface, int quality = 100);
 void save(const char* path, srColorSurfaceIFace& surface, int quality = 100);

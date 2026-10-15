@@ -124,16 +124,10 @@ static void runtimeImages()
                              "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
         auto surface = srImage::load(name);
         checkGray(surface.get());
-        srColorSurfaceIFace::SurfaceDesc desc;
-        srImage::describe(desc, name);
-        REQUIRE((desc.width == 3 && desc.height == 2));
     }
     for (const char* name : {"C:/data/LOOSE.tga", "Data/ARCHIVE.TGA"}) {
         auto surface = srImage::load(name);
         REQUIRE((surface && surface->getWidth() == 3 && surface->getHeight() == 2));
-        srColorSurfaceIFace::SurfaceDesc desc;
-        srImage::describe(desc, name);
-        REQUIRE((desc.width == 3 && desc.height == 2));
         const unsigned char expected[] = {0,    0, 0x03, 0xfc, 0xe0, 0x03,
                                           0x1f, 0, 0,    0x7c, 0xff, 0xff};
         for (unsigned y = 0; y < 2; ++y)
@@ -147,14 +141,6 @@ static void runtimeImages()
         bool rejected = false;
         try {
             auto surface = srImage::load(name);
-        } catch (const std::exception&) {
-            rejected = true;
-        }
-        REQUIRE(rejected);
-        rejected = false;
-        try {
-            srColorSurfaceIFace::SurfaceDesc desc;
-            srImage::describe(desc, name);
         } catch (const std::exception&) {
             rejected = true;
         }
@@ -226,14 +212,10 @@ TEST_CASE("virtual_transfer_test")
         auto first = wiz8::open_file("C:/DATA/archive.jpg"),
              second = wiz8::open_file("Data\\ARCHIVE.JPG");
         first->seek(9, wiz8::SeekOrigin::begin);
-        srColorSurfaceIFace::SurfaceDesc desc;
-        REQUIRE((srImage::describe(desc, "archive.jpg", *first) && first->tell() == 9));
         auto surface = srImage::load("archive.jpg", *second);
         checkGray(surface.get());
         REQUIRE((first->tell() == 9 && first->is_open()));
         auto broken = wiz8::open_file("Data/Broken.jpg");
-        broken->seek(7, wiz8::SeekOrigin::begin);
-        REQUIRE((!srImage::describe(desc, "broken.jpg", *broken) && broken->tell() == 7));
         REQUIRE((!srImage::load("broken.jpg", *broken) && broken->is_open()));
         {
             auto* io = first->io();
@@ -266,7 +248,6 @@ TEST_CASE("virtual_transfer_test")
         }
         first->close();
         REQUIRE(!srImage::load("archive.jpg", *first));
-        REQUIRE(!srImage::describe(desc, "archive.jpg", *first));
         for (auto* file : {first.get(), second.get()}) {
             bool rejected = false;
             try {

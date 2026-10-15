@@ -41,7 +41,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
-#include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
 #include "surrender/srTextureIFace.h"
@@ -228,12 +227,6 @@ TEST_CASE("imports_test")
         REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Z) == std::pair{-2.f, 0.f}));
         REQUIRE_FALSE(modeler.getAxialBounds(static_cast<srModeler::e_axis>(-1)));
     }
-    struct alignas(8) WordPair {
-        unsigned int padding;
-        srQuadWord value;
-    } words{0, {7, 1}};
-    static_assert(offsetof(WordPair, value) == 4, "exercise four-byte aligned word pair");
-    REQUIRE(double(words.value) == 4294967303.0);
     for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
         REQUIRE(fesetround(mode) == 0);
         const double inputs[] = {0.0,

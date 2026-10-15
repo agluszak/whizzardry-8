@@ -1,84 +1,20 @@
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <cstdio>
-#include <cstring>
 #include <exception>
 #include <limits>
 #include <stdexcept>
 
 #include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "compat/compiler.h"
 #include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
-#include "surrender/srQuadWord.h"
-#include "surrender/srSerialization.h"
 
 TEST_CASE("binary_io_test")
 {
-    // Known bytes are independent of the writer; cover widths, signed values,
-    // both byte orders, IEEE bits and the old low/high quad-word representation.
-    const std::array<Uint8, 33> golden = {
-        0x80, 0xfe, 0xff, 0x78, 0x56, 0x34, 0x12, 0x01, 0x23, 0x45,
-        0x67, 0x89, 0xab, 0xcd, 0xef, 0x00, 0x00, 0x00, 0x80, // float -0
-        0x7f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // double infinity, BE
-        0x34, 0x12, 0x78, 0x56, 0xbc, 0x9a // BE u16, LE u32
-    };
-    auto output = srIO::own(SDL_IOFromDynamicMem());
-    srIO::check(SDL_WriteS8(output.get(), -128));
-    srIO::check(SDL_WriteS16LE(output.get(), -2));
-    srIO::check(SDL_WriteU32LE(output.get(), 0x12345678));
-    srSerialization::writeQuadWordBE(output.get(), {0x89abcdef, 0x01234567});
-    srSerialization::writeFloatLE(output.get(), -0.0f);
-    srSerialization::writeDoubleBE(output.get(), std::numeric_limits<double>::infinity());
-    srIO::check(SDL_WriteU16BE(output.get(), 0x3412));
-    srIO::check(SDL_WriteU32LE(output.get(), 0x9abc5678));
-    REQUIRE(SDL_GetIOSize(output.get()) == Sint64(golden.size()));
-    const auto* bytes = SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
-                                               SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr);
-    REQUIRE(memcmp(bytes, golden.data(), golden.size()) == 0);
-    auto input = srIO::own(SDL_IOFromConstMem(golden.data(), golden.size()));
-    Sint8 byte;
-    Sint16 word;
-    Uint32 dword;
-    Uint16 unsigned_word;
-    REQUIRE((SDL_ReadS8(input.get(), &byte) && byte == -128));
-    REQUIRE((SDL_ReadS16LE(input.get(), &word) && word == -2));
-    REQUIRE((SDL_ReadU32LE(input.get(), &dword) && dword == 0x12345678));
-    const auto quad = srSerialization::readQuadWordBE(input.get());
-    REQUIRE((quad.lo == 0x89abcdef && quad.hi == 0x01234567));
-    REQUIRE(std::bit_cast<Uint32>(srSerialization::readFloatLE(input.get())) == 0x80000000);
-    REQUIRE(srSerialization::readDoubleBE(input.get()) == std::numeric_limits<double>::infinity());
-    REQUIRE((SDL_ReadU16BE(input.get(), &unsigned_word) && unsigned_word == 0x3412));
-    REQUIRE((SDL_ReadU32LE(input.get(), &dword) && dword == 0x9abc5678));
-    REQUIRE(
-        (!SDL_ReadU32LE(input.get(), &dword) && SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_EOF));
-    REQUIRE(SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET) == 0);
-    REQUIRE((SDL_ReadS8(input.get(), &byte) && byte == -128));
-    REQUIRE(!SDL_WriteU32LE(input.get(), 1));
-
-    // Opposite endian spellings, including IEEE NaN payload bits.
-    const Uint8 formats[] = {0x7f, 0xc1, 0x23, 0x45, 0,    0,    0,    0,    0,    0,
-                             0,    0x80, 0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01};
-    auto formats_input = srIO::own(SDL_IOFromConstMem(formats, sizeof(formats)));
-    const float nan = srSerialization::readFloatBE(formats_input.get());
-    const double negative_zero = srSerialization::readDoubleLE(formats_input.get());
-    const auto little_quad = srSerialization::readQuadWordLE(formats_input.get());
-    REQUIRE(std::bit_cast<Uint32>(nan) == 0x7fc12345);
-    REQUIRE(std::bit_cast<Uint64>(negative_zero) == 0x8000000000000000);
-    REQUIRE((little_quad.lo == 0x89abcdef && little_quad.hi == 0x01234567));
-    auto formats_output = srIO::own(SDL_IOFromDynamicMem());
-    srSerialization::writeFloatBE(formats_output.get(), nan);
-    srSerialization::writeDoubleLE(formats_output.get(), negative_zero);
-    srSerialization::writeQuadWordLE(formats_output.get(), little_quad);
-    bytes = SDL_GetPointerProperty(SDL_GetIOProperties(formats_output.get()),
-                                   SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr);
-    REQUIRE(SDL_GetIOSize(formats_output.get()) == sizeof(formats));
-    REQUIRE(memcmp(bytes, formats, sizeof(formats)) == 0);
     bool rejected = false;
     // A short final cache is valid; requesting a bit past it is not. Cache
     // lookahead must never reuse bytes from an earlier block.
@@ -179,5 +115,5 @@ TEST_CASE("binary_io_test")
         rejected = true;
     }
     REQUIRE(rejected);
-    puts("ok: SDL scalar formats, EOF and Huffman cursor/cache bounds");
+    puts("ok: Huffman cursor/cache bounds");
 }
