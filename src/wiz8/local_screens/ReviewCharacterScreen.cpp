@@ -597,8 +597,7 @@ void DrawCampBackpackItems(void)
             CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
         }
         if (item_id != -1) {
-            DrawSprite(GetFrameBufferSurface(), *ItemSprites(item_id), 0, left + 1,
-                       top + 1);
+            DrawSprite(GetFrameBufferSurface(), *ItemSprites(item_id), 0, left + 1, top + 1);
             DrawCampItemQuantity(&character->backpack[slot], left + 1, top + 0x28, 0x2c);
             if (!character->backpack[slot].identified) {
                 CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
@@ -658,8 +657,8 @@ void DrawCampEquipmentItems(void)
                 }
             }
         } else {
-            DrawSpriteAndInvalidate(GetFrameBufferSurface(), *ItemSprites(item_id),
-                                    1, region->x, region->y);
+            DrawSpriteAndInvalidate(GetFrameBufferSurface(), *ItemSprites(item_id), 1, region->x,
+                                    region->y);
             DrawCampItemQuantity(&character->EquippedItem[slot], region->x + 2,
                                  region->y + region->height - 0xd, region->width - 4);
             if (!character->EquippedItem[slot].identified) {
@@ -785,8 +784,7 @@ void DrawCampItemPool(void)
                 GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
                 top);
         }
-        DrawSprite(GetFrameBufferSurface(), *ItemSprites(item->iItemNo), 0,
-                   left + 1, top + 1);
+        DrawSprite(GetFrameBufferSurface(), *ItemSprites(item->iItemNo), 0, left + 1, top + 1);
         DrawCampItemQuantity(item, left + 1, top + 0x28, 0x2c);
         if (!item->identified) {
             CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
@@ -1264,46 +1262,42 @@ void CampScreenFrame(void)
         RefreshLevelUpReadyNotices();
     }
     if (!g_camp_screen->dialog)
-        PumpUiInput({.unhandled =
-                         [&](const InputEvent& input) {
-                             if (input.type == InputEventType::KeyDown) {
-                                 if (input.key == SDLK_ESCAPE) {
-                                     if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
-                                         g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
-                                         if (!g_camp_character_pending) {
-                                             BeginCombatRound();
-                                             RequestScreenTransition();
-                                         } else {
-                                             SelectCampCharacter(
-                                                 CharacterPointerToPartySlot(g_camp_character));
-                                             if (!IsPartySlotEligible(giReviewCharSlot)) {
-                                                 std::string text =
-                                                     fmt::sprintf(g_localized_strings[0x931],
-                                                                  g_camp_character->name);
-                                                 ShowCampNoticeLine(text, 0, true, false);
-                                             } else {
-                                                 QueueCharacterEvent(g_camp_character, g_effect36,
-                                                                     0, g_effect_argument0,
-                                                                     g_character_event_full_volume);
-                                             }
-                                         }
-                                     } else {
-                                         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-                                     }
-                                 } else if (input.key == SDLK_P) {
-                                     if (g_status.game_started) {
-                                         SortPartyItemPool();
-                                     }
-                                 } else if (input.key == SDLK_X &&
-                                            ((GetInputState().modifiers & ALT_DOWN) != 0) &&
-                                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
-                                            ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
-                                     ShowCampNoticeLine(g_localized_strings[0x832],
-                                                        OnQuitGameDialogClosed, true, true);
-                                 }
-                             }
-                             return InputRoute::Handled;
-                         }});
+        PumpUiInput({.unhandled = [&](const InputEvent& input) {
+            if (input.type == InputEventType::KeyDown) {
+                if (input.key == SDLK_ESCAPE) {
+                    if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
+                        g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
+                        if (!g_camp_character_pending) {
+                            BeginCombatRound();
+                            RequestScreenTransition();
+                        } else {
+                            SelectCampCharacter(CharacterPointerToPartySlot(g_camp_character));
+                            if (!IsPartySlotEligible(giReviewCharSlot)) {
+                                std::string text = fmt::sprintf(g_localized_strings[0x931],
+                                                                g_camp_character->name);
+                                ShowCampNoticeLine(text, 0, true, false);
+                            } else {
+                                QueueCharacterEvent(g_camp_character, g_effect36, 0,
+                                                    g_effect_argument0,
+                                                    g_character_event_full_volume);
+                            }
+                        }
+                    } else {
+                        SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
+                    }
+                } else if (input.key == SDLK_P) {
+                    if (g_status.game_started) {
+                        SortPartyItemPool();
+                    }
+                } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
+                           ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
+                           ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
+                    ShowCampNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true,
+                                       true);
+                }
+            }
+            return InputRoute::Handled;
+        }});
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
         !TimeUntilDeadline(g_camp_screen->animation_timer)) {
         for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {

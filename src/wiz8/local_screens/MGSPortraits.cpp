@@ -33,7 +33,6 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -47,6 +46,7 @@
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -822,8 +822,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                                          0)
                         .draw(GetFrameBufferSurface(), 0, band_menu_edge + 4, menu_y + 0x17);
                 } else {
-                    DrawSprite(GetFrameBufferSurface(),
-                               *ItemSprites(main_hand_item_id), 2,
+                    DrawSprite(GetFrameBufferSurface(), *ItemSprites(main_hand_item_id), 2,
                                band_menu_edge + 3, menu_y + 0x17);
                     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
                         text = fmt::format(
@@ -846,8 +845,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                             g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF + 1], 0)
                             .draw(GetFrameBufferSurface(), 0, band_menu_edge + 4, menu_y + 0x2f);
                     } else {
-                        DrawSprite(GetFrameBufferSurface(),
-                                   *ItemSprites(off_hand_item_id), 2,
+                        DrawSprite(GetFrameBufferSurface(), *ItemSprites(off_hand_item_id), 2,
                                    band_menu_edge + 3, menu_y + 0x2f);
                         if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
                             0) {
@@ -898,8 +896,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME ||
                 (g_wiz_text_font_secondary.resetPalette(),
                  g_current_screen_state.id != W8_SCREEN_MAIN_GAME) ||
-                (text_shade = 1,
-                 g_level_block->highlight.SlotFor(W8_HIGHLIGHT_NAME) != static_cast<int>(party_slot))) {
+                (text_shade = 1, g_level_block->highlight.SlotFor(W8_HIGHLIGHT_NAME) !=
+                                     static_cast<int>(party_slot))) {
                 text_shade = 4;
             }
             g_wiz_text_font_secondary.setShade(text_shade);
@@ -985,7 +983,8 @@ draw_condition_icons:
         .draw(GetFrameBufferSurface(), 0, right_condition_x, menu_y + 3);
 
     if (party_row->fOccupied && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_CONDITION) == static_cast<int>(party_slot)) {
+        if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_CONDITION) ==
+            static_cast<int>(party_slot)) {
             CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1,
                                                menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
@@ -993,7 +992,8 @@ draw_condition_icons:
                                                menu_y + 2);
         }
 
-        if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_ENCHANTMENT) == static_cast<int>(party_slot)) {
+        if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_ENCHANTMENT) ==
+            static_cast<int>(party_slot)) {
             CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1,
                                                menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {

@@ -5132,20 +5132,18 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
    enter drives tooltip kind 1 and region help. */
 UiResult PortraitConditionOrbInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
-    return DispatchPortraitOrbInput(event, target, id, &W8Character::highest_condition,
-                                    W8_CONDITION_NONE,
-                                    &W8LevelRuntimeBlock::condition_orb_party_slot,
-                                    W8_HIGHLIGHT_CONDITION);
+    return DispatchPortraitOrbInput(
+        event, target, id, &W8Character::highest_condition, W8_CONDITION_NONE,
+        &W8LevelRuntimeBlock::condition_orb_party_slot, W8_HIGHLIGHT_CONDITION);
 }
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
 UiResult PortraitEnchantmentOrbInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
-    return DispatchPortraitOrbInput(event, target, id, &W8Character::enchantment_top,
-                                    W8_ENCHANTMENT_NONE,
-                                    &W8LevelRuntimeBlock::enchantment_orb_party_slot,
-                                    W8_HIGHLIGHT_ENCHANTMENT);
+    return DispatchPortraitOrbInput(
+        event, target, id, &W8Character::enchantment_top, W8_ENCHANTMENT_NONE,
+        &W8LevelRuntimeBlock::enchantment_orb_party_slot, W8_HIGHLIGHT_ENCHANTMENT);
 }
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
