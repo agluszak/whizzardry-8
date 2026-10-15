@@ -63,7 +63,9 @@ jobs:
           fi
           CC=clang-22 CXX=clang++-22 conan install . \
             -pr:h conan/profiles/linux-clang22 -pr:b default \
-            -s:h build_type="$build_type" --build=missing \
+            -s:h build_type="$build_type" -c tools.system.package_manager:mode=install \
+            -c tools.system.package_manager:sudo=True \
+            --build=missing \
             -of "build/${{ matrix.preset }}/conan"
       - name: Configure
         run: |
@@ -229,7 +231,9 @@ jobs:
           conan profile detect --force
           CC=clang-22 CXX=clang++-22 conan install . \
             -pr:h conan/profiles/linux-clang22 -pr:b default \
-            -s:h build_type=Debug --build=missing \
+            -s:h build_type=Debug -c tools.system.package_manager:mode=install \
+            -c tools.system.package_manager:sudo=True \
+            --build=missing \
             -of build/linux-tidy/conan
       - name: Configure analysis database
         run: |
