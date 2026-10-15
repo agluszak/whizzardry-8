@@ -15,7 +15,6 @@
 #include "glm/ext/vector_uint3.hpp"
 #include "surrender/mesh_math.h"
 #include "surrender/srClip.h"
-#include "surrender/srDD.h"
 #include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
@@ -595,7 +594,6 @@ void srGERD::Renderer::submit()
         gerd->matrixMode(saved_mode);
         gerd->setCullMode(saved_cull);
     }
-    gerd->getDD()->fence();
     indices.reset(0);
     vertices.count = 0;
     clip_state = 0;

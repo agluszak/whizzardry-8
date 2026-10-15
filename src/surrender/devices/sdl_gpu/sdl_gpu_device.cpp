@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -17,21 +18,17 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "compat/compiler.h"
-#include "glm/common.hpp"
 #include "glm/ext/vector_float1.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_int4.hpp"
 #include "glm/fwd.hpp"
 #include "glm/matrix.hpp"
-#include "glm/vector_relational.hpp"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"
 #include "surrender/srDD.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srFlags.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 
@@ -132,24 +129,6 @@ struct PendingUpload {
     std::vector<uint32_t> pixels;
 };
 
-/* The device exposes one 32-bit ARGB format for textures and the back buffer.
-   srGERD converts every texture to it, and the bytes match B8G8R8A8. */
-srDD::PixelFormat argb8888Format()
-{
-    srDD::PixelFormat format;
-    format.red_bits = 8;
-    format.red_shift = 16;
-    format.green_bits = 8;
-    format.green_shift = 8;
-    format.blue_bits = 8;
-    format.blue_shift = 0;
-    format.alpha_bits = 8;
-    format.alpha_shift = 24;
-    format.color_model = srPixelConvert::COLOR_RGB;
-    format.pixel_size = srPixelConvert::PIXEL_SIZE_32;
-    return format;
-}
-
 SDL_GPUCompareOp compareOp(uint32_t pass)
 {
     static const SDL_GPUCompareOp ops[8] = {
@@ -208,12 +187,7 @@ public:
     Info getInfo() override
     {
         Info info{};
-        info.unknown_08_ = 4;
-        info.unknown_0c_ = 0x10;
-        info.unknown_10_ = 1.0f;
-        info.unknown_14_ = 65536.0f;
         info.renderer_batch_limit = 0x100;
-        info.unknown_20_ = 0x3b808081;
         info.hardware_id = 1;
         for (auto& text : info.text) {
             strcpy(text, "Unknown");
@@ -235,24 +209,11 @@ public:
 
     std::span<const WindowInfo> getWindowList() override { return {}; }
 
-    std::span<const PixelFormat> getTextureFormats() override
-    {
-        static const PixelFormat formats[] = {argb8888Format()};
-        return formats;
-    }
-
-    Statistics getStatistics() override { return {}; }
-
-    void resetStatistics() override {}
-    void extCommand(w8_ulong, void*, w8_ulong) override {}
-
-    int isBusy() override { return 0; }
-
-    e_error openWindow(const OpenInfo& info, OpenResult& result) override
+    bool openWindow(w8_ulong target_width, w8_ulong target_height) override
     {
         closeWindow();
-        width = info.width;
-        height = info.height;
+        width = target_width;
+        height = target_height;
         SDL_GPUTextureCreateInfo color = {};
         color.type = SDL_GPU_TEXTURETYPE_2D;
         color.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
@@ -269,11 +230,10 @@ public:
         if (color_target == 0 || depth_target == 0) {
             SDL_Log("srDD_SDLGPU: render targets: %s", SDL_GetError());
             closeWindow();
-            return static_cast<e_error>(1);
+            return false;
         }
         readback.assign((size_t)width * height, 0);
-        result.back_buffer_type = 2;
-        return ERROR_NONE;
+        return true;
     }
 
     void closeWindow() override
@@ -293,13 +253,9 @@ public:
         depth_target = 0;
     }
 
-    void beginFrame() override {}
-
-    void endFrame() override { flush(false); }
-
     void flushFrame() override { flush(false); }
 
-    void flipFrame(const Scissor*, const Scissor*, w8_ulong) override { flush(true); }
+    void flipFrame() override { flush(true); }
 
     void clearBuffers(const srFlags<e_buffer>& buffers) override
     {
@@ -315,39 +271,52 @@ public:
         commands.push_back(command);
     }
 
-    e_error bufferOp(const BufferCommand& command) override
+    void lockBuffer() override
     {
-        switch (command.opcode) {
-        case 0:
-            if (locked++ == 0) {
-                download();
-            }
-            break;
-        case 1:
-            if (locked > 0 && --locked == 0 && readback_dirty != 0) {
-                upload();
-            }
-            break;
-        case 2:
-        case 3:
-        case 4:
-            transferPixels(command, false);
-            break;
-        case 6:
-        case 7:
-            transferPixels(command, true);
-            break;
+        if (locked++ == 0) {
+            download();
         }
-        return ERROR_NONE;
     }
 
-    void update(const Update& values) override
+    void unlockBuffer() override
     {
-        if ((values.flags & Update::UPDATE_SWAP_INTERVAL) != 0 && window != 0) {
+        if (locked > 0 && --locked == 0 && readback_dirty != 0) {
+            upload();
+        }
+    }
+
+    void readPixels(w8_long x, w8_long y, bool vertical, std::span<w8_ulong> pixels) override
+    {
+        auto line = bufferLine(x, y, vertical, pixels.size());
+        const auto stride = vertical ? width : 1;
+        for (size_t i = 0; i < line.size(); ++i) {
+            pixels[i] = readback[line.offset + i * stride];
+        }
+    }
+
+    void writePixels(w8_long x, w8_long y, bool vertical, std::span<const w8_ulong> pixels) override
+    {
+        auto line = bufferLine(x, y, vertical, pixels.size());
+        const auto stride = vertical ? width : 1;
+        for (size_t i = 0; i < line.size(); ++i) {
+            readback[line.offset + i * stride] = pixels[i];
+        }
+        readback_dirty |= line.size() != 0;
+    }
+
+    void fillPixels(w8_long x, w8_long y, w8_long count, w8_ulong pixel) override
+    {
+        auto line = bufferLine(x, y, false, count > 0 ? count : 0);
+        std::fill_n(readback.begin() + line.offset, line.size(), pixel);
+        readback_dirty |= line.size() != 0;
+    }
+
+    void setSwapInterval(w8_ulong interval) override
+    {
+        if (window != 0) {
             SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
-                                          values.swap_interval != 0
-                                              ? SDL_GPU_PRESENTMODE_VSYNC
-                                              : SDL_GPU_PRESENTMODE_IMMEDIATE);
+                                          interval != 0 ? SDL_GPU_PRESENTMODE_VSYNC
+                                                        : SDL_GPU_PRESENTMODE_IMMEDIATE);
         }
     }
 
@@ -365,10 +334,8 @@ public:
         viewport.y = (float)value.y;
         viewport.w = (float)value.width;
         viewport.h = (float)value.height;
-        float depth_range[2] = {0.0f, 1.0f};
-        memcpy(depth_range, value.extra, sizeof(depth_range));
-        viewport.min_depth = depth_range[0];
-        viewport.max_depth = depth_range[1];
+        viewport.min_depth = value.min_depth;
+        viewport.max_depth = value.max_depth;
         if (!(viewport.max_depth > viewport.min_depth)) {
             viewport.min_depth = 0.0f;
             viewport.max_depth = 1.0f;
@@ -388,20 +355,17 @@ public:
         }
     }
 
-    void bindTexture(w8_ulong stage, Texture& texture) override
+    void bindTexture(w8_ulong stage, const Texture& texture) override
     {
         if (stage >= 2) {
             return;
         }
-        if (texture.resident_data == 0) {
-            makeResident(texture);
-        }
-        bound[stage] = texture.resident_data;
+        bound[stage] = texture.handle;
     }
 
     void deleteTexture(Texture& texture) override
     {
-        const uint32_t handle = texture.resident_data;
+        const uint32_t handle = texture.handle;
         if (handle == 0 || handle > textures.size()) {
             return;
         }
@@ -412,44 +376,61 @@ public:
                 bound[stage] = 0;
             }
         }
-        texture.resident_data = 0;
-        texture.resident_size = 0;
+        texture.handle = 0;
+        texture.size = 0;
     }
 
-    void texImage(Texture& texture, w8_ulong level) override
+    Texture createTexture(w8_ulong width, w8_ulong height, w8_ulong levels) override
     {
-        if (texture.resident_data == 0) {
-            makeResident(texture);
+        DeviceTexture created = createDeviceTexture(width, height, levels);
+        if (created.texture == nullptr) {
+            SDL_Log("srDD_SDLGPU: texture %ux%u: %s", width, height, SDL_GetError());
+            return {};
+        }
+        for (size_t index = 1; index < textures.size(); ++index) {
+            if (textures[index].texture == nullptr) {
+                textures[index] = created;
+                return {static_cast<w8_ulong>(index + 1), width * height * 4};
+            }
+        }
+        textures.push_back(created);
+        return {static_cast<w8_ulong>(textures.size()), width * height * 4};
+    }
+
+    void uploadTexture(const Texture& texture, w8_ulong level, TextureRegion region,
+                       std::span<const unsigned char> pixels, w8_ulong pitch) override
+    {
+        if (texture.handle == 0 || region.width == 0 || region.height == 0) {
             return;
         }
-        queueLevel(texture, level, 0, 0, texture.width >> level, texture.height >> level,
-                   texture.levels[level]);
-    }
-
-    void texSubImage(Texture& texture, w8_ulong level, w8_ulong x, w8_ulong y, w8_ulong right,
-                     w8_ulong bottom) override
-    {
-        if (texture.resident_data == 0) {
-            makeResident(texture);
+        const auto& target = textures.at(texture.handle - 1);
+        if (level >= target.levels ||
+            region.x + region.width > SDL_max(target.width >> level, 1u) ||
+            region.y + region.height > SDL_max(target.height >> level, 1u) ||
+            pitch < (region.x + region.width) * 4 ||
+            pixels.size() < size_t(region.y + region.height - 1) * pitch +
+                                size_t(region.x + region.width) * 4) {
             return;
         }
-        // srGERD passes PartialRequest's exclusive bounds, not rectangle extents.
-        queueLevel(texture, level, x, y, right - x, bottom - y, texture.levels[level]);
+        PendingUpload pending{texture.handle, level,         region.x, region.y,
+                              region.width,   region.height, {}};
+        pending.pixels.resize(size_t(region.width) * region.height);
+        for (w8_ulong row = 0; row < region.height; ++row) {
+            memcpy(pending.pixels.data() + size_t(row) * region.width,
+                   pixels.data() + size_t(region.y + row) * pitch + size_t(region.x) * 4,
+                   size_t(region.width) * 4);
+        }
+        uploads.push_back(std::move(pending));
     }
 
-    /* Only 32-bit ARGB textures are offered, so palettes never reach the device. */
-    void setGlobalPalette(w8_ulong*, w8_ulong) override {}
-    void bindPalette(Palette&) override {}
-    void deletePalette(Palette&) override {}
-
-    e_error createContext(w8_ulong_ptr handle) override
+    bool createContext(SDL_Window* target_window) override
     {
-        window = reinterpret_cast<SDL_Window*>(handle);
+        window = target_window;
         device =
             SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, SDL_getenv("WIZ8_GPU_DEBUG") != 0, 0);
         if (device == 0) {
             SDL_Log("srDD_SDLGPU: device: %s", SDL_GetError());
-            return static_cast<e_error>(1);
+            return false;
         }
         if (!SDL_ClaimWindowForGPUDevice(device, window)) {
             /* The offscreen video driver has no presentable surface; render into
@@ -457,7 +438,7 @@ public:
             const char* driver = SDL_GetCurrentVideoDriver();
             if (driver == 0 || SDL_strcmp(driver, "offscreen") != 0) {
                 SDL_Log("srDD_SDLGPU: device: %s", SDL_GetError());
-                return static_cast<e_error>(1);
+                return false;
             }
             window = 0;
         }
@@ -471,11 +452,11 @@ public:
         fragment_shader =
             createShader(sr_fragment_spv, sizeof(sr_fragment_spv), SDL_GPU_SHADERSTAGE_FRAGMENT, 2);
         /* Handle 1 is the white texture unbound stages sample. */
-        DeviceTexture white = createTexture(1, 1, 1);
+        DeviceTexture white = createDeviceTexture(1, 1, 1);
         textures.push_back(white);
         PendingUpload upload = {1, 0, 0, 0, 1, 1, std::vector<uint32_t>(1, 0xffffffffu)};
         uploads.push_back(upload);
-        return vertex_shader != 0 && fragment_shader != 0 ? ERROR_NONE : static_cast<e_error>(1);
+        return vertex_shader != nullptr && fragment_shader != nullptr;
     }
 
     void deleteContext() override
@@ -516,24 +497,17 @@ public:
     DriverInfo getDriverInfo() override
     {
         DriverInfo info{};
-        info.dd_api_version = SR_DD_MIN_API_VERSION;
         info.driver_id = 0;
         strcpy(info.name, "SDLGPU");
         strcpy(info.api_name, "SDL GPU");
         return info;
     }
 
-    void fence() override {}
-
-    PixelFormat getBufferPixelFormat() override { return argb8888Format(); }
-
-    void preBindTexture(w8_ulong, Texture&) override {}
-
     void setPolygonMode(e_polygonMode mode) override { polygon_mode = mode; }
 
     void setCullMode(e_cullMode mode) override { cull_mode = mode; }
 
-    void setProjectionMatrix(const glm::mat4& matrix, srRendererDefs::e_matrixType) override
+    void setProjectionMatrix(const glm::mat4& matrix) override
     {
         /* GLM and GLSL both store matrix columns. */
         projection.projection = matrix;
@@ -544,10 +518,10 @@ public:
         vertex_arrays = *info;
     }
 
-    void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
-                      srRendererDefs::e_indexType, const void* indices) override
+    void drawElements(srRendererDefs::e_primitive primitive,
+                      std::span<const w8_ulong> indices) override
     {
-        draw(primitive, count, static_cast<const w8_ulong*>(indices), 0);
+        draw(primitive, static_cast<w8_ulong>(indices.size()), indices.data(), 0);
     }
 
     void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count) override
@@ -576,7 +550,8 @@ private:
         return shader_object;
     }
 
-    DeviceTexture createTexture(uint32_t texture_width, uint32_t texture_height, uint32_t levels)
+    DeviceTexture createDeviceTexture(uint32_t texture_width, uint32_t texture_height,
+                                      uint32_t levels)
     {
         SDL_GPUTextureCreateInfo info = {};
         info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -589,59 +564,6 @@ private:
         DeviceTexture result = {SDL_CreateGPUTexture(device, &info), texture_width, texture_height,
                                 levels};
         return result;
-    }
-
-    void makeResident(Texture& texture)
-    {
-        const uint32_t levels = texture.last_level - texture.first_level + 1;
-        DeviceTexture created = createTexture(texture.width, texture.height, levels);
-        if (created.texture == 0) {
-            SDL_Log("srDD_SDLGPU: texture %ux%u: %s", texture.width, texture.height,
-                    SDL_GetError());
-            return;
-        }
-        uint32_t handle = 0;
-        for (size_t index = 1; index < textures.size(); ++index) {
-            if (textures[index].texture == 0) {
-                handle = (uint32_t)index + 1;
-                textures[index] = created;
-                break;
-            }
-        }
-        if (handle == 0) {
-            textures.push_back(created);
-            handle = (uint32_t)textures.size();
-        }
-        texture.resident_data = handle;
-        texture.resident_size = texture.width * texture.height * 4;
-        for (uint32_t level = texture.first_level; level <= texture.last_level; ++level) {
-            queueLevel(texture, level, 0, 0, SDL_max(texture.width >> level, 1u),
-                       SDL_max(texture.height >> level, 1u), texture.levels[level]);
-        }
-    }
-
-    /* Copies now: srGERD may release the level storage after the bind. */
-    void queueLevel(const Texture& texture, uint32_t level, uint32_t x, uint32_t y,
-                    uint32_t level_width, uint32_t level_height, const void* pixels)
-    {
-        if (pixels == 0 || texture.resident_data == 0) {
-            return;
-        }
-        const uint32_t pitch = SDL_max(texture.width >> level, 1u);
-        PendingUpload upload;
-        upload.texture = texture.resident_data;
-        upload.level = level - texture.first_level;
-        upload.x = x;
-        upload.y = y;
-        upload.width = level_width;
-        upload.height = level_height;
-        upload.pixels.resize((size_t)level_width * level_height);
-        const uint32_t* source = static_cast<const uint32_t*>(pixels);
-        for (uint32_t row = 0; row < level_height; ++row) {
-            memcpy(&upload.pixels[(size_t)row * level_width],
-                   source + (size_t)(y + row) * pitch + x, level_width * 4);
-        }
-        uploads.push_back(upload);
     }
 
     template<class Vector>
@@ -1156,28 +1078,17 @@ private:
         readback_dirty = 0;
     }
 
-    void transferPixels(const BufferCommand& command, bool vertical)
+    struct BufferLine {
+        size_t offset = 0, count = 0;
+        size_t size() const { return count; }
+    };
+    BufferLine bufferLine(w8_long x, w8_long y, bool vertical, size_t count) const
     {
-        const glm::ivec2 position(command.x, command.y);
-        const glm::ivec2 dimensions(width, height);
-        if (glm::any(glm::lessThan(position, glm::ivec2(0))) ||
-            glm::any(glm::greaterThanEqual(position, dimensions)))
-            return;
-        const unsigned axis = vertical ? 1 : 0;
-        const auto count = glm::min(command.count, dimensions[axis] - position[axis]);
-        if (count <= 0) return;
-        const bool read = command.opcode == 2 || command.opcode == 6;
-        const bool fill = command.opcode == 4;
-        const size_t stride = vertical ? width : 1;
-        auto* line = readback.data() + size_t(command.y) * width + command.x;
-        auto* data = static_cast<uint32_t*>(command.data);
-        for (w8_long index = 0; index < count; ++index) {
-            if (read)
-                data[index] = line[size_t(index) * stride];
-            else
-                line[size_t(index) * stride] = data[fill ? 0 : index];
+        if (x < 0 || y < 0 || static_cast<w8_ulong>(x) >= width ||
+            static_cast<w8_ulong>(y) >= height) {
+            return {};
         }
-        readback_dirty |= !read;
+        return {size_t(y) * width + x, std::min(count, size_t(vertical ? height - y : width - x))};
     }
 
     SDL_GPUDevice* device;
