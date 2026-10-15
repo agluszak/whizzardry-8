@@ -363,13 +363,18 @@ void text_input_ownership()
 
         outer.Remove(middle);
         REQUIRE(outer.Text(last).size() == 5);
+        outer.Focus(last);
         {
             UiLayer inner_input;
             TextFieldGroup inner(inner_input, font);
             REQUIRE(TextFieldGroup::Focused() == &inner);
             REQUIRE(inner.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
+            // An older group keeps its focus but no longer accepts typing.
+            const InputEvent letter{.type = InputEventType::Text, .text = U'x'};
+            REQUIRE_FALSE(outer.HandleInput(letter));
         }
         REQUIRE(TextFieldGroup::Focused() == &outer);
+        REQUIRE((outer.FocusedId() == last && outer.Editing()));
         REQUIRE((outer.Text(first)[0] == 'a' && outer.Text(last).size() == 5));
         REQUIRE(outer.Add(0, 60, 80, 20, UI_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
         outer.Remove(first);

@@ -15,11 +15,9 @@ inline constexpr int UI_PRIORITY_HIGH = 63;
 inline constexpr int UI_PRIORITY_HIGHEST = 127;
 
 extern bool g_dev_mode;
-class TextFieldGroup;
 struct UiRoutingState {
     HitTarget *current = nullptr, *hover = nullptr, *captured = nullptr;
     SDL_Point pointer{};
-    TextFieldGroup* focus = nullptr;
     void ClearPointer() { current = hover = captured = nullptr; }
 };
 extern UiRoutingState g_ui;
