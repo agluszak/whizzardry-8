@@ -3,11 +3,8 @@
 #include <cstring>
 #include <exception>
 #include <memory>
-#include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include <fmt/format.h>
 
@@ -71,23 +68,8 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
             }
         }
 
-        auto binding = std::make_unique<MGSKeyBinding>();
-        binding->key = key;
-        binding->modifiers = modifiers;
-        binding->active = 1;
-        binding->command = command;
-
-        int old_index = FindBinding(command);
-        if (old_index != -1) {
-            m_command_index.erase(command);
-            m_bindings.erase(m_bindings.begin() + old_index);
-        }
-        auto* borrowed = binding.get();
-        m_bindings.push_back(std::move(binding));
-        m_command_index.emplace(command, borrowed);
+        SetBinding({key, modifiers, 1, command});
         loaded_binding = true;
     }
-    if (handle) handle->close();
-    handle.reset();
     return loaded_binding;
 }

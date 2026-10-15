@@ -1,12 +1,13 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 
-#include <array>
+#include <algorithm>
 #include <exception>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
+#include <SDL3/SDL_endian.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
@@ -85,70 +86,40 @@ MGSKeyboard* g_mgs_keyboard;
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
-    for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->command == command) {
-            return index;
-        }
-    }
-    return -1;
+    const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
+    return found == m_bindings.end() ? -1 : static_cast<int>(found - m_bindings.begin());
 }
 
 // FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
-    for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->active != 0 && binding->key != SDLK_UNKNOWN &&
-            event->type == InputEventType::KeyDown && binding->modifiers == event->modifiers &&
-            binding->key == event->key) {
-            return binding->command;
-        }
-    }
+    if (event->type != InputEventType::KeyDown || event->key == SDLK_UNKNOWN)
+        return W8_MGS_COMMAND_NONE;
+    for (const auto& binding : m_bindings)
+        if (binding.active && binding.key == event->key && binding.modifiers == event->modifiers)
+            return binding.command;
     return W8_MGS_COMMAND_NONE;
 }
 
 // FUNCTION: WIZ8 0x0055d300
-MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
+MGSKeyBinding* MGSKeyboard::GetBinding(int index)
 {
     if (index < 0 || m_bindings.empty()) {
         return nullptr;
     }
     // Preserve the binding table's fallback to its first entry.
     if (std::cmp_greater_equal(index, m_bindings.size())) {
-        return m_bindings.front().get();
+        return &m_bindings.front();
     }
-    return m_bindings[index].get();
+    return &m_bindings[index];
 }
 
 // FUNCTION: WIZ8 0x0055d320
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
-    const auto found = m_command_index.find(command);
-    if (found == m_command_index.end()) {
-        return false;
-    }
-    const auto* binding = found->second;
-    if (IsKeyHeld(binding->key)) {
-        unsigned short modifiers = 0;
-        if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-            modifiers |= SHIFT_DOWN;
-        }
-        if (((GetInputState().modifiers & ALT_DOWN) != 0)) {
-            modifiers |= ALT_DOWN;
-        }
-        if (((GetInputState().modifiers & CTRL_DOWN) != 0)) {
-            modifiers |= CTRL_DOWN;
-        }
-        if (modifiers == binding->modifiers) {
-            return true;
-        }
-    }
-    return false;
+    const int index = FindBinding(command);
+    return index >= 0 && IsKeyHeld(m_bindings[index].key) &&
+           m_bindings[index].modifiers == GetInputState().modifiers;
 }
 
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale
@@ -163,46 +134,47 @@ void DrainInputEventQueue()
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    m_command_index.clear();
     m_bindings.clear();
 }
+
+void MGSKeyboard::SetBinding(MGSKeyBinding binding)
+{
+    const int index = FindBinding(binding.command);
+    if (index >= 0) m_bindings.erase(m_bindings.begin() + index);
+    m_bindings.push_back(binding);
+}
+
+namespace {
+// Exact retail layout at the file boundary; runtime bindings have normal C++ layout.
+#pragma pack(push, 1)
+struct RetailKeyBinding {
+    std::uint16_t key;
+    std::uint16_t modifiers;
+    std::uint16_t active;
+    std::uint32_t command;
+};
+#pragma pack(pop)
+static_assert(sizeof(RetailKeyBinding) == 10);
+} // namespace
 
 // FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
 try {
-    if (clear) {
-        Clear();
-    }
-    std::array<std::uint8_t, 4> header{};
-    handle.read_exact(header.data(), header.size());
-    const std::uint32_t count = std::uint32_t(header[0]) | (std::uint32_t(header[1]) << 8) |
-                                (std::uint32_t(header[2]) << 16) | (std::uint32_t(header[3]) << 24);
-    if (count > (handle.size() - handle.tell()) / 10) return false;
+    if (clear) Clear();
+    std::uint32_t count;
+    handle.read_exact(&count, sizeof(count));
+    count = SDL_Swap32LE(count);
+    if (count > (handle.size() - handle.tell()) / sizeof(RetailKeyBinding)) return false;
     for (std::uint32_t index = 0; index < count; ++index) {
-        auto binding = std::make_unique<MGSKeyBinding>();
-        std::array<std::uint8_t, 10> record{};
-        handle.read_exact(record.data(), record.size());
-        const auto read16 = [&](int offset) {
-            return std::uint16_t(record[offset] | (std::uint16_t(record[offset + 1]) << 8));
-        };
-        const auto retail_key = read16(0);
-        binding->key = KeyFromRetailBinding(retail_key);
-        if (binding->key == SDLK_UNKNOWN) binding->unmapped_retail_key = retail_key;
-        binding->modifiers = read16(2);
-        binding->active = read16(4);
-        binding->command =
-            static_cast<W8MGSCommand>(std::uint32_t(read16(6)) | (std::uint32_t(read16(8)) << 16));
-
-        int old_index = FindBinding(binding->command);
-        if (old_index != -1) {
-            m_command_index.erase(binding->command);
-            m_bindings.erase(m_bindings.begin() + old_index);
-        }
-        auto* borrowed = binding.get();
-        m_bindings.push_back(std::move(binding));
-        m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
+        RetailKeyBinding record;
+        handle.read_exact(&record, sizeof(record));
+        const auto retail_key = SDL_Swap16LE(record.key);
+        const auto key = KeyFromRetailBinding(retail_key);
+        SetBinding({key, SDL_Swap16LE(record.modifiers), SDL_Swap16LE(record.active),
+                    static_cast<W8MGSCommand>(SDL_Swap32LE(record.command)),
+                    key == SDLK_UNKNOWN ? retail_key : std::uint16_t(0)});
     }
-    return 1;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -210,27 +182,17 @@ try {
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
-    const auto count = static_cast<std::uint32_t>(m_bindings.size());
-    const std::array<std::uint8_t, 4> header{std::uint8_t(count), std::uint8_t(count >> 8),
-                                             std::uint8_t(count >> 16), std::uint8_t(count >> 24)};
-    handle.write(header.data(), header.size());
-    for (std::uint32_t index = 0; index < count; ++index) {
-        const auto& binding = *m_bindings[index];
-        std::array<std::uint8_t, 10> record{};
-        const auto write16 = [&](int offset, std::uint16_t value) {
-            record[offset] = std::uint8_t(value);
-            record[offset + 1] = std::uint8_t(value >> 8);
-        };
-        write16(0, binding.key == SDLK_UNKNOWN ? binding.unmapped_retail_key
-                                               : KeyToRetailBinding(binding.key));
-        write16(2, binding.modifiers);
-        write16(4, binding.active);
-        const auto command = static_cast<std::uint32_t>(binding.command);
-        write16(6, std::uint16_t(command));
-        write16(8, std::uint16_t(command >> 16));
-        handle.write(record.data(), record.size());
+    const auto count = SDL_Swap32LE(static_cast<std::uint32_t>(m_bindings.size()));
+    handle.write(&count, sizeof(count));
+    for (const auto& binding : m_bindings) {
+        const RetailKeyBinding record{SDL_Swap16LE(binding.key == SDLK_UNKNOWN
+                                                       ? binding.unmapped_retail_key
+                                                       : KeyToRetailBinding(binding.key)),
+                                      SDL_Swap16LE(binding.modifiers), SDL_Swap16LE(binding.active),
+                                      SDL_Swap32LE(static_cast<std::uint32_t>(binding.command))};
+        handle.write(&record, sizeof(record));
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00592BE0

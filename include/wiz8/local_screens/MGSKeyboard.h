@@ -1,8 +1,5 @@
-#include <SDL3/SDL_keycode.h>
 #pragma once
 
-#include <memory>
-#include <unordered_map>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -30,7 +27,7 @@ public:
     int FindBinding(W8MGSCommand command) const;
     /* Match a live InputEvent against the binding table; returns command or -1. */
     W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
-    MGSKeyBinding* GetBinding(int index) const;
+    MGSKeyBinding* GetBinding(int index);
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
     unsigned char Load(wiz8::File& handle, bool clear);
@@ -38,8 +35,8 @@ public:
     unsigned char LoadDefaults(const char* path);
 
 private:
-    std::vector<std::unique_ptr<MGSKeyBinding>> m_bindings;
-    std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
+    void SetBinding(MGSKeyBinding binding);
+    std::vector<MGSKeyBinding> m_bindings;
 };
 
 extern MGSKeyboard* g_mgs_keyboard;
