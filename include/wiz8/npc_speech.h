@@ -12,14 +12,13 @@ class W8Monster;
 /* The NPC voice line being played, the hold that keeps a quote or portrait
    message on screen, and the mouth-gap track of an ungrouped speaker. */
 struct W8NpcSpeech {
-    bool voice_playing;
     wiz8::sound::Playback voice_handle;
-    uint64_t voice_started_at;
-    unsigned int hold_ms;
-    uint64_t hold_started_at;
+    /* The presentation is voiced; a notice bubble clears it to hold silently. */
+    bool voice_playing = false;
+    uint64_t voice_started_at = 0;
+    unsigned int hold_ms = 0;
+    uint64_t hold_started_at = 0;
     W8MouthGapTrack gap_track;
-    /* Set while StopNpcVoice stops the voice, so its on_finished is skipped. */
-    bool stopping;
 };
 
 /* Start `path` at the voice volume; on_finished runs when it ends by itself.

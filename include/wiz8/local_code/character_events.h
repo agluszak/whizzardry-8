@@ -6,6 +6,7 @@ struct SDL_Surface;
 #include <string_view>
 
 #include "sprite.h"
+#include "wiz8/audio_resources.h"
 #include "wiz8/conditions.h"
 
 bool IsVoiceMuted(void);
@@ -76,6 +77,14 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
 bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
                                 SpriteDraw options, int party_slot, bool animate);
 
+/* Drive `party_slot`'s portrait from `voice`: its remaining time and mouth
+   gaps follow the playback, or the portrait holds for `unvoiced_ms` when no
+   voice started. Character events and NPC party members both speak this way. */
+void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& voice,
+                        std::string_view voice_path, unsigned int unvoiced_ms);
+/* The portrait's line is over: complete the character event speaking through
+   it, or just close the portrait when the speaker was an NPC line. */
+void FinishPortraitSpeech(unsigned int party_slot);
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                 std::string_view quote_text, int show_quote);
 void CreatePartyPortraitEventRegions();
