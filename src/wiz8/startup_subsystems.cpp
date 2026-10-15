@@ -7,7 +7,6 @@
 #include "Font.h"
 #include "himage.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
