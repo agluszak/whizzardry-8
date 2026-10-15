@@ -16,7 +16,7 @@ class WhizzardryDependencies(ConanFile):
         self.requires("sdl_image/3.4.4")
         self.requires("ffmpeg/7.1.3")
         self.requires("zlib/1.3.1")
-        self.requires("libjpeg-turbo/3.1.2")
+        self.requires("libjpeg/9f")
         self.requires("glm/1.0.3")
         self.requires("fmt/11.2.0")
 
@@ -24,7 +24,7 @@ class WhizzardryDependencies(ConanFile):
         self.tool_requires("glslang/1.4.313.0")
 
     def configure(self):
-        # Keep JPEG and PNG; avoid duplicate libjpeg providers from other codecs.
+        # Keep JPEG and PNG; avoid heavyweight optional image codecs.
         self.options["sdl_image"].with_avif = False
         self.options["sdl_image"].with_libtiff = False
         self.options["sdl_image"].with_libwebp = False
@@ -67,8 +67,8 @@ class WhizzardryDependencies(ConanFile):
         deps.set_property("sdl_image", "cmake_target_name", "SDL3_image::SDL3_image")
         deps.set_property("ffmpeg", "cmake_file_name", "FFMPEG")
         deps.set_property("ffmpeg", "cmake_target_name", "PkgConfig::FFMPEG")
-        deps.set_property("libjpeg-turbo", "cmake_file_name", "JPEG")
-        deps.set_property("libjpeg-turbo", "cmake_target_name", "JPEG::JPEG")
+        deps.set_property("libjpeg", "cmake_file_name", "JPEG")
+        deps.set_property("libjpeg", "cmake_target_name", "JPEG::JPEG")
         deps.set_property("zlib", "cmake_file_name", "ZLIB")
         deps.set_property("zlib", "cmake_target_name", "ZLIB::ZLIB")
         deps.set_property("glm", "cmake_file_name", "glm")
