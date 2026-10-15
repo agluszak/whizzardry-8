@@ -899,7 +899,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 (g_wiz_text_font_secondary.resetPalette(),
                  g_current_screen_state.id != W8_SCREEN_MAIN_GAME) ||
                 (text_shade = 1,
-                 g_level_block->name_hover_party_slot != static_cast<int>(party_slot))) {
+                 g_level_block->highlight.SlotFor(W8_HIGHLIGHT_NAME) != static_cast<int>(party_slot))) {
                 text_shade = 4;
             }
             g_wiz_text_font_secondary.setShade(text_shade);
@@ -985,7 +985,7 @@ draw_condition_icons:
         .draw(GetFrameBufferSurface(), 0, right_condition_x, menu_y + 3);
 
     if (party_row->fOccupied && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        if (g_level_block->condition_hover_party_slot == static_cast<int>(party_slot)) {
+        if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_CONDITION) == static_cast<int>(party_slot)) {
             CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1,
                                                menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
@@ -993,7 +993,7 @@ draw_condition_icons:
                                                menu_y + 2);
         }
 
-        if (g_level_block->enchantment_hover_party_slot == static_cast<int>(party_slot)) {
+        if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_ENCHANTMENT) == static_cast<int>(party_slot)) {
             CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1,
                                                menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
@@ -1001,7 +1001,7 @@ draw_condition_icons:
                                                menu_y + 2);
         }
 
-        if (g_level_block->name_hover_party_slot == static_cast<int>(party_slot) &&
+        if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_NAME) == static_cast<int>(party_slot) &&
             (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0)) {
             CatalogArtwork::Load(0x62, 0).draw(GetFrameBufferSurface(), 0, menu_x + 0x13,
@@ -1010,7 +1010,7 @@ draw_condition_icons:
 
         if ((g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0) &&
-            g_level_block->assay_hover_party_slot == static_cast<int>(party_slot)) {
+            g_level_block->highlight.SlotFor(W8_HIGHLIGHT_ASSAY) == static_cast<int>(party_slot)) {
             int assay_y;
             int assay_catalog;
 
@@ -1039,7 +1039,7 @@ portrait_fx:
         DrawPortraitEffectIcon(party_slot);
     }
 
-    if (g_level_block->vitals_hover_party_slot == static_cast<int>(party_slot)) {
+    if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_VITALS) == static_cast<int>(party_slot)) {
         int hp_overlay_y;
         int hp_overlay_x;
         int hp_overlay_catalog;

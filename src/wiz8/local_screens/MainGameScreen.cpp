@@ -3186,8 +3186,7 @@ void ApplyMainGameRedrawFlags(void)
             }
         } else {
             keyboard_menu_invalidate = false;
-            if (party_slot == g_level_block->highlight_override ||
-                party_slot == g_level_block->formation_highlight_party_slot ||
+            if (g_level_block->highlight.LightsPortrait(party_slot) ||
                 party_slot == g_level_block->held_item_display) {
                 keyboard_menu_invalidate = true;
             }
@@ -3511,8 +3510,8 @@ void RedrawCombatMonsterList(void)
                         is_action_group = monster_group->group_id == monster_info->monster_group_id;
                     }
                     is_target_group = false;
-                    context_slot = g_level_block->tooltip_subject;
-                    if (g_level_block->tooltip_kind != 0 || context_slot == -1) {
+                    context_slot = g_level_block->pending_highlight.SlotFor(W8_HIGHLIGHT_TARGET);
+                    if (context_slot == -1) {
                         context_slot = g_status.selected_character;
                     }
                     target = GetTargetBlockForContext(context_slot, W8_TARGETING_CONTEXT_CURRENT);
@@ -3690,7 +3689,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     }
 
     g_main_game_mode = W8_MAIN_GAME_PORTRAIT_REFRESH;
-    g_level_block->highlight_override = -1;
+    if (g_level_block->highlight.kind == W8_HIGHLIGHT_TARGET) g_level_block->highlight = {};
     g_level_block->portrait_refresh_pending[party_slot] = 1;
     g_level_block->portrait_refresh_image[party_slot] = 0x69;
     RequestRedraw(1u << (party_slot & 0x1f));
@@ -4575,13 +4574,13 @@ void ClearPortraitRefreshSlot(int slot)
 /* Note what the pointer is hovering over. Moving to anything else restarts the
    tooltip clock; staying put leaves it running, which is what makes the four
    fields one tooltip rather than four settings. */
-void SetTooltipSubject(int kind, int subject)
+void SetTooltipSubject(W8PortraitHighlightKind kind, int subject)
 {
-    if (g_level_block->tooltip_kind != kind || g_level_block->tooltip_subject != subject) {
+    auto& pending = g_level_block->pending_highlight;
+    if (pending.kind != kind || pending.slot != subject) {
         g_level_block->tooltip_pending = true;
         g_level_block->tooltip_since = w8_get_ticks();
-        g_level_block->tooltip_subject = subject;
-        g_level_block->tooltip_kind = kind;
+        pending = {kind, subject};
     }
 }
 
@@ -4593,10 +4592,10 @@ void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable)
     unsigned int slot;
 
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetTooltipSubject(4, -1);
+        SetTooltipSubject(W8_HIGHLIGHT_VITALS, -1);
     }
     if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetTooltipSubject(0, -1);
+        SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
     }
     CloseMainGameOverlays();
     if (!enable || gXStatus.fSpellCastMode ||
@@ -5013,7 +5012,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
 
                     g_level_block->portrait_right_hold_armed = false;
                     if (IsNpcDialogueCursorActive() == 0) {
-                        SetTooltipSubject(0, slot);
+                        SetTooltipSubject(W8_HIGHLIGHT_TARGET, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                             UpdateSlotMonsterHighlights(slot, true);
                             return UiResult::Pass;
@@ -5023,7 +5022,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
             } else {
                 g_level_block->portrait_right_hold_armed = false;
                 if (IsNpcDialogueCursorActive() == 0) {
-                    SetTooltipSubject(0, -1);
+                    SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
                     SetTargetCursor(GetTargetingCursorForState(0));
                     if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                         UpdateSlotMonsterHighlights(slot, false);
@@ -5066,7 +5065,8 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
 template<class Effect>
 static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget& target, int id,
                                          Effect W8Character::* effect, Effect none,
-                                         int W8LevelRuntimeBlock::* selection, int tooltip_kind)
+                                         int W8LevelRuntimeBlock::* selection,
+                                         W8PortraitHighlightKind tooltip_kind)
 {
     int slot = id;
     W8Character* character = &g_status.buffers.Char[slot];
@@ -5134,7 +5134,8 @@ UiResult PortraitConditionOrbInput(const UiPointerEvent& event, HitTarget& targe
 {
     return DispatchPortraitOrbInput(event, target, id, &W8Character::highest_condition,
                                     W8_CONDITION_NONE,
-                                    &W8LevelRuntimeBlock::condition_orb_party_slot, 1);
+                                    &W8LevelRuntimeBlock::condition_orb_party_slot,
+                                    W8_HIGHLIGHT_CONDITION);
 }
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
@@ -5143,7 +5144,8 @@ UiResult PortraitEnchantmentOrbInput(const UiPointerEvent& event, HitTarget& tar
 {
     return DispatchPortraitOrbInput(event, target, id, &W8Character::enchantment_top,
                                     W8_ENCHANTMENT_NONE,
-                                    &W8LevelRuntimeBlock::enchantment_orb_party_slot, 2);
+                                    &W8LevelRuntimeBlock::enchantment_orb_party_slot,
+                                    W8_HIGHLIGHT_ENCHANTMENT);
 }
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
@@ -5205,10 +5207,10 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
         if (event.action != UiPointerAction::Leave) {
             if (event.action == UiPointerAction::Enter) {
 
-                SetTooltipSubject(5, slot);
+                SetTooltipSubject(W8_HIGHLIGHT_ASSAY, slot);
             }
         } else {
-            SetTooltipSubject(5, -1);
+            SetTooltipSubject(W8_HIGHLIGHT_ASSAY, -1);
             return UiResult::Pass;
         }
         return UiResult::Pass;
@@ -5258,13 +5260,13 @@ UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& targe
                     return UiResult::Pass;
                 }
 
-                SetTooltipSubject(4, slot);
+                SetTooltipSubject(W8_HIGHLIGHT_VITALS, slot);
                 if (!IsLeftButtonHeld()) {
                     return UiResult::Pass;
                 }
                 g_level_block->portrait_overlay_party_slot = slot;
             } else {
-                SetTooltipSubject(4, -1);
+                SetTooltipSubject(W8_HIGHLIGHT_VITALS, -1);
                 if (g_level_block->portrait_overlay_party_slot == -1) {
                     return UiResult::Pass;
                 }
@@ -5925,81 +5927,25 @@ static void ApplyPendingMouselook(void)
    redraw them), then park the pending subject on the slot its kind selects. */
 void ApplyPendingTooltip(void)
 {
-    bool refresh_formation = false;
-
-    if (!g_level_block->tooltip_pending) {
+    if (!g_level_block->tooltip_pending || w8_get_ticks() - g_level_block->tooltip_since < 0x33) {
         return;
     }
-    if (w8_get_ticks() - g_level_block->tooltip_since < 0x33) {
-        return;
+    const W8PortraitHighlight previous = std::exchange(g_level_block->highlight, {});
+    const W8PortraitHighlight next =
+        std::exchange(g_level_block->pending_highlight, W8PortraitHighlight{});
+    g_level_block->tooltip_pending = false;
+    if (previous.slot != -1 &&
+        (!previous.IsFormation() || g_current_screen_state.id == W8_SCREEN_MAIN_GAME)) {
+        RequestRedraw(1u << (previous.slot & 0x1f));
     }
-    if (g_level_block->highlight_override != -1) {
-        RequestRedraw(1u << (g_level_block->highlight_override & 0x1f));
-        g_level_block->highlight_override = -1;
+    if (next.slot != -1) {
+        RequestRedraw(1u << (next.slot & 0x1f));
+        g_level_block->highlight = next;
     }
-    if (g_level_block->condition_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->condition_hover_party_slot & 0x1f));
-        g_level_block->condition_hover_party_slot = -1;
-    }
-    if (g_level_block->enchantment_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->enchantment_hover_party_slot & 0x1f));
-        g_level_block->enchantment_hover_party_slot = -1;
-    }
-    if (g_level_block->name_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->name_hover_party_slot & 0x1f));
-        g_level_block->name_hover_party_slot = -1;
-    }
-    if (g_level_block->vitals_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->vitals_hover_party_slot & 0x1f));
-        g_level_block->vitals_hover_party_slot = -1;
-    }
-    if (g_level_block->assay_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->assay_hover_party_slot & 0x1f));
-        g_level_block->assay_hover_party_slot = -1;
-    }
-    if (g_level_block->formation_highlight_party_slot != -1) {
-        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
-            RequestRedraw(1u << (g_level_block->formation_highlight_party_slot & 0x1f));
-        }
-        g_level_block->formation_highlight_party_slot = -1;
-        refresh_formation = true;
-    }
-    if (g_level_block->tooltip_subject != -1) {
-        RequestRedraw(1u << (g_level_block->tooltip_subject & 0x1f));
-        switch (g_level_block->tooltip_kind) {
-        case 0:
-            g_level_block->highlight_override = g_level_block->tooltip_subject;
-            break;
-        case 1:
-            g_level_block->condition_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 2:
-            g_level_block->enchantment_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 3:
-            g_level_block->name_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 4:
-            g_level_block->vitals_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 5:
-            g_level_block->assay_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 6:
-            g_level_block->formation_highlight_party_slot = g_level_block->tooltip_subject;
-            refresh_formation = true;
-            break;
-        case 7:
-            g_level_block->formation_highlight_party_slot = g_level_block->tooltip_subject;
-            break;
-        }
-    }
-    if (refresh_formation) {
+    if ((previous.slot != -1 && previous.IsFormation()) ||
+        (next.slot != -1 && next.kind == W8_HIGHLIGHT_FORMATION_BOARD)) {
         RefreshFormationBoard();
     }
-    g_level_block->tooltip_pending = false;
-    g_level_block->tooltip_subject = -1;
-    g_level_block->tooltip_kind = -1;
 }
 
 static void PositionSelectionToolTip(SDL_Point point)

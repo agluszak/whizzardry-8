@@ -67,6 +67,39 @@ enum W8MainGameRedrawFlag {
                             W8_MAIN_REDRAW_COMBAT_STANCE | W8_MAIN_REDRAW_CHARACTER_ACTION
 };
 
+/* What a delayed portrait hover highlights. The value also indexes the
+   matching help string (24 + kind). */
+enum W8PortraitHighlightKind {
+    W8_HIGHLIGHT_NONE = -1,
+    W8_HIGHLIGHT_TARGET = 0,
+    W8_HIGHLIGHT_CONDITION = 1,
+    W8_HIGHLIGHT_ENCHANTMENT = 2,
+    W8_HIGHLIGHT_NAME = 3,
+    W8_HIGHLIGHT_VITALS = 4,
+    W8_HIGHLIGHT_ASSAY = 5,
+    /* Formation board marker; applying it also refreshes the board. */
+    W8_HIGHLIGHT_FORMATION_BOARD = 6,
+    W8_HIGHLIGHT_FORMATION = 7
+};
+
+/* One highlighted party slot and why it is highlighted. */
+struct W8PortraitHighlight {
+    W8PortraitHighlightKind kind = W8_HIGHLIGHT_NONE;
+    int slot = -1;
+
+    int SlotFor(W8PortraitHighlightKind wanted) const { return kind == wanted ? slot : -1; }
+    bool IsFormation() const
+    {
+        return kind == W8_HIGHLIGHT_FORMATION_BOARD || kind == W8_HIGHLIGHT_FORMATION;
+    }
+    int FormationSlot() const { return IsFormation() ? slot : -1; }
+    /* The target and formation highlights light the whole portrait. */
+    bool LightsPortrait(int party_slot) const
+    {
+        return slot == party_slot && (kind == W8_HIGHLIGHT_TARGET || IsFormation());
+    }
+};
+
 static const unsigned int W8_MAIN_REDRAW_FRAME = 0x80000000U;
 static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 
@@ -94,17 +127,13 @@ struct W8LevelRuntimeBlock {
     /* Portrait hover-panel y offset ApplyMainGameModeFlag sets to 0x76 while the
        action panel is down and clears while it is up. */
     int portrait_y_shift;
-    int highlight_override;
-    int condition_hover_party_slot;
-    int enchantment_hover_party_slot;
-    int name_hover_party_slot;
-    int vitals_hover_party_slot;
+    /* The applied highlight, and the hover waiting out the tooltip delay. */
+    W8PortraitHighlight highlight;
+    W8PortraitHighlight pending_highlight;
     int combat_action_hover_party_slot;
-    int assay_hover_party_slot;
     /* PortraitAssaySidebarInput hover zone — 1 upper weapon
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     int portrait_assay_hover_mode;
-    int formation_highlight_party_slot;
     int held_item_display;
     int text_content_region;
     int dialogue_content_region;
@@ -183,8 +212,6 @@ struct W8LevelRuntimeBlock {
     bool selection_settled;
     uint64_t tooltip_since;
     bool tooltip_pending;
-    int tooltip_subject;
-    int tooltip_kind;
     uint64_t countdown3;
     int combat_slot;
     /* The keyboard-action menu is open; set before BuildKeyboardMenu,

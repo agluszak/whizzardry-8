@@ -346,7 +346,7 @@ void RequestRedraw(unsigned int mask);
 void ApplyMainGameRedrawFlags(void);
 void DrawMainGameScreen(void);
 void CancelMouselook();
-void SetTooltipSubject(int kind, int subject);
+void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 int IsScreenInputBlocked(void);
 void DisableCombatRegions(void);
 

@@ -155,9 +155,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
             overlay_ready =
                 PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
             highlighted = false;
-            if (party_slot == static_cast<unsigned int>(g_level_block->highlight_override) ||
-                party_slot ==
-                    static_cast<unsigned int>(g_level_block->formation_highlight_party_slot) ||
+            if (g_level_block->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
                 party_slot == static_cast<unsigned int>(g_level_block->held_item_display)) {
                 highlighted = true;
             }
@@ -310,15 +308,9 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->redraw_flags = static_cast<unsigned int>(-1);
     }
     g_level_block->camera_mode = 7;
-    g_level_block->highlight_override = -1;
-    g_level_block->condition_hover_party_slot = -1;
-    g_level_block->enchantment_hover_party_slot = -1;
-    g_level_block->name_hover_party_slot = -1;
-    g_level_block->vitals_hover_party_slot = -1;
-    g_level_block->assay_hover_party_slot = -1;
+    g_level_block->highlight = {};
     g_level_block->combat_action_hover_party_slot = -1;
     g_level_block->portrait_assay_hover_mode = 0;
-    g_level_block->formation_highlight_party_slot = -1;
     g_level_block->held_item_display = -1;
     g_level_block->highlight_row = -1;
     g_level_block->highlight_graphic = 0;
@@ -374,8 +366,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->selection_settled = false;
     g_level_block->tooltip_since = 0;
     g_level_block->tooltip_pending = false;
-    g_level_block->tooltip_subject = -1;
-    g_level_block->tooltip_kind = -1;
+    g_level_block->pending_highlight = {};
     g_level_block->countdown3 = w8_get_ticks() + (0);
     g_level_block->combat_slot = -1;
     g_level_block->keyboard_menu_open = false;

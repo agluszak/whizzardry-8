@@ -865,9 +865,10 @@ void UpdateAllMonsterHighlights(int party_slot, int location_id)
     W8MonsterInfo* monster_info;
     int tint;
 
-    if (g_level_block->highlight_override != -1 && gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
+    const int target_slot = g_level_block->highlight.SlotFor(W8_HIGHLIGHT_TARGET);
+    if (target_slot != -1 && gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
         overridden = true;
-        owner = g_level_block->highlight_override;
+        owner = target_slot;
     }
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
