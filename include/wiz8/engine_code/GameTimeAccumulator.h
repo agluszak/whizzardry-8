@@ -1,7 +1,7 @@
 #pragma once
 
-#include "wiz8/engine_code/game_timer.h"
 #include "compat/compiler.h"
+#include "wiz8/engine_code/game_timer.h"
 
 /* Address-qualified W8GameTimer specialization constructed beside the
    canonical GDCamera owner in GameData.cpp. */
@@ -11,14 +11,8 @@ public:
     void SetDurationScale(float scale);
     void ResetDurationScale();
     float Update();
-    float GetFrameDelta() const
-    {
-        return m_frame_delta;
-    }
-    float GetElapsed() const
-    {
-        return m_elapsed;
-    }
+    float GetFrameDelta() const { return m_frame_delta; }
+    float GetElapsed() const { return m_elapsed; }
 
 private:
     float m_max_frame_delta;

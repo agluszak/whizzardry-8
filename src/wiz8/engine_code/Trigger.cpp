@@ -1,91 +1,96 @@
-#include <memory>
-#include "wiz8/modal_content.h"
-#include <cstdint>
-#include <fmt/format.h>
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/matrix_access.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <source_location>
-#include <string>
-#include <vector>
+#include "wiz8/engine_code/Trigger.hpp"
+
 #include <algorithm>
-#include <ranges>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <memory>
+#include <optional>
+#include <ranges>
+#include <source_location>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include <fmt/format.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include "Item.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
-#include "wiz8/containers.h"
-#include "wiz8/spell_ids.h"
-#include "wiz8/fonts.h"
-#include "soundman.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/location_variables.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/item_tables.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/save_game.h"
-#include "random.h"
-#include "wiz8/filesystem.h"
-#include "surrender/srCamera.h"
-#include "surrender/srMath.h"
-#include "wiz8/local_code/character_events.h"
-#include "Item.h"
 #include "dice.h"
 #include "float_constants.h"
 #include "game_timer.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/item_tables.h"
+#include "random.h"
+#include "soundman.h"
+#include "surrender/srCamera.h"
+#include "surrender/srMath.h"
+#include "wiz8/containers.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/engine_code/stSound3D.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/item_tables.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/location_variables.h"
+#include "wiz8/save_game.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/string_database.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 // Sets or clears one flag bit from a retail integer or float condition.
 static void assignFlag(unsigned int& flags, unsigned int flag, bool on)
 {
-    if (on) flags |= flag;
-    else flags &= ~flag;
+    if (on)
+        flags |= flag;
+    else
+        flags &= ~flag;
 }
 #include "layouts/world.h"
 #include "surrender/srClock.h"
@@ -294,17 +299,25 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring
             handle.write(&version, sizeof(version));
             if (restoring) {
                 handle.write(&trigger->lock_state.lock_type, sizeof(trigger->lock_state.lock_type));
-                handle.write(&trigger->lock_state.difficulty, sizeof(trigger->lock_state.difficulty));
-                handle.write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
-                handle.write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
+                handle.write(&trigger->lock_state.difficulty,
+                             sizeof(trigger->lock_state.difficulty));
+                handle.write(&trigger->lock_state.device_state.completed,
+                             sizeof(trigger->lock_state.device_state.completed));
+                handle.write(trigger->lock_state.device_state.pins,
+                             sizeof(trigger->lock_state.device_state.pins));
                 handle.write(&trigger->lock_state.device_id, sizeof(trigger->lock_state.device_id));
                 handle.write(&trigger->lock_state.key_id, sizeof(trigger->lock_state.key_id));
-                handle.write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
+                handle.write(&trigger->lock_state.lock_countdown,
+                             sizeof(trigger->lock_state.lock_countdown));
             } else {
-                handle.write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
-                handle.write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
-                handle.write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
-                handle.write(&trigger->lock_state.last_interaction_clock, sizeof(trigger->lock_state.last_interaction_clock));
+                handle.write(&trigger->lock_state.device_state.completed,
+                             sizeof(trigger->lock_state.device_state.completed));
+                handle.write(trigger->lock_state.device_state.pins,
+                             sizeof(trigger->lock_state.device_state.pins));
+                handle.write(&trigger->lock_state.lock_countdown,
+                             sizeof(trigger->lock_state.lock_countdown));
+                handle.write(&trigger->lock_state.last_interaction_clock,
+                             sizeof(trigger->lock_state.last_interaction_clock));
             }
         }
     }
@@ -343,8 +356,7 @@ void W8LockState::ReadRuntimeRecord(wiz8::File& handle, int version, int restori
    re-linked to the stored item. */
 // FUNCTION: WIZ8 0x0043ccf0
 bool LoadTriggerRuntimeStates(wiz8::File& handle)
-try
-{
+try {
     int version;
     int saved_count;
     int restoring;
@@ -440,8 +452,7 @@ bool Trigger::Save(wiz8::File& hFile)
                 action_flags |= 0x200;
             }
             hFile.write(&action_flags, sizeof(action_flags));
-            if (m_lData1 != 0 && m_pEvent != 0 &&
-                std::ranges::contains(g_timed_events, m_pEvent)) {
+            if (m_lData1 != 0 && m_pEvent != 0 && std::ranges::contains(g_timed_events, m_pEvent)) {
                 float progress = m_pEvent->timer.GetProgress();
                 if (progress <= g_trigger_progress_limit) {
                     progress_delay = static_cast<unsigned int>(
@@ -484,20 +495,23 @@ static bool readDoorFlag(File& file)
    action data and re-queues the delayed timed event from the saved progress. */
 // FUNCTION: WIZ8 0x0043c1b0
 bool Trigger::Load(wiz8::File& hFile, char version)
-try
-{
+try {
     bool header_ok;
     unsigned char has_action_data;
     unsigned char action_type;
     unsigned char flag_mode;
-    unsigned char flag;
 
-    header_ok = (hFile.read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags))) &&
-                (hFile.read(&state_index, sizeof(state_index)).bytes == static_cast<std::size_t>(sizeof(state_index))) &&
-                (hFile.read(&state_direction, sizeof(state_direction)).bytes == static_cast<std::size_t>(sizeof(state_direction))) &&
-                (hFile.read(&action, sizeof(action)).bytes == static_cast<std::size_t>(sizeof(action))) &&
-                (hFile.read(&action_state, sizeof(action_state)).bytes == static_cast<std::size_t>(sizeof(action_state))) &&
-                (hFile.read(&required_item_id, sizeof(required_item_id)).bytes == static_cast<std::size_t>(sizeof(required_item_id)));
+    header_ok =
+        (hFile.read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags))) &&
+        (hFile.read(&state_index, sizeof(state_index)).bytes ==
+         static_cast<std::size_t>(sizeof(state_index))) &&
+        (hFile.read(&state_direction, sizeof(state_direction)).bytes ==
+         static_cast<std::size_t>(sizeof(state_direction))) &&
+        (hFile.read(&action, sizeof(action)).bytes == static_cast<std::size_t>(sizeof(action))) &&
+        (hFile.read(&action_state, sizeof(action_state)).bytes ==
+         static_cast<std::size_t>(sizeof(action_state))) &&
+        (hFile.read(&required_item_id, sizeof(required_item_id)).bytes ==
+         static_cast<std::size_t>(sizeof(required_item_id)));
     if ((flags & W8_TRIGGER_SEARCHED) != 0) {
         UnregisterSearchableTrigger(this);
     }
@@ -595,8 +609,7 @@ try
    the tag byte back and ends the walk. */
 // FUNCTION: WIZ8 0x0043c860
 bool LoadWorldTriggers(W8World* world, wiz8::File& hFile)
-try
-{
+try {
     int trigger_count = static_cast<int>(world->triggers.size());
     int index = 0;
     bool header_ok = true;
@@ -631,7 +644,9 @@ try
             char name[0x80] = {0};
             Trigger* trigger;
 
-            if (!header_ok || !(hFile.read(&trigger_id, sizeof(trigger_id)).bytes == static_cast<std::size_t>(sizeof(trigger_id))) ||
+            if (!header_ok ||
+                !(hFile.read(&trigger_id, sizeof(trigger_id)).bytes ==
+                  static_cast<std::size_t>(sizeof(trigger_id))) ||
                 !(hFile.read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name)))) {
                 header_ok = false;
             } else {
@@ -707,8 +722,7 @@ void SaveTriggerActionData(W8World* world, wiz8::File& handle)
    payload. Records for missing triggers are skipped with a seek. */
 // FUNCTION: WIZ8 0x0043d1f0
 bool LoadTriggerActionData(wiz8::File& handle)
-try
-{
+try {
     int version;
     int saved_count;
     int index = 0;
@@ -752,8 +766,14 @@ class W8TriggerShakeEvent : public W8TriggerEvent {
 public:
     W8TriggerShakeEvent();
     virtual void Update() override;
+    ~W8TriggerShakeEvent() override
+    {
+        if (effect) {
+            CameraShakes().Stop(*effect);
+        }
+    }
 
-    W8CameraShakeEffect* effect;
+    std::optional<ShakeDefinition> effect;
     int intensity;
     bool reverse;
 };
@@ -763,12 +783,10 @@ public:
 /* Retail ICF folds this class's deleting destructor onto W8TriggerEvent's
    retained body at 0x00440980; there is no distinct retail emission to mark. */
 
-W8TriggerShakeEvent::W8TriggerShakeEvent() : effect(0), intensity(1), reverse(0) {}
+W8TriggerShakeEvent::W8TriggerShakeEvent() : intensity(1), reverse(0) {}
 
 // GLOBAL: WIZ8 0x006599a0
 srVector3T<float> g_trigger_camera;
-
-static void OnItemDialogClosed(W8DialogBase* base);
 
 /* Advance every world trigger: raise the item picker when a prop-bearing
    activation asks for one, then run proximity activations for kind-two
@@ -789,14 +807,13 @@ void UpdateWorldTriggers(W8World* world)
              trigger->m_pProp->Rep()->animation_playing == 0)) {
             trigger->GenerateItemGroup();
             if (g_modal_owner == 0 && trigger->world_item_group != 0) {
-                W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
-                if (dialog != 0) {
-                    dialog->m_destroy_callback_context = trigger;
-                    dialog->SetItemGroup(trigger->world_item_group);
-                    dialog->m_destroy_callback = OnItemDialogClosed;
-                    gXStatus.item_pick_pending = false;
-                    OpenModal(std::unique_ptr<ModalContent>(dialog));
-                }
+                auto dialog = std::make_unique<W8TriggerItemPickerDialog>();
+                dialog->SetItemGroup(trigger->world_item_group);
+                dialog->on_complete = [trigger](W8WorldItem*) {
+                    trigger->flags &= ~W8_TRIGGER_ITEM_PICKER;
+                };
+                gXStatus.item_pick_pending = false;
+                OpenModal(std::move(dialog));
             }
         }
         if (g_environment_load_flag != 0 && trigger->trigger_kind == 2 &&
@@ -825,19 +842,6 @@ void UpdateWorldTriggers(W8World* world)
     }
 }
 
-/* The item picker's destroy callback: hand its items back to the owning
-   trigger and clear the trigger's pending-picker bit. */
-// FUNCTION: WIZ8 0x004456c0
-static void OnItemDialogClosed(W8DialogBase* base)
-{
-    W8TriggerItemPickerDialog* dialog = static_cast<W8TriggerItemPickerDialog*>(base);
-
-    if (dialog != 0) {
-        dialog->ReturnItemsToGroup();
-        static_cast<Trigger*>(dialog->m_destroy_callback_context)->flags &= ~W8_TRIGGER_ITEM_PICKER;
-    }
-}
-
 // FUNCTION: WIZ8 0x00443D30
 void UpdateTimedTriggerEvents(void)
 {
@@ -858,22 +862,21 @@ void UpdateTimedTriggerEvents(void)
 // FUNCTION: WIZ8 0x00444ec0
 void W8TriggerShakeEvent::Update()
 {
-    if (effect == 0) {
+    if (!effect) {
         float intensity = this->intensity / g_float_two_hundred_fifty;
 
         if (intensity < g_float_one) {
             intensity = g_float_one;
         }
-        effect = CreateCameraShakeEffect(m_pCountdown->m_duration_seconds, false, intensity, 0, 0);
-        effect->flags.list_owns = false;
+        effect.emplace(m_pCountdown->m_duration_seconds, false, intensity, 0, nullptr);
         if (reverse) {
-            effect->flags.fade_out = true;
+            effect->fade_out = true;
         }
+        CameraShakes().Start(*effect, &*effect);
     }
 
-    if (!effect->flags.active) {
-        delete effect;
-        effect = 0;
+    if (!CameraShakes().IsActive(*effect)) {
+        effect.reset();
         if (trigger != 0) {
             trigger->FinishAction();
         }
@@ -961,8 +964,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
             center.Set(position.x, position.y, position.z);
         } else {
             const auto prop_center = m_pProp->GetCenterPosition();
-            if (!prop_center)
-                return false;
+            if (!prop_center) return false;
             center = *prop_center;
         }
 
@@ -974,7 +976,8 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         lower = center - extent;
         upper = center + extent;
 
-        locations = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
+        locations = g_octree->queryObjects({lower.glmValue(), upper.glmValue()},
+                                           W8_OCTREE_KIND_LOCATION, -1);
         unsigned int count = locations.size();
         for (unsigned int index = 0; index < count; ++index) {
             int location_id = locations[index];
@@ -1010,13 +1013,12 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
     }
     if ((flags & W8_TRIGGER_POSITIONED) == 0) {
         if (m_pProp == 0) {
-            wiz8::sound::play(sound_name,
-                              {.volume = std::uint32_t((g_settings.sound_effects_volume * volume) / 0x7f)});
+            wiz8::sound::play(sound_name, {.volume = std::uint32_t(
+                                               (g_settings.sound_effects_volume * volume) / 0x7f)});
             return false;
         }
         const auto center = m_pProp->GetCenterPosition();
-        if (!center)
-            return false;
+        if (!center) return false;
         position = *center;
     } else {
         position.Set(this->position.x, this->position.y, this->position.z);
@@ -1090,24 +1092,24 @@ void W8TriggerEvent::Update()
             srVector3T<float> target;
             srVector3T<float> transformed;
             srVector3T<float> axis;
-                glm::mat3 rotation;
+            glm::mat3 rotation;
 
             source = trigger->position;
             target = source;
             target.z += 100.0f;
 
             axis.Set(0.0, 0.0, 1.0);
-            rotation = glm::transpose(glm::mat3(trigger->direction.glmValue(),
-                                                    glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
+            rotation = glm::transpose(
+                glm::mat3(trigger->direction.glmValue(), glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
 
-                if (trigger->angle != 0.0f) {
-                    rotation *= glm::mat3_cast(
-                        glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
-                                       normalizedOrZero(glm::vec3(axis.glmValue()))));
-                }
+            if (trigger->angle != 0.0f) {
+                rotation *= glm::mat3_cast(
+                    glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
+                                   normalizedOrZero(glm::vec3(axis.glmValue()))));
+            }
 
-                transformed.x = glm::dot(glm::row(rotation, 1), target.glmValue());
-                transformed.y = glm::dot(glm::row(rotation, 2), target.glmValue());
+            transformed.x = glm::dot(glm::row(rotation, 1), target.glmValue());
+            transformed.y = glm::dot(glm::row(rotation, 2), target.glmValue());
             transformed.z = glm::dot(axis.glmValue(), target.glmValue());
             FireMissile(static_cast<unsigned int>(trigger->m_lData1), &source, &transformed, 0, 1,
                         1, 50000.0f);
@@ -1454,7 +1456,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         _strupr(recipients);
         if (version > 1) {
             handle->read_exact(&plane, 1);
-            handle->read_exact(trigger->representation_vectors, sizeof(trigger->representation_vectors));
+            handle->read_exact(trigger->representation_vectors,
+                               sizeof(trigger->representation_vectors));
             for (int vector = 0; vector < 4; ++vector) {
                 trigger->representation_vectors[vector] *= 500.0f;
             }
@@ -1514,8 +1517,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, fire_linked != 0);
         assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
         assignFlag(trigger->flags, W8_TRIGGER_KEEP_ON_FINISH, keep_on_finish != 0);
-        if (plane == 1)
-            trigger->flags |= W8_TRIGGER_PLANE;
+        if (plane == 1) trigger->flags |= W8_TRIGGER_PLANE;
         trigger->m_pacRecipients = new char[strlen(recipients) + 1];
         strcpy(trigger->m_pacRecipients, recipients);
         /* Retail 0x00442483 hands plane triggers to the game data whenever it
@@ -1664,16 +1666,11 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         }
 
         trigger->trigger_kind = ((packed_flags & 1) != 0 || searchable == 1) ? 1 : 2;
-        if ((packed_flags & 2) != 0)
-            trigger->flags |= W8_TRIGGER_CAN_RUN_LINKED;
-        if ((packed_flags & 4) != 0)
-            trigger->flags |= W8_TRIGGER_ONCE;
-        if ((packed_flags & 8) != 0)
-            trigger->flags |= W8_TRIGGER_EXCLUSIVE;
-        if ((packed_flags & 0x10) != 0)
-            trigger->flags |= W8_TRIGGER_REACTIVATE_LINKED;
-        if ((packed_flags & 0x20) != 0)
-            trigger->flags |= 0x400000;
+        if ((packed_flags & 2) != 0) trigger->flags |= W8_TRIGGER_CAN_RUN_LINKED;
+        if ((packed_flags & 4) != 0) trigger->flags |= W8_TRIGGER_ONCE;
+        if ((packed_flags & 8) != 0) trigger->flags |= W8_TRIGGER_EXCLUSIVE;
+        if ((packed_flags & 0x10) != 0) trigger->flags |= W8_TRIGGER_REACTIVATE_LINKED;
+        if ((packed_flags & 0x20) != 0) trigger->flags |= 0x400000;
 
         if (recipients[0] != 0) {
             trigger->m_pacRecipients = new char[strlen(recipients) + 1];
@@ -1697,8 +1694,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         assignFlag(trigger->flags, W8_TRIGGER_CONSUME_ITEM, consume_item != 0);
         assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_ACTION, animate_action != 0);
         assignFlag(trigger->flags, W8_TRIGGER_ALTERNATE_TOGGLES, alternate_toggles != 0);
-        if (trigger->alternate_action != 0)
-            trigger->flags |= W8_TRIGGER_HAS_ALTERNATE;
+        if (trigger->alternate_action != 0) trigger->flags |= W8_TRIGGER_HAS_ALTERNATE;
 
         unsigned char value_b0;
         unsigned char animate_states;
@@ -1765,7 +1761,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 trigger->position *= 500.0f;
                 trigger->flags |= W8_TRIGGER_POSITIONED;
             } else if (representation_kind == 2) {
-                handle->read_exact(trigger->representation_vectors, sizeof(trigger->representation_vectors));
+                handle->read_exact(trigger->representation_vectors,
+                                   sizeof(trigger->representation_vectors));
                 for (int vector = 0; vector < 4; ++vector) {
                     trigger->representation_vectors[vector] *= 500.0f;
                 }
@@ -2510,8 +2507,7 @@ void Trigger::Run(int source)
             }
 
             if (m_lData1 != 0) {
-                if (m_pEvent != 0 &&
-                    std::ranges::contains(g_timed_events, m_pEvent)) {
+                if (m_pEvent != 0 && std::ranges::contains(g_timed_events, m_pEvent)) {
                     m_pEvent->timer.Restart();
                     if (m_pEvent->m_pCountdown != 0) {
                         m_pEvent->m_pCountdown->Restart();
@@ -2906,10 +2902,7 @@ void Trigger::Run(int source)
             return;
         }
         monster_id = atoi(m_pacRecipients);
-        for (index = 0;
-             index < static_cast<int>(
-                         gXStatus.monster_groups.size());
-             ++index) {
+        for (index = 0; index < static_cast<int>(gXStatus.monster_groups.size()); ++index) {
             group = gXStatus.monster_groups[index];
             if (group->monster_id == monster_id) {
                 int location_id = group->MemberLocationId(0);
@@ -2924,8 +2917,7 @@ void Trigger::Run(int source)
         group->members_active = true;
         monster_info->p3D->m_pRep->active = 1;
         monster_info->p3D->m_pRep->animation_playing = 1;
-        monster_info->p3D->m_pRep->timer =
-            g_shared_timer_base->milliseconds();
+        monster_info->p3D->m_pRep->timer = g_shared_timer_base->milliseconds();
         monster_info->p3D->ResetRepresentation();
         monster_info->p3D->ResetPathAI();
         monster_info->p3D->reactivated = true;
@@ -3087,7 +3079,7 @@ void Trigger::Run(int source)
             srVector3T<float> source_position;
             srVector3T<float> target_position;
             srVector3T<float> transformed;
-                glm::mat3 rotation;
+            glm::mat3 rotation;
 
             source_position.Set(this->position.x, this->position.y, this->position.z);
             target_position = source_position;
@@ -3097,12 +3089,12 @@ void Trigger::Run(int source)
                field (ebp+0x100), not around identity Z. */
             if (angle != 0.0f) {
                 rotation *= glm::mat3_cast(
-                        glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                       normalizedOrZero(glm::vec3(direction.glmValue()))));
-                }
-                transformed = rotation * target_position.glmValue();
-                FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0,
-                            1, 1, 50000.0f);
+                    glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                   normalizedOrZero(glm::vec3(direction.glmValue()))));
+            }
+            transformed = rotation * target_position.glmValue();
+            FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
+                        1, 50000.0f);
         } else if (m_pEvent == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
@@ -3174,7 +3166,7 @@ void Trigger::Run(int source)
             char state_name[132];
 
             snprintf(state_name, sizeof(state_name), "%s%d", m_pacStateToMod,
-                    static_cast<int>(static_cast<signed char>(state_index)));
+                     static_cast<int>(static_cast<signed char>(state_index)));
             SetTriggerVariableByName(state_name, 0);
         }
         state_index = m_pProp->Rep()->AdvanceAnimationSegment();
@@ -3183,7 +3175,7 @@ void Trigger::Run(int source)
             char state_name[132];
 
             snprintf(state_name, sizeof(state_name), "%s%d", m_pacStateToMod,
-                    static_cast<int>(static_cast<signed char>(state_index)));
+                     static_cast<int>(static_cast<signed char>(state_index)));
             SetTriggerVariableByName(state_name, 1);
         }
         apply_state_changes = false;
@@ -3483,8 +3475,7 @@ bool Trigger::SelectAction()
         }
 
         if (linked_trigger_blocked) {
-            if (m_pEvent == 0 ||
-                !std::ranges::contains(g_timed_events, m_pEvent)) {
+            if (m_pEvent == 0 || !std::ranges::contains(g_timed_events, m_pEvent)) {
                 return false;
             }
             m_pEvent->timer.Restart();
@@ -3716,15 +3707,15 @@ void SaveLocationVariables(wiz8::File& handle)
    appending a heap copy of the name to the variable vectors. */
 // FUNCTION: WIZ8 0x00444310
 bool LoadLocationVariables(wiz8::File& handle)
-try
-{
+try {
     /* Retail read these uninitialised when a FileRead short-circuited; the recovery keeps that
        read. */
     int variable_count;
     int index;
     bool read_ok;
 
-    read_ok = (handle.read(&variable_count, sizeof(variable_count)).bytes == static_cast<std::size_t>(sizeof(variable_count))) != 0;
+    read_ok = (handle.read(&variable_count, sizeof(variable_count)).bytes ==
+               static_cast<std::size_t>(sizeof(variable_count))) != 0;
     for (index = 0; index < variable_count; ++index) {
         int value;
         char name[0x80];
@@ -3734,9 +3725,10 @@ try
         if (!read_ok) {
             break;
         }
-        read_ok = (handle.read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value))) &&
-                  (handle.read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name))) &&
-                  (handle.read(&level, sizeof(level)).bytes == static_cast<std::size_t>(sizeof(level)));
+        read_ok =
+            (handle.read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value))) &&
+            (handle.read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name))) &&
+            (handle.read(&level, sizeof(level)).bytes == static_cast<std::size_t>(sizeof(level)));
         copy = new char[strlen(name) + 1];
         if (copy == 0) {
             srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1143,

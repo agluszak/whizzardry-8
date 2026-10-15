@@ -1,10 +1,10 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 
+#include "surrender/srClock.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srClock.h"
 
 // GLOBAL: WIZ8 0x0060e608
 float g_lod_range_default0 = 3500.0f;

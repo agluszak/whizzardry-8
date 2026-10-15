@@ -1,14 +1,17 @@
 #include "wiz8/local_code/TextBuffer.h"
+
+#include <cstring>
+#include <string>
+#include <string_view>
+
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
 #include "image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
-#include <cstring>
-#include <string>
-#include <string_view>
 
 // GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
@@ -50,10 +53,10 @@ W8TextBuffer::W8TextBuffer()
     m_layoutBounds.top = 0;
     m_layoutBounds.right = 0;
     m_layoutBounds.bottom = 0;
-    m_pendingBounds.left = 0;
-    m_pendingBounds.top = 0;
-    m_pendingBounds.right = 0;
-    m_pendingBounds.bottom = 0;
+    m_clipBounds.left = 0;
+    m_clipBounds.top = 0;
+    m_clipBounds.right = 0;
+    m_clipBounds.bottom = 0;
 }
 
 // FUNCTION: WIZ8 0x004f34d0
@@ -81,7 +84,7 @@ W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, 
     m_fontStateIndex = -1;
     m_highlighted = false;
     m_layoutBounds = *bounds;
-    m_pendingBounds = *bounds;
+    m_clipBounds = *bounds;
     SetText(text, font);
 }
 
@@ -98,13 +101,9 @@ void W8TextBuffer::SetLayoutMode(unsigned int layout_mode)
 }
 
 // FUNCTION: WIZ8 0x004f3540
-void W8TextBuffer::SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending,
-                                   bool update_layout)
+void W8TextBuffer::SetLayoutBounds(const W8ControlsRect* bounds, bool update_layout)
 {
     m_layoutBounds = *bounds;
-    if (copy_pending) {
-        m_pendingBounds = *bounds;
-    }
     if (update_layout && !m_buffer.empty()) {
         UpdateLayout();
     }
@@ -249,7 +248,8 @@ void W8TextBuffer::SetLineHeight(unsigned int height)
 // FUNCTION: WIZ8 0x004f3d50
 void W8TextBuffer::FillBounds(SDL_Surface& target, int colour)
 {
-    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right - m_layoutBounds.left,
+    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top,
+                        m_layoutBounds.right - m_layoutBounds.left,
                         m_layoutBounds.bottom - m_layoutBounds.top};
     SDL_FillSurfaceRect(&target, &area, colour);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
@@ -260,62 +260,42 @@ void W8TextBuffer::FillBounds(SDL_Surface& target, int colour)
 // FUNCTION: WIZ8 0x004f3710
 void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, bool force)
 {
-    std::string_view remaining = m_buffer;
-    if (m_buffer.empty() || (!force && !m_geometryDirty)) {
-        return;
-    }
-
-    m_font->setShade(m_renderMode);
-    const auto previous_state = m_font->palette();
-    if (m_fontStateIndex != -1) {
-        m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
-    }
-    {
-        SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
-                      m_pendingBounds.right - m_pendingBounds.left,
-                      m_pendingBounds.bottom - m_pendingBounds.top};
-        ScopedClipRect clipping(target, clip);
-
-        int y = GetVerticalPosition();
-        for (;;) {
-            const auto end = remaining.find('\n');
-            const auto line = remaining.substr(0, end);
-
-            const int x = GetHorizontalPosition(m_font->textWidth(line));
-            DrawText(target, *m_font, {x + x_offset, y + y_offset}, line,
-                     {.mono = m_alternateRenderer != 0});
-
-            if (end == std::string_view::npos)
-                break;
-            y += GetLineHeight();
-            if (m_layoutBounds.bottom <= y)
-                break;
-            remaining.remove_prefix(end + 1);
-        }
-
-        m_font->setPalette(previous_state);
-    }
+    if (m_buffer.empty() || (!force && !m_geometryDirty)) return;
+    PaintLines(target, {x_offset, y_offset}, false, m_alternateRenderer != 0);
     m_geometryDirty = false;
 }
 
 // FUNCTION: WIZ8 0x004f39b0
 void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
 {
+    if (m_buffer.empty() || (!force && !m_geometryDirty)) return;
+    Paint(target, offset);
+    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
+                     m_layoutBounds.bottom);
+    m_geometryDirty = false;
+}
+
+void W8TextBuffer::Paint(SDL_Surface& target, int offset)
+{
+    PaintLines(target, {offset, offset}, m_highlighted, false);
+}
+
+void W8TextBuffer::PaintLines(SDL_Surface& target, SDL_Point offset, bool highlighted, bool mono)
+{
     std::string_view remaining = m_buffer;
-    if (m_buffer.empty() || (!force && !m_geometryDirty)) {
+    if (m_buffer.empty()) {
         return;
     }
 
     m_font->setShade(m_renderMode);
-    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
-                  m_pendingBounds.right - m_pendingBounds.left,
-                  m_pendingBounds.bottom - m_pendingBounds.top};
+    SDL_Rect clip{m_clipBounds.left, m_clipBounds.top, m_clipBounds.right - m_clipBounds.left,
+                  m_clipBounds.bottom - m_clipBounds.top};
     ScopedClipRect clipping(target, clip);
     const auto previous_state = m_font->palette();
     if (m_fontStateIndex != -1) {
         m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
     }
-    if (m_highlighted) {
+    if (highlighted) {
         m_font->setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
     }
 
@@ -325,20 +305,15 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
         const auto line = remaining.substr(0, end);
 
         const int x = GetHorizontalPosition(m_font->textWidth(line));
-        DrawText(target, *m_font, {x + offset, y + offset}, line);
+        DrawText(target, *m_font, {x + offset.x, y + offset.y}, line, {.mono = mono});
 
-        if (end == std::string_view::npos)
-            break;
+        if (end == std::string_view::npos) break;
         y += GetLineHeight();
-        if (m_layoutBounds.bottom <= y)
-            break;
+        if (m_layoutBounds.bottom <= y) break;
         remaining.remove_prefix(end + 1);
     }
 
     m_font->setPalette(previous_state);
-    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
-                     m_layoutBounds.bottom);
-    m_geometryDirty = false;
 }
 
 /* Copies the owned text into caller storage. The caller supplies the capacity;

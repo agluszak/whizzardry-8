@@ -1,33 +1,34 @@
-#include <fmt/format.h>
-#include <SDL3/SDL_filesystem.h>
 #include <array>
-#include <sstream>
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
 
-#include "wiz8/local_code/CombatSound.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/filesystem.h"
-#include "random.h"
-#include "soundman.h"
+#include <SDL3/SDL_filesystem.h>
+#include <fmt/format.h>
+
 #include "attack_modes.h"
+#include "audio_resources.h"
 #include "equipment_slots.h"
 #include "layouts/character.h"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
-#include "audio_resources.h"
+#include "random.h"
+#include "soundman.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/sr_api.h"
 
 #define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
 
@@ -45,11 +46,13 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     std::string zSoundFileName;
     wiz8::sound::Playback handle;
 
-    if (sound_name.empty())
-        return;
+    if (sound_name.empty()) return;
     const auto variant = variant_count > 1 ? fmt::format("{}", Random(variant_count) + 1) : "";
     zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}{}.wav", sound_name, variant);
-    if (![&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+    if (![&]() {
+            const auto status = wiz8::file_status(zSoundFileName);
+            return status && status->info.type == SDL_PATHTYPE_FILE;
+        }()) {
         srAssertFail("[&]() { const auto status = wiz8::file_status(zSoundFileName); return status "
                      "&& status->info.type == SDL_PATHTYPE_FILE; }()",
                      COMBAT_SOUND_CPP, 104,
@@ -57,7 +60,8 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     }
     if (volume > 0) {
         handle = wiz8::sound::play(
-            zSoundFileName, {.volume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127});
+            zSoundFileName,
+            {.volume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127});
     } else {
         handle = wiz8::sound::play(zSoundFileName);
     }
@@ -75,21 +79,17 @@ try {
     decltype(g_material_impact_sounds) impacts;
     std::string line;
     auto trim = [&] {
-        if (const auto comment = line.find('*'); comment != line.npos)
-            line.resize(comment);
+        if (const auto comment = line.find('*'); comment != line.npos) line.resize(comment);
         line.resize(line.find_last_not_of(" \t\r\n\v\f") + 1);
     };
     std::size_t row = 0;
     while (row < attacks.size() && std::getline(input, line)) {
         trim();
-        if (const auto marker = line.find('#'); marker != line.npos)
-            line.resize(marker);
+        if (const auto marker = line.find('#'); marker != line.npos) line.resize(marker);
         trim();
-        if (!line.empty())
-            attacks[row++] = line;
+        if (!line.empty()) attacks[row++] = line;
     }
-    if (row != attacks.size())
-        return false;
+    if (row != attacks.size()) return false;
     row = 0;
     int column = -1;
     while (std::getline(input, line)) {
@@ -99,10 +99,8 @@ try {
             continue;
         }
         trim();
-        if (line.empty())
-            continue;
-        if (row >= impacts.size() || column < 0 || column >= 12)
-            return false;
+        if (line.empty()) continue;
+        if (row >= impacts.size() || column < 0 || column >= 12) return false;
         impacts[row++][column] = line;
     }
     g_weapon_attack_sounds = std::move(attacks);

@@ -2,12 +2,12 @@
 
 struct srBoundingBox;
 
-#include <memory>
 #include <array>
+#include <memory>
 #include <span>
-#include "glm/ext/vector_float3.hpp"
 
 #include "compat/native.h"
+#include "glm/ext/vector_float3.hpp"
 
 class W8Monster;
 class W8Prop;
@@ -25,7 +25,7 @@ struct W8GameData;
 struct W8OctRegionVolume;
 struct W8BoundingBox;
 struct W8Plane;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 void SetSceneAmbientLightWhite(srScene* scene);
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster);

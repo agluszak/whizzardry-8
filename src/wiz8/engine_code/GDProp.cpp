@@ -1,41 +1,42 @@
-#include "glm/ext/vector_int3.hpp"
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
 #include <algorithm>
-#include "wiz8/surface_geometry.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <span>
 
-#include "surrender/srMath.h"
-#include "surrender/srBoundingBox.h"
-#include "wiz8/containers.h"
-#include "wiz8/local_code/ItemManager.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "navigation_flags.h"
 #include "sr_api.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "wiz8/containers.h"
+#include "wiz8/local_code/ItemManager.h"
+#include "wiz8/surface_geometry.h"
 /* Engine Code\GDProp.cpp */
 
+#include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/world.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "surrender/srModelInstance.h"
 
 // GLOBAL: WIZ8 0x005ebccc
 const float g_float_three_quarters = 0.75f;
@@ -153,13 +154,15 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         surface_total += mesh->polygon_count;
 
         glm::vec3* source_vertices = mesh->getVertexLoc();
-        surfaceGeometry::transformPositions({m_pVertices + vertex_base, static_cast<std::size_t>(mesh->vertex_location_count)},
+        surfaceGeometry::transformPositions(
+            {m_pVertices + vertex_base, static_cast<std::size_t>(mesh->vertex_location_count)},
             glm::mat4x3(world_matrix), [&](std::size_t vertex) { return source_vertices[vertex]; });
         vertex_base += mesh->vertex_location_count;
 
         for (int surface_index = 0; surface_index < surface_total; ++surface_index) {
             W8GDSurface* surface = &m_pGDSurfaces[surface_index];
-            surfaceGeometry::initializePropSurface(*surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+            surfaceGeometry::initializePropSurface(
+                *surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
             surface->footstep_surface = footstep_surface;
             surface->footstep_material = footstep_material;
             if ((mesh_flags & W8_MESH_SORTED_RENDERING) != 0) {
@@ -255,8 +258,8 @@ void GDProp::BindTrigger(Trigger* owner)
 // FUNCTION: WIZ8 0x004b7500
 srBoundingBox GDProp::computeBounds()
 {
-    const auto bounds = boundingBox(std::span<const srVector3T<float>>{
-        m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+    const auto bounds = boundingBox(
+        std::span<const srVector3T<float>>{m_pVertices, static_cast<std::size_t>(m_vertex_count)});
     m_bound_max = bounds.maximum;
     m_bound_min = bounds.minimum;
 
@@ -286,8 +289,10 @@ bool GDProp::boundsOverlap(const srBoundingBox& box)
     bool hit = false;
     for (int index = 0; index < m_surface_count && hit == 0; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
-        hit = triangleIntersectsBox(box,
-            indexedTriangle(std::span<const srVector3>(m_pVertices, m_vertex_count), surface->vertex_indices),
+        hit = triangleIntersectsBox(
+            box,
+            indexedTriangle(std::span<const srVector3>(m_pVertices, m_vertex_count),
+                            surface->vertex_indices),
             surface->plane.normal.glmValue());
     }
     return hit;
@@ -317,10 +322,12 @@ unsigned char GDProp::RegisterPathSurface(unsigned int index, const glm::ivec2& 
    instead of interpolating the second — a faithful retail oddity. */
 // FUNCTION: WIZ8 0x004b7830
 unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& point,
-                                      const glm::ivec2& second)
+                                         const glm::ivec2& second)
 {
-    const glm::vec2 from(static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
-    const glm::vec2 to(static_cast<unsigned short>(second.x), static_cast<unsigned short>(second.y));
+    const glm::vec2 from(static_cast<unsigned short>(point.x),
+                         static_cast<unsigned short>(point.y));
+    const glm::vec2 to(static_cast<unsigned short>(second.x),
+                       static_cast<unsigned short>(second.y));
     const auto delta = to - from;
     const int major = std::abs(delta.x) > std::abs(delta.y) ? 0 : 1;
     const int minor = 1 - major;
@@ -427,8 +434,10 @@ void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
     for (int face = 0; face < mesh.num_faces; ++face) {
         auto& surface = m_pGDSurfaces[m_surface_count++];
         for (unsigned corner = 0; corner < 3; ++corner)
-            surface.vertex_indices[corner] = vertex_base + (mesh.HasCompressedFaces()
-                ? mesh.compressed_faces[face].vertex_indices[corner] : mesh.faces[face].vertices[corner]);
+            surface.vertex_indices[corner] =
+                vertex_base + (mesh.HasCompressedFaces()
+                                   ? mesh.compressed_faces[face].vertex_indices[corner]
+                                   : mesh.faces[face].vertices[corner]);
     }
 }
 
@@ -445,9 +454,10 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
     const auto axis = node.path.axis.glmValue();
     glm::mat3 rotation(1);
     if (node.path.angle != g_double_zero)
-        rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(node.path.angle), cos(node.path.angle))),
-                                                normalizedOrZero(axis)));
-    const auto translation = glm::vec3(glm::dvec3(node.path.position.glmValue()) * g_double_five_hundred);
+        rotation *= glm::mat3_cast(glm::angleAxis(
+            float(std::atan2(sin(node.path.angle), cos(node.path.angle))), normalizedOrZero(axis)));
+    const auto translation =
+        glm::vec3(glm::dvec3(node.path.position.glmValue()) * g_double_five_hundred);
     float factor;
 
     if ((mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 &&
@@ -467,8 +477,9 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
     const int frame_count = has_lods ? mesh.LodCount() : 1;
     for (int frame = 0; frame < frame_count; ++frame) {
         const int vertex_base = m_vertex_count;
-        surfaceGeometry::transformPositions({m_pVertices + vertex_base, static_cast<std::size_t>(mesh.num_vertices)},
-            matrix, [&](std::size_t vertex) {
+        surfaceGeometry::transformPositions(
+            {m_pVertices + vertex_base, static_cast<std::size_t>(mesh.num_vertices)}, matrix,
+            [&](std::size_t vertex) {
                 if (compressed) {
                     const auto* packed = &mesh.lod_shorts[frame][vertex * 3];
                     return glm::vec3(packed[0], packed[1], packed[2]);
@@ -482,7 +493,8 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
 
     for (int index = surface_base; index < m_surface_count; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
-        surfaceGeometry::initializePropSurface(*surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+        surfaceGeometry::initializePropSurface(
+            *surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
     }
 }
 

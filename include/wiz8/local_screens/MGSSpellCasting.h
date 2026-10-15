@@ -2,17 +2,17 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
+
+#include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/learned_spells.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/ui_layer.h"
-#include <memory>
-
-#include "input.h"
-#include "wiz8/layouts/learned_spells.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/layouts/npc_dialogue.h"
-#include "compat/compiler.h"
 
 struct W8Character;
 
@@ -67,7 +67,7 @@ int GetSpellCastingSelection(void);
 class W8DialogBase;
 
 /* Destroy callback for the spell/use-item reason notices. */
-void SpellCastingNoticeClosed(W8DialogBase* dialog);
+void SpellCastingNoticeClosed(bool);
 /* Text-box body callback while spell casting is active. */
 UiResult HandleSpellTextBox(const UiPointerEvent& event);
 

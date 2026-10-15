@@ -10,10 +10,7 @@ class srClock {
 public:
     srClock() : base_(w8_clock_us()) {}
 
-    void reset()
-    {
-        base_ = w8_clock_us();
-    }
+    void reset() { base_ = w8_clock_us(); }
 
     std::chrono::microseconds elapsed() const
     {
@@ -21,10 +18,7 @@ public:
     }
 
     /* Elapsed seconds. */
-    double seconds() const
-    {
-        return std::chrono::duration<double>(elapsed()).count();
-    }
+    double seconds() const { return std::chrono::duration<double>(elapsed()).count(); }
 
     /* Elapsed milliseconds, truncated to 32 bits like the retail reader. */
     w8_ulong milliseconds() const

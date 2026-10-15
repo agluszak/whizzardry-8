@@ -1,14 +1,43 @@
-#include <fmt/printf.h>
-#include <vector>
+#include "wiz8/local_code/GameplayTime.h"
+
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "wiz8/conditions.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/integer_constants.h"
+#include <fmt/printf.h>
+
+#include "compat/native.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "monster_actions.h"
+#include "random.h"
+#include "soundman.h"
+#include "surrender/srMath.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/conditions.h"
+#include "wiz8/dice.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -16,55 +45,27 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/monster_runtime.h"
-#include "wiz8/monster_generators.h"
-#include "wiz8/engine_code/Levels.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
-
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/dice.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/utility.h"
+#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/monster_generators.h"
+#include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/sr_api.h"
-#include "random.h"
-#include "soundman.h"
-#include "compat/native.h"
-#include "gameplay_modifiers.h"
-#include "layouts/item_instance.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/targeting.h"
-#include "monster_actions.h"
-#include "surrender/srMath.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 #define GAMEPLAYTIME_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayTime.cpp"
 
@@ -83,7 +84,7 @@ static void BeginPartyCamping()
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
-            SetWorldResumeInput(true);
+    SetWorldResumeInput(true);
     gXStatus.surprise_deadline_turns = 0;
     CreateSurpriseFade();
     gXStatus.surprise_phase = 0;
@@ -326,7 +327,7 @@ void EndSurprise(void)
 {
     gXStatus.fSurprisePossible = false;
     ResolveSurpriseWake();
-            SetWorldResumeInput(false);
+    SetWorldResumeInput(false);
 
     std::string text;
     if (!gXStatus.surprise_unengaged) {
@@ -905,10 +906,10 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, srVector3T<float>* position, float yaw)
 {
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
-    for (int index = 0; index < 4; ++index) {
-        if (group->allied_group_ids[index] != 0) {
-            group = FindMonsterGroup(group->allied_group_ids[index]);
-            MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
+    for (const int ally_id : group->allied_group_ids) {
+        if (ally_id != 0) {
+            auto* ally = FindMonsterGroup(ally_id);
+            MoveMonsterGroupToPosition(ally, position, yaw, false, false, false, false);
         }
     }
 }
@@ -1009,9 +1010,11 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             if (projectsToCamera(probe.glmValue()) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
-                                W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
+                                W8MonsterGroup* group =
+                                    FindMonsterGroup(monster_info->monster_group_id);
 
-                                MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
+                                MoveMonsterGroupAndAllies(group, &notify_position,
+                                                          monster->GetYaw());
                                 cleared = true;
                             }
                         }
@@ -1047,7 +1050,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         }
                         {
                             srVector3T<float> notify_position = monster->formation;
-                            W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
+                            W8MonsterGroup* group =
+                                FindMonsterGroup(monster_info->monster_group_id);
 
                             MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
                         }

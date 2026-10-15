@@ -2,11 +2,11 @@
 #include <initializer_list>
 #include <string_view>
 
-#include "wiz8/engine_code/World.h"
-#include "surrender/srScene.h"
 #include "compat/compiler.h"
 #include "layouts/world.h"
 #include "surrender/srNode.h"
+#include "surrender/srScene.h"
+#include "wiz8/engine_code/World.h"
 
 /* World selection. Live query: 0x00451280 sits in the gap between
    Engine Code\3dapi.cpp (upper 0x004511D0) and Engine Code\Navigator.cpp

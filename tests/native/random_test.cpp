@@ -1,7 +1,8 @@
-#include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <cstdlib>
 #include <set>
+
+#include <catch2/catch_test_macros.hpp>
 
 #include "random.h"
 
@@ -16,6 +17,5 @@ TEST_CASE("Random covers the whole requested range", "[random]")
     }
     REQUIRE(seen.size() == 10);
     REQUIRE(Random(0) == 0);
-    for (int roll = 0; roll < 1000; ++roll)
-        REQUIRE(Random(100000) < 100000);
+    for (int roll = 0; roll < 1000; ++roll) REQUIRE(Random(100000) < 100000);
 }

@@ -3,13 +3,13 @@
 
 #include <memory>
 #include <optional>
-#include <vector>
 #include <string>
 #include <string_view>
+#include <vector>
 
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/dialog_code/DialogTextEntry.h"
 #include "compat/compiler.h"
+#include "wiz8/dialog_code/DialogTextEntry.h"
+#include "wiz8/local_code/ControlsRect.h"
 
 extern const unsigned int g_W8DialogTextAreaNoWrap;
 extern const unsigned int g_W8DialogTextAreaPointSelection;
@@ -28,7 +28,8 @@ public:
     W8DialogTextArea();
     ~W8DialogTextArea() = default;
     void Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags);
-    void Draw(SDL_Surface& target, bool force);
+    void Paint(SDL_Surface& target);
+    bool TakeDirty();
     void SetFirstVisibleLine(int line);
     int GetTotalLineCount();
     unsigned int GetLineHeight();

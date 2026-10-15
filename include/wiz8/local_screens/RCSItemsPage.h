@@ -2,9 +2,9 @@
 #pragma once
 #include <string>
 
+#include "input.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "input.h"
 
 struct W8Character;
 struct W8ItemInstance;
@@ -31,7 +31,7 @@ void SetCampInfoPageMode(char mode);
    ReviewCharacterScreen.cpp. */
 void ShowCampItemsPage(void);
 void ShowCampCharacterPage(void);
-void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_callback);
+void OpenItemInfoDialog(W8ItemInstance* item);
 void OpenStrengthInfoDialog(void);
 void OpenIntelligenceInfoDialog(void);
 void OpenPietyInfoDialog(void);
@@ -55,7 +55,7 @@ void UseHeldItemOnItem(W8ItemInstance* item);
 void TargetCharacterWithHeldItem(unsigned int uiTargetChar);
 int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
 bool CanSplitItemStack(const W8ItemInstance* item);
-void SplitStackDialogResult(W8DialogBase* dialog);
+void SplitStackDialogResult(int count);
 void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot);
 void SetHandCursors(char mode);
 void UnequipBothHands(void);

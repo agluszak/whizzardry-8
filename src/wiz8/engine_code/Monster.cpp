@@ -1,132 +1,134 @@
-#include "wiz8/unicode.h"
-#include "glm/ext/vector_float3.hpp"
-#include "surrender/srBoundingBox.h"
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_pixels.h>
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <memory>
-#include <sstream>
-#include <optional>
-#include <string_view>
-#include <string>
-#include <vector>
+#include "wiz8/engine_code/Monster.h"
+
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <memory>
+#include <optional>
 #include <span>
+#include <sstream>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include "Emitter.h"
+#include "Font.h"
+#include "ReadMesh.h"
+#include "application.h"
+#include "attack_modes.h"
+#include "audio_resources.h"
 #include "compat/native.h"
+#include "conditions.h"
+#include "dice.h"
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/surface_storage.h"
-#include "wiz8/containers.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/MonsterLight.h"
-#include "wiz8/engine_code/OctBuildPreTree.h"
-#include "wiz8/ground_shadow.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/location_variables.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/stTextureAnim.h"
-#include "wiz8/engine_code/stScript.h"
-#include "wiz8/resource_cache.h"
-#include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
-#include "wiz8/fonts.h"
-#include "surrender/srCamera.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srPixelConvert.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srShader.h"
-#include "random.h"
-#include "Font.h"
-#include "wiz8/filesystem.h"
-#include "soundman.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GrCycle.h"
 #include "input.h"
-#include "Emitter.h"
-#include "ReadMesh.h"
-#include "application.h"
-#include "attack_modes.h"
-#include "conditions.h"
-#include "dice.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "local_code/SpellEffect.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
 #include "particle_modes.h"
+#include "random.h"
+#include "soundman.h"
+#include "surrender/srBoundingBox.h"
+#include "surrender/srCamera.h"
 #include "surrender/srClock.h"
+#include "surrender/srColorSurface.h"
 #include "surrender/srFlags.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
 #include "texture_animation.h"
-#include "audio_resources.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/MonsterLight.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/OctBuildPreTree.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/engine_code/Quality.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/engine_code/stScript.h"
+#include "wiz8/engine_code/stSound3D.h"
+#include "wiz8/engine_code/stTextureAnim.h"
+#include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/ground_shadow.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/mipe.h"
+#include "wiz8/location_variables.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/resource_cache.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/surface_storage.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/unicode.h"
+#include "wiz8/utility.h"
+#include "wiz8/virtual_file.h"
+#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 
@@ -154,10 +156,32 @@ static W8AttachmentOffset g_monster_attachment_offsets[8][8] = {
     {{-75.0f, 0.0f, 0.0f}, {75.0f, 0.0f, 0.0f}},
     {{-75.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {75.0f, 0.0f, 0.0f}},
     {{-112.5f, 0.0f, 0.0f}, {-37.5f, 0.0f, 0.0f}, {37.5f, 0.0f, 0.0f}, {112.5f, 0.0f, 0.0f}},
-    {{-112.5f, 0.0f, 0.0f}, {-37.5f, 0.0f, 0.0f}, {37.5f, 0.0f, 0.0f}, {112.5f, 0.0f, 0.0f}, {0.0f, 75.0f, 0.0f}},
-    {{-112.5f, 0.0f, 0.0f}, {-37.5f, 0.0f, 0.0f}, {37.5f, 0.0f, 0.0f}, {112.5f, 0.0f, 0.0f}, {-37.5f, 75.0f, 0.0f}, {37.5f, 75.0f, 0.0f}},
-    {{-112.5f, 0.0f, 0.0f}, {-37.5f, 0.0f, 0.0f}, {37.5f, 0.0f, 0.0f}, {112.5f, 0.0f, 0.0f}, {-75.0f, 75.0f, 0.0f}, {0.0f, 75.0f, 0.0f}, {75.0f, 75.0f, 0.0f}},
-    {{-112.5f, 0.0f, 0.0f}, {-37.5f, 0.0f, 0.0f}, {37.5f, 0.0f, 0.0f}, {112.5f, 0.0f, 0.0f}, {-112.5f, 75.0f, 0.0f}, {-37.5f, 75.0f, 0.0f}, {37.5f, 75.0f, 0.0f}, {112.5f, 75.0f, 0.0f}}};
+    {{-112.5f, 0.0f, 0.0f},
+     {-37.5f, 0.0f, 0.0f},
+     {37.5f, 0.0f, 0.0f},
+     {112.5f, 0.0f, 0.0f},
+     {0.0f, 75.0f, 0.0f}},
+    {{-112.5f, 0.0f, 0.0f},
+     {-37.5f, 0.0f, 0.0f},
+     {37.5f, 0.0f, 0.0f},
+     {112.5f, 0.0f, 0.0f},
+     {-37.5f, 75.0f, 0.0f},
+     {37.5f, 75.0f, 0.0f}},
+    {{-112.5f, 0.0f, 0.0f},
+     {-37.5f, 0.0f, 0.0f},
+     {37.5f, 0.0f, 0.0f},
+     {112.5f, 0.0f, 0.0f},
+     {-75.0f, 75.0f, 0.0f},
+     {0.0f, 75.0f, 0.0f},
+     {75.0f, 75.0f, 0.0f}},
+    {{-112.5f, 0.0f, 0.0f},
+     {-37.5f, 0.0f, 0.0f},
+     {37.5f, 0.0f, 0.0f},
+     {112.5f, 0.0f, 0.0f},
+     {-112.5f, 75.0f, 0.0f},
+     {-37.5f, 75.0f, 0.0f},
+     {37.5f, 75.0f, 0.0f},
+     {112.5f, 75.0f, 0.0f}}};
 // GLOBAL: WIZ8 0x0060e918
 static float g_monster_attachment_scales[8] = {0.3f,  0.2f,  0.15f, 0.15f,
                                                0.15f, 0.15f, 0.15f, 0.15f};
@@ -235,7 +259,6 @@ const char* g_party_target_marker_bitmaps[8] = {"TriRed.tga",  "TriGreen.tga",  
                                                 "TriBlue.tga", "TriOrange.tga", "TriYellow.tga",
                                                 "TriPink.tga", "TriBrown.tga"};
 
-
 // GLOBAL: WIZ8 0x0060e958
 const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
                                                        "WALKTO",
@@ -285,11 +308,10 @@ const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
 // VTABLE: WIZ8 0x005ed200
 // class W8MonsterRep
 /* Both skin directives ensure the base damage stage exists exactly once. */
-static void EnsureMonsterBaseSkin(W8Monster* monster, const char* monster_name,
-                                  int& damage_stage, bool& skins_started)
+static void EnsureMonsterBaseSkin(W8Monster* monster, const char* monster_name, int& damage_stage,
+                                  bool& skins_started)
 {
-    if (skins_started)
-        return;
+    if (skins_started) return;
     damage_stage = monster->AddDamageStage(monster_name, 0);
     std::vector<stModelInstance*> instances;
     monster->CollectModelInstances(instances);
@@ -370,7 +392,13 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
 
     std::string path;
     path = fmt::format("data\\Monsters\\{}.mls", monster_name);
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> handle = [&]() {
+        try {
+            return wiz8::open_file(path, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle == 0) {
         srAssertFail("hFile", MONSTER_CPP, 0x50f, fmt::format("Couldn't open {}", path));
     }
@@ -597,10 +625,12 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         char wave_path[256];
                         wave_path[0] = '\0';
                         if (sound_type != W8_SOUND_EVENT_FOOTSTEP) {
-                            snprintf(wave_path, sizeof(wave_path), "Data\\Sound\\Monsters\\%s.WAV", wave_name);
+                            snprintf(wave_path, sizeof(wave_path), "Data\\Sound\\Monsters\\%s.WAV",
+                                     wave_name);
                         }
-                        auto sound = std::make_unique<W8SoundEvent>(sound_type, sound_cycle, frame, subcycle - 1,
-                                                      wave_path, _stricmp(loop_name, "LOOP") == 0);
+                        auto sound = std::make_unique<W8SoundEvent>(
+                            sound_type, sound_cycle, frame, subcycle - 1, wave_path,
+                            _stricmp(loop_name, "LOOP") == 0);
                         last_sound = sound.get();
                         if (last_sound != nullptr) {
                             (*monster)->AddSoundEvent(std::move(sound));
@@ -627,14 +657,11 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         sscanf(line, "%s %s %d %f %f %f", command, cycle_name, &frame, &intensity,
                                &duration, &value);
                         W8MonsterCycle shake_cycle = ParseMonsterCycleName(cycle_name, &subcycle);
-                        W8CameraShakeEffect* effect = new W8CameraShakeEffect(
-                            duration, true, intensity, value * g_world_scale, 0);
-                        if (effect != 0) {
-                            effect->frame = frame;
-                            effect->cycle = shake_cycle;
-                            effect->subcycle = subcycle - 1;
-                            (*monster)->AddShakeEffect(effect);
-                        }
+                        ShakeDefinition effect(duration, true, intensity, value * g_world_scale, 0);
+                        effect.frame = frame;
+                        effect.cycle = shake_cycle;
+                        effect.subcycle = subcycle - 1;
+                        (*monster)->AddShakeEffect(effect);
                     } else {
                         srAssertFail("FALSE", MONSTER_CPP, 0x636,
                                      fmt::format("Monster::ReadAllCycles: ERROR - Unrecognized MLS "
@@ -682,8 +709,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     }
     if (target_height != 0.0f) {
         target_height *= g_world_scale;
-        if (target_height < 250.0f)
-            target_height = 250.0f;
+        if (target_height < 250.0f) target_height = 250.0f;
         (*monster)->movement.height_offset = target_height;
     }
     if (camera_height != 0.0f) {
@@ -705,10 +731,8 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         representation->random_idle_fps_min = idle_fps_start;
         representation->random_idle_fps_max = idle_fps_end;
     }
-    if (missile_start > 0)
-        (*monster)->missile_frame = missile_start;
-    if (spell_start > 0)
-        (*monster)->spell_frame = spell_start;
+    if (missile_start > 0) (*monster)->missile_frame = missile_start;
+    if (spell_start > 0) (*monster)->spell_frame = spell_start;
     if (has_lod_range) {
         representation->lod_near = lod_range_start * g_world_scale;
         representation->lod_far = lod_range_end * g_world_scale;
@@ -733,8 +757,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         if (shadow_width < 0.0f) {
             shadow_width = (*monster)->movement.collision_radius * 0.002f;
         }
-        if (shadow_depth == 0.0f)
-            shadow_depth = shadow_width;
+        if (shadow_depth == 0.0f) shadow_depth = shadow_width;
         (*monster)->CreateGroundShadow(shadow_width * g_world_scale, shadow_depth * g_world_scale);
     }
     representation->left_handed = left_handed;
@@ -751,11 +774,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     (*monster)->SetCycle(1);
     (*monster)->SetSubCycle(0);
     const auto bounds = (*monster)->GetAnimationBounds();
-    if (!bounds)
-        return false;
+    if (!bounds) return false;
     (*monster)->SetBounds(*bounds);
-    if (movement_rate < 0.1f)
-        movement_rate = 2.0f;
+    if (movement_rate < 0.1f) movement_rate = 2.0f;
     (*monster)->SetMovementScale(movement_rate);
     (*monster)->SetTurnRate(rotation_rate * static_cast<float>(g_motion_full_turn_radians));
 
@@ -1534,7 +1555,7 @@ void W8Monster::Update()
 
     UpdateAttachedObjects();
     cycle = Query(W8_MONSTER_QUERY_CYCLE);
-    if (IsKeyHeld(VK_CONTROL) && g_combat_state != 0 &&
+    if (((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
         (g_combat_state->round_active || gXStatus.fPartyMovementMode) &&
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (m_pRep->pending_cycle == -1 || m_pRep->pending_cycle == 1 || m_pRep->pending_cycle == 2) &&
@@ -1594,8 +1615,7 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
         monster_position = current_position;
         if (!g_status.world_suspended &&
             (party_position - monster_position).Length() < *parameter * g_world_scale &&
-            FindMonster(location_id)
-                    ->player_visibility.line_of_sight != 0) {
+            FindMonster(location_id)->player_visibility.line_of_sight != 0) {
             return true;
         }
     } else if (CompareTextIgnoreAsciiCase(name.substr(0, 6), "RANDOM") == 0) {
@@ -1740,8 +1760,7 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
     }
     if (AnimationIsRunning(animation) != 0) {
         const auto center = GetAnimationCenter();
-        if (!center)
-            return false;
+        if (!center) return false;
         *position = *center;
         return true;
     }
@@ -1826,13 +1845,11 @@ void W8Monster::ProcessScript()
     stop = false;
     command_count = 0;
     while (script != 0 && script_wait == MONSCR_NONE && !stop) {
-        if (script_line >= static_cast<int>(script->lines.size()))
-            break;
+        if (script_line >= static_cast<int>(script->lines.size())) break;
         std::istringstream tokens(script->lines[script_line++].text);
         std::string token;
         W8MonsterScriptCommand command;
-        if (!(tokens >> token))
-            continue;
+        if (!(tokens >> token)) continue;
 
         command = MONSCR_NONE;
         for (int index = 0; index < MONSCR_COUNT; ++index) {
@@ -1851,11 +1868,10 @@ void W8Monster::ProcessScript()
         }
 
         const auto resolveNamedPosition = [&](srVector3T<float>& position) {
-            if (ResolveScriptPosition(token.c_str(), &position))
-                return true;
-            ShutdownWithErrorBox(fmt::format(
-                "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                script->GetSourceLine(script_line - 1), token));
+            if (ResolveScriptPosition(token.c_str(), &position)) return true;
+            ShutdownWithErrorBox(fmt::format("MonScript {} Line {:d}: Unknown location {}",
+                                             script->getName(),
+                                             script->GetSourceLine(script_line - 1), token));
             return false;
         };
 
@@ -1925,9 +1941,8 @@ void W8Monster::ProcessScript()
                         suppress = true;
                     }
                 }
-                ForwardNpcScriptNotice(
-                    FindNpcBindingForMonster(FindMonster(location_id)),
-                    0, line_number, command == MONSCR_SAY ? 1 : suppress);
+                ForwardNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0,
+                                       line_number, command == MONSCR_SAY ? 1 : suppress);
                 if (command == MONSCR_NPCINTERACTION) {
                     script_wait = MONSCR_NPCINTERACTION;
                 } else if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
@@ -2032,8 +2047,7 @@ void W8Monster::ProcessScript()
                     invert = true;
                     tokens >> token;
                 }
-                if (!tokens)
-                    break;
+                if (!tokens) break;
                 value = EvaluateScriptCondition(token);
                 script_conditions.insert(script_conditions.begin(), invert ? !value : value);
                 break;
@@ -2068,7 +2082,8 @@ void W8Monster::ProcessScript()
                         disposition = 2;
                     monster_info = FindMonster(location_id);
                     if (monster_info != 0) {
-                        W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id, false);
+                        W8MonsterGroup* group =
+                            FindMonsterGroup(monster_info->monster_group_id, false);
                         if (group != 0) {
                             SetMonsterGroupHostility(group, disposition, false);
                         }
@@ -2080,9 +2095,7 @@ void W8Monster::ProcessScript()
                 runtime_flags |= W8_MONSTER_PARKED;
                 break;
             case MONSCR_LOOKHERE:
-                PointCameraAtMonster(
-                    FindMonster(location_id),
-                    true, true);
+                PointCameraAtMonster(FindMonster(location_id), true, true);
                 tokens >> token;
                 if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_LOOKHERE;
@@ -2095,12 +2108,10 @@ void W8Monster::ProcessScript()
                 float distance;
                 float variation;
                 tokens >> token;
-                if (!tokens)
-                    break;
+                if (!tokens) break;
                 distance = static_cast<float>(atof(token.c_str())) * g_world_scale;
                 tokens >> token;
-                if (!tokens)
-                    break;
+                if (!tokens) break;
                 variation = static_cast<float>(atof(token.c_str())) * g_world_scale;
                 home = formation;
                 if (IsZeroVector(&home) != 0) {
@@ -2145,8 +2156,7 @@ void W8Monster::ProcessScript()
                     if (_stricmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
                         ClearMainGameTargetState();
                         W8MonsterGroup* group = FindFirstMonsterByID(0x68);
-                        if (group != 0)
-                            SetMonsterGroupHostility(group, 1, false);
+                        if (group != 0) SetMonsterGroupHostility(group, 1, false);
                         group = FindFirstMonsterByID(0x13e);
                         if (group != 0) {
                             SetMonsterGroupHostility(group, 1, false);
@@ -2155,8 +2165,7 @@ void W8Monster::ProcessScript()
                     } else if (_stricmp(token.c_str(), "ENDSAVANTWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         Trigger* trigger = FindTriggerByName("Path3Trigger");
-                        if (trigger != 0)
-                            trigger->Run(-1);
+                        if (trigger != 0) trigger->Run(-1);
                     } else if (_stricmp(token.c_str(), "UNLOCKUI") == 0 ||
                                _stricmp(token.c_str(), "ENDGARIWALK") == 0) {
                         ClearMainGameTargetState();
@@ -2176,8 +2185,7 @@ void W8Monster::ProcessScript()
                         ClearMainGameTargetState();
                     } else if (_stricmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
                         W8NpcState* npc = GetNpcStateByKind(0x8d);
-                        if (npc != 0)
-                            QueueNpcScriptNotice(npc, 0, 6, false, 0);
+                        if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
                         monster_info = FindMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
                             srVector3T<float> party = cameraLocation();
@@ -2190,18 +2198,13 @@ void W8Monster::ProcessScript()
                 int value = 0;
                 float distance = 0.0f;
                 tokens >> token;
-                if (!tokens)
-                    break;
+                if (!tokens) break;
                 value = atoi(token.c_str());
-                if (value != 0)
-                    tokens >> token;
-                if (!tokens)
-                    break;
+                if (value != 0) tokens >> token;
+                if (!tokens) break;
                 distance = static_cast<float>(atof(token.c_str())) * g_world_scale;
-                if (distance != 0.0f)
-                    tokens >> token;
-                if (!tokens)
-                    break;
+                if (distance != 0.0f) tokens >> token;
+                if (!tokens) break;
                 sound = new stSound3D(token.c_str(), 0);
                 if (sound != 0) {
                     srVector3T<float> position = GetPosition();
@@ -2209,8 +2212,7 @@ void W8Monster::ProcessScript()
                     sound->setLocation(static_cast<double>(position.x),
                                        static_cast<double>(position.y),
                                        static_cast<double>(position.z));
-                    if (distance != 0.0f)
-                        sound->falloff = distance;
+                    if (distance != 0.0f) sound->falloff = distance;
                     if (sound->Play(false, false) == 0) {
                         delete sound;
                         sound = 0;
@@ -2350,7 +2352,8 @@ void W8Monster::ProcessScript()
         }
     }
 
-    if (script != 0 && script_line >= static_cast<int>(script->lines.size()) && script_wait == MONSCR_NONE) {
+    if (script != 0 && script_line >= static_cast<int>(script->lines.size()) &&
+        script_wait == MONSCR_NONE) {
         script.reset();
         runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
         script_line = 0;
@@ -2808,8 +2811,7 @@ bool W8Monster::GetPatrolPoint(srVector3T<float>* point)
 // FUNCTION: WIZ8 0x004ca4f0
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster)
 {
-    if (!monster)
-        return std::nullopt;
+    if (!monster) return std::nullopt;
     auto bounds = monster->GetAnimationBounds();
     if (bounds) {
         const auto position = monster->GetPosition().glmValue();
@@ -2848,8 +2850,7 @@ void UpdateNearestMonsterGroupMembers()
             unsigned int member_index;
 
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
-                W8MonsterInfo* member =
-                    FindMonster(group->MemberLocationId(member_index));
+                W8MonsterInfo* member = FindMonster(group->MemberLocationId(member_index));
 
                 if (member != 0 && member->p3D != 0) {
                     srVector3T<float> position = member->p3D->GetPosition();
@@ -3094,10 +3095,8 @@ void W8Monster::UpdateRepresentation(W8World* world)
         if (angle != g_float_zero) {
             {
                 if (static_cast<double>(angle) != 0.0) {
-                    rotation =
-                        rotation * glm::mat3(glm::mat3_cast(glm::angleAxis(
-                                                  static_cast<double>(angle),
-                                                  glm::dvec3(1, 0, 0))));
+                    rotation = rotation * glm::mat3(glm::mat3_cast(glm::angleAxis(
+                                              static_cast<double>(angle), glm::dvec3(1, 0, 0))));
                 }
             }
         }
@@ -4251,8 +4250,8 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
 
                     *position = vertices[index];
                     matrix = instance->getWorldSpaceMatrix<glm::mat4>();
-                    *position = srVector3T<float>{
-                        glm::vec3(matrix * glm::vec4(position->glmValue(), 1))};
+                    *position =
+                        srVector3T<float>{glm::vec3(matrix * glm::vec4(position->glmValue(), 1))};
                     return;
                 }
             }
@@ -4372,10 +4371,12 @@ void NotifyMonsterHighlight(int party_slot, int location_id, int on)
 /* The public forwarding boundary preserves the loader's AL result. Both
    MonsterManager callers assert that result immediately after this call. */
 // FUNCTION: WIZ8 0x004c58e0
-unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::string_view monster_name,
-                                   W8Monster** monster, int load_value, int location_id)
+unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context,
+                                   std::string_view monster_name, W8Monster** monster,
+                                   int load_value, int location_id)
 {
-    return ReadOrCloneMonsterCycles(context, std::string(monster_name).c_str(), monster, load_value, location_id);
+    return ReadOrCloneMonsterCycles(context, std::string(monster_name).c_str(), monster, load_value,
+                                    location_id);
 }
 
 /* Load one monster cycle through GrCycle's polymorphic factory boundary, then
@@ -4822,7 +4823,6 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
                          {0x80 - g_monster_damage_font.textWidth(text) / 2,
                           0x80 - g_monster_damage_font.height() / 2},
                          text);
-
         }
 
         GetMappedPosition(&position);

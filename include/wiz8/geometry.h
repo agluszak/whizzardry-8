@@ -1,17 +1,17 @@
 #ifndef WIZ8_GEOMETRY_H
 #define WIZ8_GEOMETRY_H
 
+#include <array>
+#include <optional>
+#include <span>
+
 #include "glm/common.hpp"
-#include "glm/geometric.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srMath.h"
+#include "glm/geometric.hpp"
 #include "surrender/plane_math.h"
+#include "surrender/srMath.h"
 #include "wiz8/float_constants.h"
-
-#include <array>
-#include <span>
-#include <optional>
 
 /* Physical-surface masks recovered from retail collision/build consumers.
    WALKABLE/PATHFINDING also agree with Cosmic Forge's face editor. */
@@ -75,18 +75,16 @@ struct W8GDSurface {
     float slope; /* face slope; generated surfaces derive it from plane.normal.y */
 
     /* The plane's unit normal. */
-    const srVector3T<float>* Normal() const
-    {
-        return &plane.normal;
-    }
+    const srVector3T<float>* Normal() const { return &plane.normal; }
 
     /* The returned contact carries the position and travelled distance.
        A hit also stores the surface's contact limit in distance. */
-    std::optional<PlaneContact> segmentContact(const glm::vec3& from,
-        const glm::vec3& direction, std::span<const glm::vec3, 3> vertices);
+    std::optional<PlaneContact> segmentContact(const glm::vec3& from, const glm::vec3& direction,
+                                               std::span<const glm::vec3, 3> vertices);
     /* Shrink the limit against the nearest edge, if it improves the contact. */
     std::optional<float> edgeContactLimit(const glm::vec3& point,
-        std::span<const glm::vec3, 3> vertices, float limit) const;
+                                          std::span<const glm::vec3, 3> vertices,
+                                          float limit) const;
     /* 0x0041DC10: collision response for a hit surface; `origin` is advanced
        to `hit_point` and `direction` is bent along the contact plane. */
     bool ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point,
@@ -108,8 +106,7 @@ inline RuntimeTriangle runtimeTriangle(std::span<const srVector3, 3> vertices)
 }
 
 template<class Indices>
-inline RuntimeTriangle indexedTriangle(std::span<const srVector3> vertices,
-                                       const Indices& indices)
+inline RuntimeTriangle indexedTriangle(std::span<const srVector3> vertices, const Indices& indices)
 {
     return {vertices[indices[0]].glmValue(), vertices[indices[1]].glmValue(),
             vertices[indices[2]].glmValue()};
@@ -118,7 +115,7 @@ inline RuntimeTriangle indexedTriangle(std::span<const srVector3> vertices,
 /* Unit plane through three vertices. The result is also the plane record
    stored in level geometry; degenerate triangles have a zero normal. */
 inline W8Plane trianglePlane(const glm::vec3& first, const glm::vec3& second,
-                            const glm::vec3& third)
+                             const glm::vec3& third)
 {
     const auto plane = srPlaneMath::triangle(first, second, third);
     return {glm::vec3(plane), plane.w};
@@ -151,9 +148,8 @@ enum class PlaneContactMode { Collision, SurfaceCollision, Occlusion };
 
 // Occlusion requires a full five-unit exit behind a plane. Collision accepts
 // the endpoint within its one-unit skin, unless a closer hit already exists.
-inline std::optional<PlaneContact> planeContact(const glm::vec4& plane,
-                                               const PlaneSegment& segment,
-                                               PlaneContactMode mode)
+inline std::optional<PlaneContact> planeContact(const glm::vec4& plane, const PlaneSegment& segment,
+                                                PlaneContactMode mode)
 {
     const glm::vec3 normal(plane);
     if (!(glm::dot(normal, segment.direction) <= 0)) return std::nullopt;
@@ -161,8 +157,8 @@ inline std::optional<PlaneContact> planeContact(const glm::vec4& plane,
     if (!(front > 0 && front <= segment.limit)) return std::nullopt;
     // GD surface traces retain the positive front distance within the skin;
     // mesh probes and occlusion report the same contact at zero distance.
-    if (front < 1) return PlaneContact{segment.start,
-        mode == PlaneContactMode::SurfaceCollision ? front : 0};
+    if (front < 1)
+        return PlaneContact{segment.start, mode == PlaneContactMode::SurfaceCollision ? front : 0};
     const float clearance = mode == PlaneContactMode::Occlusion ? 5.0f : 1.0f;
     const float back = glm::dot(normal, segment.end) + plane.w;
     if (back >= clearance) return std::nullopt;

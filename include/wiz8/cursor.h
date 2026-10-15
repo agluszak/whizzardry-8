@@ -2,11 +2,12 @@
 #define WIZ8_CURSOR_H
 
 #include <cstdint>
+#include <memory>
+
 #include "glm/ext/vector_float2.hpp"
 #include "himage.h"
 #include "input.h"
 #include "wiz8/engine_code/Video2.h"
-#include <memory>
 
 class srModelInstance;
 class srScene;

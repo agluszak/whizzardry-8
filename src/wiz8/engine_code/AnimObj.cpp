@@ -1,25 +1,26 @@
-#include <optional>
-#include <iterator>
-#include <memory>
-#include <utility>
-#include <vector>
+#include "wiz8/engine_code/AnimObj.h"
+
 #include <cstddef>
 #include <exception>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
 
 #include "glm/ext/matrix_float3x3.hpp"
-#include "wiz8/filesystem.h"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/compat/debug_heap.h"
-#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-#include "glm/ext/vector_float3.hpp"
-#include "surrender/srBoundingBox.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 
@@ -29,9 +30,8 @@ W8AnimObj::~W8AnimObj() = default;
 
 // FUNCTION: WIZ8 0x004a05c0
 bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                                  std::vector<stLight*>* light_list, int)
-try
-{
+                         std::vector<stLight*>* light_list, int)
+try {
     unsigned char version = 0;
     bool success;
     unsigned char discarded[50];
@@ -50,41 +50,50 @@ try
         return true;
     };
     success = (handle->read(&version, 1).bytes == static_cast<std::size_t>(1));
-    success = success && (handle->read(&animation->group_count, 1).bytes == static_cast<std::size_t>(1));
+    success =
+        success && (handle->read(&animation->group_count, 1).bytes == static_cast<std::size_t>(1));
     success = success && read_flag(animation->animation_playing);
-    success = success && (handle->read(&animation->frame_method, 1).bytes == static_cast<std::size_t>(1));
-    success = success && (handle->read(&animation->behaviour, 1).bytes == static_cast<std::size_t>(1));
+    success =
+        success && (handle->read(&animation->frame_method, 1).bytes == static_cast<std::size_t>(1));
+    success =
+        success && (handle->read(&animation->behaviour, 1).bytes == static_cast<std::size_t>(1));
     success = success && (handle->read(&animation->cycle, 1).bytes == static_cast<std::size_t>(1));
     success = success && read_flag(animation->path_lists);
 
     if (version < 3) {
         animation->playback_scale = 15.0f;
     } else {
-        success = success && (handle->read(&animation->playback_scale, 4).bytes == static_cast<std::size_t>(4));
+        success = success && (handle->read(&animation->playback_scale, 4).bytes ==
+                              static_cast<std::size_t>(4));
     }
     if (version < 5) {
         animation->start_frame = 0;
     } else {
-        success = success && (handle->read(&animation->start_frame, 1).bytes == static_cast<std::size_t>(1));
+        success = success &&
+                  (handle->read(&animation->start_frame, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version < 11) {
         animation->end_frame = 0;
     } else {
-        success = success && (handle->read(&animation->end_frame, 1).bytes == static_cast<std::size_t>(1));
+        success = success &&
+                  (handle->read(&animation->end_frame, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version < 6) {
         animation->random_play = false;
         animation->play_chance = 1.0f;
     } else {
         success = success && read_flag(animation->random_play);
-        success = success && (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
+        success = success &&
+                  (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
     }
-    success = success && (handle->read(discarded, sizeof(discarded)).bytes == static_cast<std::size_t>(sizeof(discarded)));
-    if (!success) {
-        srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x117, 0);
+    success = success && (handle->read(discarded, sizeof(discarded)).bytes ==
+                          static_cast<std::size_t>(sizeof(discarded)));
+    if (!success || animation->group_count > std::size(animation->entries)) {
+        return false;
     }
     for (index = 0; index < static_cast<signed char>(animation->group_count); ++index) {
-        success = success && (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
+        success = success &&
+                  (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
     }
 
     if (version > 6) {
@@ -111,7 +120,7 @@ try
             srVector3T<float> position;
             float range;
             float intensity;
-            stLightDefinition* definition = 0;
+            std::unique_ptr<stLightDefinition> definition;
 
             handle->read_exact(&light_version, 1);
             handle->read_exact(&position, sizeof(position));
@@ -126,7 +135,7 @@ try
             }
 
             if (definition_kind == 1) {
-                stParametricLightDefinition* typed = new stParametricLightDefinition;
+                auto typed = std::make_unique<stParametricLightDefinition>();
                 handle->read_exact(&typed->flags, 4);
                 handle->read_exact(&typed->flicker_chance, 4);
                 handle->read_exact(&typed->color, 12);
@@ -140,9 +149,9 @@ try
                 handle->read_exact(&typed->path_speed, 4);
                 handle->read_exact(&typed->subcycle_min, 4);
                 handle->read_exact(&typed->subcycle_max, 4);
-                definition = typed;
+                definition = std::move(typed);
             } else if (definition_kind == 2) {
-                stKeyframedLightDefinition* typed = new stKeyframedLightDefinition;
+                auto typed = std::make_unique<stKeyframedLightDefinition>();
                 int previous = 0;
                 int key;
 
@@ -173,23 +182,24 @@ try
                         typed->frame_sums.push_back(typed->frame_sums.back() + frame);
                     }
                 }
-                definition = typed;
+                definition = std::move(typed);
             }
 
             if (light_list == 0) {
                 srAssertFail("0", ANIM_OBJ_CPP, 0x1b2,
                              "AnimObjReadFromFile: Where is the light list?");
             } else {
-                stLight* light = CreateWorldLight(0, "MonsterLight");
+                std::unique_ptr<stLight> light(CreateWorldLight(0, "MonsterLight"));
                 light->diffuse = color.glmValue();
                 light->specular = glm::vec3(0);
-                ConfigureWorldLight(light, range * g_world_scale);
+                ConfigureWorldLight(light.get(), range * g_world_scale);
                 light->intensity = intensity;
                 light->setLocation(position.x, position.y, position.z);
                 light->m_position = position;
-                light->m_definition = definition;
+                light->m_definition = definition.release();
                 light->setGroupMask(2);
-                light_list->push_back(light);
+                light_list->push_back(light.get());
+                light.release();
             }
         }
     }
@@ -223,9 +233,13 @@ try
             signed char channel = 0;
 
             success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
+            if (!success || channel < 0 ||
+                channel >= static_cast<int>(std::size(animation->entries))) {
+                return false;
+            }
             mesh->list_index = channel;
             if (!LoadAniMeshFromInfo(info, mesh.get(), load_all)) {
-                animation->entries[channel] = 0;
+                return false;
             } else {
                 animation->entries[channel] = std::move(mesh);
             }
@@ -245,8 +259,11 @@ try
                 signed char channel;
                 const char* saved_filename;
 
-                if (!(handle->read(&channel, 1).bytes == static_cast<std::size_t>(1))) {
-                    srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x208, 0);
+                if (handle->read(&channel, 1).bytes != 1) {
+                    return false;
+                }
+                if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) {
+                    return false;
                 }
                 mesh->list_index = channel;
                 saved_filename = info->mesh_filename;
@@ -257,7 +274,7 @@ try
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x20f, 0);
                 }
                 animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
-                                                   std::move(mesh));
+                                                  std::move(mesh));
                 success = LoadPathAI(&path, handle);
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x217, 0);
@@ -289,8 +306,9 @@ try
         }
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Clone owned meshes and paths; bounds copy as ordinary values. */
 // FUNCTION: WIZ8 0x004a0320
@@ -303,7 +321,8 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
       frame_bounds(other.frame_bounds)
 {
     for (int group = 0; group < 3; ++group) {
-        if (other.entries[group]) entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
+        if (other.entries[group])
+            entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
         meshes[group].reserve(other.meshes[group].size());
         for (const auto& mesh : other.meshes[group]) {
             meshes[group].push_back(mesh ? std::make_unique<W8AniMesh>(*mesh) : nullptr);
@@ -325,7 +344,7 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
    untransformed mesh boxes; the discarded transformed box is not part of the result. */
 // FUNCTION: WIZ8 0x004a1710
 std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
-                                            unsigned int frame)
+                                              unsigned int frame)
 {
     if (!animation || list_index < 0 ||
         std::cmp_greater_equal(list_index, std::size(animation->entries)))
@@ -335,29 +354,24 @@ std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char 
         const auto& bounds = animation->frame_bounds[frame];
         return srBoundingBox{bounds.minimum.glmValue(), bounds.maximum.glmValue()};
     }
-    if (!animation->path_lists)
-        return GetAniMeshBounds(animation->entries[list_index].get());
-    if (frame >= animation->frame_count)
-        return std::nullopt;
+    if (!animation->path_lists) return GetAniMeshBounds(animation->entries[list_index].get());
+    if (frame >= animation->frame_count) return std::nullopt;
     if (animation->frame_bounds.size() < animation->frame_count)
         animation->frame_bounds.resize(animation->frame_count);
     auto* first_mesh = AnimObjEntry(animation, list_index, 0);
-    if (!first_mesh)
-        return std::nullopt;
+    if (!first_mesh) return std::nullopt;
     auto bounds = GetAniMeshBounds(first_mesh);
-    if (!bounds)
-        return std::nullopt;
+    if (!bounds) return std::nullopt;
     const auto count = animation->meshes[list_index].size();
     for (std::size_t index = 0; index < count; ++index) {
         if (index != 0) {
             const auto mesh_bounds = GetAniMeshBounds(AnimObjEntry(animation, list_index, index));
-            if (!mesh_bounds)
-                return std::nullopt;
+            if (!mesh_bounds) return std::nullopt;
             bounds->include(*mesh_bounds);
         }
-        auto* instance = AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
-        if (!instance)
-            return std::nullopt;
+        auto* instance =
+            AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
+        if (!instance) return std::nullopt;
         if (auto* path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index))) {
             const float saved = PathAIGetValue(path);
             PathAISetValue(path, static_cast<float>(index));
@@ -387,7 +401,6 @@ void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* transla
 }
 
 // FUNCTION: WIZ8 0x004a01e0
-
 
 /* While the object is inactive the selected owned entry supplies the value;
    once active, AnimObj keeps the live value in its own byte at 0x16. */

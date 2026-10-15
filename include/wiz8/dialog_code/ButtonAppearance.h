@@ -6,8 +6,9 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <SDL3/SDL_surface.h>
+
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "Font.h"
 
@@ -18,7 +19,6 @@ inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF_HI = "Data\\Message
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON_HI = "Data\\Message Box\\GENBUTN4.STI";
 
 inline constexpr int BUTTON_NO_IMAGE = -1;
-inline constexpr std::nullptr_t BUTTON_NO_CALLBACK = nullptr;
 
 struct ButtonGraphics;
 struct GenericButtonImages;
@@ -45,9 +45,9 @@ struct ButtonVisualState {
 };
 
 struct ButtonGraphics {
-    static ButtonImage Load(std::string_view filename, std::int32_t grayed,
-                            std::int32_t off_normal, std::int32_t off_hilite,
-                            std::int32_t on_normal, std::int32_t on_hilite);
+    static ButtonImage Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
+                            std::int32_t off_hilite, std::int32_t on_normal,
+                            std::int32_t on_hilite);
     static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
                             std::int32_t off_normal, std::int32_t off_hilite,
                             std::int32_t on_normal, std::int32_t on_hilite);
@@ -74,7 +74,6 @@ struct GenericButtonImages {
     std::int16_t offset_x = 0;
     std::int16_t offset_y = 0;
 };
-
 
 void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
                           const SDL_Rect& bounds, const ButtonVisualState& state);

@@ -1,108 +1,26 @@
 #pragma once
 
-#include "srFlags.h"
-#include "srMath.h"
-#include "srPixelConvert.h"
-#include "srRendererDefs.h"
-#include "srShader.h"
 #include <span>
 
-class srARGB;
-class srDD;
+#include "srFlags.h"
+#include "srMath.h"
+#include "srRendererDefs.h"
+#include "srShader.h"
 
-// Dynamic driver entrypoints.
-enum { SR_DD_MIN_API_VERSION = 0x128 };
-typedef w8_ulong(__cdecl* srDDGetDriverApiVersionFn)();
-typedef const char*(__cdecl* srDDGetDriverNameFn)();
-typedef void(__cdecl* srDDConfigureDriverFn)(const char* configuration);
-typedef w8_ulong(__cdecl* srDDGetDeviceCountFn)();
-typedef const char*(__cdecl* srDDGetDeviceNameFn)(w8_ulong index);
-typedef srDD*(__cdecl* srDDInitDeviceFn)(w8_ulong index);
+struct SDL_Window;
 
-/* Empty base class; its original name is unknown. */
-class srDDEmptyBase {};
-
-class srDD : public srDDEmptyBase {
+class srDD {
 public:
-    /* Device palette record handed to bindPalette/deletePalette. */
-    struct Palette {
-        const srARGB* data;
-        w8_ulong size;
-        w8_ulong flags;
-    };
-    /* Device pixel format: srPixelConvert::PixelFormat without its trailing FourCC word. */
-    struct PixelFormat {
-        unsigned char red_bits;
-        unsigned char red_shift;
-        unsigned char green_bits;
-        unsigned char green_shift;
-        unsigned char blue_bits;
-        unsigned char blue_shift;
-        unsigned char alpha_bits;
-        unsigned char alpha_shift;
-        /* +8 conversion class of srPixelConvert::PixelFormat, copied
-           verbatim by convertPixelFormat. */
-        srPixelConvert::e_colorModel color_model;
-        srPixelConvert::e_pixelSize pixel_size;
-    };
-    /* Device texture record handed to bindTexture/deleteTexture; levels holds the per-level data
-       pointers. */
+    // Backend identity only. Cache policy and CPU mip storage belong to GERD.
     struct Texture {
-        /* Shared initialization in GERD allocation/deletion. reset is a
-           descriptive name; format, deleted and resident are set separately. */
-        void reset()
-        {
-            flags = 0;
-            size = 0;
-            last_use = 0;
-            priority = 0.5f;
-            resident_data = 0;
-            width = 0;
-            height = 0;
-            first_level = 0;
-            last_level = 0;
-            format_index = 0;
-            parameter = 0;
-            resident_size = 0;
-            for (w8_long level = 0; level < 12; ++level) {
-                levels[level] = 0;
-            }
-        }
-
-        w8_ulong flags;
-        PixelFormat format;
-        float priority;
-        w8_ulong last_use;
-        w8_ulong size;
-        w8_ulong width;
-        w8_ulong height;
-        w8_ulong first_level;
-        w8_ulong last_level;
-        w8_ulong format_index;
-        w8_ulong parameter;
-        void* levels[12];
-        /* Resident device-surface record and its byte size. */
-        w8_ulong resident_data;
-        w8_ulong resident_size;
-        /* markTextureAsDeleted sets this once the texture is on the
-           GERD-side deleted list. */
-        w8_ulong deleted;
-        w8_ulong resident;
+        w8_ulong handle = 0;
+        w8_ulong size = 0;
     };
-    /* Six-dword buffer command handed to bufferOp. Opcodes: 0 lock, 1 unlock, 2 read row, 3 write
-       row, 4 horizontal fill, 6 read column, 7 write column. Lock and unlock fill only the leading
-       dwords. */
-    struct BufferCommand {
-        w8_ulong flags;
-        w8_ulong opcode;
-        void* data;
-        w8_long x;
-        w8_long y;
-        w8_long count;
+    struct TextureRegion {
+        w8_ulong x, y, width, height;
     };
     /* Device identity returned by getDriverInfo. */
     struct DriverInfo {
-        w8_ulong dd_api_version;
         w8_ulong driver_id;
         char name[64];
         char api_name[64];
@@ -114,20 +32,11 @@ public:
            maximums. */
         w8_ulong max_back_buffer_width;
         w8_ulong max_back_buffer_height;
-        /* SDL GPU defaults: 4. */
-        w8_ulong unknown_08_;
-        /* SDL GPU defaults: 0x10. */
-        w8_ulong unknown_0c_;
-        /* SDL GPU defaults: 1.0f / 65536.0f. */
-        float unknown_10_;
-        float unknown_14_;
         /* changeTexture tests bit 5; getDepthBufferType reads bit 3. */
         w8_ulong flags;
         /* SDL GPU defaults: 0x100; createRenderer passes it to each
            Renderer as its batch limit. */
         w8_ulong renderer_batch_limit;
-        /* SDL GPU defaults: 0x3b808081. */
-        w8_ulong unknown_20_;
         /* Device texture RAM in bytes; dumpTextureCache prints it in kB and
            treats 0 as "infinite" (no residency percentage). */
         w8_ulong texture_ram;
@@ -144,73 +53,27 @@ public:
            vendor. */
         char text[9][0x40];
     };
-    /* getStatistics output record. */
-    struct Statistics {
-        double texture_transfer;
-        double pixels_drawn;
-        w8_ulong value_10;
-        w8_ulong value_14;
-        w8_ulong triangles_received;
-        /* Retail GERD::getStatistics copies +0x1c into its vertex-index
-           counter and +0x20 into its vertices-transferred counter; the
-           Glide2x driver accumulates per-call vertex counts into +0x20. */
-        w8_ulong vertex_indices;
-        w8_ulong vertices_transferred;
-        w8_ulong value_24;
-    };
     /* getDisplayMode matches {width, height, depth} triples. */
     struct WindowInfo {
         w8_ulong width;
         w8_ulong height;
         w8_ulong depth;
     };
-    /* srGERD::openWindowInternal forwards the requested backbuffer size and
-       display-mode index; the device reports the back-buffer count in the
-       single-dword result. */
-    struct OpenInfo {
-        w8_ulong width;
-        w8_ulong height;
-        w8_long display_mode;
-    };
-    struct OpenResult {
-        w8_ulong back_buffer_type;
-    };
-    /* setClearColor clamps color, accumClear clamps accum to [-1,1] per channel and setClearDepth
-       clamps depth to [0,1]. */
-#pragma pack(push, 4)
+    // CPU accumulation remains in GERD; the backend clears color, depth and stencil.
     struct ClearValues {
         glm::vec4 color;
-        glm::vec4 accum;
-        double depth;
+        float depth;
         w8_ulong stencil;
     };
-#pragma pack(pop)
     /* Scissor rectangle {left, top, right, bottom}. */
     struct Scissor {
         w8_ulong left, top, right, bottom;
     };
-    /* setViewPort receives (x, y, width, height) plus four opaque trailing
-       slots applyViewStateChanges copies through unchanged. */
+    // View rectangle and depth range used by SDL GPU.
     struct ViewPort {
         w8_long x, y, width, height;
         /* Depth range forwarded by applyViewStateChanges. */
-        w8_ulong extra[4];
-    };
-    /* Frame state handed to update(): dirty bits, gamma, a constant 1.0f, swap interval, antialias
-       mode and enable bit 0. */
-    struct Update {
-        enum {
-            UPDATE_ENABLE = 0x01u,
-            UPDATE_SWAP_INTERVAL = 0x02u,
-            UPDATE_GAMMA = 0x04u,
-            UPDATE_ANTIALIAS = 0x08u
-        };
-        w8_ulong flags;
-        srVector3T<float> gamma;
-        float value_10;
-        w8_ulong swap_interval;
-        w8_ulong antialias;
-        w8_ulong enabled;
+        float min_depth, max_depth;
     };
     /* srGERD::setTextureParameters repacks the texture's Parameters into
        this per-stage record and passes it to the device. */
@@ -219,7 +82,6 @@ public:
         float mipmap_bias;
     };
 
-    enum e_error { ERROR_NONE = 0 };
     /* srDD_OpenGL clearBuffers: bit 0 clears GL_COLOR_BUFFER_BIT, bit 1
        GL_DEPTH_BUFFER_BIT and bit 2 GL_STENCIL_BUFFER_BIT. */
     enum e_buffer { BUFFER_COLOR = 1, BUFFER_DEPTH = 2, BUFFER_STENCIL = 4 };
@@ -232,53 +94,43 @@ public:
     enum e_driverID {};
     enum e_hardwareID {};
 
-    virtual ~srDD() = 0;
+    virtual ~srDD() = default;
     virtual Info getInfo() = 0;
     virtual std::span<const WindowInfo> getWindowList() = 0;
-    virtual std::span<const PixelFormat> getTextureFormats() = 0;
-    virtual Statistics getStatistics() = 0;
-    virtual void resetStatistics() = 0;
-    virtual void extCommand(w8_ulong command, void* data, w8_ulong size) = 0;
-    virtual int isBusy() = 0;
-    virtual e_error openWindow(const OpenInfo& info, OpenResult& result) = 0;
+    virtual bool openWindow(w8_ulong width, w8_ulong height) = 0;
     virtual void closeWindow() = 0;
-    virtual void beginFrame() = 0;
-    virtual void endFrame() = 0;
     virtual void flushFrame() = 0;
-    virtual void flipFrame(const Scissor* first, const Scissor* second, w8_ulong value) = 0;
+    virtual void flipFrame() = 0;
     virtual void clearBuffers(const srFlags<e_buffer>& buffers) = 0;
-    virtual e_error bufferOp(const BufferCommand& command) = 0;
-    virtual void update(const Update& values) = 0;
+    virtual void lockBuffer() = 0;
+    virtual void unlockBuffer() = 0;
+    virtual void readPixels(w8_long x, w8_long y, bool vertical, std::span<w8_ulong> pixels) = 0;
+    virtual void writePixels(w8_long x, w8_long y, bool vertical,
+                             std::span<const w8_ulong> pixels) = 0;
+    virtual void fillPixels(w8_long x, w8_long y, w8_long count, w8_ulong pixel) = 0;
+    virtual void setSwapInterval(w8_ulong interval) = 0;
     virtual void setScissor(const Scissor& scissor) = 0;
     virtual void setViewPort(const ViewPort& viewport) = 0;
     virtual void setClearValues(const ClearValues& values) = 0;
     virtual void setFogColor(const glm::vec4& color) = 0;
     virtual void setShader(const srShader& shader) = 0;
     virtual void setTextureParameters(w8_ulong stage, const TexParms& parms) = 0;
-    virtual void bindTexture(w8_ulong stage, Texture& texture) = 0;
+    virtual void bindTexture(w8_ulong stage, const Texture& texture) = 0;
     virtual void deleteTexture(Texture& texture) = 0;
-    virtual void texImage(Texture& texture, w8_ulong level) = 0;
-    virtual void texSubImage(Texture& texture, w8_ulong a, w8_ulong b, w8_ulong c,
-                             w8_ulong d, w8_ulong e) = 0;
-    virtual void setGlobalPalette(w8_ulong* palette, w8_ulong count) = 0;
-    virtual void bindPalette(Palette& palette) = 0;
-    virtual void deletePalette(Palette& palette) = 0;
-    virtual e_error createContext(w8_ulong_ptr window) = 0;
+    virtual Texture createTexture(w8_ulong width, w8_ulong height, w8_ulong levels) = 0;
+    // ARGB32 bytes, with pitch in bytes. The backend copies the region before returning.
+    virtual void uploadTexture(const Texture& texture, w8_ulong level, TextureRegion region,
+                               std::span<const unsigned char> pixels, w8_ulong pitch) = 0;
+    virtual bool createContext(SDL_Window* window) = 0;
     virtual void deleteContext() = 0;
     virtual DriverInfo getDriverInfo() = 0;
-    virtual void fence() = 0;
-    virtual PixelFormat getBufferPixelFormat() = 0;
-    virtual void preBindTexture(w8_ulong stage, Texture& texture) = 0;
     virtual void setPolygonMode(e_polygonMode mode) = 0;
     virtual void setCullMode(e_cullMode mode) = 0;
-    virtual void setProjectionMatrix(const glm::mat4& matrix,
-                                     srRendererDefs::e_matrixType type) = 0;
+    virtual void setProjectionMatrix(const glm::mat4& matrix) = 0;
     virtual void setVertexArrayInfo(const srRendererDefs::VertexArrayInfo* info) = 0;
-    virtual void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
-                              srRendererDefs::e_indexType type, const void* indices) = 0;
+    virtual void drawElements(srRendererDefs::e_primitive primitive,
+                              std::span<const w8_ulong> indices) = 0;
     virtual void drawArrays(srRendererDefs::e_primitive primitive, w8_long first,
                             w8_ulong count) = 0;
     virtual void setPolygonOffset(w8_long offset) = 0;
 };
-
-inline srDD::~srDD() {}

@@ -1,16 +1,16 @@
-#include "glm/ext/vector_double3.hpp"
 #include "wiz8/engine_code/MonsterLight.h"
 
 #include <cmath>
 #include <string>
 
 #include "glm/common.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srLight.h"
 #include "surrender/srMath.h"
+#include "surrender/srNode.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/float_constants.h"
-#include "glm/ext/vector_float3.hpp"
-#include "surrender/srNode.h"
 
 // GLOBAL: WIZ8 0x005ecd4c
 const float g_monster_light_cycle_rate = 0.025f;

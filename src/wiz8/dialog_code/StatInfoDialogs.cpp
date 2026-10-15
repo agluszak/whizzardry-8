@@ -1,23 +1,26 @@
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/StatInfoDialogs.h"
+
 #include <cstdint>
-#include <fmt/printf.h>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/StatInfoDialogs.h"
-#include "wiz8/dialog_code/MonsterInfoDialog.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/printf.h>
+
 #include "Font.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/sr_api.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/dialog_code/MonsterInfoDialog.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/sr_api.h"
 
 /* Dialog Code\StatInfoDialogs.cpp. Two attribute-info dialogs whose
    constructors are the same body twice over: the canonical pair differs only
@@ -53,43 +56,28 @@ W8StatInfoDialogBase::W8StatInfoDialogBase()
 }
 
 // FUNCTION: WIZ8 0x005df9d0
-int W8StatInfoDialogBase::CreateControls()
+void W8StatInfoDialogBase::Configure()
 {
-    W8DialogBase::CreateControls();
     if (!PopulateText()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
 
-    W8DialogScrollBar::Resources resources;
-    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
-    resources.track_path = g_info_dialog_background;
-    resources.track_frame = 1;
-    resources.on_scroll = ScrollCallback;
-    scrollbar.CreateControls(&resources);
     scrollbar.SetLayout(m_x + 299, m_y + 0x26, textarea.GetTotalLineCount(), 0,
                         textarea.GetLineHeight(), 0xb9);
-    scrollbar.m_owner = this;
 
     CreateCloseButton(button, 0x11a, 0xe6);
-    return 0;
+    return;
 }
 
 // FUNCTION: WIZ8 0x005dfae0
 void W8StatInfoDialogBase::Draw(SDL_Surface& target)
 {
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
-        textarea.m_dirty = true;
-        scrollbar.m_dirty = true;
-        button.m_dirty = true;
-        W8DialogBase::Draw(target);
-        DrawTitle(target);
-    }
-    textarea.Draw(target, false);
-    scrollbar.Draw(target, false);
+
+    W8DialogBase::Draw(target);
+    DrawTitle(target);
+
+    textarea.Paint(target);
+    scrollbar.Draw(target);
     button.Draw(target);
 }
 
@@ -99,8 +87,8 @@ void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
     g_wiz_text_font_secondary.resetPalette();
     std::string title = g_localized_strings[m_title_id];
     std::int16_t width = g_wiz_text_font_secondary.textWidth(title);
-    DrawText(target, g_wiz_text_font_secondary,
-             {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, title);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
+             title);
 }
 
 void W8StatInfoDialogBase::OnRightButtonUp()
@@ -121,15 +109,6 @@ void W8StatInfoDialogBase::OnMouseWheel(int delta)
         for (int step = 0; step < -delta; ++step) {
             scrollbar.ScrollDown();
         }
-    }
-}
-
-// FUNCTION: WIZ8 0x005dfbf0
-void W8StatInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8StatInfoDialogBase* dialog = static_cast<W8StatInfoDialogBase*>(scroll_bar->m_owner);
-    if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->textarea, first_visible_entry);
     }
 }
 
@@ -157,6 +136,7 @@ W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[uiIndex];
     m_detail_id = g_attr_table0[uiIndex];
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005dfe40
@@ -171,6 +151,7 @@ W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, boo
     m_first = first;
     m_second = second;
     m_bonus = bonus;
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005dffa0
@@ -179,11 +160,12 @@ bool W8SkillInfoDialog::PopulateText()
     W8StatInfoDialogBase::PopulateText();
     textarea.AddEntry(g_localized_strings[0x156], "", 10, 0xf, 0);
     W8SkillAttributes* skill = &g_skill_attributes[m_skill];
-    textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10,
-                      0xf, 0);
+    textarea.AddEntry(
+        {}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10, 0xf, 0);
     if (skill->attribute_1 != skill->attribute_2) {
-        textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]],
-                          10, 0xf, 0);
+        textarea.AddEntry(
+            {}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]], 10, 0xf,
+            0);
     }
     if (m_first) {
         textarea.AddEntry({}, "", 10, 0xf, 0);
@@ -209,4 +191,13 @@ W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIn
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[16 + uiIndex];
     m_detail_id = g_attr_table1[uiIndex];
+    Configure();
+}
+
+bool W8StatInfoDialogBase::TakeDirty()
+{
+    const bool text = textarea.TakeDirty();
+    const bool scroll = scrollbar.TakeDirty();
+    const bool button_dirty = button.TakeDirty();
+    return W8DialogBase::TakeDirty() || text || scroll || button_dirty;
 }

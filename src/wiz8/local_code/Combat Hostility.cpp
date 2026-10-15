@@ -1,38 +1,9 @@
+#include <span>
+#include <vector>
+
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <vector>
-#include <span>
 
-#include "random.h"
-#include "wiz8/spell_ids.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/layouts/targeting.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/MonsterAI.h"
-#include "wiz8/utility.h"
 #include "character_skills.h"
 #include "conditions.h"
 #include "difficulty.h"
@@ -41,6 +12,36 @@
 #include "local_code/Factions.h"
 #include "local_code/HealthStaminaMana.h"
 #include "monster_actions.h"
+#include "random.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/targeting.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/CombatRange.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/MonsterAI.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 // STRING: WIZ8 0x0061DC60
 
@@ -377,8 +378,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
     if (MonsterGroupAllMembersDying(group)) {
         return;
     }
-    W8MonsterInfo* leader =
-        FindMonster(group->leader_location_id);
+    W8MonsterInfo* leader = FindMonster(group->leader_location_id);
     if (leader != 0 && leader->p3D->hostility_preserved) {
         return;
     }
@@ -406,18 +406,13 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
         SetMonsterHostility(monster, static_cast<unsigned char>(hostility));
     }
     if (group->leader_group_id != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id),
-                                 hostility, false);
+        SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id), hostility, false);
     }
     if (group->allied_group_ids[0] != 0) {
-        SetMonsterGroupHostility(
-            FindMonsterGroup(group->allied_group_ids[0]),
-            hostility, false);
+        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[0]), hostility, false);
     }
     if (group->allied_group_ids[1] != 0) {
-        SetMonsterGroupHostility(
-            FindMonsterGroup(group->allied_group_ids[1]),
-            hostility, false);
+        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[1]), hostility, false);
     }
     if (recurse) {
         AlertSameFactionGroups(group);

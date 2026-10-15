@@ -1,58 +1,66 @@
 #pragma once
 
-#include <memory>
 #include <array>
-
 #include <cstdint>
+#include <memory>
+#include <optional>
+#include <vector>
 
-#include "wiz8/character_skills.h"
+#include <SDL3/SDL_rect.h>
+
 #include "input.h"
+#include "wiz8/character_skills.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text
    rows and the two scroll-arrow buttons: construction, teardown and the
    per-frame name/action caption draw. The shared W8SubMenu enums and the
    portrait-combat unit's const tables live in MGSPortraitCombat.h. */
 
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
+#include "wiz8/ui_layer.h"
 
-class W8ButtonWidget;
+// Owned by MainGameScreenState while the screen is active. The layer precedes
+// the buttons so input registrations are removed before the layer is destroyed.
+// Modal submenu controls retain their independently activated layer.
+struct MainGameHudButtons {
+    // Screen state constructs HUD before world input at the same order.
+    // The submenu (0x27) stays above both.
+    UiLayer input{0x28};
+    std::array<W8ButtonWidget, 2> submenu_scroll{W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 2> submenu_panel{W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 6> layout_arrows{W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 5> combat_stance{W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 9> submenu{
+        W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input},
+        W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input},
+        W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 3> roof{W8ButtonWidget{input}, W8ButtonWidget{input},
+                                       W8ButtonWidget{input}};
+    W8ButtonWidget options_disk{input};
+};
 
-/* Owned globals. */
-extern std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
-extern std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
-extern std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
-extern std::array<W8ButtonWidget, 5> g_combat_stance_buttons;
-extern std::array<W8ButtonWidget, 3> g_roof_buttons;
-extern W8ButtonWidget g_options_disk_button;
-extern short g_submenu_entry_count;
-extern uint64_t g_submenu_clock;
-extern bool g_submenu_close_pending;
-/* The cancel row lands at [built-1] where built is the available-entry count
-   plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
-   Pray (priest trait 0x0b) can never be available together. */
-extern std::array<W8ButtonWidget, 9> g_submenu_buttons;
+// An active submenu owns its independently enabled input and button rows.
+struct MainGameSubMenu {
+    UiLayer input{0x27};
+    SDL_Rect bounds{};
+    int background = 0;
+    bool dirty = true;
+    std::optional<uint64_t> close_deadline;
+    std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
+};
+
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
-/* Which menu the open sub-menu panel serves (W8SubMenuPage value), each row's
-   entry index and each row's W8SubMenuEntryState, stored as shorts. */
-extern short g_submenu_menu;
-extern short g_submenu_entries[6];
-extern short g_submenu_entry_states[5];
 
 /* Invalidate (when asked) then redraw the sub-menu panel. */
 void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);
-/* Create and lay out the two scroll-arrow buttons. */
-unsigned char CreateSubMenuScrollButtons(void);
-/* Create the close/formation panel buttons. */
-unsigned char CreateSubMenuPanelButtons(void);
-/* Create the options-disk button. */
-unsigned char CreateOptionsDiskButton(void);
-/* Create the five combat-stance buttons. */
-unsigned char CreateCombatStanceButtons(void);
-/* Create the three roof/viewpoint buttons. */
-unsigned char CreateRoofButtons(void);
 /* Draw roof chrome, mark the three buttons dirty, sync state, and request the
    0x100000 redraw bit. */
 void RedrawRoofButtons(void);
@@ -63,12 +71,9 @@ void SyncRoofButtonPressedState(void);
 /* Draw layout-arrow chrome and sync the six raise/lower arrows against the
    live action-panel / formation-board / radar-map visibility flags. */
 void RedrawLayoutArrowButtons(void);
-/* Create the six layout-arrow buttons. */
-unsigned char CreateLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
-void CreateMainGameInterfaceButtons(void);
-void DestroyMainGameInterfaceButtons(void);
+void ConfigureMainGameHudButtons(void);
 /* Draw the selected character's name/profession line and the caption for
    their queued action. */
 void DrawSubMenuCharacterAction(void);
@@ -91,11 +96,6 @@ void UpdateMainGameButtons(void);
    run a 500 ms countdown, then tear the panel and rows down. */
 void UpdateSubMenuAutoClose(void);
 
-/* The scroll-arrow callbacks are one-argument thunks over the shared handler:
-   up steps toward lower slots, down toward higher, both wrapping and skipping
-   ineligible slots. */
-void SubMenuScrollArrowUp(W8ButtonWidget* button);
-void SubMenuScrollArrowDown(W8ButtonWidget* button);
 /* Move selected_character to the next eligible party slot (0 steps toward
    slot 0, 1 toward slot 7), wrapping, and raise the portrait redraw masks. */
 void ScrollSubMenuCharacter(char direction);
@@ -133,7 +133,7 @@ void EnableSubMenuRegions(void);
 void OpenSubMenuPanel(short notification);
 /* Build the panel and one row per available entry of the notification's
    menu. */
-unsigned char BuildSubMenuPanel(short notification);
+bool BuildSubMenuPanel(short notification);
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
 /* The row availability states the refresh maps icon frames through. */
 W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot);

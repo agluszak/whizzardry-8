@@ -1,27 +1,36 @@
-#include <memory>
+#include "wiz8/local_code/Search.h"
+
 #include <cstdint>
-#include <fmt/format.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "wiz8/containers.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/integer_constants.h"
+#include <fmt/format.h>
+
+#include "compat/native.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "random.h"
+#include "surrender/srMath.h"
+#include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -32,17 +41,10 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/notices.h"
+#include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/sr_api.h"
-#include "random.h"
-#include "timer.h"
-#include "compat/native.h"
-#include "conditions.h"
-#include "gameplay_modifiers.h"
-#include "layouts/item_instance.h"
-#include "surrender/srMath.h"
 
 /* Local Code\search.cpp. The assertion in RegisterSearchableTrigger at source
    line 337 establishes the original translation unit. */
@@ -189,8 +191,7 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
     if (trigger != 0) {
         W8Prop* prop = trigger->GetProp();
         if (prop != 0) {
-            if (const auto center = prop->GetCenterPosition())
-                *position = *center;
+            if (const auto center = prop->GetCenterPosition()) *position = *center;
         }
     }
 }
@@ -216,7 +217,8 @@ void RunSearchPulse(void)
             !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
             if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 &&
                 g_status.search_mode != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+                ShowNotice(W8_FONT_PALETTE_BEIGE,
+                           g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
             W8SearchableView* view = CollectSearchablesInView();
             bool found = false;
@@ -252,8 +254,8 @@ void RunSearchPulse(void)
                                     std::string path;
                                     path = fmt::format("Data\\Messages\\{}.msg", folder);
                                     std::string text;
-                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0)).empty()) !=
-                                        0) {
+                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
+                                              .empty()) != 0) {
                                         ShowString(text);
                                     }
                                 }

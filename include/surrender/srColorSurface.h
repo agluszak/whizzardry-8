@@ -1,25 +1,24 @@
 #pragma once
 
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_rect.h>
 #include <memory>
 #include <ostream>
 #include <span>
 
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "compat/compiler.h"
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
-
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srPixelConvert.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/surface_storage.h"
 
 // VTABLE: SURRENDER 0x100773A0
 // class srClassSupport<srColorSurface, srColorSurfaceIFace, 12560>
 
 // VTABLE: SURRENDER 0x100772D0 srColorSurface
-class srColorSurface
-    : public srClassSupport<srColorSurface, srColorSurfaceIFace, 0x3110> {
+class srColorSurface : public srClassSupport<srColorSurface, srColorSurfaceIFace, 0x3110> {
 public:
     SR_DLL_IMPORT srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulong width,
                                  w8_ulong height);
@@ -27,8 +26,8 @@ public:
                                  w8_ulong height);
     SR_DLL_IMPORT srColorSurface(const srPixelConvert::PixelFormat& format, void* data,
                                  w8_ulong width, w8_ulong height, w8_ulong pitch);
-    SR_DLL_IMPORT srColorSurface(srPixelConvert::e_surfaceType type, void* data,
-                                 w8_ulong width, w8_ulong height, w8_ulong pitch);
+    SR_DLL_IMPORT srColorSurface(srPixelConvert::e_surfaceType type, void* data, w8_ulong width,
+                                 w8_ulong height, w8_ulong pitch);
     /* Shares an existing SDL surface; its pixels live as long as either owner. */
     srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& shared);
 
@@ -56,8 +55,9 @@ public:
                                                 int preserve) override;
     virtual SR_DLL_IMPORT void fill(w8_ulong pixel) override;
     void fillRectangle(SDL_Rect rect, w8_ulong pixel) override;
-    virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
-                                    w8_long source_y, w8_long width, w8_long height) override;
+    virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source,
+                                    w8_long source_x, w8_long source_y, w8_long width,
+                                    w8_long height) override;
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle) override;
     virtual SR_DLL_IMPORT void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x_start,
                                            w8_long x_end) override;
@@ -68,7 +68,6 @@ public:
     virtual SR_DLL_IMPORT void setPixelRowRaw(const void* pixels, w8_long y, w8_long x_start,
                                               w8_long x_end) override;
 
-
 private:
     virtual SR_DLL_IMPORT void copyNoScaling(srColorSurfaceIFace& source) override;
     virtual SR_DLL_IMPORT void scaleFast(srColorSurfaceIFace& source) override;
@@ -76,10 +75,8 @@ private:
     SR_DLL_IMPORT void init(const srPixelConvert::PixelFormat& format, w8_ulong width,
                             w8_ulong height, w8_ulong pitch);
     SR_DLL_IMPORT unsigned char* getAddress(w8_long x, w8_long y);
-    SR_DLL_IMPORT void convertToARGB8888(w8_ulong* pixels, const void* source,
-                                         w8_ulong count);
-    SR_DLL_IMPORT void convertFromARGB8888(void* pixels, const w8_ulong* source,
-                                           w8_ulong count);
+    SR_DLL_IMPORT void convertToARGB8888(w8_ulong* pixels, const void* source, w8_ulong count);
+    SR_DLL_IMPORT void convertFromARGB8888(void* pixels, const w8_ulong* source, w8_ulong count);
     SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
 
     template<class Pixel>

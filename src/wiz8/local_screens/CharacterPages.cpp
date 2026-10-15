@@ -1,28 +1,33 @@
-#include <string>
-#include <SDL3/SDL_rect.h>
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/ui_layer.h"
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <string_view>
 #include <cstring>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_code/ControlsRect.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "input.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/fonts.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/fonts.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 struct W8CharacterCreationState;
 
 namespace {
-template<class T> T ReadStatValue(const void* address) {
+template<class T> T ReadStatValue(const void* address)
+{
     T value;
     std::memcpy(&value, address, sizeof(value));
     return value;
@@ -58,17 +63,20 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     m_y = 0x2b + y;
     int split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
-    m_label.SetLayoutBounds(&bounds, true, true);
+    m_label.SetClipBounds(bounds);
+    m_label.SetLayoutBounds(&bounds, true);
     m_label.SetText({}, g_wiz_text_font_secondary);
     m_label.SetLayoutMode(g_W8TextBufferAlignLeft);
     bounds.left = split;
     bounds.right = split + 0x17;
-    m_first_text.SetLayoutBounds(&bounds, true, true);
+    m_first_text.SetClipBounds(bounds);
+    m_first_text.SetLayoutBounds(&bounds, true);
     m_first_text.SetText({}, g_wiz_text_font_secondary);
     m_first_text.SetLayoutMode(g_W8TextBufferAlignRight);
     bounds.left = split + 0x2a;
     bounds.right = split + 0x39;
-    m_second_text.SetLayoutBounds(&bounds, true, true);
+    m_second_text.SetClipBounds(bounds);
+    m_second_text.SetLayoutBounds(&bounds, true);
     m_second_text.SetText({}, g_wiz_text_font_secondary);
     m_second_text.SetLayoutMode(g_W8TextBufferAlignRight);
 
@@ -79,12 +87,15 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
             UpdateButtons();
             MarkDirty();
         };
-        result->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 4,
-            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); }, {}, false, 0, -1,
-            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); }, {});
-        result->policy.controller_activation = true;
-        result->policy.repeat = true;
+        result->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 1, frame + 2, frame + 4),
+            {.on_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); },
+             .on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); },
+             .policy = {.repeat = true, .input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
+
         result->SetPosition(x, m_y + 1);
         result->SetVisible(false);
         return result;
@@ -92,8 +103,8 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
     m_decrement = button(split + 0x1b, 0x19, -1);
     m_decrement->SetEnabled(false);
     m_increment = button(split + 0x3d, 0x1e, 1);
-    m_help = &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13},
-        [this](const UiPointerEvent& event) {
+    m_help =
+        &m_input.add(SDL_Rect{m_x, m_y, split - m_x + 1, 13}, [this](const UiPointerEvent& event) {
             if (event.action == UiPointerAction::Up && event.inside &&
                 event.button == UiPointerButton::Right && event.captured_buttons && on_info)
                 AfterUiDispatch(on_info);
@@ -158,8 +169,10 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         if (m_draw_background) {
             CatalogArtwork::Load(0x108, 0).drawAndInvalidate(target, 2, m_x, m_y);
         }
-        m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
-        m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
+        m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)),
+                             g_wiz_text_font_secondary);
+        m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)),
+                              g_wiz_text_font_secondary);
         m_first_text.FillBounds(target, 0x8000);
         m_second_text.FillBounds(target, 0x8000);
         m_label.RenderToTarget(0, true, target);
@@ -170,8 +183,8 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         m_label.RenderToTarget(0, true, target);
         m_dirty = false;
     }
-    m_increment->Draw(target);
-    m_decrement->Draw(target);
+    m_increment->Refresh();
+    m_decrement->Refresh();
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 
@@ -208,7 +221,6 @@ void W8CharacterPageEntry::UpdateButtons()
 
 // VTABLE: WIZ8 0x005ef1e4 W8CharacterPage
 // class W8CharacterPage
-
 
 // FUNCTION: WIZ8 0x005afd90
 W8CharacterPage::W8CharacterPage(CatalogArtwork background)
@@ -266,7 +278,10 @@ void W8CharacterPage::Prepare()
 }
 
 // FUNCTION: WIZ8 0x005affc0
-void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.emplace_back(entry); }
+void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
+{
+    m_entries.emplace_back(entry);
+}
 
 void W8CharacterPage::HandleInput(const InputEvent*) {}
 void W8CharacterPage::Refresh() {}

@@ -4,13 +4,13 @@
 #include <optional>
 #include <string_view>
 
+#include "compat/compiler.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "compat/compiler.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 enum { W8_DIALOG_ATTRIBUTE_COUNT = 7 };
 
@@ -38,20 +38,20 @@ extern W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT];
 class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
-    virtual int CreateControls() override;
     virtual void Draw(SDL_Surface& target) override;
+    bool TakeDirty() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
 
 protected:
+    void Configure();
     virtual bool PopulateText();
 
 private:
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
-    void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width, int height,
-                      std::string_view text, Font& font);
+    void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width,
+                      int height, std::string_view text, Font& font);
 
 protected:
     std::optional<CatalogArtwork> m_uiArtwork;
@@ -60,7 +60,10 @@ protected:
     unsigned int m_uiHeadingId; /* g_localized_strings index */
     unsigned int m_uiDetailId;  /* g_localized_strings index */
     int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
-    W8DialogScrollBar m_scroll_bar{InputLayer()};
+    W8DialogScrollBar m_scroll_bar{InputLayer(),
+                                   {"Data\\Main Interface\\main_scroll.sti",
+                                    "Data\\Dialogs\\popup_race_profession.sti", 1,
+                                    [this](int first) { ScrollTextArea(m_text_area, first); }}};
     W8ButtonWidget m_button{InputLayer()};
     W8DialogTextArea m_text_area;
 };

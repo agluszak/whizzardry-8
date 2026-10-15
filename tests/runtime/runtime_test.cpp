@@ -1,36 +1,40 @@
-#include "wiz8/ui_layer.h"
 #include <algorithm>
 #include <array>
-#include <catch2/catch_test_macros.hpp>
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_keyboard.h>
-#include <SDL3/SDL_keycode.h>
-#include <SDL3/SDL_scancode.h>
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_stdinc.h>
-#include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_video.h>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iomanip>
+#include <iterator>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <vector>
-#include <cstdint>
-#include <cstddef>
-#include <iterator>
-#include <memory>
 #include <string_view>
 #include <system_error>
+#include <vector>
+
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
+#include <catch2/catch_get_random_seed.hpp>
+#include <catch2/catch_test_macros.hpp>
+
+#include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
 
@@ -46,88 +50,90 @@
 
    Run under SDL's offscreen video driver (no window, no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
-#include "wiz8/application.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
-#include "surrender/srGERD.h"
-#include "surrender/srModelInstance.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/asset_paths.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/runtime_test_hooks.h"
-#include "wiz8/engine_code/Level.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/cursor.h"
-#include "layouts/party_formation.h"
-#include "wiz8/item_video_object_vector.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/layouts/screen_state.h"
-#include "input.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/local_screens/MGSSpellIcons.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/spell_ids.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/message_box.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/npc_script_file.h"
-#include "wiz8/text_input.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "catch2/catch_message.hpp"
 #include "conditions.h"
+#include "input.h"
 #include "layouts/gameplay_databases.h"
+#include "layouts/party_formation.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "local_code/CharGeneration.h"
 #include "local_code/Factions.h"
 #include "local_code/SpellEffect.h"
 #include "mgs_commands.h"
+#include "scoped_asset_roots.h"
 #include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srGERD.h"
 #include "surrender/srMath.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "temporary_directory.h"
+#include "wiz8/application.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Level.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/npc_dialogue_view.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MGSSpellIcons.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/MainMenuScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/message_box.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/npc_script_file.h"
+#include "wiz8/runtime_test_hooks.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/text_input.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/xstatus.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
 
-namespace
-{
+namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
@@ -143,23 +149,27 @@ SDL_LogOutputFunction g_default_log;
 void* g_default_log_data;
 void CaptureLog(void* data, int category, SDL_LogPriority priority, const char* message)
 {
-    if (priority >= SDL_LOG_PRIORITY_ERROR)
-        g_logged_errors.emplace_back(message);
+    if (priority >= SDL_LOG_PRIORITY_ERROR) g_logged_errors.emplace_back(message);
     g_default_log(g_default_log_data, category, priority, message);
 }
 
 const char* ScreenName(int id)
 {
-    static const char* names[] = {"intro",     "main-menu", "router",   "character", "please-wait",
-                                  "party",     "camp",      "main-game", "automap",  "credits",
-                                  "options",   "journal",   "exit"};
+    static const char* names[] = {"intro",   "main-menu", "router",    "character", "please-wait",
+                                  "party",   "camp",      "main-game", "automap",   "credits",
+                                  "options", "journal",   "exit"};
     return id >= 0 && id < int(std::size(names)) ? names[id] : "none";
 }
 
 SDL_Point MainMenuRegion(short item)
 {
     static constexpr std::array<SDL_Point, 6> centers = {{
-        {320, 160}, {320, 209}, {320, 257}, {320, 306}, {320, 357}, {320, 445},
+        {320, 160},
+        {320, 209},
+        {320, 257},
+        {320, 306},
+        {320, 357},
+        {320, 445},
     }};
     REQUIRE(item >= 0);
     REQUIRE(static_cast<std::size_t>(item) < centers.size());
@@ -167,9 +177,8 @@ SDL_Point MainMenuRegion(short item)
     return centers[item];
 }
 
-class Game
-{
-  public:
+class Game {
+public:
     explicit Game(bool play_movies)
     {
         const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
@@ -194,6 +203,9 @@ class Game
         SDL_SetLogOutputFunction(CaptureLog, nullptr);
         const std::string_view arguments[] = {"/WINDOW"};
         application_.emplace(arguments);
+        // The game seeds rand() from the clock. Catch's seed makes a run
+        // repeatable: CTest fixes it, and failures print it.
+        std::srand(Catch::getSeed());
         window_ = reinterpret_cast<SDL_Window*>(ghWindow);
         REQUIRE(window_);
         SDL_Event focus{};
@@ -205,8 +217,7 @@ class Game
     {
         application_.reset();
         SDL_SetLogOutputFunction(g_default_log, g_default_log_data);
-        if (SDL_getenv("WIZ8_RUNTIME_KEEP_USER_ROOT"))
-        {
+        if (SDL_getenv("WIZ8_RUNTIME_KEEP_USER_ROOT")) {
             std::fprintf(stderr, "kept user root %s\n", user_.path.string().c_str());
             user_.keep();
         }
@@ -231,11 +242,9 @@ class Game
     void wait(const char* step, const std::function<bool()>& ready, double seconds = 30)
     {
         const auto deadline = Clock::now() + std::chrono::duration<double>(seconds);
-        while (!ready())
-        {
+        while (!ready()) {
             if (Clock::now() > deadline)
-                Fail(step, "timed out after " + std::to_string(frames_) +
-                               " frames on screen " +
+                Fail(step, "timed out after " + std::to_string(frames_) + " frames on screen " +
                                std::string(ScreenName(g_current_screen_state.id)) + " pending " +
                                ScreenName(g_pending_screen_state.id));
             frame();
@@ -246,8 +255,7 @@ class Game
        always enough, and more would only hide a dropped event. */
     bool within_frames(int frames, const std::function<bool()>& done)
     {
-        for (int i = 0; !done() && i < frames; ++i)
-            frame();
+        for (int i = 0; !done() && i < frames; ++i) frame();
         return done();
     }
 
@@ -275,8 +283,16 @@ class Game
         frame();
     }
 
-    void press_at(int x, int y) { mouse_button(x, y, true); frame(); }
-    void release_at(int x, int y) { mouse_button(x, y, false); frame(); }
+    void press_at(int x, int y)
+    {
+        mouse_button(x, y, true);
+        frame();
+    }
+    void release_at(int x, int y)
+    {
+        mouse_button(x, y, false);
+        frame();
+    }
 
     void release_outside(SDL_Point point)
     {
@@ -305,8 +321,8 @@ class Game
         frame();
         // Leaving the source while held starts the gameplay drag.
         move_pointer(to.x + to.w / 2, to.y + to.h / 2);
-        mouse_button(to.x + to.w / 2 - g_cursor_hotspot_x,
-                     to.y + to.h / 2 - g_cursor_hotspot_y, false);
+        mouse_button(to.x + to.w / 2 - g_cursor_hotspot_x, to.y + to.h / 2 - g_cursor_hotspot_y,
+                     false);
         frame();
     }
 
@@ -359,29 +375,27 @@ class Game
     }
 
     /* Presses or releases the key bound to a main-game command, with its
-       modifiers, as SDL key events (bindings hold virtual-key codes). */
+       modifiers, as SDL key events (bindings hold SDL keycodes). */
     void command_key(W8MGSCommand command, bool down)
     {
         const int index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
         const MGSKeyBinding* binding = index >= 0 ? g_mgs_keyboard->GetBinding(index) : nullptr;
         if (!binding || !binding->key)
             Fail("command", "no key bound to command " + std::to_string(int(command)));
-        SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
-        for (int candidate = 1; candidate < SDL_SCANCODE_COUNT && scancode == SDL_SCANCODE_UNKNOWN; ++candidate) {
-            const auto code = static_cast<SDL_Scancode>(candidate);
-            if (GameKeyFromSdl(code, SDL_GetKeyFromScancode(code, SDL_KMOD_NONE, false)) == binding->key)
-                scancode = code;
-        }
+        const SDL_Scancode scancode = SDL_GetScancodeFromKey(binding->key, nullptr);
         if (scancode == SDL_SCANCODE_UNKNOWN)
-            Fail("command", "no SDL key produces virtual key " + std::to_string(binding->key));
-        const struct { unsigned short flag; SDL_Scancode scancode; SDL_Keycode key; SDL_Keymod mod; } modifiers[] = {
-            {SHIFT_DOWN, SDL_SCANCODE_LSHIFT, SDLK_LSHIFT, SDL_KMOD_LSHIFT},
-            {CTRL_DOWN, SDL_SCANCODE_LCTRL, SDLK_LCTRL, SDL_KMOD_LCTRL},
-            {ALT_DOWN, SDL_SCANCODE_LALT, SDLK_LALT, SDL_KMOD_LALT}};
+            Fail("command", "no SDL scancode for binding " + std::to_string(binding->key));
+        const struct {
+            unsigned short flag;
+            SDL_Scancode scancode;
+            SDL_Keycode key;
+            SDL_Keymod mod;
+        } modifiers[] = {{SHIFT_DOWN, SDL_SCANCODE_LSHIFT, SDLK_LSHIFT, SDL_KMOD_LSHIFT},
+                         {CTRL_DOWN, SDL_SCANCODE_LCTRL, SDLK_LCTRL, SDL_KMOD_LCTRL},
+                         {ALT_DOWN, SDL_SCANCODE_LALT, SDLK_LALT, SDL_KMOD_LALT}};
         SDL_Keymod mod = SDL_KMOD_NONE;
         for (const auto& modifier : modifiers)
-            if (binding->modifiers & modifier.flag)
-                mod |= modifier.mod;
+            if (binding->modifiers & modifier.flag) mod |= modifier.mod;
         const SDL_Keycode key = SDL_GetKeyFromScancode(scancode, SDL_KMOD_NONE, false);
         if (down) {
             for (const auto& modifier : modifiers)
@@ -419,9 +433,9 @@ class Game
             // Camp renders through SGP's CPU surface, without a world renderer.
             const auto& surface = GetFrameBufferSurface();
             std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
-            REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
-                                      surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,
-                                      pixels.data(), SCREEN_WIDTH * sizeof(unsigned)));
+            REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
+                                      surface.pitch, SDL_PIXELFORMAT_XRGB8888, pixels.data(),
+                                      SCREEN_WIDTH * sizeof(unsigned)));
             return pixels;
         }
         auto* surface = g_gerd->lockBuffer();
@@ -437,7 +451,7 @@ class Game
     unsigned long frames() const { return frames_; }
     static constexpr unsigned long long frame_us = 16'667;
 
-  private:
+private:
     void mouse_button(int x, int y, bool down)
     {
         int width = 0, height = 0;
@@ -472,13 +486,11 @@ class Game
 void Snapshot(const char* name, const std::vector<unsigned>& pixels)
 {
     const char* directory = SDL_getenv("WIZ8_RUNTIME_SNAPSHOT_DIR");
-    if (!directory)
-        return;
-    SDL_Surface* surface = SDL_CreateSurfaceFrom(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_PIXELFORMAT_XRGB8888,
-                                                 const_cast<unsigned*>(pixels.data()),
-                                                 SCREEN_WIDTH * 4);
-    if (!surface)
-        return;
+    if (!directory) return;
+    SDL_Surface* surface =
+        SDL_CreateSurfaceFrom(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_PIXELFORMAT_XRGB8888,
+                              const_cast<unsigned*>(pixels.data()), SCREEN_WIDTH * 4);
+    if (!surface) return;
     const std::string path = (fs::path(directory) / (std::string(name) + ".bmp")).string();
     SDL_SaveBMP(surface, path.c_str());
     SDL_DestroySurface(surface);
@@ -518,8 +530,9 @@ void MainMenuUiScenario()
 
 W8CharacterStatsPage* StatsPage()
 {
-    return g_character_screen ? static_cast<W8CharacterStatsPage*>(g_character_screen->m_pages[0].get())
-                              : nullptr;
+    return g_character_screen
+               ? static_cast<W8CharacterStatsPage*>(g_character_screen->m_pages[0].get())
+               : nullptr;
 }
 
 /* Spend a page's point pool through each entry's increment control until the
@@ -533,8 +546,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
             continue;
-        while (!complete && *entry->m_second < *entry->m_third)
-        {
+        while (!complete && *entry->m_second < *entry->m_third) {
             const int before = *entry->m_second;
             INFO(step);
             const auto bounds = entry->m_increment->Bounds();
@@ -568,18 +580,23 @@ std::string CreateCharacter(Game& game)
 
     W8CharacterStatsPage* stats = StatsPage();
     REQUIRE((stats->m_profession_row && stats->m_race_row && stats->m_gender_row));
-    { const auto bounds = stats->m_profession_row->m_increment->Bounds();
-      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
+    {
+        const auto bounds = stats->m_profession_row->m_increment->Bounds();
+        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+    }
     REQUIRE(game.within_frames(2, [&] { return stats->m_profession_row->m_index != -1; }));
-    { const auto bounds = stats->m_race_row->m_increment->Bounds();
-      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
+    {
+        const auto bounds = stats->m_race_row->m_increment->Bounds();
+        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+    }
     REQUIRE(game.within_frames(2, [&] { return stats->m_race_row->m_index != -1; }));
-    { const auto bounds = stats->m_gender_row->m_increment->Bounds();
-      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
+    {
+        const auto bounds = stats->m_gender_row->m_increment->Bounds();
+        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+    }
     REQUIRE(game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
-    REQUIRE((game.within_frames(2, [&] {
-        return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled;
-    })));
+    REQUIRE((game.within_frames(
+        2, [&] { return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled; })));
     SpendPool(game, "attributes", 0, g_character_screen->m_creation_state.attributes_complete);
 
     // The first profession is a non-caster, so Next skips the spell page.
@@ -606,8 +623,7 @@ std::string CreateCharacter(Game& game)
     game.click_at(616, 464);
     game.wait_screen("committed", W8_SCREEN_PARTY_SELECTION);
     const auto saved = game.user_root() / "Saves" / "Characters" / (name + ".CHR");
-    if (!fs::is_regular_file(saved))
-        Fail("saved", "missing " + saved.string());
+    if (!fs::is_regular_file(saved)) Fail("saved", "missing " + saved.string());
     REQUIRE(fs::file_size(saved) > 0);
     return name;
 }
@@ -622,13 +638,11 @@ void StartGame(Game& game)
 
     /* Confirm walks the screen's own steps: a party of fewer than six asks
        for confirmation, then the options page's Confirm runs the opening. */
-    for (int press = 0; press < 3 && g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION &&
-                        game.settled();
-         ++press)
-    {
+    for (int press = 0;
+         press < 3 && g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled();
+         ++press) {
         game.click_at(430, 447);
-        if (UiModalActive())
-            game.key(SDLK_RETURN);
+        if (UiModalActive()) game.key(SDLK_RETURN);
     }
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
@@ -662,15 +676,13 @@ void WaitMainGame(Game& game, const char* step)
 srVector3T<float> Settle(Game& game, const char* step)
 {
     srVector3T<float> last = PartyPosition();
-    for (int frame = 0, still = 0; frame < 600; ++frame)
-    {
+    for (int frame = 0, still = 0; frame < 600; ++frame) {
         game.frame();
         const srVector3T<float> now = PartyPosition();
         const float dy = now.y - last.y;
         still = HorizontalDistance(now, last) < 0.01f && std::abs(dy) < 0.01f ? still + 1 : 0;
         last = now;
-        if (still >= 5)
-            return now;
+        if (still >= 5) return now;
     }
     Fail(step, "party never settled");
 }
@@ -703,11 +715,11 @@ void StartPremadeGame(Game& game)
     ReachMainMenu(game);
     ResetForNewGame();
     W8Character character{};
-    REQUIRE(LoadCharacter("vi.CHR", &character, -1, false));
+    REQUIRE(LoadCharacter("vi.CHR", &character, -1));
     REQUIRE((character.record_version == 1 && character.uiExpLevel == 1));
     REQUIRE(character.name == "vi");
-    REQUIRE((character.iProfession == W8_PROFESSION_FIGHTER &&
-                           character.iRace == W8_RACE_HUMAN && character.gender == W8_GENDER_MALE));
+    REQUIRE((character.iProfession == W8_PROFESSION_FIGHTER && character.iRace == W8_RACE_HUMAN &&
+             character.gender == W8_GENDER_MALE));
     REQUIRE((character.hp_current == 18 && character.experience == 0));
     REQUIRE(AddCharacterToParty(character, -1) >= 0);
     REQUIRE(CountActiveCharacters() == 1);
@@ -716,15 +728,35 @@ void StartPremadeGame(Game& game)
 }
 
 // The formation layer must keep gameplay dragging independent of its artwork.
+/* The interface overlay's color at a point; zero where nothing is drawn. */
+int OverlayPixel(SDL_Point point)
+{
+    Uint8 r, g, b, a;
+    REQUIRE(SDL_ReadSurfacePixel(&GetFrameBufferSurface(), point.x, point.y, &r, &g, &b, &a));
+    return r | g | b;
+}
+
 void FormationUiScenario()
 {
     Game game(false);
     StartPremadeGame(game);
     const int slot = PremadeSlot();
     constexpr std::array<SDL_Point, 15> cell_offsets{{
-        {90, 28}, {61, 37}, {119, 37}, {152, 90}, {143, 61},
-        {143, 119}, {90, 152}, {119, 143}, {61, 143}, {28, 90},
-        {37, 119}, {37, 61}, {90, 72}, {72, 97}, {108, 97},
+        {90, 28},
+        {61, 37},
+        {119, 37},
+        {152, 90},
+        {143, 61},
+        {143, 119},
+        {90, 152},
+        {119, 143},
+        {61, 143},
+        {28, 90},
+        {37, 119},
+        {37, 61},
+        {90, 72},
+        {72, 97},
+        {108, 97},
     }};
     const auto center = [&](int cell) {
         return SDL_Point{214 + cell_offsets[cell].x + 16, 60 + cell_offsets[cell].y + 16};
@@ -771,8 +803,10 @@ void FormationUiScenario()
     OpenFormationPanel();
     game.frame();
     REQUIRE(gXStatus.fReviewCharacterMode);
+    REQUIRE(OverlayPixel({320, 180}));
     game.click_at(394, 276); // Cancel after re-entry.
     REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE(!OverlayPixel({320, 180})); // Closing erases the panel.
     REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
 }
 
@@ -802,8 +836,8 @@ void ExpectAt(const char* step, const srVector3T<float>& expected)
 {
     const srVector3T<float> now = PartyPosition();
     const float distance = HorizontalDistance(now, expected);
-    std::printf("%s: at (%g %g %g), expected (%g %g %g)\n", step, now.x, now.y, now.z,
-                expected.x, expected.y, expected.z);
+    std::printf("%s: at (%g %g %g), expected (%g %g %g)\n", step, now.x, now.y, now.z, expected.x,
+                expected.y, expected.z);
     if (!std::isfinite(distance) || !std::isfinite(now.y) || distance > 1.0f ||
         std::abs(now.y - expected.y) > 1.0f)
         Fail(step, "party restored " + std::to_string(distance) + " units from the save");
@@ -824,25 +858,21 @@ void VideoScenario(bool intro_seen)
     game.wait("logo-content", [&] {
         if (g_runtime_test_hooks.movie_frames_presented > 150)
             Fail("logo-content", "movie frames are black");
-        for (unsigned pixel : game.read_frame())
-            lit += (pixel & 0xf0f0f0) != 0;
+        for (unsigned pixel : game.read_frame()) lit += (pixel & 0xf0f0f0) != 0;
         return lit > 1000;
     });
     const unsigned logo_frames = g_runtime_test_hooks.movie_frames_presented;
     game.key(SDLK_ESCAPE);
-    if (!intro_seen)
-    {
+    if (!intro_seen) {
         // On a first launch, skipping the logo starts the title movie.
-        game.wait("title", [&] {
-            return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5;
-        });
+        game.wait("title",
+                  [&] { return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5; });
         REQUIRE(g_current_screen_state.id == W8_SCREEN_INTRO);
         game.key(SDLK_ESCAPE);
     }
     game.wait_screen("main-menu", W8_SCREEN_MAIN_MENU);
     REQUIRE(g_settings.intro_seen);
-    if (intro_seen)
-        REQUIRE(g_runtime_test_hooks.movie_frames_presented == logo_frames);
+    if (intro_seen) REQUIRE(g_runtime_test_hooks.movie_frames_presented == logo_frames);
     std::printf("video: %u movie frames presented\n", g_runtime_test_hooks.movie_frames_presented);
 }
 
@@ -855,11 +885,15 @@ void GameStartScenario()
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
     W8WorldCameraState now{};
-    game.wait("walk", [&] {
-        now = cameraState(*GetWorld());
-        const float dx = now.position.x - start.position.x, dz = now.position.z - start.position.z;
-        return std::sqrt(dx * dx + dz * dz) > 1.0f;
-    }, 20);
+    game.wait(
+        "walk",
+        [&] {
+            now = cameraState(*GetWorld());
+            const float dx = now.position.x - start.position.x,
+                        dz = now.position.z - start.position.z;
+            return std::sqrt(dx * dx + dz * dz) > 1.0f;
+        },
+        20);
     game.hold_key(SDLK_UP, false);
     std::printf("game-start: main game after %lu frames, walked to (%g %g %g)\n", game.frames(),
                 now.position.x, now.position.y, now.position.z);
@@ -889,7 +923,7 @@ void InventoryChestScenario()
     game.frame();
     REQUIRE(gXStatus.world_update_blocked);
     auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner.get());
-    REQUIRE_FALSE(picker->items.empty());
+    REQUIRE_FALSE(picker->entries.empty());
     const auto click_button = [&](int index) {
         auto& button = *picker->m_buttons[index];
         game.click_at(button.Bounds().x + button.Bounds().w / 2,
@@ -898,10 +932,10 @@ void InventoryChestScenario()
     // A full pool can still absorb part of an ammunition stack. The picker
     // must retain only the remainder, including after a second failed attempt.
     const auto pool = std::vector<W8ItemInstance>(std::begin(g_status.party_item_pool),
-                                                 std::end(g_status.party_item_pool));
+                                                  std::end(g_status.party_item_pool));
     const auto pool_count = g_status.party_item_count;
-    const auto original_item = picker->items.front()->item;
-    const auto picker_count = picker->items.size();
+    const auto original_item = picker->entries.front().item->item;
+    const auto picker_count = picker->entries.size();
     int stack_id = -1, nonstack_id = -1;
     for (unsigned i = 0; i < gXStatus.uiItemsInDatabase; ++i) {
         const auto& record = g_item_records[i];
@@ -909,12 +943,11 @@ void InventoryChestScenario()
             stack_id = i;
         else if (record.quantity_kind != W8_ITEM_QUANTITY_STACK)
             nonstack_id = i;
-        if (stack_id >= 0 && nonstack_id >= 0)
-            break;
+        if (stack_id >= 0 && nonstack_id >= 0) break;
     }
     REQUIRE(stack_id >= 0);
     REQUIRE(nonstack_id >= 0);
-    auto& remainder = picker->items.front()->item;
+    auto& remainder = picker->entries.front().item->item;
     ReplaceOrCreateItem(&remainder, stack_id, true, false, false);
     remainder.stack_count = 5;
     W8ItemInstance filler{};
@@ -924,10 +957,10 @@ void InventoryChestScenario()
     g_status.party_item_pool[0] = remainder;
     const auto maximum = g_item_records[stack_id].maximum_quantity;
     g_status.party_item_pool[0].stack_count = maximum - 2;
-    std::fill(picker->flags.begin(), picker->flags.end(), 0);
-    picker->flags.front() = 1;
+    for (auto& entry : picker->entries) entry.selected = false;
+    picker->entries.front().selected = true;
     click_button(1);
-    REQUIRE(picker->items.size() == picker_count);
+    REQUIRE(picker->entries.size() == picker_count);
     REQUIRE(g_status.party_item_count == 500);
     REQUIRE(g_status.party_item_pool[0].stack_count == maximum);
     REQUIRE(remainder.stack_count == 3);
@@ -937,7 +970,7 @@ void InventoryChestScenario()
     std::copy(pool.begin(), pool.end(), std::begin(g_status.party_item_pool));
     g_status.party_item_count = pool_count;
     RedistributePartyEncumbrance();
-    std::fill(picker->flags.begin(), picker->flags.end(), 0);
+    for (auto& entry : picker->entries) entry.selected = false;
     click_button(0); // Select all.
     click_button(1); // Take selected items into the party pool.
     game.wait("close-chest-picker", [] { return g_modal_owner == nullptr; });
@@ -965,8 +998,7 @@ void InventoryChestScenario()
     REQUIRE(g_pending_main_menu_message.empty());
     int potion_cell = -1;
     for (unsigned i = 0; i < std::min(8u, g_camp_screen->item_list_count); ++i)
-        if (g_camp_screen->item_list[i] == potion_slot)
-            potion_cell = i;
+        if (g_camp_screen->item_list[i] == potion_slot) potion_cell = i;
     REQUIRE(potion_cell >= 0);
     game.click_at(535 + (potion_cell & 1) * 49, 219 + (potion_cell >> 1) * 57);
     REQUIRE(g_status.item_in_cursor);
@@ -976,9 +1008,9 @@ void InventoryChestScenario()
     const auto rendered = game.read_frame();
     const auto& surface = GetFrameBufferSurface();
     std::vector<unsigned> expected(SCREEN_WIDTH * SCREEN_HEIGHT);
-    REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
-                              surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,
-                              expected.data(), SCREEN_WIDTH * sizeof(unsigned)));
+    REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
+                              surface.pitch, SDL_PIXELFORMAT_XRGB8888, expected.data(),
+                              SCREEN_WIDTH * sizeof(unsigned)));
     unsigned mismatches = 0;
     for (int y = 192; y < 417; ++y)
         for (int x : {11, 60, 512, 561})
@@ -995,17 +1027,20 @@ void InventoryChestScenario()
     Walk(game, "walk-after-inventory", 5);
     const auto start = PartyPosition();
     game.hold_key(SDLK_DOWN, true);
-    game.wait("walk-back-after-inventory", [&] {
-        return HorizontalDistance(PartyPosition(), start) > 5;
-    }, 20);
+    game.wait(
+        "walk-back-after-inventory", [&] { return HorizontalDistance(PartyPosition(), start) > 5; },
+        20);
     game.hold_key(SDLK_DOWN, false);
     W8WorldCameraState before{}, after{};
     before = cameraState(*GetWorld());
     game.hold_key(SDLK_LEFT, true);
-    game.wait("turn-left-after-inventory", [&] {
-        after = cameraState(*GetWorld());
-        return std::abs(after.yaw[0] - before.yaw[0]) > 0.1f;
-    }, 20);
+    game.wait(
+        "turn-left-after-inventory",
+        [&] {
+            after = cameraState(*GetWorld());
+            return std::abs(after.yaw[0] - before.yaw[0]) > 0.1f;
+        },
+        20);
     game.hold_key(SDLK_LEFT, false);
 }
 
@@ -1014,8 +1049,7 @@ void CheckWorldRender(Game& game)
     W8World* world = GetWorld();
     unsigned enabled = 0;
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
-        if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE))
-            ++enabled;
+        if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) ++enabled;
     REQUIRE(enabled > 0);
 
     // The same scene and UI with only the world pass switched off is the control.
@@ -1060,9 +1094,21 @@ void CheckGameplayUi(Game& game)
     REQUIRE((source >= 0 && source < 15));
     const int destination = ((position.bQuadrant + 1) % 5) * 3;
     constexpr std::array<SDL_Point, 15> cells{{
-        {90, 28}, {61, 37}, {119, 37}, {152, 90}, {143, 61},
-        {143, 119}, {90, 152}, {119, 143}, {61, 143}, {28, 90},
-        {37, 119}, {37, 61}, {90, 72}, {72, 97}, {108, 97},
+        {90, 28},
+        {61, 37},
+        {119, 37},
+        {152, 90},
+        {143, 61},
+        {143, 119},
+        {90, 152},
+        {119, 143},
+        {61, 143},
+        {28, 90},
+        {37, 119},
+        {37, 61},
+        {90, 72},
+        {72, 97},
+        {108, 97},
     }};
     game.drag({214 + cells[source].x, 60 + cells[source].y, 32, 32},
               {214 + cells[destination].x, 60 + cells[destination].y, 32, 32});
@@ -1128,7 +1174,7 @@ void CheckGameplayUi(Game& game)
     g_status.buffers.XChar[slot].portrait_advance = true;
     EnablePortraitAdvanceRegions();
     UpdatePortraitAdvanceButtons();
-    game.click_at( ((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
+    game.click_at(((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
     game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
     REQUIRE(g_character_screen->m_mode == 2);
     REQUIRE(g_character_screen->m_original == &g_status.buffers.Char[slot]);
@@ -1155,17 +1201,17 @@ void ResourceLifecycleScenario()
     for (int visit = 0; visit != 2; ++visit) {
         game.command(W8_MGS_COMMAND_AUTOMAP);
         game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
-        REQUIRE(g_automap_buttons.size() == 16);
+        REQUIRE(g_automap_buttons);
         for (int index = 0; index != 16; ++index) {
-            REQUIRE(g_automap_buttons[index]);
-            REQUIRE(g_automap_buttons[index]->Bounds().w > 0);
-            REQUIRE(g_automap_buttons[index]->Bounds().h > 0);
-            g_automap_buttons[index]->m_dirty = true;
-            g_automap_buttons[index]->Draw(GetFrameBufferSurface());
+            REQUIRE(g_automap_buttons->buttons[index]);
+            REQUIRE(g_automap_buttons->buttons[index]->Bounds().w > 0);
+            REQUIRE(g_automap_buttons->buttons[index]->Bounds().h > 0);
+            g_automap_buttons->buttons[index]->m_dirty = true;
+            g_automap_buttons->buttons[index]->Draw(GetFrameBufferSurface());
         }
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
-        REQUIRE(g_automap_buttons.empty());
+        REQUIRE(!g_automap_buttons);
     }
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
@@ -1209,6 +1255,15 @@ void ResourceLifecycleScenario()
     game.click_at(600, 450);
     game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
     REQUIRE(g_screen_return_stack.size() == return_depth);
+    // Returning re-arms the interface buttons; the roof buttons switch views.
+    const auto click_roof = [&](int index) {
+        const auto& bounds = g_main_game_state->hud_buttons.roof[index].Bounds();
+        game.click("roof-button", {bounds.x + bounds.w / 2, bounds.y + bounds.h / 2});
+    };
+    click_roof(2);
+    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
+    click_roof(0);
+    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS);
     REQUIRE((GetWorld() && GetWorld()->level));
 
     const int level = g_status.current_level;
@@ -1225,8 +1280,8 @@ void ResourceLifecycleScenario()
             if (model && !model->parts.empty()) ++linked;
             if (model && MeshHasAnimatedTexture(model)) ++animated;
         }
-        std::printf("resource-lifecycle: %u linked heads, %u animated textures\n",
-                    linked, animated);
+        std::printf("resource-lifecycle: %u linked heads, %u animated textures\n", linked,
+                    animated);
         REQUIRE(linked > 0);
         REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
@@ -1253,15 +1308,14 @@ void ResourceLifecycleScenario()
 
 /* The UI load test consumes the save written by the quick-save regression.
    Reusing that real saved game avoids another full runtime startup. */
-void WriteSaveFixture(const fs::path& output, const fs::path& save,
-                      const srVector3T<float>& anchor)
+void WriteSaveFixture(const fs::path& output, const fs::path& save, const srVector3T<float>& anchor)
 {
     fs::create_directories(output);
     fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
     std::ofstream metadata(output / "Fixture.txt");
-    metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
-             << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
-             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << ' '
+    metadata << std::setprecision(std::numeric_limits<float>::max_digits10) << anchor.x << ' '
+             << anchor.y << ' ' << anchor.z << ' ' << g_status.current_level << ' '
+             << g_status.buffers.Char[PremadeSlot()].experience << ' '
              << g_status.buffers.Char[PremadeSlot()].hp_current << '\n';
     metadata.close();
     REQUIRE(metadata);
@@ -1270,6 +1324,24 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save,
 }
 
 /* Quick save, walk away, quick load: the party is back where it saved. */
+/* Toggle combat and engage a live hostile monster, so the fight persists. */
+W8MonsterInfo* EnterCombat(Game& game)
+{
+    game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
+    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
+    REQUIRE(g_combat_state);
+    W8MonsterInfo* monster = GetNextMonsterInfo(true);
+    while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
+                       monster->ubDisposition != W8_DISPOSITION_HOSTILE)) {
+        monster = GetNextMonsterInfo(false);
+    }
+    REQUIRE(monster);
+    if (!monster->fInCombat) {
+        MonsterInfoEnterCombat(monster);
+    }
+    return monster;
+}
+
 void QuickSaveScenario()
 {
     Game game(false);
@@ -1277,7 +1349,7 @@ void QuickSaveScenario()
     const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
     const int level = g_status.current_level;
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
-    const int health = g_status.buffers.Char[PremadeSlot()].hp_current;
+    const auto health = g_status.buffers.Char[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
     const fs::path save = QuickSave(game);
     WriteSaveFixture(WIZ8_RUNTIME_SAVE_FIXTURE, save, anchor);
@@ -1287,6 +1359,8 @@ void QuickSaveScenario()
     // the character record, not just reposition the party.
     g_status.buffers.Char[PremadeSlot()].experience = experience + 123;
     g_status.buffers.Char[PremadeSlot()].hp_current = health - 1;
+    // Loading ends the fight while the main game is suspended.
+    EnterCombat(game);
 
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     bool loading = false;
@@ -1300,8 +1374,9 @@ void QuickSaveScenario()
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
-    std::printf("quick-save: %s round-tripped after %lu frames\n",
-                save.filename().string().c_str(), game.frames());
+    REQUIRE(!gXStatus.fCombatMode);
+    std::printf("quick-save: %s round-tripped after %lu frames\n", save.filename().string().c_str(),
+                game.frames());
 }
 
 /* Main menu -> Load Game -> the fixture save -> its party and position. */
@@ -1354,8 +1429,8 @@ void LoadGameScenario(const fs::path& fixture)
 bool DialogueAwaitingPlayer()
 {
     return gXStatus.fNpcDialogueMode && !IsNpcScriptSessionActive() &&
-           IsMessageBoxLineQueueEmpty() && g_npc_scripting.reply == W8NpcReplyState::none &&
-           g_modal_owner == nullptr;
+           !g_npc_dialogue.has_queued_actions() &&
+           g_npc_dialogue.reply() == W8NpcReplyState::none && g_modal_owner == nullptr;
 }
 
 /* A voiced line ends only when its stream drains, which the offscreen run
@@ -1363,10 +1438,10 @@ bool DialogueAwaitingPlayer()
 void WaitDialogue(Game& game, const char* step, const std::function<bool()>& ready)
 {
     game.wait(step, [&] {
-        if (ready())
-            return true;
-        if (g_npc_scripting.speech.voice_playing && g_modal_owner == nullptr)
+        if (ready()) return true;
+        if (IsNpcVoicePlaying() && g_modal_owner == nullptr) {
             game.key(SDLK_ESCAPE);
+        }
         return false;
     });
 }
@@ -1399,7 +1474,8 @@ void ChooseFirstReply(Game& game, const char* step)
     for (const int y : {214, 219}) {
         for (int x = 0; x < 640; ++x) {
             auto* target = UiTargetAt({x, y});
-            if (target && target->bounds().h <= 24 && (!first || target->bounds().x < first->bounds().x))
+            if (target && target->bounds().h <= 24 &&
+                (!first || target->bounds().x < first->bounds().x))
                 first = target;
         }
     }
@@ -1413,10 +1489,10 @@ void ChooseFirstReply(Game& game, const char* step)
 void BuyAnswer(Game& game, const char* step, W8FactId fact)
 {
     WaitDialogue(game, step, [] {
-        return g_modal_owner != nullptr && g_npc_scripting.price_check.has_value();
+        return g_modal_owner != nullptr && g_npc_dialogue.price_check().has_value();
     });
     const unsigned gold = g_status.party_gold;
-    const int price = g_npc_scripting.price_check->price;
+    const int price = g_npc_dialogue.price_check()->price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
@@ -1432,14 +1508,12 @@ void SayFarewell(Game& game, const char* step)
     REQUIRE(DialogueAwaitingPlayer());
     game.key(SDLK_ESCAPE);
     game.wait(step, [&] {
-        if (!gXStatus.fNpcDialogueMode)
-            return true;
-        if (IsNpcScriptSessionActive())
-            game.key(SDLK_ESCAPE);
+        if (!gXStatus.fNpcDialogueMode) return true;
+        if (IsNpcScriptSessionActive()) game.key(SDLK_ESCAPE);
         return false;
     });
     WaitMainGame(game, step);
-    REQUIRE(IsMessageBoxLineQueueEmpty());
+    REQUIRE(!g_npc_dialogue.has_queued_actions());
 }
 
 /* A conversation with Burz, the merchant beside the starting area: the
@@ -1489,24 +1563,19 @@ void NpcDialogueScenario()
     std::printf("npc-dialogue: two visits after %lu frames\n", game.frames());
 }
 
-/* Combat through its key bindings: enter, run a defended round, kill a
-   monster, leave. */
+/* Dismiss the quit prompt, then combat through its key bindings and End Turn
+   button: enter, run a defended round, kill a monster, leave. */
 void CombatScenario()
 {
     Game game(false);
     StartPremadeGame(game);
     Settle(game, "settle");
-    game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
-    REQUIRE(g_combat_state);
-
-    W8MonsterInfo* monster = GetNextMonsterInfo(true);
-    while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
-                       monster->ubDisposition != W8_DISPOSITION_HOSTILE))
-        monster = GetNextMonsterInfo(false);
-    REQUIRE(monster);
-    if (!monster->fInCombat)
-        MonsterInfoEnterCombat(monster);
+    // A closed dialog erases itself from the interface overlay.
+    game.key(SDLK_ESCAPE);
+    REQUIRE(game.within_frames(4, [] { return g_modal_owner && OverlayPixel({320, 240}); }));
+    game.key(SDLK_ESCAPE);
+    REQUIRE(game.within_frames(4, [] { return !g_modal_owner && !OverlayPixel({320, 240}); }));
+    W8MonsterInfo* monster = EnterCombat(game);
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
     const int kills = g_status.buffers.Char[PremadeSlot()].kill_count;
     const unsigned reward = GetMonsterExperience(GetMonsterDataForInfo(monster));
@@ -1516,7 +1585,9 @@ void CombatScenario()
         if (g_status.buffers.XChar[slot].fOccupied)
             ChooseAction(slot, W8_ACTION_DEFEND, -1, nullptr, false, 1);
     const unsigned round = g_combat_state->round_count;
-    game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
+    // Interface buttons take input again after the level load.
+    const auto& end_turn = g_main_game_state->hud_buttons.combat_stance[0].Bounds();
+    game.click("end-turn", {end_turn.x + end_turn.w / 2, end_turn.y + end_turn.h / 2});
     REQUIRE((g_combat_state && g_combat_state->round_count == round + 1));
     game.wait("round", [&] {
         REQUIRE(g_combat_state);
@@ -1533,10 +1604,9 @@ void CombatScenario()
     // Resolve by ID after death/cleanup rather than relying on a retained pointer.
     const W8MonsterInfo* dead = FindMonster(monster_id, false);
     REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
-                                dead->uiCondition[W8_CONDITION_DEAD] != 0));
+             dead->uiCondition[W8_CONDITION_DEAD] != 0));
 
-    if (gXStatus.fCombatMode)
-        game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
+    if (gXStatus.fCombatMode) game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
     game.wait("leave-combat", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE(!g_combat_state);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience + reward);
@@ -1548,6 +1618,8 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE(!g_combat_state);
+    // Shutting down mid-fight ends it before the interface is released.
+    EnterCombat(game);
     std::printf("combat: round, kill and exit after %lu frames\n", game.frames());
 }
 
@@ -1556,15 +1628,13 @@ void CombatScenario()
 static void RequireAssets()
 {
     const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
-    if (!assets || !fs::is_directory(assets))
-        SKIP("WIZ8_ASSET_ROOT is not set");
+    if (!assets || !fs::is_directory(assets)) SKIP("WIZ8_ASSET_ROOT is not set");
     g_logged_errors.clear();
 }
 
 static void CheckGameErrors()
 {
-    for (const auto& message : g_logged_errors)
-        UNSCOPED_INFO(message);
+    for (const auto& message : g_logged_errors) UNSCOPED_INFO(message);
     REQUIRE(g_logged_errors.empty());
 }
 

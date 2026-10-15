@@ -1,12 +1,13 @@
 #pragma once
 
 #include <source_location>
-#include "surrender/srMath.h"
-#include "surrender/srTypeRegistry.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/engine_code/game_timer.h"
+
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "surrender/srMath.h"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/sr_api.h"
 
 class stLight;
 struct W8Item;
@@ -14,7 +15,9 @@ class W8Prop;
 class Trigger;
 struct W8World;
 struct W8WorldItem;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Timed Trigger actions are ordinary polymorphic objects owned by Trigger.cpp.
    The 0x38-byte event owns its embedded timer, but not m_pCountdown;
@@ -183,10 +186,7 @@ class Trigger : public srClassSupport<Trigger, srClass, 0x10008> {
 public:
     typedef bool(__cdecl* ActivationCallback)(Trigger* trigger);
 
-    static const char* sGetClassName()
-    {
-        return "Trigger";
-    }
+    static const char* sGetClassName() { return "Trigger"; }
 
     Trigger();
     virtual ~Trigger() override;
@@ -297,7 +297,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger);
 
 Trigger* FindTriggerByName(const char* name);
 Trigger* FindRequiredTriggerByName(const char* name,
-    std::source_location caller = std::source_location::current());
+                                   std::source_location caller = std::source_location::current());
 
 inline void RunNamedTrigger(const char* name, int source)
 {

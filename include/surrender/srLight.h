@@ -10,8 +10,7 @@
 
 // VTABLE: SURRENDER 0x100770B8 srVertexProcessor
 // VTABLE: SURRENDER 0x100770C4 srLight
-class SR_DLL_IMPORT srLight
-    : public srClassSupport<srLight, srIlluminator, 0x1220> {
+class SR_DLL_IMPORT srLight : public srClassSupport<srLight, srIlluminator, 0x1220> {
 public:
     enum e_preset { PRESET_DIRECTIONAL = 0, PRESET_POINT = 1, PRESET_SPOT = 2 };
 
@@ -38,10 +37,7 @@ public:
     srLight& operator=(const srLight& other);
 
     // FUNCTION: SURRENDER 0x1004E8F0
-    static const char* sGetClassName()
-    {
-        return "srLight";
-    }
+    static const char* sGetClassName() { return "srLight"; }
 
     virtual void dump(std::ostream& stream) override;
 

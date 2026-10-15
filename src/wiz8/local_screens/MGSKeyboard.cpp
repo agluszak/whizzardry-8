@@ -1,34 +1,47 @@
-#include <SDL3/SDL_mouse.h>
-#include "wiz8/local_code/ButtonSound.h"
-#include <SDL3/SDL_rect.h>
-#include <fmt/format.h>
+#include "wiz8/local_screens/MGSKeyboard.h"
+
+#include <algorithm>
 #include <array>
+#include <cstdint>
+#include <exception>
 #include <memory>
 #include <optional>
-#include <utility>
-#include <exception>
 #include <string>
+#include <utility>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/MGSKeyboard.h"
+#include <SDL3/SDL_endian.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <fmt/format.h>
+
+#include "camera_motion.h"
 #include "input.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
+#include "layouts/screen_state.h"
+#include "layouts/targeting.h"
+#include "mgs_commands.h"
+#include "surrender/srMath.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
+#include "wiz8/key_bindings.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/button_interaction.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/catalog_artwork.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -36,14 +49,14 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/mipe.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -53,20 +66,14 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/local_screens/mipe.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/text_input.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/version.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/filesystem.h"
-#include "camera_motion.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/npc_dialogue.h"
-#include "layouts/screen_state.h"
-#include "layouts/targeting.h"
-#include "mgs_commands.h"
-#include "surrender/srMath.h"
 
 struct W8ItemInstance;
 
@@ -82,127 +89,113 @@ MGSKeyboard* g_mgs_keyboard;
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
-    for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->command == command) {
-            return index;
-        }
-    }
-    return -1;
+    const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
+    return found == m_bindings.end() ? -1 : static_cast<int>(found - m_bindings.begin());
 }
 
 // FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
-    for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->active != 0 && event->type == InputEventType::KeyDown &&
-            binding->modifiers == event->modifiers &&
-            binding->key == event->key) {
-            return binding->command;
-        }
-    }
+    if (event->type != InputEventType::KeyDown || event->key == SDLK_UNKNOWN)
+        return W8_MGS_COMMAND_NONE;
+    for (const auto& binding : m_bindings)
+        if (binding.active && binding.key == event->key && binding.modifiers == event->modifiers)
+            return binding.command;
     return W8_MGS_COMMAND_NONE;
 }
 
 // FUNCTION: WIZ8 0x0055d300
-MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
+MGSKeyBinding* MGSKeyboard::GetBinding(int index)
 {
     if (index < 0 || m_bindings.empty()) {
         return nullptr;
     }
     // Preserve the binding table's fallback to its first entry.
     if (std::cmp_greater_equal(index, m_bindings.size())) {
-        return m_bindings.front().get();
+        return &m_bindings.front();
     }
-    return m_bindings[index].get();
+    return &m_bindings[index];
 }
 
 // FUNCTION: WIZ8 0x0055d320
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
-    const auto found = m_command_index.find(command);
-    if (found == m_command_index.end()) {
-        return false;
-    }
-    const auto* binding = found->second;
-    if (IsKeyHeld(binding->key)) {
-        unsigned short modifiers = 0;
-        if (IsKeyHeld(VK_SHIFT)) {
-            modifiers |= SHIFT_DOWN;
-        }
-        if (IsKeyHeld(VK_MENU)) {
-            modifiers |= ALT_DOWN;
-        }
-        if (IsKeyHeld(VK_CONTROL)) {
-            modifiers |= CTRL_DOWN;
-        }
-        if (modifiers == binding->modifiers) {
-            return true;
-        }
-    }
-    return false;
+    const int index = FindBinding(command);
+    return index >= 0 && IsKeyHeld(m_bindings[index].key) &&
+           m_bindings[index].modifiers == GetInputState().modifiers;
 }
 
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale
    presses do not fire against the freshly entered screen state. */
 // FUNCTION: WIZ8 0x0055D3C0
-void DrainInputEventQueue(void)
+void DrainInputEventQueue()
 {
-    InputEvent event;
-
-    while (DequeueEvent(&event)) {
+    while (PollInputEvent()) {
     }
 }
 
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    m_command_index.clear();
     m_bindings.clear();
 }
 
+void MGSKeyboard::SetBinding(MGSKeyBinding binding)
+{
+    const int index = FindBinding(binding.command);
+    if (index >= 0) m_bindings.erase(m_bindings.begin() + index);
+    m_bindings.push_back(binding);
+}
+
+namespace {
+// Exact retail layout at the file boundary; runtime bindings have normal C++ layout.
+#pragma pack(push, 1)
+struct RetailKeyBinding {
+    std::uint16_t key;
+    std::uint16_t modifiers;
+    std::uint16_t active;
+    std::uint32_t command;
+};
+#pragma pack(pop)
+static_assert(sizeof(RetailKeyBinding) == 10);
+} // namespace
+
 // FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
-try
-{
-    int count;
-
-    if (clear) {
-        Clear();
-    }
+try {
+    if (clear) Clear();
+    std::uint32_t count;
     handle.read_exact(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
-        auto binding = std::make_unique<MGSKeyBinding>();
-        handle.read_exact(binding.get(), sizeof(*binding));
-
-        int old_index = FindBinding(binding->command);
-        if (old_index != -1) {
-            m_command_index.erase(binding->command);
-            m_bindings.erase(m_bindings.begin() + old_index);
-        }
-        auto* borrowed = binding.get();
-        m_bindings.push_back(std::move(binding));
-        // Copy the packed disk field before unordered_map binds its arguments.
-        m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
+    count = SDL_Swap32LE(count);
+    if (count > (handle.size() - handle.tell()) / sizeof(RetailKeyBinding)) return false;
+    for (std::uint32_t index = 0; index < count; ++index) {
+        RetailKeyBinding record;
+        handle.read_exact(&record, sizeof(record));
+        const auto retail_key = SDL_Swap16LE(record.key);
+        const auto key = KeyFromRetailBinding(retail_key);
+        SetBinding({key, SDL_Swap16LE(record.modifiers), SDL_Swap16LE(record.active),
+                    static_cast<W8MGSCommand>(SDL_Swap32LE(record.command)),
+                    key == SDLK_UNKNOWN ? retail_key : std::uint16_t(0)});
     }
-    return 1;
+    return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
-    int count = static_cast<int>(m_bindings.size());
+    const auto count = SDL_Swap32LE(static_cast<std::uint32_t>(m_bindings.size()));
     handle.write(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
-        handle.write(m_bindings[index].get(), sizeof(MGSKeyBinding));
+    for (const auto& binding : m_bindings) {
+        const RetailKeyBinding record{SDL_Swap16LE(binding.key == SDLK_UNKNOWN
+                                                       ? binding.unmapped_retail_key
+                                                       : KeyToRetailBinding(binding.key)),
+                                      SDL_Swap16LE(binding.modifiers), SDL_Swap16LE(binding.active),
+                                      SDL_Swap32LE(static_cast<std::uint32_t>(binding.command))};
+        handle.write(&record, sizeof(record));
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00592BE0
@@ -216,7 +209,6 @@ void ResetMGSKeyboardBindings()
     g_mgs_keyboard->LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
 }
 
-
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
    box consume key presses first; the MIPE editor and the record-mode console
    gate on their flags; everything else resolves to a bound MGS command.
@@ -228,7 +220,8 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
     if (IsTypingEvent(*input) && text_fields && text_fields->HandleInput(*input)) {
         return 1;
     }
-    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) && gXStatus.fNpcDialogueMode) {
+    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
+        gXStatus.fNpcDialogueMode) {
         HandleNpcDialogueKeyEvent(input);
         return 1;
     }
@@ -240,7 +233,8 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
         return 1;
     }
     if (IsRecordModeActive()) {
-        if (!IsKeyHeld(VK_CONTROL) && HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
+        if (((GetInputState().modifiers & CTRL_DOWN) == 0) &&
+            HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
             ApplyRecordModeLine();
             return 1;
         }
@@ -281,7 +275,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                     return;
                 }
             }
-            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true, true);
+            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true,
+                                   true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
         break;
@@ -634,14 +629,15 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_DEBUG_INJECT_CLICK:
         if (IsCursorImageInsideViewport()) {
             const SDL_Point position = GetGameMousePosition();
-            QueueEvent(InputEventType::LeftButtonDown, position);
-            QueueEvent(InputEventType::LeftButtonUp, position);
+            PostInputEvent({.type = InputEventType::LeftButtonDown, .position = position});
+            PostInputEvent({.type = InputEventType::LeftButtonUp, .position = position});
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
         g_settings.auto_advance_character ^= 1;
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
+        ShowNotice(
+            W8_FONT_PALETTE_BEIGE,
+            g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);
@@ -715,8 +711,8 @@ void OpenKeyboardMenuForSlot(int slot)
     gXStatus.monster_manager_entries[slot].keyboard_menu_open = true;
     DisableMainGamePortraitSlot(slot);
 
-    g_main_input->edge_targets[slot]->setEnabled(false);
-    g_main_input->combat_targets[slot]->setEnabled(false);
+    g_main_game_state->edge_targets[slot]->setEnabled(false);
+    g_main_game_state->combat_targets[slot]->setEnabled(false);
     EnableKeyboardMenuInput();
     RequestRedraw(1 << slot);
 }
@@ -731,17 +727,15 @@ void CloseKeyboardMenu(void)
     g_level_block->cursor_grace = 0;
     RefreshPartySlotRegions();
     if (gXStatus.fCombatMode) {
-        g_main_input->combat.setEnabled(true);
+        g_main_game_state->combat.setEnabled(true);
     } else {
-        g_main_input->combat.setEnabled(false);
+        g_main_game_state->combat.setEnabled(false);
     }
     if (keyboard_menu && g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
         ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52,
-                         keyboard_menu->origin.y + 0x4a);
+                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
         InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52,
-                         keyboard_menu->origin.y + 0x4a);
+                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
     }
     keyboard_menu.reset();
     RequestRedraw(1 << g_selected_party_slot);
@@ -777,14 +771,14 @@ unsigned char BuildKeyboardMenu(void)
          KeyboardMenuSelectTurnUndead, KeyboardMenuSelectPray},
         {KeyboardMenuSelectDefend, KeyboardMenuSelectProtect},
         {KeyboardMenuSelectEquip, KeyboardMenuOpenUseItemView, KeyboardMenuUseRecordedItem},
-        {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}
-    };
+        {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}};
     int index = 0;
-    for (int menu = 0; menu < 4; ++menu) for (int item = 0; item < 5; ++item) {
-        if (g_submenu_entry_message_ids[menu * 5 + item] == -1) continue;
-        keyboard_menu->rows[index].menu = menu;
-        keyboard_menu->rows[index++].item = item;
-    }
+    for (int menu = 0; menu < 4; ++menu)
+        for (int item = 0; item < 5; ++item) {
+            if (g_submenu_entry_message_ids[menu * 5 + item] == -1) continue;
+            keyboard_menu->rows[index].menu = menu;
+            keyboard_menu->rows[index++].item = item;
+        }
     for (int i = 0; i < 13; ++i) {
         auto& row = keyboard_menu->rows[i];
         row.target = &keyboard_menu->input.add(
@@ -792,7 +786,7 @@ unsigned char BuildKeyboardMenu(void)
                      top + g_keyboard_row_positions[i].y, 19, 19},
             [&row](const UiPointerEvent& event) {
                 keyboard_menu->dirty = true;
-                const ButtonPolicy policy{.controller_activation = true};
+                const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
@@ -802,12 +796,14 @@ unsigned char BuildKeyboardMenu(void)
                     PushButtonSoundScheme(0, true);
                     return UiResult::Handled;
                 }
-                const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+                const auto mask =
+                    event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
                 if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
                 if (event.action == UiPointerAction::Up && event.inside &&
                     (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
                     auto action = event.button == UiPointerButton::Right || row.menu == -1
-                        ? CloseKeyboardMenu : actions[row.menu][row.item];
+                                      ? CloseKeyboardMenu
+                                      : actions[row.menu][row.item];
                     if (action) AfterUiDispatch(action);
                 }
                 return UiResult::Handled;
@@ -816,8 +812,8 @@ unsigned char BuildKeyboardMenu(void)
     }
     keyboard_menu->rows[12].appearance.quick_image = ButtonGraphics::Load(
         CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
-    keyboard_menu->input.add(SDL_Rect{left + 0x17, top, 0x53, 0x4b},
-        [](const UiPointerEvent& event) {
+    keyboard_menu->input.add(
+        SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
             if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
                 AfterUiDispatch(CloseKeyboardMenu);
             return UiResult::Handled;
@@ -847,19 +843,34 @@ void RefreshKeyboardMenuRows(void)
         int hover = base + 2;
         row.enabled = true;
         switch (GetSubMenuEntryState(row.menu, row.item, g_selected_party_slot)) {
-        case W8_SUBMENU_ENTRY_USABLE: break;
-        case W8_SUBMENU_ENTRY_USABLE_SELECTED: normal += 1; break;
-        case W8_SUBMENU_ENTRY_UNUSABLE: normal += 3; hover += 3; break;
-        case W8_SUBMENU_ENTRY_UNUSABLE_SELECTED: normal += 4; hover += 3; break;
-        case W8_SUBMENU_ENTRY_UNAVAILABLE: row.enabled = false; break;
+        case W8_SUBMENU_ENTRY_USABLE:
+            break;
+        case W8_SUBMENU_ENTRY_USABLE_SELECTED:
+            normal += 1;
+            break;
+        case W8_SUBMENU_ENTRY_UNUSABLE:
+            normal += 3;
+            hover += 3;
+            break;
+        case W8_SUBMENU_ENTRY_UNUSABLE_SELECTED:
+            normal += 4;
+            hover += 3;
+            break;
+        case W8_SUBMENU_ENTRY_UNAVAILABLE:
+            row.enabled = false;
+            break;
         }
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
-            offset = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
+            offset =
+                g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
-            offset = GetAttackMenuWeaponOffset(g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) * 7;
-        row.appearance.quick_image = ButtonGraphics::Load(art.spriteSheet(), base + 6,
-            normal + offset, hover + offset, normal + offset, hover + offset);
+            offset = GetAttackMenuWeaponOffset(
+                         g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) *
+                     7;
+        row.appearance.quick_image =
+            ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
+                                 normal + offset, hover + offset);
     }
     keyboard_menu->dirty = true;
 }
@@ -872,10 +883,13 @@ void RedrawKeyboardMenuPanel(bool invalidate)
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
     for (int index = 0; index < 13; ++index) {
         const auto& row = keyboard_menu->rows[index];
-        DrawButtonAppearance(target, row.appearance,
+        DrawButtonAppearance(
+            target, row.appearance,
             {x + g_keyboard_row_positions[index].x, y + g_keyboard_row_positions[index].y, 18, 18},
-            {.enabled = row.enabled, .pressed = row.press.pressed,
-             .hovered = row.target->hovered(), .menu_artwork = true});
+            {.enabled = row.enabled,
+             .pressed = row.press.pressed,
+             .hovered = row.target->hovered(),
+             .menu_artwork = true});
     }
     keyboard_menu->dirty = false;
 }

@@ -1,11 +1,11 @@
 #pragma once
 
+#include "compat/compiler.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "compat/compiler.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 /* Shared storage for the attribute-information dialogs and the skill info
    dialog. */
@@ -13,17 +13,19 @@
 class W8StatInfoDialogBase : public W8DialogBase {
 public:
     W8StatInfoDialogBase();
-    virtual int CreateControls() override;
     virtual void Draw(SDL_Surface& target) override;
+    bool TakeDirty() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
     virtual void DrawTitle(SDL_Surface& target);
     virtual bool PopulateText();
 
 protected:
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
-
-    W8DialogScrollBar scrollbar{InputLayer()};
+    void Configure();
+    W8DialogScrollBar scrollbar{InputLayer(),
+                                {"Data\\Main Interface\\main_scroll.sti",
+                                 "Data\\Dialogs\\popup_monsterinfo.sti", 1,
+                                 [this](int first) { ScrollTextArea(textarea, first); }}};
     W8ButtonWidget button{InputLayer()};
     W8DialogTextArea textarea;
     unsigned int m_title_id;  /* g_localized_strings index, DrawTitle */

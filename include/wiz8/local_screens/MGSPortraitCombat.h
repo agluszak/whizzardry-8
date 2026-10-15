@@ -52,7 +52,7 @@ extern short g_submenu_entry_message_ids[25];
 extern int g_submenu_entry_help_ids[25];
 
 /* Create the nine-button bank and keep its state flag clear. */
-unsigned char CreateSubMenuButtons(void);
+void CreateSubMenuButtons();
 /* Restate one bank button against the live mode flags. */
 void UpdateSubMenuButton(int index);
 /* Drop the combat-end notification, rebuild the panel for the saved one. */

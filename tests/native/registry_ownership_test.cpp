@@ -1,12 +1,13 @@
-#include <catch2/catch_test_macros.hpp>
 #include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
 
-#include "surrender/srTypeRegistry.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "compat/compiler.h"
 #include "surrender/srCore.h"
+#include "surrender/srTypeRegistry.h"
 
 // The focused fixture can link just type_registry.cpp while the rest of SurRender is changing.
 // Without this define, it uses the normal library initialization and shutdown.
@@ -26,14 +27,16 @@ int __cdecl srExit()
     srCore.registry_.reset();
     return 1;
 }
-w8_long __cdecl srDebugPrintf(w8_ulong, const char*, ...) { return 0; }
+w8_long __cdecl srDebugPrintf(w8_ulong, const char*, ...)
+{
+    return 0;
+}
 void __cdecl srAssertFail(const char* expression, const char* path, w8_long line, const char*, ...)
 {
     std::fprintf(stderr, "%s:%d: %s\n", path, line, expression);
     std::abort();
 }
 #endif
-
 
 namespace {
 struct Registered : srClassSupport<Registered, srClass, 0x7ff001> {
@@ -73,7 +76,8 @@ void class_tree()
         std::string name = "owned-class-" + std::to_string(id);
         nodes.push_back(registry.registerClass(name.c_str(), root, id));
         name.assign("changed producer buffer");
-        REQUIRE((std::string(registry.getClassName(nodes.back())) == "owned-class-" + std::to_string(id)));
+        REQUIRE((std::string(registry.getClassName(nodes.back())) ==
+                 "owned-class-" + std::to_string(id)));
         REQUIRE((registry.getClassNode(1) == nodes.front()));
         REQUIRE((registry.registerClass("ignored duplicate ID", root, id) == nodes.back()));
         REQUIRE((root->children.front() == nodes.back()));
@@ -99,7 +103,8 @@ TEST_CASE("registry_ownership_test")
         REQUIRE((srInit()));
         REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == nullptr));
         names();
-        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == Registered::sGetClassNode()));
+        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) ==
+                 Registered::sGetClassNode()));
         REQUIRE((srExit()));
     }
     std::puts("ok: registry class tree, owned names, teardown");

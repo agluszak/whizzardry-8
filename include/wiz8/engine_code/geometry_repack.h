@@ -5,10 +5,11 @@
 #include <memory>
 #include <ranges>
 #include <span>
-#include <vector>
 #include <type_traits>
-#include "wiz8/engine_code/OctPreTree.h"
+#include <vector>
+
 #include "wiz8/engine_code/OctBuildPreTree.h"
+#include "wiz8/engine_code/OctPreTree.h"
 
 namespace geometryRepack {
 using CornerIndices = std::array<w8_ulong, 3>;
@@ -35,8 +36,7 @@ std::vector<Record> compactTable(std::span<const Record> records, Keep keep)
 }
 
 inline void repointCorners(std::span<W8OctRegionPolygon> polygons,
-                           std::span<const CornerIndices> indices,
-                           W8OctPreTreeVertex* vertices)
+                           std::span<const CornerIndices> indices, W8OctPreTreeVertex* vertices)
 {
     for (std::size_t face = 1; face < polygons.size(); ++face)
         for (unsigned corner = 0; corner < 3; ++corner)

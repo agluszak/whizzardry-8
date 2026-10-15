@@ -1,11 +1,12 @@
 #pragma once
 
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <optional>
 #include <span>
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "wiz8/surface_storage.h"
 

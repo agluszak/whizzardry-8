@@ -2,15 +2,15 @@
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
-#include "wiz8/audio_resources.h"
-#include "timer.h"
-
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include <array>
 #include <memory>
 #include <vector>
+
+#include "timer.h"
+#include "wiz8/audio_resources.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
 
 struct W8Character;
 
@@ -29,7 +29,7 @@ enum W8CharacterEventFlag {
        event and dispatch immediately; this bit queues them normally. */
     W8_EVENT_NO_PREEMPT = 0x20,
     /* The event is an NPC-script line: Dispatch reloads the NPC's script
-       resources around RunNpcScriptLine and Complete skips the item notice. */
+       resources around W8NpcDialogue::Speak and Complete skips the item notice. */
     W8_EVENT_NPC_SCRIPT = 0x40
 };
 

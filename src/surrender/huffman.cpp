@@ -1,18 +1,19 @@
+#include <algorithm>
+#include <cstring>
+#include <iterator>
+#include <limits>
+#include <stdexcept>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 #include <SDL3/SDL_endian.h>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_stdinc.h>
-#include <algorithm>
-#include <limits>
-#include <utility>
-#include <cstring>
-#include <iterator>
-#include <stdexcept>
-#include <unordered_map>
-#include <vector>
 
-#include "surrender/srHuffman.h"
 #include "compat/compiler.h"
+#include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
 
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
@@ -81,13 +82,11 @@ srHuffman::BitIStream::BitIStream(SDL_IOStream* stream)
         throw std::out_of_range("Invalid Huffman cursor or length");
     bit_begin = bit_pos = position * 8;
     bit_end = size * 8;
-
 }
 
 void srHuffman::BitIStream::requireBits(w8_ulong bits) const
 {
-    if (bits > bit_end - bit_pos)
-        throw std::out_of_range("Truncated Huffman bits");
+    if (bits > bit_end - bit_pos) throw std::out_of_range("Truncated Huffman bits");
 }
 
 // FUNCTION: SURRENDER 0x100010E0
@@ -146,7 +145,10 @@ srHuffman::BitOStream::BitOStream(SDL_IOStream* stream)
 // FUNCTION: SURRENDER 0x10001730
 srHuffman::BitOStream::~BitOStream()
 {
-    try { flush(); } catch (...) { /* Explicit flush reports failures to the caller. */ }
+    try {
+        flush();
+    } catch (...) { /* Explicit flush reports failures to the caller. */
+    }
 }
 
 // FUNCTION: SURRENDER 0x10001760

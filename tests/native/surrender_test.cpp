@@ -1,38 +1,38 @@
-#include "glm/ext/vector_int3.hpp"
-#include <stdexcept>
 #include <array>
-#include <vector>
-#include <span>
-#include "surrender/triangle_selection.h"
-#include "compat/compiler.h"
-#include "glm/ext/vector_double3.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_transform.hpp>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <numbers>
 #include <random>
+#include <span>
+#include <stdexcept>
 #include <type_traits>
-#include <cstdlib>
+#include <vector>
 
+#include <catch2/catch_test_macros.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/mat3x3.hpp> // IWYU pragma: keep - public generic-matrix entry point.
+
+#include "compat/compiler.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
-#include <glm/mat3x3.hpp> // IWYU pragma: keep - public generic-matrix entry point.
-#include "surrender/srClipPlane.h"
 #include "surrender/srCamera.h"
+#include "surrender/srClipPlane.h"
 #include "surrender/srCore.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
 #include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srVertexPipe.h"
-#include "surrender/srNode.h"
-#include "glm/fwd.hpp"
+#include "surrender/triangle_selection.h"
 
-
-template <class T>
+template<class T>
 constexpr bool noncopyable = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>;
 
 static_assert(noncopyable<srVertexPipe>);
@@ -44,9 +44,11 @@ struct Node : srNode {
     using srNode::srNode;
 };
 
-template <class T> static bool rotations()
+template<class T> static bool rotations()
 {
-    constexpr std::array angles = {0.0, 1e-12, -1e-7, std::numbers::pi / 2, -std::numbers::pi / 2, std::numbers::pi, 0.731, -2.193};
+    constexpr std::array angles = {
+        0.0,   1e-12, -1e-7, std::numbers::pi / 2, -std::numbers::pi / 2, std::numbers::pi,
+        0.731, -2.193};
     std::mt19937 random(0x55D40);
     for (int sample = 0; sample < 256; ++sample) {
         const glm::dvec3 axis = glm::normalize(glm::dvec3(int(random() % 2000001) - 1000000,
@@ -69,14 +71,15 @@ template <class T> static bool rotations()
                         reference += cosine;
                     else {
                         const int remaining = 3 - row - column;
-                        reference += (column == (row + 1) % 3 ? -1 : 1) * components[remaining] * sine;
+                        reference +=
+                            (column == (row + 1) % 3 ? -1 : 1) * components[remaining] * sine;
                     }
                     REQUIRE(std::abs(actual[column][row] - reference) <=
-                          8 * std::numeric_limits<T>::epsilon());
+                            8 * std::numeric_limits<T>::epsilon());
                 }
                 for (int other = 0; other < 3; ++other)
                     REQUIRE(std::abs(glm::dot(actual[row], actual[other]) - T(row == other)) <=
-                          16 * std::numeric_limits<T>::epsilon());
+                            16 * std::numeric_limits<T>::epsilon());
             }
         }
     }
@@ -93,7 +96,8 @@ static bool transforms()
     child.setLocation(1, 2, 3);
     auto world = child.getWorldSpaceMatrix<glm::dmat4>();
     REQUIRE(glm::length(glm::dvec3(world[3]) - glm::dvec3(-2, 0, 13)) < 1e-12);
-    REQUIRE(glm::length(glm::dvec3(world * glm::dvec4(1, 0, 0, 1)) - glm::dvec3(-2, 2, 13)) < 1e-12);
+    REQUIRE(glm::length(glm::dvec3(world * glm::dvec4(1, 0, 0, 1)) - glm::dvec3(-2, 2, 13)) <
+            1e-12);
     auto affine = child.getWorldSpaceMatrix<glm::dmat4x3>();
     REQUIRE(glm::dmat4(affine) == world);
     REQUIRE(child.getWorldSpaceMatrix<glm::mat4>() == glm::mat4(world));
@@ -112,9 +116,8 @@ static bool transforms()
     }
 
     // Each axis operation must invalidate the already-cached child transform.
-    const std::array movements{&srNode::moveRight, &srNode::moveLeft,
-                               &srNode::moveUp, &srNode::moveDown,
-                               &srNode::moveForward, &srNode::moveBackward};
+    const std::array movements{&srNode::moveRight, &srNode::moveLeft,    &srNode::moveUp,
+                               &srNode::moveDown,  &srNode::moveForward, &srNode::moveBackward};
     for (unsigned index = 0; index < movements.size(); ++index) {
         const auto before = child.getWorldSpaceLocation();
         const auto axis = parent.getRotation()[index / 2];
@@ -143,8 +146,8 @@ static bool transforms()
     REQUIRE(glm::length(aiming.getWorldSpaceDOF() - glm::dvec3(0, 1, 0)) < 1e-12);
     aiming.setRotation(glm::dmat3(1));
     aiming.rollAt(glm::dvec3(1, 1, 0), .5);
-    const auto roll = glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8,
-                                           glm::dvec3(0, 0, 1)));
+    const auto roll =
+        glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8, glm::dvec3(0, 0, 1)));
     for (int column = 0; column < 3; ++column)
         REQUIRE(glm::length(aiming.getRotation()[column] - roll[column]) < 1e-12);
 
@@ -175,8 +178,7 @@ static bool interfaces()
         auto actual_rotation = rotated.getRotation<glm::dmat3>();
         const auto delta = actual_rotation - reference;
         for (int col = 0; col < 3; ++col)
-            for (int row = 0; row < 3; ++row)
-                REQUIRE(std::abs(delta[col][row]) < 1e-14);
+            for (int row = 0; row < 3; ++row) REQUIRE(std::abs(delta[col][row]) < 1e-14);
         srScene scene;
         scene.setAmbientLight(0.3f, 0.4f, 0.5f);
         REQUIRE(scene.getAmbientLight() == glm::vec3(0.3f, 0.4f, 0.5f));
@@ -266,10 +268,10 @@ TEST_CASE("surrender_test")
 TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surrender][culling]")
 {
     const std::array<glm::ivec3, 4> triangles{{{5, 1, 3}, {0, 2, 4}, {4, 3, 1}, {5, 0, 2}}};
-    const std::array<glm::vec3, 6> vertices{{{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0},
-                                           {3, 0, 0}, {-4, 0, 0}, {4, 0, 0}}};
-    const std::array<glm::vec4, 4> equations{{{0, 0, 0, 1}, {0, 0, 0, -1},
-                                            {0, 0, 0, 1}, {0, 0, 0, -1}}};
+    const std::array<glm::vec3, 6> vertices{
+        {{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0}, {3, 0, 0}, {-4, 0, 0}, {4, 0, 0}}};
+    const std::array<glm::vec4, 4> equations{
+        {{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}, {0, 0, 0, -1}}};
     std::array<glm::vec4, 32> planes{};
     planes[7] = {1, 0, 0, 0};
     const glm::mat4 identity(1);
@@ -322,7 +324,8 @@ TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surr
     REQUIRE(srRender::triangleVisible(triangles[1], flags.data()));
 }
 
-TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selection semantics", "[surrender][culling]")
+TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selection semantics",
+          "[surrender][culling]")
 {
     std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     const std::array<glm::vec3, 3> vertices{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}}};
@@ -380,7 +383,8 @@ TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[sur
     std::vector<w8_ulong> expected;
     for (w8_ulong index = 0; index < triangles.size(); ++index) {
         const auto& triangle = triangles[index];
-        if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 || vertices[triangle.z].x >= 0)
+        if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 ||
+            vertices[triangle.z].x >= 0)
             expected.push_back(index);
     }
     REQUIRE(result.indices == expected);

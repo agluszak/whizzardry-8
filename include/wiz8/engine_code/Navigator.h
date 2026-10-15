@@ -1,22 +1,22 @@
 #pragma once
 
-
-
 /* Engine Code\Navigator.cpp owns these declarations. */
 
 struct srBoundingBox;
 
-#include <vector>
 #include <memory>
+#include <vector>
 
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "surrender/srMath.h"
 
 class srNode;
 struct W8PathAI;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* W8NavigatorAttachment::flags bits with established meaning.
    - RESULT_MASK holds the last path-search result; the planners clear it before
@@ -231,10 +231,7 @@ public:
        or another mover. True once the collision was consumed. Same folded
        body as W8GrCycle::CanEnterCycle at 0x004A7140; /OPT:NOICF emits this
        copy. */
-    virtual bool OnCollision(W8Navigator*)
-    {
-        return true;
-    }
+    virtual bool OnCollision(W8Navigator*) { return true; }
     virtual void SetPosition(const srVector3T<float>* position); /* 0x00456020 */
 
     /* The missile homing step scales this snapshot of movement.velocity

@@ -102,6 +102,7 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/OctBuildTree.cpp
     engine_code/Environment.cpp
     engine_code/AmbientSound.cpp
+    engine_code/emitter_resources.cpp
     engine_code/AnimObj.cpp
     engine_code/AniMesh.cpp
     engine_code/Item.cpp
@@ -220,6 +221,7 @@ add_library(WIZ8_GAME_CORE STATIC
     npc_script_file.cpp
     engine_code/trim_string.cpp
     ../native/application.cpp
+    ../native/key_bindings.cpp
     ../native/game_events.cpp
     ../native/movie.cpp
     ../native/bink_video.cpp

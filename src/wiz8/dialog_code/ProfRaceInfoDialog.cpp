@@ -1,28 +1,31 @@
-#include <SDL3/SDL_surface.h>
-#include "Font.h"
-#include <fmt/format.h>
-#include <fmt/printf.h>
-#include <string_view>
+#include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
+#include "Font.h"
+#include "character_skills.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "layouts/gameplay_databases.h"
+#include "local_code/ControlsRect.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
-#include "character_skills.h"
-#include "dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "dialog_code/DialogScrollBar.h"
-#include "dialog_code/DialogTextArea.h"
-#include "layouts/gameplay_databases.h"
-#include "local_code/ControlsRect.h"
 
 // GLOBAL: WIZ8 0x00614cf0
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
@@ -82,70 +85,55 @@ W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
 }
 
 // FUNCTION: WIZ8 0x005DEC40
-int W8ProfRaceInfoDialogBase::CreateControls()
+void W8ProfRaceInfoDialogBase::Configure()
 {
-    W8DialogBase::CreateControls();
     if (!PopulateText()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
 
-    W8DialogScrollBar::Resources resources;
-    resources.track_path = g_popup_race_profession_path;
-    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
-    resources.track_frame = 1;
-    resources.on_scroll = ScrollCallback;
-    m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x159, m_y + 0x29, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb8);
-    m_scroll_bar.m_owner = this;
 
     CreateCloseButton(m_button, 0x14f, 0xe8);
-    return 0;
+    return;
 }
 
 // FUNCTION: WIZ8 0x005DED60
 void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
 {
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
-        m_text_area.m_dirty = true;
-        m_scroll_bar.m_dirty = true;
-        m_button.m_dirty = true;
-        W8DialogBase::Draw(target);
-        m_uiArtwork->drawAndInvalidate(target, m_uiSummaryImage,
-                                       m_x + 0xd, m_y + 0xd);
-        DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
-                     g_options_detail_font);
-        DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
+
+    W8DialogBase::Draw(target);
+    m_uiArtwork->draw(target, m_uiSummaryImage, m_x + 0xd, m_y + 0xd);
+    DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18,
+                 g_localized_strings[m_uiNameId], g_options_detail_font);
+    DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc,
+                 g_localized_strings[m_uiHeadingId], g_wiz_text_font_secondary);
+    int top = 0x37;
+    for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
+        DrawTextLine(target, g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
+                     g_localized_strings[g_character_description_first_ids[attribute]],
                      g_wiz_text_font_secondary);
-        int top = 0x37;
-        for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
-            DrawTextLine(target, g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
-                         g_localized_strings[g_character_description_first_ids[attribute]],
-                         g_wiz_text_font_secondary);
-            std::string minimum;
-            if (m_minimums[attribute] == -1) {
-                minimum = "?";
-            } else {
-                minimum = fmt::format("{:d}", m_minimums[attribute]);
-            }
-            DrawTextLine(target, g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
-                         g_wiz_text_font_secondary);
-            top += 0xe;
+        std::string minimum;
+        if (m_minimums[attribute] == -1) {
+            minimum = "?";
+        } else {
+            minimum = fmt::format("{:d}", m_minimums[attribute]);
         }
+        DrawTextLine(target, g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
+                     g_wiz_text_font_secondary);
+        top += 0xe;
     }
-    m_text_area.Draw(target, false);
-    m_scroll_bar.Draw(target, false);
+
+    m_text_area.Paint(target);
+    m_scroll_bar.Draw(target);
     m_button.Draw(target);
 }
 
 // FUNCTION: WIZ8 0x005DEEE0
-void W8ProfRaceInfoDialogBase::DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width,
-                                            int height, std::string_view text, Font& font)
+void W8ProfRaceInfoDialogBase::DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left,
+                                            int top, int width, int height, std::string_view text,
+                                            Font& font)
 {
     W8TextBuffer buffer;
     buffer.SetLayoutMode(g_W8TextBufferAlignMiddle | layout_mode);
@@ -185,16 +173,6 @@ void W8ProfRaceInfoDialogBase::OnMouseWheel(int delta)
     m_scroll_bar.ScrollBy(delta);
 }
 
-// FUNCTION: WIZ8 0x005DF050
-void W8ProfRaceInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar,
-                                              int first_visible_entry)
-{
-    W8ProfRaceInfoDialogBase* dialog = static_cast<W8ProfRaceInfoDialogBase*>(scroll_bar->m_owner);
-    if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
-    }
-}
-
 /* Copies the row straight out of the table: every profession has minimums, so
    there is no per-entry test the way the race dialog needs one. */
 // FUNCTION: WIZ8 0x005df0d0
@@ -212,6 +190,7 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
     for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
         m_minimums[attribute] = g_profession_attribute_minimums[uiIndex].values[attribute];
     }
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005DF250
@@ -227,13 +206,14 @@ bool W8ProfessionInfoDialog::PopulateText()
         if (ability == W8_TRAIT_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf,
+                             0);
     }
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x14e], "", 10, 0xf, 0);
     m_text_area.AddEntry(
-        {}, g_localized_strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]], 10, 0xf,
-        0);
+        {}, g_localized_strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]],
+        10, 0xf, 0);
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x14f], "", 10, 0xf, 0);
     for (index = 0; index < 4; ++index) {
@@ -241,7 +221,8 @@ bool W8ProfessionInfoDialog::PopulateText()
         if (skill == W8_SKILL_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_skill_name_ids[skill]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, g_localized_strings[g_character_skill_name_ids[skill]], 10, 0xf,
+                             0);
     }
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x150], "", 10, 0xf, 0);
@@ -297,6 +278,7 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
             m_minimums[attribute] = -1;
         }
     }
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005DF6F0
@@ -315,8 +297,17 @@ bool W8RaceInfoDialog::PopulateText()
             }
             return true;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf,
+                             0);
         listed = true;
     }
     return true;
+}
+
+bool W8ProfRaceInfoDialogBase::TakeDirty()
+{
+    const bool text = m_text_area.TakeDirty();
+    const bool scroll = m_scroll_bar.TakeDirty();
+    const bool button = m_button.TakeDirty();
+    return W8DialogBase::TakeDirty() || text || scroll || button;
 }

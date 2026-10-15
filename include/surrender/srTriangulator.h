@@ -1,10 +1,11 @@
 #pragma once
 
-#include "glm/ext/vector_float2.hpp"
-#include "glm/ext/vector_int3.hpp"
-#include <vector>
 #include <optional>
 #include <span>
+#include <vector>
+
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_int3.hpp"
 
 class srTriangulator {
 public:
@@ -29,4 +30,3 @@ private:
     int remaining;
     std::span<const glm::vec2> points;
 };
-

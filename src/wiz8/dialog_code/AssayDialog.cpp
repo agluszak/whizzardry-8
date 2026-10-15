@@ -1,38 +1,17 @@
-#include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
-#include <string_view>
-#include <string>
+#include "wiz8/dialog_code/AssayDialog.h"
+
 #include <cstring>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
-#include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/item_video_object_vector.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/local_code/ButtonWidget.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"
@@ -41,14 +20,35 @@
 #include "local_code/TextBuffer.h"
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
+#include "sprite.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/dialog_code/SpellInfoDialog.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/RCSItemsPage.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/string_database.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0064f908
-static W8DialogScrollBar::Resources g_assay_scroll_resources = {
-    "Data\\Main Interface\\main_scroll.sti",
-    "Data\\Dialogs\\popup_iteminfo.sti",
-    4,
-    W8AssayDialog::ScrollCallback,
-};
 // GLOBAL: WIZ8 0x0064f918
 static int g_assay_scroll_x_offset = 0x160;
 // GLOBAL: WIZ8 0x0064f91c
@@ -100,72 +100,34 @@ static std::string g_assay_entry_text;
 enum { NUM_RPC_RACES = 5 };
 
 // FUNCTION: WIZ8 0x005d6fb0
-W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
+W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_Point origin)
 {
-    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) m_buttons.emplace_back(InputLayer());
-    int index;
+    SetOrigin(origin.x, origin.y);
+    for (int index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index)
+        m_buttons.emplace_back(InputLayer());
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
-    for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
-        m_text_buffers[index] = 0;
-    }
-    m_item_portrait_dirty = false;
+
     m_character = character;
     m_item = item;
+    PopulateText();
+    m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
+                           m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
+                           g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
+    if (!PopulateRequirements()) throw std::runtime_error("Cannot configure assay controls");
+    CreateTextBuffers();
+    m_buttons[0].SetVisible(gXStatus.assay_professions_tab);
+    SetProfessionIconsVisible(gXStatus.assay_professions_tab);
+    m_buttons[1].SetVisible(!gXStatus.assay_professions_tab);
+    SetRaceIconsVisible(!gXStatus.assay_professions_tab);
+    m_buttons[gXStatus.assay_professions_tab ? 2 : 3].SetPressed(true);
 }
 
 // FUNCTION: WIZ8 0x005d7090
-W8AssayDialog::~W8AssayDialog()
-{
-    DestroyControls();
-    NoOp();
-}
-
-// FUNCTION: WIZ8 0x005d7160
-int W8AssayDialog::CreateControls()
-{
-    W8DialogBase::CreateControls();
-    m_item_portrait_dirty = true;
-    if (!PopulateText()) {
-        m_error = 7;
-        return 7;
-    }
-    if (m_scroll_bar.CreateControls(&g_assay_scroll_resources)) {
-        m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
-                               m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
-                               g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
-        m_scroll_bar.m_owner = this;
-        if (!PopulateRequirements()) {
-            m_error = 7;
-            return 7;
-        }
-        if (CreateTextBuffers()) {
-            m_buttons[0].SetVisible(gXStatus.assay_professions_tab);
-            SetProfessionIconsVisible(gXStatus.assay_professions_tab);
-            m_buttons[1].SetVisible(!gXStatus.assay_professions_tab);
-            SetRaceIconsVisible(!gXStatus.assay_professions_tab);
-            if (gXStatus.assay_professions_tab) {
-                m_buttons[2].SetPressed(true);
-                return 0;
-            }
-            m_buttons[3].SetPressed(true);
-            return 0;
-        }
-        for (auto& button : m_buttons) button.Reset();
-    }
-    m_error = 7;
-    return 7;
-}
+W8AssayDialog::~W8AssayDialog() = default;
 
 // FUNCTION: WIZ8 0x005d72b0
-void W8AssayDialog::DestroyControls()
-{
-    W8DialogBase::DestroyControls();
-    for (auto& button : m_buttons) button.Reset();
-    DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
-}
-
 static void AppendAssayEntryText(std::string_view text)
 {
     g_assay_entry_text += text;
@@ -191,7 +153,7 @@ static int AppendAssayRequirements(const W8ItemRequirement* requirement, int cou
 }
 
 // FUNCTION: WIZ8 0x005d7310
-bool W8AssayDialog::PopulateText()
+void W8AssayDialog::PopulateText()
 {
     W8ControlsRect bounds;
     const W8ItemDatabaseRecord* record;
@@ -308,9 +270,9 @@ bool W8AssayDialog::PopulateText()
             m_text_area.AddEntry(g_localized_strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
         }
         if (record->slays_kind != 0xff) {
-            m_text_area.AddEntry(g_localized_strings[0x8d8],
-                                 g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10,
-                                 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8d8],
+                g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10, 0xf, 0);
         }
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SHIELD && m_character != 0 &&
             IsItemWornByCharacter(m_character, m_item)) {
@@ -329,7 +291,8 @@ bool W8AssayDialog::PopulateText()
     if (record->property != 0) {
         m_text_area.AddEntry(
             g_localized_strings[0x8e9],
-            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]],
+            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST +
+                                                    record->property]],
             10, 0xf, 0);
     }
     switch (record->equip_class) {
@@ -340,15 +303,15 @@ bool W8AssayDialog::PopulateText()
     case W8_ITEM_EQUIP_CLASS_BOMB:
     case W8_ITEM_EQUIP_CLASS_POWDER:
         m_text_area.AddEntry(g_localized_strings[0x8e7],
-                             g_localized_strings[g_spell_range_name_ids[record->range_category]], 10, 0xf,
-                             0);
+                             g_localized_strings[g_spell_range_name_ids[record->range_category]],
+                             10, 0xf, 0);
     }
     W8Skill presentation_skill = GetItemSpellPresentation(record);
     if (presentation_skill == W8_SKILL_NONE) {
         if (record->weapon_skill != W8_SKILL_NONE) {
-            m_text_area.AddEntry(g_localized_strings[0x8c8],
-                                 g_localized_strings[g_character_skill_name_ids[record->weapon_skill]],
-                                 10, 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x8c8],
+                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]], 10, 0xf, 0);
         }
     } else {
         if (record->weapon_skill == W8_SKILL_NONE) {
@@ -526,12 +489,11 @@ bool W8AssayDialog::PopulateText()
                              fmt::format("{:d}", record->maximum_quantity), 10, 0xf, 0);
     }
     strcpy(path, "Data\\Databases\\ItemDesc.dbs");
-    (!(description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0)).empty());
+    description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0);
     if (description.size() != 0 && m_item->identified) {
         m_text_area.AddEntry(g_localized_strings[0x90f], description, 10, 0xf, 0);
     }
     m_text_area.m_dirty = true;
-    return true;
 }
 
 /* The SurRender headers pull <iostream>, so retail emitted the VC6 stream
@@ -542,44 +504,14 @@ bool W8AssayDialog::PopulateText()
 // FUNCTION: WIZ8 0x005d9200
 void W8AssayDialog::Draw(SDL_Surface& target)
 {
-    int index;
-
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
-        m_item_portrait_dirty = true;
-        m_text_area.m_dirty = true;
-        m_scroll_bar.m_dirty = true;
-        for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-            m_buttons[index].m_dirty = true;
-        }
-        for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
-            m_text_buffers[index]->SetGeometryDirty();
-        }
-        W8DialogBase::Draw(target);
-    }
-    if (m_item_portrait_dirty) {
-        DrawSpriteAndInvalidate(target,
-                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45,
-                                m_y + 0xe);
-        if (!m_item->identified) {
-            CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(target, 0, m_x + 0x45, m_y + 0xe);
-        }
-        m_item_portrait_dirty = false;
-    }
-    for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-        if (m_buttons[index].IsConfigured()) {
-            m_buttons[index].Draw(target);
-        }
-    }
-    for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
-        if (m_text_buffers[index] != 0) {
-            m_text_buffers[index]->RenderToTarget(0, false, target);
-        }
-    }
-    m_text_area.Draw(target, false);
-    m_scroll_bar.Draw(target, false);
+    W8DialogBase::Draw(target);
+    DrawSprite(target, g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45, m_y + 0xe);
+    if (!m_item->identified) CatalogArtwork::Load(0x11b, 0).draw(target, 0, m_x + 0x45, m_y + 0xe);
+    for (auto& button : m_buttons) button.Draw(target);
+    for (auto& text : m_text_buffers)
+        if (text) text->Paint(target);
+    m_text_area.Paint(target);
+    m_scroll_bar.Draw(target);
 }
 
 /* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;
@@ -623,34 +555,6 @@ void W8AssayDialog::ShowSecondaryTab()
     ShowTab(false);
 }
 
-// FUNCTION: WIZ8 0x005d9760
-void W8AssayDialog::PrimaryTabCallback(W8ButtonWidget* button)
-{
-    if (button != 0) {
-        static_cast<W8AssayDialog*>(button->m_owner)->ShowPrimaryTab();
-    }
-}
-
-// FUNCTION: WIZ8 0x005d9780
-void W8AssayDialog::SecondaryTabCallback(W8ButtonWidget* button)
-{
-    if (button != 0) {
-        static_cast<W8AssayDialog*>(button->m_owner)->ShowSecondaryTab();
-    }
-}
-
-// FUNCTION: WIZ8 0x005d97a0
-void W8AssayDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8AssayDialog* dialog;
-    if (scroll_bar != 0) {
-        dialog = static_cast<W8AssayDialog*>(scroll_bar->m_owner);
-        dialog->m_text_area.SetFirstVisibleLine(first_visible_entry);
-        dialog->m_buttons[4].m_dirty = true;
-        dialog->m_text_area.m_dirty = true;
-    }
-}
-
 // FUNCTION: WIZ8 0x005d8850
 bool W8AssayDialog::PopulateRequirements()
 {
@@ -660,77 +564,106 @@ bool W8AssayDialog::PopulateRequirements()
     int frame;
     int tooltip_index;
 
-
-    m_buttons[0].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, UI_PRIORITY_LOWEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[1].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, UI_PRIORITY_LOWEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[2].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2,
-                            PrimaryTabCallback, BUTTON_NO_CALLBACK, true, UI_PRIORITY_HIGHEST,
-                            0x115, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[3].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7,
-                            SecondaryTabCallback, BUTTON_NO_CALLBACK, true, UI_PRIORITY_HIGHEST,
-                            0x116, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[4].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, UI_PRIORITY_LOWEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[5].Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2,
-                            W8TriggerItemPickerDialog::CloseOwningDialog, BUTTON_NO_CALLBACK, false,
-                            UI_PRIORITY_HIGHEST, 0x12, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[6].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, UI_PRIORITY_HIGHEST,
-                                0x2ad);
-    m_buttons[7].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, UI_PRIORITY_HIGHEST,
-                                0x2a7);
-    m_buttons[8].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, UI_PRIORITY_HIGHEST,
-                                0x2b0);
-    m_buttons[9].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, UI_PRIORITY_HIGHEST,
-                                0x2ac);
-    m_buttons[10].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, UI_PRIORITY_HIGHEST,
-                                 0x2a6);
-    m_buttons[11].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
-                                 UI_PRIORITY_HIGHEST, 0x2a4);
-    m_buttons[12].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
-                                 UI_PRIORITY_HIGHEST, 0x2aa);
-    m_buttons[13].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
-                                 UI_PRIORITY_HIGHEST, 0x2b1);
-    m_buttons[14].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
-                                 UI_PRIORITY_HIGHEST, 0x2a8);
-    m_buttons[15].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
-                                 UI_PRIORITY_HIGHEST, 0x2ae);
-    m_buttons[16].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
-                                 UI_PRIORITY_HIGHEST, 0x2a9);
-    m_buttons[17].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
-                                 UI_PRIORITY_HIGHEST, 0x2af);
-    m_buttons[18].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
-                                 UI_PRIORITY_HIGHEST, 0x2a5);
-    m_buttons[19].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
-                                 UI_PRIORITY_HIGHEST, 0x2b2);
-    m_buttons[20].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
-                                 UI_PRIORITY_HIGHEST, 0x2ab);
-    m_buttons[21].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, UI_PRIORITY_HIGHEST,
-                                 0x28a);
-    m_buttons[22].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, UI_PRIORITY_HIGHEST,
-                                 0x28c);
-    m_buttons[23].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, UI_PRIORITY_HIGHEST,
-                                 0x285);
-    m_buttons[24].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 7, 6, UI_PRIORITY_HIGHEST,
-                                 0x28e);
-    m_buttons[25].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 9, 8, UI_PRIORITY_HIGHEST,
-                                 0x284);
-    m_buttons[26].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xb, 10, UI_PRIORITY_HIGHEST,
-                                 0x28b);
-    m_buttons[27].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xd, 0xc, UI_PRIORITY_HIGHEST,
-                                 0x286);
-    m_buttons[28].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xf, 0xe, UI_PRIORITY_HIGHEST,
-                                 0x288);
-    m_buttons[29].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x11, 0x10, UI_PRIORITY_HIGHEST,
-                                 0x287);
-    m_buttons[30].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x13, 0x12, UI_PRIORITY_HIGHEST,
-                                 0x28d);
-    m_buttons[31].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x15, 0x14, UI_PRIORITY_HIGHEST,
-                                 0x289);
+    m_buttons[0].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1),
+        {.priority = UI_PRIORITY_LOWEST});
+    m_buttons[1].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2),
+        {.priority = UI_PRIORITY_LOWEST});
+    m_buttons[2].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2),
+        {.on_click = [this](W8ButtonWidget*) { ShowPrimaryTab(); },
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x115});
+    m_buttons[3].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7),
+        {.on_click = [this](W8ButtonWidget*) { ShowSecondaryTab(); },
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x116});
+    m_buttons[4].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3),
+        {.priority = UI_PRIORITY_LOWEST});
+    m_buttons[5].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2),
+        {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x12});
+    m_buttons[6].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 1, 0,
+                                                BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2ad});
+    m_buttons[7].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 3, 2,
+                                                BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2a7});
+    m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 5, 4,
+                                                BUTTON_NO_IMAGE, 4, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2b0});
+    m_buttons[9].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 7, 6,
+                                                BUTTON_NO_IMAGE, 6, BUTTON_NO_IMAGE),
+                           {.tooltip = 0x2ac});
+    m_buttons[10].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 9, 8,
+                                                 BUTTON_NO_IMAGE, 8, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a6});
+    m_buttons[11].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
+                                                 BUTTON_NO_IMAGE, 10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a4});
+    m_buttons[12].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
+                                                 BUTTON_NO_IMAGE, 0xc, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2aa});
+    m_buttons[13].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
+                                                 BUTTON_NO_IMAGE, 0xe, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2b1});
+    m_buttons[14].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
+                                                 BUTTON_NO_IMAGE, 0x10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a8});
+    m_buttons[15].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
+                                                 BUTTON_NO_IMAGE, 0x12, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2ae});
+    m_buttons[16].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
+                                                 BUTTON_NO_IMAGE, 0x14, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a9});
+    m_buttons[17].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
+                                                 BUTTON_NO_IMAGE, 0x16, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2af});
+    m_buttons[18].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
+                                                 BUTTON_NO_IMAGE, 0x18, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2a5});
+    m_buttons[19].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
+                                                 BUTTON_NO_IMAGE, 0x1a, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2b2});
+    m_buttons[20].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
+                                                 BUTTON_NO_IMAGE, 0x1c, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x2ab});
+    m_buttons[21].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 1, 0,
+                                                 BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28a});
+    m_buttons[22].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 3, 2,
+                                                 BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28c});
+    m_buttons[23].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 5, 4,
+                                                 BUTTON_NO_IMAGE, 4, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x285});
+    m_buttons[24].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 7, 6,
+                                                 BUTTON_NO_IMAGE, 6, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28e});
+    m_buttons[25].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 9, 8,
+                                                 BUTTON_NO_IMAGE, 8, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x284});
+    m_buttons[26].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xb, 10,
+                                                 BUTTON_NO_IMAGE, 10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28b});
+    m_buttons[27].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xd, 0xc,
+                                                 BUTTON_NO_IMAGE, 0xc, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x286});
+    m_buttons[28].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xf, 0xe,
+                                                 BUTTON_NO_IMAGE, 0xe, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x288});
+    m_buttons[29].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x11, 0x10,
+                                                 BUTTON_NO_IMAGE, 0x10, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x287});
+    m_buttons[30].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x13, 0x12,
+                                                 BUTTON_NO_IMAGE, 0x12, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x28d});
+    m_buttons[31].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x15, 0x14,
+                                                 BUTTON_NO_IMAGE, 0x14, BUTTON_NO_IMAGE),
+                            {.tooltip = 0x289});
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
         if (us_index >= NUM_RPC_RACES) {
@@ -783,21 +716,23 @@ bool W8AssayDialog::PopulateRequirements()
             tooltip_index = 0x284;
             break;
         }
-        m_buttons[button_index].ConfigureIcon("Data\\Dialogs\\icons_race.sti", frame + 1, frame,
-                                               UI_PRIORITY_HIGHEST, tooltip_index);
+        m_buttons[button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti",
+                                                               frame + 1, frame, BUTTON_NO_IMAGE,
+                                                               frame, BUTTON_NO_IMAGE),
+                                          {.tooltip = tooltip_index});
         m_buttons[button_index].SetVisible(false);
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
+        if (!m_buttons[index].IsConfigured()) return false;
         m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
-                                      m_y + g_assay_button_offsets[index].y);
-        m_buttons[index].m_owner = this;
+                                     m_y + g_assay_button_offsets[index].y);
     }
     return true;
 }
 
 // FUNCTION: WIZ8 0x005d8fb0
-bool W8AssayDialog::CreateTextBuffers()
+void W8AssayDialog::CreateTextBuffers()
 {
     int index;
     W8ControlsRect bounds;
@@ -810,13 +745,9 @@ bool W8AssayDialog::CreateTextBuffers()
         bounds.top = m_y + g_assay_text_buffer_offsets[index].top;
         bounds.right = m_x + g_assay_text_buffer_offsets[index].right;
         bounds.bottom = m_y + g_assay_text_buffer_offsets[index].bottom;
-        m_text_buffers[index] = new W8TextBuffer(
+        m_text_buffers[index] = std::make_unique<W8TextBuffer>(
             &bounds, g_localized_strings[g_assay_text_buffer_string_ids[index]],
             g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        if (m_text_buffers[index] == 0) {
-            DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
-            return false;
-        }
     }
 
     m_text_buffers[0]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
@@ -834,7 +765,6 @@ bool W8AssayDialog::CreateTextBuffers()
         text = fmt::format("{:.1f}", GetItemUnitWeight(item) * g_item_weight_display_scale);
     }
     m_text_buffers[4]->SetText(text, g_wiz_text_font_secondary);
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005d9330
@@ -990,4 +920,15 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
         }
         m_buttons[button_index].m_dirty = true;
     }
+}
+
+bool W8AssayDialog::TakeDirty()
+{
+    bool dirty = W8DialogBase::TakeDirty();
+    for (auto& button : m_buttons) dirty |= button.TakeDirty();
+    for (auto& text : m_text_buffers)
+        if (text) dirty |= std::exchange(text->m_geometryDirty, false);
+    dirty |= m_text_area.TakeDirty();
+    dirty |= m_scroll_bar.TakeDirty();
+    return dirty;
 }

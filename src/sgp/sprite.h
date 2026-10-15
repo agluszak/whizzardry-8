@@ -1,9 +1,10 @@
 #pragma once
 
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <cstdint>
+
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "himage.h"
 #include "wiz8/surface_storage.h"
@@ -22,8 +23,8 @@ struct SpriteDraw {
     const Palette16* palette = nullptr;
 };
 
-void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame,
-                int x, int y, SpriteDraw options = {});
+void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame, int x, int y,
+                SpriteDraw options = {});
 bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame, int x, int y,
                      const SDL_Rect& clip);
 void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sprites,

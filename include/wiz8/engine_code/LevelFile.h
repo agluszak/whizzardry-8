@@ -14,7 +14,9 @@
 #include "wiz8/engine_code/materials.h"
 
 class OctMeshModel;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Engine Code\LevelFile.cpp: the level-editor .lvl format the level builder
    reads, and the .pvl header it writes in front of the copied remainder.
@@ -258,7 +260,10 @@ struct W8LevelFileMesh {
     bool HasLods() const { return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0; }
     bool HasShortLods() const { return (flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0; }
     bool HasCompressedFaces() const { return (flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0; }
-    int LodCount() const { return static_cast<int>(HasShortLods() ? lod_shorts.size() : lods.size()); }
+    int LodCount() const
+    {
+        return static_cast<int>(HasShortLods() ? lod_shorts.size() : lods.size());
+    }
 };
 
 /* A light. flags bit 2 adds the parametric definition, whose own flag adds a

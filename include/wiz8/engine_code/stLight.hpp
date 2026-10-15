@@ -2,17 +2,19 @@
 
 #include <vector>
 
-#include "surrender/srLight.h"
-#include "wiz8/sr_api.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srLight.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/sr_api.h"
 
 class W8Prop;
 struct W8PathAI;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 extern unsigned int g_light_update_flags;
 
@@ -47,10 +49,7 @@ public:
 // VTABLE: WIZ8 0x005ecdbc
 class stParametricLightDefinition : public stLightDefinition {
 public:
-    stParametricLightDefinition()
-    {
-        kind = W8_LIGHT_DEFINITION_PARAMETRIC;
-    }
+    stParametricLightDefinition() { kind = W8_LIGHT_DEFINITION_PARAMETRIC; }
     // FUNCTION: WIZ8 0x004A2140
     virtual stLightDefinition* Clone() const override
     {
@@ -133,10 +132,7 @@ class stLight : public srClassSupport<stLight, srLight, 0x10006> {
 
 public:
     virtual ~stLight() override; /* 0x0049C430 */
-    static const char* sGetClassName()
-    {
-        return "stLight";
-    }
+    static const char* sGetClassName() { return "stLight"; }
 
     stLight() {}
     explicit stLight(Ownership ownership)
@@ -155,22 +151,10 @@ public:
     void SetDefinitionTime(float time);                        /* 0x0049C940 */
     void Update();                                             /* 0x0049C960 */
 
-    float positionalX() const
-    {
-        return m_position.x;
-    }
-    float positionalY() const
-    {
-        return m_position.y;
-    }
-    float positionalZ() const
-    {
-        return m_position.z;
-    }
-    stLightDefinition* definition() const
-    {
-        return m_definition;
-    }
+    float positionalX() const { return m_position.x; }
+    float positionalY() const { return m_position.y; }
+    float positionalZ() const { return m_position.z; }
+    stLightDefinition* definition() const { return m_definition; }
     void ConfigureMonsterCopy()
     {
         attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;

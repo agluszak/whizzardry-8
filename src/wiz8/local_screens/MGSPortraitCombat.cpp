@@ -1,27 +1,26 @@
-
-
 #include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/ui_input.h"
 
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/GameplayTime.h"
+#include "layouts/main_game_screen.h"
+#include "surrender/srMath.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_code/Search.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/dialog_code/ButtonAppearance.h"
-#include "layouts/main_game_screen.h"
-#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x0064C238
 char g_submenu_icons_path[] = "Data\\Main Interface\\icons_standard.sti";
@@ -92,49 +91,47 @@ static void SubMenuButtonOpenMenu1(W8ButtonWidget* button);
 static void SubMenuButtonToggleCombat(W8ButtonWidget* button);
 
 // FUNCTION: WIZ8 0x00594AF0
-unsigned char CreateSubMenuButtons(void)
+void CreateSubMenuButtons()
 {
     int index;
 
-    g_submenu_buttons[0].Configure(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c,
-                                    SubMenuButtonPendingScreen, BUTTON_NO_CALLBACK, false,
-                                    UI_PRIORITY_HIGHEST, 0x42, BUTTON_NO_CALLBACK,
-                                    BUTTON_NO_CALLBACK);
-    g_submenu_buttons[1].Configure(
-        g_submenu_icons_path, 0x3, 0x0, 0x1, 0x2, 0x4, SubMenuButtonSurprise, BUTTON_NO_CALLBACK,
-        false, UI_PRIORITY_HIGHEST, 0x43, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_submenu_buttons[2].Configure(
-        g_submenu_icons_path, 0x8, 0x5, 0x6, 0x7, 0x9, SubMenuButtonToggleFlag, BUTTON_NO_CALLBACK,
-        true, UI_PRIORITY_HIGHEST, 0x44, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_submenu_buttons[3].Configure(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18,
-                                    SubMenuButtonUseItem, BUTTON_NO_CALLBACK, true,
-                                    UI_PRIORITY_HIGHEST, 0x45, BUTTON_NO_CALLBACK,
-                                    BUTTON_NO_CALLBACK);
-    g_submenu_buttons[4].Configure(g_submenu_icons_path, 0x1c, 0x19, 0x1a, 0x1b, 0x1d,
-                                    SubMenuButtonSpellView, BUTTON_NO_CALLBACK, true,
-                                    UI_PRIORITY_HIGHEST, 0x46, BUTTON_NO_CALLBACK,
-                                    BUTTON_NO_CALLBACK);
-    g_submenu_buttons[5].Configure(g_submenu_icons_path, 0x12, 0xf, 0x10, 0x11, 0x13,
-                                    SubMenuButtonOpenMenu1, BUTTON_NO_CALLBACK, false,
-                                    UI_PRIORITY_HIGHEST, 0x4a, BUTTON_NO_CALLBACK,
-                                    BUTTON_NO_CALLBACK);
-    g_submenu_buttons[6].Configure(
-        g_submenu_icons_path, 0xd, 0xa, 0xb, 0xc, 0xe, SubMenuButtonOpenMenu0, BUTTON_NO_CALLBACK,
-        false, UI_PRIORITY_HIGHEST, 0x49, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_submenu_buttons[7].Configure(g_submenu_combat_icons_path, 0x3, 0x0, 0x1, 0x2, 0x2,
-                                    SubMenuButtonToggleCombat, BUTTON_NO_CALLBACK, false,
-                                    UI_PRIORITY_HIGHEST, 0x47, BUTTON_NO_CALLBACK,
-                                    BUTTON_NO_CALLBACK);
-    g_submenu_buttons[8].Configure(g_submenu_combat_icons_path, 0x7, 0x4, 0x5, 0x6, 0x6,
-                                    SubMenuButtonToggleCombat, BUTTON_NO_CALLBACK, false,
-                                    UI_PRIORITY_HIGHEST, 0x48, BUTTON_NO_CALLBACK,
-                                    BUTTON_NO_CALLBACK);
+    g_main_game_state->hud_buttons.submenu[0].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c),
+        {.on_click = SubMenuButtonPendingScreen, .tooltip = 0x42});
+    g_main_game_state->hud_buttons.submenu[1].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x3, 0x0, 0x1, 0x2, 0x4),
+        {.on_click = SubMenuButtonSurprise, .tooltip = 0x43});
+    g_main_game_state->hud_buttons.submenu[2].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x8, 0x5, 0x6, 0x7, 0x9),
+        {.on_click = SubMenuButtonToggleFlag,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x44});
+    g_main_game_state->hud_buttons.submenu[3].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18),
+        {.on_click = SubMenuButtonUseItem,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x45});
+    g_main_game_state->hud_buttons.submenu[4].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x1c, 0x19, 0x1a, 0x1b, 0x1d),
+        {.on_click = SubMenuButtonSpellView,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x46});
+    g_main_game_state->hud_buttons.submenu[5].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x12, 0xf, 0x10, 0x11, 0x13),
+        {.on_click = SubMenuButtonOpenMenu1, .tooltip = 0x4a});
+    g_main_game_state->hud_buttons.submenu[6].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0xd, 0xa, 0xb, 0xc, 0xe),
+        {.on_click = SubMenuButtonOpenMenu0, .tooltip = 0x49});
+    g_main_game_state->hud_buttons.submenu[7].Configure(
+        ButtonGraphics::Load(g_submenu_combat_icons_path, 0x3, 0x0, 0x1, 0x2, 0x2),
+        {.on_click = SubMenuButtonToggleCombat, .tooltip = 0x47});
+    g_main_game_state->hud_buttons.submenu[8].Configure(
+        ButtonGraphics::Load(g_submenu_combat_icons_path, 0x7, 0x4, 0x5, 0x6, 0x6),
+        {.on_click = SubMenuButtonToggleCombat, .tooltip = 0x48});
     for (index = 0; index < 9; ++index) {
-        g_submenu_buttons[index].SetPosition(g_submenu_button_positions[index].x,
-                                              g_submenu_button_positions[index].y);
-        g_submenu_buttons[index].m_owner = 0;
+        g_main_game_state->hud_buttons.submenu[index].SetPosition(
+            g_submenu_button_positions[index].x, g_submenu_button_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00594D20
@@ -144,61 +141,61 @@ void UpdateSubMenuButton(int index)
     case 5:
     case 6:
     case 8:
-        g_submenu_buttons[index].SetVisible(gXStatus.fCombatMode);
+        g_main_game_state->hud_buttons.submenu[index].SetVisible(gXStatus.fCombatMode);
         break;
     case 7:
-        g_submenu_buttons[index].SetVisible(!gXStatus.fCombatMode);
+        g_main_game_state->hud_buttons.submenu[index].SetVisible(!gXStatus.fCombatMode);
         break;
     }
     if (gXStatus.fNpcDialogueMode &&
         (index != 0 || IsNpcDialogueCursorActive() != 0 || CanOpenNpcDialogue())) {
-        g_submenu_buttons[index].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
     if (gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fReviewCharacterMode) {
-        g_submenu_buttons[index].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
     if (gXStatus.fItemSelectMode && index != 3) {
-        g_submenu_buttons[index].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
     if (gXStatus.fSpellCastMode && index != 4) {
-        g_submenu_buttons[index].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
     if (gXStatus.fSurprisePossible || gXStatus.fCampMode) {
-        g_submenu_buttons[index].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
     if (gXStatus.fCombatMode && !g_combat_state->round_active) {
-        g_submenu_buttons[index].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
     if (g_level_block->combat_end_notification != -1) {
-        g_submenu_buttons[index].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
     switch (index) {
     case 0:
         if (gXStatus.fCombatMode) {
-            g_submenu_buttons[0].SetEnabled(false);
+            g_main_game_state->hud_buttons.submenu[0].SetEnabled(false);
         } else {
-            g_submenu_buttons[0].SetEnabled(true);
+            g_main_game_state->hud_buttons.submenu[0].SetEnabled(true);
         }
         break;
     case 1:
         if (gXStatus.fCombatMode) {
-            g_submenu_buttons[1].SetEnabled(false);
+            g_main_game_state->hud_buttons.submenu[1].SetEnabled(false);
         } else {
-            g_submenu_buttons[1].SetEnabled(true);
+            g_main_game_state->hud_buttons.submenu[1].SetEnabled(true);
         }
         break;
     case 2:
         if (gXStatus.fCombatMode) {
-            g_submenu_buttons[2].SetEnabled(false);
+            g_main_game_state->hud_buttons.submenu[2].SetEnabled(false);
         } else {
-            g_submenu_buttons[2].SetEnabled(true);
+            g_main_game_state->hud_buttons.submenu[2].SetEnabled(true);
         }
         /* Two armed, not one `IsPressed() != (mode != 0)`. The retail tests the
            mode first and then branches on IsPressed in each arm, giving two
@@ -206,69 +203,69 @@ void UpdateSubMenuButton(int index)
            (0x00594E92/0x00594EA7 under search_mode, 0x00594EAE/0x00594EC3
            under its negation). */
         if (g_status.search_mode != 0) {
-            if (g_submenu_buttons[2].IsPressed() == 0) {
-                g_submenu_buttons[2].SetPressed(true);
+            if (g_main_game_state->hud_buttons.submenu[2].IsPressed() == 0) {
+                g_main_game_state->hud_buttons.submenu[2].SetPressed(true);
             }
         } else {
-            if (g_submenu_buttons[2].IsPressed()) {
-                g_submenu_buttons[2].SetPressed(false);
+            if (g_main_game_state->hud_buttons.submenu[2].IsPressed()) {
+                g_main_game_state->hud_buttons.submenu[2].SetPressed(false);
             }
         }
         break;
     case 3:
         if (!IsPartySlotEligible(g_status.selected_character)) {
-            g_submenu_buttons[3].SetEnabled(false);
+            g_main_game_state->hud_buttons.submenu[3].SetEnabled(false);
             break;
         }
-        g_submenu_buttons[3].SetEnabled(true);
+        g_main_game_state->hud_buttons.submenu[3].SetEnabled(true);
         /* As case 2, with fItemSelectMode: 0x00594F07/0x00594F1C then
            0x00594F23/0x00594F38. */
         if (gXStatus.fItemSelectMode) {
-            if (g_submenu_buttons[3].IsPressed() == 0) {
-                g_submenu_buttons[3].SetPressed(true);
+            if (g_main_game_state->hud_buttons.submenu[3].IsPressed() == 0) {
+                g_main_game_state->hud_buttons.submenu[3].SetPressed(true);
             }
         } else {
-            if (g_submenu_buttons[3].IsPressed()) {
-                g_submenu_buttons[3].SetPressed(false);
+            if (g_main_game_state->hud_buttons.submenu[3].IsPressed()) {
+                g_main_game_state->hud_buttons.submenu[3].SetPressed(false);
             }
         }
         break;
     case 4:
-        g_submenu_buttons[4].SetEnabled(
+        g_main_game_state->hud_buttons.submenu[4].SetEnabled(
             IsPartySlotEligible(g_status.selected_character) &&
             CharacterHasCastableSpell(&g_status.buffers.Char[g_status.selected_character]));
         /* As case 2, with fSpellCastMode: 0x00594FA0/0x00594FB5 then
            0x00594FBC/0x00594FCD. This case's SetEnabled stays a single call -
            the retail's `? :` collapses into one at 0x00594F8C. */
         if (gXStatus.fSpellCastMode) {
-            if (g_submenu_buttons[4].IsPressed() == 0) {
-                g_submenu_buttons[4].SetPressed(true);
+            if (g_main_game_state->hud_buttons.submenu[4].IsPressed() == 0) {
+                g_main_game_state->hud_buttons.submenu[4].SetPressed(true);
             }
         } else {
-            if (g_submenu_buttons[4].IsPressed()) {
-                g_submenu_buttons[4].SetPressed(false);
+            if (g_main_game_state->hud_buttons.submenu[4].IsPressed()) {
+                g_main_game_state->hud_buttons.submenu[4].SetPressed(false);
             }
         }
         break;
     case 5:
     case 6:
-        g_submenu_buttons[index].SetEnabled(gXStatus.fCombatMode);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(gXStatus.fCombatMode);
         if (!IsPartySlotEligible(g_status.selected_character)) {
-            g_submenu_buttons[index].SetEnabled(false);
+            g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         }
         break;
     case 7:
         if (gXStatus.fCombatMode) {
-            g_submenu_buttons[7].SetEnabled(false);
+            g_main_game_state->hud_buttons.submenu[7].SetEnabled(false);
         } else {
-            g_submenu_buttons[7].SetEnabled(true);
+            g_main_game_state->hud_buttons.submenu[7].SetEnabled(true);
         }
         break;
     case 8:
         if (gXStatus.fCombatMode) {
-            g_submenu_buttons[8].SetEnabled(true);
+            g_main_game_state->hud_buttons.submenu[8].SetEnabled(true);
         } else {
-            g_submenu_buttons[8].SetEnabled(false);
+            g_main_game_state->hud_buttons.submenu[8].SetEnabled(false);
         }
         break;
     }
@@ -357,7 +354,6 @@ void DestroySubMenuControls(void)
 {
     SetSubMenuButtonTooltips(1);
     g_level_block->combat_end_notification = -1;
-    g_submenu_entry_count = 0;
     DestroySubMenuPanel();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }

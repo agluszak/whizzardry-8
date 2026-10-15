@@ -2,16 +2,18 @@
 #pragma once
 
 #include <cstddef>
-#include <vector>
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "input.h"
 #include "wiz8/ui_input.h"
 
 struct W8MonsterInfo;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 enum W8NoticeWordState {
     W8_NOTICE_WORD_NORMAL = 0,
@@ -50,7 +52,6 @@ struct W8MessageStorageRecord {
     unsigned char unknown_1c[8];
 };
 
-
 extern W8MessageStorageRecord g_message_storage[4][0x15e];
 
 enum class TextBoxRegion : std::size_t {
@@ -87,8 +88,6 @@ void SetTextBoxMuteInput(bool enabled);
 void ResetEditorStatusLine(short line);
 /* The font currently bound to the main text box. */
 Font& GetTextBoxFont(void);
-/* Repaint dirty dialogue text-input lines and the caret. */
-void RedrawDialogueTextInput(void);
 /* Clear one text_lines slot on the level block. */
 void ClearTextLineEntry(int index);
 
@@ -96,7 +95,6 @@ void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
    runs persisted around the game-status record. */
 unsigned char SaveTextBoxState(wiz8::File* file);
-unsigned char HandleDialogueTextInput(const InputEvent* input);
 char TextBoxHandleKey(const InputEvent* event);
 int GetSelectedTextLine(int index);
 void ClearSelectedTextLine(int index);

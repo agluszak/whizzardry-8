@@ -1,37 +1,35 @@
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include <array>
 #include <string>
+
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #pragma once
 
-#include <string_view>
-#include <memory>
 #include <cstddef>
-#include "wiz8/ui_input.h"
-#include <vector>
 #include <cstdint>
+#include <memory>
+#include <string_view>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/local_code/RangeControl.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/learned_spells.h"
+#include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
-#include "input.h"
-#include "compat/compiler.h"
+#include "wiz8/ui_input.h"
 
 struct W8Character;
 struct W8CombatSlot;
-
 
 enum CampMainRegionOffset {
     kCampPartyPortraitRegionOffset = 1,
     kCampCharacterHeaderRegionOffset = 9
 };
 
-enum CampInventoryRegionOffset {
-    kCampEquipmentRegionOffset = 8
-};
+enum CampInventoryRegionOffset { kCampEquipmentRegionOffset = 8 };
 
 enum W8CampPage {
     W8_CAMP_PAGE_ITEMS = 0,
@@ -280,6 +278,6 @@ void EndReviewTransition(void);
 void ShowEndingScreen(void);
 void BeginEndgameSequence(void);
 /* Camp and main-game notice dialogs ShowNoticeLine forwards into. */
-void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
-                        bool cancel);
+void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
+                        bool confirmation, bool cancel);
 void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin);

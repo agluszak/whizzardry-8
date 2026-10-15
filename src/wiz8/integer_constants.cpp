@@ -1,4 +1,5 @@
 #include "wiz8/integer_constants.h"
+
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 
 /* Definitions for integer_constants.h: this unit reads none of them, so no
@@ -223,7 +224,7 @@ const int g_sight_effect3 = 0x44;
 const int g_effect33 = 69;
 
 /* Quote indices 'F'..'R' fall outside the scripted world-action dispatch in
-   RunNpcScriptLine's kind-0x0d/0x14 entries. */
+   W8NpcDialogue::Speak's kind-0x0d/0x14 entries. */
 // GLOBAL: WIZ8 0x005EE6A0
 const int g_world_action_quote_min = 'F';
 

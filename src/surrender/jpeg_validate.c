@@ -1,10 +1,10 @@
 #include "jpeg_validate.h"
 
+#include <jmorecfg.h>
 #include <jpeglib.h>
 #include <setjmp.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <jmorecfg.h>
 
 struct Validation {
     struct jpeg_decompress_struct image;
@@ -22,8 +22,8 @@ static void warning(j_common_ptr image, int level)
     if (level < 0) reject(image);
 }
 
-bool srValidateJpeg(const unsigned char* data, size_t size,
-                    unsigned* width, unsigned* height, unsigned* components)
+bool srValidateJpeg(const unsigned char* data, size_t size, unsigned* width, unsigned* height,
+                    unsigned* components)
 {
     struct Validation* state = calloc(1, sizeof(*state));
     if (!state) return false;
@@ -39,7 +39,8 @@ bool srValidateJpeg(const unsigned char* data, size_t size,
     }
     jpeg_create_decompress(&state->image);
     jpeg_mem_src(&state->image, data, size);
-    const bool valid = jpeg_read_header(&state->image, TRUE) == JPEG_HEADER_OK &&
+    const bool valid =
+        jpeg_read_header(&state->image, TRUE) == JPEG_HEADER_OK &&
         state->image.data_precision == 8 && state->image.image_width && state->image.image_height &&
         (state->image.num_components == 1 || state->image.num_components == 3 ||
          state->image.num_components == 4) &&
@@ -48,8 +49,8 @@ bool srValidateJpeg(const unsigned char* data, size_t size,
     if (valid) {
         // Coefficient decoding covers baseline/progressive scans and restart
         // markers without duplicating libjpeg syntax or performing pixel IDCT.
-        complete = jpeg_read_coefficients(&state->image) != NULL &&
-                   jpeg_finish_decompress(&state->image);
+        complete =
+            jpeg_read_coefficients(&state->image) != NULL && jpeg_finish_decompress(&state->image);
         if (complete) {
             *width = state->image.image_width;
             *height = state->image.image_height;

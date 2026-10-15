@@ -1,14 +1,15 @@
 #pragma once
 
-#include "wiz8/layouts/character.h"
-#include <cstdint>
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
+
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/item_tables.h"
 
 namespace wiz8::retail {
 // Format-defined storage only. Text fields are bytes so odd UTF-16 offsets
@@ -179,23 +180,21 @@ struct FactDatabaseRecord {
 static_assert(std::is_trivially_copyable_v<FactDatabaseRecord>);
 static_assert(sizeof(FactDatabaseRecord) == 0x1d8, "FactDatabaseRecord_size_must_be_0x1d8");
 struct NpcCharacterTemplate {
-    std::array<std::byte, 20> name;       /* 0x000, record 0x0c4 */
-    std::array<std::byte, 12> name_part_2; /* 0x014, record 0x0d8 */
+    std::array<std::byte, 20> name;
+    std::array<std::byte, 12> name_part_2;
     unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
-    W8Profession
-        profession;     /* 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
-    W8Race race;        /* 0x068, record 0x12c */
-    int table_value;    /* 0x06c, record 0x130 */
-    unsigned int level; /* 0x070, record 0x134: starting profession level */
-    int attributes[7];  /* 0x074, record 0x138: W8CharacterAttribute::value per attribute */
-    int skills[0x29];   /* 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
-    unsigned char
-        spells[0x72]; /* 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
-    unsigned short equipment_present[12]; /* 0x1a6, record 0x26a: zero leaves the slot empty */
-    unsigned short equipment_ids[12];     /* 0x1be, record 0x282: Items.dbs index, 0xffff empty */
-    unsigned short backpack_present[8];   /* 0x1d6, record 0x29a */
-    unsigned short backpack_ids[8];       /* 0x1e6, record 0x2aa */
-    signed char gender; /* 0x1f6, record 0x2ba: copied into the character's own sex field */
+    W8Profession profession;
+    W8Race race;
+    int table_value;
+    unsigned int level;
+    int attributes[7];
+    int skills[0x29];
+    unsigned char spells[0x72];
+    unsigned short equipment_present[12];
+    unsigned short equipment_ids[12];
+    unsigned short backpack_present[8];
+    unsigned short backpack_ids[8];
+    signed char gender;
     short wanted_item_ids[3];
     unsigned char unknown_1fd[9];
 };
@@ -438,8 +437,7 @@ struct MonsterRecord {
 static_assert(std::is_trivially_copyable_v<MonsterRecord>);
 static_assert(sizeof(MonsterRecord) == 0x297, "MonsterRecord_size_must_be_0x297");
 static_assert(offsetof(MonsterRecord, flags) == 0xd0, "MonsterRecord_flags_offset");
-static_assert(offsetof(MonsterRecord, stamina_dice) == 0xda,
-              "MonsterRecord_stamina_dice_offset");
+static_assert(offsetof(MonsterRecord, stamina_dice) == 0xda, "MonsterRecord_stamina_dice_offset");
 static_assert(offsetof(MonsterRecord, remains_model_name) == 0x1c3,
               "MonsterRecord_remains_model_name_offset");
 static_assert(offsetof(MonsterRecord, treasure) == 0x1f3, "MonsterRecord_treasure_offset");
@@ -447,8 +445,7 @@ static_assert(offsetof(MonsterRecord, treasure.gold_dice) == 0x243,
               "MonsterRecord_gold_dice_offset");
 static_assert(offsetof(MonsterRecord, attack_body_part_chances) == 0x157,
               "MonsterRecord_attack_body_part_chances");
-static_assert(offsetof(MonsterRecord, effective_level) == 0x24f,
-              "MonsterRecord_effective_level");
+static_assert(offsetof(MonsterRecord, effective_level) == 0x24f, "MonsterRecord_effective_level");
 static_assert(offsetof(MonsterRecord, display_level) == 0x251, "MonsterRecord_display_level");
 struct Character {
     /* 0x0000: SaveCharacter stamps 1 here before writing the record, so the
@@ -814,8 +811,10 @@ struct GlobalStatus {
     bool dev_flagged;
 };
 static_assert(std::is_trivially_copyable_v<GlobalStatus>);
-static_assert(offsetof(GlobalStatus, status_header_suffix) + sizeof(GlobalStatus::status_header_suffix) -
-              offsetof(GlobalStatus, status_header_prefix) == 0x100,
+static_assert(offsetof(GlobalStatus, status_header_suffix) +
+                      sizeof(GlobalStatus::status_header_suffix) -
+                      offsetof(GlobalStatus, status_header_prefix) ==
+                  0x100,
               "GlobalStatus_status_header_size");
 static_assert(offsetof(GlobalStatus, party_gold) == 0x19, "GlobalStatus_party_gold_offset");
 static_assert(offsetof(GlobalStatus, selected_character) == 0x1d,
@@ -827,10 +826,8 @@ static_assert(offsetof(GlobalStatus, party_item_count) == 0x1791,
 static_assert(offsetof(GlobalStatus, text_line_cursor) == 0x1795,
               "GlobalStatus_text_line_cursor_offset");
 static_assert(offsetof(GlobalStatus, flags) == 0x2367, "GlobalStatus_flags_offset");
-static_assert(offsetof(GlobalStatus, party_facing) == 0x18d0,
-              "GlobalStatus_party_facing_offset");
-static_assert(offsetof(GlobalStatus, current_level) == 0x1900,
-              "GlobalStatus_current_level_offset");
+static_assert(offsetof(GlobalStatus, party_facing) == 0x18d0, "GlobalStatus_party_facing_offset");
+static_assert(offsetof(GlobalStatus, current_level) == 0x1900, "GlobalStatus_current_level_offset");
 static_assert(offsetof(GlobalStatus, status_header_prefix) == 0x1904,
               "GlobalStatus_status_header_prefix_offset");
 static_assert(offsetof(GlobalStatus, uiTurnsElapsed) == 0x19d8,
@@ -853,40 +850,28 @@ static_assert(offsetof(GlobalStatus, use_item_latch) == 0x2445,
               "GlobalStatus_use_item_latch_offset");
 static_assert(offsetof(GlobalStatus, selected_party_member) == 0x2434,
               "GlobalStatus_selected_party_member_offset");
-static_assert(offsetof(GlobalStatus, rpc_races) == 0x243a,
-              "GlobalStatus_rpc_races_offset");
+static_assert(offsetof(GlobalStatus, rpc_races) == 0x243a, "GlobalStatus_rpc_races_offset");
 static_assert(offsetof(GlobalStatus, monster_name_buffer) == 0x2453,
               "GlobalStatus_monster_name_buffer_offset");
 static_assert(offsetof(GlobalStatus, sedexus_party_slot) == 0x247f,
               "GlobalStatus_sedexus_party_slot_offset");
-static_assert(offsetof(GlobalStatus, greeting_pending) == 0x2497,
-              "GlobalStatus_flag_2497_offset");
-static_assert(offsetof(GlobalStatus, next_group_id) == 0x234a,
-              "GlobalStatus_next_group_id_offset");
+static_assert(offsetof(GlobalStatus, greeting_pending) == 0x2497, "GlobalStatus_flag_2497_offset");
+static_assert(offsetof(GlobalStatus, next_group_id) == 0x234a, "GlobalStatus_next_group_id_offset");
 static_assert(offsetof(GlobalStatus, log_fact_checks) == 0x3120,
               "GlobalStatus_log_fact_checks_offset");
 static_assert(offsetof(GlobalStatus, text_box_lines_shown) == 0x49a7,
               "GlobalStatus_text_box_lines_shown_offset");
-static_assert(offsetof(GlobalStatus, intro_shown) == 0x49bc,
-              "GlobalStatus_intro_shown_offset");
+static_assert(offsetof(GlobalStatus, intro_shown) == 0x49bc, "GlobalStatus_intro_shown_offset");
 static_assert(offsetof(GlobalStatus, text_box_lines_used) == 0x4997,
               "GlobalStatus_migrated_values_offset");
-static_assert(offsetof(GlobalStatus, rpc_active) == 0x2489,
-              "GlobalStatus_flag_2489_offset");
-static_assert(offsetof(GlobalStatus, status_ints) == 0x3121,
-              "GlobalStatus_status_ints_offset");
-static_assert(offsetof(GlobalStatus, fact_88_latch) == 0x40c1,
-              "GlobalStatus_fact_88_latch_offset");
-static_assert(offsetof(GlobalStatus, spell_usage) == 0x40ce,
-              "GlobalStatus_spell_usage_offset");
-static_assert(offsetof(GlobalStatus, vi_event_stage) == 0x498b,
-              "GlobalStatus_value_498b_offset");
-static_assert(offsetof(GlobalStatus, endgame2_queued) == 0x498f,
-              "GlobalStatus_value_498f_offset");
-static_assert(offsetof(GlobalStatus, endgame3_queued) == 0x4993,
-              "GlobalStatus_value_4993_offset");
-static_assert(offsetof(GlobalStatus, party_slot) == 0x249c,
-              "GlobalStatus_party_slot_offset");
+static_assert(offsetof(GlobalStatus, rpc_active) == 0x2489, "GlobalStatus_flag_2489_offset");
+static_assert(offsetof(GlobalStatus, status_ints) == 0x3121, "GlobalStatus_status_ints_offset");
+static_assert(offsetof(GlobalStatus, fact_88_latch) == 0x40c1, "GlobalStatus_fact_88_latch_offset");
+static_assert(offsetof(GlobalStatus, spell_usage) == 0x40ce, "GlobalStatus_spell_usage_offset");
+static_assert(offsetof(GlobalStatus, vi_event_stage) == 0x498b, "GlobalStatus_value_498b_offset");
+static_assert(offsetof(GlobalStatus, endgame2_queued) == 0x498f, "GlobalStatus_value_498f_offset");
+static_assert(offsetof(GlobalStatus, endgame3_queued) == 0x4993, "GlobalStatus_value_4993_offset");
+static_assert(offsetof(GlobalStatus, party_slot) == 0x249c, "GlobalStatus_party_slot_offset");
 static_assert(offsetof(GlobalStatus, regular_member_count) == 0x000d,
               "GlobalStatus_regular_member_count_offset");
 static_assert(offsetof(GlobalStatus, auxiliary_member_count) == 0x0011,

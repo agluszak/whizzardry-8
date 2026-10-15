@@ -1,17 +1,23 @@
+#include "wiz8/local_screens/mipe.h"
+
+#include <algorithm>
+#include <cstring>
+#include <initializer_list>
 #include <memory>
+#include <string>
+#include <string_view>
+#include <variant>
+#include <vector>
+
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
-#include <string>
-#include <initializer_list>
-#include <vector>
-#include <algorithm>
-#include <variant>
-#include <cstring>
-#include <string_view>
 
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/mipe.h"
+#include "dice.h"
 #include "input.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/world.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -27,17 +33,18 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -46,28 +53,22 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-#include "dice.h"
-#include "layouts/gameplay_databases.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/world.h"
 
 // The editor reuses its category view for four concrete borrowed row types.
 using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8ItemDatabaseRecord*,
                                          W8EncounterTableRuntime*, W8ItemTableRecord*>;
 
-template <class T>
+template<class T>
 static T* MipeCategoryValue(const std::vector<W8MipeCategoryEntry>* rows, int index)
 {
-    if (!rows || index < 0 || index >= static_cast<int>(rows->size()))
-        return nullptr;
+    if (!rows || index < 0 || index >= static_cast<int>(rows->size())) return nullptr;
     const auto* value = std::get_if<T*>(&(*rows)[index]);
     return value ? *value : nullptr;
 }
 
 static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>* rows, int index)
 {
-    if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index))
-        return monster->name;
+    if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index)) return monster->name;
     if (auto* item = MipeCategoryValue<W8ItemDatabaseRecord>(rows, index))
         return item->display_name;
     return {};
@@ -138,13 +139,9 @@ static void ShowMipeMenu(std::string_view title, std::initializer_list<std::stri
 
 static void ShowMipeMainMenu()
 {
-    ShowMipeMenu("What would you like to do?", {
-        "1) Create a monster.",
-        "2) Create an item.",
-        "3) Edit object(s).",
-        "4) Monster Generators.",
-        "5) Select object(s).",
-        "6) Handle triggers."});
+    ShowMipeMenu("What would you like to do?",
+                 {"1) Create a monster.", "2) Create an item.", "3) Edit object(s).",
+                  "4) Monster Generators.", "5) Select object(s).", "6) Handle triggers."});
 }
 
 void ToggleMipePanel(void)
@@ -385,34 +382,21 @@ void ShowMipeChooseMenu(void)
 /* Mode-5 menu: which kind of object to edit. */
 void ShowMipeEditMenu(void)
 {
-    ShowMipeMenu("What do you want to edit?.", {
-        "1) Monster",
-        "2) Prop",
-        "3) Item",
-        "4) Move object(s)"});
+    ShowMipeMenu("What do you want to edit?.",
+                 {"1) Monster", "2) Prop", "3) Item", "4) Move object(s)"});
 }
 
 static void ShowMipeMonsterEditMenu()
 {
-    ShowMipeMenu("Edit Monster", {
-        "1) Slow <<",
-        "2) Fast >>",
-        "3) Set Speed",
-        "4) Assign Path",
-        "5) Next Cycle",
-        "6) Direction"});
+    ShowMipeMenu("Edit Monster", {"1) Slow <<", "2) Fast >>", "3) Set Speed", "4) Assign Path",
+                                  "5) Next Cycle", "6) Direction"});
 }
 
 /* Mode-0xd menu: prop field-editing choices (locks & traps, treasure table). */
 void ShowMipePropMenu(void)
 {
-    ShowMipeMenu("Choose how you want to edit prop.", {
-        "1) Locks & Traps",
-        "2) Treasure Table",
-        "3) .",
-        "4) .",
-        "5) .",
-        "6) ."});
+    ShowMipeMenu("Choose how you want to edit prop.",
+                 {"1) Locks & Traps", "2) Treasure Table", "3) .", "4) .", "5) .", "6) ."});
 }
 
 /* Mode-0xc menu: trigger actions plus the selected trigger's kind and the
@@ -422,11 +406,8 @@ static void ShowMipeTriggerMenu(void)
     const char* status;
     int kind;
 
-    ShowMipeMenu("Select what you want to do.", {
-        "1) Create trigger.",
-        "2) Delete trigger.",
-        "3) ",
-        "4) Select trigger."});
+    ShowMipeMenu("Select what you want to do.",
+                 {"1) Create trigger.", "2) Delete trigger.", "3) ", "4) Select trigger."});
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, !g_mipe_trigger_display
                                              ? "5) Toggle trigger display [now off]."
                                              : "5) Toggle trigger display [now on].");
@@ -601,7 +582,7 @@ void ShowMonsterGeneratorEditor(void)
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "8) to toggle chance default");
 }
 
-template <class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCategoryEntry>* list)
+template<class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
     if (list != 0) {
         for (int row = 0; row < 6; ++row) {
@@ -659,7 +640,7 @@ static unsigned int FindMipeVisibleMonster(int visible)
     return monster_index;
 }
 
-unsigned char HandleMipeMonsterCreateKey(unsigned short key)
+unsigned char HandleMipeMonsterCreateKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8MipeMonsterEntry* entry;
@@ -683,36 +664,36 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
     }
     list = g_mipe_category_list.get();
     switch (key) {
-    case 8:
+    case SDLK_BACKSPACE:
         g_mipe_count /= 10;
         ShowMipeMonsterStatus();
         return 1;
     default:
         return 0;
-    case 0xd:
+    case SDLK_RETURN:
         break;
-    case 0x30:
-    case 0x31:
-    case 0x32:
-    case 0x33:
-    case 0x34:
-    case 0x35:
-    case 0x36:
-    case 0x37:
-    case 0x38:
-    case 0x39:
+    case SDLK_0:
+    case SDLK_1:
+    case SDLK_2:
+    case SDLK_3:
+    case SDLK_4:
+    case SDLK_5:
+    case SDLK_6:
+    case SDLK_7:
+    case SDLK_8:
+    case SDLK_9:
         g_mipe_count =
             static_cast<int>(static_cast<char>(static_cast<char>(key) - 0x30)) + g_mipe_count * 10;
         [[fallthrough]];
-    case 0x20:
+    case SDLK_SPACE:
         ShowMipeMonsterStatus();
         return 1;
-    case 0x43:
+    case SDLK_C:
         g_mipe_count = 1;
         g_mipe_mode = 6;
         ShowMipeNamedCategory(list, g_special_category_name_ids);
         return 1;
-    case 0x4f:
+    case SDLK_O:
         ++g_mipe_state->creation_method;
         if (2 < g_mipe_state->creation_method) {
             g_mipe_state->creation_method = 0;
@@ -747,7 +728,9 @@ static unsigned int FindMipeVisibleItem(int visible)
 {
     int found = 0;
     unsigned int item_index;
-    for (item_index = 0; static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase); ++item_index) {
+    for (item_index = 0;
+         static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase);
+         ++item_index) {
         if (g_item_records[item_index].equip_class == g_mipe_category &&
             g_item_records[item_index].editor_excluded == 0) {
             if (found == visible) {
@@ -762,10 +745,10 @@ static unsigned int FindMipeVisibleItem(int visible)
 /* Six-row picker navigation is shared by items, monsters, encounter tables
    and treasure tables. A stationary Up still requests a redraw; exhausted
    Down/Page Down and Page Up at the first page do not. */
-static bool MoveMipeTableSelection(unsigned short key)
+static bool MoveMipeTableSelection(SDL_Keycode key)
 {
     switch (key) {
-    case 0x26:
+    case SDLK_UP:
         if (g_mipe_table_row == 0) {
             if (g_mipe_table_base != 0) {
                 --g_mipe_table_base;
@@ -774,7 +757,7 @@ static bool MoveMipeTableSelection(unsigned short key)
             --g_mipe_table_row;
         }
         return true;
-    case 0x21:
+    case SDLK_PAGEUP:
         if (g_mipe_table_base == 0) {
             return false;
         }
@@ -783,7 +766,7 @@ static bool MoveMipeTableSelection(unsigned short key)
             g_mipe_table_base = 0;
         }
         return true;
-    case 0x28:
+    case SDLK_DOWN:
         if (g_mipe_table_row < 5 &&
             g_mipe_table_base + g_mipe_table_row <
                 static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 1)) {
@@ -796,7 +779,7 @@ static bool MoveMipeTableSelection(unsigned short key)
         }
         ++g_mipe_table_base;
         return true;
-    case 0x22:
+    case SDLK_PAGEDOWN:
         if (g_mipe_table_base + g_mipe_table_row <
             static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 6)) {
             g_mipe_table_base += 6;
@@ -857,14 +840,14 @@ static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
 /* Mode-7 key handler: the item-category picker. Enter resolves the highlighted
    record back to a database index and drops into item-create mode; the arrows
    page and walk the six-row view and cycle categories. */
-void HandleMipeItemCategoryKey(unsigned short key)
+void HandleMipeItemCategoryKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     unsigned int item_index;
 
     list = g_mipe_category_list.get();
     switch (key) {
-    case 0xd:
+    case SDLK_RETURN:
         item_index = FindMipeVisibleItem(g_mipe_table_base + g_mipe_table_row);
         if (item_index == gXStatus.uiItemsInDatabase) {
             item_index = 0;
@@ -873,7 +856,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
         ShowMipeItemStatus();
         g_mipe_mode = 2;
         return;
-    case 0x25:
+    case SDLK_LEFT:
         if (g_mipe_category == 0) {
             return;
         }
@@ -882,7 +865,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
         g_mipe_table_base = 0;
         RebuildMipeItemCategory(list);
         break;
-    case 0x27:
+    case SDLK_RIGHT:
         if (0x18 < g_mipe_category) {
             return;
         }
@@ -891,15 +874,15 @@ void HandleMipeItemCategoryKey(unsigned short key)
         g_mipe_table_base = 0;
         RebuildMipeItemCategory(list);
         break;
-    case 0x21:
-    case 0x22:
-    case 0x26:
-    case 0x28:
+    case SDLK_PAGEUP:
+    case SDLK_PAGEDOWN:
+    case SDLK_UP:
+    case SDLK_DOWN:
         if (MoveMipeTableSelection(key)) {
             ShowMipeNamedCategory(g_mipe_category_list.get(), g_equip_class_name_ids);
         }
         return;
-    case 0x20:
+    case SDLK_SPACE:
         break;
     default:
         return;
@@ -912,7 +895,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
    the selected item at the world cursor, 'A' flips the invisible-item display
    and activates/deactivates the flagged items, 'C' opens the item category
    picker and 'H' toggles the spawned item's hidden flag. */
-unsigned char HandleMipeItemCreateKey(unsigned short key)
+unsigned char HandleMipeItemCreateKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8WorldItem* spawned;
@@ -935,37 +918,37 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
     }
     list = g_mipe_category_list.get();
     switch (key) {
-    case 0x20:
+    case SDLK_SPACE:
         ShowMipeItemStatus();
         break;
-    case 0x43:
+    case SDLK_C:
         g_mipe_count = 0;
         g_mipe_mode = 7;
         ShowMipeNamedCategory(list, g_equip_class_name_ids);
         return 1;
-    case 8:
+    case SDLK_BACKSPACE:
         g_mipe_count /= 10;
         ShowMipeItemStatus();
         break;
-    case 0x30:
-    case 0x31:
-    case 0x32:
-    case 0x33:
-    case 0x34:
-    case 0x35:
-    case 0x36:
-    case 0x37:
-    case 0x38:
-    case 0x39:
+    case SDLK_0:
+    case SDLK_1:
+    case SDLK_2:
+    case SDLK_3:
+    case SDLK_4:
+    case SDLK_5:
+    case SDLK_6:
+    case SDLK_7:
+    case SDLK_8:
+    case SDLK_9:
         g_mipe_count =
             static_cast<int>(static_cast<char>(static_cast<char>(key) - 0x30)) + g_mipe_count * 10;
         ShowMipeItemStatus();
         break;
-    case 0x48:
+    case SDLK_H:
         g_mipe_item_hidden = !g_mipe_item_hidden;
         ShowMipeItemStatus();
         break;
-    case 0x41:
+    case SDLK_A:
         show_invisible = !g_hide_invisible_items;
         g_hide_invisible_items = show_invisible;
         for (item_index = 0; item_index < gXStatus.world_items.size(); ++item_index) {
@@ -982,7 +965,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
         }
         ShowMipeItemStatus();
         return 1;
-    case 0xd:
+    case SDLK_RETURN:
         item_index = FindMipeVisibleItem(g_mipe_table_base + g_mipe_table_row);
         if (item_index == gXStatus.uiItemsInDatabase) {
             item_index = 0;
@@ -1012,7 +995,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
    highlighted entry to a monster record, seeds the spawn count from the
    creation method and drops back to mode 1; the arrows page/walk rows and
    cycle through non-empty categories. */
-void HandleMipeMonsterCategoryKey(unsigned short key)
+void HandleMipeMonsterCategoryKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     int index;
@@ -1023,7 +1006,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
 
     list = g_mipe_category_list.get();
     switch (key) {
-    case 0xd:
+    case SDLK_RETURN:
         index = g_mipe_table_base + g_mipe_table_row;
         monster_index = FindMipeVisibleMonster(index);
         if (monster_index == gXStatus.uiMonstersInDatabase) {
@@ -1045,7 +1028,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
         ShowMipeMonsterStatus();
         g_mipe_mode = 1;
         return;
-    case 0x25:
+    case SDLK_LEFT:
         wraps = 0;
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
@@ -1060,7 +1043,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
             RebuildMipeMonsterCategory(list);
         } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         break;
-    case 0x27:
+    case SDLK_RIGHT:
         wraps = 0;
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
@@ -1075,15 +1058,15 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
             RebuildMipeMonsterCategory(list);
         } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         break;
-    case 0x21:
-    case 0x22:
-    case 0x26:
-    case 0x28:
+    case SDLK_PAGEUP:
+    case SDLK_PAGEDOWN:
+    case SDLK_UP:
+    case SDLK_DOWN:
         if (MoveMipeTableSelection(key)) {
             ShowMipeNamedCategory(list, g_special_category_name_ids);
         }
         return;
-    case 0x20:
+    case SDLK_SPACE:
         break;
     default:
         return;
@@ -1095,7 +1078,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
 /* '1' halves the selected monster's animation scale, '2' doubles it, '3'
    arms speed editing, '4' sends it to the world cursor, '5' advances it one
    subcycle. */
-void HandleMonsterDebugKey(unsigned short key)
+void HandleMonsterDebugKey(SDL_Keycode key)
 {
     W8Monster* monster;
     W8MonsterInfo* info;
@@ -1106,7 +1089,7 @@ void HandleMonsterDebugKey(unsigned short key)
     srVector3T<float> location;
 
     switch (key) {
-    case 0x31:
+    case SDLK_1:
         monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
         if (monster != 0) {
             scale = monster->GetCurrentAnimationScale();
@@ -1114,7 +1097,7 @@ void HandleMonsterDebugKey(unsigned short key)
             return;
         }
         break;
-    case 0x32:
+    case SDLK_2:
         monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
         if (monster != 0) {
             scale = monster->GetCurrentAnimationScale();
@@ -1122,14 +1105,14 @@ void HandleMonsterDebugKey(unsigned short key)
             return;
         }
         break;
-    case 0x33:
+    case SDLK_3:
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
             g_mipe_mode = 0xb;
             ShowMonsterSpeedStatus();
             return;
         }
         break;
-    case 0x34:
+    case SDLK_4:
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
             info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0 || info->p3D == 0) {
@@ -1146,7 +1129,7 @@ void HandleMonsterDebugKey(unsigned short key)
             return;
         }
         break;
-    case 0x35:
+    case SDLK_5:
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
             info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0) {
@@ -1190,7 +1173,7 @@ void HandleMonsterDebugKey(unsigned short key)
 }
 
 /* The ',', '.', 'k' and 'l' keys while speed editing the debug monster. */
-void AdjustMonsterSpeed(unsigned short key)
+void AdjustMonsterSpeed(SDL_Keycode key)
 {
     W8PathAI* path;
     float speed;
@@ -1212,24 +1195,24 @@ void AdjustMonsterSpeed(unsigned short key)
         speed += speed;
     }
     switch (key) {
-    case 0xbc:
+    case SDLK_COMMA:
         speed = speed - factor * g_mipe_state->speed_step;
         if (path != 0) {
             path->speed = speed;
         }
         MonsterSetNavigatorMovementScale(g_mipe_state->monster, speed);
         break;
-    case 0xbe:
+    case SDLK_PERIOD:
         speed = factor * g_mipe_state->speed_step + speed;
         if (path != 0) {
             path->speed = speed;
         }
         MonsterSetNavigatorMovementScale(g_mipe_state->monster, speed);
         break;
-    case 0x4c:
+    case SDLK_L:
         g_mipe_state->speed_step = g_mipe_state->speed_step + g_camera_transition_epsilon;
         break;
-    case 0x4b:
+    case SDLK_K:
         g_mipe_state->speed_step = g_mipe_state->speed_step - g_camera_transition_epsilon;
         if (g_mipe_state->speed_step < static_cast<float>(g_double_one_thousandth)) {
             g_mipe_state->speed_step = 0.001f;
@@ -1281,14 +1264,14 @@ static void ShowMipeLockTrapStatus()
 }
 
 /* 'C' drops a waypoint monster at the cursor, 'X' removes the newest one. */
-void HandleWaypointKey(unsigned short key)
+void HandleWaypointKey(SDL_Keycode key)
 {
     W8Monster* monster;
     W8World* world;
     srVector3T<float> position;
     W8GrCycleLoadContext context;
 
-    if (key == 0x43) {
+    if (key == SDLK_C) {
         monster = 0;
         context.directory = "Data\\Monsters";
         context.world = GetWorld();
@@ -1302,7 +1285,7 @@ void HandleWaypointKey(unsigned short key)
         ++g_mipe_state->waypoint_count;
         g_mipe_state->waypoints.push_back(monster);
         ShowMipeWaypointStatus();
-    } else if (key == 0x58) {
+    } else if (key == SDLK_X) {
         if (g_mipe_state) {
             unsigned int count = static_cast<unsigned int>(g_mipe_state->waypoints.size());
             if (count != 0) {
@@ -1324,7 +1307,7 @@ void HandleWaypointKey(unsigned short key)
 /* Mode-0xd key handler: scans the world's props for the picked one with a
    trigger, stores it as the edit target and opens the locks & traps ('1') or
    treasure-table ('2') editors. */
-void HandleMipePropEditKey(unsigned short key)
+void HandleMipePropEditKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8World* world;
@@ -1354,10 +1337,10 @@ void HandleMipePropEditKey(unsigned short key)
         }
         if (prop != 0) {
             g_mipe_state->prop = prop;
-            if (key == 0x31) {
+            if (key == SDLK_1) {
                 g_mipe_mode = 0x1b;
                 ShowMipeLockTrapStatus();
-            } else if (key == 0x32) {
+            } else if (key == SDLK_2) {
                 trigger = prop->GetTrigger();
                 table_index = FindItemTableByName(trigger->inline_action_data);
                 if (g_mipe_category_list == 0) {
@@ -1370,7 +1353,8 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_table_row = 0;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                             ++index) {
                             table = &g_item_tables[index];
                             if (table->category_id == 0) {
                                 list->push_back(table);
@@ -1382,7 +1366,8 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_category = category;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                             ++index) {
                             table = &g_item_tables[index];
                             if (table->category_id == static_cast<unsigned int>(category)) {
                                 list->push_back(table);
@@ -1393,7 +1378,8 @@ void HandleMipePropEditKey(unsigned short key)
                          index < static_cast<int>(
                                      (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                          ++index) {
-                        table = MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list.get(), index);
+                        table =
+                            MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list.get(), index);
                         if (table == &g_item_tables[table_index]) {
                             break;
                         }
@@ -1414,18 +1400,14 @@ void HandleMipePropEditKey(unsigned short key)
    helper name is descriptive; no original standalone spelling survives. */
 static void ShowMipeCubeMenu()
 {
-    ShowMipeMenu("Choose an action:", {
-        "1) Create cube.",
-        "2) Delete cube.",
-        "3) Edit cube parameters.",
-        "4) Move cube.",
-        "5) Scale cube.",
-        "6) Select cube."});
+    ShowMipeMenu("Choose an action:",
+                 {"1) Create cube.", "2) Delete cube.", "3) Edit cube parameters.", "4) Move cube.",
+                  "5) Scale cube.", "6) Select cube."});
 }
 
 /* The volume cube top menu: create, delete, edit parameters, move, scale and
    select. */
-int HandleCubeMenuKey(unsigned int key)
+int HandleCubeMenuKey(SDL_Keycode key)
 {
     const char* prompt;
     srVector3T<float> position;
@@ -1434,13 +1416,13 @@ int HandleCubeMenuKey(unsigned int key)
     int serial;
     char scale_planes[4];
 
-    switch (key & 0xffff) {
-    case 0x20:
+    switch (key) {
+    case SDLK_SPACE:
         ShowMipeCubeMenu();
         return 1;
     default:
         return 0;
-    case 0x31:
+    case SDLK_1:
         g_mipe_cube = CreateWorldCursorCube();
         GetCameraForwardPointCopy(2500.0f, &position);
         position.y = probeGround(position.glmValue()).position.y;
@@ -1452,20 +1434,20 @@ int HandleCubeMenuKey(unsigned int key)
         name = fmt::format("Cube{:03d}", serial);
         SetWorldCursorNodeName(g_mipe_cube, name.c_str());
         return 1;
-    case 0x32:
+    case SDLK_2:
         if (g_mipe_cube != 0) {
             DestroyWorldCursorCube(g_mipe_cube);
             g_mipe_cube = 0;
         }
         return 1;
-    case 0x33:
+    case SDLK_3:
         if (g_mipe_cube != 0) {
             g_mipe_mode = 0x10;
             g_mipe_menu_active = false;
             ShowCubeParameters();
         }
         return 1;
-    case 0x34:
+    case SDLK_4:
         if (g_mipe_cube == 0) {
             return 1;
         }
@@ -1486,7 +1468,7 @@ int HandleCubeMenuKey(unsigned int key)
         g_mipe_state->dragging = true;
         g_mipe_menu_active = false;
         return 1;
-    case 0x35:
+    case SDLK_5:
         if (g_mipe_cube == 0) {
             return 1;
         }
@@ -1506,7 +1488,7 @@ int HandleCubeMenuKey(unsigned int key)
         }
         prompt = "Click on trigger to scale.";
         break;
-    case 0x36:
+    case SDLK_6:
         g_mipe_mode = 0x13;
         ResetEditorStatusLine(-1);
         ShowNotice(W8_FONT_PALETTE_PINK, "Select cube:");
@@ -1524,29 +1506,29 @@ int HandleCubeMenuKey(unsigned int key)
 
 /* The digit keys editing the selected cube parameter, plus the arrow keys
    stepping between Message, Search and Function. */
-int HandleCubeParameterKey(unsigned int key)
+int HandleCubeParameterKey(SDL_Keycode key)
 {
     int value;
 
-    switch (key & 0xffff) {
-    case 0x20:
+    switch (key) {
+    case SDLK_SPACE:
         ShowMipeCubeMenu();
         return 1;
-    case 0x26:
+    case SDLK_UP:
         if (0 < g_mipe_cube_param) {
             --g_mipe_cube_param;
             ShowCubeParameters();
             return 1;
         }
         break;
-    case 0x28:
+    case SDLK_DOWN:
         if (g_mipe_cube_param < 2) {
             ++g_mipe_cube_param;
             ShowCubeParameters();
             return 1;
         }
         break;
-    case 8:
+    case SDLK_BACKSPACE:
         if (g_mipe_cube != 0) {
             value = GetWorldCursorNodeParameter(g_mipe_cube, g_mipe_cube_param);
             SetWorldCursorNodeParameter(g_mipe_cube, g_mipe_cube_param, value / 10);
@@ -1555,21 +1537,20 @@ int HandleCubeParameterKey(unsigned int key)
             return 1;
         }
         break;
-    case 0x30:
-    case 0x31:
-    case 0x32:
-    case 0x33:
-    case 0x34:
-    case 0x35:
-    case 0x36:
-    case 0x37:
-    case 0x38:
-    case 0x39:
+    case SDLK_0:
+    case SDLK_1:
+    case SDLK_2:
+    case SDLK_3:
+    case SDLK_4:
+    case SDLK_5:
+    case SDLK_6:
+    case SDLK_7:
+    case SDLK_8:
+    case SDLK_9:
         if (g_mipe_cube != 0 &&
             (value = GetWorldCursorNodeParameter(g_mipe_cube, g_mipe_cube_param), value < 99999)) {
             value = GetWorldCursorNodeParameter(g_mipe_cube, g_mipe_cube_param);
-            SetWorldCursorNodeParameter(g_mipe_cube, g_mipe_cube_param,
-                                        ((key & 0xffff) - 0x30) + value * 10);
+            SetWorldCursorNodeParameter(g_mipe_cube, g_mipe_cube_param, ((key)-0x30) + value * 10);
             DrawWorldCursorNodeLabel(g_mipe_cube);
             ShowCubeParameters();
         }
@@ -1582,12 +1563,12 @@ int HandleCubeParameterKey(unsigned int key)
 
 /* The scale editor's keys: arrows resize the current plane and X/Y/Z pick the
    plane. */
-int HandleCubeScaleKey(unsigned short key)
+int HandleCubeScaleKey(SDL_Keycode key)
 {
     char scale_planes[8];
 
     switch (key) {
-    case 0x20:
+    case SDLK_SPACE:
         scale_planes[0] = 'X';
         scale_planes[1] = 'Y';
         scale_planes[2] = 'Z';
@@ -1604,7 +1585,7 @@ int HandleCubeScaleKey(unsigned short key)
         return 1;
     default:
         return 0;
-    case 0x26:
+    case SDLK_UP:
         if (g_mipe_cube != 0) {
             if (g_mipe_scale_plane == 0) {
                 ScaleWorldCursorNodeX(g_mipe_cube, 1.1);
@@ -1620,7 +1601,7 @@ int HandleCubeScaleKey(unsigned short key)
             }
         }
         break;
-    case 0x28:
+    case SDLK_DOWN:
         if (g_mipe_cube != 0) {
             if (g_mipe_scale_plane == 0) {
                 ScaleWorldCursorNodeX(g_mipe_cube, 0.9);
@@ -1636,13 +1617,13 @@ int HandleCubeScaleKey(unsigned short key)
             }
         }
         break;
-    case 0x58:
+    case SDLK_X:
         g_mipe_scale_plane = 0;
         return 1;
-    case 0x59:
+    case SDLK_Y:
         g_mipe_scale_plane = 1;
         return 1;
-    case 0x5a:
+    case SDLK_Z:
         g_mipe_scale_plane = 2;
         break;
     }
@@ -1650,7 +1631,7 @@ int HandleCubeScaleKey(unsigned short key)
 }
 
 /* The monster generator top-menu keys. */
-static int HandleMonsterGeneratorKey(unsigned short key)
+static int HandleMonsterGeneratorKey(SDL_Keycode key)
 {
     MonGen* generator;
     MonGen* other;
@@ -1661,11 +1642,11 @@ static int HandleMonsterGeneratorKey(unsigned short key)
     int count;
 
     switch (key) {
-    case 0x20:
+    case SDLK_SPACE:
         break;
     default:
         return 0;
-    case 0x31:
+    case SDLK_1:
         GetWorldCursorAnchor(&anchor);
         count = GetMonsterGeneratorCount();
         for (index = 0; index < count; ++index) {
@@ -1698,25 +1679,25 @@ static int HandleMonsterGeneratorKey(unsigned short key)
             generator->marker_item->SetHighlight(true);
         }
         return 1;
-    case 0x32:
+    case SDLK_2:
         if (g_mipe_state->generator != 0) {
             RemoveMonsterGenerator(g_mipe_state->generator);
             g_mipe_state->generator = 0;
             ShowMonsterGeneratorStatus();
         }
         return 1;
-    case 0x33:
+    case SDLK_3:
         if (g_mipe_state->generator != 0) {
             g_mipe_mode = 0x16;
             ShowMonsterGeneratorEditor();
         }
         return 1;
-    case 0x34:
+    case SDLK_4:
         g_mipe_state->selecting = 1;
         HideWorldCursor();
         ShowMonsterGeneratorStatus();
         return 1;
-    case 0x35: {
+    case SDLK_5: {
         bool visible = !g_mipe_mongen_visible;
         count = GetMonsterGeneratorCount();
         for (index = 0; index < count; ++index) {
@@ -1727,7 +1708,7 @@ static int HandleMonsterGeneratorKey(unsigned short key)
         ShowMonsterGeneratorStatus();
         return 1;
     }
-    case 0x36:
+    case SDLK_6:
         g_generator_save_flag = g_generator_save_flag == 0;
         break;
     }
@@ -1750,7 +1731,7 @@ static void RebuildMipeEncounterCategory(std::vector<W8MipeCategoryEntry>* list)
     }
 }
 
-int HandleMonsterGeneratorEditKey(unsigned short key)
+int HandleMonsterGeneratorEditKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8EncounterTableRuntime* table;
@@ -1765,18 +1746,18 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
         RebuildMipeEncounterCategory(g_mipe_category_list.get());
     }
     switch (key) {
-    case 0x20:
+    case SDLK_SPACE:
         ShowMonsterGeneratorStatus();
         return 1;
     default:
         return 0;
-    case 0x31:
+    case SDLK_1:
         g_mipe_mode = 0x19;
         ResetEditorStatusLine(-1);
         ShowNotice(W8_FONT_PALETTE_PINK, "Enter the name for this generator:");
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_mipe_state->generator->name);
         return 1;
-    case 0x32:
+    case SDLK_2:
         current_index = g_mipe_state->generator->encounter_table_index;
         if (current_index < 0) {
             g_mipe_table_base = 0;
@@ -1791,7 +1772,8 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             for (found = 0; found < static_cast<int>(
                                         (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                  ++found) {
-                table = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(), found);
+                table =
+                    MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(), found);
                 entry = GetEncounterTable(current_index);
                 if (table == entry) {
                     break;
@@ -1817,12 +1799,12 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             }
         }
         return 1;
-    case 0x33:
+    case SDLK_3:
         g_mipe_state->generator->generation_enabled =
             g_mipe_state->generator->generation_enabled == 0;
         ShowMonsterGeneratorEditor();
         return 1;
-    case 0x34:
+    case SDLK_4:
         generator = g_mipe_state->generator;
         if ((generator->flags >> 3 & 1) == 0) {
             if ('\0' < generator->custom_spawn_chance) {
@@ -1837,7 +1819,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             return 1;
         }
         break;
-    case 0x35:
+    case SDLK_5:
         generator = g_mipe_state->generator;
         if ((generator->flags >> 3 & 1) == 0) {
             if (generator->custom_spawn_chance < 'd') {
@@ -1852,7 +1834,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             return 1;
         }
         break;
-    case 0x36:
+    case SDLK_6:
         generator = g_mipe_state->generator;
         if ((generator->flags >> 3 & 1) == 0) {
             if (0 < generator->custom_interval_seconds) {
@@ -1867,7 +1849,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             return 1;
         }
         break;
-    case 0x37:
+    case SDLK_7:
         generator = g_mipe_state->generator;
         if ((generator->flags >> 3 & 1) == 0) {
             generator->custom_interval_seconds += 10;
@@ -1878,7 +1860,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
         g_generator_default_interval += 10;
         ShowMonsterGeneratorEditor();
         return 1;
-    case 0x38:
+    case SDLK_8:
         generator = g_mipe_state->generator;
         if ((generator->flags >> 3 & 1) != 0) {
             generator->flags &= 0xfffffff7;
@@ -1895,7 +1877,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
 /* Mode-0x17 key handler: the generator's encounter-table picker. Enter binds
    the highlighted table to the selected generator; the arrows page/walk the
    rows and cycle through the categories. */
-void HandleMipeGeneratorTableKey(unsigned short key)
+void HandleMipeGeneratorTableKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8EncounterTableRuntime* entry;
@@ -1907,7 +1889,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
 
     count = static_cast<int>(g_encounter_tables.size());
     switch (key) {
-    case 0xd:
+    case SDLK_RETURN:
         if (g_mipe_state->generator != 0) {
             found = 0;
             table_index = 0;
@@ -1930,18 +1912,18 @@ void HandleMipeGeneratorTableKey(unsigned short key)
         ShowMonsterGeneratorEditor();
         g_mipe_mode = 0x16;
         return;
-    case 0x20:
+    case SDLK_SPACE:
         ShowMipeEncounterCategory();
         return;
-    case 0x21:
-    case 0x22:
-    case 0x26:
-    case 0x28:
+    case SDLK_PAGEUP:
+    case SDLK_PAGEDOWN:
+    case SDLK_UP:
+    case SDLK_DOWN:
         if (MoveMipeTableSelection(key)) {
             ShowMipeEncounterCategory();
         }
         return;
-    case 0x25:
+    case SDLK_LEFT:
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
         wraps = 0;
@@ -1967,7 +1949,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
         } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         ShowMipeEncounterCategory();
         return;
-    case 0x27:
+    case SDLK_RIGHT:
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
         wraps = 0;
@@ -1989,22 +1971,20 @@ void HandleMipeGeneratorTableKey(unsigned short key)
 }
 
 /* Character entry for the generator name, capped at the 32-byte field. */
-void EditMonsterGeneratorName(unsigned short key)
+void EditMonsterGeneratorName(SDL_Keycode key)
 {
     std::string name;
     int length;
 
     name = g_mipe_state->generator->name;
     length = name.size();
-    if (key == 8) {
+    if (key == SDLK_BACKSPACE) {
         if (0 < length) {
             name[length - 1] = '\0';
         }
-    } else if ((((0x2f < key) && (key < 0x3a)) || ((0x40 < key) && (key < 0x5b))) &&
+    } else if ((((0x2f < key) && (key < 0x3a)) || ((SDLK_A <= key) && (key <= SDLK_Z))) &&
                (length < 0x1f)) {
-        if (!IsKeyHeld(VK_SHIFT)) {
-            key += 0x20;
-        }
+        key = TranslateKeyToCharacter(key, GetInputState().modifiers);
         name[length] = static_cast<char>(key);
         name[length + 1] = '\0';
     }
@@ -2016,7 +1996,7 @@ void EditMonsterGeneratorName(unsigned short key)
 /* Mode-0x1b key handler: the selected prop trigger's locks & traps editor.
    '1' cycles the lock type and re-rolls the pin state, '2' enters key-id
    input, '3'/'4' bump the difficulty, and every path repaints the menu. */
-void HandleMipeLockTrapKey(unsigned short key)
+void HandleMipeLockTrapKey(SDL_Keycode key)
 {
     Trigger* trigger;
     Trigger* action_trigger;
@@ -2033,7 +2013,7 @@ void HandleMipeLockTrapKey(unsigned short key)
         action = 0;
     }
     switch (key) {
-    case 0x31:
+    case SDLK_1:
         ++lock_state->lock_type;
         if (3 < lock_state->lock_type) {
             lock_state->lock_type = 0;
@@ -2057,20 +2037,20 @@ void HandleMipeLockTrapKey(unsigned short key)
                 static_cast<short>(trigger->lock_state.key_id);
         }
         break;
-    case 0x32:
+    case SDLK_2:
         g_mipe_mode = 0x1c;
         trigger = g_mipe_state->prop->GetTrigger();
         ResetEditorStatusLine(-1);
         ShowNotice(W8_FONT_PALETTE_PINK, "Enter Key ID:");
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, fmt::format("{:d}", trigger->lock_state.key_id));
         return;
-    case 0x33:
+    case SDLK_3:
         ++trigger->lock_state.difficulty;
         if (10 < trigger->lock_state.difficulty) {
             trigger->lock_state.difficulty = 10;
         }
         break;
-    case 0x34:
+    case SDLK_4:
         --trigger->lock_state.difficulty;
         if (trigger->lock_state.difficulty < 0) {
             trigger->lock_state.difficulty = 0;
@@ -2080,7 +2060,7 @@ void HandleMipeLockTrapKey(unsigned short key)
 }
 
 /* The digit keys editing the selected prop trigger's key id. */
-void EditTriggerKeyID(unsigned int key)
+void EditTriggerKeyID(SDL_Keycode key)
 {
     Trigger* trigger;
     W8TriggerActionData* action;
@@ -2093,24 +2073,24 @@ void EditTriggerKeyID(unsigned int key)
         action = 0;
     }
     key_id = trigger->lock_state.key_id;
-    switch (key & 0xffff) {
-    case 8:
+    switch (key) {
+    case SDLK_BACKSPACE:
         key_id /= 10;
         break;
-    case 0x2d:
+    case SDLK_INSERT:
         key_id = -1;
         break;
-    case 0x30:
-    case 0x31:
-    case 0x32:
-    case 0x33:
-    case 0x34:
-    case 0x35:
-    case 0x36:
-    case 0x37:
-    case 0x38:
-    case 0x39:
-        key_id = ((key & 0xffff) - 0x30) + key_id * 10;
+    case SDLK_0:
+    case SDLK_1:
+    case SDLK_2:
+    case SDLK_3:
+    case SDLK_4:
+    case SDLK_5:
+    case SDLK_6:
+    case SDLK_7:
+    case SDLK_8:
+    case SDLK_9:
+        key_id = ((key)-0x30) + key_id * 10;
         break;
     }
     trigger->lock_state.key_id = key_id;
@@ -2140,7 +2120,7 @@ void EditTriggerKeyID(unsigned int key)
    copies the highlighted table's name into the trigger's inline action data
    and returns to the prop menu; the arrows page/walk rows and cycle the item
    table categories. */
-void HandleMipeItemTableKey(unsigned short key)
+void HandleMipeItemTableKey(SDL_Keycode key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     Trigger* trigger;
@@ -2150,7 +2130,7 @@ void HandleMipeItemTableKey(unsigned short key)
     int index;
 
     switch (key) {
-    case 0xd:
+    case SDLK_RETURN:
         if (g_mipe_state->prop != 0) {
             table_index =
                 FindCategoryItemTable(g_mipe_category & 0xff, g_mipe_table_base + g_mipe_table_row);
@@ -2162,18 +2142,18 @@ void HandleMipeItemTableKey(unsigned short key)
         ShowMipePropMenu();
         g_mipe_mode = 0xd;
         return;
-    case 0x20:
+    case SDLK_SPACE:
         ShowMipeItemTableCategory();
         return;
-    case 0x21:
-    case 0x22:
-    case 0x26:
-    case 0x28:
+    case SDLK_PAGEUP:
+    case SDLK_PAGEDOWN:
+    case SDLK_UP:
+    case SDLK_DOWN:
         if (MoveMipeTableSelection(key)) {
             ShowMipeItemTableCategory();
         }
         return;
-    case 0x25:
+    case SDLK_LEFT:
         wraps = 0;
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
@@ -2188,7 +2168,8 @@ void HandleMipeItemTableKey(unsigned short key)
             g_mipe_category = category - 1;
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                     ++index) {
                     table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(category - 1)) {
                         list->push_back(table);
@@ -2198,7 +2179,7 @@ void HandleMipeItemTableKey(unsigned short key)
         } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         ShowMipeItemTableCategory();
         return;
-    case 0x27:
+    case SDLK_RIGHT:
         wraps = 0;
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
@@ -2212,7 +2193,8 @@ void HandleMipeItemTableKey(unsigned short key)
             }
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
+                     ++index) {
                     table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
                         list->push_back(table);
@@ -2232,7 +2214,7 @@ void HandleMipeItemTableKey(unsigned short key)
 unsigned char HandleMipeKey(const InputEvent* event)
 {
     bool handled;
-    unsigned short key;
+    SDL_Keycode key;
     InputEventType event_type;
     Trigger* trigger;
     W8Item* rep_item;
@@ -2242,8 +2224,8 @@ unsigned char HandleMipeKey(const InputEvent* event)
     if (g_mipe_state->dragging) {
         return 1;
     }
-    key = static_cast<unsigned short>(event->key);
-    if (key == 0x1b) {
+    key = event->key;
+    if (key == SDLK_ESCAPE) {
         if (event->type == InputEventType::KeyUp || event->type == InputEventType::KeyRepeat) {
             g_mipe_count = 0;
             if (g_mipe_mode == 6) {
@@ -2256,7 +2238,6 @@ unsigned char HandleMipeKey(const InputEvent* event)
                 g_mipe_mode = 0;
                 if (g_mipe_category_list != 0) {
                     g_mipe_category_list.reset();
-                    
                 }
             } else {
                 if (g_mipe_mode == 5) {
@@ -2313,7 +2294,6 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                     g_mipe_state->generator = 0;
                                     if (g_mipe_category_list != 0) {
                                         g_mipe_category_list.reset();
-                                        
                                     }
                                 } else {
                                     ShowWorldCursor();
@@ -2375,7 +2355,6 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                             g_mipe_menu_active = true;
                                             if (g_mipe_category_list != 0) {
                                                 g_mipe_category_list.reset();
-                                                
                                             }
                                             return 1;
                                         }
@@ -2406,67 +2385,67 @@ unsigned char HandleMipeKey(const InputEvent* event)
     event_type = event->type;
     if (event_type == InputEventType::KeyDown) {
         switch (key) {
-        case 0x25:
-        case 0x26:
-        case 0x27:
-        case 0x28:
+        case SDLK_LEFT:
+        case SDLK_UP:
+        case SDLK_RIGHT:
+        case SDLK_DOWN:
             if (g_mipe_mode != 6 && g_mipe_mode != 7 && g_mipe_mode != 0xf && g_mipe_mode != 0x12) {
                 return handled;
             }
             return 1;
         default:
             return handled;
-        case 8:
-        case 0xd:
-        case 0x20:
-        case 0x21:
-        case 0x22:
-        case 0x30:
-        case 0x31:
-        case 0x32:
-        case 0x33:
-        case 0x34:
-        case 0x35:
-        case 0x36:
-        case 0x37:
-        case 0x38:
-        case 0x39:
-        case 0x41:
-        case 0x42:
-        case 0x43:
-        case 0x44:
-        case 0x45:
-        case 0x46:
-        case 0x47:
-        case 0x48:
-        case 0x49:
-        case 0x4a:
-        case 0x4b:
-        case 0x4c:
-        case 0x4d:
-        case 0x4e:
-        case 0x4f:
-        case 0x50:
-        case 0x51:
-        case 0x52:
-        case 0x53:
-        case 0x54:
-        case 0x55:
-        case 0x56:
-        case 0x57:
-        case 0x58:
-        case 0x59:
-        case 0x5a:
-        case 0xbc:
-        case 0xbe:
+        case SDLK_BACKSPACE:
+        case SDLK_RETURN:
+        case SDLK_SPACE:
+        case SDLK_PAGEUP:
+        case SDLK_PAGEDOWN:
+        case SDLK_0:
+        case SDLK_1:
+        case SDLK_2:
+        case SDLK_3:
+        case SDLK_4:
+        case SDLK_5:
+        case SDLK_6:
+        case SDLK_7:
+        case SDLK_8:
+        case SDLK_9:
+        case SDLK_A:
+        case SDLK_B:
+        case SDLK_C:
+        case SDLK_D:
+        case SDLK_E:
+        case SDLK_F:
+        case SDLK_G:
+        case SDLK_H:
+        case SDLK_I:
+        case SDLK_J:
+        case SDLK_K:
+        case SDLK_L:
+        case SDLK_M:
+        case SDLK_N:
+        case SDLK_O:
+        case SDLK_P:
+        case SDLK_Q:
+        case SDLK_R:
+        case SDLK_S:
+        case SDLK_T:
+        case SDLK_U:
+        case SDLK_V:
+        case SDLK_W:
+        case SDLK_X:
+        case SDLK_Y:
+        case SDLK_Z:
+        case SDLK_COMMA:
+        case SDLK_PERIOD:
             return 1;
         }
     }
     if (event_type != InputEventType::KeyUp && event_type != InputEventType::KeyRepeat) {
         return handled;
     }
-    if (IsKeyHeld(VK_CONTROL)) {
-        if (key == 0x56) {
+    if (((GetInputState().modifiers & CTRL_DOWN) != 0)) {
+        if (key == SDLK_V) {
             HideWorldCursor();
             g_mipe_mode = 0xf;
             g_mipe_menu_active = true;
@@ -2474,7 +2453,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
             SetWorldCursorNodesVisible(true);
             return handled;
         }
-        if (key != 0x58) {
+        if (key != SDLK_X) {
             return handled;
         }
         ToggleMipePanel();
@@ -2483,35 +2462,35 @@ unsigned char HandleMipeKey(const InputEvent* event)
     switch (g_mipe_mode) {
     case 0:
         switch (key) {
-        case 0x30:
+        case SDLK_0:
             ShowMipeMainMenu();
             g_mipe_mode = 0;
             return handled;
-        case 0x31:
+        case SDLK_1:
             g_mipe_count = 0;
             ShowMipeMonsterStatus();
             g_mipe_mode = 1;
             return handled;
-        case 0x32:
+        case SDLK_2:
             g_mipe_count = 0;
             ShowMipeItemStatus();
             g_mipe_mode = 2;
             return handled;
-        case 0x33:
+        case SDLK_3:
             ShowMipeEditMenu();
             g_mipe_mode = 5;
             return handled;
-        case 0x35:
+        case SDLK_5:
             ShowMipeChooseMenu();
             HideWorldCursor();
             g_mipe_state->selecting = 1;
             g_mipe_mode = 9;
             return handled;
-        case 0x36:
+        case SDLK_6:
             ShowMipeTriggerMenu();
             g_mipe_mode = 0xc;
             return handled;
-        case 0x34:
+        case SDLK_4:
             ShowMonsterGeneratorStatus();
             g_mipe_mode = 0x15;
             return handled;
@@ -2524,7 +2503,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
     case 2:
         return HandleMipeItemCreateKey(key);
     case 3:
-        if (key == 0x35) {
+        if (key == SDLK_5) {
             g_mipe_mode = 10;
             g_mipe_state->waypoint_count = 0;
             ShowMipeWaypointStatus();
@@ -2532,21 +2511,21 @@ unsigned char HandleMipeKey(const InputEvent* event)
         }
         break;
     case 5:
-        if (key == 0x31) {
+        if (key == SDLK_1) {
             g_mipe_count = 0;
             g_mipe_mode = 8;
             ShowMipeMonsterEditMenu();
             g_debug_monster_cycle = true;
             return handled;
         }
-        if (key == 0x32) {
+        if (key == SDLK_2) {
             g_mipe_count = 0;
             g_mipe_mode = 0xd;
             HideWorldCursor();
             ShowMipePropMenu();
             return handled;
         }
-        if (key == 0x34) {
+        if (key == SDLK_4) {
             ShowMipeSelectionMenu("MOVE IT!!");
             g_mipe_mode = 4;
             g_mipe_state->selecting = 1;
@@ -2555,7 +2534,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
         }
         break;
     case 4:
-        if (key == 0x43) {
+        if (key == SDLK_C) {
             g_mipe_choose_group = !g_mipe_choose_group;
             if (g_mipe_state) {
                 g_mipe_state->monster_ids.clear();
@@ -2580,7 +2559,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
         HandleMipeEditPropKey(key);
         return handled;
     case 9:
-        if (key == 0x43) {
+        if (key == SDLK_C) {
             g_mipe_choose_group = !g_mipe_choose_group;
             if (g_mipe_state) {
                 g_mipe_state->monster_ids.clear();
@@ -2597,15 +2576,15 @@ unsigned char HandleMipeKey(const InputEvent* event)
         return handled;
     case 0xc:
         switch (key) {
-        case 0x20:
+        case SDLK_SPACE:
             ShowMipeTriggerMenu();
             return handled;
-        case 0x35:
+        case SDLK_5:
             g_mipe_trigger_display = !g_mipe_trigger_display;
             SetWorldCursorNodesVisible(g_mipe_trigger_display);
             ShowMipeTriggerMenu();
             return handled;
-        case 0x36:
+        case SDLK_6:
             g_mipe_mode = 0xf;
             HideWorldCursor();
             ShowMipeCubeMenu();
@@ -2624,7 +2603,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
         HandleCubeScaleKey(key);
         return handled;
     case 0x14:
-        if (key == 0x31) {
+        if (key == SDLK_1) {
             ShowMonsterGeneratorStatus();
             g_mipe_mode = 0x15;
             return handled;
@@ -2641,24 +2620,24 @@ unsigned char HandleMipeKey(const InputEvent* event)
         return handled;
     case 0x18:
         switch (key) {
-        case 0x20:
+        case SDLK_SPACE:
             ResetEditorStatusLine(-1);
             ShowNotice(W8_FONT_PALETTE_PINK, "Enter the limit for random encounters:");
             ShowNotice(W8_FONT_PALETTE_TEXT_BOX, fmt::format("{:d}", g_random_encounter_limit));
             return handled;
-        case 8:
+        case SDLK_BACKSPACE:
             g_random_encounter_limit /= 10;
             break;
-        case 0x30:
-        case 0x31:
-        case 0x32:
-        case 0x33:
-        case 0x34:
-        case 0x35:
-        case 0x36:
-        case 0x37:
-        case 0x38:
-        case 0x39:
+        case SDLK_0:
+        case SDLK_1:
+        case SDLK_2:
+        case SDLK_3:
+        case SDLK_4:
+        case SDLK_5:
+        case SDLK_6:
+        case SDLK_7:
+        case SDLK_8:
+        case SDLK_9:
             g_random_encounter_limit = (key - 0x30) + g_random_encounter_limit * 10;
             break;
         default:
@@ -2673,27 +2652,27 @@ unsigned char HandleMipeKey(const InputEvent* event)
         return handled;
     case 0x1a:
         switch (key) {
-        case 0x20:
+        case SDLK_SPACE:
             ResetEditorStatusLine(-1);
             ShowNotice(W8_FONT_PALETTE_PINK, "Enter the encounter culling time (sec):");
             shown = g_encounter_culling_time_seconds;
             break;
-        case 8:
+        case SDLK_BACKSPACE:
             g_encounter_culling_time_seconds /= 10;
             ResetEditorStatusLine(-1);
             ShowNotice(W8_FONT_PALETTE_PINK, "Enter the encounter culling time (sec):");
             shown = g_encounter_culling_time_seconds;
             break;
-        case 0x30:
-        case 0x31:
-        case 0x32:
-        case 0x33:
-        case 0x34:
-        case 0x35:
-        case 0x36:
-        case 0x37:
-        case 0x38:
-        case 0x39:
+        case SDLK_0:
+        case SDLK_1:
+        case SDLK_2:
+        case SDLK_3:
+        case SDLK_4:
+        case SDLK_5:
+        case SDLK_6:
+        case SDLK_7:
+        case SDLK_8:
+        case SDLK_9:
             g_encounter_culling_time_seconds = (key - 0x30) + g_encounter_culling_time_seconds * 10;
             ResetEditorStatusLine(-1);
             ShowNotice(W8_FONT_PALETTE_PINK, "Enter the encounter culling time (sec):");
@@ -2804,8 +2783,7 @@ void UpdateMipeSelection(void)
         if (location_id == -1) {
             group_id = W8_MIPE_NO_GROUP;
         } else {
-            group_id = FindMonster(location_id)
-                           ->monster_group_id;
+            group_id = FindMonster(location_id)->monster_group_id;
         }
         if (group_id == g_mipe_state->selected_group_id) {
             return;

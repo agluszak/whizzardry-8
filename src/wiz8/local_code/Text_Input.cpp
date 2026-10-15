@@ -1,31 +1,34 @@
-#include "wiz8/local_code/ControlsRect.h"
-#include <SDL3/SDL_pixels.h>
-#include "Types.h"
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_surface.h>
-#include <string>
+#include "wiz8/text_input.h"
+
 #include <algorithm>
-#include <memory>
 #include <cstddef>
 #include <iterator>
+#include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 
-#include "utf8/checked.h"
-#include "wiz8/unicode.h"
-#include "wiz8/cursor.h"
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
-#include "input.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/fonts.h"
-#include "wiz8/text_input.h"
-#include "wiz8/local_screens/Screens.h"
+#include "Types.h"
+#include "compat/native.h"
 #include "himage.h"
 #include "image.h"
-#include "compat/native.h"
+#include "input.h"
+#include "utf8/checked.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/unicode.h"
 
 /*
  * Wizardry's product fork of Sir-Tech's released Utils/Text_Input.c.
@@ -46,10 +49,9 @@ class W8TextField final {
 public:
     W8TextField(TextFieldGroup& group, int id, int priority, SDL_Rect bounds)
         : group(group), id(id), bounds(bounds),
-          target(group.layer_->add(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
-                                  [this](const UiPointerEvent& event) {
-              return HandleInput(event);
-          }, priority))
+          target(group.layer_->add(
+              SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
+              [this](const UiPointerEvent& event) { return HandleInput(event); }, priority))
     {
         target.useTextCursor();
     }
@@ -212,8 +214,8 @@ TextFieldGroup::TextFieldGroup(Font& font) : TextFieldGroup(font, nullptr) {}
 TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : TextFieldGroup(font, &layer) {}
 
 TextFieldGroup::TextFieldGroup(Font& font, UiLayer* layer)
-    : owned_layer_(layer ? nullptr : new UiLayer()),
-      layer_(layer ? layer : owned_layer_.get()), previous_(g_ui.focus)
+    : owned_layer_(layer ? nullptr : new UiLayer()), layer_(layer ? layer : owned_layer_.get()),
+      previous_(g_ui.focus)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
@@ -249,7 +251,10 @@ TextFieldGroup::~TextFieldGroup()
     }
 }
 
-TextFieldGroup* TextFieldGroup::Focused() { return g_ui.focus; }
+TextFieldGroup* TextFieldGroup::Focused()
+{
+    return g_ui.focus;
+}
 
 void TextFieldGroup::Suspend()
 {
@@ -267,7 +272,9 @@ void TextFieldGroup::Resume()
         field->target.setEnabled(true);
         field->enabled = true;
     }
-    focused_ = suspended_focus_ ? suspended_focus_ : fields_.empty() ? nullptr : fields_.front().get();
+    focused_ = suspended_focus_  ? suspended_focus_
+               : fields_.empty() ? nullptr
+                                 : fields_.front().get();
     suspended_focus_ = nullptr;
     SetNativeTextInputEnabled(editing_ && focused_);
 }
@@ -328,7 +335,8 @@ int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
                         bool use_inactive_color)
 {
     const int id = fields_.empty() ? 0 : fields_.back()->id + 1;
-    auto& field = *fields_.emplace_back(std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
+    auto& field = *fields_.emplace_back(
+        std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
     field.input_type = input_type;
     field.capacity = input_type == 0x1002 ? 6 : capacity;
     field.text.assign(text);
@@ -399,7 +407,10 @@ void TextFieldGroup::Focus(int id)
     FocusField(*field);
 }
 
-int TextFieldGroup::FocusedId() const { return focused_ ? focused_->id : -1; }
+int TextFieldGroup::FocusedId() const
+{
+    return focused_ ? focused_->id : -1;
+}
 
 void TextFieldGroup::FocusNext()
 {
@@ -425,7 +436,10 @@ void TextFieldGroup::ClearFocus()
     focused_ = nullptr;
 }
 
-std::size_t TextFieldGroup::Cursor() const { return focused_ ? focused_->cursor : 0; }
+std::size_t TextFieldGroup::Cursor() const
+{
+    return focused_ ? focused_->cursor : 0;
+}
 
 void TextFieldGroup::SetCursor(std::size_t cursor)
 {
@@ -523,11 +537,11 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     const auto& input = normalized;
     if (!editing_ || !focused_ ||
         (input.type != InputEventType::KeyDown && input.type != InputEventType::KeyRepeat) ||
-        input.key == VK_ESCAPE || input.key == VK_RETURN || input.key == VK_TAB ||
+        input.key == SDLK_ESCAPE || input.key == SDLK_RETURN || input.key == SDLK_TAB ||
         (input.modifiers & ALT_DOWN) != 0 ||
-        ((input.modifiers & CTRL_DOWN) != 0 && input.key != VK_DELETE &&
-         input.key != VK_RIGHT && input.key != VK_LEFT) ||
-        (input.key > 0x6f && input.key < 0x7c)) {
+        ((input.modifiers & CTRL_DOWN) != 0 && input.key != SDLK_DELETE &&
+         input.key != SDLK_RIGHT && input.key != SDLK_LEFT) ||
+        (input.key >= SDLK_F1 && input.key <= SDLK_F12)) {
         return false;
     }
     auto& field = *focused_;
@@ -540,7 +554,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     };
     const std::size_t selection_end = field.selection_end;
     switch (input.key) {
-    case 0x25: /* Left */
+    case SDLK_LEFT: /* Left */
         if (shift) {
             extend_selection();
             if (field.cursor != 0) {
@@ -558,7 +572,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         }
         field.Relayout();
         return true;
-    case 0x27: /* Right */
+    case SDLK_RIGHT: /* Right */
         if (shift) {
             extend_selection();
             if (field.cursor < field.text.size()) {
@@ -576,7 +590,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         }
         field.Relayout();
         return true;
-    case 0x23: /* End */
+    case SDLK_END: /* End */
         if (shift)
             extend_selection();
         else
@@ -585,7 +599,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         if (shift) field.selection_end = field.cursor;
         field.Relayout();
         return true;
-    case 0x24: /* Home */
+    case SDLK_HOME: /* Home */
         if (shift) {
             extend_selection();
             field.selection_end = 0;
@@ -595,7 +609,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         field.cursor = 0;
         field.Relayout();
         return true;
-    case 0x2e: /* Delete */
+    case SDLK_DELETE: /* Delete */
         if ((input.modifiers & CTRL_DOWN) != 0) {
             field.text.clear();
             field.selection_start = field.selection_end = 0;
@@ -615,7 +629,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         if (field.selection_start != selection_end)
             DeleteSelection(field.selection_start, selection_end);
         return true;
-    case 8: /* Backspace */
+    case SDLK_BACKSPACE: /* Backspace */
         if (!field.selecting) {
             if (field.cursor != 0) {
                 const auto old_position = field.cursor;
@@ -632,9 +646,8 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     default:
         break;
     }
-    char32_t character = committed ? event.text
-                                   : TranslateKeyToCharacter(static_cast<unsigned short>(input.key),
-                                                             input.modifiers);
+    char32_t character =
+        committed ? event.text : TranslateKeyToCharacter(input.key, input.modifiers);
     if (!committed && NativeTextInputEnabled()) return true;
     if (character == 0) return true;
     if (field.selecting) {
@@ -760,8 +773,9 @@ void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
     auto& font = *style_.font;
     const bool disabled = !field.enabled && style_.disabled_auto_shade;
     const auto options =
-        disabled ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
-                 : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
+        disabled
+            ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
+            : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
     const unsigned short font_height = font.height();
     const int text_top =
         field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;

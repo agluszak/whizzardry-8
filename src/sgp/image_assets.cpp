@@ -1,11 +1,12 @@
 #include "image_assets.h"
 
-#include <SDL3/SDL_surface.h>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
+
+#include <SDL3/SDL_surface.h>
 
 #include "himage.h"
 #include "image.h"
@@ -41,13 +42,11 @@ std::shared_ptr<const SpriteSheet> ImageAssets::sprites(std::string_view path)
 {
     useSessionFormat();
     const auto key = cache_key(path);
-    if (const auto found = sprites_.find(key); found != sprites_.end())
-        return found->second;
+    if (const auto found = sprites_.find(key); found != sprites_.end()) return found->second;
 
     auto decoded = LoadImage(path);
     auto* sheet = decoded ? std::get_if<SpriteSheet>(&*decoded) : nullptr;
-    if (!sheet)
-        return {};
+    if (!sheet) return {};
 
     sheet->colors = Create16BPPPalette(sheet->palette);
     auto sprites = std::make_shared<const SpriteSheet>(std::move(*sheet));
@@ -59,13 +58,11 @@ std::shared_ptr<SDL_Surface> ImageAssets::bitmap(std::string_view path)
 {
     useSessionFormat();
     const auto key = cache_key(path);
-    if (const auto found = bitmaps_.find(key); found != bitmaps_.end())
-        return found->second;
+    if (const auto found = bitmaps_.find(key); found != bitmaps_.end()) return found->second;
 
     auto decoded = LoadImage(path);
     auto* image = decoded ? std::get_if<BitmapImage>(&*decoded) : nullptr;
-    if (!image)
-        return {};
+    if (!image) return {};
 
     auto bitmap_owner = ConvertBitmapToFrameSurface(**image);
     auto bitmap = std::shared_ptr<SDL_Surface>(bitmap_owner.release(), SDL_DestroySurface);

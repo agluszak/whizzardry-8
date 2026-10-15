@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+
 #include "input.h"
 #include "wiz8/ui_layer.h"
 
@@ -63,4 +64,3 @@ struct UiInputPolicy {
    Deferred structural changes commit after the current policy callback and
    stop draining, leaving the remaining events for the next screen/frame. */
 bool PumpUiInput(const UiInputPolicy& policy);
-

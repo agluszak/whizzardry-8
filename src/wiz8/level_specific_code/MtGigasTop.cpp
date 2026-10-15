@@ -1,11 +1,11 @@
 #include "wiz8/level_specific_code/MtGigasTop.h"
 
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/utility.h"
 #include "wiz8/dice.h"
+#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/fact_state.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/utility.h"
 
 struct W8ItemInstance;
 struct W8NpcState;

@@ -1,30 +1,25 @@
 #pragma once
 
-#include <SDL3/SDL_time.h>
-#include <SDL3/SDL_stdinc.h>
 #include <cstdint>
 #include <optional>
 
-namespace wiz8
-{
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_time.h>
+
+namespace wiz8 {
 // Value codec only: consumers explicitly copy low/high to packed save/SLF
 // records. This is not a runtime system-API emulation or a new disk record.
-struct DiskFileTime
-{
+struct DiskFileTime {
     std::uint32_t low = 0;
     std::uint32_t high = 0;
-    constexpr std::uint64_t ticks() const noexcept
-    {
-        return (std::uint64_t(high) << 32) | low;
-    }
+    constexpr std::uint64_t ticks() const noexcept { return (std::uint64_t(high) << 32) | low; }
     static constexpr DiskFileTime from_ticks(std::uint64_t ticks) noexcept
     {
         return {std::uint32_t(ticks), std::uint32_t(ticks >> 32)};
     }
 };
 
-struct CivilTime
-{
+struct CivilTime {
     int year;
     unsigned month, day, hour, minute, second;
     unsigned fraction_100ns;

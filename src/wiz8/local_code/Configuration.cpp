@@ -1,15 +1,17 @@
-#include <fmt/format.h>
+#include "wiz8/local_code/Configuration.h"
+
 #include <exception>
 #include <string>
 
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_screens/MGSKeyboard.h"
+#include <fmt/format.h>
+
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/sr_api.h"
 
 // GLOBAL: WIZ8 0x006850c8
 W8GameSettings g_settings;
@@ -71,8 +73,7 @@ void LoadGameConfiguration(void)
 
 // FUNCTION: WIZ8 0x0054b6d0
 bool SaveGameConfiguration(void)
-try
-{
+try {
     W8Chunk file;
     std::string path;
 
@@ -85,5 +86,6 @@ try
     file.WriteChunk(W8_CHUNK_KEY_BINDINGS, [&] { g_mgs_keyboard->Save(file.Stream()); });
     file.Close();
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }

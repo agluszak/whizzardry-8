@@ -1,7 +1,6 @@
 #pragma once
 
-#include "glm/ext/vector_float3.hpp"
-
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
@@ -9,15 +8,15 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <cstddef>
 
-#include "surrender/srBoundingBox.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srTypeRegistry.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srTypeRegistry.h"
 
 class srTextureIFace;
 
@@ -39,10 +38,7 @@ enum W8MeshModelFlag {
 // VTABLE: WIZ8 0x005ec4b0 srClassSupport<stMeshModel, srMeshModel, 65539>
 class stMeshModel : public srClassSupport<stMeshModel, srMeshModel, 0x10003> {
 public:
-    static const char* sGetClassName()
-    {
-        return "stMeshModel";
-    }
+    static const char* sGetClassName() { return "stMeshModel"; }
 
     stMeshModel(w8_long polygons, w8_long vertices);
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
@@ -62,9 +58,9 @@ public:
     void RenderTriMeshWithEquations(class srGERD& renderer, const TriMesh& mesh,
                                     std::span<const glm::vec3> poly_normals); /* 0x00470380 */
     static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh,
-                                               std::span<const glm::vec3> normals,
-                                               const glm::vec3& eye, bool positive_winding,
-                                               float threshold);
+                                                std::span<const glm::vec3> normals,
+                                                const glm::vec3& eye, bool positive_winding,
+                                                float threshold);
 
     int FindMappedIndex(short key); /* 0x004712D0 */
     void SetMappedVertex(short vertex, short key);
@@ -93,17 +89,17 @@ public:
     void ClearVertexLights();
     void SetAmbientColor(const glm::vec3& color);
     unsigned char AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
-    std::span<glm::vec3> GetVertexLights(bool initialize, int table);                /* 0x00472100 */
-    std::span<float> GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
+    std::span<glm::vec3> GetVertexLights(bool initialize, int table); /* 0x00472100 */
+    std::span<float> GetVertexSunlight(bool initialize); /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
-    int ReleaseDecompressedFrames();         /* 0x004739E0 */
+    int ReleaseDecompressedFrames(); /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
     /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
        is not resident. Invalid frames and empty meshes return zero bounds. */
     srBoundingBox GetFrameBounds(int frame);
     unsigned char DecompressFrame(int frame, unsigned char flags,
                                   std::span<glm::vec3> destination); /* 0x00471930 */
-    void ComputeFrameNormals(int frame);                           /* 0x004729F0 */
+    void ComputeFrameNormals(int frame); /* 0x004729F0 */
     void ClearAutomapPolygonFilter();
     void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
 
@@ -132,14 +128,8 @@ public:
             stMeshModel* first;
             std::size_t index;
         };
-        iterator begin() const
-        {
-            return {first, 0};
-        }
-        iterator end() const
-        {
-            return {first, first ? first->parts.size() + 1 : 0};
-        }
+        iterator begin() const { return {first, 0}; }
+        iterator end() const { return {first, first ? first->parts.size() + 1 : 0}; }
 
     private:
         stMeshModel* first;
@@ -193,7 +183,6 @@ private:
     glm::vec3* frameTable(unsigned int frame, bool load, unsigned char kind);
 };
 
-
 /* Every mesh model whose frame storage has been initialized. */
 extern std::vector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */
 /* Bytes currently held by decompressed per-frame float caches. */
@@ -205,4 +194,4 @@ int __fastcall IsZeroVector(const srVector3T<float>* vector);
    have been freed; 0 when the registry cannot supply them. A requesting model
    is retained because its renderer may already hold borrowed frame pointers. */
 unsigned char ReclaimDecompressedBytes(unsigned int needed,
-                                      const stMeshModel* retained_model = nullptr);
+                                       const stMeshModel* retained_model = nullptr);

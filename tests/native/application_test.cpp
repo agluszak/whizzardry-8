@@ -1,20 +1,20 @@
-#include <catch2/catch_test_macros.hpp>
-#include <SDL3/SDL_init.h>
-#include <SDL3/SDL_stdinc.h>
 #include <array>
 #include <filesystem>
-#include <stdexcept>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
-#include "wiz8/application.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/asset_paths.h"
-#include "temporary_directory.h"
-#include "scoped_asset_roots.h"
-#include "wiz8/ui_input.h"
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <catch2/catch_test_macros.hpp>
 
+#include "scoped_asset_roots.h"
+#include "temporary_directory.h"
+#include "wiz8/application.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/ui_input.h"
 
 static void CheckStopped()
 {
@@ -39,14 +39,14 @@ TEST_CASE("application_test")
             wiz8::Application application(arguments);
         } catch (const std::invalid_argument& failure) {
             rejected = std::string_view(failure.what()).find("requires a filename") !=
-                std::string_view::npos;
+                       std::string_view::npos;
         }
         REQUIRE(rejected);
         CheckStopped();
     }
 
-    const std::array<std::string_view, 4> arguments{
-        "/STRINGDATA=string data.wiz", "/window", "/vIdEoCfG", "C:\\missing video.cfg"};
+    const std::array<std::string_view, 4> arguments{"/STRINGDATA=string data.wiz", "/window",
+                                                    "/vIdEoCfG", "C:\\missing video.cfg"};
     for (int attempt = 0; attempt < 2; ++attempt) {
         bool failed = false;
         try {
@@ -61,7 +61,7 @@ TEST_CASE("application_test")
     }
 
     REQUIRE(SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "SDL_VIDEODRIVER",
-                                     "wiz8-invalid-driver", true));
+                                       "wiz8-invalid-driver", true));
     bool failed = false;
     try {
         wiz8::Application application;
@@ -80,6 +80,4 @@ TEST_CASE("application_test")
     }
     REQUIRE((reported && gfIgnoreMessages));
     CheckStopped();
-
-
 }

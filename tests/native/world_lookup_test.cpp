@@ -1,26 +1,26 @@
-#include <catch2/catch_test_macros.hpp>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 
-#include "surrender/srClipPlane.h"
-#include "surrender/srScene.h"
-#include "temporary_directory.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "surrender/srClock.h"
+#include <catch2/catch_test_macros.hpp>
+
 #include "filesystem.h"
 #include "layouts/world.h"
 #include "sr_api.h"
+#include "surrender/srClipPlane.h"
+#include "surrender/srClock.h"
 #include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "surrender/srTypeRegistry.h"
-
+#include "temporary_directory.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/stParticle.h"
 
 namespace {
 struct TestWorld {

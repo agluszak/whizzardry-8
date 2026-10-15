@@ -1,12 +1,26 @@
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/MonsterInfoDialog.h"
+
 #include <cstdint>
-#include <fmt/format.h>
-#include <string>
 #include <cstring>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/MonsterInfoDialog.h"
+#include <SDL3/SDL_surface.h>
+#include <fmt/format.h>
+
+#include "Font.h"
+#include "character_skills.h"
+#include "conditions.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "gameplay_modifiers.h"
+#include "layouts/character.h"
+#include "local_code/Factions.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -18,6 +32,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -27,21 +42,9 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "Font.h"
-#include "character_skills.h"
-#include "conditions.h"
-#include "dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
-#include "dialog_code/DialogScrollBar.h"
-#include "dialog_code/DialogTextArea.h"
-#include "gameplay_modifiers.h"
-#include "layouts/character.h"
-#include "local_code/Factions.h"
-#include "monster_actions.h"
-#include "surrender/srMath.h"
 
 // STRING: WIZ8 0x0064F6B0
 
@@ -57,32 +60,18 @@ W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(locati
     SetOrigin(0x9c, 0x31);
     SetExtent(0x14a, 0x10e);
     SetBackground(g_info_dialog_background, 0);
-}
-
-// FUNCTION: WIZ8 0x005d5f90
-int W8MonsterInfoDialog::CreateControls()
-{
-    W8DialogBase::CreateControls();
     if (!PopulateText()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
 
-    W8DialogScrollBar::Resources resources;
-    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
-    resources.track_path = g_info_dialog_background;
-    resources.track_frame = 1;
-    resources.on_scroll = ScrollCallback;
-    m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x26, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb9);
-    m_scroll_bar.m_owner = this;
 
     CreateCloseButton(m_button, 0x11a, 0xe6);
-    return 0;
 }
 
+// FUNCTION: WIZ8 0x005d5f90
 /* GppStringList indices naming the seven classes the monster's
    name line falls into by how far its level sits above the party average. */
 // GLOBAL: WIZ8 0x0064f614
@@ -251,7 +240,7 @@ bool W8MonsterInfoDialog::PopulateText()
                     text += g_comma_space;
                 }
                 text += g_spell_records[monster_info->pCombat->combat_effects[index].effect_id]
-                                 .display_name;
+                            .display_name;
                 ++count;
             }
         }
@@ -308,7 +297,7 @@ bool W8MonsterInfoDialog::PopulateText()
                     text += g_comma_space;
                 }
                 text += g_spell_records[monster_info->pCombat->combat_effects_2[index].effect_id]
-                           .display_name;
+                            .display_name;
                 ++count;
             }
         }
@@ -332,14 +321,15 @@ bool W8MonsterInfoDialog::PopulateText()
         W8RangeCategory best_range = GetMonsterBestRangeCategory(monster_info, true, &sight);
         if (best_range != W8_RANGE_NONE) {
             m_text_area.AddEntry(g_localized_strings[0x141],
-                                 g_localized_strings[g_spell_range_name_ids[best_range]], 10, 0xf, 0);
+                                 g_localized_strings[g_spell_range_name_ids[best_range]], 10, 0xf,
+                                 0);
         }
     }
     if (0x31 < knowledge && record->special_attack_kind != 0) {
         m_text_area.AddEntry(
             g_localized_strings[0x142],
-            g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]], 10, 0xf,
-            0);
+            g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]], 10,
+            0xf, 0);
     }
 
     if (9 < knowledge) {
@@ -397,7 +387,8 @@ bool W8MonsterInfoDialog::PopulateText()
                     if (count > 0) {
                         text += g_comma_space;
                     }
-                    text += g_localized_strings[g_condition_notices[immunity->conditions[slot]].noun];
+                    text +=
+                        g_localized_strings[g_condition_notices[immunity->conditions[slot]].noun];
                     ++count;
                 }
                 if (immunity->immune_all != 0) {
@@ -460,35 +451,27 @@ void W8MonsterInfoDialog::OnMouseWheel(int delta)
     m_scroll_bar.ScrollBy(delta);
 }
 
-// FUNCTION: WIZ8 0x005d6ec0
-void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
-{
-    W8MonsterInfoDialog* dialog = static_cast<W8MonsterInfoDialog*>(scroll_bar->m_owner);
-    if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
-    }
-}
-
-
 // FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw(SDL_Surface& target)
 {
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
-        m_text_area.m_dirty = true;
-        m_scroll_bar.m_dirty = true;
-        m_button.m_dirty = true;
-        W8DialogBase::Draw(target);
-        g_wiz_text_font_secondary.resetPalette();
-        W8MonsterInfo* monster_info = FindMonster(m_location_id);
-        auto name = GetMonsterName(monster_info, 0, 0);
-        std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
-        DrawText(target, g_wiz_text_font_secondary,
-                 {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, name);
-    }
-    m_text_area.Draw(target, false);
-    m_scroll_bar.Draw(target, false);
+
+    W8DialogBase::Draw(target);
+    g_wiz_text_font_secondary.resetPalette();
+    W8MonsterInfo* monster_info = FindMonster(m_location_id);
+    auto name = GetMonsterName(monster_info, 0, 0);
+    std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
+    DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
+             name);
+
+    m_text_area.Paint(target);
+    m_scroll_bar.Draw(target);
     m_button.Draw(target);
+}
+
+bool W8MonsterInfoDialog::TakeDirty()
+{
+    const bool text = m_text_area.TakeDirty();
+    const bool scroll = m_scroll_bar.TakeDirty();
+    const bool button = m_button.TakeDirty();
+    return W8DialogBase::TakeDirty() || text || scroll || button;
 }

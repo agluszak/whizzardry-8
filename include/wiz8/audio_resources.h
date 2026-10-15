@@ -2,8 +2,7 @@
 
 #include <memory>
 
-namespace wiz8::sound
-{
+namespace wiz8::sound {
 struct AudioClip;
 struct AudioPlayback;
 using Clip = std::shared_ptr<AudioClip>;

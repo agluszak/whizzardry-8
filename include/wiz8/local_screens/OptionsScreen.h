@@ -1,26 +1,27 @@
 #pragma once
 
-#include <string_view>
-#include <string>
-
-#include <memory>
-#include <vector>
 #include <array>
-#include "wiz8/ui_layer.h"
-#include "wiz8/local_code/ButtonWidget.h"
-
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/mgs_commands.h"
-#include "wiz8/catalog_artwork.h"
 #include <functional>
-#include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/text_input.h"
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <SDL3/SDL_keycode.h>
+
 #include "compat/compiler.h"
 #include "input.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/engine_code/Quality.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/mgs_commands.h"
+#include "wiz8/text_input.h"
+#include "wiz8/ui_layer.h"
 
 class W8OptionsPanel;
-class W8OptionsSaveRow;
+struct W8OptionsSaveRow;
 class W8MessageDialogBase;
 class W8TextBuffer;
 struct W8SaveSlot;
@@ -140,9 +141,10 @@ protected:
     bool m_active = false;
     bool m_dirty = true;
     SDL_Rect m_bounds;
-    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed,
-                             int hover = -1, int pressed_hover = -1, int disabled = -1,
-                             W8ButtonCallback callback = {});
+    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed, int hover = -1,
+                              int pressed_hover = -1, int disabled = -1,
+                              W8ButtonCallback callback = {});
+
 public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel() = default;
@@ -205,8 +207,8 @@ public:
 };
 
 struct W8OptionsKeyButton {
-    void SetKey(unsigned short key);
-    void SetKeyText(unsigned short key);
+    void SetKey(SDL_Keycode key);
+    void SetKeyText(SDL_Keycode key);
     W8MGSCommand m_primary_binding = W8_MGS_COMMAND_NONE;
     W8MGSCommand m_secondary_binding = W8_MGS_COMMAND_NONE;
     W8TextBuffer text;
@@ -221,9 +223,9 @@ public:
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
     void SelectKey(W8OptionsKeyButton* key);
-    unsigned char OnKey(unsigned short key, unsigned short modifiers);
+    unsigned char OnKey(SDL_Keycode key, unsigned short modifiers);
     void OnDialogClosed(bool accepted, int value);
-    void ClearDuplicateBinding(unsigned short key);
+    void ClearDuplicateBinding(SDL_Keycode key);
     void RefreshBindingLabels();
     int m_panel;
     std::vector<std::unique_ptr<W8OptionsKeyButton>> m_keys;
@@ -280,6 +282,7 @@ struct W8OptionsPanelRange {
 
 class W8OptionsScreen final {
     UiLayer m_menu_input;
+
 public:
     W8OptionsScreen();
     ~W8OptionsScreen();

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "surrender/srLight.h"
 #include "compat/compiler.h"
+#include "surrender/srLight.h"
 #include "surrender/srMath.h"
 
 class srNode;

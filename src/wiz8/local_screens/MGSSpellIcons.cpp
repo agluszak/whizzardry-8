@@ -1,26 +1,27 @@
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 
 #include <memory>
 #include <span>
 #include <string>
+
+#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <SDL3/SDL_rect.h>
 
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
+#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
 namespace {
@@ -31,8 +32,8 @@ std::unique_ptr<UiLayer> right_icons;
 std::string EffectHelp(const W8EffectSlot& slot, bool show_duration)
 {
     return fmt::format("{}: ", g_spell_records[slot.effect_id].display_name) +
-        (show_duration ? fmt::sprintf(g_localized_strings[0x79c], slot.amount, slot.duration)
-                       : fmt::sprintf(g_localized_strings[0x79d], slot.amount));
+           (show_duration ? fmt::sprintf(g_localized_strings[0x79c], slot.amount, slot.duration)
+                          : fmt::sprintf(g_localized_strings[0x79d], slot.amount));
 }
 
 // Effects are already owned by the game. The HUD only owns their hit targets;
@@ -45,22 +46,23 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
         if (!slot.active) continue;
         const int icon = g_effect_visual_table[slot.effect_id].hud_icon;
         if (icon < 0) continue;
-        CatalogArtwork::Load(icon, 0).drawAndInvalidate(GetFrameBufferSurface(), 0,
-                                                       origin.x, origin.y);
-        auto& target = layer->add(SDL_Rect{origin.x, origin.y, size + 1, size + 1},
-            [&slot, show_duration, duration = slot.duration](const UiPointerEvent& event) mutable {
-                PushButtonSoundScheme(0, true);
-                if (event.action == UiPointerAction::Enter) {
-                    duration = slot.duration;
-                    return UiResult::Handled;
-                }
-                if (event.action == UiPointerAction::Leave) return UiResult::Handled;
-                if (event.action == UiPointerAction::Move && duration != slot.duration) {
-                    duration = slot.duration;
-                    ResetUiHelp(false);
-                }
-                return UiResult::Pass;
-            });
+        CatalogArtwork::Load(icon, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, origin.x,
+                                                        origin.y);
+        auto& target =
+            layer->add(SDL_Rect{origin.x, origin.y, size + 1, size + 1},
+                       [&slot, duration = slot.duration](const UiPointerEvent& event) mutable {
+                           PushButtonSoundScheme(0, true);
+                           if (event.action == UiPointerAction::Enter) {
+                               duration = slot.duration;
+                               return UiResult::Handled;
+                           }
+                           if (event.action == UiPointerAction::Leave) return UiResult::Handled;
+                           if (event.action == UiPointerAction::Move && duration != slot.duration) {
+                               duration = slot.duration;
+                               ResetUiHelp(false);
+                           }
+                           return UiResult::Pass;
+                       });
         target.setPassive();
         target.setTooltip([&slot, show_duration] { return EffectHelp(slot, show_duration); });
         origin.x += step;
@@ -94,7 +96,6 @@ void RefreshCombatEffectHud()
 void InvalidateMainGameEffectHud()
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        ClearSurfaceRect(0x7f, 0x14, 0x201, 0x28);
-        InvalidateRegion(0x7f, 0x14, 0x201, 0x28);
+        EraseRegion(0x7f, 0x14, 0x201, 0x28);
     }
 }

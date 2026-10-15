@@ -1,18 +1,19 @@
-#include <string_view>
-#include <array>
+#include "wiz8/chunk.h"
+
 #include <algorithm>
-#include <limits>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <vector>
 
-#include "wiz8/sr_api.h"
-#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/sr_api.h"
 
 #define CHUNK_CPP "C:\\Projects\\Wizardry 8\\Local Code\\chunk.cpp"
 
@@ -71,13 +72,13 @@ void W8Chunk::ReadBytes(void* buffer, std::size_t size)
 
 void W8Chunk::WriteBytes(const void* buffer, std::size_t size)
 {
-    if (!m_hFile || !m_fWriting || m_heads.empty()) throw std::logic_error("write outside RIFF chunk");
+    if (!m_hFile || !m_fWriting || m_heads.empty())
+        throw std::logic_error("write outside RIFF chunk");
     m_hFile->write(buffer, size);
 }
 
 bool W8Chunk::OpenExistingRiff(std::string_view path, wiz8::OpenMode mode)
-try
-{
+try {
     if (m_hFile != 0) {
         return false;
     }
@@ -85,16 +86,16 @@ try
     m_fWriting = false;
     OpenChunk(0, 0);
     W8ChunkHead* head = &CurrentHead();
-    if (head->chunk_id != W8_RIFF_CHUNK_ID)
-        throw std::runtime_error("invalid RIFF identifier");
+    if (head->chunk_id != W8_RIFF_CHUNK_ID) throw std::runtime_error("invalid RIFF identifier");
     OpenGroup();
     return true;
-}
-catch (const std::exception&)
-{
+} catch (const std::exception&) {
     m_heads.clear();
-    m_group_counts.clear(); m_offsets.clear(); m_group_progress.clear();
-    m_hFile.reset(); m_fWriting = false;
+    m_group_counts.clear();
+    m_offsets.clear();
+    m_group_progress.clear();
+    m_hFile.reset();
+    m_fWriting = false;
     return false;
 }
 
@@ -106,27 +107,28 @@ bool W8Chunk::OpenRead(std::string_view path)
 
 // FUNCTION: WIZ8 0x0055be30
 bool W8Chunk::OpenWrite(std::string_view path)
-try
-{
+try {
     if (m_hFile) return false;
     return OpenWrite(wiz8::open_file(path, wiz8::OpenMode::replace));
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 bool W8Chunk::OpenWrite(std::shared_ptr<wiz8::File> file)
-try
-{
+try {
     if (m_hFile || !file) return false;
     m_hFile = std::move(file);
     m_fWriting = true;
     OpenChunk(W8_RIFF_CHUNK_ID, 0);
     OpenGroup();
     return true;
-}
-catch (const std::exception&)
-{
-    m_heads.clear(); m_group_counts.clear(); m_offsets.clear(); m_group_progress.clear();
-    m_hFile.reset(); m_fWriting = false;
+} catch (const std::exception&) {
+    m_heads.clear();
+    m_group_counts.clear();
+    m_offsets.clear();
+    m_group_progress.clear();
+    m_hFile.reset();
+    m_fWriting = false;
     return false;
 }
 
@@ -292,7 +294,7 @@ bool W8Chunk::ReleaseGroup()
 
         RewindCurrentChunk();
         count = m_group_progress.back();
-            m_group_progress.pop_back();
+        m_group_progress.pop_back();
         Write(&count, sizeof(count), &transferred);
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
         return true;

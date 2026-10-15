@@ -1,8 +1,8 @@
 #pragma once
 
-#include "glm/geometric.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 
 namespace srSegmentMath {
 template<glm::length_t Dimensions>
@@ -24,8 +24,10 @@ Projection<Dimensions> project(const glm::vec<Dimensions, float>& point,
     const float fraction = glm::dot(offset, direction) / glm::dot(direction, direction);
     auto remaining = offset;
     if (fraction > 0) {
-        if (fraction <= 1) remaining -= direction * fraction;
-        else remaining = point - to;
+        if (fraction <= 1)
+            remaining -= direction * fraction;
+        else
+            remaining = point - to;
     }
     if (!(fraction >= 0)) return {from, 0, glm::length(remaining)};
     if (fraction > 1) return {to, 1, glm::length(remaining)};

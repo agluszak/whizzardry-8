@@ -1,11 +1,10 @@
 #pragma once
 
-#include "Font.h"
-
 #include <string_view>
 
-#include "wiz8/local_code/TextBuffer.h"
+#include "Font.h"
 #include "compat/compiler.h"
+#include "wiz8/local_code/TextBuffer.h"
 
 struct W8ControlsRect;
 
@@ -17,7 +16,7 @@ public:
     W8DialogTextEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
                       unsigned int text_palette, const W8ControlsRect* bounds, Font& font,
                       unsigned char category, unsigned int layout_mode, unsigned char shorten);
-    void Draw(SDL_Surface& target, bool force);
+    void Paint(SDL_Surface& target);
     void SetSelected(bool selected);
 
 private:

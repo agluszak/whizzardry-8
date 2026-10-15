@@ -1,21 +1,22 @@
 #pragma once
 
-#include <vector>
 #include <string>
 #include <string_view>
+#include <vector>
 
-#include "wiz8/dialog_code/DialogBase.h"
-#include "input.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "compat/compiler.h"
+#include "input.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 // VTABLE: WIZ8 0x005ef8b0
 class W8MessageDialogBase : public W8DialogBase {
 public:
+    std::function<void()> TakeCompletion(bool completed) override;
+    std::function<void(bool)> on_complete;
     W8MessageDialogBase();
-    virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw(SDL_Surface& target) override;
+    bool TakeDirty() override;
 
     virtual bool ProcessInput() override;
     virtual bool HandleInput(const InputEvent* input);
@@ -32,15 +33,17 @@ public:
 
     unsigned int WrapMessage(std::string_view message);
 
-    friend void MessageDialogConfirmCallback(W8ButtonWidget* button);
-    friend void MessageDialogCancelCallback(W8ButtonWidget* button);
-
     /* Both are read and written on this object from outside the class by the
        Please Wait screen's frame handler, which is what puts them here. */
     bool accepted; /* cleared; a derived close passes it on */
     bool is_open;  /* set, and gates the close path */
 
+private:
+    void Configure();
+
 protected:
+    // FUNCTION: WIZ8 0x005d32c0 (confirm), 0x005d3370 (cancel)
+    void Close(bool accept);
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
     W8ButtonWidget m_message_button{InputLayer()};
     W8ButtonWidget m_confirm_button{InputLayer()};
@@ -50,6 +53,3 @@ protected:
     bool m_show_confirm;
     bool allow_cancel; /* changes Escape handling */
 };
-
-void MessageDialogConfirmCallback(W8ButtonWidget* button);
-void MessageDialogCancelCallback(W8ButtonWidget* button);

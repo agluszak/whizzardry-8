@@ -17,14 +17,30 @@ BraceWrapping:
   BeforeCatch: false
   BeforeWhile: false
   BeforeLambdaBody: false
-InsertBraces: true
+InsertBraces: false
 IndentAccessModifiers: false
 AccessModifierOffset: -4
 PointerAlignment: Left
 DerivePointerAlignment: false
 NamespaceIndentation: None
-SortIncludes: Never
+# Avoid reshuffling unrelated lines when a declaration or comment changes.
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignTrailingComments:
+  Kind: Leave
 ReflowComments: false
-AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+SpaceAfterTemplateKeyword: false
+BreakTemplateDeclarations: Leave
+FixNamespaceComments: false
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<[a-z0-9_]+>$'
+    Priority: 1
+  - Regex: '^<'
+    Priority: 2
+  - Regex: '^"'
+    Priority: 3

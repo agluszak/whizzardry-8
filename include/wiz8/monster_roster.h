@@ -2,7 +2,6 @@
 #define WIZ8_MONSTER_ROSTER_H
 
 #include <algorithm>
-#include <cassert>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -36,8 +35,8 @@ public:
         if (it == unborn_.end()) {
             return false;
         }
-        unborn_.erase(it);
         live_.push_back(info);
+        unborn_.erase(it);
         return true;
     }
 
@@ -55,18 +54,9 @@ public:
         return true;
     }
 
-    const std::vector<W8MonsterInfo*>& live() const
-    {
-        return live_;
-    }
-    const std::vector<W8MonsterInfo*>& unborn() const
-    {
-        return unborn_;
-    }
-    bool isUnborn(const W8MonsterInfo* info) const
-    {
-        return std::ranges::contains(unborn_, info);
-    }
+    const std::vector<W8MonsterInfo*>& live() const { return live_; }
+    const std::vector<W8MonsterInfo*>& unborn() const { return unborn_; }
+    bool isUnborn(const W8MonsterInfo* info) const { return std::ranges::contains(unborn_, info); }
 
 private:
     std::vector<std::unique_ptr<W8MonsterInfo>> owned_;

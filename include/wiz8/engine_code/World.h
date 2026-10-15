@@ -1,11 +1,10 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/layouts/world.h"
-
 #include <functional>
 #include <string_view>
+
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/world.h"
 
 class srNode;
 class stParticle;
@@ -51,12 +50,12 @@ void SetSecondaryWorld(W8World* world);
 srNode* FindWorldNode(std::string_view name, w8_ulong class_id);
 void ForEachWorldNode(w8_ulong class_id, const std::function<void(srNode*)>& visit);
 
-template <class T> T* FindWorldNode(std::string_view name)
+template<class T> T* FindWorldNode(std::string_view name)
 {
     return static_cast<T*>(FindWorldNode(name, T::CLASS_ID));
 }
 
-template <class T> void ForEachWorldNode(const std::function<void(T*)>& visit)
+template<class T> void ForEachWorldNode(const std::function<void(T*)>& visit)
 {
     ForEachWorldNode(T::CLASS_ID, [&](srNode* node) { visit(static_cast<T*>(node)); });
 }

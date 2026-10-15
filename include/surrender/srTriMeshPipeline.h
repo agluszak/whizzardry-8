@@ -1,11 +1,10 @@
 #pragma once
 
-#include "glm/ext/vector_int3.hpp"
-
-#include "glm/ext/vector_float3.hpp"
-
 #include <memory>
 #include <vector>
+
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srMeshModel.h"
@@ -42,8 +41,8 @@ public:
     void Flush();
     void PrepareSlot();
     void SetMeshBounds(const srMeshModel::TriMesh& mesh);
-    void AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass,
-                        w8_long material_side, srShader pass_shader);
+    void AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass, w8_long material_side,
+                        srShader pass_shader);
 
     inline void FlushIfCurrent()
     {

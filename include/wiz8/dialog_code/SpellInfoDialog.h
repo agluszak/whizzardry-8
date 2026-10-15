@@ -1,31 +1,34 @@
 #pragma once
 
+#include "compat/compiler.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "compat/compiler.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 /* Dialog Code\SpellInfoDialog.cpp. The constructor stores the spell id; Draw
-   and DrawLabels index g_spell_records with it. CreateControls, the close
+   and DrawLabels index g_spell_records with it. Construction, the close
    callback and OnMouseWheel sit with the other popup-info dialogs. */
 // VTABLE: WIZ8 0x005efab0
 class W8SpellInfoDialog : public W8DialogBase {
 public:
     W8SpellInfoDialog(unsigned int spell);
-    virtual int CreateControls() override;
     virtual void Draw(SDL_Surface& target) override;
+    bool TakeDirty() override;
+    bool ProcessInput() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
 
 private:
     bool PopulateText();
     void DrawLabels(SDL_Surface& target);
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
     unsigned int m_spell;
-    W8DialogScrollBar m_scroll_bar{InputLayer()};
+    W8DialogScrollBar m_scroll_bar{InputLayer(),
+                                   {"Data\\Main Interface\\main_scroll.sti",
+                                    "Data\\Dialogs\\popup_spellinfo.sti", 1,
+                                    [this](int first) { ScrollTextArea(m_text_area, first); }}};
     W8ButtonWidget m_button{InputLayer()};
     W8DialogTextArea m_text_area;
     W8GameTimer m_timer;

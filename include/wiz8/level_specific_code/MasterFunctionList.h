@@ -8,7 +8,7 @@ extern bool g_sea_caves_slope_override_enabled;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 class stSound3D;
-template <class T> class srVector3T;
+template<class T> class srVector3T;
 
 /* One level-specific per-frame entry point, registered by the level's own
    master function and run every world update. */

@@ -1,13 +1,14 @@
 #pragma once
 
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_rect.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
+
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
 
 enum class UiPointerAction { Enter, Leave, Move, Down, Up, Repeat, Wheel };
 enum class UiPointerButton { None, Left, Right };
@@ -113,10 +114,31 @@ private:
     SDL_MouseButtonFlags saved_buttons_ = 0;
 };
 
-// Removing a target or destroying a layer during dispatch is safe: the target
-// and its handler live until the outermost dispatch ends.
-// Callbacks request removal, owner destruction or screen transitions here.
-// Actions run after the outermost pointer dispatch, including hover callbacks;
-// PumpUiInput includes the screen's event policy in this transaction and yields
-// after changes commit. Outside dispatch actions run immediately.
+// A UI transaction spans one step of input handling: pointer dispatch,
+// PumpUiInput with its screen policy, or a modal's whole input step.
+// Transactions nest; when the outermost one ends, the actions queued during it
+// run, and then the objects retired during it are destroyed. Code that runs
+// inside a transaction never destroys an object whose callback may be on the
+// stack; it queues the destruction instead.
+class UiTransaction {
+public:
+    UiTransaction();
+    ~UiTransaction() noexcept(false);
+    UiTransaction(const UiTransaction&) = delete;
+    UiTransaction& operator=(const UiTransaction&) = delete;
+};
+
+// Callbacks request owner destruction or screen transitions here. Outside a
+// transaction the action runs immediately. PumpUiInput yields once one is queued.
 void AfterUiDispatch(std::function<void()> action);
+
+using RetiredObject = std::unique_ptr<void, void (*)(void*)>;
+void RetireAfterUiDispatch(RetiredObject object);
+// Destroys `object` when the outermost transaction ends, or now outside one.
+// Removed hit targets and replaced modals go through here.
+template<class T> void DestroyAfterUiDispatch(std::unique_ptr<T> object)
+{
+    if (object) {
+        RetireAfterUiDispatch({object.release(), [](void* p) { delete static_cast<T*>(p); }});
+    }
+}

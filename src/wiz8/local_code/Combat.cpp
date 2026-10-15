@@ -1,91 +1,16 @@
+#include "wiz8/local_code/Combat.h"
+
+#include <cmath>
+#include <cstring>
+#include <memory>
+#include <string_view>
+#include <vector>
+
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <memory>
-#include <string_view>
-#include <vector>
-#include <cmath>
-#include <cstring>
 
-#include "wiz8/compat/unaligned.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/conditions.h"
-#include "wiz8/monster_cycles.h"
-#include "wiz8/spell_ids.h"
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/GroupAttacks.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/SpellVisual.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatPartyMovement.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/Strings.h"
-#include "random.h"
-#include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/MonsterAI.h"
-#include "wiz8/engine_code/Cursor3d.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "timer.h"
-#include "soundman.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/dice.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MGSButtons.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/local_code/Noise.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/string_database.h"
-#include "wiz8/utility.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/cursor.h"
-#include "wiz8/layouts/game_status.h"
 #include "attack_modes.h"
 #include "compat/native.h"
 #include "equipment_slots.h"
@@ -103,8 +28,85 @@
 #include "local_screens/MGSPortraitCombat.h"
 #include "message_box.h"
 #include "monster_actions.h"
+#include "random.h"
 #include "sight_state.h"
+#include "soundman.h"
 #include "surrender/srMath.h"
+#include "timer.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/compat/unaligned.h"
+#include "wiz8/conditions.h"
+#include "wiz8/cursor.h"
+#include "wiz8/dice.h"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/Cursor3d.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/SpellVisual.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/fonts.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/CombatPartyMovement.h"
+#include "wiz8/local_code/CombatRange.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayTime.h"
+#include "wiz8/local_code/GroupAttacks.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/MonsterAI.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/Noise.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/MGSPartyMovement.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSRadarMap.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/monster_cycles.h"
+#include "wiz8/music_playlist.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/string_database.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x006836a8
 std::unique_ptr<W8CombatState> g_combat_state;
@@ -212,7 +214,7 @@ bool StartCombat(int surprise)
     gXStatus.fPartyMovementUi = false;
     gXStatus.fPartyMovementMode = false;
     DisablePortraitControls();
-    g_main_input->combat.setEnabled(true);
+    g_main_game_state->combat.setEnabled(true);
     g_level_block->pick_changed = false;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
                   W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
@@ -421,8 +423,8 @@ bool QueueNpcCombatScript(void)
         if (hostile_group_present && CanPlaceNpcNearParty(slot)) {
             BeginScriptedWorldAction();
             ShowString(fmt::format("{} {}", npc->record->source_name, g_localized_strings[0x272]));
-            QueueNpcAction(W8NpcPartyScriptLine{slot});
-            QueueNpcAction(W8NpcLeaveCombat{slot});
+            g_npc_dialogue.Queue(W8NpcPartyScriptLine{slot});
+            g_npc_dialogue.Queue(W8NpcLeaveCombat{slot});
             g_combat_state->npc_combat_script_pending[slot] = true;
             return true;
         }
@@ -739,8 +741,7 @@ void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail)
 // FUNCTION: WIZ8 0x004ed260
 void CombatLog(std::string_view text)
 {
-    if (g_combat_log_enabled)
-        ShowNotice(W8_FONT_PALETTE_BROWN, text);
+    if (g_combat_log_enabled) ShowNotice(W8_FONT_PALETTE_BROWN, text);
 }
 
 /* Start a fresh round: lift the one action that does not survive it and clear
@@ -1097,8 +1098,7 @@ void EndCombat(bool forced_cleanup)
     RemoveAllEnchantments();
     ResetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
-    unsigned int group_count =
-        gXStatus.monster_groups.size();
+    unsigned int group_count = gXStatus.monster_groups.size();
     for (unsigned int group_index = 0; group_index < group_count; ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         if (group->fInCombat) {
@@ -1137,8 +1137,11 @@ void EndCombat(bool forced_cleanup)
         ToggleSearchMode();
     }
     ZoomRadarMapOut();
-    EnablePortraitAdvanceRegions();
-    g_main_input->combat.setEnabled(false);
+    // A suspended main game re-arms its input when it is entered again.
+    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+        EnablePortraitAdvanceRegions();
+        g_main_game_state->combat.setEnabled(false);
+    }
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
         !g_level_block->review_transition_active) {
         ClearSurfaceRect(0x17, 0x34, 0x2d, 0x159);
@@ -2765,7 +2768,8 @@ int ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
                               char_targets, monster_targets);
     monster_info->pCombat->special_cooldown = record->special_attack_cooldown;
-    FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10, nullptr);
+    FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10,
+                   nullptr);
     return 3;
 }
 

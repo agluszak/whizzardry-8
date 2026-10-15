@@ -120,4 +120,3 @@ public:
 
     w8_ulong value;
 };
-

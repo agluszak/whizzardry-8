@@ -1,9 +1,5 @@
-#include "glm/ext/vector_double3.hpp"
-#include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
-#include <wiz8/asset_paths.h>
-#include <SDL3/SDL_filesystem.h>
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include "wiz8/engine_code/Levels.h"
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -12,57 +8,63 @@
 #include <optional>
 #include <string>
 
-#include "wiz8/containers.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/Sight.h"
-#include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/monster_generators.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/world_cursor.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/Level.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/sr_api.h"
-#include "surrender/srNode.h"
-#include "surrender/srModelInstance.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/filesystem.h"
+#include <SDL3/SDL_filesystem.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <wiz8/asset_paths.h>
+
 #include "ReadMesh.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/levels.h"
 #include "layouts/world.h"
 #include "resource_cache.h"
+#include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
+#include "wiz8/containers.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Level.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/ItemManager.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/monster_generators.h"
+#include "wiz8/music_playlist.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/world_cursor.h"
+#include "wiz8/xstatus.h"
 
 #define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
 
@@ -149,8 +151,9 @@ unsigned char FindGameDataPath(char* path, int cd_number)
         disc[0] += cd_number - 1;
         const auto root = wiz8::file_status(disc);
         const auto data = wiz8::file_status(std::string(disc) + "Data");
-        if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable ||
-            !data || data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) return 0;
+        if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable || !data ||
+            data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable)
+            return 0;
         strcpy(path, disc);
         return 1;
     } catch (const std::exception&) {
@@ -179,7 +182,10 @@ void StartLevelMusic(int fade, int replace_current)
     const char* level_name = g_level_folders[g_status.current_level].level_name;
 
     sprintf(path, "Data\\Music\\%s.MPL", level_name);
-    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+    if ([&]() {
+            const auto status = wiz8::file_status(path);
+            return status && status->info.type == SDL_PATHTYPE_FILE;
+        }()) {
         sprintf(path, "%s.MPL", level_name);
         StartMusicResource(path, fade, replace_current);
     } else {
@@ -269,14 +275,6 @@ int GetLoadedLevelID(void)
 {
     return g_status.current_level;
 }
-/* Retail shares the no-op stub at 0x004023A0 across arities; this typed
-   overload is called with the sky world and two zero arguments. */
-void NoOp(W8World* world, int first, int second)
-{
-    (void)world;
-    (void)first;
-    (void)second;
-}
 
 /* Load or replace the sky world for a level. A level whose sky index already
    matches the world held in g_secondary_world reuses it; a level with no sky
@@ -347,7 +345,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
             srMeshModel* mesh = static_cast<srMeshModel*>(instance->getModel());
 
             mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE); /* CONTROL_SKIP_AUTO_SPHERE */
-            mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);    /* CONTROL_SKIP_AUTO_BOX */
+            mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX); /* CONTROL_SKIP_AUTO_BOX */
         }
     }
 
@@ -360,7 +358,8 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
             srModelInstance* instance = prop->ToggleRepAnimation(0);
 
             if (instance != 0) {
-                for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+                for (stMeshModel* mesh :
+                     stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     mesh->setMaterial(material, 0, srMeshModel::SIDE_FRONT);
                 }
             }
@@ -369,7 +368,6 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
 
     SetWorldSceneMeshShaderLowBits(GetSecondaryWorld(), 0);
     SetWorldSceneMeshShaderBit3(GetSecondaryWorld(), 1);
-    NoOp(sky_world, 0, 0);
     WorldRemoveLight(sky_world, sky_world->camera_light);
     sky_world->camera_light = 0;
     g_loaded_sky_index = sky_index;
@@ -461,16 +459,25 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
 
     sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
     if (level < W8_LEVEL_COUNT) {
-        if (g_level_folders[level].sky_index != -1 && ![&]() { const auto status = wiz8::file_status(info->sky_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        if (g_level_folders[level].sky_index != -1 && ![&]() {
+                const auto status = wiz8::file_status(info->sky_path);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
             sprintf(info->sky_folder, "%s\\Test", "Levels");
             sprintf(info->sky_file_name, "%s.%s", g_sky_names[0], "LVL");
             sprintf(info->sky_bitmap_folder, "%s\\Bitmaps", info->sky_folder);
             sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
-            if (![&]() { const auto status = wiz8::file_status(info->sky_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+            if (![&]() {
+                    const auto status = wiz8::file_status(info->sky_path);
+                    return status && status->info.type == SDL_PATHTYPE_FILE;
+                }()) {
                 return false;
             }
         }
-    } else if (![&]() { const auto status = wiz8::file_status(info->sky_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+    } else if (![&]() {
+                   const auto status = wiz8::file_status(info->sky_path);
+                   return status && status->info.type == SDL_PATHTYPE_FILE;
+               }()) {
         info->sky_file_name[0] = '\0';
     }
     return true;
@@ -510,7 +517,10 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     previous_level = g_status.current_level;
     g_status.current_level = level;
     sprintf(music_path, "Data\\Music\\%s.MPL", g_level_folders[level].level_name);
-    if ([&]() { const auto status = wiz8::file_status(music_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+    if ([&]() {
+            const auto status = wiz8::file_status(music_path);
+            return status && status->info.type == SDL_PATHTYPE_FILE;
+        }()) {
         sprintf(music_path, "%s.MPL", g_level_folders[g_status.current_level].level_name);
         StartMusicResource(music_path, 1, 1);
     } else {
@@ -555,7 +565,8 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
             trigger->GetPosition(&trigger_position);
             position = trigger_position;
-            position.y = probeGround(trigger_position.glmValue()).position.y + g_default_world_height;
+            position.y =
+                probeGround(trigger_position.glmValue()).position.y + g_default_world_height;
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }

@@ -1,5 +1,5 @@
-#include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
+#include "wiz8/dialog_code/PortraitQuote.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -9,14 +9,16 @@
 #include <string_view>
 #include <utility>
 
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
 #include "Font.h"
 #include "image.h"
 #include "image_assets.h"
 #include "sprite.h"
-#include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
+#include "wiz8/unicode.h"
 
 namespace {
 
@@ -41,7 +43,10 @@ constexpr std::uint8_t kDefaultTextColour = 0xd0;
 constexpr std::string_view kEdgeSprites = "data\\NPC Interaction\\npc_PopUp_edge.sti";
 constexpr std::string_view kBackground = "data\\NPC Interaction\\npc_popup_back.pcx";
 
-bool IsMarkup(char32_t scalar) { return scalar >= kFontToggle && scalar <= kColourReset; }
+bool IsMarkup(char32_t scalar)
+{
+    return scalar >= kFontToggle && scalar <= kColourReset;
+}
 
 void DrawQuoteLine(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
                    std::uint8_t colour)
@@ -142,8 +147,7 @@ TextMeasure MeasureWrappedText(int wrap_width, Font& font, std::string_view text
     bool alternate_font = false;
     Font* active_font = &font;
     const auto break_line = [&](std::optional<int> wrapped_width) {
-        if (line_count == 1)
-            result.first_wrap_width = wrapped_width;
+        if (line_count == 1) result.first_wrap_width = wrapped_width;
         ++line_count;
     };
     for (;;) {
@@ -172,8 +176,7 @@ TextMeasure MeasureWrappedText(int wrap_width, Font& font, std::string_view text
                 alternate_font = !alternate_font;
                 active_font = alternate_font ? &g_font12point1 : &font;
             } else if (word_code == kSectionToggle) {
-                if (second_section)
-                    break_line(std::nullopt);
+                if (second_section) break_line(std::nullopt);
                 second_section = !second_section;
                 line_width = 0;
             }
@@ -205,8 +208,7 @@ int WidestLine(std::string_view text)
     for (std::size_t start = 0;;) {
         const auto end = std::min(text.find('\n', start), text.size());
         widest = std::max(widest, MeasureLineWidth(text.substr(start, end - start)));
-        if (end == text.size())
-            return widest;
+        if (end == text.size()) return widest;
         start = end + 1;
     }
 }
@@ -221,13 +223,11 @@ QuoteBubble::QuoteBubble(std::shared_ptr<SDL_Surface> surface, std::string_view 
 std::optional<QuoteBubble> QuoteBubble::layout(std::string_view text, int max_width,
                                                std::optional<std::uint8_t> text_colour)
 {
-    if (max_width > kMaxRequestedWidth)
-        return std::nullopt;
+    if (max_width > kMaxRequestedWidth) return std::nullopt;
     max_width = std::max(max_width, kMinRequestedWidth);
     const auto background = g_image_assets.bitmap(kBackground);
     const auto edges = g_image_assets.sprites(kEdgeSprites);
-    if (!background || !edges)
-        return std::nullopt;
+    if (!background || !edges) return std::nullopt;
 
     const int widest = WidestLine(text);
     int wrap_width = 0;
@@ -236,7 +236,8 @@ std::optional<QuoteBubble> QuoteBubble::layout(std::string_view text, int max_wi
         wrap_width = widest + 1;
     } else {
         wrap_width = max_width - kFrame + 1;
-        const auto first_wrap = MeasureWrappedText(wrap_width, g_font12point1, text).first_wrap_width;
+        const auto first_wrap =
+            MeasureWrappedText(wrap_width, g_font12point1, text).first_wrap_width;
         if (first_wrap && *first_wrap - wrap_width < kWrapSlack) {
             wrap_width = *first_wrap;
             max_width = *first_wrap + kFrame;
@@ -244,8 +245,7 @@ std::optional<QuoteBubble> QuoteBubble::layout(std::string_view text, int max_wi
     }
     const int width = std::min(max_width, kMaxBubbleWidth);
     const int height = MeasureWrappedText(wrap_width, g_font12point1, text).height + kFrame;
-    if (height > kMaxBubbleHeight)
-        return std::nullopt;
+    if (height > kMaxBubbleHeight) return std::nullopt;
 
     std::shared_ptr<SDL_Surface> rendered = CreateFrameSurface(width, height);
     SDL_Surface& surface = *rendered;
@@ -272,10 +272,15 @@ std::optional<QuoteBubble> QuoteBubble::layout(std::string_view text, int max_wi
 void QuoteBubble::draw(SDL_Surface& target, int x, int y) const
 {
     BlitImage(target, x, y, *surface_, nullptr);
-    if (&target == &GetFrameBufferSurface())
-        InvalidateRegion(x, y, x + width(), y + height());
+    if (&target == &GetFrameBufferSurface()) InvalidateRegion(x, y, x + width(), y + height());
 }
 
-int QuoteBubble::width() const { return surface_->w; }
+int QuoteBubble::width() const
+{
+    return surface_->w;
+}
 
-int QuoteBubble::height() const { return surface_->h; }
+int QuoteBubble::height() const
+{
+    return surface_->h;
+}

@@ -8,9 +8,9 @@ tidy=${CLANG_TIDY:-clang-tidy}
 driver=${RUN_CLANG_TIDY:-run-clang-tidy}
 config=${CLANG_TIDY_CONFIG:-"$root/.clang-tidy"}
 
-# In CI, pass a NUL-delimited git diff with --changed-files PATH. Direct source
-# edits only affect their translation units. Any changed header, build input or
-# clang-tidy configuration requires a full analysis.
+# In CI, pass a NUL-delimited git diff with --changed-files PATH. Changed
+# headers are mapped to their dependent translation units using clang -M;
+# unknown build inputs and dependency scan failures require a full analysis.
 changed_files=
 if [[ ${1:-} == --changed-files ]]; then
     if [[ $# -lt 2 || ! -f $2 ]]; then
@@ -27,39 +27,13 @@ if [[ ! -f "$build/compile_commands.json" ]]; then
 fi
 "$tidy" --verify-config --config-file="$config"
 
-# The full database remains the default, including on pushes to main.
+# The full database remains the default, including pushes to main.
 pattern=$(python3 -c 'import re, sys; print("^" + re.escape(sys.argv[1]) + "/(src|tests)/")' "$root")
 if [[ -n $changed_files ]]; then
-    selection=$(python3 - "$root" "$changed_files" <<'PY'
-import os
-from pathlib import Path
-import re
-import sys
-
-root = Path(sys.argv[1])
-changed = [os.fsdecode(p) for p in Path(sys.argv[2]).read_bytes().split(b"\0") if p]
-sources = []
-full = False
-for name in changed:
-    path = Path(name)
-    if name.startswith(("src/", "tests/")) and path.suffix in (".c", ".cc", ".cpp", ".cxx"):
-        sources.append(re.escape(str(root / name)))
-    elif name in ("README.md", "LICENSE", ".gitignore", "AGENTS.md", "CONTRIBUTING.md") or name.startswith(("docs/", ".github/ISSUE_TEMPLATE/")):
-        continue
-    else:
-        # Headers, CMake, workflow, lint config, scripts and unknown inputs can
-        # affect more than one translation unit.
-        full = True
-        break
-
-if full:
-    print("FULL")
-elif sources:
-    print("^(?:" + "|".join(sorted(set(sources))) + ")$")
-else:
-    print("SKIP")
-PY
-    )
+    selection=$(python3 "$root/tools/affected-tidy-sources.py" \
+        --root "$root" \
+        --compile-commands "$build/compile_commands.json" \
+        --changed-files "$changed_files")
     case "$selection" in
         FULL) ;;
         SKIP)
