@@ -34,31 +34,16 @@
 #define __cdecl
 #define __stdcall
 #define __fastcall
-#define __forceinline inline __attribute__((always_inline))
 #define __int64 long long
 
 #define _stricmp strcasecmp
 #define _strnicmp strncasecmp
-#define stricmp strcasecmp
-#define strnicmp strncasecmp
 #define _snprintf snprintf
 #define _vsnprintf vsnprintf
 #define _finite(value) isfinite(value)
-#define _isnan(value) isnan(value)
-#else
-#define stricmp _stricmp
-#define strnicmp _strnicmp
 #endif
 
 #define _MAX_PATH 260
-#define _MAX_DRIVE 3
-#define _MAX_DIR 256
-#define _MAX_FNAME 256
-#define _MAX_EXT 256
-
-/* <stdlib.h> and windows.h helpers. */
-#define __min(a, b) (((a) < (b)) ? (a) : (b))
-#define __max(a, b) (((a) > (b)) ? (a) : (b))
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +56,6 @@ uint64_t w8_get_ticks(void);
 
 /* Narrow CRT spelling extensions. */
 char* w8_strupr(char* text);
-char* w8_strlwr(char* text);
 void w8_splitpath(const char* path, char* drive, char* directory, char* name, char* extension);
 
 #ifdef __cplusplus
@@ -79,18 +63,4 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
 #endif
 
 #define _strupr w8_strupr
-#define strupr w8_strupr
-#define _strlwr w8_strlwr
-#define strlwr w8_strlwr
 #define _splitpath w8_splitpath
-#ifndef _WIN32
-#define _S_IREAD S_IRUSR
-#define _S_IWRITE S_IWUSR
-#else
-#define S_IRUSR _S_IREAD
-#define S_IWUSR _S_IWRITE
-#define S_IWGRP 0
-#define S_IWOTH 0
-#define S_ISREG(mode) (((mode) & _S_IFMT) == _S_IFREG)
-#define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
-#endif

@@ -107,7 +107,7 @@ std::string resolve_path(std::string_view path)
 {
     if (path.empty()) return {};
     std::string filename(path);
-    strupr(filename.data());
+    _strupr(filename.data());
     if (const auto status = wiz8::file_status(filename);
         status && status->info.type == SDL_PATHTYPE_FILE)
         return filename;

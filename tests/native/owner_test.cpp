@@ -1271,7 +1271,6 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
         }
     }
     REQUIRE(g_ui.captured == 0);
-    REQUIRE(g_ui.current == 0);
     REQUIRE(g_ui.hover == 0);
 }
 
@@ -1336,7 +1335,6 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
     });
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     REQUIRE(layer == nullptr);
-    REQUIRE(g_ui.current == 0);
     REQUIRE(g_ui.hover == 0);
     REQUIRE(g_ui.captured == 0);
     REQUIRE(LiveUiTargetCount() == region_count);
@@ -1350,7 +1348,6 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
     UpdateUiPointer(15, 15);
     REQUIRE(layer == nullptr);
     REQUIRE(g_ui.hover == 0);
-    REQUIRE(g_ui.current == 0);
 }
 
 TEST_CASE("The input pump finishes its policy before committing a layer close", "[owner][ui-layer]")

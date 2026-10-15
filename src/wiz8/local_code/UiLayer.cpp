@@ -105,7 +105,6 @@ struct UiState {
     void forget(HitTarget& target)
     {
         if (tooltip == &target) hideTooltip();
-        if (g_ui.current == &target) g_ui.current = nullptr;
         if (g_ui.hover == &target) g_ui.hover = nullptr;
         if (g_ui.captured == &target) g_ui.captured = nullptr;
         target.captured_buttons_ = 0;
@@ -141,21 +140,21 @@ struct UiState {
         g_ui_help_delay = g_settings.tooltip_delay_ms;
         g_ui_help_forced = false;
     }
-    void motion(const InputEvent& input)
+    // Returns whether a captured or hit target owns the pointer.
+    bool motion(const InputEvent& input)
     {
         g_ui.pointer = input.position;
         auto* target = live(g_ui.captured) ? g_ui.captured : at(input.position);
-        g_ui.current = target;
         const bool inside = target && contains(*target, input.position);
         if (g_ui.hover && (g_ui.hover != target || !inside)) {
             leave(input);
 
             // A leave callback may release capture or request a new owner.
-            if (!pending_actions.empty() || (g_ui.captured == target && !inside)) return;
+            if (!pending_actions.empty() || (g_ui.captured == target && !inside))
+                return target != nullptr;
             target = live(g_ui.captured) ? g_ui.captured : at(input.position);
-            g_ui.current = target;
         }
-        if (!target) return;
+        if (!target) return false;
         if (contains(*target, input.position) && g_ui.hover != target) {
             g_ui.hover = target;
             send(*target, input, UiPointerAction::Enter);
@@ -163,6 +162,7 @@ struct UiState {
 
         } else
             send(*target, input, UiPointerAction::Move);
+        return true;
     }
     void showTooltip()
     {
@@ -367,7 +367,7 @@ void UiLayer::setModal(bool modal)
             g_ui.captured = saved_capture_;
             saved_capture_->captured_buttons_ = saved_buttons_;
         }
-        if (state.live(saved_hover_)) g_ui.current = g_ui.hover = saved_hover_;
+        if (state.live(saved_hover_)) g_ui.hover = saved_hover_;
     }
     saved_hover_ = saved_capture_ = nullptr;
 }
@@ -401,8 +401,7 @@ bool DispatchUiInput(const InputEvent* input)
     UiPointerButton button = UiPointerButton::None;
     switch (input->type) {
     case InputEventType::MouseMove:
-        State().motion(*input);
-        return g_ui.current != nullptr;
+        return State().motion(*input);
     case InputEventType::LeftButtonDown:
         action = UiPointerAction::Down;
         button = UiPointerButton::Left;
@@ -451,7 +450,7 @@ bool DispatchUiInput(const InputEvent* input)
             target->captured_buttons_ |= mask;
             g_ui.captured = target;
         }
-        g_ui.current = g_ui.hover = target;
+        g_ui.hover = target;
     }
     const bool handled = state.send(*target, *input, action, button) == UiResult::Handled;
     // Removal clears the borrowed pointer; never inspect a destroyed target.
@@ -466,7 +465,6 @@ void ClearUiHover()
 {
     const UiTransaction transaction;
     State().leave(PointerMotion(g_ui.pointer));
-    g_ui.current = nullptr;
 }
 void ResetUiInput()
 {

@@ -16,9 +16,9 @@ inline constexpr int UI_PRIORITY_HIGHEST = 127;
 
 extern bool g_dev_mode;
 struct UiRoutingState {
-    HitTarget *current = nullptr, *hover = nullptr, *captured = nullptr;
+    HitTarget *hover = nullptr, *captured = nullptr;
     SDL_Point pointer{};
-    void ClearPointer() { current = hover = captured = nullptr; }
+    void ClearPointer() { hover = captured = nullptr; }
 };
 extern UiRoutingState g_ui;
 extern int g_ui_help_delay;
