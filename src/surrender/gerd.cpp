@@ -14,6 +14,7 @@
 #include <optional>
 #include <ostream>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <unordered_map>
