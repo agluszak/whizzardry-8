@@ -326,16 +326,15 @@ bool W8DialogTextArea::ScrollDown(bool check_only)
     int height = m_bounds.bottom - m_bounds.top;
     int visible_line = 1;
     for (unsigned int index = m_first_visible_entry; index < m_visible_lines.size(); ++index) {
-        for (unsigned int line = index == static_cast<unsigned int>(m_first_visible_entry)
-                                     ? m_first_visible_line
-                                     : 0;
+        for (int line = index == static_cast<unsigned int>(m_first_visible_entry)
+                            ? m_first_visible_line
+                            : 0;
              line < VisibleEntry(index)->m_lineCount + m_entry_spacing_lines;
              ++line, ++visible_line) {
             unsigned int line_height = GetLineHeight();
             if (static_cast<int>(line_height * visible_line) > height) {
                 W8TextBuffer* text = VisibleEntry(m_first_visible_entry);
-                if (static_cast<unsigned int>(m_first_visible_line) <
-                    text->m_lineCount - 1 + m_entry_spacing_lines) {
+                if (m_first_visible_line < text->m_lineCount - 1 + m_entry_spacing_lines) {
                     if (!check_only) ++m_first_visible_line;
                 } else {
                     if (static_cast<unsigned int>(m_first_visible_entry) >=
