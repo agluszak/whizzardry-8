@@ -12,6 +12,7 @@
 #include <fmt/format.h>
 
 #include "dialog_code/DialogBase.h"
+#include "image.h"
 #include "input.h"
 #include "npc_trade_price.h"
 #include "wiz8/catalog_artwork.h"
