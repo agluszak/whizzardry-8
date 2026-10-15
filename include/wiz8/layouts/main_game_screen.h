@@ -35,7 +35,7 @@ enum W8MainUiMode {
     W8_MAIN_UI_MODE_RADAR = 2
 };
 
-/* RequestRedraw and the two main-game paint passes share this mask. The low
+/* RequestRedraw requests main-game repaints with this mask. The low
    eight bits select party portraits; combinations remain unsigned mask words. */
 enum W8MainGameRedrawFlag {
     W8_MAIN_REDRAW_PORTRAIT_0 = 0x1,
@@ -107,9 +107,6 @@ struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
     unsigned int redraw_flags;
-    /* Snapshot of redraw_flags taken before the two redraw passes; the second
-       pass consumes this copy while the live word may still change. */
-    unsigned int saved_redraw_flags;
     W8MainUiMode main_ui_mode;
     int camera_mode;
     unsigned char portrait_refresh_pending[8];

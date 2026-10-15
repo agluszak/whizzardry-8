@@ -286,7 +286,7 @@ static void ApplyPendingMouselook(void);
 void ApplyPendingTooltip(void);
 void UpdateCombatPortraitStatus(void);
 void UpdateKeyboardMenu(void);
-void ApplySavedRedrawInvalidates(void);
+void InvalidateRedrawRegions(unsigned int redraw_flags);
 void InvalidatePortraitPanel(void);
 
 void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
@@ -2367,7 +2367,7 @@ void RefreshFlaggedMainGameState(void)
     }
 }
 
-/* Second-pass invalidate rectangles keyed by saved_redraw_flags bits. The
+/* Invalidate rectangles keyed by redraw bits. The
    first eight entries are the portrait-slot columns (zero base rects, scaled
    by portrait_hover_x_origin and shifted by portrait_refresh_image). */
 struct W8MainGameInvalidateRect {
@@ -3114,7 +3114,6 @@ void ApplyMainGameRedrawFlags(void)
         ClearPrimarySurface();
     } else if ((redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
         g_level_block->redraw_flags = redraw_flags | W8_MAIN_REDRAW_CHROME;
-        g_level_block->saved_redraw_flags &= ~W8_MAIN_REDRAW_CHROME;
         SetOverlayRenderMode();
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) != 0) {
@@ -3315,11 +3314,9 @@ finish_mode_overlays:
     }
 }
 
-/* Finish the main-game frame: sync facing/radar, advance notices, run the two
-   redraw passes, paint overlays, and present. Callers: MainGameScreenFrame at
-   0x0055ff1e (early exit on pending transition) and 0x00560649 (normal end).
-   The assert path that can fire just before the normal call is
-   "iNextChar != BAD_INDEX" in MainGameScreenFrame (retail line 0x1047). */
+/* Finish the main-game frame: sync facing/radar, advance notices, repaint the
+   requested regions and invalidate their rectangles, paint overlays, and
+   present. MainGameScreenFrame calls it at its end and on a pending transition. */
 void DrawMainGameScreen(void)
 {
     int stopped_line;
@@ -3346,15 +3343,19 @@ void DrawMainGameScreen(void)
             SetRendererModePair();
         }
     }
-    g_level_block->saved_redraw_flags = g_level_block->redraw_flags;
-    if (g_level_block->redraw_flags != 0) {
+    const unsigned int requested = g_level_block->redraw_flags;
+    if (requested != 0) {
         ApplyMainGameRedrawFlags();
     }
-    if (g_level_block->saved_redraw_flags != 0) {
-        ApplySavedRedrawInvalidates();
+    // A layout repaint draws the chrome panels, which invalidate themselves.
+    unsigned int invalidated = requested;
+    if (requested != W8_MAIN_REDRAW_ALL && (requested & W8_MAIN_REDRAW_LAYOUT) != 0) {
+        invalidated &= ~W8_MAIN_REDRAW_CHROME;
+    }
+    if (invalidated != 0) {
+        InvalidateRedrawRegions(invalidated);
     }
     g_level_block->redraw_flags = 0;
-    g_level_block->saved_redraw_flags = 0;
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
             g_modal_owner->RefreshModal();
@@ -4279,9 +4280,9 @@ W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
     {0, 0, 0, 0, 0, 0, 0},
 };
 
-/* Second redraw pass: invalidate each rectangle whose bit is set in
-   saved_redraw_flags, applying the mode-6 portrait layout offsets. */
-void ApplySavedRedrawInvalidates(void)
+/* Invalidate the rectangle of each requested redraw bit, placed by the
+   current portrait layout. */
+void InvalidateRedrawRegions(unsigned int redraw_flags)
 {
     unsigned char bit;
     W8MainGameInvalidateRect* entry;
@@ -4291,13 +4292,13 @@ void ApplySavedRedrawInvalidates(void)
     int bottom;
     int delta;
 
-    if (g_level_block->saved_redraw_flags == W8_MAIN_REDRAW_ALL) {
+    if (redraw_flags == W8_MAIN_REDRAW_ALL) {
         ClearVideoDirtyBlocks();
         return;
     }
 
     for (bit = 0, entry = g_main_game_invalidate_rects; bit < 23; ++bit, ++entry) {
-        if ((g_level_block->saved_redraw_flags & (1u << (bit & 0x1f))) == 0) {
+        if ((redraw_flags & (1u << (bit & 0x1f))) == 0) {
             continue;
         }
         left = entry->left;
