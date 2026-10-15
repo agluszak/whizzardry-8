@@ -67,7 +67,7 @@ int GetSpellCastingSelection(void);
 class W8DialogBase;
 
 /* Destroy callback for the spell/use-item reason notices. */
-void SpellCastingNoticeClosed(W8DialogBase* dialog);
+void SpellCastingNoticeClosed(bool);
 /* Text-box body callback while spell casting is active. */
 UiResult HandleSpellTextBox(const UiPointerEvent& event);
 

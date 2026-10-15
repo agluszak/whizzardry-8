@@ -291,7 +291,7 @@ void SetItemCursor(int overlay_video_object)
 }
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
-void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, bool confirmation,
                     bool cancel)
 {
     switch (g_current_screen_state.id) {

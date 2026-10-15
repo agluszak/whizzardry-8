@@ -12,6 +12,8 @@
 // VTABLE: WIZ8 0x005ef8b0
 class W8MessageDialogBase : public W8DialogBase {
 public:
+    std::function<void()> TakeCompletion(bool completed) override;
+    std::function<void(bool)> on_complete;
     W8MessageDialogBase();
     virtual int CreateControls() override;
     virtual void DestroyControls() override;

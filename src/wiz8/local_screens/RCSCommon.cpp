@@ -119,7 +119,7 @@ static void OnCampUseItemOnItem(void);
 static void OnCampUseItemOnCharacter(void);
 
 static void ShowDismissCharacterDialog(void);
-static void OnDismissCharacterDialogClosed(W8DialogBase* dialog);
+static void OnDismissCharacterDialogClosed(bool accepted);
 
 /* Swap the reviewed party member: rebuild the item list or learned-spell
    scratch for the new character and repaint whichever page is showing. */
@@ -461,14 +461,14 @@ static void ShowDismissCharacterDialog(void)
     }
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
-    dialog->m_destroy_callback = OnDismissCharacterDialogClosed;
+    dialog->on_complete = OnDismissCharacterDialogClosed;
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
 // FUNCTION: WIZ8 0x005b6a60
-static void OnDismissCharacterDialogClosed(W8DialogBase* base)
+static void OnDismissCharacterDialogClosed(bool accepted)
 {
-    if (GetDialogResult(base) && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
+    if (accepted && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
         gXStatus.review_character_slot = static_cast<unsigned short>(giReviewCharSlot);
         DismissSelectedPartyCharacter();
     }

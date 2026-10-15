@@ -219,7 +219,6 @@ unsigned char MainMenuScreenEnter(void)
         dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);
-        dialog->m_destroy_callback = 0;
         g_pending_main_menu_message.clear();
         return 1;
     }
@@ -228,7 +227,6 @@ unsigned char MainMenuScreenEnter(void)
         dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(g_localized_strings[0x7ee], 1, 0x32, true, false, true, true, 0, 0x15e);
-        dialog->m_destroy_callback = 0;
         g_main_menu_warning_shown = true;
     }
     return 1;

@@ -166,9 +166,8 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y);
 static void NpcDialogueTextBoxLeftUp(int x, int y);
 static void NpcDialogueTextBoxRightUp(int x, int y);
 static W8ItemInstance* ResolveNpcTradeRow(int index, bool, char, char);
-static void OnNpcAssayDialogClosed(W8DialogBase* dialog);
 static W8ItemInstance* GetNpcTradeSlotItem(int index);
-static void OnNpcDispositionPromptClosed(W8DialogBase* dialog);
+static void OnNpcDispositionPromptClosed(bool accepted);
 static void SelectNpcDialogueService(void);
 static void SelectNpcDialogueTalk(void);
 static void SelectNpcDialogueExit(void);
@@ -192,7 +191,6 @@ static void SelectNpcStockItems(void);
 static void OpenNpcItemAssay(void);
 static void ConfirmNpcTradeSlot(void);
 static void OpenNpcGoldAmountDialog(void);
-void OnNpcTradeSplitDialogDestroy(W8DialogBase* dialog);
 static void RequestNpcSpellService3(void);
 static void RequestNpcSpellService41(void);
 static void RequestNpcCharacterService(void);
@@ -1553,7 +1551,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_status.selected_character]);
         dialog->SetText("");
         dialog->SetOrigin(g_info_dialog_x, 0x48);
-        dialog->m_destroy_callback = OnNpcAssayDialogClosed;
+        dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return;
     case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
@@ -1818,13 +1816,13 @@ static void PromptNpcDispositionChange(void)
     W8MessageDialogBase* dialog = CreateMessageDialog();
 
     SetDialogPrompt(dialog, g_localized_strings[0x798]);
-    dialog->m_destroy_callback = OnNpcDispositionPromptClosed;
+    dialog->on_complete = OnNpcDispositionPromptClosed;
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
-static void OnNpcDispositionPromptClosed(W8DialogBase* dialog)
+static void OnNpcDispositionPromptClosed(bool accepted)
 {
-    if (GetDialogResult(dialog)) {
+    if (accepted) {
         SetNpcDispositionBand(g_npc_interaction_state->dialogue_npc, W8_NPC_BAND_HOSTILE);
         g_npc_dialogue.QueueQuote(0x18, false, false, false);
         g_npc_dialogue.Queue(W8NpcCommand::close_and_resume_npc);
@@ -2486,14 +2484,9 @@ static void OpenNpcItemAssay(void)
                                    &g_status.buffers.Char[g_status.selected_character]);
         dialog->SetText("");
         dialog->SetOrigin(g_info_dialog_x, 0x48);
-        dialog->m_destroy_callback = OnNpcAssayDialogClosed;
+        dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
         OpenModal(std::unique_ptr<ModalContent>(dialog));
     }
-}
-
-static void OnNpcAssayDialogClosed(W8DialogBase*)
-{
-    RequestRedraw(W8_MAIN_REDRAW_ALL);
 }
 
 static void SelectNpcPartyItems(void)
@@ -2549,19 +2542,11 @@ static void OpenNpcGoldAmountDialog(void)
     dialog = new W8SplitAmountDialog(g_status.party_gold);
     dialog->SetText("");
     dialog->SetOrigin(g_split_dialog_origin_x, g_split_dialog_origin_y);
-    dialog->m_destroy_callback = OnNpcTradeSplitDialogDestroy;
+    dialog->on_complete = [](int amount) {
+        g_npc_interaction_state->trade_gold = amount;
+        ShowNpcTradeGold();
+    };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
-}
-
-/* Destroy callback for the trade split-amount dialog: on confirm it takes the
-   entered share into trade_gold and refreshes the purse readout. */
-void OnNpcTradeSplitDialogDestroy(W8DialogBase* dialog)
-{
-    if (static_cast<W8SplitAmountDialog*>(dialog)->m_result != g_amount_split_confirm_result) {
-        return;
-    }
-    g_npc_interaction_state->trade_gold = static_cast<W8SplitAmountDialog*>(dialog)->m_taken;
-    ShowNpcTradeGold();
 }
 
 static void HighlightNpcTradeQuantity()
@@ -3612,9 +3597,9 @@ void SyncDialogueCategoryButtons(void)
 
 /* A confirmed purchase returns the NPC dialogue to the layout appropriate
    for the NPC's disposition. A cancelled dialog leaves the layout alone. */
-static void OnNpcTradeDialogClosed(W8DialogBase* dialog)
+static void OnNpcTradeDialogClosed(bool accepted)
 {
-    if (!GetDialogResult(dialog)) {
+    if (!accepted) {
         return;
     }
     ConfirmNpcTradePurchase();
@@ -3667,7 +3652,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
         dialog->SetClientExtent(0xfa, 200);
         message = g_localized_strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
-        dialog->m_destroy_callback = OnNpcTradeDialogClosed;
+        dialog->on_complete = OnNpcTradeDialogClosed;
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;
     }

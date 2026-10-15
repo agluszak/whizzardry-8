@@ -921,22 +921,16 @@ void DropHeldItem(int)
     wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
 }
 
-/* Destroy callback the item picker installs: the items still held by the
-   dialog come back as a group chain. A two-item group returns the picked
+/* The item picker returns its remaining items as a group chain. A two-item group returns the picked
    extra to the world at the group's position; a lone item is simply dropped.
    Either way the group's own world entry is found by runtime id, pulled out
    of its sector, deactivated, freed and removed from the list. */
 // FUNCTION: WIZ8 0x004f7c50
-static void OnItemPickerDialogDestroyed(W8DialogBase* dialog)
+static void OnItemPickerClosed(W8WorldItem* group)
 {
-    W8WorldItem* group;
     W8WorldItem* item;
     unsigned int index;
 
-    if (dialog == 0) {
-        return;
-    }
-    group = static_cast<W8TriggerItemPickerDialog*>(dialog)->ReturnItemsToGroup();
     if (ItemInfoGetNumInGroup(group) == 2) {
         item = ItemInfoGroupGetNext(group);
         item->position = group->position;
@@ -978,7 +972,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
         if (dialog != 0) {
             dialog->SetItemGroup(item);
-            dialog->m_destroy_callback = OnItemPickerDialogDestroyed;
+            dialog->on_complete = OnItemPickerClosed;
         }
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;

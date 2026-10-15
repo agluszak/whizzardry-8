@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
@@ -554,4 +555,11 @@ void W8SplitItemDialog::OnCountFieldClick()
     point.y -= g_split_count_field_bounds.top;
     m_count_input->SetActive(true, &point);
     m_active_input = m_count_input.get();
+}
+
+std::function<void()> W8SplitItemDialog::TakeCompletion(bool completed)
+{
+    W8DialogBase::TakeCompletion(completed);
+    if (!completed || split_result != W8_SPLIT_RESULT_CONFIRMED || !on_complete) return {};
+    return [callback = std::exchange(on_complete, {}), result = split_count] { callback(result); };
 }

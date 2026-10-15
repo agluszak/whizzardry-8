@@ -19,5 +19,5 @@ void RequestExitScreen(void);
 unsigned char ExitScreenEnter(void);
 void ExitScreenFrame(void);
 /* Dispatch one already-built line to the active screen. */
-void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, bool confirmation,
                     bool cancel);

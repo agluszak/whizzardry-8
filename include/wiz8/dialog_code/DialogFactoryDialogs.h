@@ -117,11 +117,9 @@ public:
 
 // VTABLE: WIZ8 0x005ef9f0
 class W8SplitAmountDialog : public W8DialogBase {
-    /* NPCInteractionSubscreen's destroy callback reads m_taken and
-       m_result back out of the closing dialog. */
-    friend void OnNpcTradeSplitDialogDestroy(W8DialogBase* dialog);
-
 public:
+    std::function<void()> TakeCompletion(bool completed) override;
+    std::function<void(int)> on_complete;
     W8SplitAmountDialog();
     /* The split-size entry point; the pool total seeds both the
        remaining and total fields. */
@@ -168,12 +166,13 @@ private:
 };
 
 /* The trigger-owned item picker. The item group is what the trigger hands in
-   and the destroy callback hands back. */
+   and the completion callback receives. */
 // VTABLE: WIZ8 0x005ef810
 class W8TriggerItemPickerDialog : public W8DialogBase {
 public:
+    std::function<void()> TakeCompletion(bool completed) override;
+    std::function<void(W8WorldItem*)> on_complete;
     W8TriggerItemPickerDialog();
-    virtual ~W8TriggerItemPickerDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw(SDL_Surface& target) override;
@@ -214,11 +213,12 @@ public:
     W8WorldItem* m_item_group;
 };
 
-/* The item-split dialog opened for stackable item stacks. The destroy
-   callback reads back split_count and tests split_result. */
+/* The item-split dialog returns the confirmed count to its owner. */
 // VTABLE: WIZ8 0x005efb78
 class W8SplitItemDialog : public W8DialogBase {
 public:
+    std::function<void()> TakeCompletion(bool completed) override;
+    std::function<void(int)> on_complete;
     W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count);
     virtual ~W8SplitItemDialog() override;
     virtual int CreateControls() override;

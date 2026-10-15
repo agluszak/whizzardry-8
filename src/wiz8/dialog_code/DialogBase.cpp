@@ -43,7 +43,6 @@ W8DialogBase::W8DialogBase()
     m_background_flags = 0;
     m_initialized = false;
     m_keep_open = true;
-    m_destroy_callback = {};
     m_right_button_down = false;
 }
 
@@ -51,16 +50,15 @@ W8DialogBase::W8DialogBase()
 W8DialogBase::~W8DialogBase()
 {
     EndModalInput();
-    NotifyDestroyed();
+    if (cleanup) cleanup();
     DestroyControls();
 }
 
-void W8DialogBase::NotifyDestroyed()
+std::function<void()> W8DialogBase::TakeCompletion(bool)
 {
-    if (const auto callback = std::exchange(m_destroy_callback, {})) {
-        callback(this);
-        m_destroy_callback = {};
-    }
+    EndModalInput();
+    m_input.setEnabled(false);
+    return std::exchange(on_close, {});
 }
 
 // FUNCTION: WIZ8 0x005dc890

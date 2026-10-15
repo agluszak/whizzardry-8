@@ -3167,7 +3167,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
    with the reason notice queued through the callback. */
 // FUNCTION: WIZ8 0x00522B80
 bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
-                          W8DialogDestroyCallback callback)
+                          std::function<void(bool)> callback)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[character_index];

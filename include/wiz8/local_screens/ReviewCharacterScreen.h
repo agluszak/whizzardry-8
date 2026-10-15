@@ -278,6 +278,6 @@ void EndReviewTransition(void);
 void ShowEndingScreen(void);
 void BeginEndgameSequence(void);
 /* Camp and main-game notice dialogs ShowNoticeLine forwards into. */
-void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
-                        bool cancel);
+void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
+                        bool confirmation, bool cancel);
 void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin);

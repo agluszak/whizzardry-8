@@ -159,7 +159,7 @@ void SetCampInfoPageMode(char mode)
 }
 
 // FUNCTION: WIZ8 0x005BA110
-void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_callback)
+void OpenItemInfoDialog(W8ItemInstance* item)
 {
     W8DialogBase* dialog;
 
@@ -171,7 +171,6 @@ void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_ca
     }
     dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, g_info_dialog_y);
-    dialog->m_destroy_callback = destroy_callback;
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
@@ -267,7 +266,7 @@ void IdentifyAndOpenItemInfo(W8ItemInstance* item)
             g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
         }
     }
-    OpenItemInfoDialog(item, 0);
+    OpenItemInfoDialog(item);
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
@@ -284,7 +283,7 @@ void DropHeldCampItem(void)
 // FUNCTION: WIZ8 0x005BA400
 void OpenSplitStackDialog(W8ItemInstance* item)
 {
-    W8DialogBase* dialog;
+    W8SplitItemDialog* dialog;
 
     g_split_item_source = 0;
     if (item->iItemNo != -1 && item->stack_count > 1 &&
@@ -294,7 +293,7 @@ void OpenSplitStackDialog(W8ItemInstance* item)
         dialog = new W8SplitItemDialog(g_item_split_inventory_mode, item, -1);
         dialog->SetText("");
         dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
-        dialog->m_destroy_callback = SplitStackDialogResult;
+        dialog->on_complete = SplitStackDialogResult;
         DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
     }
@@ -391,7 +390,7 @@ void UseHeldItemOnItem(W8ItemInstance* item)
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_ITEM;
             if (CommitPartySlotSpell(giCasterCharSlot, W8_SPELL_IDENTIFY_ITEM, 8, &target) == 1) {
-                OpenItemInfoDialog(item, 0);
+                OpenItemInfoDialog(item);
                 if (!item->identified) {
                     QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot,
                                         g_character_event_kind2, 0, g_character_event_no_flags,
@@ -465,19 +464,14 @@ bool CanSplitItemStack(const W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BAA80
-void SplitStackDialogResult(W8DialogBase* dialog)
+void SplitStackDialogResult(int count)
 {
     W8ItemInstance split;
     W8ItemInstance* destination;
     W8Character* character;
-    unsigned int count;
     unsigned char remaining;
     unsigned char carried;
 
-    if (static_cast<W8SplitItemDialog*>(dialog)->split_result != g_item_split_confirm_result) {
-        return;
-    }
-    count = static_cast<W8SplitItemDialog*>(dialog)->split_count;
     remaining = g_split_item_source->stack_count - static_cast<unsigned char>(count);
     carried = static_cast<unsigned char>(count);
     if (count == 0) {
@@ -816,7 +810,7 @@ static void ShowCampItemInfo(W8ItemInstance* item)
         RebuildCampItemList();
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
-    OpenItemInfoDialog(item, 0);
+    OpenItemInfoDialog(item);
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 

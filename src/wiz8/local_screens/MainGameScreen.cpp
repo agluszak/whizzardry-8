@@ -2633,12 +2633,12 @@ unsigned char MainGameScreenEnter(void)
    cursor has also been still for a minute and that countdown expires, advance
    ambient follow-up chatter. Busy modes keep refreshing the countdown and
    clear any armed follow-up bits. */
-/* The "Enter <level>?" confirmation's destroy callback: a cancelled dialog
+/* The "Enter <level>?" confirmation's completion callback: a cancelled dialog
    restores the camera the trigger cached, a confirmed one runs the pending
    transition teardown. */
-static void OnEnterLevelDialogClosed(W8DialogBase* dialog)
+static void OnEnterLevelDialogClosed(bool accepted)
 {
-    if (GetDialogResult(dialog)) {
+    if (accepted) {
         BeginLevelTransition();
         return;
     }
@@ -3041,7 +3041,7 @@ unsigned char MainGameScreenLeave(int leaving)
 
     if (leaving) {
         OpenModal(nullptr);
-        g_pending_main_game_dialog.reset();
+        RetireModal(std::move(g_pending_main_game_dialog), false);
         // End a fight while the interface it updates still exists.
         if (gXStatus.fCombatMode) {
             EndCombat(true);
@@ -3121,17 +3121,17 @@ unsigned char MainGameScreenLeave(int leaving)
    overlay), then runs the leave tail - dismiss a live message box, end or
    autosave the game, restore the surprise view, and hand off to the
    transition. */
-void OnLeaveGameConfirmClosed(W8DialogBase* dialog)
+void OnLeaveGameConfirmClosed(bool accepted)
 {
-    if (!GetDialogResult(dialog)) {
+    if (!accepted) {
         return;
     }
     ResetMainGameMode();
 }
 
-void OnQuitGameDialogClosed(W8DialogBase* dialog)
+void OnQuitGameDialogClosed(bool accepted)
 {
-    if (GetDialogResult(dialog)) {
+    if (accepted) {
         if (AnyCharacterActive()) {
             AutoSaveIfAllowed(true);
         }
@@ -4209,8 +4209,8 @@ void RequestRedrawCombatBar(void)
 /* Raise a modal notice line over the main game: enter mode 5 (tearing down
    whichever of the NPC-dialogue, message-box, or dialogue-highlight modes was
    current), then create the kind-1 message dialog, size it, and install the
-   caller's destroy callback as the modal owner. */
-void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
+   caller's confirmation callback as the modal owner. */
+void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel)
 {
     W8MessageDialogBase* dialog;
@@ -4219,7 +4219,7 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    dialog->m_destroy_callback = callback;
+    dialog->on_complete = callback;
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
@@ -4424,7 +4424,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
         dialog->SetClientExtent(0xfa, 0xc8);
         dialog->SetMessage(g_level_block->text_paint_scratch, 1, 0x32, true, true, true, true, 0,
                            0x15e);
-        dialog->m_destroy_callback = OnEnterLevelDialogClosed;
+        dialog->on_complete = OnEnterLevelDialogClosed;
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return;
     }
@@ -4756,28 +4756,34 @@ apply_mode_tail:
     SyncMainGameModeRegions();
 }
 
+void RetireModal(std::unique_ptr<ModalContent> owner, bool completed)
+{
+    if (!owner) return;
+    const UiTransaction transaction;
+    auto* closing = owner.get();
+    DestroyAfterUiDispatch(std::move(owner));
+    AfterUiDispatch([closing, completed] {
+        if (auto completion = closing->TakeCompletion(completed)) completion();
+    });
+}
+
 bool ProcessModalOwner()
 {
     {
-        // A completion callback may open another modal. The transaction keeps
-        // the running one alive until it returns; only close it, never its
-        // replacement.
         const UiTransaction transaction;
         ModalContent* const running = g_modal_owner.get();
-        if (running->ProcessInput() || g_modal_owner.get() != running) {
-            return false;
-        }
+        if (running->ProcessInput() || g_modal_owner.get() != running) return false;
+        auto closing = std::exchange(g_modal_owner, std::move(g_pending_main_game_dialog));
+        if (g_modal_owner) g_modal_owner->RequestModalRedraw();
+        RetireModal(std::move(closing), true);
     }
-    g_modal_owner = std::move(g_pending_main_game_dialog);
-    if (g_modal_owner) g_modal_owner->RequestModalRedraw();
-    return true;
+    return !g_modal_owner;
 }
 
-/* Take the screen for a modal owner and put its region up. */
+/* Take the screen for a modal owner and retire the previous one. */
 void OpenModal(std::unique_ptr<ModalContent> owner)
 {
-    // The replaced modal may be the one whose ProcessInput() opened this one.
-    DestroyAfterUiDispatch(std::exchange(g_modal_owner, std::move(owner)));
+    RetireModal(std::exchange(g_modal_owner, std::move(owner)), false);
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -6704,17 +6710,9 @@ void ToggleMainGamePause(void)
     }
 }
 
-/* Assay dialog destroy callback: closing the dialog leaves the main game
-   screen fully dirty so every region repaints. */
-static void InvalidateMainGameScreen(W8DialogBase* dialog)
-{
-    RequestRedraw(W8_MAIN_REDRAW_ALL);
-}
-
 /* Open the monster information dialog over the main game screen for the
    highlighted monster: only while the entry is live, not dying and still has
-   hit points. Closing leaves the whole screen dirty via the destroy
-   callback. */
+   hit points. Closing requests a full screen repaint. */
 void OpenMonsterInfoDialog(int location_id)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
@@ -6723,7 +6721,7 @@ void OpenMonsterInfoDialog(int location_id)
     }
     W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);
     dialog->SetText("");
-    dialog->m_destroy_callback = InvalidateMainGameScreen;
+    dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
@@ -6743,7 +6741,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     }
     dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, 0x48);
-    dialog->m_destroy_callback = InvalidateMainGameScreen;
+    dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
@@ -7222,7 +7220,7 @@ void OpenNpcTradeQuantityDialog(void)
     }
     dialog->SetText("");
     dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
-    dialog->m_destroy_callback = NpcTradeSplitDialogResult;
+    dialog->on_complete = NpcTradeSplitDialogResult;
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
@@ -7237,18 +7235,13 @@ void RestockNpcTradeStock(void)
     RestockNpcInventory(g_npc_interaction_state->dialogue_npc);
 }
 
-void NpcTradeSplitDialogResult(W8DialogBase* dialog)
+void NpcTradeSplitDialogResult(int count)
 {
-    W8SplitItemDialog* split = static_cast<W8SplitItemDialog*>(dialog);
-
-    if (split->split_result == g_item_split_confirm_result) {
-        int count = split->split_count;
-        if (count != 0) {
-            int slot = GetSelectedTextLine(2);
-            g_npc_interaction_state->trade_quantity = count - 1;
-            SetSelectedTextLine(slot, 2);
-            UpdateNpcTradeSelection(slot, 0, 1);
-        }
+    if (count != 0) {
+        int slot = GetSelectedTextLine(2);
+        g_npc_interaction_state->trade_quantity = count - 1;
+        SetSelectedTextLine(slot, 2);
+        UpdateNpcTradeSelection(slot, 0, 1);
     }
 }
 

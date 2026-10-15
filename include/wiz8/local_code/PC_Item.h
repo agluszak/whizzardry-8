@@ -229,7 +229,7 @@ bool IsUsableItemClass(W8ItemInstance* item);
 /* Validate an item's embedded spell for use now; nonzero reports
    use blocked with the reason notice queued through the callback. */
 bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
-                          W8DialogDestroyCallback callback);
+                          std::function<void(bool)> callback);
 bool CharacterHasServiceItem(W8Character* character);
 int CountUsableCharacterItems(W8Character* character);
 /* Take gold from the party, clamping at zero. */

@@ -809,8 +809,7 @@ void UpdateWorldTriggers(W8World* world)
             if (g_modal_owner == 0 && trigger->world_item_group != 0) {
                 auto dialog = std::make_unique<W8TriggerItemPickerDialog>();
                 dialog->SetItemGroup(trigger->world_item_group);
-                dialog->m_destroy_callback = [trigger](W8DialogBase* base) {
-                    static_cast<W8TriggerItemPickerDialog*>(base)->ReturnItemsToGroup();
+                dialog->on_complete = [trigger](W8WorldItem*) {
                     trigger->flags &= ~W8_TRIGGER_ITEM_PICKER;
                 };
                 gXStatus.item_pick_pending = false;

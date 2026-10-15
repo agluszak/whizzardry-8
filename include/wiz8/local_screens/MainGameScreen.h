@@ -313,6 +313,7 @@ void OpenModal(std::unique_ptr<ModalContent> owner);
    it closed, resuming the parked dialog if any; false when it stays open or
    was replaced by another owner opened from its own callback. */
 bool ProcessModalOwner();
+void RetireModal(std::unique_ptr<ModalContent> owner, bool completed);
 extern std::unique_ptr<ModalContent> g_pending_main_game_dialog;
 
 /* Open the assay (item info) dialog for an item, evaluated against the party
@@ -321,8 +322,8 @@ extern std::unique_ptr<ModalContent> g_pending_main_game_dialog;
 void OpenMonsterInfoDialog(int location_id);
 void OpenAssayDialog(W8ItemInstance* item, int character_slot);
 
-void OnQuitGameDialogClosed(W8DialogBase* dialog);
-void OnLeaveGameConfirmClosed(W8DialogBase* dialog);
+void OnQuitGameDialogClosed(bool accepted);
+void OnLeaveGameConfirmClosed(bool accepted);
 
 void PauseMainGameWorld(void);
 void ResumeMainGameWorld(void);
@@ -491,7 +492,7 @@ bool ValidateNpcTradeSelection(void);
 bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index);
 /* Destroy callback on the NPC trade split dialog; commits the
    chosen count to the editor slot and refreshes the trade selection. */
-void NpcTradeSplitDialogResult(W8DialogBase* dialog);
+void NpcTradeSplitDialogResult(int count);
 void RefreshFormationPanel(bool show_portraits);
 void EndLockInteractMode(char suspend);
 void UpdateMainGameScreen(void);
@@ -519,7 +520,7 @@ unsigned char OpenUseItemSelectView(int slot);
 unsigned char MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
 unsigned char MainGameScreenLeave(int leaving);
-void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
+void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);
 
 unsigned char HandleWorldResumeInput(const InputEvent* event);

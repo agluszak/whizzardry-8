@@ -266,3 +266,12 @@ void W8MessageDialogBase::Close(bool accept)
     is_open = false;
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
+
+std::function<void()> W8MessageDialogBase::TakeCompletion(bool completed)
+{
+    W8DialogBase::TakeCompletion(completed);
+    if (!on_complete) return {};
+    return [callback = std::exchange(on_complete, {}), result = completed && accepted] {
+        callback(result);
+    };
+}

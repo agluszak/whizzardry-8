@@ -116,7 +116,7 @@ std::unique_ptr<W8CampScreenState> g_camp_screen;
 W8CampScreenState::~W8CampScreenState()
 {
     item_range.reset();
-    dialog.reset();
+    RetireModal(std::move(dialog), false);
     for (auto& range : spell_ranges) range.reset();
     stats_range.reset();
     stats_controls.reset();
@@ -1253,9 +1253,13 @@ void CampScreenFrame(void)
         RequestExitScreen();
     }
     ServiceMusicPlaylist();
-    if (g_camp_screen->dialog && !g_camp_screen->dialog->ProcessInput()) {
-        g_camp_screen->dialog.reset();
-        g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
+    if (g_camp_screen->dialog) {
+        const UiTransaction transaction;
+        auto* running = g_camp_screen->dialog.get();
+        if (!running->ProcessInput() && g_camp_screen->dialog.get() == running) {
+            RetireModal(std::move(g_camp_screen->dialog), true);
+            g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
+        }
     }
     if (gXStatus.level_up_notice && g_suspended_screen_id != W8_SCREEN_CHARACTER &&
         !gXStatus.fCombatMode && !IsScreenTransitionPending()) {
@@ -1674,18 +1678,18 @@ void SetCampHeaderMode(W8CampHeaderMode mode)
 
 void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 {
-    g_camp_screen->dialog = std::move(dialog);
-    g_camp_screen->dialog->InputLayer().setModal(true);
+    RetireModal(std::exchange(g_camp_screen->dialog, std::move(dialog)), false);
+    if (g_camp_screen->dialog) g_camp_screen->dialog->InputLayer().setModal(true);
 }
 
-void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
-                        bool cancel)
+void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
+                        bool confirmation, bool cancel)
 {
     W8MessageDialogBase* dialog = CreateMessageDialog();
 
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    dialog->m_destroy_callback = callback;
+    dialog->on_complete = callback;
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
@@ -1872,7 +1876,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
             g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
         }
         if (result == 1 && item->iItemNo != -1) {
-            OpenItemInfoDialog(item, 0);
+            OpenItemInfoDialog(item);
             if (!item->identified) {
                 QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_character_event_kind2, 0,
                                     g_character_event_no_flags, g_character_event_full_volume);

@@ -50,9 +50,3 @@ void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text)
 {
     dialog->SetMessage(text, 1, 0x32, true, true, true, false, 0, 0);
 }
-
-// FUNCTION: WIZ8 0x005cf510
-bool GetDialogResult(W8DialogBase* dialog)
-{
-    return static_cast<W8MessageDialogBase*>(dialog)->accepted;
-}

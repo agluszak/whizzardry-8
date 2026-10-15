@@ -85,8 +85,6 @@ static int g_use_item_owner_index;
 static W8ItemInstance* g_use_item_list[0x15e];
 // GLOBAL: WIZ8 0x0069BF2C
 static W8ItemInstance* g_use_item_detail_item;
-// GLOBAL: WIZ8 0x0069BF30
-int g_saved_target_cursor;
 // GLOBAL: WIZ8 0x0069BF34
 static int g_use_item_hover_row;
 /* Held while CommitSelectedSpellTarget runs for a use-item
@@ -666,28 +664,20 @@ void RefreshUseItemSelection(void)
 }
 
 /* Right release on the use-item text box: open the assay dialog for the item
-   on the clicked row. The target cursor is saved so the destroy callback can
-   restore it. */
+   on the clicked row. Cleanup restores the saved target cursor. */
 // FUNCTION: WIZ8 0x0059D880
 void OpenUseItemAssayDialog(W8ItemInstance* item)
 {
     W8AssayDialog* dialog;
 
-    g_saved_target_cursor = gXStatus.iCurrentCursor;
     dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_use_item_owner_index]);
     dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, 0x48);
-    dialog->m_destroy_callback = RestoreTargetCursor;
+    dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
+        SetTargetCursor(cursor);
+        RequestRedraw(W8_MAIN_REDRAW_ALL);
+    };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
-}
-
-/* Destroy callback for the item-assay and spell-info dialogs: put back the
-   cursor that was current before the dialog opened and repaint everything. */
-// FUNCTION: WIZ8 0x0059D930
-void RestoreTargetCursor(W8DialogBase*)
-{
-    SetTargetCursor(g_saved_target_cursor);
-    RequestRedraw(W8_MAIN_REDRAW_ALL);
 }
 
 // FUNCTION: WIZ8 0x0059D950

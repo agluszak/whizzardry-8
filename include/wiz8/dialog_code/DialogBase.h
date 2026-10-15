@@ -18,9 +18,6 @@ class W8DialogBase;
 class W8ButtonWidget;
 class W8DialogTextArea;
 
-using W8DialogDestroyCallback = std::function<void(W8DialogBase*)>;
-/* Shared close-button callback used by the monster and spell info dialogs. */
-
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
 // VTABLE: WIZ8 0x005efaf8
@@ -57,7 +54,6 @@ public:
     unsigned int m_dirty_flags;
 
 protected:
-    void NotifyDestroyed();
     void BeginModalInput();
     void EndModalInput();
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);
@@ -81,9 +77,9 @@ public:
     bool m_keep_open;
 
 public:
-    /* The trigger update installs its callback with a plain store, so this
-       slot is public rather than reachable only through the setter. */
-    W8DialogDestroyCallback m_destroy_callback;
+    std::function<void()> TakeCompletion(bool completed) override;
+    std::function<void()> on_close;
+    std::function<void()> cleanup; // Resource restoration, including cancellation.
 
 protected:
     bool m_right_button_down;
