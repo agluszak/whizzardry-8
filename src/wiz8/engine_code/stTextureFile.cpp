@@ -7,7 +7,6 @@
 #include <string>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTexture.h"

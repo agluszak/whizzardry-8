@@ -7,7 +7,6 @@
 #include <SDL3/SDL_platform.h>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"

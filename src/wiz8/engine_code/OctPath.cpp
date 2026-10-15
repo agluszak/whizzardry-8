@@ -29,7 +29,6 @@
 
 #include "Font.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "geometry.h"
 #include "glm/common.hpp" // NOLINT(misc-include-cleaner)
 #include "glm/ext/matrix_float3x3.hpp"

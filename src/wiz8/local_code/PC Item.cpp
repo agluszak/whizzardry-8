@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <cstring>
@@ -12,7 +11,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "compat/native.h"
 #include "dice.h"
 #include "equipment_slots.h"
 #include "image_assets.h"

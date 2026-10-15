@@ -10,7 +10,6 @@
 #include <SDL3/SDL_pixels.h>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"

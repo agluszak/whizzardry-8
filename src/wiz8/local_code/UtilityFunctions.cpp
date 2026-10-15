@@ -10,7 +10,6 @@
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 
-#include "compat/native.h"
 #include "conditions.h"
 #include "dice.h"
 #include "random.h"

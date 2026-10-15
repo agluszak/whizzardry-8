@@ -9,7 +9,6 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 

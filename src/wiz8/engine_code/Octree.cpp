@@ -27,7 +27,6 @@
 
 #include "OctPreTree.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "file_time.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
