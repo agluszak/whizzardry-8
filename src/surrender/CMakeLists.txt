@@ -39,7 +39,7 @@ set(SURRENDER_SOURCES
     window_out.cpp
 )
 
-find_package(JPEG REQUIRED)
+find_package(JPEG CONFIG REQUIRED)
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image JPEG::JPEG)
 if(UNIX AND NOT APPLE)
