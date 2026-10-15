@@ -1,31 +1,31 @@
 #include <algorithm>
 #include <charconv>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
 #include "Font.h"
-#include "dialog_code/DialogBase.h"
 #include "image.h"
 #include "input.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/text_input.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
-W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
-                                           Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
-    : m_editor_input(dialog->InputLayer()), m_bounds(*bounds), m_font(&font), m_value(value),
-      m_dirty(false), m_active(false), m_maximum(-1), m_dialog(dialog), m_button(button),
-      m_control_id(control_id)
+W8DialogNumericInput::W8DialogNumericInput(UiLayer& layer, const W8ControlsRect* bounds, int value,
+                                           Font& font, std::function<void(int)> on_change)
+    : m_editor_input(layer), m_bounds(*bounds), m_font(&font), m_value(value), m_dirty(false),
+      m_maximum(-1), m_on_change(std::move(on_change))
 {
-    // The backing button activates editing; caret input shares the modal layer.
 }
 
 void W8DialogNumericInput::SetValue(int value)
@@ -39,19 +39,16 @@ void W8DialogNumericInput::SetValue(int value)
     m_dirty = true;
 }
 
-void W8DialogNumericInput::SetActive(bool active)
+void W8DialogNumericInput::StopEditing()
 {
-    m_active = active;
-    if (!active) {
-        m_editor.reset();
-        m_dirty = m_button->m_dirty = true;
-    }
+    if (!m_editor) return;
+    m_editor.reset();
+    m_dirty = true;
 }
 
-void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
+void W8DialogNumericInput::StartEditing(SDL_Point point)
 {
-    SetActive(active);
-    if (!active) return;
+    StopEditing();
     const auto text = std::to_string(m_value);
     m_editor = std::make_unique<TextFieldGroup>(m_editor_input, *m_font);
     m_editor->Add(m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
@@ -59,11 +56,11 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     m_editor->Focus(0);
     m_editor->SetText(0, text); // Clear the editor's initial select-all.
     std::size_t cursor = text.size();
-    while (cursor > 0 && (m_bounds.right - point->x) - m_bounds.left >=
+    while (cursor > 0 && (m_bounds.right - point.x) - m_bounds.left >=
                              m_font->textWidth(std::string_view(text).substr(cursor - 1)))
         --cursor;
     m_editor->SetCursor(cursor);
-    m_dirty = m_button->m_dirty = true;
+    m_dirty = true;
 }
 
 void W8DialogNumericInput::Draw(SDL_Surface& target)
@@ -89,7 +86,7 @@ bool W8DialogNumericInput::HandleInput(const InputEvent* input)
     if (!m_editor) return false;
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
         input->key == SDLK_ESCAPE) {
-        SetActive(false);
+        StopEditing();
         return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
@@ -110,8 +107,27 @@ bool W8DialogNumericInput::HandleInput(const InputEvent* input)
         const auto cursor = m_editor->Cursor();
         m_editor->SetText(0, std::to_string(value));
         m_editor->SetCursor(cursor);
-        m_dialog->OnNumericInputChanged(m_control_id);
+        if (m_on_change) m_on_change(m_value);
     }
-    m_dirty = m_button->m_dirty = true;
+    m_dirty = true;
     return true;
+}
+
+// Release editing before button-up dispatch; repeats belong to the buttons.
+void W8DialogNumericInput::ProcessInput(const std::function<void(const InputEvent&)>& unhandled)
+{
+    PumpUiInput({
+        .before =
+            [this](const InputEvent& input) {
+                if (input.type == InputEventType::LeftButtonUp) StopEditing();
+                return InputRoute::Pass;
+            },
+        .unhandled =
+            [&](const InputEvent& input) {
+                if (input.type != InputEventType::LeftButtonRepeat &&
+                    input.type != InputEventType::RightButtonRepeat)
+                    unhandled(input);
+                return InputRoute::Handled;
+            },
+    });
 }

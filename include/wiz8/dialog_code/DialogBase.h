@@ -37,14 +37,9 @@ public:
     virtual void SetExtent(int width, int height);
     virtual void SetBackground(const char* path, int flags);
     bool ProcessInput() override;
-    virtual void OnNumericInputChanged(int control_id);
     virtual void OnRightButtonDown();
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
-
-    template<class Dialog, class Field>
-    friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
-                                                bool (Dialog::*handle_event)(const InputEvent*));
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */

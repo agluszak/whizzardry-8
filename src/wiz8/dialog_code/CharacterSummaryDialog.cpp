@@ -15,8 +15,6 @@
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -36,9 +34,8 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(nullptr), m_numeric_input(0), m_remaining(0), m_taken(0),
-      m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
-      m_portrait_clock_started(0)
+    : m_voice_started(0), m_quote_text(nullptr), m_field_070(0), m_character(character),
+      m_use_original_character(0), m_portrait_clock_started(0)
 {
     SetExtent(0x171, 0x60);
     SetBackground("Data\\Dialogs\\popup_quote.sti", 0);
@@ -97,26 +94,9 @@ void W8CharacterSummaryDialog::DrawPortraitAnimationFrame(SDL_Surface& target)
 }
 
 // FUNCTION: WIZ8 0x005e0860
-void W8CharacterSummaryDialog::OnNumericInputChanged(int value)
-{
-    if (value == 0) {
-        m_taken = m_numeric_input->m_value;
-        m_remaining = m_total - m_taken;
-    }
-}
-
 // FUNCTION: WIZ8 0x005e0880
 bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
 {
-    W8DialogNumericInput* inputs[] = {m_numeric_input};
-    for (int index = 0; index < 1; ++index) {
-        if (inputs[index] != 0 && inputs[index]->m_active) {
-            if (inputs[index]->HandleInput(input)) {
-                return true;
-            }
-            break;
-        }
-    }
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         switch (input->key) {
         case SDLK_BACKSPACE:

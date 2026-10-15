@@ -30,7 +30,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_video_object_vector.h"
@@ -383,8 +382,7 @@ static int g_split_amount_string_ids[3] = {265, 266, 267};
 
 // FUNCTION: WIZ8 0x005d9890
 W8SplitAmountDialog::W8SplitAmountDialog(int total, SDL_Point origin)
-    : m_active_field(nullptr), m_remaining(total), m_taken(0), m_total(total),
-      m_result(W8_SPLIT_RESULT_PENDING)
+    : m_taken(0), m_total(total), m_result(W8_SPLIT_RESULT_PENDING)
 {
     SetOrigin(origin.x, origin.y);
     SetExtent(322, 111);
@@ -476,13 +474,16 @@ void W8SplitAmountDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
 
-    m_active_field = 0;
     bounds.left = g_split_amount_field_bounds.left + m_x;
     bounds.top = g_split_amount_field_bounds.top + m_y;
     bounds.right = g_split_amount_field_bounds.right + m_x;
     bounds.bottom = g_split_amount_field_bounds.bottom + m_y;
     m_split_input = std::make_unique<W8DialogNumericInput>(
-        0, &bounds, m_taken, g_wiz_text_font_secondary, this, m_buttons[2].get());
+        InputLayer(), &bounds, m_taken, g_wiz_text_font_secondary, [this](int value) {
+            m_taken = value;
+            UpdateButtonStates();
+            UpdateTextBuffers();
+        });
     m_split_input->m_maximum = 1000000;
 }
 
@@ -503,11 +504,11 @@ void W8SplitAmountDialog::UpdateTextBuffers()
 {
     std::string text;
 
-    text = fmt::format("{:d}", m_remaining);
+    text = fmt::format("{:d}", Remaining());
     m_text_buffers[2]->SetText(text, g_wiz_text_font_secondary);
     m_dirty = true;
     m_text_buffers[2]->SetGeometryDirty();
-    if (m_remaining < 0) {
+    if (Remaining() < 0) {
         m_text_buffers[2]->SetFontStateIndex(0);
     } else {
         m_text_buffers[2]->SetFontStateIndex(-1);
@@ -515,15 +516,14 @@ void W8SplitAmountDialog::UpdateTextBuffers()
     m_split_input->SetValue(m_taken);
     m_buttons[2]->m_dirty = true;
     m_split_input->m_dirty = true;
-    m_split_input->m_button->m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005da090
 void W8SplitAmountDialog::UpdateButtonStates()
 {
     m_buttons[0]->UpdateEnabledState(m_taken != 0);
-    m_buttons[1]->UpdateEnabledState(m_remaining != 0);
-    if (m_remaining < 0) {
+    m_buttons[1]->UpdateEnabledState(Remaining() != 0);
+    if (Remaining() < 0) {
         m_buttons[3]->SetEnabled(false);
         m_buttons[3]->m_dirty = true;
         return;
@@ -533,41 +533,16 @@ void W8SplitAmountDialog::UpdateButtonStates()
 }
 
 // FUNCTION: WIZ8 0x005da140
-void W8SplitAmountDialog::OnNumericInputChanged(int value)
-{
-    if (value == 0) {
-        int field_value = m_split_input->m_value;
-        m_remaining = m_total - field_value;
-        m_taken = field_value;
-        UpdateButtonStates();
-        UpdateTextBuffers();
-    }
-}
-
 void W8SplitAmountDialog::DecreaseAmount(int amount)
 {
-    m_taken -= amount;
-    if (m_taken < 0) {
-        m_taken = 0;
-    }
-    m_remaining += amount;
-    if (m_remaining > m_total) {
-        m_remaining = m_total;
-    }
+    m_taken = std::max(0, m_taken - amount);
     UpdateButtonStates();
     UpdateTextBuffers();
 }
 
 void W8SplitAmountDialog::IncreaseAmount(int amount)
 {
-    m_remaining -= amount;
-    if (m_remaining < 0) {
-        m_remaining = 0;
-    }
-    m_taken += amount;
-    if (m_taken > m_total) {
-        m_taken = m_total;
-    }
+    m_taken = std::min(m_total, m_taken + amount);
     UpdateButtonStates();
     UpdateTextBuffers();
 }
@@ -575,7 +550,7 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
 // FUNCTION: WIZ8 0x005da180
 bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input)) return true;
+    if (m_split_input->HandleInput(input)) return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         const SDL_Keycode key = input->key;
         if (key == SDLK_ESCAPE) {
@@ -594,7 +569,8 @@ bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 // FUNCTION: WIZ8 0x005da2a0
 bool W8SplitAmountDialog::ProcessInput()
 {
-    ProcessNumericDialogInputEvents(this, m_active_field, &W8SplitAmountDialog::HandleInputEvent);
+    BeginModalInput();
+    m_split_input->ProcessInput([this](const InputEvent& input) { HandleInputEvent(&input); });
     return m_keep_open;
 }
 
@@ -618,8 +594,7 @@ void W8SplitAmountDialog::ActivateField()
     }
     point.x -= g_split_amount_field_bounds.left;
     point.y -= g_split_amount_field_bounds.top;
-    m_split_input->SetActive(true, &point);
-    m_active_field = m_split_input.get();
+    m_split_input->StartEditing(point);
 }
 
 /* The trigger-owned item picker configures its buttons during construction. */
