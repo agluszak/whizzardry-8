@@ -385,7 +385,7 @@ void TickAmbientFollowUpIdle(unsigned char input_handled);
 void RefreshPartySlotRegions(void);
 /* Re-sync mouse hotspot, region enables and viewport after a
    main-game mode change. */
-void SyncMainGameModeRegions(void);
+void SyncMainGameModeInput(void);
 void ClearHighlightOverlayRegion(void);
 void DismissHighlightOverlay(void);
 /* The portrait-hover panel's producer; the four hover entry
@@ -397,9 +397,7 @@ void DrawPortraitStatusOverlay(int party_slot);
 void DrawPortraitEnchantmentOverlay(int party_slot);
 void SelectPartyCharacter(int party_slot);
 void RefreshLockInteractionControls(void);
-void EnableLockInteractionPanels(void);
 void RefreshMainGameActionPanel(void);
-void EnableTrapInteractionPanelRegions(void);
 void OpenAutomapScreen(void);
 /* Clear one slot's pending portrait refresh while the screen is not in
    portrait mode, and disable that slot's portrait region set. */

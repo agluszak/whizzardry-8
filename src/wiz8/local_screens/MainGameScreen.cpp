@@ -505,14 +505,6 @@ void RefreshLockInteractionControls(void)
     interaction->actions_dirty = true;
 }
 
-/* Re-arm the lock tumbler and action region sets while lock interact is up. */
-void EnableLockInteractionPanels(void)
-{
-    if (g_lock_interaction) {
-        g_lock_interaction->EnablePanels(1);
-    }
-}
-
 /* Mark the lock interaction's tumbler and action panels dirty and rebuild the
    info text; run from the redraw sweep when flag 0x200 is raised while lock
    interact mode is up. */
@@ -1921,14 +1913,6 @@ void W8MainGameScreen::EnablePanelInput(bool enable)
     input.setEnabled(enable);
 }
 
-/* Re-arm the trap text/action panel region sets while trap interact is up. */
-void EnableTrapInteractionPanelRegions(void)
-{
-    if (g_main_game_screen) {
-        g_main_game_screen->EnablePanelInput(true);
-    }
-}
-
 void W8MainGameScreen::ApplyInspectSuccess()
 {
     int chance;
@@ -2425,7 +2409,7 @@ MainGameScreenState::MainGameScreenState()
     for (int slot = 0; slot < 8; ++slot) {
         const int row = slot / 2;
         const bool right = slot % 2;
-        portraits[slot] = std::make_unique<UiLayer>(PortraitSlotOrder(slot));
+        portraits[slot] = std::make_unique<UiLayer>(UiLayerOrder::PortraitSlots);
         auto& input = *portraits[slot];
         auto& targets = portrait_targets[slot];
         const auto add = [&](int index, HitShape shape, auto handler, int help = -1) {
@@ -4676,8 +4660,15 @@ apply_mode_tail:
         g_level_block->portrait_y_shift = 0;
     }
     RequestRedraw(W8_MAIN_REDRAW_ALL);
-    ResetUiInput();
-    SyncMainGameModeRegions();
+    SetMouseCursorHotspot(0, 0);
+    SyncSystemCursor();
+    SetViewportMode(GetMainGameViewportMode());
+    if (gXStatus.fCombatMode) {
+        g_level_block->refresh_combat_panel = 1;
+    }
+    g_level_block->refresh_party_panel = 1;
+    RequestRedrawCombatBar();
+    SyncMainGameModeInput();
 }
 
 void RetireModal(std::unique_ptr<ModalContent> owner, bool completed)
@@ -4727,87 +4718,56 @@ void RefreshPartySlotRegions(void)
     }
 }
 
-/* Re-arm the main-game region sets after ResetUiInput: pick the viewport and
-   layout band from the current mode, then re-enable whichever overlays are
-   up (combat portraits, condition buttons, spell/NPC/lock/trap/formation/
-   radar, party movement, review, keyboard menu, combat submenu). */
-void SyncMainGameModeRegions(void)
+/* Set which main-game controls take part in input for the current UI mode
+   and open view. Radar mode hides the action panel and every overlay view. */
+void SyncMainGameModeInput(void)
 {
-    SetMouseCursorHotspot(0, 0);
-    SyncSystemCursor();
-    g_main_game_state->world.setEnabled(true);
-    g_main_game_state->hud_buttons.input.setEnabled(true);
-    if (g_level_block->group_list_rows == 0) {
-        g_main_game_state->monster_list->setEnabled(false);
-    } else {
-        g_main_game_state->monster_list->setEnabled(true);
-    }
+    auto& state = *g_main_game_state;
+    const W8MainUiMode mode = g_settings.main_ui_mode;
+    const bool panels = mode != W8_MAIN_UI_MODE_RADAR;
+    const bool npc_view = gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue();
+    const bool view_open = gXStatus.fSpellCastMode || npc_view || gXStatus.fItemSelectMode ||
+                           gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode;
 
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetViewportMode(GetMainGameViewportMode());
-    } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION ||
-               g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
-        SetViewportMode(GetMainGameViewportMode());
-        g_main_game_state->edges.setEnabled(true);
-    }
-
+    state.world.setEnabled(true);
+    state.hud_buttons.input.setEnabled(true);
+    state.monster_list->setEnabled(g_level_block->group_list_rows != 0);
+    state.edges.setEnabled(mode != W8_MAIN_UI_MODE_PORTRAITS);
     RefreshPartySlotRegions();
-    if (!gXStatus.fCombatMode) {
-        g_main_game_state->combat.setEnabled(false);
-        EnablePortraitAdvanceRegions();
-    } else {
-        g_main_game_state->combat.setEnabled(true);
+    state.combat.setEnabled(gXStatus.fCombatMode);
+    if (gXStatus.fCombatMode) {
         DisablePortraitControls();
+    } else {
+        EnablePortraitAdvanceRegions();
     }
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
         DisableConditionButtons();
     } else {
         EnableConditionButtons();
     }
 
-    if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) {
+    // Spell and item views always raise the text box; otherwise it follows the action panel.
+    const bool spell_text_box = gXStatus.fSpellCastMode || (!npc_view && gXStatus.fItemSelectMode);
+    if (panels && spell_text_box) {
+        RestoreSpellCastingRegions();
+    } else if (panels && g_level_block->action_panel_visible != 0) {
         EnableActionPanelRegions();
-        if (gXStatus.fSpellCastMode) {
-            if (gpSCSV) gpSCSV->input.setEnabled(true);
-            RestoreSpellCastingRegions();
-        } else if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
-            SetNpcDialogueInputEnabled(2, true);
-        } else if (gXStatus.fItemSelectMode) {
-            EnableUseItemSelectInput();
-            RestoreSpellCastingRegions();
-        } else if (gXStatus.fLockInteractMode) {
-            EnableLockInteractionPanels();
-        } else if (gXStatus.fTrapInteractMode) {
-            EnableTrapInteractionPanelRegions();
-        } else {
-            if (g_level_block->formation_board_visible) {
-                g_main_game_state->formation.setEnabled(true);
-            }
-            if (g_level_block->radar_map_visible != 0) {
-                g_main_game_state->radar.setEnabled(true);
-            }
-        }
+    } else {
+        SetTextBoxEnabled(false);
     }
+    if (gXStatus.fSpellCastMode && gpSCSV) gpSCSV->input.setEnabled(panels);
+    if (npc_view) SetNpcDialogueInputEnabled(2, panels);
+    if (gXStatus.fItemSelectMode) SetUseItemSelectInputEnabled(panels);
+    if (gXStatus.fLockInteractMode) g_lock_interaction->EnablePanels(panels);
+    if (gXStatus.fTrapInteractMode) g_main_game_screen->EnablePanelInput(panels);
+    state.formation.setEnabled(panels && !view_open && g_level_block->formation_board_visible);
+    state.radar.setEnabled(panels && !view_open && g_level_block->radar_map_visible != 0);
 
     if (gXStatus.fPartyMovementUi && !gXStatus.world_update_blocked) {
         UpdatePartyMovementPanel();
+    } else {
+        DisablePartyMovementRegions();
     }
-    if (gXStatus.fReviewCharacterMode) {
-        EnableFormationInput();
-    }
-    if (g_level_block->keyboard_menu_open) {
-        EnableKeyboardMenuInput();
-    }
-    if (g_level_block->combat_end_notification != -1) {
-        EnableSubMenuRegions();
-    }
-    if (g_level_block != 0) {
-        if (gXStatus.fCombatMode) {
-            g_level_block->refresh_combat_panel = 1;
-        }
-        g_level_block->refresh_party_panel = 1;
-    }
-    RequestRedrawCombatBar();
 }
 
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
@@ -6650,10 +6610,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
 /* The viewport mode the screen falls back to after a raised overlay drops:
    full-3d while every overlay flag is clear and no main-game mode override is
    set, the plain mode when any of the board, radar or combat latches is still
-   down, and otherwise the override field's own mapping.
-   Retail expands this body (sign-extending the short result) in the
-   radar/action-panel/formation-board setters and in SyncMainGameModeRegions
-   and calls it elsewhere in this unit. All consumers use this canonical helper. */
+   down, and otherwise the override field's own mapping. */
 short GetMainGameViewportMode(void)
 {
     if (!gXStatus.fSpellCastMode && (!gXStatus.fNpcDialogueMode || CanOpenNpcDialogue()) &&

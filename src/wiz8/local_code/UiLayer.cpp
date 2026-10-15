@@ -51,10 +51,11 @@ InputEvent PointerMotion(SDL_Point point)
 struct UiState {
     std::vector<UiLayer*> layers, modals;
     HitTarget* tooltip = nullptr;
+    int owner = -1;
 
     bool allowed(const UiLayer& layer) const
     {
-        if (!layer.enabled_) return false;
+        if (!layer.enabled_ || (layer.owner_ && *layer.owner_ != owner)) return false;
         return modals.empty() || modals.back() == &layer;
     }
     bool live(const HitTarget* target) const
@@ -286,8 +287,9 @@ void HitTarget::useTextCursor()
     text_cursor_ = true;
 }
 
-UiLayer::UiLayer(UiLayerOrder order) : order_(order)
+UiLayer::UiLayer(UiLayerOrder order, UiLayerScope scope) : order_(order)
 {
+    if (scope == UiLayerScope::Owner) owner_ = State().owner;
     auto& layers = State().layers;
     const auto pos =
         std::ranges::upper_bound(layers, order, {}, [](auto* layer) { return layer->order_; });
@@ -466,17 +468,19 @@ void ClearUiHover()
     const UiTransaction transaction;
     State().leave(PointerMotion(g_ui.pointer));
 }
-void ResetUiInput()
+void SelectUiInputOwner(int owner)
 {
     auto& state = State();
     state.hideTooltip();
     ReleaseUiCapture();
     g_ui.ClearPointer();
-    for (auto* layer : state.layers) {
-        layer->setEnabled(false);
-    }
+    state.owner = owner;
     g_ui_help_delay = g_settings.tooltip_delay_ms;
     g_ui_help_forced = false;
+}
+int UiInputOwner()
+{
+    return State().owner;
 }
 void SetUiHelpDelay(int delay)
 {

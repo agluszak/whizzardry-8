@@ -263,13 +263,21 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
     DispatchUiInput(&input);
 }
 
+// Each test takes input as a fresh owner, so layers left by earlier tests stay inactive.
 struct UiStateSnapshot {
     int help_delay = g_ui_help_delay;
     bool force = g_ui_help_forced;
+    int owner = UiInputOwner();
+    UiStateSnapshot()
+    {
+        static int next_owner = 1000;
+        SelectUiInputOwner(next_owner++);
+    }
     ~UiStateSnapshot()
     {
         ClearUiHover();
         ReleaseUiCapture();
+        SelectUiInputOwner(owner);
         g_ui_help_delay = help_delay;
         g_ui_help_forced = force;
     }
@@ -528,7 +536,6 @@ void generic_button_images()
 {
     initialize_test_framebuffer();
     UiStateSnapshot saved_regions;
-    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-button-images"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -1074,7 +1081,6 @@ TEST_CASE("Camp effect ownership", "[owner]")
 TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     std::vector<int> hits;
     const auto record = [&](int id) {
         return [&, id](const UiPointerEvent& event) {
@@ -1115,7 +1121,6 @@ TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
           "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     std::vector<UiPointerEvent> events;
     int drops = 0;
     HitTarget* drag_source = nullptr;
@@ -1182,7 +1187,6 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
           "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     Font font{};
     UiLayer outer_input;
     TextFieldGroup outer(outer_input, font);
@@ -1229,7 +1233,6 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
 TEST_CASE("Modal layers block underlying input and restore valid capture", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     int releases = 0;
     UiLayer screen;
     auto& target = screen.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
@@ -1315,7 +1318,6 @@ TEST_CASE("Split fields share editing and restore focus after rejecting excessiv
 TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     const auto region_count = LiveUiTargetCount();
     const auto set_count = LiveUiLayerCount();
     auto layer = std::make_unique<UiLayer>();
@@ -1353,7 +1355,6 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
 TEST_CASE("The input pump finishes its policy before committing a layer close", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     while (PollInputEvent()) {
     }
     auto layer = std::make_unique<UiLayer>();
@@ -1383,7 +1384,6 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
 TEST_CASE("A handler may remove its own target or layer synchronously", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     auto layer = std::make_unique<UiLayer>();
     HitTarget* target = nullptr;
     int seen = 0;
@@ -1418,7 +1418,6 @@ TEST_CASE("A handler may remove its own target or layer synchronously", "[owner]
 TEST_CASE("Only non-passive targets capture the pointer on press", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     UiLayer layer;
     auto& gameplay =
         layer.add(SDL_Rect{0, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
@@ -1598,7 +1597,6 @@ TEST_CASE("Generic button image ownership", "[owner]")
 TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     struct TooltipStateSnapshot {
         bool tooltips_enabled = g_settings.tooltips_enabled;
         std::vector<std::string> localized_strings = std::move(g_localized_strings);
@@ -1740,7 +1738,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
 {
     initialize_test_framebuffer();
     UiStateSnapshot saved_state;
-    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -2201,7 +2198,6 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
           "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     const auto layers = LiveUiLayerCount();
     const auto targets = LiveUiTargetCount();
 
@@ -2222,9 +2218,11 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
         dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
         REQUIRE(clicks == 1);
-        ResetUiInput(); // Screen suspension keeps its state but disables input.
+        // Another screen taking input leaves this screen's layers untouched.
+        const int screen_owner = UiInputOwner();
+        SelectUiInputOwner(screen_owner + 1);
         REQUIRE(UiTargetAt({105, 105}) == nullptr);
-        hud.input.setEnabled(true);
+        SelectUiInputOwner(screen_owner);
         dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
         REQUIRE(clicks == 2);

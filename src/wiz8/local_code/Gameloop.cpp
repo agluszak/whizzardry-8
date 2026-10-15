@@ -122,13 +122,13 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     if (save_configuration) SaveGameConfiguration();
 }
 
-/* Screens own their input layers. A suspended screen keeps its layers, so
-   every screen boundary disables all input; the entering screen enables its own.
+/* Screens own their input layers. The entering screen becomes the input
+   owner; a suspended screen's layers keep their state but receive nothing.
    The main game also shows tooltips outside the dispatcher, so remove any. */
 static bool EnterScreen(W8ScreenId state)
 {
     VideoRemoveToolTip();
-    ResetUiInput();
+    SelectUiInputOwner(state);
     return g_screen_handlers[state].enter();
 }
 

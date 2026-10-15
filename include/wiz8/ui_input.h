@@ -29,7 +29,10 @@ HitTarget* UiTargetAt(SDL_Point point);
 void UpdateUiPointer(int x, int y);
 SDL_Point UiPointerPosition();
 bool DispatchUiInput(const InputEvent* event);
-void ResetUiInput();
+/* Make `owner`'s layers the ones that receive input and drop pointer hover,
+   capture and help state. Other owners' layers keep their own state. */
+void SelectUiInputOwner(int owner);
+int UiInputOwner();
 void ClearUiHover();
 bool UiModalActive();
 void ReleaseUiCapture();

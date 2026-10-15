@@ -107,9 +107,9 @@ struct UseItemView {
 std::unique_ptr<UseItemView> use_item;
 }
 
-void EnableUseItemSelectInput()
+void SetUseItemSelectInputEnabled(bool enabled)
 {
-    if (use_item) use_item->input.setEnabled(true);
+    if (use_item) use_item->input.setEnabled(enabled);
 }
 
 void UpdateUseItemScrollButtons(void);

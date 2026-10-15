@@ -84,11 +84,6 @@ constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
 static UiResult HandleFormationCell(const UiPointerEvent& event, int cell);
 static UiResult HandleFormationBackground(const UiPointerEvent& event);
 
-void EnableFormationInput()
-{
-    if (formation) formation->input.setEnabled(true);
-}
-
 void DestroyFormationPanel()
 {
     formation.reset();
