@@ -2614,12 +2614,6 @@ void SetTextureCacheSize(w8_ulong bytes)
     }
 }
 
-// FUNCTION: WIZ8 0x00428e60
-unsigned int GetTotalPhysicalMemory(void)
-{
-    return W8TotalPhysicalMemory();
-}
-
 /* Build an stTextureAnim whose frames are consecutive VObject subimages starting
    at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for
    each frame surface. The setName string is the retail identity. */

@@ -1,12 +1,9 @@
 #include "compat/video.h"
 
 #include <algorithm>
-#include <climits>
-#include <cstdint>
 #include <filesystem>
 #include <system_error>
 
-#include <SDL3/SDL_cpuinfo.h>
 #include <SDL3/SDL_video.h>
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
@@ -43,13 +40,6 @@ bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int h
 srDD* W8CreateNativeRenderDevice()
 {
     return srCreateSDLGPUDevice();
-}
-unsigned int W8TotalPhysicalMemory()
-{
-    const int megabytes = SDL_GetSystemRAM();
-    if (megabytes <= 0) return 0;
-    const uint64_t bytes = uint64_t(megabytes) * 1024 * 1024;
-    return std::min<uint64_t>(bytes, UINT_MAX);
 }
 bool W8HasEnoughSaveSpace()
 {

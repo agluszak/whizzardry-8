@@ -424,9 +424,5 @@ void ResetGameplaySettings(void)
     g_settings.autoscroll_combat_messages = 0;
     g_settings.simplified_npc_interaction = 1;
     EnableAllRenderOptions();
-    if (GetTotalPhysicalMemory() <= 0x4000000) {
-        DisableRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
-        DisableRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_CACHE);
-    }
     DisableRenderOption(W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
 }

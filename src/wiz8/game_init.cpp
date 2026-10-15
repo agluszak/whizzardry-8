@@ -44,7 +44,6 @@
 unsigned char InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);
-    bool ok;
 
     LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
                                                        : "Data\\Strings\\StringData.DAT");
@@ -113,7 +112,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!InitializeMusicPlaylist()) {
         return 0;
     }
-    ok = static_cast<unsigned char>(0x4000000 < GetTotalPhysicalMemory());
-    g_texture_cache_enabled = ok;
+    g_texture_cache_enabled = true;
     return 1;
 }

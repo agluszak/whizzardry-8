@@ -283,7 +283,6 @@ bool IsCursorInsideViewport(void);      /* 0x00428070 */
 bool IsCursorImageInsideViewport(void); /* 0x00428030 */
 
 void SetDisplayGamma(float value);
-unsigned int GetTotalPhysicalMemory(void);
 
 /* Delete a scene object and clear the slot that owned it. */
 template<class T> inline void ReleaseRendererObject(T*& object)
