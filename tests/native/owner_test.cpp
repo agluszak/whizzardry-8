@@ -46,6 +46,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/compat/compiler.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -57,6 +58,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -1010,6 +1012,12 @@ void generic_button_images()
         REQUIRE(fields.Text(field) == "é");
         REQUIRE(fields.HandleInput(backspace));
         REQUIRE(fields.Text(field).empty());
+        // Editing commands never guess text, even when no SDL input window is active.
+        SetNativeTextInputEnabled(false);
+        REQUIRE(fields.HandleInput(
+            InputEvent{.type = InputEventType::KeyDown, .modifiers = SHIFT_DOWN, .key = SDLK_A}));
+        REQUIRE(fields.Text(field).empty());
+        SetNativeTextInputEnabled(true);
         InputEvent committed{};
         committed.type = InputEventType::Text;
         committed.text = 0x4e2d;
@@ -1875,6 +1883,39 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             REQUIRE_FALSE(button->m_dirty);
         }
     }
+    button_image_fixture(assets, "Data/Dialogs/popup_quote.sti");
+    auto old_secondary = std::move(g_wiz_text_font_secondary);
+    REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
+    {
+        struct RestoreParty {
+            W8StatusBuffers buffers = g_status.buffers;
+            W8CharacterEventQueue* queue = gXStatus.character_event_queue;
+            ~RestoreParty()
+            {
+                g_status.buffers = buffers;
+                gXStatus.character_event_queue = queue;
+            }
+        } restore_party;
+        W8Character character{};
+        character.fInParty = true; // Quote access must still use the previewed character directly.
+        W8CharacterEventQueue queue;
+        queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 127));
+        auto* unrelated = queue.active_events.front().get();
+        g_status.buffers.Char = nullptr;
+        g_status.buffers.XChar = nullptr;
+        gXStatus.character_event_queue = &queue;
+        {
+            W8CharacterSummaryDialog summary(&character);
+            REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.
+            PostInputEvent({.type = InputEventType::KeyDown, .key = SDLK_ESCAPE});
+            REQUIRE_FALSE(summary.ProcessInput());
+        }
+        REQUIRE(queue.active_events.size() == 1);
+        REQUIRE(queue.active_events.front().get() == unrelated);
+        REQUIRE(character.fInParty);
+        queue.active_events.clear(); // Release the test entry without gameplay completion.
+    }
+    g_wiz_text_font_secondary = std::move(old_secondary);
     g_wiz_dialog_font = std::move(old_font);
     g_image_assets.clear();
 }

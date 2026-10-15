@@ -100,7 +100,7 @@ void RequestPartySlotRedraw(int bit)
 }
 
 /* Refresh one party slot's on-screen presentation for the active screen:
-   character and party-selection forward into their own helpers; camp marks
+   party selection forwards into its portrait helper; camp marks
    the review panels dirty; main game redraws the portrait overlay. */
 void RefreshPartySlotDisplay(unsigned int party_slot)
 {
@@ -110,7 +110,6 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
 
     switch (g_current_screen_state.id) {
     case W8_SCREEN_CHARACTER:
-        RefreshCharacterScreenPartySlot(party_slot);
         return;
     case W8_SCREEN_PLEASE_WAIT:
         break;

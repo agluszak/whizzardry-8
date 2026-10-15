@@ -2,9 +2,9 @@
 
 struct SDL_Surface;
 
+#include <string>
 #include <string_view>
 
-#include "input.h"
 #include "sprite.h"
 #include "wiz8/conditions.h"
 
@@ -22,6 +22,11 @@ extern int g_special_event17;
 int UpdateCharacterEventState(void);
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
                                       int queue_mode, unsigned int volume);
+
+/* PC quotes and voice samples use character identity, without a party slot. */
+std::string GetCharacterQuoteText(const W8Character& character, unsigned int event_type,
+                                  unsigned int* metadata = nullptr);
+std::string GetCharacterVoicePath(const W8Character& character, unsigned int event_type);
 
 /* Format one character quote for the given event type into the
    shared wide text buffer. Returns zero and empties it when the type has no

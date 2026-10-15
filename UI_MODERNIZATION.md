@@ -15,6 +15,16 @@ numbers are decoded/encoded only at the saved-binding and `MGSKeyboard.ini` boun
 `PollInputEvent` returns an optional event by value; pending events belong to `InputState`
 and have no fixed event-count limit. Attaching or detaching the input window resets them.
 
+Ordinary button down/up events carry SDL's click count; double-click activation stays
+on button down. Focused editors request native text input: key events edit or navigate,
+and committed text events insert characters. Retail key-name mapping is confined to
+binding conversion. MIPE text rows and generator names follow the same text contract.
+
+The character-summary dialog owns its voice playback and portrait animation. Quote
+and sample lookup use the supplied character, and the animation state is shared with
+party portraits as a concrete resource. Opening or closing a preview does not install
+a party member, reset gameplay state, or finish the party's queued events.
+
 - Coordinates are in 640x480 game space. SDL rectangles are half-open; retail
   inclusive bounds are converted when constructing the target.
 - Lower layer order wins, then earlier creation. Within a layer, higher target

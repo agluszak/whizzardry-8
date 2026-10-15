@@ -133,31 +133,31 @@ TEST_CASE("world graphics")
         portrait.portrait_event_active = false;
         portrait.damage_splat_active = portrait.effect_icon_active = false;
         portrait.keyboard_menu_open = false;
-        portrait.portrait_pose = portrait.rendered_portrait_pose = 2;
-        portrait.target_portrait_pose = 1;
-        portrait.portrait_blink_closing = false;
-        portrait.portrait_pose_dirty = portrait.portrait_frame_dirty = false;
-        for (int frame = 0; frame < 10 && portrait.portrait_pose != 1; ++frame) {
-            portrait.portrait_pose_clock = 0;
+        portrait.portrait.pose = portrait.portrait.rendered_pose = 2;
+        portrait.portrait.target_pose = 1;
+        portrait.portrait.blink_closing = false;
+        portrait.portrait.pose_dirty = portrait.portrait.frame_dirty = false;
+        for (int frame = 0; frame < 10 && portrait.portrait.pose != 1; ++frame) {
+            portrait.portrait.pose_clock = 0;
             UpdateCharacterEventState();
-            REQUIRE(portrait.rendered_portrait_pose == portrait.portrait_pose);
+            REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
-        REQUIRE(portrait.portrait_pose == 1);
-        REQUIRE(portrait.rendered_portrait_pose == 1);
+        REQUIRE(portrait.portrait.pose == 1);
+        REQUIRE(portrait.portrait.rendered_pose == 1);
             // A complete blink must paint both the closed and reopened eyes.
-        portrait.portrait_blink_closing = true;
-        for (int frame = 0; frame < 10 && portrait.portrait_pose != 2; ++frame) {
-            portrait.portrait_pose_clock = 0;
+        portrait.portrait.blink_closing = true;
+        for (int frame = 0; frame < 10 && portrait.portrait.pose != 2; ++frame) {
+            portrait.portrait.pose_clock = 0;
             UpdateCharacterEventState();
-            REQUIRE(portrait.rendered_portrait_pose == portrait.portrait_pose);
+            REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
-        REQUIRE(portrait.rendered_portrait_pose == 2);
-        for (int frame = 0; frame < 10 && portrait.portrait_pose != 1; ++frame) {
-            portrait.portrait_pose_clock = 0;
+        REQUIRE(portrait.portrait.rendered_pose == 2);
+        for (int frame = 0; frame < 10 && portrait.portrait.pose != 1; ++frame) {
+            portrait.portrait.pose_clock = 0;
             UpdateCharacterEventState();
-            REQUIRE(portrait.rendered_portrait_pose == portrait.portrait_pose);
+            REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
-        REQUIRE(portrait.rendered_portrait_pose == 1);
+        REQUIRE(portrait.portrait.rendered_pose == 1);
         if (!gXStatus.fCombatMode) StartCombat(0);
         GameLoop();
         REQUIRE(gXStatus.fCombatMode);

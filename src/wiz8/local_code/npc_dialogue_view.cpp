@@ -224,7 +224,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
                 SetPartyPortraitEventState(speaker->group_index, true, current_quote, display_text,
                                            1);
                 entry->voice_sound_handle = nullptr;
-                entry->voice_time_remaining_ms = g_speech.hold_ms;
+                entry->portrait.voice_remaining_ms = g_speech.hold_ms;
             }
         } else {
             entry = GetNpcGroupEntry(speaker);
@@ -234,7 +234,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
                 entry->voice_sound_handle = g_speech.voice_handle;
                 const auto playback_time = wiz8::sound::playback_time(g_speech.voice_handle)
                                                .value_or(wiz8::sound::PlaybackTime{});
-                entry->voice_time_remaining_ms = playback_time.total_ms;
+                entry->portrait.voice_remaining_ms = playback_time.total_ms;
                 gXStatus.monster_manager_entries[speaker->group_index].mouth_gap =
                     LoadMouthGapTrack(voice_path);
                 g_status.buffers.XChar[speaker->group_index].pending_event_type = current_quote;

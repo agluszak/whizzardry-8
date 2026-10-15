@@ -362,7 +362,6 @@ extern unsigned short g_race_name_message_ids[W8_RACE_COUNT];
 extern unsigned short g_profession_level_name_message_ids[15][9];
 
 /* Refresh the character-screen response when a party slot changes. */
-void RefreshCharacterScreenPartySlot(unsigned int party_slot);
 unsigned char CharacterScreenEnter(void);
 void CharacterScreenFrame(void);
 unsigned char CharacterScreenLeave(int leaving);

@@ -404,9 +404,9 @@ void ResolveSurpriseWake(void)
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
         SetPortraitTargetPose(entry, 1);
         if (Random(2) != 0) {
-            entry->portrait_idle_clock = w8_get_ticks() + (Random(5000) + 5000);
+            entry->portrait.idle_clock = w8_get_ticks() + (Random(5000) + 5000);
         }
-        entry->portrait_pose_dirty = true;
+        entry->portrait.pose_dirty = true;
         RequestRedraw(1 << slot);
     }
     EnableMenuButtonBanks();

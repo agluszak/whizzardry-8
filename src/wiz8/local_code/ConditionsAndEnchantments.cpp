@@ -362,7 +362,7 @@ void RecomputeCharacterHighestCondition(int party_slot)
         RedistributePartyEncumbrance();
     }
     RequestPartySlotRedraw(party_slot);
-    int pose = gXStatus.monster_manager_entries[party_slot].target_portrait_pose;
+    int pose = gXStatus.monster_manager_entries[party_slot].portrait.target_pose;
     if (character->highest_condition < W8_CONDITION_ASLEEP) {
         if (pose != 2) {
             goto done;

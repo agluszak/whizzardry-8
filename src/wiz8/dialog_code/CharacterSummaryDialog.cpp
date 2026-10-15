@@ -1,27 +1,27 @@
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 
-#include <cstring>
 #include <memory>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_surface.h>
 
-#include "character_event_queue.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "input.h"
 #include "layouts/character.h"
-#include "layouts/combat_state.h"
-#include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
-#include "local_code/MonsterManager.h"
+#include "random.h"
+#include "soundman.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/conditions.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/xstatus.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its
@@ -34,35 +34,22 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(nullptr), m_field_070(0), m_character(character),
-      m_use_original_character(0), m_portrait_clock_started(0)
+    : m_voice_started(0), m_quote_text(nullptr), m_character(character), m_portrait_clock_started(0)
 {
     SetExtent(0x171, 0x60);
     SetBackground("Data\\Dialogs\\popup_quote.sti", 0);
     SetOrigin(0x87, 0xc0);
     CreateQuoteText();
 
-    m_field_070 = 0;
-    m_use_original_character = 0;
-    m_saved_character = *g_status.buffers.Char;
-    m_saved_monster_entry = gXStatus.monster_manager_entries[0];
-    memcpy(&m_saved_party_row, g_status.buffers.XChar, sizeof(m_saved_party_row));
-    *g_status.buffers.Char = *m_character;
-    ResetPartySlotRow(0);
-    ResetGameplaySlot(0);
-    g_status.buffers.Char[0].fInParty = true;
-    g_status.buffers.XChar[0].npc_index = -1;
+    m_portrait.pose = m_portrait.target_pose =
+        m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
+    m_portrait.idle_clock = w8_get_ticks() + Random(5000) + 5000;
 }
 
 // FUNCTION: WIZ8 0x005e0410
 W8CharacterSummaryDialog::~W8CharacterSummaryDialog()
 {
-    gXStatus.character_event_queue->CompleteAllActiveEvents();
-    if (!m_use_original_character) {
-        *g_status.buffers.Char = m_saved_character;
-        gXStatus.monster_manager_entries[0] = m_saved_monster_entry;
-        memcpy(g_status.buffers.XChar, &m_saved_party_row, sizeof(m_saved_party_row));
-    }
+    wiz8::sound::stop(m_voice);
 }
 
 // FUNCTION: WIZ8 0x005e0600
@@ -71,11 +58,9 @@ void W8CharacterSummaryDialog::CreateQuoteText()
     const auto& offset = g_character_summary_quote_bounds[0];
     W8ControlsRect bounds{offset.left + m_x, offset.top + m_y, offset.right + m_x,
                           offset.bottom + m_y};
-    W8CharacterEvent event(m_character, g_effect0, 0, g_character_event_no_flags,
-                           g_character_event_full_volume);
-    m_quote_text =
-        std::make_unique<W8TextBuffer>(&bounds, event.GetQuoteText(), g_wiz_text_font_secondary,
-                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    m_quote_text = std::make_unique<W8TextBuffer>(
+        &bounds, GetCharacterQuoteText(*m_character, g_effect0), g_wiz_text_font_secondary,
+        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 }
 
 // FUNCTION: WIZ8 0x005e07b0
@@ -83,14 +68,21 @@ void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
     m_quote_text->Paint(target);
-    RenderPartyPortrait(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 1, 0);
+    CatalogArtwork::Load(0x12, m_character->portrait_index).draw(target, 0, m_x + 11, m_y + 11);
+    BlitPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, m_portrait,
+                          true,
+                          {.missing = m_character->highest_condition == W8_CONDITION_MISSING,
+                           .zero_hp = m_character->hp_current == 0});
 }
 
 // FUNCTION: WIZ8 0x005e0830
-void W8CharacterSummaryDialog::DrawPortraitAnimationFrame(SDL_Surface& target)
+void W8CharacterSummaryDialog::RefreshModal()
 {
-    BlitPartyPortraitAnimation(target, m_character->portrait_index, m_x + 11, m_y + 11, {}, 0,
-                               false);
+    W8DialogBase::RefreshModal();
+    BlitPortraitAnimation(GetFrameBufferSurface(), m_character->portrait_index, m_x + 11, m_y + 11,
+                          {}, m_portrait, false,
+                          {.missing = m_character->highest_condition == W8_CONDITION_MISSING,
+                           .zero_hp = m_character->hp_current == 0});
 }
 
 // FUNCTION: WIZ8 0x005e0860
@@ -120,9 +112,27 @@ bool W8CharacterSummaryDialog::ProcessInput()
     BeginModalInput();
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
-        W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
-        QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        const auto path = GetCharacterVoicePath(*m_character, g_effect0);
+        m_voice = wiz8::sound::play(path, {.volume = g_settings.voice_volume & 0xffu});
+        m_mouth_gap = LoadMouthGapTrack(path);
+        m_portrait.voice_remaining_ms =
+            wiz8::sound::playback_time(m_voice)
+                .value_or(wiz8::sound::PlaybackTime{
+                    static_cast<unsigned int>(ComputePortraitMessageDuration(
+                        GetCharacterQuoteText(*m_character, g_effect0))),
+                    0})
+                .total_ms;
+        m_portrait.frame = 7;
+        m_portrait.frame_dirty = true;
+        m_portrait.frame_clock = w8_get_ticks() + 120;
+        m_portrait.target_pose = m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
+    }
+    if (m_voice_started) {
+        UpdateMouthGapTrack(m_voice, m_mouth_gap);
+        AdvancePortraitSpeech(m_portrait, m_mouth_gap.mouth_open, false);
+        AdvancePortraitPose(m_portrait);
+        if (m_voice ? !wiz8::sound::is_playing(m_voice) : m_portrait.voice_remaining_ms == 0)
+            m_keep_open = false;
     }
     bool keep_open = m_keep_open;
     PumpUiInput({
@@ -143,11 +153,17 @@ bool W8CharacterSummaryDialog::ProcessInput()
         .unhandled =
             [this, &keep_open](const InputEvent& input) {
                 keep_open = HandleInputEvent(&input);
-                if (!keep_open) EndModalInput();
+                if (!keep_open) {
+                    wiz8::sound::stop(m_voice);
+                    EndModalInput();
+                }
                 return InputRoute::Stop;
             },
     });
-    if (!keep_open) EndModalInput();
+    if (!keep_open) {
+        wiz8::sound::stop(m_voice);
+        EndModalInput();
+    }
     return keep_open;
 }
 

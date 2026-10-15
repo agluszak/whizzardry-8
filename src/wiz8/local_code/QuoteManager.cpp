@@ -71,6 +71,7 @@
 #include "wiz8/mouth_gap.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/portrait_animation.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
@@ -415,6 +416,28 @@ W8CharacterEvent::~W8CharacterEvent()
     wiz8::sound::stop(voice_playback);
 }
 
+std::string GetCharacterQuoteText(const W8Character& character, unsigned int event_type,
+                                  unsigned int* metadata)
+{
+    if (metadata) *metadata = 0xffffffff;
+    if (event_type >= 0x92) return {};
+    std::string text;
+    char gender_code = static_cast<char>(((character.gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
+    std::string path =
+        fmt::format("Data\\Quotes\\PCs\\{:c}_{}{:d}0.MSG", gender_code,
+                    g_quote_personality_names[character.personality], (character.voice != 0) + 1);
+    if (![&]() {
+            const auto status = wiz8::file_status(path);
+            return status && status->info.type == SDL_PATHTYPE_FILE;
+        }()) {
+        return {};
+    }
+    text = GetStringFromStringDatabase(path, event_type, 0, metadata);
+    // The quote records include a trailing terminator character.
+    if (!text.empty()) text.resize(wiz8::text::previous(text, text.size()));
+    return text.empty() ? std::string{} : fmt::format("\"{}\"", text);
+}
+
 /* Format one character quote for the given event type into the
    shared wide text buffer. A party member on any screen but the character
    screen takes the text from the NPC bound to its slot; otherwise the type
@@ -424,7 +447,6 @@ W8CharacterEvent::~W8CharacterEvent()
 bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
                               unsigned int* metadata)
 {
-    std::string path;
     std::string text;
     int npc_index;
     bool has_npc;
@@ -443,24 +465,8 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
         has_npc = npc_index != -1;
     }
     if (!has_npc) {
-        char gender_code =
-            static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        path = fmt::format("Data\\Quotes\\PCs\\{:c}_{}{:d}0.MSG", gender_code,
-                           g_quote_personality_names[character->personality],
-                           (character->voice != 0) + 1);
-        if (![&]() {
-                const auto status = wiz8::file_status(path);
-                return status && status->info.type == SDL_PATHTYPE_FILE;
-            }()) {
-            g_character_text.clear();
-            return false;
-        }
-        g_character_text = GetStringFromStringDatabase(path, event_type, 0, metadata);
-        /* Retail does not test the reader result or length before storing
-           zero at buffer[strlen(buffer) - 1]. */
-        if (!g_character_text.empty())
-            g_character_text.resize(
-                wiz8::text::previous(g_character_text, g_character_text.size()));
+        g_character_text = GetCharacterQuoteText(*character, event_type, metadata);
+        return !g_character_text.empty();
     } else {
         W8NpcState* npc = GetNpcState(npc_index);
         if ((g_character_text = GetNpcQuoteText(npc, event_type)).empty()) {
@@ -689,6 +695,15 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
            0;
 }
 
+std::string GetCharacterVoicePath(const W8Character& character, unsigned int event_type)
+{
+    char gender_code = static_cast<char>(((character.gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
+    std::string voice_stem =
+        fmt::format("{:c}_{}{:d}0", gender_code, g_quote_personality_names[character.personality],
+                    character.voice + 1);
+    return fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", voice_stem, voice_stem, event_type);
+}
+
 /* What a character says in place of a missing voice sample. */
 // STRING: WIZ8 0x0061cae4
 #define FALLBACK_VOICE_TEXT "Ouch play this sound."
@@ -699,7 +714,6 @@ unsigned char W8CharacterEvent::PlayEventSound()
     unsigned int party_slot = CharacterPointerToPartySlot(character);
     unsigned int sound_event = event_type;
     int npc_index = g_status.buffers.XChar[party_slot].npc_index;
-    std::string voice_stem;
     std::string sound_path;
     std::string npc_sound_name;
     wiz8::sound::Playback sound_handle;
@@ -711,13 +725,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     }
     if (npc_index == -1 || !g_status.game_started ||
         g_current_screen_state.id == W8_SCREEN_CHARACTER) {
-        char gender_code =
-            static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        voice_stem =
-            fmt::format("{:c}_{}{:d}0", gender_code,
-                        g_quote_personality_names[character->personality], character->voice + 1);
-        sound_path =
-            fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", voice_stem, voice_stem, sound_event);
+        sound_path = GetCharacterVoicePath(*character, sound_event);
     } else {
         npc = GetNpcState(npc_index);
         if (npc != 0) {
@@ -735,15 +743,15 @@ unsigned char W8CharacterEvent::PlayEventSound()
     if (sound_handle == nullptr) {
         if (event_type > 0x91) {
             char fallback_text[] = FALLBACK_VOICE_TEXT;
-            record->voice_time_remaining_ms = ComputePortraitMessageDuration(fallback_text);
+            record->portrait.voice_remaining_ms = ComputePortraitMessageDuration(fallback_text);
         } else {
-            record->voice_time_remaining_ms = ComputePortraitMessageDuration(g_character_text);
+            record->portrait.voice_remaining_ms = ComputePortraitMessageDuration(g_character_text);
         }
         return 1;
     }
     const auto playback_time =
         wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
-    record->voice_time_remaining_ms = playback_time.total_ms;
+    record->portrait.voice_remaining_ms = playback_time.total_ms;
     record->mouth_gap = LoadMouthGapTrack(sound_path);
 #ifdef WIZ8_RUNTIME_TESTS
     RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle),
@@ -942,17 +950,17 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         if (gfCapturingVideo != 0) {
             return;
         }
-        record->portrait_frame = 6;
-        record->portrait_frame_dirty = true;
+        record->portrait.frame = 6;
+        record->portrait.frame_dirty = true;
         int pc_slot = RPCPtrToPCSlot(record);
-        record->portrait_blink_closing = false;
+        record->portrait.blink_closing = false;
         W8Condition highest_condition = g_status.buffers.Char[pc_slot].highest_condition;
         if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
-            if (record->target_portrait_pose != 1) {
-                record->target_portrait_pose = 1;
+            if (record->portrait.target_pose != 1) {
+                record->portrait.target_pose = 1;
             }
         } else {
-            record->target_portrait_pose = 2;
+            record->portrait.target_pose = 2;
         }
         if (!quote->bubble) {
             record->portrait_event_active = active;
@@ -1005,9 +1013,9 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     if (gfCapturingVideo != 0) {
         return;
     }
-    record->portrait_frame = 7;
-    record->portrait_frame_dirty = true;
-    record->portrait_frame_clock = w8_get_ticks() + (0x78);
+    record->portrait.frame = 7;
+    record->portrait.frame_dirty = true;
+    record->portrait.frame_clock = w8_get_ticks() + (0x78);
     int pose_category;
     if (static_cast<int>(g_normal_event_count) < static_cast<int>(event_type)) {
         pose_category = 1;
@@ -1019,14 +1027,14 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         pose_category = g_character_event_descriptors[mapped_event].portrait_pose_category;
     }
     int pc_slot = RPCPtrToPCSlot(record);
-    record->portrait_blink_closing = false;
+    record->portrait.blink_closing = false;
     W8Condition highest_condition = g_status.buffers.Char[pc_slot].highest_condition;
     if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
-        if (record->target_portrait_pose != pose_category) {
-            record->target_portrait_pose = pose_category;
+        if (record->portrait.target_pose != pose_category) {
+            record->portrait.target_pose = pose_category;
         }
     } else {
-        record->target_portrait_pose = 2;
+        record->portrait.target_pose = 2;
     }
     if (quote_text.empty() || show_quote == 0) {
         quote->bubble.reset();
@@ -1424,15 +1432,15 @@ void SetPortraitTargetPose(W8MonsterManagerEntry* slot, int pose)
 {
     int party_slot = RPCPtrToPCSlot(slot);
 
-    slot->portrait_blink_closing = false;
+    slot->portrait.blink_closing = false;
     if (g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
         !gXStatus.fSurprisePossible) {
-        if (slot->target_portrait_pose != pose) {
-            slot->target_portrait_pose = pose;
+        if (slot->portrait.target_pose != pose) {
+            slot->portrait.target_pose = pose;
         }
         return;
     }
-    slot->target_portrait_pose = 2;
+    slot->portrait.target_pose = 2;
 }
 
 /* A character at zero percent hit points may start one of the three recovered
@@ -1760,11 +1768,66 @@ unsigned char PartyPortraitEventsIdle(void)
     return 1;
 }
 
-static void SetCurrentPortraitPose(W8MonsterManagerEntry& record, int pose)
+static void SetCurrentPortraitPose(W8PortraitAnimation& record, int pose)
 {
-    if (record.portrait_pose != pose) {
-        record.portrait_pose = pose;
-        record.portrait_pose_dirty = true;
+    if (record.pose != pose) {
+        record.pose = pose;
+        record.pose_dirty = true;
+    }
+}
+
+void AdvancePortraitSpeech(W8PortraitAnimation& state, bool mouth_open, bool fixed_frame)
+{
+    if (!mouth_open) {
+        if (TimeUntilDeadline(state.frame_clock) == 0) {
+            if (state.voice_remaining_ms < 120) {
+                state.frame = 6;
+                state.frame_dirty = true;
+                state.voice_remaining_ms = 0;
+            } else {
+                int direction =
+                    ChooseDifferentMonsterDirection(static_cast<short>(state.frame) - 6) + 6;
+                if (fixed_frame) {
+                    direction = 8;
+                }
+                state.frame = direction;
+                state.frame_dirty = true;
+                state.frame_clock = w8_get_ticks() + (120);
+                state.voice_remaining_ms -= 120;
+            }
+        }
+    } else {
+        state.frame = 6;
+        state.frame_dirty = true;
+    }
+}
+
+void AdvancePortraitPose(W8PortraitAnimation& state)
+{
+    if (!state.blink_closing) {
+        if (state.pose == state.target_pose) {
+            if (state.pose == 1 && TimeUntilDeadline(state.idle_clock) == 0) {
+                state.blink_closing = true;
+                state.idle_clock = w8_get_ticks() + (Random(5000) + 5000);
+            }
+        } else if (TimeUntilDeadline(state.pose_clock) == 0) {
+            int pose = state.pose;
+            SetCurrentPortraitPose(state,
+                                   g_portrait_pose_transition[pose - 1][state.target_pose - 1]);
+            // Reopening and event-pose transitions continue toward the
+            // target; only an idle blink enters the closing phase.
+            state.pose_clock = w8_get_ticks() + (Random(50) + 50);
+        }
+    } else if (TimeUntilDeadline(state.pose_clock) == 0) {
+        int pose = state.pose;
+        if (pose != 2) {
+            SetCurrentPortraitPose(state, g_portrait_pose_transition[pose - 1][2 - 1]);
+            state.blink_closing = true;
+            state.pose_clock = w8_get_ticks() + (Random(50) + 50);
+        }
+        if (state.pose == 2) {
+            state.blink_closing = false;
+        }
     }
 }
 
@@ -1783,7 +1846,7 @@ int UpdateCharacterEventState(void)
         W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
         bool sound_active = false;
 #ifdef WIZ8_RUNTIME_TESTS
-        int previous_frame = record->portrait_frame;
+        int previous_frame = record->portrait.frame;
 #endif
 
         if (!g_status.buffers.XChar[party_slot].fOccupied) {
@@ -1791,7 +1854,7 @@ int UpdateCharacterEventState(void)
         }
         if (record->portrait_event_active) {
             if (record->voice_sound_handle == nullptr) {
-                if (record->voice_time_remaining_ms == 0) {
+                if (record->portrait.voice_remaining_ms == 0) {
                     if (record->active_character_event == 0) {
                         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
                     } else {
@@ -1832,40 +1895,19 @@ int UpdateCharacterEventState(void)
                 }
             } else {
                 any_active = 1;
-                if (sound_active == 0) {
-                    if (TimeUntilDeadline(record->portrait_frame_clock) == 0) {
-                        if (record->voice_time_remaining_ms < 120) {
-                            record->portrait_frame = 6;
-                            record->portrait_frame_dirty = true;
-                            record->voice_time_remaining_ms = 0;
-                        } else {
-                            int direction = ChooseDifferentMonsterDirection(
-                                                static_cast<short>(record->portrait_frame) - 6) +
-                                            6;
-                            if (g_event_range_min <= record->pending_event_type &&
-                                record->pending_event_type <= g_event_range_max) {
-                                direction = 8;
-                            }
-                            record->portrait_frame = direction;
-                            record->portrait_frame_dirty = true;
-                            record->portrait_frame_clock = w8_get_ticks() + (120);
-                            record->voice_time_remaining_ms -= 120;
-                        }
-                    }
-                } else {
-                    record->portrait_frame = 6;
-                    record->portrait_frame_dirty = true;
-                }
+                AdvancePortraitSpeech(record->portrait, sound_active,
+                                      g_event_range_min <= record->pending_event_type &&
+                                          record->pending_event_type <= g_event_range_max);
             }
         }
 
 #ifdef WIZ8_RUNTIME_TESTS
-        if (record->portrait_frame != previous_frame) {
-            RuntimeObserve(RUNTIME_PORTRAIT_FRAME_CHANGED, party_slot, record->portrait_frame,
-                           record->portrait_frame_dirty);
+        if (record->portrait.frame != previous_frame) {
+            RuntimeObserve(RUNTIME_PORTRAIT_FRAME_CHANGED, party_slot, record->portrait.frame,
+                           record->portrait.frame_dirty);
             RuntimeObserve(RUNTIME_PORTRAIT_REFRESH_STATE, party_slot,
-                           (record->portrait_pose_dirty ? 1UL : 0UL) |
-                               (record->portrait_frame_dirty ? 2UL : 0UL) |
+                           (record->portrait.pose_dirty ? 1UL : 0UL) |
+                               (record->portrait.frame_dirty ? 2UL : 0UL) |
                                (record->auto_portrait_refresh ? 4UL : 0UL) |
                                (record->keyboard_menu_open ? 8UL : 0UL),
                            g_current_screen_state.id);
@@ -1877,38 +1919,12 @@ int UpdateCharacterEventState(void)
         }
         if (!record->damage_splat_active && !record->effect_icon_active &&
             (g_current_screen_state.id != W8_SCREEN_CHARACTER || record->portrait_event_active)) {
-            if (!record->portrait_blink_closing) {
-                if (record->portrait_pose == record->target_portrait_pose) {
-                    if (record->portrait_pose == 1 &&
-                        TimeUntilDeadline(record->portrait_idle_clock) == 0) {
-                        record->portrait_blink_closing = true;
-                        record->portrait_idle_clock = w8_get_ticks() + (Random(5000) + 5000);
-                    }
-                } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
-                    int pose = record->portrait_pose;
-                    SetCurrentPortraitPose(
-                        *record,
-                        g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1]);
-                    // Reopening and event-pose transitions continue toward the
-                    // target; only an idle blink enters the closing phase.
-                    record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
-                }
-            } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
-                int pose = record->portrait_pose;
-                if (pose != 2) {
-                    SetCurrentPortraitPose(*record, g_portrait_pose_transition[pose - 1][2 - 1]);
-                    record->portrait_blink_closing = true;
-                    record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
-                }
-                if (record->portrait_pose == 2) {
-                    record->portrait_blink_closing = false;
-                }
-            }
-            if ((record->portrait_pose_dirty || record->portrait_frame_dirty) &&
+            AdvancePortraitPose(record->portrait);
+            if ((record->portrait.pose_dirty || record->portrait.frame_dirty) &&
                 !record->keyboard_menu_open) {
 #ifdef WIZ8_RUNTIME_TESTS
                 RuntimeObserve(RUNTIME_PORTRAIT_REFRESH_REQUESTED, party_slot,
-                               record->portrait_frame, g_current_screen_state.id);
+                               record->portrait.frame, g_current_screen_state.id);
 #endif
                 RefreshPartySlotDisplay(party_slot);
             }
@@ -1949,7 +1965,32 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
 bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
                                 SpriteDraw options, int party_slot, bool animate)
 {
-    W8MonsterManagerEntry* state = &gXStatus.monster_manager_entries[party_slot];
+    const bool dead = gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead;
+    const bool drawn = BlitPortraitAnimation(
+        target, portrait, left, top, options, gXStatus.monster_manager_entries[party_slot].portrait,
+        animate,
+        {.dead = dead,
+         .surprised = bool(gXStatus.fSurprisePossible),
+         .missing = g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING,
+         .zero_hp = g_status.buffers.Char[party_slot].hp_current == 0});
+#ifdef WIZ8_RUNTIME_TESTS
+    if (drawn)
+        RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot,
+                       gXStatus.monster_manager_entries[party_slot].portrait.frame, portrait);
+#endif
+    return drawn;
+}
+
+bool BlitPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
+                           W8PortraitAnimation& animation, bool animate,
+                           W8PortraitCondition condition)
+{
+    auto* state = &animation;
+    const bool shadow = condition.dead || condition.surprised || condition.missing;
+    const auto draw_base = [&] {
+        CatalogArtwork::Load(0x12, portrait).draw(target, 0, left, top, options);
+        if (shadow) ShadowRect(target, {left, top, 0x5a, 0x48});
+    };
     DesignRect rect;
     DesignRect other;
     short width;
@@ -1962,32 +2003,30 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
         return drawn;
     }
     const auto artwork = CatalogArtwork::Load(0x12, portrait);
-    if (state->portrait_pose_dirty || state->portrait_pose != state->rendered_portrait_pose ||
-        (animate && state->portrait_pose != 1)) {
-        const SDL_Point pose_size = artwork.size(state->portrait_pose);
+    if (state->pose_dirty || state->pose != state->rendered_pose || (animate && state->pose != 1)) {
+        const SDL_Point pose_size = artwork.size(state->pose);
         width = pose_size.x;
         height = pose_size.y;
-        const SDL_Point image_position = artwork.position(state->portrait_pose);
+        const SDL_Point image_position = artwork.position(state->pose);
         image_x = image_position.x;
         image_y = image_position.y;
         rect.left = image_x + left;
         rect.top = image_y + top;
         rect.right = width + rect.left;
         rect.bottom = height + rect.top;
-        if (!animate && ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
-                         gXStatus.fSurprisePossible)) {
-            RenderPartyPortrait(target, portrait, left, top, options, 0, party_slot);
+        if (!animate && (condition.dead || condition.surprised)) {
+            draw_base();
         }
-        if (g_status.buffers.Char[party_slot].hp_current == 0) {
+        if (condition.zero_hp) {
             return true;
         }
-        artwork.draw(target, state->portrait_pose, left, top, options);
+        artwork.draw(target, state->pose, left, top, options);
         drawn = true;
-        if (state->rendered_portrait_pose != -1) {
-            const SDL_Point previous_size = artwork.size(state->rendered_portrait_pose);
+        if (state->rendered_pose != -1) {
+            const SDL_Point previous_size = artwork.size(state->rendered_pose);
             width = previous_size.x;
             height = previous_size.y;
-            const SDL_Point image_position = artwork.position(state->rendered_portrait_pose);
+            const SDL_Point image_position = artwork.position(state->rendered_pose);
             image_x = image_position.x;
             image_y = image_position.y;
             other.left = image_x + left;
@@ -1997,39 +2036,35 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
             rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1);
-        state->rendered_portrait_pose = state->portrait_pose;
-        state->portrait_pose_dirty = false;
+        state->rendered_pose = state->pose;
+        state->pose_dirty = false;
     }
-    if (!state->portrait_frame_dirty && state->portrait_frame == state->rendered_portrait_frame &&
-        (!animate || state->portrait_frame == 6)) {
+    if (!state->frame_dirty && state->frame == state->rendered_frame &&
+        (!animate || state->frame == 6)) {
         if (!drawn) {
             return false;
         }
     } else {
-        const SDL_Point frame_size = artwork.size(state->portrait_frame);
+        const SDL_Point frame_size = artwork.size(state->frame);
         width = frame_size.x;
         height = frame_size.y;
-        const SDL_Point image_position = artwork.position(state->portrait_frame);
+        const SDL_Point image_position = artwork.position(state->frame);
         image_x = image_position.x;
         image_y = image_position.y;
-        if (!animate && !drawn && gXStatus.fCombatMode &&
-            g_combat_state->characters[party_slot].dead) {
-            RenderPartyPortrait(target, portrait, left, top, options, 0, party_slot);
+        if (!animate && !drawn && condition.dead) {
+            draw_base();
         }
-        artwork.draw(target, state->portrait_frame, left, top, options);
-#ifdef WIZ8_RUNTIME_TESTS
-        RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot, state->portrait_frame, portrait);
-#endif
+        artwork.draw(target, state->frame, left, top, options);
         rect.left = image_x + left;
         rect.top = image_y + top;
         rect.right = width + rect.left;
         rect.bottom = height + rect.top;
         drawn = true;
-        if (state->rendered_portrait_frame != -1) {
-            const SDL_Point previous_size = artwork.size(state->rendered_portrait_frame);
+        if (state->rendered_frame != -1) {
+            const SDL_Point previous_size = artwork.size(state->rendered_frame);
             width = previous_size.x;
             height = previous_size.y;
-            const SDL_Point image_position = artwork.position(state->rendered_portrait_frame);
+            const SDL_Point image_position = artwork.position(state->rendered_frame);
             image_x = image_position.x;
             image_y = image_position.y;
             other.left = image_x + left;
@@ -2039,12 +2074,10 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
             rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1);
-        state->rendered_portrait_frame = state->portrait_frame;
-        state->portrait_frame_dirty = false;
+        state->rendered_frame = state->frame;
+        state->frame_dirty = false;
     }
-    if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
-         gXStatus.fSurprisePossible) ||
-        g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) {
+    if (shadow) {
         ShadowRect(target, {left, top, 0x5a, 0x48});
     }
     return drawn;
