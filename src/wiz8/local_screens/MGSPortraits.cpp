@@ -33,7 +33,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/item_video_object_vector.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -823,7 +823,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                         .draw(GetFrameBufferSurface(), 0, band_menu_edge + 4, menu_y + 0x17);
                 } else {
                     DrawSprite(GetFrameBufferSurface(),
-                               g_item_video_objects.Sprites(main_hand_item_id), 2,
+                               *ItemSprites(main_hand_item_id), 2,
                                band_menu_edge + 3, menu_y + 0x17);
                     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
                         text = fmt::format(
@@ -847,7 +847,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                             .draw(GetFrameBufferSurface(), 0, band_menu_edge + 4, menu_y + 0x2f);
                     } else {
                         DrawSprite(GetFrameBufferSurface(),
-                                   g_item_video_objects.Sprites(off_hand_item_id), 2,
+                                   *ItemSprites(off_hand_item_id), 2,
                                    band_menu_edge + 3, menu_y + 0x2f);
                         if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
                             0) {

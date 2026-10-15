@@ -1,8 +1,11 @@
+#include <memory>
 #include <string>
 #pragma once
 
-void InitializeItemVideoObjects(void);
 void ReleaseGenericItemNames(void);
+struct SpriteSheet;
+/* The item's inventory artwork, shared through the image asset cache. */
+std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"

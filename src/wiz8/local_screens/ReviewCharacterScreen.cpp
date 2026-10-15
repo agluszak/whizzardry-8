@@ -56,7 +56,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -598,7 +597,7 @@ void DrawCampBackpackItems(void)
             CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
         }
         if (item_id != -1) {
-            DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 0, left + 1,
+            DrawSprite(GetFrameBufferSurface(), *ItemSprites(item_id), 0, left + 1,
                        top + 1);
             DrawCampItemQuantity(&character->backpack[slot], left + 1, top + 0x28, 0x2c);
             if (!character->backpack[slot].identified) {
@@ -659,7 +658,7 @@ void DrawCampEquipmentItems(void)
                 }
             }
         } else {
-            DrawSpriteAndInvalidate(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id),
+            DrawSpriteAndInvalidate(GetFrameBufferSurface(), *ItemSprites(item_id),
                                     1, region->x, region->y);
             DrawCampItemQuantity(&character->EquippedItem[slot], region->x + 2,
                                  region->y + region->height - 0xd, region->width - 4);
@@ -786,7 +785,7 @@ void DrawCampItemPool(void)
                 GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
                 top);
         }
-        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
+        DrawSprite(GetFrameBufferSurface(), *ItemSprites(item->iItemNo), 0,
                    left + 1, top + 1);
         DrawCampItemQuantity(item, left + 1, top + 0x28, 0x2c);
         if (!item->identified) {

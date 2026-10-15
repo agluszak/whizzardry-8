@@ -33,7 +33,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -824,7 +823,7 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
             g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0)
             .draw(GetFrameBufferSurface(), 0, 0x85, top);
     } else {
-        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 2, 0x84, top);
+        DrawSprite(GetFrameBufferSurface(), *ItemSprites(item_id), 2, 0x84, top);
         unsigned char count = g_review_character->EquippedItem[slot].stack_count;
         if (count != 0) {
             std::string text;

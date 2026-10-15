@@ -57,10 +57,10 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -2148,7 +2148,7 @@ TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics",
     REQUIRE(surface_pixel(framebuffer, 80, 80) == 0);
 }
 
-TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
+TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
 {
     ScopedTemporaryDirectory directory{"wiz8-item-cache"};
     const auto assets = directory.path / "assets";
@@ -2158,60 +2158,43 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
     for (auto& record : records) record.video_object_name = "icon.sti";
     struct Restore {
         W8ItemDatabaseRecord* records;
+        unsigned int count;
         w8_native::Roots roots;
         ~Restore()
         {
-            g_item_video_objects.Clear();
             g_image_assets.clear();
             g_item_records = records;
+            gXStatus.uiItemsInDatabase = count;
             w8_native::configure_paths(roots);
         }
-    } restore{g_item_records, previous_roots};
+    } restore{g_item_records, gXStatus.uiItemsInDatabase, previous_roots};
 
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
     g_item_records = records.data();
-    g_item_video_objects.Initialize(records.size());
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(-1), std::out_of_range);
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(records.size()), std::out_of_range);
+    gXStatus.uiItemsInDatabase = static_cast<unsigned int>(records.size());
+    REQUIRE_THROWS_AS(ItemSprites(-1), std::out_of_range);
+    REQUIRE_THROWS_AS(ItemSprites(static_cast<int>(records.size())), std::out_of_range);
     records[0].video_object_name = "missing.sti";
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::runtime_error);
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE_THROWS_AS(ItemSprites(0), std::runtime_error);
     records[0].video_object_name.clear();
     records[0].unidentified_name_index = 145;
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
+    REQUIRE_THROWS_AS(ItemSprites(0), std::out_of_range);
     records[0].video_object_name = "icon.sti";
     records[0].unidentified_name_index = 0;
 
-    for (std::size_t index = 0; index < records.size(); ++index) {
-        auto& sprites = g_item_video_objects.Sprites(index);
-        REQUIRE(sprites.frames.size() == 1);
-        REQUIRE(&g_item_video_objects.Sprites(index) == &sprites);
-    }
-    REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
-    REQUIRE(&g_item_video_objects.Sprites(0) == &g_item_video_objects.Sprites(1));
-    auto held = g_image_assets.sprites("Data\\Items\\icon.sti");
-    REQUIRE(held);
+    // Items naming one file share one decoded sheet.
+    const auto held = ItemSprites(0);
+    REQUIRE(held->frames.size() == 1);
+    REQUIRE(ItemSprites(1004) == held);
+    // A held sheet outlives the cache; the next lookup decodes a fresh one.
     g_image_assets.clear();
     REQUIRE(held->frames.size() == 1);
-    REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
+    REQUIRE(ItemSprites(1004) != held);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(-1, 0), std::out_of_range);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(0, -1), std::out_of_range);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<int>::max()),
                       std::out_of_range);
-
-    g_item_video_objects.Initialize(records.size());
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
-    g_image_assets.clear();
-    g_item_video_objects.Clear();
-    g_item_video_objects.Initialize(records.size());
-    auto& reloaded = g_item_video_objects.Sprites(1004);
-    REQUIRE(&reloaded != held.get());
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 1);
-    g_item_video_objects.Clear();
-    g_item_video_objects.Clear();
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
 }
 
 TEST_CASE("Main-game screen state owns HUD input through suspension and teardown",

@@ -84,7 +84,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -992,7 +991,6 @@ void InventoryChestScenario()
     g_status.party_item_pool[potion_slot].identified = false;
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("inventory", W8_SCREEN_CAMP);
-    REQUIRE(g_item_video_objects.LoadedImageCount() > 2);
     REQUIRE(g_camera_motion_clamp == motion_clamp);
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     REQUIRE(g_pending_main_menu_message.empty());

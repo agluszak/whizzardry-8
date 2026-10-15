@@ -81,7 +81,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/item_video_object_vector.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Magic.h"
@@ -1753,7 +1753,8 @@ static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
    into a scratch surface and wrapping it in a 2D brush. */
 stModelInstance2D* CreateAutomapItemMarker(int item_id)
 {
-    auto& video_object = g_item_video_objects.Sprites(item_id);
+    const auto sprites = ItemSprites(item_id);
+    const SpriteSheet& video_object = *sprites;
     if (video_object.frames.empty()) {
         return 0;
     }

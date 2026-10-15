@@ -30,7 +30,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -234,28 +233,6 @@ unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
 /* Shared scratch returned by the item-name formatter. */
 // GLOBAL: WIZ8 0x0068C0B4
 
-// GLOBAL: WIZ8 0x0068EC68
-W8ItemVideoObjectCache g_item_video_objects;
-
-// FUNCTION: WIZ8 0x0055cdc0
-void W8ItemVideoObjectCache::Initialize(std::size_t item_count)
-{
-    Clear();
-    images_.resize(item_count);
-}
-
-// FUNCTION: WIZ8 0x0055ce40
-void W8ItemVideoObjectCache::Clear()
-{
-    images_.clear();
-}
-
-std::size_t W8ItemVideoObjectCache::LoadedImageCount() const
-{
-    return std::count_if(images_.begin(), images_.end(),
-                         [](const auto& image) { return image != nullptr; });
-}
-
 // GLOBAL: WIZ8 0x0062a88c
 static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {
     "Dagger.sti",
@@ -405,24 +382,17 @@ static const std::array<std::string_view, 145> g_item_video_object_fallback_name
     "rocketlauncher.sti"};
 
 // FUNCTION: WIZ8 0x0055ce80
-const SpriteSheet& W8ItemVideoObjectCache::Sprites(int item_id)
+std::shared_ptr<const SpriteSheet> ItemSprites(int item_id)
 {
-    return *SharedSprites(item_id);
-}
-
-std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(int item_id)
-{
-    auto& image = images_.at(item_id);
-    if (!image) {
-        const auto& record = g_item_records[item_id];
-        std::string_view name = record.video_object_name;
-        if (name.empty())
-            name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
-        std::string path = fmt::format("Data\\Items\\{}", name);
-        if (path.find(".sti") == std::string::npos) path += ".sti";
-        image = g_image_assets.sprites(path);
-        if (!image) throw std::runtime_error(fmt::format("Cannot load item image {}", path));
-    }
+    if (item_id < 0 || static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase)
+        throw std::out_of_range(fmt::format("Item {} has no record", item_id));
+    const auto& record = g_item_records[item_id];
+    std::string_view name = record.video_object_name;
+    if (name.empty()) name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
+    std::string path = fmt::format("Data\\Items\\{}", name);
+    if (path.find(".sti") == std::string::npos) path += ".sti";
+    auto image = g_image_assets.sprites(path);
+    if (!image) throw std::runtime_error(fmt::format("Cannot load item image {}", path));
     return image;
 }
 
@@ -1672,20 +1642,10 @@ void StashDepartingCharacterItems(W8Character* character)
     }
 }
 
-/* Initialize the fixed item-video-object vector to one entry per item record. */
-// FUNCTION: WIZ8 0x0051b560
-void InitializeItemVideoObjects(void)
-{
-    g_item_video_objects.Initialize(gXStatus.uiItemsInDatabase);
-}
-
-/* Throw away the item-video-object vector and every lazily built generic name.
-   The name walk is bounded by the address just past the table rather than by a
-   count. */
+/* Throw away every lazily built generic item name. */
 // FUNCTION: WIZ8 0x0051b580
 void ReleaseGenericItemNames(void)
 {
-    g_item_video_objects.Clear();
     for (auto& name : g_generic_item_names) name.clear();
 }
 

@@ -17,7 +17,7 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
 #include "wiz8/fonts.h"
-#include "wiz8/item_video_object_vector.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
@@ -195,8 +195,8 @@ void UpdateHeldItemCursor(void)
         g_status.item_in_cursor) {
         if (g_status.item_in_hand.iItemNo != -1) {
             g_status.item_in_cursor = true;
-            auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
-            SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
+            const auto sprites = ItemSprites(g_status.item_in_hand.iItemNo);
+            SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
             const auto cursor = CatalogArtwork::Load(0);
             BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
             RefreshMouseCursorTexture();
@@ -271,8 +271,8 @@ void SetItemCursor(int overlay_video_object)
 {
     if (g_status.item_in_hand.iItemNo != -1) {
         g_status.item_in_cursor = true;
-        auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
-        SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
+        const auto sprites = ItemSprites(g_status.item_in_hand.iItemNo);
+        SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
         const auto overlay = CatalogArtwork::Load(overlay_video_object);
         BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
