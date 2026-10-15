@@ -15,6 +15,7 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_input.h"
 
@@ -37,7 +38,7 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
 W8DialogBase::W8DialogBase()
 {
     m_dirty = false;
-    m_font = g_dialog_interface_font;
+    m_font = &g_wiz_dialog_font;
     m_x = 240;
     m_y = 190;
     m_width = 160;
@@ -121,7 +122,7 @@ void W8DialogBase::SetBackground(const char* path, int flags)
     m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {},
                                        "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path,
                                        static_cast<short>(flags), 0, 0);
-    if (!m_font || !m_border) throw std::runtime_error("Cannot configure dialog backdrop");
+    if (!m_font->glyphs || !m_border) throw std::runtime_error("Cannot configure dialog backdrop");
 }
 
 // FUNCTION: WIZ8 0x005dcc30
