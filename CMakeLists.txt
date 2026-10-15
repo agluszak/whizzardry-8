@@ -82,6 +82,8 @@ function(wiz8_system_headers)
             INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${directories}")
     endforeach()
 endfunction()
+set(UTF8_TESTS OFF CACHE BOOL "" FORCE)
+set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(utf8cpp
     URL https://codeload.github.com/nemtrif/utfcpp/tar.gz/refs/tags/v4.0.6
     URL_HASH SHA256=6920a6a5d6a04b9a89b2a89af7132f8acefd46e0c2a7b190350539e9213816c0)
