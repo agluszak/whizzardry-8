@@ -26,7 +26,7 @@ namespace {
 struct TestWorld {
     W8World world{};
     std::vector<Trigger*>& triggers = world.triggers;
-    std::vector<stParticle*>& particles = world.particles;
+    std::vector<std::unique_ptr<stParticle>>& particles = world.particles;
 
     TestWorld()
     {
@@ -36,7 +36,7 @@ struct TestWorld {
     ~TestWorld()
     {
         DestroyAllWorldTriggers(&world);
-        for (stParticle* particle : particles) delete particle;
+        particles.clear();
         delete world.static_scene;
     }
 };
@@ -124,12 +124,16 @@ bool nodes(const std::filesystem::path& directory)
 
     srClock clock;
     g_shared_timer_base = &clock;
-    auto* gas = new stParticle(level.world.dynamic_scene, 1);
+    auto* gas = level.particles
+                    .emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1,
+                                                               srNode::Ownership::independent))
+                    .get();
     gas->setName("GAS");
-    level.particles.push_back(gas);
-    auto* idle = new stParticle(level.world.dynamic_scene, 1);
+    auto* idle = level.particles
+                     .emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1,
+                                                                srNode::Ownership::independent))
+                     .get();
     idle->setName("IDLE");
-    level.particles.push_back(idle);
     gas->persisted = true;
     gas->SetActive(0);
     {
@@ -144,8 +148,6 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
-    delete gas;
-    delete idle;
     g_shared_timer_base = 0;
 
     SetCurrentWorld(0);

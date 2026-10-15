@@ -19,6 +19,7 @@
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/stParticle.h"
 
 class srModelInstance;
 struct W8World;
@@ -99,7 +100,7 @@ public:
     int cycle;
     signed char subcycle;
     unsigned char padding_05[3];
-    stParticle* m_pstParticles;
+    std::unique_ptr<stParticle> m_pstParticles;
     srVector3T<float> position;
     /* 0x004A7E50 composes this into the model instance's own rotation with
        MultiplyBy, which is what makes it a matrix rather than 0x24

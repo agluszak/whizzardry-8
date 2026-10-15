@@ -437,7 +437,7 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 /* An expired or replaced hypnotic lure releases every living monster. */
 static void ReleaseHypnoticLureControl()
 {
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster && !monster->p3D->IsDying())
             SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
@@ -3438,7 +3438,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
         }
     }
     index = 0;
-    while (index < gXStatus.monsters.size()) {
+    while (index < gXStatus.monster_roster.live().size()) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
@@ -3464,7 +3464,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
         }
     }
     index = 0;
-    while (index < gXStatus.monsters.size()) {
+    while (index < gXStatus.monster_roster.live().size()) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||

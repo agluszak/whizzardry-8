@@ -160,8 +160,8 @@ void ToggleMipePanel(void)
         if (g_mipe_cube != 0) {
             SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 0.0f, 0.5f);
         }
-        for (unsigned int monster_list_index = 0; monster_list_index < gXStatus.monsters.size();
-             ++monster_list_index) {
+        for (unsigned int monster_list_index = 0;
+             monster_list_index < gXStatus.monster_roster.live().size(); ++monster_list_index) {
             W8MonsterInfo* monster = GetMonsterListEntry(monster_list_index);
             if (monster != 0 && monster->fInCombat) {
                 SetMonsterHighlight(0, monster->location_id, false);
@@ -2796,7 +2796,7 @@ void UpdateMipeSelection(void)
             }
         }
         g_mipe_state->monster_ids.clear();
-        for (index = 0; index < static_cast<int>(gXStatus.monsters.size()); ++index) {
+        for (index = 0; index < static_cast<int>(gXStatus.monster_roster.live().size()); ++index) {
             info = GetMonsterListEntry(index);
             if (info->fActive && info->monster_group_id == group_id) {
                 SetMonsterHighlight(0, info->location_id, true);

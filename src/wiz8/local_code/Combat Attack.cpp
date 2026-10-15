@@ -595,7 +595,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             }
         }
     }
-    for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size();
+    for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
          ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -851,7 +851,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
             srVector3T<float> center = monster_info->p3D->GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
-            for (index = 0; index < gXStatus.monsters.size(); ++index) {
+            for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                 monster_info = MonsterGetScriptPartByLocationIndex(index);
                 if (monster_info->fActive) {
                     location = MonsterGetLocation(monster_info->p3D);
@@ -3021,7 +3021,7 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             }
         }
     }
-    for (W8MonsterInfo* monster_info : gXStatus.monsters) {
+    for (W8MonsterInfo* monster_info : gXStatus.monster_roster.live()) {
         if (monster_info->fActive && monster_info->hp_current != 0 && monster_info->fInCombat &&
             (g_status.buffers.XChar[party_slot].target_out_of_combat.iType !=
                  W8_TARGET_KIND_MONSTER ||
@@ -3050,7 +3050,7 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
         }
     }
-    for (W8MonsterInfo* candidate : gXStatus.monsters) {
+    for (W8MonsterInfo* candidate : gXStatus.monster_roster.live()) {
         if (candidate->fActive && candidate->hp_current != 0 && candidate->fInCombat) {
             if (candidate == monster_info) {
                 AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,

@@ -647,7 +647,7 @@ unsigned char AutomapScreenEnter(void)
         layer_name = fmt::format("LAYER {:d}", layer_number);
         layer = FindWorldNode<srClipPlane>(layer_name.c_str());
     }
-    unsigned int monster_count = gXStatus.monsters.size();
+    unsigned int monster_count = gXStatus.monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->p3D) monster->p3D->DetachRepresentation(g_world);
@@ -1625,7 +1625,7 @@ void RenderAutomapMarkers(void)
         g_automap_party_marker->setParent(0, 1);
         g_automap_party_marker->setParent(g_scene_square, 1);
     }
-    unsigned int count = gXStatus.monsters.size();
+    unsigned int count = gXStatus.monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
         W8Monster* monster = info->p3D;

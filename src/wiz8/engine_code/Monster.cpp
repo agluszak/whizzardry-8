@@ -1136,8 +1136,7 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
 
     for (index = 0; index < static_cast<int>(other->light_lists[other_cycle].size()); ++index) {
         std::vector<stLight*>* source_lights = other->light_lists[other_cycle][index];
-        std::vector<stLight*>* copied_lights =
-            CloneAnimationLightList(source_lights, MONSTER_CPP, 0x1e5, 0x1ed);
+        std::vector<stLight*>* copied_lights = CloneAnimationLightList(source_lights);
         light_lists[cycle].push_back(copied_lights);
     }
 }
@@ -3217,7 +3216,7 @@ void W8Monster::SetShakeEventVisibility(signed char cycle)
 
             if (animation == 0 || animation->start_frame == 0 ||
                 animation->end_frame < animation->start_frame) {
-                stParticle* particle = event->m_pstParticles;
+                stParticle* particle = event->m_pstParticles.get();
                 if (particle->start_frame != -1 && particle->end_frame != -1 &&
                     particle->start_frame != particle->end_frame) {
                     continue;
@@ -3900,7 +3899,7 @@ void W8Monster::UpdateShakeEvents(unsigned char previous_frame)
             continue;
         }
 
-        particle = event->m_pstParticles;
+        particle = event->m_pstParticles.get();
         if (animation_has_range &&
             (particle->start_frame == -1 || particle->end_frame == -1 ||
              particle->start_frame == particle->end_frame) &&
@@ -4846,7 +4845,9 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             poster->setParent(g_world->dynamic_scene, 1);
             m_pRep->linked_runtime_objects.push_back(poster);
 
-            particle = new stParticle(g_world->dynamic_scene, 0xa);
+            auto owned_particle = std::make_unique<stParticle>(g_world->dynamic_scene, 0xa,
+                                                               srNode::Ownership::independent);
+            particle = owned_particle.get();
             auto material = std::make_shared<srMaterial>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
             material->setEmissive(colour);
@@ -4880,6 +4881,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
 
             world = glm::dmat3(rotation);
             particle->rotate(world);
+            RetireParticle(g_world, std::move(owned_particle));
         }
     }
 }
@@ -5005,7 +5007,7 @@ void W8Monster::ApplyRepresentationScale()
     }
     if (m_plsParticles != 0) {
         for (int index = 0; index < static_cast<int>(m_plsParticles->size()); ++index) {
-            stParticle* particle = ((*m_plsParticles)[index])->m_pstParticles;
+            stParticle* particle = ((*m_plsParticles)[index])->m_pstParticles.get();
             particle->SetParticleScale(m_pRep->scale);
             if (mirror_x) {
                 ((*m_plsParticles)[index])->position.x *= -1.0f;

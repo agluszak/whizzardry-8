@@ -749,7 +749,7 @@ void ResetMonsterGroupTurnState(void)
     for (index = 0; index < gXStatus.monster_groups.size(); ++index) {
         GetMonsterGroupByListIndex(index)->hostility_set_at = 0;
     }
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         monster_info->player_visibility.last_seen_clock = 0;
         monster_info->party_threat.last_seen_clock = 0;
@@ -1011,7 +1011,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     for (created = 0; created < count; ++created) {
         if (CreateMonsterInfo(group, record, const_cast<srVector3T<float>*>(position)) == 0) {
             // A previous iteration may already have registered monsters and octree locations.
-            auto& monsters = record->unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
+            auto& roster = gXStatus.monster_roster;
+            const auto& monsters = record->unborn ? roster.unborn() : roster.live();
             for (const int location_id : group->monsters) {
                 const auto member =
                     std::ranges::find_if(monsters, [location_id](const W8MonsterInfo* info) {
@@ -1019,8 +1020,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
                     });
                 if (member != monsters.end()) {
                     g_octree->UnregisterLocationObjects(static_cast<unsigned short>(location_id));
-                    gXStatus.DestroyOwnedMonsterInfo(*member);
-                    monsters.erase(member);
+                    roster.remove(*member);
                 }
             }
             wiz8::erase_first(*list, group);

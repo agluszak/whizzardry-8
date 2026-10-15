@@ -26,8 +26,8 @@ class File;
 class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
 public:
     static const char* sGetClassName() { return "stParticle"; }
-    stParticle(srNode* parent, int count); /* 0x00497AF0 */
-    stParticle(const stParticle& other);   /* 0x00498180 */
+    stParticle(srNode* parent, int count, Ownership ownership = Ownership::parent); /* 0x00497AF0 */
+    stParticle(const stParticle& other, Ownership ownership = Ownership::parent); /* 0x00498180 */
     void SetActive(unsigned char active);
     void SetTraversalEnabled(bool enabled);
     void DeactivateParticle(unsigned int index);
@@ -41,7 +41,7 @@ public:
     void SubmitToRenderer(srGERD* renderer);
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
-    void Update();                                 /* 0x00499FA0 */
+    void Update(); /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
     unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
@@ -81,8 +81,10 @@ public:
     unsigned int emission_limit = 0;
     unsigned int emission_count = 0;
     unsigned int active_particle_count = 0;
-    /* The particle deletes itself once it stops emitting and has no live particles. */
+    /* Once it stops emitting with no live particles, the particle marks itself
+       finished; its owner (the world's retired list) destroys it outside rendering. */
     bool release_when_done = false;
+    bool finished = false;
     bool replace_when_full = false;
     bool persisted = false;
     unsigned char emitting = 1;
@@ -135,6 +137,12 @@ public:
 private:
     void AllocateParticles(unsigned int count);
 };
+
+struct W8World;
+// A still-emitting particle outlives its cycle in the world's retired list;
+// the sweep destroys it once it has finished, never during rendering.
+void RetireParticle(W8World* world, std::unique_ptr<stParticle> particle);
+void SweepFinishedParticles(W8World* world);
 
 void SaveParticleStates(wiz8::File& handle);
 void LoadParticleStates(wiz8::File& handle);

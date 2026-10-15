@@ -83,23 +83,30 @@ static bool groupMemberLookup()
 
 static bool gameplayCollectionLifetime()
 {
-    W8MonsterInfo monster{};
     W8MonsterGroup group{};
-    REQUIRE((gXStatus.monsters.empty() && GetMonsterListEntry(0) == nullptr));
-    gXStatus.monsters.push_back(&monster);
-    gXStatus.unborn_monsters.push_back(&monster);
+    auto& roster = gXStatus.monster_roster;
+    REQUIRE((roster.live().empty() && GetMonsterListEntry(0) == nullptr));
+    auto* live = roster.add(std::make_unique<W8MonsterInfo>(), false);
+    auto* unborn = roster.add(std::make_unique<W8MonsterInfo>(), true);
     gXStatus.encounter_groups.push_back(&group);
-    REQUIRE(GetMonsterListEntry(0) == &monster);
+    REQUIRE(GetMonsterListEntry(0) == live);
     REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
-    REQUIRE((GetUnbornMonsterEntry(0) == &monster && GetUnbornMonsterEntry(1) == nullptr));
+    REQUIRE((GetUnbornMonsterEntry(0) == unborn && GetUnbornMonsterEntry(1) == nullptr));
     REQUIRE((GetMonsterGroupEncounter(0) == &group && GetMonsterGroupEncounter(1) == nullptr));
-    // Reset releases vector storage and leaves immediately reusable collections.
+
+    // Promotion moves membership only: the same record, now live, and promotion is one-way.
+    REQUIRE(roster.promote(unborn));
+    REQUIRE((roster.unborn().empty() && roster.live().size() == 2 && roster.live()[1] == unborn));
+    REQUIRE(!roster.promote(unborn));
+    // Removal unindexes from whichever list holds the record, then frees it.
+    REQUIRE(roster.remove(live));
+    REQUIRE((roster.live().size() == 1 && roster.live()[0] == unborn));
+    REQUIRE(!roster.remove(live));
+
+    // Reset destroys the owned records and leaves immediately reusable collections.
     gXStatus = {};
     REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
     REQUIRE(GetMonsterGroupEncounter(0) == nullptr);
-    gXStatus.monsters.push_back(&monster);
-    REQUIRE(GetMonsterListEntry(0) == &monster);
-    gXStatus.monsters.clear();
     return true;
 }
 
@@ -253,7 +260,9 @@ static bool journalSerialization()
 
 static bool visibilityRecordLifetime()
 {
-    W8MonsterInfo observer = {}, target = {};
+    auto& roster = gXStatus.monster_roster;
+    auto& observer = *roster.add(std::make_unique<W8MonsterInfo>(), false);
+    auto& target = *roster.add(std::make_unique<W8MonsterInfo>(), false);
     observer.location_id = 100;
     observer.fActive = true;
     target.location_id = 200;
@@ -269,14 +278,13 @@ static bool visibilityRecordLifetime()
     for (int id = 1000; id < 2000; ++id) records[id].about_location_id = id;
     REQUIRE(FindMonToMonVisibility(&observer, &target) == original);
     REQUIRE(original->sight_state == W8_SIGHT_SEEN);
-    gXStatus.monsters = {&observer, &target};
     ReleaseMonToMonVisibilityList(&target);
     REQUIRE(!FindMonToMonVisibility(&observer, &target));
     REQUIRE(records.size() == 1000);
     ReleaseMonToMonVisibilityList(&observer);
     REQUIRE(!observer.monster_visibility);
     ReleaseMonToMonVisibilityList(&observer);
-    gXStatus.monsters.clear();
+    gXStatus = {};
     return true;
 }
 

@@ -17,11 +17,13 @@
 #include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
+#include "surrender/srNode.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/Missile.h"
@@ -35,6 +37,7 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
@@ -424,4 +427,42 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
     }
     REQUIRE(observations == std::vector<std::size_t>{2, 2});
     REQUIRE(world.transient_lights.empty());
+}
+
+TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by spell destruction",
+                 "[resources][world]")
+{
+    struct ObservedParticle : stParticle {
+        ObservedParticle(W8World& owner, bool& destroyed, bool& scene_alive)
+            : stParticle(owner.dynamic_scene, 1, srNode::Ownership::independent), owner(owner),
+              destroyed(destroyed), scene_alive(scene_alive)
+        {
+            active_particle_count = 1;
+        }
+        ~ObservedParticle() override
+        {
+            destroyed = true;
+            scene_alive = owner.static_scene != nullptr;
+        }
+        W8World& owner;
+        bool& destroyed;
+        bool& scene_alive;
+    };
+    bool destroyed = false, scene_alive = false;
+    auto retiring_world = std::make_unique<W8World>();
+    retiring_world->static_scene = new srScene(nullptr);
+    retiring_world->dynamic_scene = new srNode(retiring_world->static_scene);
+    SetCurrentWorld(retiring_world.get());
+    auto visual = std::make_unique<W8SpellVisual>();
+    auto attachment = std::make_unique<W8GrCycleParticleAttachment>();
+    attachment->m_pstParticles =
+        std::make_unique<ObservedParticle>(*retiring_world, destroyed, scene_alive);
+    visual->m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>{attachment.release()};
+    retiring_world->spell_visuals.push_back(visual.release());
+
+    DestroyWorld(retiring_world.release());
+    SetCurrentWorld(&world);
+
+    REQUIRE(destroyed);
+    REQUIRE(scene_alive);
 }

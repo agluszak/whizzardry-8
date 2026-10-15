@@ -88,7 +88,7 @@ void RefreshOutwardSightForAllMonsters(void)
 {
     unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
     }
     if (gXStatus.fCombatMode) {
@@ -103,7 +103,7 @@ void RefreshInwardSightForAllMonsters(void)
 {
     unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -117,7 +117,7 @@ void RefreshAllSight(void)
     unsigned int index;
 
     RefreshOutwardSightForAllMonsters();
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -233,7 +233,7 @@ float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<floa
 // FUNCTION: WIZ8 0x00505ba0
 void ReleaseMonToMonVisibilityInfoAbout(int location_id)
 {
-    for (auto* monster : gXStatus.monsters) {
+    for (auto* monster : gXStatus.monster_roster.live()) {
         if (monster->fActive && monster->monster_visibility) {
             monster->monster_visibility->erase(location_id);
         }
@@ -326,13 +326,13 @@ unsigned int AgeAllMonsterSight(void)
     if (steps == 0) {
         return 0;
     }
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, steps, 1);
         }
     }
-    return gXStatus.monsters.size();
+    return gXStatus.monster_roster.live().size();
 }
 
 /* The map owns records and keeps their addresses stable while other entries
@@ -354,20 +354,20 @@ void ResetAndRefreshAllSight(void)
 {
     unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         memset(&monster_info->party_threat, 0, sizeof(monster_info->party_threat));
         memset(&monster_info->player_visibility, 0, sizeof(monster_info->player_visibility));
     }
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
     }
     if (gXStatus.fCombatMode) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -416,7 +416,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         if (!gXStatus.fCombatMode) {
             return;
         }
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
             W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
 
             if (other != monster_info && other->fInCombat && other->fActive &&

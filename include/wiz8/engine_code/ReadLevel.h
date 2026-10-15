@@ -1,8 +1,10 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srNode.h"
 
 extern glm::vec3 g_environment_offset;
 
@@ -12,7 +14,6 @@ class File;
 
 struct W8World;
 struct W8NamedPosition;
-class srNode;
 class stParticle;
 
 struct W8ReadLevelInfo {
@@ -25,8 +26,10 @@ struct W8ReadLevelInfo {
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
                         const char* bitmap_folder);
 unsigned char ReadWorldItems(W8ReadLevelInfo* info, W8World* world);
+// The destination owns particles; scene attachment borrows them.
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
-                                 std::vector<stParticle*>* particles);
+                                 std::vector<std::unique_ptr<stParticle>>* particles,
+                                 srNode::Ownership ownership);
 
 // Append a complete named-position section; failure leaves the destination unchanged.
 bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);

@@ -282,6 +282,8 @@ void UpdateWorld(W8World* world)
         UpdateSpellEffects();
     }
 
+    SweepFinishedParticles(world);
+
     auto& nodes = world->nodes_to_disable;
     for (srNode* node : nodes) {
         node->setFlag(srNode::FLAG_DISABLE);
@@ -367,36 +369,58 @@ void SetCameraSwayMode(srCamera* camera, int mode)
             radians);
 }
 
-/* Entity teardown still has gameplay/rendering side effects. Keep its order
-   explicit while the collection storage itself is owned by W8World. */
-static void DestroyWorldEntities(W8World* world)
+/* World teardown runs in three phases so ownership never depends on the
+   frame loop: stop everything that can call back into the world, drop every
+   borrowed index, then destroy what the world owns. Loading screens render
+   between UnloadLevel's stages, never from inside these phases. */
+
+// Phase 1: nothing may update the world or call into its entities afterwards.
+static void StopWorldActivity(W8World* world)
+{
+    if (IsWorldCursorVisible()) {
+        HideWorldCursor();
+    }
+    StopAllAmbientSounds();
+    world->nodes_to_disable.clear();
+    world->lights_to_update.clear();
+}
+
+// Phase 2: drop the non-owning indexes and detach the world from global lookup.
+static void UnregisterWorld(W8World* world)
+{
+    world->psrMeshes.clear();
+    world->update_mesh_source = nullptr;
+    world->collidable_props.clear();
+    wiz8::erase_first(g_worlds, world);
+}
+
+// Phase 3: destroy entities first, then the level data and spatial index they
+// referenced, then the scene itself.
+static void DestroyWorldResources(W8World* world)
 {
     wiz8::remove_all_and_delete_in_order(world->monster_generators);
     wiz8::remove_all_and_delete_in_order(world->plsMonsters);
-    if (g_world_cleanup_flag) RenderFrame();
     wiz8::remove_all_and_delete_in_order(world->plsItems);
-    if (g_world_cleanup_flag) RenderFrame();
     wiz8::remove_all_and_delete_in_order(world->plsProps);
-    if (g_world_cleanup_flag) RenderFrame();
-
     DestroyAllWorldTriggers(world);
-    if (g_world_cleanup_flag) RenderFrame();
-
-    world->plsCameras.clear();
-
-    StopAllAmbientSounds();
     wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
-    if (g_world_cleanup_flag) RenderFrame();
-
-    wiz8::remove_all_and_delete_in_order(world->particles);
-    world->named_positions.clear();
     DestroyAllMissiles(world);
     DestroyAllSpellVisuals(world);
+    // Destroying cycles can retire their still-active particles. Drain those
+    // owners while their scene and spatial index are still alive.
+    world->particles.clear();
+    world->retired_particles.clear();
     DestroyWorldLights(world);
-    world->transient_lights.clear();
-    world->nodes_to_disable.clear();
-    world->lights_to_update.clear();
-    world->collidable_props.clear();
+    world->plsCameras.clear();
+    world->named_positions.clear();
+
+    delete world->game_data;
+    world->game_data = nullptr;
+    delete world->octree;
+    world->octree = nullptr;
+    world->quads.reset();
+
+    ReleaseRendererObject(world->static_scene);
 }
 
 // FUNCTION: WIZ8 0x0044FAF0
@@ -405,26 +429,9 @@ void DestroyWorld(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x1ff, 0);
     }
-    world->psrMeshes.clear();
-    if (world->update_mesh_source != 0) {
-        world->update_mesh_source = 0;
-    }
-    if (world->game_data != 0) {
-        delete world->game_data;
-        world->game_data = 0;
-    }
-    if (world->octree != 0) {
-        delete world->octree;
-        world->octree = 0;
-    }
-    world->quads.reset();
-    if (g_world_cleanup_flag) RenderFrame();
-    DestroyWorldEntities(world);
-    if (g_world_cleanup_flag) RenderFrame();
-    if (IsWorldCursorVisible()) HideWorldCursor();
-
-    wiz8::erase_first(g_worlds, world);
-    ReleaseRendererObject(world->static_scene);
+    StopWorldActivity(world);
+    UnregisterWorld(world);
+    DestroyWorldResources(world);
     delete world;
 }
 
@@ -548,7 +555,7 @@ stParticle* FindParticleByName(W8World* world, const char* name)
         int count = static_cast<int>(world->particles.size());
 
         for (int index = 0; index < count; ++index) {
-            stParticle* particle = world->particles[index];
+            stParticle* particle = world->particles[index].get();
 
             if (_stricmp(particle->getName().c_str(), name) == 0) {
                 return particle;

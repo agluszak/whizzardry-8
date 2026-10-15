@@ -16,6 +16,8 @@ class stLight;
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/stParticle.h"
 #include "wiz8/environment_colour.h"
 #include "wiz8/named_position.h"
 
@@ -51,8 +53,9 @@ static_assert(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
 static_assert(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
 
 /* Runtime world, not a retail disk record. Collection storage belongs to the
-   world. Cameras own their paths; raw entity pointers still follow the ordered
-   DestroyWorld teardown.
+   world. Cameras own their paths; raw entity pointers are destroyed by
+   DestroyWorld in three phases (stop activity, unregister borrowed indexes,
+   destroy owned resources).
    lights_to_update and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
@@ -90,14 +93,18 @@ struct W8World {
     float render_range;
     unsigned char m_unknown_07c[0x20];
     std::vector<srNode*> nodes_to_disable;
-    std::vector<stLight*> transient_lights;
+    // Lights created for this world (including monster-cycle copies); the world owns them.
+    std::vector<std::unique_ptr<stLight>> transient_lights;
     std::vector<W8SpellVisual*> spell_visuals;
     std::vector<W8Missile*> missiles;
     std::vector<stLight*> lights_to_update;
     std::vector<W8Prop*> collidable_props;
     std::vector<MonGen*> monster_generators;
     std::vector<Trigger*> triggers;
-    std::vector<stParticle*> particles;
+    // Level particles: the world owns them; the dynamic scene only attaches them.
+    std::vector<std::unique_ptr<stParticle>> particles;
+    // Cycle particles that outlived their cycle while still emitting.
+    std::vector<std::unique_ptr<stParticle>> retired_particles;
     std::vector<W8NamedPosition> named_positions;
     unsigned char m_unknown_0d4[8];
 };

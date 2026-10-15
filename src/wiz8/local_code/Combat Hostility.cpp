@@ -54,7 +54,7 @@ void RecountCombatMonsters(void)
 {
     gXStatus.hostile_monster_count = 0;
     gXStatus.hostile_group_count = 0;
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat) {
             if (monster->ubDisposition == W8_DISPOSITION_HOSTILE) {
@@ -458,7 +458,7 @@ bool CanPartySlotTurnUndead(int party_slot)
         g_combat_state == 0 || g_combat_state->characters[party_slot].turn_undead_used) {
         return false;
     }
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
@@ -528,7 +528,7 @@ bool CanPartySlotPray(int party_slot)
         g_combat_state == 0 || g_combat_state->characters[party_slot].pray_used) {
         return false;
     }
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0) {
@@ -771,7 +771,7 @@ int CharacterPrayAction(int party_slot)
             const float range =
                 CalcRangeDistance(g_spell_records[W8_SPELL_MAGIC_MISSILES].range_category);
             in_range = 0;
-            for (index = 0; index < gXStatus.monsters.size(); ++index) {
+            for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                 W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                 if (monster->fActive && monster->fInCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
@@ -781,7 +781,7 @@ int CharacterPrayAction(int party_slot)
             }
             if (in_range != 0) {
                 pick = Random(in_range) + 1;
-                for (index = 0; index < gXStatus.monsters.size(); ++index) {
+                for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                     W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                     if (monster->fActive && monster->fInCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -850,7 +850,7 @@ int CharacterPrayAction(int party_slot)
             }
             break;
         case 0xb:
-            for (index = 0; index < gXStatus.monsters.size(); ++index) {
+            for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                 W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                 if (monster->fActive && monster->fInCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
@@ -874,7 +874,7 @@ int CharacterPrayAction(int party_slot)
             {
                 const float range =
                     CalcRangeDistance(g_spell_records[W8_SPELL_FALLING_STARS].range_category);
-                for (index = 0; index < gXStatus.monsters.size(); ++index) {
+                for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                     W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                     if (monster->fActive && monster->fInCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
