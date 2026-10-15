@@ -28,9 +28,9 @@ public:
     virtual void OnMouseWheel(int delta) override;
 
 private:
-    bool PopulateText();
+    void PopulateText();
     bool PopulateRequirements();
-    bool CreateTextBuffers();
+    void CreateTextBuffers();
     void SetProfessionIconsVisible(bool show);
     void SetRaceIconsVisible(bool show);
     void ShowTab(bool professions);

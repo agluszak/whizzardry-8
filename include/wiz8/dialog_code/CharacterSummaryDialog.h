@@ -28,7 +28,7 @@ public:
     void DrawPortraitAnimationFrame(SDL_Surface& target);
 
 private:
-    bool CreateQuoteText();
+    void CreateQuoteText();
     bool HandleInputEvent(const InputEvent* input);
 
     bool m_voice_started;

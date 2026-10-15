@@ -19,7 +19,7 @@ public:
     virtual void OnMouseWheel(int delta) override;
 
 private:
-    bool PopulateText();
+    void PopulateText();
     void DrawLabels(SDL_Surface& target);
 
     unsigned int m_spell;

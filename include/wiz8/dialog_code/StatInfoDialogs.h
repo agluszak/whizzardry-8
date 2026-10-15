@@ -17,7 +17,7 @@ public:
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
     virtual void DrawTitle(SDL_Surface& target);
-    virtual bool PopulateText();
+    virtual void PopulateText();
 
 protected:
     void Configure();
