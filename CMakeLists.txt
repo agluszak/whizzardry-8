@@ -60,11 +60,22 @@ find_package(Threads REQUIRED)
 # exact upstream versions have ConanCenter recipes.
 include(FetchContent)
 
-# ConanCenter has SDL_mixer 3.2.0, but we require its 3.2.4 bug fixes.
-set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
+# ConanCenter has SDL_mixer 3.2.0, but we require 3.2.4.
+# The SDL release archive doesn't contain its optional vendored submodules.
+# Use the built-in decoders (WAV, MP3, Vorbis, FLAC, MIDI) instead of
+# introducing system codec dependencies.
+set(SDLMIXER_VENDORED OFF CACHE BOOL "" FORCE)
 set(SDLMIXER_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SDLMIXER_TESTS OFF CACHE BOOL "" FORCE)
 set(SDLMIXER_INSTALL OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_STRICT ON CACHE BOOL "" FORCE)
+set(SDLMIXER_FLAC_LIBFLAC OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_GME OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_MOD OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_MP3_MPG123 OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_OPUS OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_VORBIS_VORBISFILE OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_WAVPACK OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(sdl3_mixer
     URL https://github.com/libsdl-org/SDL_mixer/releases/download/release-3.2.4/SDL3_mixer-3.2.4.tar.gz
     URL_HASH SHA256=182a07c745375e113dc740d43964ff21b0be29f29f59876c4dbc4db3d32f6901)
