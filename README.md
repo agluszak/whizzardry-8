@@ -7,40 +7,43 @@ Game data comes from an existing retail installation and is not distributed here
 
 ## Build
 
-Install CMake 3.21+, Ninja, Clang, pkg-config, glslang, SDL3, SDL3_image,
-SDL3_mixer, libjpeg, FFmpeg development libraries and zlib through the host package
-manager.
+Install Clang 22, CMake, Ninja, Python 3 and Conan 2. The native C/C++
+libraries and glslang are provided through Conan; you do not need distro
+SDL, FFmpeg, JPEG or zlib development packages. A host Vulkan driver is still
+required for graphics.
 
-On Ubuntu 26.04, the SDL3_mixer package is not in the release archive yet.
-Install the regular dependencies from apt and the prebuilt SDL3_mixer package
-from the Ubuntu archive pool:
-
-```sh
-sudo apt-get install clang ninja-build cmake curl pkg-config glslang-tools \
-    zlib1g-dev libjpeg-dev libsdl3-dev libsdl3-image-dev \
-    libavcodec-dev libavformat-dev libswresample-dev libswscale-dev
-curl -fsSLO https://archive.ubuntu.com/ubuntu/pool/universe/libs/libsdl3-mixer/libsdl3-mixer0_3.2.4+ds-1_amd64.deb
-curl -fsSLO https://archive.ubuntu.com/ubuntu/pool/universe/libs/libsdl3-mixer/libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
-sudo apt-get install ./libsdl3-mixer0_3.2.4+ds-1_amd64.deb \
-    ./libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
-```
-
-CMake downloads the pinned GLM 1.0.3 headers with a SHA-256 check during the first
-configuration. For an offline build, set `FETCHCONTENT_SOURCE_DIR_GLM` to a local
-GLM 1.0.3 checkout.
-
-Then build normally:
+On Linux x86-64:
 
 ```sh
-cmake --preset linux
+python3 -m pip install 'conan==2.21.0'
+conan profile detect
+CC=clang-22 CXX=clang++-22 conan install . \
+    -pr:h conan/profiles/linux-clang22 -pr:b default \
+    -s:h build_type=Release --build=missing -of build/linux/conan
+. build/linux/conan/conanbuild.sh
+cmake --preset linux \
+    -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
+    -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 cmake --build --preset linux
+. build/linux/conan/conanrun.sh
 ctest --preset linux
 ```
 
-Use `macos-arm64`, `macos-x64` or `windows-clangcl` in the same commands once
-the matching host packages are installed. Windows uses the same LLVM compiler
-with its MSVC-compatible frontend; run from a Visual Studio C++ developer shell
-with LLVM and the Windows SDK installed.
+Run `conan install` again with `-s:h build_type=Debug` for `linux-dev`
+or `-s:h build_type=RelWithDebInfo` for `linux-asan`, using the
+corresponding `build/<preset>/conan` output directory and toolchain file.
+Do not reuse Conan dependencies from a different build configuration.
+
+SDL_mixer 3.2.4, utfcpp 4.0.6 and utf8proc 2.10.0 are still downloaded at
+CMake configure time from verified release archives; Catch2 is pinned to an
+exact Git commit. ConanCenter does not currently have the required
+SDL_mixer and utf8proc versions. A Conan lockfile with recipe revisions must
+still be generated and committed before claiming locked dependency resolution.
+
+The macOS and Windows CMake presets remain available, but their Conan host
+profiles and builds have not yet been verified. The initial Conan integration
+is validated through Linux CI only. Windows still requires Visual Studio and
+the Windows SDK with a compatible Clang frontend.
 
 The native targets include `Wiz8Native` and statically linked SurRender and
 the SDL-backed filesystem and runtime, sharing one SDL state.
@@ -68,11 +71,11 @@ Set `IWYU_JOBS` to change the default four concurrent processes.
 
 Clang-tidy enforces missing and unused includes, include cycles, duplicate and
 suspicious includes, and deprecated C headers. The selected checks are errors
-in `.clang-tidy`; the native CI runs the full first-party scan with Clang 21
+in `.clang-tidy`; the native CI runs the full first-party scan with Clang 22
 after building the generated headers. To use the same analyzer locally:
 
 ```sh
-CLANG_TIDY=clang-tidy-21 RUN_CLANG_TIDY=run-clang-tidy-21 ./tools/run-clang-tidy.sh
+CLANG_TIDY=clang-tidy-22 RUN_CLANG_TIDY=run-clang-tidy-22 ./tools/run-clang-tidy.sh
 ```
 
 The runner accepts a build directory followed by `run-clang-tidy` options.
@@ -85,7 +88,7 @@ modernization opportunities, run:
 
 ```sh
 CLANG_TIDY_CONFIG=.clang-tidy-modernization \
-  CLANG_TIDY=clang-tidy-21 RUN_CLANG_TIDY=run-clang-tidy-21 \
+  CLANG_TIDY=clang-tidy-22 RUN_CLANG_TIDY=run-clang-tidy-22 \
   ./tools/run-clang-tidy.sh build/linux-tidy
 ```
 
@@ -176,7 +179,7 @@ its respective focused checks. The movie fixture can be regenerated with
 
 ## Formatting
 
-The project uses clang-format 21 and the root `.clang-format` configuration.
+The project uses clang-format 22 and the root `.clang-format` configuration.
 Function definitions have opening braces on their own lines; control-flow braces
 are attached (`if (...) {`, `} else {`). A one-statement body may stay on the
 same line as its condition without braces (`if (x < 0) return;`); a body on its
@@ -190,7 +193,7 @@ CI checks every C and C++ file under `include`, `src`, and `tests`, so format
 files before pushing:
 
 ```sh
-clang-format-21 -i path/to/file.cpp
+clang-format-22 -i path/to/file.cpp
 ```
 
 ## Catch2 test cases
