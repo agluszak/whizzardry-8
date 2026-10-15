@@ -51,7 +51,7 @@ void W8DialogTextArea::Configure(const W8ControlsRect* bounds, Font& font, unsig
 {
     m_bounds = *bounds;
     m_layout_initialized = true;
-    m_relayout_needed = true;
+    m_dirty = m_relayout_needed = true;
     m_behavior_flags = flags;
     m_font = &font;
     for (const auto& entry : m_all_lines) {
@@ -69,7 +69,7 @@ bool W8DialogTextArea::TakeDirty()
 
 void W8DialogTextArea::Paint(SDL_Surface& target)
 {
-    unsigned int font_height = m_font->height();
+    unsigned int font_height = GetLineHeight();
     {
         W8ControlsRect bounds;
         if (m_relayout_needed) {
@@ -144,7 +144,7 @@ void W8DialogTextArea::SetEntrySpacing(int lines)
 {
     if (m_layout_initialized) {
         unsigned int font_height = m_font->height();
-        m_relayout_needed = true;
+        m_dirty = m_relayout_needed = true;
         m_entry_spacing = font_height * lines;
     }
 }
@@ -184,8 +184,8 @@ std::optional<std::string_view> W8DialogTextArea::GetEntryText(unsigned int inde
     return m_all_lines[index]->GetText();
 }
 
-/* Hit testing and point selection traverse the same visible entry lines.
-   Retail applies the first visible line to every entry, including spacing. */
+/* Hit testing and selection share the visible-line mapping. Only the first
+   entry can start partway through its wrapped lines. */
 unsigned int W8DialogTextArea::FindVisibleEntryAtLine(unsigned int target, unsigned int spacing)
 {
     unsigned int position = 0;
