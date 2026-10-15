@@ -292,7 +292,6 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
 
 static void DrawMainGamePrompt(void);
 void InvalidateLockInteractionPanels(void);
-unsigned char GetOpenDialogueFlag(void);
 void RedrawTextBoxComplete(void);
 unsigned char HandleMouselookInput(const InputEvent* input);
 
@@ -2736,7 +2735,7 @@ unsigned char ProcessMainGameInput(void)
                 default:
                     break;
                 }
-                if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
+                if (HandleMainGameInputEvent(&input) == 0) {
                     ResetMainGameMode();
                     return InputRoute::Stop;
                 }
@@ -3344,14 +3343,11 @@ void ApplyMainGameRedrawFlags(void)
         InvalidateMainGameActionPanelRect(0);
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_LAYOUT) == 0) {
-        if (HasNpcDialogueDirtyPanels() || GetOpenDialogueFlag() != 0) {
+        if (HasNpcDialogueDirtyPanels()) {
             ActivateNpcDialoguePanels(false);
         }
     } else {
         ActivateNpcDialoguePanels(true);
-    }
-    if (GetOpenDialogueFlag() != 0) {
-        RedrawDialogueTextInput();
     }
 finish_mode_overlays:
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX) != 0) {
