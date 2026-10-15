@@ -62,7 +62,7 @@ include(FetchContent)
 
 # ConanCenter has SDL_mixer 3.2.0, but we require its 3.2.4 bug fixes.
 set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
-set(SDLMIXER_SAMPLES OFF CACHE BOOL "" FORCE)
+set(SDLMIXER_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SDLMIXER_TESTS OFF CACHE BOOL "" FORCE)
 set(SDLMIXER_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(sdl3_mixer
