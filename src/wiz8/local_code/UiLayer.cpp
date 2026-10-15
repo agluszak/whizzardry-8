@@ -532,8 +532,7 @@ bool PumpUiInput(const UiInputPolicy& policy)
             const UiTransaction transaction;
             auto route = policy.before ? policy.before(input) : InputRoute::Pass;
             if (route == InputRoute::Pass) {
-                const bool consumed =
-                    (!policy.ui_accepts || policy.ui_accepts(input)) && DispatchUiInput(&input);
+                const bool consumed = DispatchUiInput(&input);
                 const auto& next = consumed ? policy.consumed : policy.unhandled;
                 route = next ? next(input) : InputRoute::Handled;
             }
