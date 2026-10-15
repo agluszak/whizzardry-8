@@ -22,6 +22,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_timer.h>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -46,6 +47,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/compat/compiler.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -57,10 +59,12 @@
 #include "wiz8/fonts.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -69,6 +73,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
@@ -1010,6 +1015,12 @@ void generic_button_images()
         REQUIRE(fields.Text(field) == "é");
         REQUIRE(fields.HandleInput(backspace));
         REQUIRE(fields.Text(field).empty());
+        // Editing commands never guess text, even when no SDL input window is active.
+        SetNativeTextInputEnabled(false);
+        REQUIRE(fields.HandleInput(
+            InputEvent{.type = InputEventType::KeyDown, .modifiers = SHIFT_DOWN, .key = SDLK_A}));
+        REQUIRE(fields.Text(field).empty());
+        SetNativeTextInputEnabled(true);
         InputEvent committed{};
         committed.type = InputEventType::Text;
         committed.text = 0x4e2d;
@@ -1517,6 +1528,61 @@ TEST_CASE("Text input ownership", "[owner]")
     text_input_ownership();
 }
 
+TEST_CASE("MIPE text editors insert committed text and keep deletion on key presses", "[owner]")
+{
+    struct RestoreEditor {
+        std::unique_ptr<W8LevelRuntimeBlock> level = std::move(g_level_block);
+        std::unique_ptr<W8MipeState> state = std::move(g_mipe_state);
+        int mode = g_mipe_mode;
+        int base = g_mipe_table_base;
+        decltype(g_current_screen_state.id) screen = g_current_screen_state.id;
+        decltype(g_status.text_line_cursor) line = g_status.text_line_cursor;
+        bool text_input = NativeTextInputEnabled();
+        ~RestoreEditor()
+        {
+            g_level_block = std::move(level);
+            g_mipe_state = std::move(state);
+            g_mipe_mode = mode;
+            g_mipe_table_base = base;
+            g_current_screen_state.id = screen;
+            g_status.text_line_cursor = line;
+            SetNativeTextInputEnabled(text_input);
+        }
+    } restore;
+    g_level_block = std::make_unique<W8LevelRuntimeBlock>();
+    g_mipe_state = std::make_unique<W8MipeState>();
+    g_current_screen_state.id = W8_SCREEN_MAIN_MENU;
+    g_status.text_line_cursor = 0;
+    g_mipe_table_base = 0;
+    W8MipeEditField field{.type = 6};
+    g_mipe_state->edit_fields = &field;
+    g_mipe_state->edit_field_count = 1;
+    g_mipe_state->edit_selection = -1;
+    g_mipe_mode = 0xe;
+    HandleMipeEditPropKey(SDLK_0);
+    const InputEvent key{.type = InputEventType::KeyDown, .key = SDLK_A};
+    HandleMipeKey(&key);
+    REQUIRE(NativeTextInputEnabled());
+    REQUIRE(field.text.empty());
+    const InputEvent text{.type = InputEventType::Text, .text = U'é'};
+    HandleMipeKey(&text);
+    REQUIRE(field.text == "é");
+    const InputEvent punctuation{.type = InputEventType::Text, .text = U'!'};
+    HandleMipeKey(&punctuation);
+    REQUIRE(field.text == "é");
+    const InputEvent backspace{.type = InputEventType::KeyDown, .key = SDLK_BACKSPACE};
+    HandleMipeKey(&backspace);
+    REQUIRE(field.text.empty());
+    MonGen generator;
+    g_mipe_state->generator = &generator;
+    g_mipe_mode = 0x19;
+    HandleMipeKey(&text);
+    HandleMipeKey(&key);
+    REQUIRE(std::string(generator.name) == "é");
+    HandleMipeKey(&backspace);
+    REQUIRE(std::string(generator.name).empty());
+}
+
 TEST_CASE("Formatting contracts", "[owner]")
 {
     formatted_strings();
@@ -1875,6 +1941,41 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             REQUIRE_FALSE(button->m_dirty);
         }
     }
+    button_image_fixture(assets, "Data/Dialogs/popup_quote.sti");
+    auto old_secondary = std::move(g_wiz_text_font_secondary);
+    REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
+    {
+        struct RestoreParty {
+            W8StatusBuffers buffers = g_status.buffers;
+            W8CharacterEventQueue* queue = gXStatus.character_event_queue;
+            ~RestoreParty()
+            {
+                g_status.buffers = buffers;
+                gXStatus.character_event_queue = queue;
+            }
+        } restore_party;
+        W8Character character{};
+        character.fInParty = true; // Quote access must still use the previewed character directly.
+        W8CharacterEventQueue queue;
+        queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 127));
+        auto* unrelated = queue.active_events.front().get();
+        g_status.buffers.Char = nullptr;
+        g_status.buffers.XChar = nullptr;
+        gXStatus.character_event_queue = &queue;
+        {
+            W8CharacterSummaryDialog summary(&character);
+            REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.
+            SDL_Delay(760);
+            REQUIRE(summary.ProcessInput()); // Missing audio uses its own quote-duration fallback.
+            PostInputEvent({.type = InputEventType::KeyDown, .key = SDLK_ESCAPE});
+            REQUIRE_FALSE(summary.ProcessInput());
+        }
+        REQUIRE(queue.active_events.size() == 1);
+        REQUIRE(queue.active_events.front().get() == unrelated);
+        REQUIRE(character.fInParty);
+        queue.active_events.clear(); // Release the test entry without gameplay completion.
+    }
+    g_wiz_text_font_secondary = std::move(old_secondary);
     g_wiz_dialog_font = std::move(old_font);
     g_image_assets.clear();
 }

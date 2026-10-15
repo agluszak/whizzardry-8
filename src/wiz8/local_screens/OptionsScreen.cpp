@@ -1,7 +1,6 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -10,6 +9,7 @@
 #include <string_view>
 #include <utility>
 
+#include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_pixels.h>
@@ -690,12 +690,8 @@ void W8OptionsKeyButton::SetKeyText(SDL_Keycode key)
         }
     }
     if (text.empty()) {
-        const auto character = TranslateKeyToCharacter(key, 0);
-        if (character == 0) {
-            text = g_localized_strings[0x86d];
-        } else {
-            text.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(character))));
-        }
+        const char* name = SDL_GetKeyName(key);
+        text = name && *name ? name : g_localized_strings[0x86d];
     }
 
     if (m_secondary_binding != W8_MGS_COMMAND_NONE && key != 0) {
@@ -1325,7 +1321,7 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
     if (editor != 0) {
         if (IsTypingEvent(*input)) {
             if (input->key != SDLK_ESCAPE && input->key != SDLK_RETURN) {
-                const char32_t character = TypedCharacter(*input);
+                const char32_t character = input->type == InputEventType::Text ? input->text : 0;
                 if (character != 0 && character < 0x80 &&
                     strchr("\\/:*?\"<>|", int(character)) != 0) {
                     return 0;

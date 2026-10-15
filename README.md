@@ -48,6 +48,9 @@ the Windows SDK with a compatible Clang frontend.
 The native targets include `Wiz8Native` and statically linked SurRender and
 the SDL-backed filesystem and runtime, sharing one SDL state.
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
+Texture caching and high texture detail/cache settings default to enabled. Blurred-text
+correction defaults to disabled; these graphics options remain user-configurable.
+Native defaults do not depend on renderer names or the old 64 MiB memory tiers.
 
 ## Include analysis
 

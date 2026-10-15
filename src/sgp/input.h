@@ -30,7 +30,6 @@ enum class InputEventType : std::uint8_t {
     KeyRepeat,
     LeftButtonDown,
     LeftButtonUp,
-    LeftButtonDoubleClick,
     LeftButtonRepeat,
     RightButtonDown,
     RightButtonUp,
@@ -43,7 +42,6 @@ enum class InputEventType : std::uint8_t {
 inline bool IsLeftButtonEvent(InputEventType type)
 {
     return type == InputEventType::LeftButtonDown || type == InputEventType::LeftButtonUp ||
-           type == InputEventType::LeftButtonDoubleClick ||
            type == InputEventType::LeftButtonRepeat;
 }
 
@@ -115,10 +113,7 @@ void FreeMouseCursor();
 void SetNativeTextInputEnabled(bool enabled);
 bool NativeTextInputEnabled();
 
-/* US-layout fallback for legacy text controls without SDL text input. */
-std::uint16_t TranslateKeyToCharacter(SDL_Keycode key, std::uint16_t modifiers);
-
-/* Pointer button presses, releases and repeats (not moves, wheel or double-clicks). */
+/* Pointer button presses, releases and repeats. */
 inline bool IsMouseButtonEvent(const InputEvent& event)
 {
     switch (event.type) {
@@ -139,12 +134,6 @@ inline bool IsTypingEvent(const InputEvent& event)
 {
     return event.type == InputEventType::KeyDown || event.type == InputEventType::KeyRepeat ||
            event.type == InputEventType::Text;
-}
-
-inline char32_t TypedCharacter(const InputEvent& event)
-{
-    return event.type == InputEventType::Text ? event.text
-                                              : TranslateKeyToCharacter(event.key, event.modifiers);
 }
 
 #endif

@@ -131,7 +131,7 @@ void EnsureRadarMapOverlay(void)
         bounds.top = 0x166;
         bounds.right = 0x80;
         bounds.bottom = 0x1c2;
-        g_radar_backdrop = CreateSpriteFromVideoSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
+        g_radar_backdrop = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
         Position2DNodeUnsnapped(g_radar_backdrop, 0x17, 0x166);
         SetModelInstance2DDisplayState(g_radar_backdrop, 4);
     }
@@ -238,13 +238,13 @@ void RefreshRadarMap(void)
     auto compass_surface = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
     if (!compass_surface) return;
 
-    g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 0, 1);
+    g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_compass, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_compass, 4);
-    g_radar_frame = CreateSpriteFromSurface(*frame_surface, 0, 1, 0, 1);
+    g_radar_frame = CreateSpriteFromSurface(*frame_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_frame, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_frame, 4);
-    g_radar_map = CreateSpriteFromSurface(*map_surface, 0, 1, 0, 1);
+    g_radar_map = CreateSpriteFromSurface(*map_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_map, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_map, 4);
 

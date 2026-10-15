@@ -3917,7 +3917,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     if (g_level_block->highlight_graphic == 0) {
         const auto artwork = CatalogArtwork::Load(0x72);
         if (auto surface = RenderSpriteToImage(*artwork.spriteSheet(), 0)) {
-            g_level_block->highlight_graphic = CreateSpriteFromSurface(*surface, 0, 0, 0, 1);
+            g_level_block->highlight_graphic = CreateSpriteFromSurface(*surface, 0, 0, 1);
         }
     }
     if (g_level_block->highlight_graphic == 0) {

@@ -23,11 +23,9 @@
 #include "soundman.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
@@ -50,7 +48,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
@@ -205,28 +202,17 @@ void W8CharacterScreen::BuildControls()
 void W8CharacterScreen::UpdateDialog()
 {
     if (m_dialog != 0) {
-        if (m_dialog_response == 1) {
-            gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
-            if (UpdateCharacterEventState() == 0 &&
-                static_cast<W8MessageDialogBase*>(m_dialog)->accepted) {
-                m_dialog->m_keep_open = false;
-            }
-        }
         if (!m_dialog->ProcessInput()) {
             m_navigation_dirty = true;
             m_pages[m_page_index]->Prepare();
             m_header_dirty = true;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: uncaptured response can use a stale stack byte as acceptance
-            unsigned char accepted;
+            bool accepted = false;
             if (m_capture_dialog_result) {
                 accepted = static_cast<W8MessageDialogBase*>(m_dialog)->accepted;
                 m_capture_dialog_result = false;
             }
             RetireModal(std::unique_ptr<ModalContent>(std::exchange(m_dialog, nullptr)), false);
             HandleDialogResult(m_dialog_response, accepted);
-#pragma clang diagnostic pop
         }
     }
 }
@@ -747,13 +733,4 @@ void CharacterScreenFrame(void)
     screen->DrawNavigation(GetFrameBufferSurface());
     if (screen->m_dialog != 0) screen->m_dialog->RefreshModal();
     RenderFrame();
-}
-
-// FUNCTION: WIZ8 0x005b1ad0
-void RefreshCharacterScreenPartySlot(unsigned int)
-{
-    if (g_character_screen->m_dialog != 0 && g_character_screen->m_dialog_response == 1) {
-        static_cast<W8CharacterSummaryDialog*>(g_character_screen->m_dialog)
-            ->DrawPortraitAnimationFrame(GetFrameBufferSurface());
-    }
 }

@@ -9,6 +9,36 @@
 #include "input.h"
 
 namespace {
+struct KeyCharacters {
+    SDL_Keycode key;
+    char plain;
+    char shifted;
+};
+
+/* US layout, matching retail's 0x005ffc3c table for every non-letter key. */
+constexpr KeyCharacters key_characters[] = {
+    {SDLK_KP_MULTIPLY, '*', '*'}, {SDLK_KP_PLUS, '+', '+'},    {SDLK_KP_MINUS, '-', '-'},
+    {SDLK_KP_PERIOD, '.', '.'},   {SDLK_KP_DIVIDE, '/', '/'},  {SDLK_SEMICOLON, ';', ':'},
+    {SDLK_EQUALS, '=', '+'},      {SDLK_COMMA, ',', '<'},      {SDLK_MINUS, '-', '_'},
+    {SDLK_PERIOD, '.', '>'},      {SDLK_SLASH, '/', '?'},      {SDLK_GRAVE, '`', '~'},
+    {SDLK_LEFTBRACKET, '[', '{'}, {SDLK_BACKSLASH, '\\', '|'}, {SDLK_RIGHTBRACKET, ']', '}'},
+    {SDLK_APOSTROPHE, '\'', '"'}};
+
+std::uint16_t BindingCharacter(SDL_Keycode key, std::uint16_t modifiers)
+{
+    if (modifiers & (CTRL_DOWN | ALT_DOWN)) return 0;
+    const bool shift = (modifiers & SHIFT_DOWN) != 0;
+    if (key == SDLK_SPACE) return ' ';
+    if (key >= SDLK_A && key <= SDLK_Z)
+        return shift ? std::uint16_t(key - SDLK_A + 'A') : std::uint16_t(key);
+    if (key >= '0' && key <= '9') return shift ? std::uint16_t(")!@#$%^&*("[key - '0']) : key;
+    if (key == SDLK_KP_0) return '0';
+    if (key >= SDLK_KP_1 && key <= SDLK_KP_9) return std::uint16_t('1' + key - SDLK_KP_1);
+    for (const KeyCharacters& entry : key_characters)
+        if (entry.key == key) return std::uint16_t(shift ? entry.shifted : entry.plain);
+    return 0;
+}
+
 struct BindingKey {
     std::uint16_t retail;
     SDL_Keycode native;
@@ -152,8 +182,7 @@ SDL_Keycode KeyFromBindingName(std::string_view name)
         // Retail chooses the lowest virtual key, unshifted first.
         for (std::uint16_t modifiers : {std::uint16_t(0), SHIFT_DOWN})
             for (const auto& entry : binding_keys)
-                if (TranslateKeyToCharacter(entry.native, modifiers) == character)
-                    return entry.native;
+                if (BindingCharacter(entry.native, modifiers) == character) return entry.native;
     }
     return SDLK_UNKNOWN;
 }

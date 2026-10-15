@@ -273,7 +273,7 @@ void TextFieldGroup::Resume()
 void TextFieldGroup::SetEditing(bool editing)
 {
     editing_ = editing;
-    SetNativeTextInputEnabled(editing);
+    SetNativeTextInputEnabled(editing && focused_);
 }
 
 void TextFieldGroup::UseGameStyle()
@@ -481,22 +481,14 @@ void TextFieldGroup::InsertRestricted(char32_t character)
 bool TextFieldGroup::HandleInput(const InputEvent& event)
 {
     const bool committed = event.type == InputEventType::Text;
-    InputEvent normalized = event;
-    if (committed) {
-        normalized.type = InputEventType::KeyDown;
-        normalized.key = 0;
-        normalized.modifiers = 0;
-    }
-    const auto& input = normalized;
-    if (!editing_ || !focused_ ||
-        (input.type != InputEventType::KeyDown && input.type != InputEventType::KeyRepeat) ||
-        input.key == SDLK_ESCAPE || input.key == SDLK_RETURN || input.key == SDLK_TAB ||
-        (input.modifiers & ALT_DOWN) != 0 ||
-        ((input.modifiers & CTRL_DOWN) != 0 && input.key != SDLK_DELETE &&
-         input.key != SDLK_RIGHT && input.key != SDLK_LEFT) ||
-        (input.key >= SDLK_F1 && input.key <= SDLK_F12)) {
+    const auto& input = event;
+    if (!editing_ || !focused_ || !IsTypingEvent(input)) return false;
+    if (!committed && (input.key == SDLK_ESCAPE || input.key == SDLK_RETURN ||
+                       input.key == SDLK_TAB || (input.modifiers & ALT_DOWN) != 0 ||
+                       ((input.modifiers & CTRL_DOWN) != 0 && input.key != SDLK_DELETE &&
+                        input.key != SDLK_RIGHT && input.key != SDLK_LEFT) ||
+                       (input.key >= SDLK_F1 && input.key <= SDLK_F12)))
         return false;
-    }
     auto& field = *focused_;
     const bool shift = (input.modifiers & SHIFT_DOWN) != 0;
     const auto extend_selection = [&] {
@@ -506,7 +498,7 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         }
     };
     const std::size_t selection_end = field.selection_end;
-    switch (input.key) {
+    switch (committed ? SDLK_UNKNOWN : input.key) {
     case SDLK_LEFT: /* Left */
         if (shift) {
             extend_selection();
@@ -599,9 +591,8 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
     default:
         break;
     }
-    char32_t character =
-        committed ? event.text : TranslateKeyToCharacter(input.key, input.modifiers);
-    if (!committed && NativeTextInputEnabled()) return true;
+    if (!committed) return true;
+    const char32_t character = event.text;
     if (character == 0) return true;
     if (field.selecting) {
         field.selecting = false;

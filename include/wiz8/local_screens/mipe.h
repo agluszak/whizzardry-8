@@ -79,6 +79,7 @@ extern int g_mipe_table_base;
 /* mipeEdit.cpp: prop field-editor key handler, fed MSG wParam key values by
    mipe.cpp's mode-0xd dispatcher. */
 void HandleMipeEditPropKey(SDL_Keycode key);
+void HandleMipeEditPropText(char32_t character);
 
 void ShowMonsterSpeedStatus(void);
 void ShowCubeParameters(void);

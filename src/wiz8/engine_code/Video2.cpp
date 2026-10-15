@@ -1459,20 +1459,6 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
     return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
 }
 
-/* The atom's packed mouse position plus the cursor hotspot, split into the
-   screen-space x and y region input works in. */
-// FUNCTION: WIZ8 0x00428580
-int GetEventCursorX(const InputEvent* atom)
-{
-    return atom->position.x + g_cursor_hotspot_x;
-}
-
-// FUNCTION: WIZ8 0x004285a0
-int GetEventCursorY(const InputEvent* atom)
-{
-    return atom->position.y + g_cursor_hotspot_y;
-}
-
 /* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
 // FUNCTION: WIZ8 0x004285c0
 unsigned char InitializeMouseCursorScene(void)
@@ -2248,8 +2234,8 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
 /* Copies a surface rectangle into the user or square overlay path, and
    records the resulting 2D instance extents. */
 // FUNCTION: WIZ8 0x004253F0
-stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
-                                                int square, int, char overlay)
+stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
+                                           int square, int overlay)
 {
     unsigned short width;
     unsigned short height;
@@ -2357,13 +2343,6 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
         instance->setParent(g_scene_fullscreen, 1);
     }
     return instance;
-}
-
-// FUNCTION: WIZ8 0x004255c0
-stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode,
-                                           int unused, int overlay)
-{
-    return CreateSpriteFromVideoSurface(image, rect, mode, unused, overlay);
 }
 
 // FUNCTION: WIZ8 0x004257D0
@@ -2635,12 +2614,6 @@ void SetTextureCacheSize(w8_ulong bytes)
     }
 }
 
-// FUNCTION: WIZ8 0x00428e60
-unsigned int GetTotalPhysicalMemory(void)
-{
-    return W8TotalPhysicalMemory();
-}
-
 /* Build an stTextureAnim whose frames are consecutive VObject subimages starting
    at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for
    each frame surface. The setName string is the retail identity. */
@@ -2716,22 +2689,6 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
         ++frame;
     }
     return animation;
-}
-
-// FUNCTION: WIZ8 0x00429800
-int GetRendererFamily(void)
-{
-    char name[128];
-    if (!g_gerd) {
-        return -1;
-    }
-    strncpy(name, g_gerd->getName().c_str(), sizeof(name) - 1);
-    name[sizeof(name) - 1] = '\0';
-    _strupr(name);
-    if (strstr(name, "OPENGL")) return 0;
-    if (strstr(name, "GLIDE")) return 2;
-    if (strstr(name, "DIRECT3D")) return 1;
-    return strstr(name, "SOFTWARE") ? 3 : 4;
 }
 
 // FUNCTION: WIZ8 0x004291d0

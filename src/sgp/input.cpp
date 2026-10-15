@@ -121,12 +121,6 @@ void handle_button(const SDL_MouseButtonEvent& event)
             {.type = down ? InputEventType::LeftButtonDown : InputEventType::LeftButtonUp,
              .position = state.mouse,
              .clicks = event.clicks});
-        /* SDL applies the platform's double-click timing; the game wants its
-           double-click event on the second release. */
-        if (!down && event.clicks != 0 && (event.clicks & 1) == 0)
-            PostInputEvent({.type = InputEventType::LeftButtonDoubleClick,
-                            .position = state.mouse,
-                            .clicks = event.clicks});
     } else if (event.button == SDL_BUTTON_RIGHT) {
         state.right_button = down;
         PostInputEvent(
@@ -147,21 +141,6 @@ void handle_wheel(const SDL_MouseWheelEvent& event)
             {.type = InputEventType::MouseWheel, .position = state.mouse, .wheel = detent});
     }
 }
-
-struct KeyCharacters {
-    SDL_Keycode key;
-    char plain;
-    char shifted;
-};
-
-/* US layout, matching retail's 0x005ffc3c table for every non-letter key. */
-constexpr KeyCharacters key_characters[] = {
-    {SDLK_KP_MULTIPLY, '*', '*'}, {SDLK_KP_PLUS, '+', '+'},    {SDLK_KP_MINUS, '-', '-'},
-    {SDLK_KP_PERIOD, '.', '.'},   {SDLK_KP_DIVIDE, '/', '/'},  {SDLK_SEMICOLON, ';', ':'},
-    {SDLK_EQUALS, '=', '+'},      {SDLK_COMMA, ',', '<'},      {SDLK_MINUS, '-', '_'},
-    {SDLK_PERIOD, '.', '>'},      {SDLK_SLASH, '/', '?'},      {SDLK_GRAVE, '`', '~'},
-    {SDLK_LEFTBRACKET, '[', '{'}, {SDLK_BACKSLASH, '\\', '|'}, {SDLK_RIGHTBRACKET, ']', '}'},
-    {SDLK_APOSTROPHE, '\'', '"'}};
 
 } // namespace
 
@@ -295,20 +274,4 @@ void SetNativeTextInputEnabled(bool enabled)
 bool NativeTextInputEnabled()
 {
     return text_input_requested;
-}
-
-// FUNCTION: WIZ8 0x00402780
-std::uint16_t TranslateKeyToCharacter(SDL_Keycode key, std::uint16_t modifiers)
-{
-    if (modifiers & (CTRL_DOWN | ALT_DOWN)) return 0;
-    const bool shift = (modifiers & SHIFT_DOWN) != 0;
-    if (key == SDLK_SPACE) return ' ';
-    if (key >= SDLK_A && key <= SDLK_Z)
-        return shift ? std::uint16_t(key - SDLK_A + 'A') : std::uint16_t(key);
-    if (key >= '0' && key <= '9') return shift ? std::uint16_t(")!@#$%^&*("[key - '0']) : key;
-    if (key == SDLK_KP_0) return '0';
-    if (key >= SDLK_KP_1 && key <= SDLK_KP_9) return std::uint16_t('1' + key - SDLK_KP_1);
-    for (const KeyCharacters& entry : key_characters)
-        if (entry.key == key) return std::uint16_t(shift ? entry.shifted : entry.plain);
-    return 0;
 }

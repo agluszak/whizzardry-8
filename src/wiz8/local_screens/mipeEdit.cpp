@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iterator>
 #include <string>
 #include <string_view>
 
@@ -6,6 +7,7 @@
 #include <fmt/format.h>
 
 #include "input.h"
+#include "utf8/checked.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
@@ -102,16 +104,9 @@ void HandleMipeEditPropKey(SDL_Keycode key)
         }
         return;
     }
-    if (((key >= SDLK_A && key <= SDLK_Z) || (key > 0x2f && key < 0x3a) || key == SDLK_SPACE) &&
-        state->edit_selection != -1) {
-        field = &fields[static_cast<int>(state->edit_selection)];
-        if (field->type == 6) {
-            key = TranslateKeyToCharacter(key, GetInputState().modifiers);
-            field->text.push_back(static_cast<char>(key));
-            MIPE_REDRAW_EDIT_FIELDS();
-        }
+    if (state->edit_selection >= 0 && fields[state->edit_selection].type == 6 && key >= SDLK_0 &&
+        key <= SDLK_9)
         return;
-    }
     switch (key) {
     case SDLK_UP:
         if (state->edit_selection == -1) {
@@ -163,6 +158,7 @@ void HandleMipeEditPropKey(SDL_Keycode key)
             field = &fields[static_cast<int>(state->edit_selection)];
             g_mipe_edit_decimal = -1;
             if (field->type == 6) {
+                SetNativeTextInputEnabled(true);
                 field->text.clear();
             }
         } else {
@@ -195,13 +191,28 @@ void HandleMipeEditPropKey(SDL_Keycode key)
             CommitMipeEditFields(trigger->m_pActionData, 0);
         }
         state->edit_selection = -1;
+        SetNativeTextInputEnabled(false);
         MIPE_REDRAW_EDIT_FIELDS();
         break;
     case SDLK_ESCAPE:
         state->edit_selection = -1;
+        SetNativeTextInputEnabled(false);
         MIPE_REDRAW_EDIT_FIELDS();
         break;
     }
+}
+
+void HandleMipeEditPropText(char32_t character)
+{
+    auto& state = *g_mipe_state;
+    if (state.edit_selection < 0 ||
+        !(character == U' ' || (character >= U'0' && character <= U'9') ||
+          IsUppercaseCharacter(character) || IsLowercaseCharacter(character)))
+        return;
+    auto& field = state.edit_fields[state.edit_selection];
+    if (field.type != 6) return;
+    utf8::append(character, std::back_inserter(field.text));
+    MIPE_REDRAW_EDIT_FIELDS();
 }
 
 /* Renders one editor row: "index) label: value" with the value format chosen
