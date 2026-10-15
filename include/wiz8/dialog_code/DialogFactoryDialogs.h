@@ -197,15 +197,18 @@ private:
     void ScrollItemsToMouse();
     /* Move every flagged item to the destination: -1 copies it into the shared
        party pool, any other value gives it to that party slot's character.
-       Each successful transfer unlinks the item and its flag; a failure plays
+       Each successful transfer removes the entry; a failure plays
        the beep. An emptied picker closes itself. */
     void TransferSelectedItems(int destination);
     /* Handle one event the picker owns: keyboard list navigation and clicks. */
     bool HandleInputEvent(const InputEvent* input);
 
 public:
-    std::vector<W8WorldItem*> items;
-    std::vector<unsigned char> flags;
+    struct PickerEntry {
+        W8WorldItem* item;
+        bool selected = false;
+    };
+    std::vector<PickerEntry> entries;
     std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
     int m_first_item;
     W8WorldItem* m_item_group;

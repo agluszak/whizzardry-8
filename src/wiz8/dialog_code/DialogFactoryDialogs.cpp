@@ -749,13 +749,13 @@ bool W8TriggerItemPickerDialog::CreateButtons()
 // FUNCTION: WIZ8 0x005ce420
 void W8TriggerItemPickerDialog::RefreshScrollButtons()
 {
-    if (static_cast<int>(items.size()) <= 4) {
+    if (static_cast<int>(entries.size()) <= 4) {
         m_first_item = 0;
     }
     for (int index = 0; index < 4; ++index) {
         W8ButtonWidget& button = *m_buttons[5 + index];
         int item = m_first_item + index;
-        if (item < static_cast<int>(items.size())) {
+        if (item < static_cast<int>(entries.size())) {
             button.SetPressed(IsItemSelected(item));
         } else if (button.IsPressed()) {
             button.SetPressed(false);
@@ -766,11 +766,11 @@ void W8TriggerItemPickerDialog::RefreshScrollButtons()
 
 void W8TriggerItemPickerDialog::SetFirstVisible(int index)
 {
-    if (static_cast<int>(items.size()) <= 4) {
+    if (static_cast<int>(entries.size()) <= 4) {
         m_first_item = 0;
         return;
     }
-    if (index < 0 || index > static_cast<int>(items.size()) - 4) {
+    if (index < 0 || index > static_cast<int>(entries.size()) - 4) {
         return;
     }
     m_first_item = index;
@@ -779,16 +779,16 @@ void W8TriggerItemPickerDialog::SetFirstVisible(int index)
 
 bool W8TriggerItemPickerDialog::IsItemSelected(int index)
 {
-    if (index < 0 || index >= static_cast<int>(items.size())) {
+    if (index < 0 || index >= static_cast<int>(entries.size())) {
         return false;
     }
-    return flags[index] != 0;
+    return entries[index].selected;
 }
 
 void W8TriggerItemPickerDialog::SetItemSelected(int index, bool selected)
 {
-    if (static_cast<std::size_t>(index) < items.size()) {
-        flags[index] = selected;
+    if (static_cast<std::size_t>(index) < entries.size()) {
+        entries[index].selected = selected;
         if (index >= m_first_item && index <= m_first_item + 3) {
             m_buttons[5 + index - m_first_item]->SetPressed(selected);
             m_buttons[5 + index - m_first_item]->m_dirty = true;
@@ -799,7 +799,7 @@ void W8TriggerItemPickerDialog::SetItemSelected(int index, bool selected)
 void W8TriggerItemPickerDialog::ToggleItem(int index, W8ButtonWidget* button)
 {
     bool selected = !IsItemSelected(index);
-    if (index < 0 || index >= static_cast<int>(items.size())) {
+    if (index < 0 || index >= static_cast<int>(entries.size())) {
         button->SetPressed(false);
     } else {
         SetItemSelected(index, selected);
@@ -808,7 +808,7 @@ void W8TriggerItemPickerDialog::ToggleItem(int index, W8ButtonWidget* button)
 
 /* Move every selected item to the destination: -1 hands a copy to the shared
    party pool, any other value gives it to that party slot's character. A
-   successful transfer unlinks the item entry and its flag and retries the same
+   successful transfer removes the entry and retries the same
    row; any failure raises the beep flag. Afterwards the scroll state refreshes
    and an emptied picker closes itself. */
 // FUNCTION: WIZ8 0x005ce4c0
@@ -817,9 +817,9 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
     int index;
     bool failed = false;
 
-    for (index = 0; index < static_cast<int>(items.size()); ++index) {
-        if (flags[index] != 0) {
-            W8ItemInstance& instance = items[index]->item;
+    for (index = 0; index < static_cast<int>(entries.size()); ++index) {
+        if (entries[index].selected) {
+            W8ItemInstance& instance = entries[index].item->item;
             bool added;
             if (destination == -1) {
                 added = AddItemToParty(&instance, true, false);
@@ -828,9 +828,9 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
                                            true, false);
             }
             if (added) {
-                FreeWorldItemGroup(items[index]);
-                items.erase(items.begin() + index);
-                flags.erase(flags.begin() + index);
+                FreeWorldItemGroup(entries[index].item);
+                entries.erase(entries.begin() + index);
+
                 --index;
                 m_dirty = true;
             } else {
@@ -845,7 +845,7 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
         wiz8::sound::play("Data\\Sound\\Misc\\beep2.wav");
     }
     RefreshScrollButtons();
-    if (items.empty()) {
+    if (entries.empty()) {
         m_keep_open = false;
     }
 }
@@ -855,9 +855,8 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 // FUNCTION: WIZ8 0x005ce5f0
 void W8TriggerItemPickerDialog::ToggleAllItems()
 {
-    const bool all_selected = std::ranges::all_of(flags.begin(), flags.begin() + items.size(),
-                                                  [](auto flag) { return flag != 0; });
-    for (int index = 0; index < static_cast<int>(items.size()); ++index) {
+    const bool all_selected = std::ranges::all_of(entries, &PickerEntry::selected);
+    for (int index = 0; index < static_cast<int>(entries.size()); ++index) {
         SetItemSelected(index, !all_selected);
     }
 }
@@ -867,10 +866,10 @@ void W8TriggerItemPickerDialog::ToggleAllItems()
 void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
 {
     const int index = m_first_item + row;
-    if (index < 0 || index >= static_cast<int>(items.size())) {
+    if (index < 0 || index >= static_cast<int>(entries.size())) {
         return;
     }
-    OpenAssayDialog(CopyWorldItemInstance(items[index]), -1);
+    OpenAssayDialog(CopyWorldItemInstance(entries[index].item), -1);
 }
 
 /* Thumb drag callback: while the left button is held, map the live cursor
@@ -891,7 +890,7 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse()
         return;
     }
     point.y = std::clamp(point.y, bottom, top);
-    SetFirstVisible((point.y - bottom) * static_cast<int>(items.size()) / (top - bottom));
+    SetFirstVisible((point.y - bottom) * static_cast<int>(entries.size()) / (top - bottom));
 }
 
 /* Keyboard list navigation. The up/down keys move the first visible row, the
@@ -922,14 +921,14 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
         }
         case SDLK_PAGEDOWN: {
             int target = m_first_item + 4;
-            if (target > static_cast<int>(items.size()) - 4) {
-                target = static_cast<int>(items.size()) - 4;
+            if (target > static_cast<int>(entries.size()) - 4) {
+                target = static_cast<int>(entries.size()) - 4;
             }
             SetFirstVisible(target);
             return m_keep_open;
         }
         case SDLK_END:
-            SetFirstVisible(static_cast<int>(items.size()) - 4);
+            SetFirstVisible(static_cast<int>(entries.size()) - 4);
             return m_keep_open;
         case SDLK_HOME:
             SetFirstVisible(0);
@@ -939,7 +938,7 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
         case '3':
         case '4': {
             int index = m_first_item + input->key - '1';
-            if (index < static_cast<int>(items.size())) {
+            if (index < static_cast<int>(entries.size())) {
                 SetItemSelected(index, !IsItemSelected(index));
             }
             break;
@@ -973,23 +972,15 @@ void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 // FUNCTION: WIZ8 0x005cf110
 W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
 {
-    if (items.empty()) {
-        return m_item_group;
-    }
-    do {
-        W8WorldItem* item = items[0];
-        items.erase(items.begin());
-        flags.erase(flags.begin());
-        ItemInfoAddToGroup(m_item_group, item);
-    } while (!items.empty());
+    for (const auto& entry : entries) ItemInfoAddToGroup(m_item_group, entry.item);
+    entries.clear();
     return m_item_group;
 }
 
 /* Merge one item into the picker. Identification comes first, then the item is
    placed next to the existing entries with the same equipment class and, among
    those, the same unidentified name, keeping each name run ordered by item id.
-   Both vectors grow five at a time on this insertion path. A nil result means
-   the caller's group handed in nothing. */
+   The existing world-item lifetime is unchanged. */
 // FUNCTION: WIZ8 0x005ce210
 int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 {
@@ -999,34 +990,33 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
         int index;
 
         PartyAttemptsToIdentifyItem(instance, 0);
-        for (index = 0; index < static_cast<int>(items.size()); ++index) {
-            W8WorldItem* other = items[index];
+        for (index = 0; index < static_cast<int>(entries.size()); ++index) {
+            W8WorldItem* other = entries[index].item;
             if (ItemsShareEquipClass(instance, &other->item)) {
                 break;
             }
         }
-        if (index < static_cast<int>(items.size())) {
-            W8WorldItem* other = items[index];
-            while (index < static_cast<int>(items.size()) &&
+        if (index < static_cast<int>(entries.size())) {
+            W8WorldItem* other = entries[index].item;
+            while (index < static_cast<int>(entries.size()) &&
                    !ItemsShareUnidentifiedName(instance, &other->item)) {
-                other = items[index];
+                other = entries[index].item;
                 ++index;
             }
-            if (index < static_cast<int>(items.size())) {
-                while (index < static_cast<int>(items.size()) &&
+            if (index < static_cast<int>(entries.size())) {
+                while (index < static_cast<int>(entries.size()) &&
                        other->item.iItemNo != instance->iItemNo) {
-                    other = items[index];
+                    other = entries[index].item;
                     ++index;
                 }
-                if (index < static_cast<int>(items.size())) {
-                    items.insert(items.begin() + index, item);
-                    flags.insert(flags.begin() + index, 0);
+                if (index < static_cast<int>(entries.size())) {
+                    entries.insert(entries.begin() + index, PickerEntry{item});
+
                     return -1;
                 }
             }
         }
-        items.push_back(item);
-        flags.push_back(0);
+        entries.push_back({item});
     }
     return -1;
 }
@@ -1074,17 +1064,17 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
     for (auto& button : m_buttons) button->Draw(target);
-    for (int row = 0; row < std::min(4, int(items.size()) - m_first_item); ++row) {
+    for (int row = 0; row < std::min(4, int(entries.size()) - m_first_item); ++row) {
         W8ButtonWidget* button = m_buttons[5 + row].get();
 
-        if (items.empty()) {
+        if (entries.empty()) {
             continue;
         }
         int item_index = m_first_item + row;
-        if (item_index >= static_cast<int>(items.size())) {
+        if (item_index >= static_cast<int>(entries.size())) {
             continue;
         }
-        W8WorldItem* world_item = items[item_index];
+        W8WorldItem* world_item = entries[item_index].item;
         W8ItemInstance* item = &world_item->item;
         DrawSprite(target, g_item_video_objects.Sprites(item->iItemNo), 0, button->Bounds().x + 2,
                    button->Bounds().y + 2);
@@ -1105,7 +1095,7 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
 }
 void W8TriggerItemPickerDialog::UpdateLayout()
 {
-    int count = static_cast<int>(items.size());
+    int count = static_cast<int>(entries.size());
     int visible_rows;
     if (count < 3) {
         visible_rows = 2;
@@ -1139,8 +1129,8 @@ void W8TriggerItemPickerDialog::UpdateLayout()
 
         int progress = 0;
         if (m_first_item != 0) {
-            progress = static_cast<int>(items.size());
-            if (m_first_item + 4 < static_cast<int>(items.size())) {
+            progress = static_cast<int>(entries.size());
+            if (m_first_item + 4 < static_cast<int>(entries.size())) {
                 progress = m_first_item + 2;
             }
         }
@@ -1148,7 +1138,7 @@ void W8TriggerItemPickerDialog::UpdateLayout()
                      m_buttons[10]->Bounds().h - m_buttons[11]->Bounds().h;
         m_buttons[11]->SetPosition(m_buttons[9]->Bounds().x,
                                    m_buttons[9]->Bounds().h + m_buttons[12]->Bounds().y +
-                                       travel * progress / static_cast<int>(items.size()) + 1);
+                                       travel * progress / static_cast<int>(entries.size()) + 1);
 
     } else {
         m_buttons[12]->SetVisible(false);
