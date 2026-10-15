@@ -108,14 +108,12 @@ unsigned char InitializeMenuFonts(void)
     for (size_t index = 0; index < fonts.size(); ++index)
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
     g_font_state_palettes.swap(palettes);
-    ConfigureDialogFont(g_wiz_dialog_font, 1, 0xff, 0);
     return 1;
 }
 
 void ReleaseMenuFonts()
 {
     g_level_load_font.clear();
-    g_dialog_interface_font = nullptr;
     ghTinyMonoFont.clear();
     g_calligraphy_shadow_font.clear();
     g_calligraphy_font.clear();

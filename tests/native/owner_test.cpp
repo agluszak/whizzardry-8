@@ -1718,8 +1718,9 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(positions.back() == 6);
     }
 
-    Font font{};
-    auto* old_font = std::exchange(g_dialog_interface_font, &font);
+    auto old_font = std::move(g_wiz_dialog_font);
+    auto& font = g_wiz_dialog_font;
+    REQUIRE(font.load("font.sti"));
     class MessageDialog final : public W8MessageDialogBase {
     public:
         using W8MessageDialogBase::m_cancel_button;
@@ -1824,7 +1825,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             REQUIRE_FALSE(button->m_dirty);
         }
     }
-    g_dialog_interface_font = old_font;
+    g_wiz_dialog_font = std::move(old_font);
     g_image_assets.clear();
 }
 

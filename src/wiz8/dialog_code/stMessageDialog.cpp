@@ -18,6 +18,7 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
@@ -46,21 +47,21 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
     W8DialogBase::Draw(target);
     m_message_button.Draw(target);
     if (!m_show_confirm && !allow_cancel) {
-        y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
+        y = m_y + m_height / 2 - (g_wiz_dialog_font.height() * m_line_count >> 1);
     } else {
-        y = m_y + (m_height - 0x21) / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
+        y = m_y + (m_height - 0x21) / 2 - (g_wiz_dialog_font.height() * m_line_count >> 1);
     }
     if (!m_lines.empty()) {
         {
             TextOptions options;
-            options.colors.foreground = g_dialog_interface_font->color(g_dialog_font_foreground);
-            options.colors.background = g_dialog_interface_font->color(g_dialog_font_background);
+            options.colors.foreground = g_wiz_dialog_font.color(255);
+            options.colors.background = g_wiz_dialog_font.color(0);
             for (index = 0; index < m_line_count; ++index) {
                 const auto& line = m_lines[index];
-                short width = g_dialog_interface_font->textWidth(line);
-                DrawText(target, *g_dialog_interface_font, {m_x + (m_width - width) / 2, y}, line,
+                short width = g_wiz_dialog_font.textWidth(line);
+                DrawText(target, g_wiz_dialog_font, {m_x + (m_width - width) / 2, y}, line,
                          options);
-                y += g_dialog_interface_font->height();
+                y += g_wiz_dialog_font.height();
             }
         }
     }
@@ -103,7 +104,7 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         int height;
 
         for (index = 0; index < m_line_count; ++index) {
-            short line_width = g_dialog_interface_font->textWidth(m_lines[index]);
+            short line_width = g_wiz_dialog_font.textWidth(m_lines[index]);
             if (width < line_width) {
                 width = line_width;
             }
@@ -112,13 +113,13 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         if (width < 0xaa) {
             width = 0xaa;
         }
-        g_dialog_interface_font->height();
-        height = g_dialog_interface_font->height() * m_line_count + 0x1e;
+        g_wiz_dialog_font.height();
+        height = g_wiz_dialog_font.height() * m_line_count + 0x1e;
         if (m_show_confirm || allow_cancel) {
-            height = g_dialog_interface_font->height() * m_line_count + 0x3f;
+            height = g_wiz_dialog_font.height() * m_line_count + 0x3f;
         }
-        if (height < g_dialog_interface_font->height() * 7) {
-            height = g_dialog_interface_font->height() * 7;
+        if (height < g_wiz_dialog_font.height() * 7) {
+            height = g_wiz_dialog_font.height() * 7;
         }
         if (maximum_width && maximum_width < width) {
             width = maximum_width;
@@ -147,7 +148,7 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         const auto stop = end == std::string_view::npos ? message.size() : end;
         const auto word = message.substr(start, stop - start);
         auto candidate = line.empty() ? std::string(word) : fmt::format("{} {}", line, word);
-        if (!line.empty() && g_dialog_interface_font->textWidth(candidate) > maximum_width) {
+        if (!line.empty() && g_wiz_dialog_font.textWidth(candidate) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);
         } else
@@ -183,9 +184,9 @@ void W8MessageDialogBase::Configure()
     m_message_button.Configure(
         ButtonAppearance{.generic_image = m_edge_image ? m_edge_image : DefaultGenericButtonImage(),
                          .string = std::string({}),
-                         .usFont = &(*g_dialog_interface_font),
-                         .sForeColor = g_dialog_font_foreground,
-                         .sShadowColor = g_dialog_font_background},
+                         .usFont = &g_wiz_dialog_font,
+                         .sForeColor = 255,
+                         .sShadowColor = 0},
         {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12}, {.priority = UI_PRIORITY_HIGHEST - 1});
 
     if (m_confirm_button.Configure(
