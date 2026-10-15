@@ -15,7 +15,7 @@ required for graphics.
 On Linux x86-64:
 
 ```sh
-python3 -m pip install 'conan==2.21.0'
+python3 -m pip install 'conan==2.33.0'
 conan profile detect
 CC=clang-22 CXX=clang++-22 conan install . \
     -pr:h conan/profiles/linux-clang22 -pr:b default \
