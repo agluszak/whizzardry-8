@@ -142,7 +142,7 @@ void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
     }
     m_text_area.Draw(target, false);
     m_scroll_bar.Draw(target, false);
-    m_button.Draw(target);
+    m_button.DrawAndInvalidate(target);
 }
 
 // FUNCTION: WIZ8 0x005DEEE0

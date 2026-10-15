@@ -10,7 +10,9 @@
 #include <fmt/format.h>
 
 #include "input.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -83,13 +85,14 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
             MarkDirty();
         };
         result->Configure(
-            CatalogArtwork::Load(0x10a, 0).spriteSheet(),
-            {frame + 3, frame, frame + 1, frame + 2, frame + 4},
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 1, frame + 2, frame + 4),
             {.on_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); },
              .on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); },
-             .priority = UI_PRIORITY_LOWEST});
-        result->policy.controller_activation = true;
-        result->policy.repeat = true;
+             .policy = {.repeat = true, .input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
+
         result->SetPosition(x, m_y + 1);
         result->SetVisible(false);
         return result;
@@ -177,8 +180,8 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         m_label.RenderToTarget(0, true, target);
         m_dirty = false;
     }
-    m_increment->Draw(target);
-    m_decrement->Draw(target);
+    m_increment->DrawAndInvalidate(target);
+    m_decrement->DrawAndInvalidate(target);
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 

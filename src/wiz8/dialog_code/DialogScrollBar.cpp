@@ -12,6 +12,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper
@@ -24,20 +25,19 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
     if (m_initialized) return true;
     const bool configured =
         // FUNCTION: WIZ8 0x005e1280
-        m_up_button.Configure(resources->arrows_path, {3, 0, 1, 2, 2},
+        m_up_button.Configure(ButtonGraphics::Load(resources->arrows_path, 3, 0, 1, 2, 2),
                               {.on_click = [this](W8ButtonWidget*) { ScrollUp(); },
                                .priority = UI_PRIORITY_HIGHEST - 1}) &&
         // FUNCTION: WIZ8 0x005e1320
-        m_down_button.Configure(resources->arrows_path, {11, 8, 9, 10, 10},
+        m_down_button.Configure(ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10),
                                 {.on_click = [this](W8ButtonWidget*) { ScrollDown(); },
                                  .priority = UI_PRIORITY_HIGHEST - 1}) &&
-        m_thumb_button.Configure(resources->arrows_path, {7, 4, 5, 6, 6},
+        m_thumb_button.Configure(ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6),
                                  {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         // FUNCTION: WIZ8 0x005e13d0
         m_track_button.Configure(
-            resources->track_path,
-            {BUTTON_NO_IMAGE, resources->track_frame, BUTTON_NO_IMAGE, resources->track_frame,
-             BUTTON_NO_IMAGE},
+            ButtonGraphics::Load(resources->track_path, BUTTON_NO_IMAGE, resources->track_frame,
+                                 BUTTON_NO_IMAGE, resources->track_frame, BUTTON_NO_IMAGE),
             {.on_click =
                  [this](W8ButtonWidget* button) { ScrollToMouse(button->GetMousePosition().y); },
              .priority = UI_PRIORITY_HIGHEST - 2});
@@ -48,9 +48,10 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         m_track_button.Reset();
         return false;
     }
-    m_up_button.policy.activation = m_down_button.policy.activation =
-        m_track_button.policy.activation = ButtonActivation::Press;
-    m_up_button.policy.repeat = m_down_button.policy.repeat = m_track_button.policy.repeat = true;
+    m_up_button.Policy().activation = m_down_button.Policy().activation =
+        m_track_button.Policy().activation = ButtonActivation::Press;
+    m_up_button.Policy().repeat = m_down_button.Policy().repeat = m_track_button.Policy().repeat =
+        true;
     m_on_scroll = resources->on_scroll;
     m_initialized = true;
     m_visible = false;
@@ -110,20 +111,20 @@ void W8DialogScrollBar::UpdateThumb()
 // FUNCTION: WIZ8 0x005e10b0
 void W8DialogScrollBar::Draw(SDL_Surface& target, bool force)
 {
-    if (m_initialized && m_visible &&
-        (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
-         m_track_button.m_dirty || m_thumb_button.m_dirty)) {
-        m_track_button.m_dirty = true;
-        m_track_button.Draw(target);
-        m_up_button.m_dirty = true;
-        m_up_button.Draw(target);
-        m_down_button.m_dirty = true;
-        m_down_button.Draw(target);
-        m_thumb_button.m_dirty = true;
-        m_thumb_button.Draw(target);
-        InvalidateRegion(m_track_button.Bounds().x, m_track_button.Bounds().y,
-                         m_track_button.Bounds().x + m_track_button.Bounds().w,
-                         m_track_button.Bounds().y + m_track_button.Bounds().h);
+    const bool framebuffer = &target == &GetFrameBufferSurface();
+    if (!m_initialized || !m_visible) {
+        return;
+    }
+    if (framebuffer && !force && !m_dirty && !m_up_button.m_dirty && !m_down_button.m_dirty &&
+        !m_track_button.m_dirty && !m_thumb_button.m_dirty) {
+        return;
+    }
+    // Recompose the entire track before the thumb so its old position is erased.
+    m_track_button.DrawAndInvalidate(target, true);
+    m_up_button.DrawAndInvalidate(target, true);
+    m_down_button.DrawAndInvalidate(target, true);
+    m_thumb_button.DrawAndInvalidate(target, true);
+    if (framebuffer) {
         m_dirty = false;
     }
 }

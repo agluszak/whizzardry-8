@@ -12,6 +12,7 @@
 #include <fmt/format.h>
 
 #include "Font.h"
+#include "Types.h"
 #include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"
@@ -21,6 +22,7 @@
 #include "layouts/targeting.h"
 #include "surrender/srMath.h"
 #include "timer.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -62,54 +64,9 @@ unsigned short g_action_kind_message_ids[12] = {
     0x050f, 0x0510, 0x0511, 0x0512, 0x0513, 0x0514, 0x0515, 0x0516, 0x0517, 0x0518, 0x0519, 0x051a,
 };
 
-// GLOBAL: WIZ8 0x0069B854
-short g_submenu_menu;
-// GLOBAL: WIZ8 0x0069B868
-short g_submenu_entries[6];
-// GLOBAL: WIZ8 0x0069B874
-short g_submenu_entry_states[5];
-// GLOBAL: WIZ8 0x0069B87E
-short g_submenu_entry_count;
-// GLOBAL: WIZ8 0x0069B880
-uint64_t g_submenu_clock;
-// GLOBAL: WIZ8 0x0069B8D4
-bool g_submenu_close_pending;
-namespace {
-template<std::size_t... I>
-std::array<W8ButtonWidget, sizeof...(I)> ButtonsOn(UiLayer& layer, std::index_sequence<I...>)
-{
-    return {((void)I, W8ButtonWidget(layer))...};
-}
-template<std::size_t N> std::array<W8ButtonWidget, N> ButtonsOn(UiLayer& layer)
-{
-    return ButtonsOn(layer, std::make_index_sequence<N>{});
-}
-} // namespace
-
-MainGameButtons::MainGameButtons()
-    : submenu(ButtonsOn<9>(input)), submenu_scroll(ButtonsOn<2>(input)),
-      submenu_panel(ButtonsOn<2>(input)), layout_arrows(ButtonsOn<6>(input)),
-      combat_stance(ButtonsOn<5>(input)), roof(ButtonsOn<3>(input)), options_disk(input)
-{
-}
-
-// GLOBAL: WIZ8 0x0069B858
-MainGameButtons g_main_game_buttons;
-/* The name is proven by this file's own assertion. */
-// GLOBAL: WIZ8 0x0069B8E8
-namespace {
-struct SubMenu {
-    UiLayer input{0x27};
-    int left = 0, background = 0;
-    bool dirty = true;
-    std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
-};
-std::unique_ptr<SubMenu> submenu;
-}
-
 void DestroySubMenuPanel()
 {
-    submenu.reset();
+    if (g_main_game_state) g_main_game_state->submenu.reset();
 }
 
 /* Five caption rows suffice: Berserk and Pray require mutually exclusive
@@ -166,16 +123,17 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
 // FUNCTION: WIZ8 0x005963E0
 void RefreshSubMenuPanel(bool invalidate)
 {
+    auto& submenu = g_main_game_state->submenu;
     if (!submenu) return;
     submenu->dirty |= invalidate;
     auto& target = GetFrameBufferSurface();
     if (submenu->dirty) {
-        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left,
-                                                        0x1c3);
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background,
+                                                        submenu->bounds.x, 0x1c3);
         for (auto& button : submenu->buttons) button->m_dirty = true;
         submenu->dirty = false;
     }
-    for (auto& button : submenu->buttons) button->Draw(target);
+    for (auto& button : submenu->buttons) button->DrawAndInvalidate(target);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -285,12 +243,10 @@ void OpenSubMenuPanel(short notification)
         DestroySubMenuControls();
     }
     UpdateScreenOverlays(0);
-    if (BuildSubMenuPanel(notification) == 0) {
+    if (!BuildSubMenuPanel(notification)) {
         DestroySubMenuControls();
     }
     SetSubMenuButtonTooltips(0);
-    g_submenu_clock = w8_get_ticks() + (0);
-    g_submenu_close_pending = false;
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
@@ -305,21 +261,20 @@ void ResetSubMenuPanel(void)
 }
 
 // FUNCTION: WIZ8 0x00596EC0
-unsigned char CreateSubMenuScrollButtons(void)
+static void CreateSubMenuScrollButtons()
 {
     int i;
 
-    g_main_game_buttons.submenu_scroll[0].Configure(
-        "Data\\Main Interface\\main_scroll_arrows.sti", {3, 0, 1, 2, 2},
-        {.on_click = SubMenuScrollArrowUp, .tooltip = 0x4b});
-    g_main_game_buttons.submenu_scroll[1].Configure(
-        "Data\\Main Interface\\main_scroll_arrows.sti", {7, 4, 5, 6, 6},
-        {.on_click = SubMenuScrollArrowDown, .tooltip = 0x4c});
+    g_main_game_state->hud_buttons.submenu_scroll[0].Configure(
+        ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1, 2, 2),
+        {.on_click = [](auto*) { ScrollSubMenuCharacter(0); }, .tooltip = 0x4b});
+    g_main_game_state->hud_buttons.submenu_scroll[1].Configure(
+        ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5, 6, 6),
+        {.on_click = [](auto*) { ScrollSubMenuCharacter(1); }, .tooltip = 0x4c});
     for (i = 0; i < 2; ++i) {
-        g_main_game_buttons.submenu_scroll[i].SetPosition(g_scroll_button_positions[i].x,
-                                                          g_scroll_button_positions[i].y);
+        g_main_game_state->hud_buttons.submenu_scroll[i].SetPosition(
+            g_scroll_button_positions[i].x, g_scroll_button_positions[i].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x005978D0
@@ -339,21 +294,22 @@ static void SubMenuPanelFormationButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597670
-unsigned char CreateSubMenuPanelButtons(void)
+static void CreateSubMenuPanelButtons()
 {
     int index;
 
-    g_main_game_buttons.submenu_panel[0].Configure(
-        g_submenu_icons_path, {0x21, 0x1e, 0x1f, 0x20, 0x22},
+    g_main_game_state->hud_buttons.submenu_panel[0].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22),
         {.on_click = SubMenuPanelCloseButton, .tooltip = 0x4d});
-    g_main_game_buttons.submenu_panel[1].Configure(
-        g_submenu_icons_path, {0x26, 0x23, 0x24, 0x25, 0x27},
-        {.on_click = SubMenuPanelFormationButton, .toggles = true, .tooltip = 0x4e});
+    g_main_game_state->hud_buttons.submenu_panel[1].Configure(
+        ButtonGraphics::Load(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27),
+        {.on_click = SubMenuPanelFormationButton,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x4e});
     for (index = 0; index < 2; ++index) {
-        g_main_game_buttons.submenu_panel[index].SetPosition(
+        g_main_game_state->hud_buttons.submenu_panel[index].SetPosition(
             g_submenu_panel_button_positions[index].x, g_submenu_panel_button_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00597B70
@@ -366,14 +322,13 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597A30
-unsigned char CreateOptionsDiskButton(void)
+static void CreateOptionsDiskButton()
 {
-    g_main_game_buttons.options_disk.Configure(
-        g_options_disk_path, {3, 0, 1, 2, 2},
+    g_main_game_state->hud_buttons.options_disk.Configure(
+        ButtonGraphics::Load(g_options_disk_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
-    g_main_game_buttons.options_disk.SetPosition(g_options_disk_position.x,
-                                                 g_options_disk_position.y);
-    return 1;
+    g_main_game_state->hud_buttons.options_disk.SetPosition(g_options_disk_position.x,
+                                                            g_options_disk_position.y);
 }
 
 /* Redraw the options-disk chrome and button; disabled under dialogue / lock /
@@ -384,15 +339,15 @@ void RedrawOptionsDiskButton(void)
     bool enabled;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0x1c2);
-    g_main_game_buttons.options_disk.m_dirty = true;
+    g_main_game_state->hud_buttons.options_disk.m_dirty = true;
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract) {
         enabled = true;
     } else {
         enabled = false;
     }
-    g_main_game_buttons.options_disk.SetEnabled(enabled);
-    g_main_game_buttons.options_disk.Draw(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
+    g_main_game_state->hud_buttons.options_disk.DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
@@ -405,7 +360,7 @@ void UpdateCombatStanceButtons(void)
     bool enabled;
 
     if (!gXStatus.fCombatMode) {
-        for (auto& button : g_main_game_buttons.combat_stance) {
+        for (auto& button : g_main_game_state->hud_buttons.combat_stance) {
             button.SetVisible(false);
         }
         return;
@@ -422,15 +377,15 @@ void UpdateCombatStanceButtons(void)
     }
 
     for (index = 0; index < 5; ++index) {
-        g_main_game_buttons.combat_stance[index].SetVisible(index == stance);
+        g_main_game_state->hud_buttons.combat_stance[index].SetVisible(index == stance);
     }
     if (!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode && !gXStatus.fReviewCharacterMode) {
         enabled = true;
     } else {
         enabled = false;
     }
-    g_main_game_buttons.combat_stance[stance].SetEnabled(enabled);
-    g_main_game_buttons.combat_stance[stance].Draw(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.combat_stance[stance].SetEnabled(enabled);
+    g_main_game_state->hud_buttons.combat_stance[stance].DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
@@ -439,7 +394,7 @@ void RedrawCombatStanceButtons(void)
 {
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x262, 0x1c2);
     for (int index = 0; index < 5; ++index) {
-        g_main_game_buttons.combat_stance[index].m_dirty = true;
+        g_main_game_state->hud_buttons.combat_stance[index].m_dirty = true;
     }
     UpdateCombatStanceButtons();
 }
@@ -473,35 +428,39 @@ static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597B90
-unsigned char CreateCombatStanceButtons(void)
+static void CreateCombatStanceButtons()
 {
     int index;
 
-    g_main_game_buttons.combat_stance[0].Configure(g_attack_confirm_path, {3, 0, 1, 2, 2},
-                                                   {.on_click = MainGameCombatConfirmButton,
-                                                    .on_right_click = MainGameCombatStanceSecondary,
-                                                    .tooltip = 0x4f});
-    g_main_game_buttons.combat_stance[1].Configure(g_combat_stop_path, {3, 0, 1, 2, 2},
-                                                   {.on_click = MainGameCombatConfirmButton,
-                                                    .on_right_click = MainGameCombatStanceSecondary,
-                                                    .tooltip = 0x50});
-    g_main_game_buttons.combat_stance[2].Configure(g_cont_start_path, {3, 0, 1, 2, 2},
-                                                   {.on_click = MainGameCombatConfirmButton,
-                                                    .on_right_click = MainGameCombatStanceSecondary,
-                                                    .tooltip = 0x4f});
-    g_main_game_buttons.combat_stance[3].Configure(g_cont_toggle_path, {3, 0, 1, 2, 2},
-                                                   {.on_click = MainGameCombatConfirmButton,
-                                                    .on_right_click = MainGameCombatStanceSecondary,
-                                                    .tooltip = 0x51});
-    g_main_game_buttons.combat_stance[4].Configure(g_cont_pending_path, {3, 0, 1, 2, 2},
-                                                   {.on_click = MainGameCombatConfirmButton,
-                                                    .on_right_click = MainGameCombatStanceSecondary,
-                                                    .tooltip = 0x50});
+    g_main_game_state->hud_buttons.combat_stance[0].Configure(
+        ButtonGraphics::Load(g_attack_confirm_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x4f});
+    g_main_game_state->hud_buttons.combat_stance[1].Configure(
+        ButtonGraphics::Load(g_combat_stop_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x50});
+    g_main_game_state->hud_buttons.combat_stance[2].Configure(
+        ButtonGraphics::Load(g_cont_start_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x4f});
+    g_main_game_state->hud_buttons.combat_stance[3].Configure(
+        ButtonGraphics::Load(g_cont_toggle_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x51});
+    g_main_game_state->hud_buttons.combat_stance[4].Configure(
+        ButtonGraphics::Load(g_cont_pending_path, 3, 0, 1, 2, 2),
+        {.on_click = MainGameCombatConfirmButton,
+         .on_right_click = MainGameCombatStanceSecondary,
+         .tooltip = 0x50});
     for (index = 0; index < 5; ++index) {
-        g_main_game_buttons.combat_stance[index].SetPosition(g_combat_stance_positions[index].x,
-                                                             g_combat_stance_positions[index].y);
+        g_main_game_state->hud_buttons.combat_stance[index].SetPosition(
+            g_combat_stance_positions[index].x, g_combat_stance_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00598270
@@ -526,31 +485,36 @@ static void MainGameRoofButton2(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597EE0
-unsigned char CreateRoofButtons(void)
+static void CreateRoofButtons()
 {
     int index;
 
-    g_main_game_buttons.roof[0].Configure(
-        g_roof_buttons_path, {9, 0, 6, 3, 6},
-        {.on_click = MainGameRoofButton0, .toggles = true, .tooltip = 0x38});
-    g_main_game_buttons.roof[1].Configure(
-        g_roof_buttons_path, {10, 1, 7, 4, 7},
-        {.on_click = MainGameRoofButton1, .toggles = true, .tooltip = 0x39});
-    g_main_game_buttons.roof[2].Configure(
-        g_roof_buttons_path, {0xb, 2, 8, 5, 8},
-        {.on_click = MainGameRoofButton2, .toggles = true, .tooltip = 0x3a});
+    g_main_game_state->hud_buttons.roof[0].Configure(
+        ButtonGraphics::Load(g_roof_buttons_path, 9, 0, 6, 3, 6),
+        {.on_click = MainGameRoofButton0,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x38});
+    g_main_game_state->hud_buttons.roof[1].Configure(
+        ButtonGraphics::Load(g_roof_buttons_path, 10, 1, 7, 4, 7),
+        {.on_click = MainGameRoofButton1,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x39});
+    g_main_game_state->hud_buttons.roof[2].Configure(
+        ButtonGraphics::Load(g_roof_buttons_path, 0xb, 2, 8, 5, 8),
+        {.on_click = MainGameRoofButton2,
+         .policy = {.primary_toggle = ButtonToggle::Press},
+         .tooltip = 0x3a});
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        g_main_game_buttons.roof[0].SetPressed(true);
+        g_main_game_state->hud_buttons.roof[0].SetPressed(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
-        g_main_game_buttons.roof[1].SetPressed(true);
+        g_main_game_state->hud_buttons.roof[1].SetPressed(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
-        g_main_game_buttons.roof[2].SetPressed(true);
+        g_main_game_state->hud_buttons.roof[2].SetPressed(true);
     }
     for (index = 0; index < 3; ++index) {
-        g_main_game_buttons.roof[index].SetPosition(g_roof_button_positions[index].x,
-                                                    g_roof_button_positions[index].y);
+        g_main_game_state->hud_buttons.roof[index].SetPosition(g_roof_button_positions[index].x,
+                                                               g_roof_button_positions[index].y);
     }
-    return 1;
 }
 
 /* Draw the roof chrome strip, mark each roof button dirty, sync enable/press
@@ -560,7 +524,7 @@ void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     for (int index = 0; index < 3; ++index) {
-        g_main_game_buttons.roof[index].m_dirty = true;
+        g_main_game_state->hud_buttons.roof[index].m_dirty = true;
     }
     UpdateRoofButtons();
     RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
@@ -581,18 +545,18 @@ void UpdateRoofButtons(void)
     } else {
         visible = false;
     }
-    g_main_game_buttons.roof[2].SetVisible(visible);
+    g_main_game_state->hud_buttons.roof[2].SetVisible(visible);
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fCampMode) {
-        g_main_game_buttons.roof[0].SetEnabled(true);
+        g_main_game_state->hud_buttons.roof[0].SetEnabled(true);
         enabled = true;
     } else {
-        g_main_game_buttons.roof[0].SetEnabled(false);
+        g_main_game_state->hud_buttons.roof[0].SetEnabled(false);
         enabled = false;
     }
-    g_main_game_buttons.roof[1].SetEnabled(enabled);
+    g_main_game_state->hud_buttons.roof[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
-    for (auto& button : g_main_game_buttons.roof) {
-        button.Draw(GetFrameBufferSurface());
+    for (auto& button : g_main_game_state->hud_buttons.roof) {
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -602,34 +566,34 @@ void UpdateRoofButtons(void)
 void SyncRoofButtonPressedState(void)
 {
     if (g_settings.main_ui_mode == 0) {
-        if (g_main_game_buttons.roof[0].IsPressed() == 0) {
-            g_main_game_buttons.roof[0].SetPressed(true);
+        if (g_main_game_state->hud_buttons.roof[0].IsPressed() == 0) {
+            g_main_game_state->hud_buttons.roof[0].SetPressed(true);
         }
-        if (g_main_game_buttons.roof[1].IsPressed()) {
-            g_main_game_buttons.roof[1].SetPressed(false);
+        if (g_main_game_state->hud_buttons.roof[1].IsPressed()) {
+            g_main_game_state->hud_buttons.roof[1].SetPressed(false);
         }
-        if (g_main_game_buttons.roof[2].IsPressed()) {
-            g_main_game_buttons.roof[2].SetPressed(false);
+        if (g_main_game_state->hud_buttons.roof[2].IsPressed()) {
+            g_main_game_state->hud_buttons.roof[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 1) {
-        if (g_main_game_buttons.roof[1].IsPressed() == 0) {
-            g_main_game_buttons.roof[1].SetPressed(true);
+        if (g_main_game_state->hud_buttons.roof[1].IsPressed() == 0) {
+            g_main_game_state->hud_buttons.roof[1].SetPressed(true);
         }
-        if (g_main_game_buttons.roof[0].IsPressed()) {
-            g_main_game_buttons.roof[0].SetPressed(false);
+        if (g_main_game_state->hud_buttons.roof[0].IsPressed()) {
+            g_main_game_state->hud_buttons.roof[0].SetPressed(false);
         }
-        if (g_main_game_buttons.roof[2].IsPressed()) {
-            g_main_game_buttons.roof[2].SetPressed(false);
+        if (g_main_game_state->hud_buttons.roof[2].IsPressed()) {
+            g_main_game_state->hud_buttons.roof[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 2) {
-        if (g_main_game_buttons.roof[2].IsPressed() == 0) {
-            g_main_game_buttons.roof[2].SetPressed(true);
+        if (g_main_game_state->hud_buttons.roof[2].IsPressed() == 0) {
+            g_main_game_state->hud_buttons.roof[2].SetPressed(true);
         }
-        if (g_main_game_buttons.roof[0].IsPressed()) {
-            g_main_game_buttons.roof[0].SetPressed(false);
+        if (g_main_game_state->hud_buttons.roof[0].IsPressed()) {
+            g_main_game_state->hud_buttons.roof[0].SetPressed(false);
         }
-        if (g_main_game_buttons.roof[1].IsPressed()) {
-            g_main_game_buttons.roof[1].SetPressed(false);
+        if (g_main_game_state->hud_buttons.roof[1].IsPressed()) {
+            g_main_game_state->hud_buttons.roof[1].SetPressed(false);
         }
     }
 }
@@ -722,12 +686,12 @@ void RedrawLayoutArrowButtons(void)
     W8ButtonWidget* draw_button;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0x166);
-    for (auto& button : g_main_game_buttons.layout_arrows) {
+    for (auto& button : g_main_game_state->hud_buttons.layout_arrows) {
         button.m_dirty = true;
     }
     if (gXStatus.fNpcDialogueMode || gXStatus.fSpellCastMode || gXStatus.fItemSelectMode ||
         gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode) {
-        for (auto& button : g_main_game_buttons.layout_arrows) {
+        for (auto& button : g_main_game_state->hud_buttons.layout_arrows) {
             button.SetVisible(false);
         }
         return;
@@ -735,77 +699,76 @@ void RedrawLayoutArrowButtons(void)
 
     enabled = g_settings.main_ui_mode != 0;
     if (enabled) {
-        g_main_game_buttons.layout_arrows[0].SetEnabled(true);
+        g_main_game_state->hud_buttons.layout_arrows[0].SetEnabled(true);
     } else {
-        g_main_game_buttons.layout_arrows[0].SetEnabled(false);
+        g_main_game_state->hud_buttons.layout_arrows[0].SetEnabled(false);
     }
-    g_main_game_buttons.layout_arrows[2].SetEnabled(enabled);
+    g_main_game_state->hud_buttons.layout_arrows[2].SetEnabled(enabled);
 
     if (g_level_block->radar_map_visible == 0) {
-        g_main_game_buttons.layout_arrows[3].SetVisible(true);
-        g_main_game_buttons.layout_arrows[0].SetVisible(false);
-        draw_button = &g_main_game_buttons.layout_arrows[3];
+        g_main_game_state->hud_buttons.layout_arrows[3].SetVisible(true);
+        g_main_game_state->hud_buttons.layout_arrows[0].SetVisible(false);
+        draw_button = &g_main_game_state->hud_buttons.layout_arrows[3];
     } else {
-        g_main_game_buttons.layout_arrows[0].SetVisible(true);
-        g_main_game_buttons.layout_arrows[3].SetVisible(false);
-        draw_button = &g_main_game_buttons.layout_arrows[0];
+        g_main_game_state->hud_buttons.layout_arrows[0].SetVisible(true);
+        g_main_game_state->hud_buttons.layout_arrows[3].SetVisible(false);
+        draw_button = &g_main_game_state->hud_buttons.layout_arrows[0];
     }
-    draw_button->Draw(GetFrameBufferSurface());
+    draw_button->DrawAndInvalidate(GetFrameBufferSurface());
 
     if (g_level_block->action_panel_visible == 0) {
-        g_main_game_buttons.layout_arrows[4].SetVisible(true);
-        g_main_game_buttons.layout_arrows[1].SetVisible(false);
-        draw_button = &g_main_game_buttons.layout_arrows[4];
+        g_main_game_state->hud_buttons.layout_arrows[4].SetVisible(true);
+        g_main_game_state->hud_buttons.layout_arrows[1].SetVisible(false);
+        draw_button = &g_main_game_state->hud_buttons.layout_arrows[4];
     } else {
-        g_main_game_buttons.layout_arrows[1].SetVisible(true);
-        g_main_game_buttons.layout_arrows[4].SetVisible(false);
-        draw_button = &g_main_game_buttons.layout_arrows[1];
+        g_main_game_state->hud_buttons.layout_arrows[1].SetVisible(true);
+        g_main_game_state->hud_buttons.layout_arrows[4].SetVisible(false);
+        draw_button = &g_main_game_state->hud_buttons.layout_arrows[1];
     }
-    draw_button->Draw(GetFrameBufferSurface());
+    draw_button->DrawAndInvalidate(GetFrameBufferSurface());
 
     if (g_level_block->formation_board_visible) {
-        g_main_game_buttons.layout_arrows[2].SetVisible(true);
-        g_main_game_buttons.layout_arrows[5].SetVisible(false);
-        g_main_game_buttons.layout_arrows[2].Draw(GetFrameBufferSurface());
+        g_main_game_state->hud_buttons.layout_arrows[2].SetVisible(true);
+        g_main_game_state->hud_buttons.layout_arrows[5].SetVisible(false);
+        g_main_game_state->hud_buttons.layout_arrows[2].DrawAndInvalidate(GetFrameBufferSurface());
         return;
     }
-    g_main_game_buttons.layout_arrows[5].SetVisible(true);
-    g_main_game_buttons.layout_arrows[2].SetVisible(false);
-    g_main_game_buttons.layout_arrows[5].Draw(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.layout_arrows[5].SetVisible(true);
+    g_main_game_state->hud_buttons.layout_arrows[2].SetVisible(false);
+    g_main_game_state->hud_buttons.layout_arrows[5].DrawAndInvalidate(GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005982D0
-unsigned char CreateLayoutArrowButtons(void)
+static void CreateLayoutArrowButtons()
 {
     int index;
 
-    g_main_game_buttons.layout_arrows[0].Configure(
-        g_layout_arrows_path, {6, 0, 1, BUTTON_NO_IMAGE, 2},
+    g_main_game_state->hud_buttons.layout_arrows[0].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
-    g_main_game_buttons.layout_arrows[1].Configure(
-        g_layout_arrows_path, {0xe, 8, 9, BUTTON_NO_IMAGE, 10},
+    g_main_game_state->hud_buttons.layout_arrows[1].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
-    g_main_game_buttons.layout_arrows[2].Configure(
-        g_layout_arrows_path, {0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12},
+    g_main_game_state->hud_buttons.layout_arrows[2].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
-    g_main_game_buttons.layout_arrows[3].Configure(
-        g_layout_arrows_path, {7, 3, 4, BUTTON_NO_IMAGE, 5},
+    g_main_game_state->hud_buttons.layout_arrows[3].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
-    g_main_game_buttons.layout_arrows[4].Configure(
-        g_layout_arrows_path, {0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd},
+    g_main_game_state->hud_buttons.layout_arrows[4].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
-    g_main_game_buttons.layout_arrows[5].Configure(
-        g_layout_arrows_path, {0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15},
+    g_main_game_state->hud_buttons.layout_arrows[5].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
     for (index = 0; index < 6; ++index) {
-        g_main_game_buttons.layout_arrows[index].SetPosition(g_layout_arrow_positions[index].x,
-                                                             g_layout_arrow_positions[index].y);
+        g_main_game_state->hud_buttons.layout_arrows[index].SetPosition(
+            g_layout_arrow_positions[index].x, g_layout_arrow_positions[index].y);
     }
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x00598AB0
-void CreateMainGameInterfaceButtons(void)
+void ConfigureMainGameHudButtons(void)
 {
     CreateSubMenuButtons();
     CreateSubMenuScrollButtons();
@@ -816,46 +779,18 @@ void CreateMainGameInterfaceButtons(void)
     CreateLayoutArrowButtons();
 }
 
-/* Free every button bank CreateMainGameInterfaceButtons built, plus the submenu
-   panel and row controls created with it. Every slot is nulled as it is
-   released so a second pass is harmless. */
-// FUNCTION: WIZ8 0x00598AE0
-void DestroyMainGameInterfaceButtons(void)
-{
-    for (auto& button : g_main_game_buttons.submenu) {
-        button.Reset();
-    }
-    for (auto& button : g_main_game_buttons.submenu_scroll) {
-        button.Reset();
-    }
-    for (auto& button : g_main_game_buttons.submenu_panel) {
-        button.Reset();
-    }
-    submenu.reset();
-    g_main_game_buttons.options_disk.Reset();
-    for (auto& button : g_main_game_buttons.combat_stance) {
-        button.Reset();
-    }
-    for (auto& button : g_main_game_buttons.roof) {
-        button.Reset();
-    }
-    for (auto& button : g_main_game_buttons.layout_arrows) {
-        button.Reset();
-    }
-}
-
 static void SetMenuButtonBanksEnabled(bool enabled)
 {
     int i;
     for (i = 0; i < 2; ++i) {
-        g_main_game_buttons.submenu_scroll[i].SetEnabled(enabled);
+        g_main_game_state->hud_buttons.submenu_scroll[i].SetEnabled(enabled);
     }
-    g_main_game_buttons.options_disk.SetEnabled(enabled);
+    g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
     for (i = 0; i < 3; ++i) {
-        g_main_game_buttons.roof[i].SetEnabled(enabled);
+        g_main_game_state->hud_buttons.roof[i].SetEnabled(enabled);
     }
     for (i = 0; i < 6; ++i) {
-        g_main_game_buttons.layout_arrows[i].SetEnabled(enabled);
+        g_main_game_state->hud_buttons.layout_arrows[i].SetEnabled(enabled);
     }
 }
 
@@ -995,25 +930,25 @@ void UpdateSubMenuPanelButtons(void)
     } else {
         enabled = AnyCharacterEngaged();
     }
-    g_main_game_buttons.submenu_panel[0].SetEnabled(enabled);
+    g_main_game_state->hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
     if (!gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fNpcDialogueMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode &&
         g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
-        g_main_game_buttons.submenu_panel[1].SetEnabled(true);
+        g_main_game_state->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
-            if (g_main_game_buttons.submenu_panel[1].IsPressed()) {
-                g_main_game_buttons.submenu_panel[1].SetPressed(false);
+            if (g_main_game_state->hud_buttons.submenu_panel[1].IsPressed()) {
+                g_main_game_state->hud_buttons.submenu_panel[1].SetPressed(false);
             }
-        } else if (g_main_game_buttons.submenu_panel[1].IsPressed() == 0) {
-            g_main_game_buttons.submenu_panel[1].SetPressed(true);
+        } else if (g_main_game_state->hud_buttons.submenu_panel[1].IsPressed() == 0) {
+            g_main_game_state->hud_buttons.submenu_panel[1].SetPressed(true);
         }
     } else {
-        g_main_game_buttons.submenu_panel[1].SetEnabled(false);
+        g_main_game_state->hud_buttons.submenu_panel[1].SetEnabled(false);
     }
 
-    for (auto& button : g_main_game_buttons.submenu_panel) {
-        button.Draw(GetFrameBufferSurface());
+    for (auto& button : g_main_game_state->hud_buttons.submenu_panel) {
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1022,16 +957,16 @@ static void UpdateSubMenuScrollButtons()
 
     if (g_level_block->combat_end_notification == -1 && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
-        for (auto& button : g_main_game_buttons.submenu_scroll) {
+        for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
             button.SetEnabled(true);
         }
     } else {
-        for (auto& button : g_main_game_buttons.submenu_scroll) {
+        for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
             button.SetEnabled(false);
         }
     }
-    for (auto& button : g_main_game_buttons.submenu_scroll) {
-        button.Draw(GetFrameBufferSurface());
+    for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1047,17 +982,17 @@ void RedrawSubMenuButtons(void)
     frame = !gXStatus.fCombatMode ? 8 : 9;
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0xc4, 0x1c2);
 
-    for (auto& button : g_main_game_buttons.submenu) {
+    for (auto& button : g_main_game_state->hud_buttons.submenu) {
         button.m_dirty = true;
     }
     for (index = 0; index < 9; ++index) {
-        auto& button = g_main_game_buttons.submenu[index];
+        auto& button = g_main_game_state->hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
-        button.Draw(GetFrameBufferSurface());
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
-    for (auto& button : g_main_game_buttons.submenu_panel) {
+    for (auto& button : g_main_game_state->hud_buttons.submenu_panel) {
         button.m_dirty = true;
     }
     UpdateSubMenuPanelButtons();
@@ -1068,22 +1003,10 @@ void RedrawSubMenuButtons(void)
         DrawSubMenuCharacterAction();
     }
 
-    for (auto& button : g_main_game_buttons.submenu_scroll) {
+    for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
         button.m_dirty = true;
     }
     UpdateSubMenuScrollButtons();
-}
-
-// FUNCTION: WIZ8 0x00597550
-void SubMenuScrollArrowUp(W8ButtonWidget* button)
-{
-    ScrollSubMenuCharacter(0);
-}
-
-// FUNCTION: WIZ8 0x00597560
-void SubMenuScrollArrowDown(W8ButtonWidget* button)
-{
-    ScrollSubMenuCharacter(1);
 }
 
 /* The eligible-slot scan runs in two halves per direction: from the current
@@ -1147,19 +1070,16 @@ done:
 // FUNCTION: WIZ8 0x005990F0
 void SetSubMenuButtonTooltips(int enabled)
 {
-    g_main_game_buttons.submenu[0].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[1].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[2].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[3].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[4].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[5].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[6].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[7].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu[8].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu_scroll[0].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu_scroll[1].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu_panel[0].SetTooltipEnabled(enabled);
-    g_main_game_buttons.submenu_panel[1].SetTooltipEnabled(enabled);
+    auto& hud = g_main_game_state->hud_buttons;
+    for (auto& button : hud.submenu) {
+        button.SetTooltipEnabled(enabled);
+    }
+    for (auto& button : hud.submenu_scroll) {
+        button.SetTooltipEnabled(enabled);
+    }
+    for (auto& button : hud.submenu_panel) {
+        button.SetTooltipEnabled(enabled);
+    }
 }
 
 /* Per-frame button refresh from DrawMainGameScreen: restate and draw the nine
@@ -1173,17 +1093,17 @@ void UpdateMainGameButtons(void)
     bool enabled;
 
     for (index = 0; index < 9; ++index) {
-        auto& button = g_main_game_buttons.submenu[index];
+        auto& button = g_main_game_state->hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
-        button.Draw(GetFrameBufferSurface());
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
     enabled = !gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode &&
               !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
               !gXStatus.fTrapInteract;
-    g_main_game_buttons.options_disk.SetEnabled(enabled);
-    g_main_game_buttons.options_disk.Draw(GetFrameBufferSurface());
+    g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
+    g_main_game_state->hud_buttons.options_disk.DrawAndInvalidate(GetFrameBufferSurface());
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
 }
@@ -1194,63 +1114,35 @@ void UpdateMainGameButtons(void)
 // FUNCTION: WIZ8 0x00598FA0
 void UpdateSubMenuAutoClose(void)
 {
-    int left;
-    int right;
-
-    left = submenu->left;
-    switch (g_submenu_entry_count) {
-    case 0:
-    case 1:
-        goto check_clock;
-    case 2:
-        right = left + 0x2f;
-        break;
-    case 3:
-        right = left + 0x42;
-        break;
-    case 4:
-        right = left + 0x55;
-        break;
-    case 5:
-        right = left + 0x67;
+    auto& submenu = g_main_game_state->submenu;
+    if (!submenu) {
+        return;
     }
-    if (!IsCursorInRectangle(left, 0x1c3, right, 0x1c3 + 0x1c)) {
-    check_clock:
-        if (!g_submenu_close_pending) {
-            g_submenu_clock = w8_get_ticks() + (500);
-            g_submenu_close_pending = true;
-            return;
-        }
-        if (TimeUntilDeadline(g_submenu_clock) == 0) {
-            DestroySubMenuControls();
-        }
-    } else if (g_submenu_close_pending) {
-        g_submenu_clock = w8_get_ticks() + (0);
-        g_submenu_close_pending = false;
+    const auto& bounds = submenu->bounds;
+    if (IsCursorInRectangle(bounds.x, bounds.y, bounds.x + bounds.w - 1, bounds.y + bounds.h - 1)) {
+        submenu->close_deadline.reset();
+    } else if (!submenu->close_deadline) {
+        submenu->close_deadline = w8_get_ticks() + 500;
+    } else if (TimeUntilDeadline(*submenu->close_deadline) == 0) {
+        DestroySubMenuControls();
     }
 }
 
 // FUNCTION: WIZ8 0x005957E0
 void EnableSubMenuRegions(void)
 {
+    auto& submenu = g_main_game_state->submenu;
     if (submenu) submenu->input.setEnabled(true);
 }
 
 // FUNCTION: WIZ8 0x00595850
-unsigned char BuildSubMenuPanel(short notification)
+bool BuildSubMenuPanel(short notification)
 {
-    short index;
-    int left;
-    int menu;
-    short count = 0;
-    int built = 0;
-    int entry;
-    short message;
-    int icon_delta;
-    short state;
-    int base;
-
+    auto& submenu = g_main_game_state->submenu;
     submenu.reset();
+    int left;
+    W8SubMenuPage menu;
+    int count;
     switch (notification) {
     case 6:
         menu = W8_SUBMENU_ATTACK;
@@ -1278,51 +1170,31 @@ unsigned char BuildSubMenuPanel(short notification)
         left = g_submenu_panel_button_positions[0].x - 1;
         break;
     default:
-        left = notification;
-        break;
+        return false;
     }
-    for (index = 0; index < count; ++index) {
-        state = GetSubMenuEntryState(menu, index, g_status.selected_character);
-        g_submenu_entry_states[index] = state;
+    std::vector<std::pair<int, W8SubMenuEntryState>> entries;
+    for (int index = 0; index < count; ++index) {
+        const auto state = GetSubMenuEntryState(menu, index, g_status.selected_character);
         if (state != W8_SUBMENU_ENTRY_UNAVAILABLE) {
-            g_submenu_entries[built] = index;
-            ++built;
+            entries.emplace_back(index, state);
         }
     }
-    ++built;
-    switch (built) {
-    case 2:
-        base = 0;
-        icon_delta = 0x2f;
-        break;
-    case 3:
-        base = 1;
-        icon_delta = 0x42;
-        break;
-    case 4:
-        base = 2;
-        icon_delta = 0x55;
-        break;
-    case 5:
-        base = 3;
-        icon_delta = 0x67;
-        break;
-    case 0:
-    case 1:
-        return 0;
-    default:
-        base = notification;
-        icon_delta = notification;
-        break;
+    if (entries.empty()) {
+        return false;
     }
-    submenu = std::make_unique<SubMenu>();
-    submenu->left = left;
-    submenu->background = base;
+    // Berserk and Pray are mutually exclusive, leaving at most four action rows.
+    constexpr std::array widths{0x2f, 0x42, 0x55, 0x67};
+    Assert(entries.size() <= widths.size());
+    const int built = static_cast<int>(entries.size()) + 1;
+    submenu = std::make_unique<MainGameSubMenu>();
+    submenu->bounds = {left, 0x1c3, widths[entries.size() - 1] + 1, 0x1d};
+    submenu->background = static_cast<int>(entries.size()) - 1;
     submenu->input.add(
-        SDL_Rect{left, 0x1c3, icon_delta + 1, 0x1d},
+        submenu->bounds,
         [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
                 AfterUiDispatch(DestroySubMenuControls);
+            }
             return UiResult::Handled;
         },
         -1);
@@ -1333,17 +1205,16 @@ unsigned char BuildSubMenuPanel(short notification)
         {SubMenuSelectEquip, SubMenuOpenUseItemView, SubMenuUseRecordedItem},
         {SubMenuOpenSpellView, SubMenuCastRecordedSpell},
         {SubMenuSelectWalk, SubMenuSelectRun}};
-    for (index = 0; index < built - 1; ++index) {
-        entry = g_submenu_entries[index];
-        state = g_submenu_entry_states[entry];
-        message = g_submenu_entry_message_ids[menu * 5 + entry];
-        icon_delta = 0;
+    for (std::size_t index = 0; index < entries.size(); ++index) {
+        const auto [entry, state] = entries[index];
+        int message = g_submenu_entry_message_ids[menu * 5 + entry];
+        int icon_delta = 0;
         if (menu == W8_SUBMENU_SPELLS && entry == 1) {
             message += g_spell_records[g_status.buffers.XChar[g_status.selected_character].spell_id]
                            .realm *
                        7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
-            base = GetAttackMenuWeaponOffset(
+            const int base = GetAttackMenuWeaponOffset(
                 g_status.buffers.Char[g_status.selected_character].Hand[0].weapon_skill);
             message += base * 7;
         }
@@ -1363,22 +1234,29 @@ unsigned char BuildSubMenuPanel(short notification)
         case W8_SUBMENU_ENTRY_USABLE:
             icon_delta = 2;
             break;
+        case W8_SUBMENU_ENTRY_UNAVAILABLE:
+            std::unreachable();
         }
         auto button = std::make_unique<W8ButtonWidget>(submenu->input);
+
         button->Configure(
-            CatalogArtwork::Load(0x89, 0).spriteSheet(),
-            {-1, message, message + icon_delta, message, message + icon_delta},
+            ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, message,
+                                 message + icon_delta, message, message + icon_delta),
             {.on_click = [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); },
              .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
-             .priority = UI_PRIORITY_LOWEST,
-             .tooltip = g_submenu_entry_help_ids[menu * 5 + entry]});
-        button->policy.controller_activation = true;
-        button->SetPosition(left + index * 19 + 5, 0x1c8);
+             .on_hover =
+                 [menu, entry](bool hovered) {
+                     if (menu == W8_SUBMENU_ITEMS && entry == 2 && hovered) {
+                         SetUiHelpForced(true);
+                     }
+                 },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = g_submenu_entry_help_ids[menu * 5 + entry],
+             .priority = 0,
+             .menu_artwork = true});
+        button->SetPosition(left + static_cast<int>(index) * 19 + 5, 0x1c8);
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
-            button->on_hover = [](bool hovered) {
-                if (hovered) SetUiHelpForced(true);
-            };
             button->SetTooltip([] {
                 const int slot = g_status.selected_character;
                 if (!CanPartySlotUseRecordedItem(slot))
@@ -1392,20 +1270,21 @@ unsigned char BuildSubMenuPanel(short notification)
         submenu->buttons.push_back(std::move(button));
     }
     auto cancel = std::make_unique<W8ButtonWidget>(submenu->input);
-    cancel->Configure(CatalogArtwork::Load(0x89, 0).spriteSheet(), {-1, 0xbd, 0xbf, 0xbd, 0xbf},
+
+    cancel->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd,
+                                           0xbf, 0xbd, 0xbf),
                       {.on_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
                        .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
-                       .priority = UI_PRIORITY_LOWEST,
-                       .tooltip = 0x11});
-    cancel->policy.controller_activation = true;
+                       .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                       .tooltip = 0x11,
+                       .priority = 0,
+                       .menu_artwork = true});
     cancel->SetPosition(left + built * 19 - 14, 0x1c8);
     cancel->Resize(18, 18);
     submenu->buttons.push_back(std::move(cancel));
     g_level_block->combat_end_notification = notification;
-    g_submenu_menu = menu;
-    g_submenu_entry_count = built;
     EnableSubMenuRegions();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00596360

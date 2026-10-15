@@ -32,6 +32,7 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Levels.h"
@@ -528,7 +529,7 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
     auto art = CatalogArtwork::Load(0xf9, 0);
     const int normal = save_mode ? 0 : 2;
     button.Configure(
-        art.spriteSheet(), {4, normal, -1, normal + 1, -1},
+        ButtonGraphics::Load(art.spriteSheet(), 4, normal, -1, normal + 1, -1),
         {.on_click =
              [&owner, this, index, save_mode](auto*) {
                  AfterUiDispatch([&owner, this, index, save_mode] {
@@ -544,9 +545,11 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
                  if (!m_editing && owner.m_selected == index)
                      AfterUiDispatch([&owner] { owner.OnPrimary(owner.m_action_button); });
              },
-         .priority = UI_PRIORITY_LOWEST});
-    button.policy.primary_toggle = ButtonToggle::StayLatched;
-    button.policy.controller_activation = true;
+         .policy = {.primary_toggle = ButtonToggle::StayLatched,
+                    .input_rule = ButtonInputRule::PrimaryPressedState},
+         .priority = UI_PRIORITY_LOWEST,
+         .menu_artwork = true});
+
     button.SetPosition(0x104 + 10, 0x12 + index * 0x49);
     const auto size = art.size(normal);
     button.Resize(size.x, size.y);
@@ -555,8 +558,7 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
 void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!full_redraw && !button.m_dirty) return;
-    button.m_dirty = true;
-    button.Draw(target);
+    button.DrawAndInvalidate(target, true);
     if (!button.IsEnabled() || m_save == 0) {
         return;
     }
@@ -676,7 +678,7 @@ void W8OptionsKeyboardPanel::Populate()
             SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
             [this, key](const UiPointerEvent& event) {
                 const ButtonPolicy policy{.primary_toggle = ButtonToggle::StayLatched,
-                                          .controller_activation = true};
+                                          .input_rule = ButtonInputRule::PrimaryPressedState};
                 m_dirty = true;
                 if (event.action == UiPointerAction::Leave)
                     key->interaction.leave(policy);
@@ -1134,20 +1136,21 @@ void W8OptionsScreen::CreateControls()
         };
         auto& button = m_menu_buttons[item];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
-        button->Configure(artwork.spriteSheet(),
-                          {frame(frames[4]), frame(frames[0]), frame(frames[2]), frame(frames[1]),
-                           frame(frames[3])},
-                          {.on_click =
-                               [this, item](W8ButtonWidget*) {
-                                   AfterUiDispatch([this, item] { ActivateMenu(item); });
-                               },
-                           .priority = UI_PRIORITY_LOWEST});
+        button->Configure(
+            ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]),
+                                 frame(frames[2]), frame(frames[1]), frame(frames[3])),
+            {.on_click =
+                 [this, item](W8ButtonWidget*) {
+                     AfterUiDispatch([this, item] { ActivateMenu(item); });
+                 },
+             .policy = {.primary_toggle = item < 6 ? ButtonToggle::StayLatched : ButtonToggle::None,
+                        .input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
         const auto size = artwork.size(frames[0]);
         button->SetPosition(row.bounds.left, row.bounds.top);
         button->Resize(size.x, size.y);
-        button->policy = {.primary_toggle =
-                              item < 6 ? ButtonToggle::StayLatched : ButtonToggle::None,
-                          .controller_activation = true};
+
         if (item == 5) button->SetEnabled(g_status.game_started);
         if (item == 4) button->SetEnabled(m_save_slots.size() > 1);
         for (const auto& bounds : row.child_bounds) {
@@ -1176,18 +1179,20 @@ void W8OptionsScreen::CreateControls()
         const int frame = arrows.imageOffset() + direction * 4;
         auto& button = m_navigation[direction];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
-        button->Configure(arrows.spriteSheet(), {frame + 3, frame, frame + 1, frame + 2, -1},
-                          {.on_click =
-                               [this, direction](W8ButtonWidget*) {
-                                   AfterUiDispatch([this, direction] {
-                                       m_panel[m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
-                                       UpdateNavigation();
-                                   });
-                               },
-                           .priority = UI_PRIORITY_LOWEST});
+        button->Configure(
+            ButtonGraphics::Load(arrows.spriteSheet(), frame + 3, frame, frame + 1, frame + 2, -1),
+            {.on_click =
+                 [this, direction](W8ButtonWidget*) {
+                     AfterUiDispatch([this, direction] {
+                         m_panel[m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
+                         UpdateNavigation();
+                     });
+                 },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
         const auto size = arrows.size(direction * 4);
         button->Resize(size.x, size.y);
-        button->policy.controller_activation = true;
     }
     const auto size = CatalogArtwork::Load(0xf3, 0).size(0);
     const W8ControlsRect bounds{0x11b, m_navigation_y, 0x11b + size.x, m_navigation_y + size.y};
@@ -1314,15 +1319,14 @@ void W8OptionsScreen::Redraw()
         if (button.m_dirty && item == m_selected_panel)
             CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(
                 GetFrameBufferSurface(), g_options_menu_rows[item].item_id, 12, 15);
-        button.Draw(GetFrameBufferSurface());
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
     if (m_navigation_visible &&
         (m_navigation_dirty || m_navigation[0]->m_dirty || m_navigation[1]->m_dirty)) {
         auto& target = GetFrameBufferSurface();
         CatalogArtwork::Load(0xf3, 0).drawAndInvalidate(target, 0, 0x11b, m_navigation_y);
         for (auto& button : m_navigation) {
-            button->m_dirty = true;
-            button->Draw(target);
+            button->DrawAndInvalidate(target, true);
         }
         m_page_text->RenderToTarget(0, true, target);
         m_navigation_dirty = false;
@@ -1539,9 +1543,13 @@ W8ButtonWidget* W8OptionsPanel::AddButton(int x, int y, int artwork, int normal,
 {
     const auto art = CatalogArtwork::Load(artwork, 0);
     auto& button = m_buttons.emplace_back(std::make_unique<W8ButtonWidget>(m_input));
-    button->Configure(art.spriteSheet(), {disabled, normal, hover, pressed, pressed_hover},
-                      {.on_click = std::move(callback), .priority = UI_PRIORITY_LOWEST});
-    button->policy.controller_activation = true;
+    button->Configure(
+        ButtonGraphics::Load(art.spriteSheet(), disabled, normal, hover, pressed, pressed_hover),
+        {.on_click = std::move(callback),
+         .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+         .priority = UI_PRIORITY_LOWEST,
+         .menu_artwork = true});
+
     button->SetPosition(m_bounds.x + x, m_bounds.y + y);
     const auto size = art.size(normal);
     button->Resize(size.x, size.y);
@@ -1564,7 +1572,7 @@ void W8OptionsPanel::AddCheckbox(int label, int* value)
     AddOptionsLabel(*this, label);
     auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, -1,
                                [value](auto* button) { *value = button->IsPressed() ? 2 : 0; });
-    checkbox->policy.primary_toggle = ButtonToggle::Release;
+    checkbox->Policy().primary_toggle = ButtonToggle::Release;
     checkbox->SetPressed(*value != 0);
     m_content_top += 44;
 }
@@ -1577,7 +1585,7 @@ W8ButtonWidget* W8OptionsPanel::AddChoiceButton(int label, W8ButtonCallback call
         std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[label], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4));
     auto* button = AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, -1, std::move(callback));
-    button->policy.primary_toggle = ButtonToggle::Release;
+    button->Policy().primary_toggle = ButtonToggle::Release;
     m_content_top += 22;
     return button;
 }
@@ -1601,7 +1609,7 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
             *value = index;
             for (int i = 0; i < count; ++i) m_buttons[first + i]->SetPressed(i == index);
         });
-        button->policy.primary_toggle = ButtonToggle::StayLatched;
+        button->Policy().primary_toggle = ButtonToggle::StayLatched;
         button->SetPressed(index == *value);
     }
     m_content_top += 22;
@@ -1617,7 +1625,7 @@ void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
     }
     for (auto& button : m_buttons) {
         button->m_dirty |= repaint;
-        button->Draw(target);
+        button->DrawAndInvalidate(target);
     }
     for (auto& slider : m_owned_sliders) slider->Redraw(target, repaint);
     m_dirty = false;

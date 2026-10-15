@@ -32,6 +32,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/AssayDialog.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/engine_code/Video2.h"
@@ -1005,13 +1006,16 @@ void CreateCampItemControls()
     const auto button = [](UiLayer& layer, int art, std::array<int, 5> f, SDL_Rect bounds, int help,
                            bool toggle, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(layer);
-        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(),
-                          {f[0], f[1], f[2], f[3], f[4]},
-                          {.on_click = [action](auto*) { AfterUiDispatch(action); },
-                           .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = help});
-        result->policy.controller_activation = true;
-        result->policy.primary_toggle = toggle ? ButtonToggle::Release : ButtonToggle::None;
+        result->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), f[0], f[1], f[2], f[3],
+                                 f[4]),
+            {.on_click = [action](auto*) { AfterUiDispatch(action); },
+             .policy = {.primary_toggle = toggle ? ButtonToggle::Release : ButtonToggle::None,
+                        .input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = help,
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
+
         result->SetPosition(bounds.x, bounds.y);
         result->Resize(bounds.w, bounds.h);
         return result;
@@ -1100,7 +1104,7 @@ void RefreshCampActionPanel(bool invalidate)
 {
     for (const auto& button : item_controls->actions) {
         button->m_dirty |= invalidate;
-        button->Draw(GetFrameBufferSurface());
+        button->DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1169,7 +1173,7 @@ void RefreshItemsTabPanel(bool invalidate)
 {
     for (const auto& button : item_controls->filters) {
         button->m_dirty |= invalidate;
-        button->Draw(GetFrameBufferSurface());
+        button->DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1218,7 +1222,7 @@ void RefreshCampSecondaryPanel(bool invalidate)
         CatalogArtwork::Load(0x120, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x13c, 7);
         for (const auto& tab : item_controls->tabs) {
             tab->m_dirty = true;
-            tab->Draw(GetFrameBufferSurface());
+            tab->DrawAndInvalidate(GetFrameBufferSurface());
         }
         item_controls->dirty = false;
     }

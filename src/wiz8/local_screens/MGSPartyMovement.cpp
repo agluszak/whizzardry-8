@@ -14,7 +14,9 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "timer.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
@@ -68,15 +70,17 @@ unsigned char CreatePartyMovementPanel(void)
     for (int index = 0; index < 2; ++index) {
         auto& button = movement->buttons[index];
         button = std::make_unique<W8ButtonWidget>(movement->input);
-        button->Configure(art.spriteSheet(), {7, 4, 5, 6, 6},
+        button->Configure(ButtonGraphics::Load(art.spriteSheet(), 7, 4, 5, 6, 6),
                           {.on_click =
                                [index](auto*) {
                                    AfterUiDispatch(index ? CancelPartyMovement
                                                          : BeginFreeTurnPhase);
                                },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = 37 + index,
                            .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = 37 + index});
-        button->policy.controller_activation = true;
+                           .menu_artwork = true});
+
         button->SetPosition(0x1bb, 0x13f);
         button->Resize(20, 20);
         button->SetVisible(index == 1);
@@ -137,8 +141,7 @@ void DrawPartyMovementPanel(void)
     panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
     if (panel_live) {
         CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
-        movement->buttons[visible]->m_dirty = true;
-        movement->buttons[visible]->Draw(GetFrameBufferSurface());
+        movement->buttons[visible]->DrawAndInvalidate(GetFrameBufferSurface(), true);
         movement->dirty = false;
     }
     right = 0x1b9 - g_level_block->move_percent * 0xf6 / 100;

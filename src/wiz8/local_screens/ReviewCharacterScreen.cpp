@@ -38,11 +38,13 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "timer.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
@@ -858,13 +860,15 @@ W8CampCharacterInfo::W8CampCharacterInfo()
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
         result->Configure(
-            CatalogArtwork::Load(0x121, 0).spriteSheet(),
-            {frame + 3, frame, frame + 2, frame + 1, frame + 4},
+            ButtonGraphics::Load(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 2, frame + 1, frame + 4),
             {.on_click = [this, combat](
                              auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = help,
              .priority = UI_PRIORITY_LOWEST,
-             .tooltip = help});
-        result->policy.controller_activation = true;
+             .menu_artwork = true});
+
         result->SetPosition(0x13e, 0x8b);
         return result;
     };
@@ -928,8 +932,8 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
         CatalogArtwork::Load(0x122, 0).drawAndInvalidate(target, m_backgroundImage, 0x136, 0);
     m_stats_tab->m_dirty |= redraw;
     m_combat_tab->m_dirty |= redraw;
-    m_stats_tab->Draw(target);
-    m_combat_tab->Draw(target);
+    m_stats_tab->DrawAndInvalidate(target);
+    m_combat_tab->DrawAndInvalidate(target);
     if (!redraw) return;
     m_dirty = false;
     InvalidateCampPanel();

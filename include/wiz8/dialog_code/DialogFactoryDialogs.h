@@ -96,12 +96,6 @@ private:
 
 public:
     std::vector<std::string> m_lines;
-    std::vector<void (*)(int)> m_field_064;
-    int m_field_074;
-    float m_field_078; /* 0.05 */
-    float m_field_07c; /* 0.2 */
-    float m_field_080; /* 0.9 */
-    float m_field_084; /* 0.75 */
     SDL_Color m_fill_colour; /* highlight fill colour */
     W8ButtonWidget m_text_button{InputLayer()};
     W8ButtonWidget m_second_text_button{InputLayer()};

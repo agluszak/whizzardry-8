@@ -26,6 +26,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -113,14 +114,17 @@ W8CampStatsControls::W8CampStatsControls()
         auto& button = m_buttons[index];
         button = std::make_unique<W8ButtonWidget>(input);
         button->Configure(
-            CatalogArtwork::Load(0x145, 0).spriteSheet(),
-            {frame + 3, frame, frame + 2, index == 2 ? 15 : frame + 1, index == 2 ? 17 : frame + 4},
+            ButtonGraphics::Load(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3, frame,
+                                 frame + 2, index == 2 ? 15 : frame + 1,
+                                 index == 2 ? 17 : frame + 4),
             {.on_click =
                  [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); },
+             .policy = {.primary_toggle = ButtonToggle::Release,
+                        .input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = 0x954 + index,
              .priority = UI_PRIORITY_LOWEST,
-             .tooltip = 0x954 + index});
-        button->policy.controller_activation = true;
-        button->policy.primary_toggle = ButtonToggle::Release;
+             .menu_artwork = true});
+
         button->SetPosition(0x13c, y[index]);
     }
     m_buttons[2]->SetPressed(g_camp_screen->effect_items_only);
@@ -141,7 +145,7 @@ void W8CampStatsControls::Redraw(SDL_Surface& target, bool force)
 {
     for (const auto& button : m_buttons) {
         button->m_dirty |= force;
-        button->Draw(target);
+        button->DrawAndInvalidate(target);
     }
 }
 
@@ -918,15 +922,17 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         const int frame = action == 4 ? 20 : action % 2 ? 15 : 10;
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(),
-                          {frame + 3, frame, frame + 1, frame + 2, frame + 4},
+        button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(),
+                                               frame + 3, frame, frame + 1, frame + 2, frame + 4),
                           {.on_click =
                                [this, action](auto*) {
                                    AfterUiDispatch([this, action] { ChangePortrait(action); });
                                },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = action == 4 ? 0xf5 : -1,
                            .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = action == 4 ? 0xf5 : -1});
-        button->policy.controller_activation = true;
+                           .menu_artwork = true});
+
         button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);
     }
     character->voice = std::clamp(int(character->voice), 0, 1);
@@ -1076,7 +1082,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     W8CharacterPage::Redraw(target, full_redraw);
     for (auto& button : m_buttons) {
         button->m_dirty |= redraw || full_redraw;
-        button->Draw(target);
+        button->DrawAndInvalidate(target);
     }
     if (redraw || full_redraw || m_choices_dirty) {
         for (int index = 0; index < 11; ++index) {

@@ -18,7 +18,7 @@ class W8DialogBase;
 class W8ButtonWidget;
 class W8DialogTextArea;
 
-typedef void (*W8DialogDestroyCallback)(W8DialogBase* dialog);
+using W8DialogDestroyCallback = std::function<void(W8DialogBase*)>;
 /* Shared close-button callback used by the monster and spell info dialogs. */
 
 /* Modal controls own their regions and state; only visual resources and
@@ -57,6 +57,7 @@ public:
     unsigned int m_dirty_flags;
 
 protected:
+    void NotifyDestroyed();
     void BeginModalInput();
     void EndModalInput();
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);
@@ -66,8 +67,6 @@ protected:
     HitTarget* m_body = nullptr;
     std::string m_text;
     Font* m_font;
-    unsigned char m_foreground;
-    unsigned char m_background;
     std::string m_background_path;
     int m_background_flags;
     GenericButtonImage m_border;
@@ -85,9 +84,6 @@ public:
     /* The trigger update installs its callback with a plain store, so this
        slot is public rather than reachable only through the setter. */
     W8DialogDestroyCallback m_destroy_callback;
-    /* Base constructor clears this slot; the destruction callback consumes
-       it. The item-picker callback's payload is a Trigger*. */
-    void* m_destroy_callback_context;
 
 protected:
     bool m_right_button_down;

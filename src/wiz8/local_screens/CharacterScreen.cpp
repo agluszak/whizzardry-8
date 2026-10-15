@@ -19,6 +19,7 @@
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "soundman.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -147,12 +148,14 @@ void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
-        result->Configure(CatalogArtwork::Load(0x106, 0).spriteSheet(),
-                          {frame + 3, frame, frame + 1, frame + 2, frame + 2},
+        result->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(),
+                                               frame + 3, frame, frame + 1, frame + 2, frame + 2),
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = help,
                            .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = help});
-        result->policy.controller_activation = true;
+                           .menu_artwork = true});
+
         result->SetPosition(x, 0x1c2);
         return result;
     };
@@ -310,8 +313,7 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
     if (!m_navigation_dirty) return;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(target, 4, 0, 0x1c2);
     for (auto* button : buttons) {
-        button->m_dirty = true;
-        button->Draw(target);
+        button->DrawAndInvalidate(target, true);
         button->m_dirty = false;
     }
     m_navigation_dirty = false;

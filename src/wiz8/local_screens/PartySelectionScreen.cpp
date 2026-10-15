@@ -559,9 +559,9 @@ void W8PartySelectionController::DrawOptions(SDL_Surface& target)
             CatalogArtwork::Load(0x102, 0).draw(target, 1, 0x90 + (0x160 - size.x) / 2, 0xa8);
         }
     }
-    for (auto& button : difficulty_buttons) button->Draw(target);
-    npc_toggle->Draw(target);
-    ironman_toggle->Draw(target);
+    for (auto& button : difficulty_buttons) button->DrawAndInvalidate(target);
+    npc_toggle->DrawAndInvalidate(target);
+    ironman_toggle->DrawAndInvalidate(target);
 }
 
 bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
@@ -732,18 +732,20 @@ void W8PartySelectionController::Setup()
                 return UiResult::Handled;
             });
         auto& button = advance[row] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), {3, 0, 1, 2, 4},
-                          {.on_click =
-                               [row](auto*) {
-                                   AfterUiDispatch([row] {
-                                       g_pending_screen_state.parameter_3 =
-                                           &g_status.buffers.Char[row + 2];
-                                       g_pending_screen_state.mode = 2;
-                                       SetPendingScreenState(W8_SCREEN_CHARACTER);
-                                   });
-                               },
-                           .priority = 1});
-        button->policy.controller_activation = true;
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0xa7, 0).spriteSheet(), 3, 0, 1, 2, 4),
+            {.on_click =
+                 [row](auto*) {
+                     AfterUiDispatch([row] {
+                         g_pending_screen_state.parameter_3 = &g_status.buffers.Char[row + 2];
+                         g_pending_screen_state.mode = 2;
+                         SetPendingScreenState(W8_SCREEN_CHARACTER);
+                     });
+                 },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = 1,
+             .menu_artwork = true});
+
         button->SetPosition((row & 1) ? 0x21d : 0x52, (row / 2) * 0x82 + 0x6c);
     }
     import_list = &input.add(SDL_Rect{0x148, 0x31, 0x9e, 0xfb}, [this](
@@ -772,14 +774,22 @@ void W8PartySelectionController::Setup()
         const int y = index < 4 ? 0x137 + index * 26 : 0x1b5;
         const auto art = CatalogArtwork::Load(index < 4 ? 0xfe : 0x106, 0);
         const auto size = art.size(normal);
-        button->ConfigureTextButton(
-            "", index == 1 ? g_wiz_text_font_secondary : g_wiz_text_bold_font, 0, -1,
-            {x, y, size.x, size.y}, {.on_click = [this](auto* control) {
-                AfterUiDispatch([this, control] { OnPrimary(control); });
-            }});
+        button->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
+                                           .string = std::string(""),
+                                           .usFont = &(index == 1 ? g_wiz_text_font_secondary
+                                                                  : g_wiz_text_bold_font),
+                                           .sForeColor = 0,
+                                           .sShadowColor = -1},
+                          {x, y, size.x, size.y},
+                          {.on_click =
+                               [this](auto* control) {
+                                   AfterUiDispatch([this, control] { OnPrimary(control); });
+                               },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .menu_artwork = true});
         button->SetImage(ButtonGraphics::Load(art.spriteSheet(), normal + 3, normal, normal + 1,
                                               normal + 2, index == 4 ? 28 : normal + 2));
-        button->policy.controller_activation = true;
+
         if (index >= 4) button->SetTooltipIndex(index == 4 ? 0x6cc : (index == 5 ? 0x6cb : 0x6ca));
     }
     m_create_button = actions[0].get();
@@ -792,29 +802,34 @@ void W8PartySelectionController::Setup()
     m_create_button->SetText(g_localized_strings[0x6c5]);
     m_delete_button->SetText(g_localized_strings[0x6c8]);
     m_review_button->SetText(g_localized_strings[0x6c9]);
-    m_reset_button->policy.primary_toggle = ButtonToggle::Release;
+    m_reset_button->Policy().primary_toggle = ButtonToggle::Release;
     for (int index = 0; index < 3; ++index) {
         auto& button = difficulty_buttons[index] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0xf1, 0).spriteSheet(), {-1, 4, 5, 6, 7},
-                          {.on_click =
-                               [this, index](auto*) {
-                                   difficulty = index;
-                                   for (int i = 0; i < 3; ++i)
-                                       difficulty_buttons[i]->SetPressed(i == index);
-                               },
-                           .priority = UI_PRIORITY_LOWEST});
-        button->policy.controller_activation = true;
-        button->policy.primary_toggle = ButtonToggle::StayLatched;
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0xf1, 0).spriteSheet(), -1, 4, 5, 6, 7),
+            {.on_click =
+                 [this, index](auto*) {
+                     difficulty = index;
+                     for (int i = 0; i < 3; ++i) difficulty_buttons[i]->SetPressed(i == index);
+                 },
+             .policy = {.primary_toggle = ButtonToggle::StayLatched,
+                        .input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
+
         button->SetPosition(0x1d7, 0x3b + index * 22);
         button->SetPressed(index == difficulty);
     }
     npc_toggle = std::make_unique<W8ButtonWidget>(input);
     ironman_toggle = std::make_unique<W8ButtonWidget>(input);
     for (auto* button : {npc_toggle.get(), ironman_toggle.get()}) {
-        button->Configure(CatalogArtwork::Load(0xf1, 0).spriteSheet(), {-1, 2, 3, 0, 1},
-                          {.toggles = true, .priority = UI_PRIORITY_LOWEST});
-        button->policy.controller_activation = true;
-        button->policy.primary_toggle = ButtonToggle::Release;
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0xf1, 0).spriteSheet(), -1, 2, 3, 0, 1),
+            {.policy = {.primary_toggle = ButtonToggle::Release,
+                        .input_rule = ButtonInputRule::PrimaryPressedState},
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
+
         button->SetPosition(0x1d3, button == npc_toggle.get() ? 0x93 : 0xfe);
     }
     npc_toggle->SetPressed(g_settings.simplified_npc_interaction);
@@ -1115,9 +1130,9 @@ void W8PartySelectionController::DrawPartySelectionComposition()
     DrawOptions(target);
     DrawCharacters(target);
     DrawSlots(target);
-    for (auto& button : advance) button->Draw(target);
+    for (auto& button : advance) button->DrawAndInvalidate(target);
     DrawImportList(target);
-    for (auto& button : actions) button->Draw(target);
+    for (auto& button : actions) button->DrawAndInvalidate(target);
     title.RenderToTarget(0, false, target);
     if (m_dialog) m_dialog->Draw(target);
     if (name_input) name_input->RenderAll(target);

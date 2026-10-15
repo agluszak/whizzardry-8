@@ -10,21 +10,24 @@
 #include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/ui_input.h"
 
 class Trigger;
 
-struct MainGameInput {
-    MainGameInput();
+struct MainGameScreenState {
+    MainGameScreenState();
     bool resume_world = false;
+    MainGameHudButtons hud_buttons;
+    std::unique_ptr<MainGameSubMenu> submenu;
     UiLayer combat{0x04}, edges{0x10}, radar{0x12}, formation{0x13}, world{0x28};
     std::array<std::unique_ptr<UiLayer>, 8> portraits;
     std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 };
-extern std::unique_ptr<MainGameInput> g_main_input;
+extern std::unique_ptr<MainGameScreenState> g_main_game_state;
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 

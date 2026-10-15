@@ -41,8 +41,7 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
     unsigned int index;
 
     W8DialogBase::Draw(target);
-    m_message_button.m_dirty = true;
-    m_message_button.Draw(target);
+    m_message_button.DrawAndInvalidate(target, true);
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
@@ -63,11 +62,9 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
         }
     }
     if (m_show_confirm) {
-        m_confirm_button.m_dirty = true;
-        m_confirm_button.Draw(target);
+        m_confirm_button.DrawAndInvalidate(target, true);
         if (allow_cancel) {
-            m_cancel_button.m_dirty = true;
-            m_cancel_button.Draw(target);
+            m_cancel_button.DrawAndInvalidate(target, true);
         }
     }
 }
@@ -178,15 +175,20 @@ int W8MessageDialogBase::CreateControls()
             return m_error = 3;
         }
     }
-    m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
-                                         g_dialog_font_background,
-                                         {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12},
-                                         {.priority = UI_PRIORITY_HIGHEST - 1}, m_edge_image);
+    m_message_button.Configure(
+        ButtonAppearance{.generic_image = m_edge_image ? m_edge_image : DefaultGenericButtonImage(),
+                         .string = std::string({}),
+                         .usFont = &(*g_dialog_interface_font),
+                         .sForeColor = g_dialog_font_foreground,
+                         .sShadowColor = g_dialog_font_background},
+        {m_x + 9, m_y + 9, m_width - 0x12, m_height - 0x12}, {.priority = UI_PRIORITY_HIGHEST - 1});
 
-    if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", {3, 0, 1, 2, 2},
-                                   {.on_click = [this](W8ButtonWidget*) { Close(true); }}) &&
-        m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", {7, 4, 5, 6, 6},
-                                  {.on_click = [this](W8ButtonWidget*) { Close(false); }})) {
+    if (m_confirm_button.Configure(
+            ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2),
+            {.on_click = [this](W8ButtonWidget*) { Close(true); }}) &&
+        m_cancel_button.Configure(
+            ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6),
+            {.on_click = [this](W8ButtonWidget*) { Close(false); }})) {
         const int button_width = m_confirm_button.Bounds().w;
         const int button_y = m_y + m_height - m_confirm_button.Bounds().h - 0xf;
         const int button_x = m_x + (m_width - button_width * (allow_cancel ? 3 : 1)) / 2;

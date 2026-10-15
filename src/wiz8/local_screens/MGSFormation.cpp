@@ -19,6 +19,7 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include "wiz8/fonts.h"
@@ -77,7 +78,7 @@ struct FormationPanel {
 };
 std::unique_ptr<FormationPanel> formation;
 constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
-                                   .controller_activation = true};
+                                   .input_rule = ButtonInputRule::PrimaryPressedState};
 }
 
 static UiResult HandleFormationCell(const UiPointerEvent& event, int cell);
@@ -259,13 +260,14 @@ static void CreateFormationPanel()
         auto& button = formation->actions[action];
         button = std::make_unique<W8ButtonWidget>(formation->input);
         button->Configure(
-            artwork.spriteSheet(), {frame + 3, frame, frame + 1, -1, frame + 2},
+            ButtonGraphics::Load(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2),
             {.on_click = [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = 1981 + action,
              .priority = UI_PRIORITY_LOWEST,
-             .tooltip = 1981 + action});
+             .menu_artwork = true});
         button->SetPosition(bounds[action].x, bounds[action].y);
         button->Resize(bounds[action].w, bounds[action].h);
-        button->policy.controller_activation = true;
     }
     formation->input.add(SDL_Rect{214, 60, 214, 244}, HandleFormationBackground);
 }
@@ -297,8 +299,7 @@ void RefreshFormationPanel(bool force)
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
     for (auto& button : formation->actions) {
-        button->m_dirty = true;
-        button->Draw(target);
+        button->DrawAndInvalidate(target, true);
     }
     formation->dirty = false;
 }

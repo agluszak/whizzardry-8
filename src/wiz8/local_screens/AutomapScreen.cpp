@@ -60,6 +60,7 @@
 #include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
@@ -468,8 +469,8 @@ void CreateAutomapButtons(void)
         W8ButtonCallback callback;
         if (action) callback = [action](W8ButtonWidget*) { action(); };
         if (button->Configure(
-                std::move(sprites),
-                {base_frame + 3, base_frame, base_frame + 1, base_frame + 2, base_frame + 2},
+                ButtonGraphics::Load(std::move(sprites), base_frame + 3, base_frame, base_frame + 1,
+                                     base_frame + 2, base_frame + 2),
                 {.on_click = callback, .tooltip = g_automap_button_tooltips[index]})) {
             button->SetPosition(g_automap_button_positions[index].x,
                                 g_automap_button_positions[index].y);

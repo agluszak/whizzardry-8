@@ -28,7 +28,9 @@
 #include "soundman.h"
 #include "sprite.h"
 #include "timer.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_video_object_vector.h"
@@ -1165,7 +1167,7 @@ void UpdatePortraitAdvanceButtons()
         auto& button = *portrait_buttons->buttons[slot];
         button.SetVisible(IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
                           g_status.buffers.XChar[slot].portrait_advance);
-        button.Draw(GetFrameBufferSurface());
+        button.DrawAndInvalidate(GetFrameBufferSurface());
     }
 }
 
@@ -1175,19 +1177,21 @@ void CreateLevelButtons()
     for (int slot = 0; slot < 8; ++slot) {
         auto& button = portrait_buttons->buttons[slot] =
             std::make_unique<W8ButtonWidget>(portrait_buttons->input);
-        button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), {3, 0, 1, 2, 4},
-                          {.on_click =
-                               [slot](auto*) {
-                                   AfterUiDispatch([slot] {
-                                       g_pending_screen_state.parameter_3 =
-                                           &g_status.buffers.Char[slot];
-                                       g_pending_screen_state.mode = 2;
-                                       SetPendingScreenState(W8_SCREEN_CHARACTER);
-                                   });
-                               },
-                           .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = 1984});
-        button->policy.controller_activation = true;
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0xa7, 0).spriteSheet(), 3, 0, 1, 2, 4),
+            {.on_click =
+                 [slot](auto*) {
+                     AfterUiDispatch([slot] {
+                         g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
+                         g_pending_screen_state.mode = 2;
+                         SetPendingScreenState(W8_SCREEN_CHARACTER);
+                     });
+                 },
+             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+             .tooltip = 1984,
+             .priority = UI_PRIORITY_LOWEST,
+             .menu_artwork = true});
+
         button->SetPosition(((slot & 1) ? 0x23b : 0) + 0x19, (slot / 2) * 0x55 + 0x46);
         button->Resize(0x12, 0x12);
         button->SetVisible(false);

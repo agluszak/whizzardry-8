@@ -19,7 +19,6 @@ inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF_HI = "Data\\Message
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON_HI = "Data\\Message Box\\GENBUTN4.STI";
 
 inline constexpr int BUTTON_NO_IMAGE = -1;
-inline constexpr std::nullptr_t BUTTON_NO_CALLBACK = nullptr;
 
 struct ButtonGraphics;
 struct GenericButtonImages;

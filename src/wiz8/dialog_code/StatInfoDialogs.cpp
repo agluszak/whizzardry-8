@@ -93,7 +93,7 @@ void W8StatInfoDialogBase::Draw(SDL_Surface& target)
     }
     textarea.Draw(target, false);
     scrollbar.Draw(target, false);
-    button.Draw(target);
+    button.DrawAndInvalidate(target);
 }
 
 // FUNCTION: WIZ8 0x005dfb40

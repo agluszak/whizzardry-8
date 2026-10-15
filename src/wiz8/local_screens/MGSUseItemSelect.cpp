@@ -22,6 +22,7 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/AssayDialog.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -130,12 +131,14 @@ static void CreateUseItemSelectControls(void)
     const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
                                 int disabled, SDL_Rect bounds, int help, void (*action)()) {
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
-        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
-                          {disabled, normal, hover, pressed, pressed_hover},
+        button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(),
+                                               disabled, normal, hover, pressed, pressed_hover),
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .tooltip = help,
                            .priority = UI_PRIORITY_LOWEST,
-                           .tooltip = help});
-        button->policy.controller_activation = true;
+                           .menu_artwork = true});
+
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
         return button;
@@ -146,11 +149,11 @@ static void CreateUseItemSelectControls(void)
             make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
                         {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
                         index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
-        use_item->pools[index]->policy.primary_toggle = ButtonToggle::Release;
+        use_item->pools[index]->Policy().primary_toggle = ButtonToggle::Release;
     }
     use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13, {0x234, 0x16c, 14, 14}, 99,
                                    UseItemSelectFilterToggle);
-    use_item->filter->policy.primary_toggle = ButtonToggle::Release;
+    use_item->filter->Policy().primary_toggle = ButtonToggle::Release;
     use_item->filter->SetEnabled(false);
     use_item->close =
         make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
@@ -338,8 +341,7 @@ void UpdateUseItemSelect(bool active)
         if (panel == 0) {
             use_item->caption.RenderToTarget(0, true, target);
             for (auto& button : use_item->pools) {
-                button->m_dirty = true;
-                button->Draw(target);
+                button->DrawAndInvalidate(target, true);
             }
         } else if (panel == 1)
             RedrawTextBoxScrollChrome();
@@ -351,8 +353,8 @@ void UpdateUseItemSelect(bool active)
                              0x16c + (index / 3) * 17);
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
             use_item->filter->m_dirty = use_item->close->m_dirty = true;
-            use_item->filter->Draw(target);
-            use_item->close->Draw(target);
+            use_item->filter->DrawAndInvalidate(target);
+            use_item->close->DrawAndInvalidate(target);
             if (use_item->item_image)
                 DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
             use_item->quantity.RenderToTarget(0, true, target);

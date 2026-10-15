@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -16,8 +17,9 @@
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
-    button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", {3, 0, 1, 4, 2},
-                     {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }});
+    button.Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2),
+        {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }});
     button.SetPosition(m_x + left, m_y + top);
 }
 
@@ -33,8 +35,6 @@ W8DialogBase::W8DialogBase()
     m_dirty_flags = 0;
     m_error = 0;
     m_font = g_dialog_interface_font;
-    m_foreground = g_dialog_font_foreground;
-    m_background = g_dialog_font_background;
     m_x = -1;
     m_y = -1;
     m_width = -1;
@@ -42,8 +42,7 @@ W8DialogBase::W8DialogBase()
     m_background_flags = 0;
     m_initialized = false;
     m_keep_open = true;
-    m_destroy_callback = 0;
-    m_destroy_callback_context = 0;
+    m_destroy_callback = {};
     m_right_button_down = false;
 }
 
@@ -51,10 +50,16 @@ W8DialogBase::W8DialogBase()
 W8DialogBase::~W8DialogBase()
 {
     EndModalInput();
-    if (m_destroy_callback) {
-        m_destroy_callback(this);
-    }
+    NotifyDestroyed();
     DestroyControls();
+}
+
+void W8DialogBase::NotifyDestroyed()
+{
+    if (const auto callback = std::exchange(m_destroy_callback, {})) {
+        callback(this);
+        m_destroy_callback = {};
+    }
 }
 
 // FUNCTION: WIZ8 0x005dc890

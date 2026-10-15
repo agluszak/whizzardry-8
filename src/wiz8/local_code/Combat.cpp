@@ -214,7 +214,7 @@ bool StartCombat(int surprise)
     gXStatus.fPartyMovementUi = false;
     gXStatus.fPartyMovementMode = false;
     DisablePortraitControls();
-    g_main_input->combat.setEnabled(true);
+    g_main_game_state->combat.setEnabled(true);
     g_level_block->pick_changed = false;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
                   W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
@@ -1140,7 +1140,7 @@ void EndCombat(bool forced_cleanup)
     // A suspended main game re-arms its input when it is entered again.
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
         EnablePortraitAdvanceRegions();
-        g_main_input->combat.setEnabled(false);
+        g_main_game_state->combat.setEnabled(false);
     }
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
         !g_level_block->review_transition_active) {

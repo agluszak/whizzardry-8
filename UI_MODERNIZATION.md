@@ -57,6 +57,9 @@ controllers, separate from modal UI ownership.
 
 ## Controls and painting
 
+`ButtonInputRule` names the matching-press and primary-pressed-state contracts;
+menu artwork is independent of these interaction rules.
+
 `ButtonInteraction` supplies press, selection, arming and repeat state.
 `W8ButtonWidget` is an ordinary button on its owner's layer with the shared artwork painter;
 its historical name does not imply widget inheritance. Policies preserve press and
@@ -67,6 +70,32 @@ and readouts are painted by their owners.
 focus restoration. Numeric split fields use this editor with digit restriction and
 value validation; their small dialog-specific painter retains right alignment.
 There is no separate numeric editing algorithm or global numeric scratch buffer.
+
+`W8ButtonWidget::Draw` paints every visible configured button into its supplied
+canvas, even when the button is clean. It does not invalidate the main framebuffer
+or clear screen dirtiness. Owners restore backing artwork, paint in order, then
+commit button updates through `DrawAndInvalidate`. That helper checks dirtiness,
+paints, invalidates and clears the dirty flag only for the main framebuffer. A
+forced call repaints after backing artwork has been restored. Auxiliary targets
+always receive a pure paint and retain pending screen updates. Scrollbars follow
+the same rule and recompose the track before painting the thumb. All button groups borrow an explicitly owned input
+layer, including the HUD banks and automap chrome; there is no per-button layer.
+`MainGameScreenState` owns its HUD button bank and input layer as value members.
+Suspension disables input while retaining that state; full game exit destroys the
+buttons and layer together. Entry and mode changes explicitly enable the HUD layer.
+The active submenu is also owned by this state, with its layer and rows destroyed
+as one panel. Available entries are local construction data; button count and panel
+bounds replace global row bookkeeping, and an optional deadline owns auto-close.
+
+Configuration uses existing image/appearance values plus a named `ButtonSetup`
+containing callbacks, interaction policy, tooltip, priority and menu artwork.
+Successful `Configure` replaces the entire setup, including secondary, movement,
+double-click and hover callbacks, and resets visibility, enabled and pressed state.
+Failed image configuration leaves the previous setup and input target untouched.
+Callbacks capture the actual owner or action without a generic dialog-owner or
+numeric payload route. The stored setup is the single source of interaction policy
+and artwork mode; runtime policy changes use `Policy()`.
+
 
 Buttons, text buffers, editors, scrollbars and dialog text controls paint into an
 explicit `SDL_Surface&`, including the complete dialog painting path. Scroll

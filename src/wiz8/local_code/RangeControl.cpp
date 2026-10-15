@@ -96,8 +96,9 @@ UiResult W8RangeControl::HandlePointer(int part, const UiPointerEvent& event)
         return UiResult::Handled;
     }
     if (part < 2) {
-        const ButtonPolicy policy{
-            .activation = ButtonActivation::Press, .repeat = true, .controller_activation = true};
+        const ButtonPolicy policy{.activation = ButtonActivation::Press,
+                                  .repeat = true,
+                                  .input_rule = ButtonInputRule::PrimaryPressedState};
         auto& press = m_arrows[part];
         if (event.action == UiPointerAction::Leave) press.leave(policy);
         if (event.button != UiPointerButton::Left) return UiResult::Handled;

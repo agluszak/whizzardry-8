@@ -1264,7 +1264,7 @@ void ResourceLifecycleScenario()
     REQUIRE(g_screen_return_stack.size() == return_depth);
     // Returning re-arms the interface buttons; the roof buttons switch views.
     const auto click_roof = [&](int index) {
-        const auto& bounds = g_main_game_buttons.roof[index].Bounds();
+        const auto& bounds = g_main_game_state->hud_buttons.roof[index].Bounds();
         game.click("roof-button", {bounds.x + bounds.w / 2, bounds.y + bounds.h / 2});
     };
     click_roof(2);
@@ -1593,7 +1593,7 @@ void CombatScenario()
             ChooseAction(slot, W8_ACTION_DEFEND, -1, nullptr, false, 1);
     const unsigned round = g_combat_state->round_count;
     // Interface buttons take input again after the level load.
-    const auto& end_turn = g_main_game_buttons.combat_stance[0].Bounds();
+    const auto& end_turn = g_main_game_state->hud_buttons.combat_stance[0].Bounds();
     game.click("end-turn", {end_turn.x + end_turn.w / 2, end_turn.y + end_turn.h / 2});
     REQUIRE((g_combat_state && g_combat_state->round_count == round + 1));
     game.wait("round", [&] {

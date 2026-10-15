@@ -1,14 +1,11 @@
 #pragma once
 
 #include <functional>
-#include <memory>
 #include <string_view>
-#include <utility>
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 
-#include "Font.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/ui_input.h"
@@ -17,26 +14,23 @@
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
 
-class UiLayer;
 class W8ButtonWidget;
 
 /* Callbacks stored through Configure and dispatched with the button as the subject. */
 using W8ButtonCallback = std::function<void(W8ButtonWidget*)>;
 
-/* The sprite frame of each visual state; BUTTON_NO_IMAGE where a state has none. */
-struct ButtonFrames {
-    int disabled, normal, hover, pressed, pressed_hover;
-};
-
-/* What a button does. Callbacks capture whatever they act on. */
+// A complete configuration. Reconfiguration replaces every callback (including
+// hover), policy, tooltip and artwork mode; failed image loads leave it unchanged.
 struct ButtonSetup {
-    W8ButtonCallback on_click;
-    W8ButtonCallback on_right_click;
-    W8ButtonCallback on_move;
-    W8ButtonCallback on_double_click;
-    bool toggles = false; /* a left press latches the button */
+    W8ButtonCallback on_click = {};
+    W8ButtonCallback on_right_click = {};
+    W8ButtonCallback on_move = {};
+    W8ButtonCallback on_double_click = {};
+    std::function<void(bool)> on_hover = {};
+    ButtonPolicy policy{};
+    int tooltip = W8_DIALOG_BUTTON_NO_TOOLTIP;
     int priority = UI_PRIORITY_HIGHEST;
-    int tooltip = W8_DIALOG_BUTTON_NO_TOOLTIP; /* g_localized_strings index */
+    bool menu_artwork = false;
 };
 
 /* Ordinary sprite or generic-frame button. Its layer owns input registration;
@@ -45,8 +39,16 @@ struct ButtonSetup {
 class W8ButtonWidget {
 public:
     explicit W8ButtonWidget(UiLayer& layer);
+    // Owners destroy buttons through AfterUiDispatch, never inside a callback.
     ~W8ButtonWidget();
-    void Draw(SDL_Surface& target);
+    W8ButtonWidget(const W8ButtonWidget&) = delete;
+    W8ButtonWidget& operator=(const W8ButtonWidget&) = delete;
+    // Paint only, including clean buttons. Never commits an on-screen update.
+    void Draw(SDL_Surface& target) const;
+    // Commit a dirty (or forced) framebuffer update. Auxiliary targets are
+    // painted unconditionally without invalidation or changing screen dirtiness.
+    // The owner restores backing artwork before requesting a forced repaint.
+    void DrawAndInvalidate(SDL_Surface& target, bool force = false);
     void Reset();
     bool IsConfigured() const { return m_target != nullptr; }
     const SDL_Rect& Bounds() const { return m_bounds; }
@@ -79,27 +81,12 @@ public:
     void SetImage(ButtonImage image);
     void SetCircularHitArea(SDL_Point center, int radius);
     void SetTooltip(std::function<std::string()> text);
-    std::function<void(bool)> on_hover;
     /* Installs the tooltip string on the input target (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
-    /* Load the frame images and configure the input target. */
-    bool Configure(const char* image_path, ButtonFrames frames, ButtonSetup setup = {});
-    bool Configure(std::shared_ptr<const SpriteSheet> sprites, ButtonFrames frames,
-                   ButtonSetup setup = {});
-    /* A button with only disabled and normal artwork. */
-    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame,
-                       ButtonSetup setup = {})
-    {
-        return Configure(
-            image_path,
-            {disabled_frame, normal_frame, BUTTON_NO_IMAGE, normal_frame, BUTTON_NO_IMAGE},
-            std::move(setup));
-    }
-    /* A generic-frame button showing `text`. It never toggles. */
-    bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
-                             short shadow_color, SDL_Rect bounds, ButtonSetup setup = {},
-                             GenericButtonImage image = {});
+    bool Configure(ButtonImage image, ButtonSetup setup = {});
+    bool Configure(ButtonAppearance appearance, SDL_Rect bounds, ButtonSetup setup = {});
+
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the input target. */
     void SetTooltipIndex(int tooltip_index);
@@ -114,10 +101,10 @@ private:
     UiResult HandlePointer(const UiPointerEvent& event);
     ButtonAppearance m_appearance;
     ButtonInteraction m_interaction;
-    void ConfigureInput();
+    void ConfigureInput(ButtonSetup setup);
     ButtonSetup m_setup;
     int m_handling_pointer = 0;
 
 public:
-    ButtonPolicy policy;
+    ButtonPolicy& Policy() { return m_setup.policy; }
 };

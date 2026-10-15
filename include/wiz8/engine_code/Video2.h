@@ -40,6 +40,10 @@ extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHei
                                     std::uint8_t* ubBitDepth);
 /* Mark a game-space rectangle of the UI canvas for upload this frame. */
 void InvalidateRegion(int left, int top, int right, int bottom);
+inline void InvalidateRegion(SDL_Rect bounds)
+{
+    InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
+}
 /* The pending UI upload rectangle, cleared by the call. */
 SDL_Rect TakeUiUpload();
 extern void PrintScreen(void);
