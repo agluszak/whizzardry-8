@@ -131,3 +131,17 @@ this migration must reduce code and lifetime protocols, not add a UI framework.
 
 Numeric split-field editors share their owning dialog's input layer for pointer
 caret placement and modal focus rather than creating a disabled private layer.
+
+## Layer precedence and scrollbar ownership
+
+Screens and overlays use an ordered `UiLayerOrder` enum rather than recovered
+region-set numbers. The enum's declaration order preserves established hit-test
+precedence, including eight consecutive portrait slots; equal-ranked layers
+still use registration order. No legacy rank values remain.
+
+A reusable `W8RangeControl` registers its three targets with its owning screen's
+`UiLayer`. It unregisters them on destruction and activates only its own targets.
+The camp screen shares one foreground scroll layer among its item, spell and stats
+scrollbars, so switching a page cannot disable input owned by other controls.
+`W8ButtonWidget`'s explicit layer ownership and separate visual state are handled
+in the preceding button-contract PR.

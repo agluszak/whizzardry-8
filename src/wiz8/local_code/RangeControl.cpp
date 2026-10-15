@@ -12,7 +12,8 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/ui_layer.h"
 
-W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
+W8RangeControl::W8RangeControl(UiLayer& input, int left, int top, int right, int bottom)
+    : m_input(input)
 {
     for (int part = 0; part < 3; ++part)
         m_targets[part] =
@@ -21,6 +22,11 @@ W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
             });
     SetBounds({left, top, right - left, bottom - top});
     SetActive(false);
+}
+
+W8RangeControl::~W8RangeControl()
+{
+    for (auto* target : m_targets) m_input.remove(*target);
 }
 
 void W8RangeControl::SetBounds(SDL_Rect bounds)
@@ -82,7 +88,8 @@ void W8RangeControl::SetActive(bool active)
         m_dragging = m_hovered = false;
         for (auto& arrow : m_arrows) arrow.cancel(false);
     }
-    m_input.setEnabled(active);
+    // Other controls can share this layer: only enable or disable our targets.
+    for (auto* target : m_targets) target->setEnabled(active);
     m_dirty = true;
 }
 

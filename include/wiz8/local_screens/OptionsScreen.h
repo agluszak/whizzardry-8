@@ -14,6 +14,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Quality.h"
+#include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/mgs_commands.h"
@@ -31,7 +32,11 @@ class W8OptionsKeyboardPanel;
 
 struct W8OptionsTextEditor {
     W8OptionsSaveLoadPanel* owner;
-    TextFieldGroup m_fields{1};
+    TextFieldGroup m_fields;
+    explicit W8OptionsTextEditor(UiLayer& layer) : m_fields(layer, g_wiz_text_mono_font)
+    {
+        m_fields.UseGameStyle();
+    }
 };
 
 struct W8OptionsSaveRow {

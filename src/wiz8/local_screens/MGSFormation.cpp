@@ -69,7 +69,7 @@ static int g_formation_drag_cell;
 
 namespace {
 struct FormationPanel {
-    UiLayer input{0x1b};
+    UiLayer input{UiLayerOrder::FormationPanel};
     std::array<HitTarget*, 15> targets{};
     std::array<ButtonInteraction, 15> cells{};
     std::array<bool, 15> highlighted{};

@@ -967,14 +967,15 @@ void W8CharacterPersonalityPage::Activate()
 {
     input.setEnabled(true);
     m_prepared = true;
-    auto& fields = m_text_fields.emplace(1);
+    auto& fields = m_text_fields.emplace(input, g_wiz_text_mono_font);
+    fields.UseGameStyle();
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xab, 0x106, 0x10,
                0x7f, m_character->name_part_2, 5, 0xf, true);
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xc7, 0x106, 0x10,
                0x7f, m_character->name, 9, 0xf, true);
-    if (fields.ByteLength(0) == 0)
+    if (fields.Text(0).empty())
         fields.Focus(0);
-    else if (fields.ByteLength(1) == 0)
+    else if (fields.Text(1).empty())
         fields.Focus(1);
     m_choices_dirty = true;
 }
@@ -1008,7 +1009,7 @@ void W8CharacterPersonalityPage::Accept()
 void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     *next_enabled =
-        m_text_fields && m_text_fields->ByteLength(0) != 0 && m_text_fields->ByteLength(1) != 0;
+        m_text_fields && m_text_fields->Text(0).size() != 0 && m_text_fields->Text(1).size() != 0;
     if (m_mode != 0) {
         W8Character* original = m_screen->GetOriginalCharacter();
         *exit_enabled = false;

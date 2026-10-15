@@ -15,7 +15,6 @@
 #include <SDL3/SDL_surface.h>
 
 #include "Font.h"
-#include "Types.h"
 #include "compat/native.h"
 #include "himage.h"
 #include "image.h"
@@ -49,13 +48,13 @@ class W8TextField final {
 public:
     W8TextField(TextFieldGroup& group, int id, int priority, SDL_Rect bounds)
         : group(group), id(id), bounds(bounds),
-          target(group.layer_->add(
+          target(group.layer_.add(
               SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
               [this](const UiPointerEvent& event) { return HandleInput(event); }, priority))
     {
         target.useTextCursor();
     }
-    ~W8TextField() { group.layer_->remove(target); }
+    ~W8TextField() { group.layer_.remove(target); }
     W8TextField(const W8TextField&) = delete;
     W8TextField& operator=(const W8TextField&) = delete;
 
@@ -158,7 +157,7 @@ UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 void W8TextField::MouseMoved(UiPointerAction action, int mouse_x, SDL_MouseButtonFlags buttons)
 {
     if (blocks_mouse) return;
-    if (action == UiPointerAction::Enter) SetTargetCursor(GetTextInputCursor());
+    if (action == UiPointerAction::Enter) SetTargetCursor(W8_CURSOR_TEXT_INPUT);
     if (action == UiPointerAction::Leave) SetTargetCursor(W8_CURSOR_NONE);
     if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || action != UiPointerAction::Move)
         return;
@@ -210,25 +209,13 @@ void W8TextField::MouseClicked(const UiPointerEvent& event)
     }
 }
 
-TextFieldGroup::TextFieldGroup(Font& font) : TextFieldGroup(font, nullptr) {}
-TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : TextFieldGroup(font, &layer) {}
-
-TextFieldGroup::TextFieldGroup(Font& font, UiLayer* layer)
-    : owned_layer_(layer ? nullptr : new UiLayer()), layer_(layer ? layer : owned_layer_.get()),
-      previous_(g_ui.focus)
+TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : layer_(layer), previous_(g_ui.focus)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
     if (previous_) previous_->Suspend();
     g_ui.focus = this;
     SetNativeTextInputEnabled(false);
-}
-
-TextFieldGroup::TextFieldGroup(int scheme)
-    : TextFieldGroup(scheme == 0 ? g_font12point1 : g_wiz_text_mono_font)
-{
-    Assert(scheme >= 0 && scheme <= 2);
-    SetScheme(scheme);
 }
 
 TextFieldGroup::~TextFieldGroup()
@@ -285,49 +272,17 @@ void TextFieldGroup::SetEditing(bool editing)
     SetNativeTextInputEnabled(editing);
 }
 
-void TextFieldGroup::SetScheme(int scheme)
+void TextFieldGroup::UseGameStyle()
 {
-    auto& s = style_;
-    if (scheme == 0) {
-        s.font = &g_font12point1;
-        s.field_color = Get16BPPColor(SDL_Color{200, 200, 0, SDL_ALPHA_OPAQUE});
-        s.inactive_field_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        s.darker_color = Get16BPPColor(SDL_Color{24, 61, 81, SDL_ALPHA_OPAQUE});
-        s.brighter_color = Get16BPPColor(SDL_Color{136, 138, 135, SDL_ALPHA_OPAQUE});
-        s.bevelled = true;
-        s.fore_color = 0x8d;
-        s.shadow_color = 0;
-        s.highlight_fore_color = 0xd0;
-    } else if (scheme == 1) {
-        s.font = &g_wiz_text_mono_font;
-        s.field_color = Get16BPPColor(SDL_Color{30, 42, 99, SDL_ALPHA_OPAQUE});
-        s.inactive_field_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
-        s.darker_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        s.brighter_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        s.bevelled = true;
-        s.fore_color = 4;
-        s.shadow_color = 5;
-        s.highlight_fore_color = 4;
-        s.highlight_shadow_color = 5;
-        s.highlight_back_color = 3;
-        s.cursor_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        return;
-    } else if (scheme == 2) {
-        s.font = &g_wiz_text_mono_font;
-        s.field_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        s.inactive_field_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        s.darker_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        s.brighter_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        s.bevelled = true;
-        s.fore_color = 0x8d;
-        s.shadow_color = 0;
-        s.highlight_fore_color = 0xd0;
-    } else {
-        return;
-    }
-    s.highlight_shadow_color = 0xcd;
-    s.highlight_back_color = 0xcd;
-    s.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
+    style_.font = &g_wiz_text_mono_font;
+    style_.field_color = Get16BPPColor(SDL_Color{30, 42, 99, SDL_ALPHA_OPAQUE});
+    style_.inactive_field_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
+    style_.fore_color = 4;
+    style_.shadow_color = 5;
+    style_.highlight_fore_color = 4;
+    style_.highlight_shadow_color = 5;
+    style_.highlight_back_color = 3;
+    style_.cursor_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
 }
 
 int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
@@ -379,12 +334,6 @@ std::string TextFieldGroup::Text(int id) const
 {
     const auto* field = Find(id);
     return field ? field->text : std::string{};
-}
-
-std::size_t TextFieldGroup::ByteLength(int id) const
-{
-    const auto* field = Find(id);
-    return field ? field->text.size() : 0;
 }
 
 void TextFieldGroup::SetBlocksMouse(int id, bool blocks)
@@ -690,15 +639,7 @@ void TextFieldGroup::SelectWordAtMouse(int mouse_x)
 void TextFieldGroup::RenderBackground(W8TextField& field, SDL_Surface& target)
 {
     const auto [left, top, right, bottom] = field.Edges();
-    if (style_.bevelled) {
-        const SDL_Rect darker{left, top, right - left, bottom - top};
-        const SDL_Rect brighter{left + 1, top + 1, right - left - 1, bottom - top - 1};
-        SDL_FillSurfaceRect(&target, &darker, style_.darker_color);
-        SDL_FillSurfaceRect(&target, &brighter, style_.brighter_color);
-    }
-    unsigned short colour = !field.enabled && !style_.disabled_auto_shade
-                                ? style_.disabled_field_color
-                                : style_.field_color;
+    unsigned short colour = style_.field_color;
     if (field.use_inactive_color && &field != focused_) colour = style_.inactive_field_color;
     const SDL_Rect area{left, top, right - left, bottom - top};
     SDL_FillSurfaceRect(&target, &area, colour);
@@ -771,11 +712,9 @@ void TextFieldGroup::RenderFocused(SDL_Surface& target)
 void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
 {
     auto& font = *style_.font;
-    const bool disabled = !field.enabled && style_.disabled_auto_shade;
-    const auto options =
-        disabled
-            ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
-            : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
+    const bool disabled = !field.enabled;
+    const auto options = FieldTextOptions(font, disabled ? 0 : style_.fore_color,
+                                          disabled ? 0 : style_.shadow_color, 0);
     const unsigned short font_height = font.height();
     const int text_top =
         field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;

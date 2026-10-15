@@ -89,13 +89,13 @@
 // GLOBAL: WIZ8 0x0069c404
 namespace {
 struct CampHeaderButtons {
-    UiLayer input{0x28};
+    UiLayer input{UiLayerOrder::GameplayOverlays};
     std::unique_ptr<W8ButtonWidget> level_up;
     std::unique_ptr<W8ButtonWidget> dismiss;
 };
 std::unique_ptr<CampHeaderButtons> header_buttons;
 struct CampButtons {
-    UiLayer input{0x2d};
+    UiLayer input{UiLayerOrder::CampButtons};
     std::array<std::unique_ptr<W8ButtonWidget>, 5> pages;
     std::array<std::unique_ptr<W8ButtonWidget>, W8_CAMP_ACTION_BUTTON_COUNT> actions;
     bool dirty = true;

@@ -82,13 +82,58 @@ private:
     SDL_MouseButtonFlags captured_buttons_ = 0;
 };
 
+// Named overlay ordering. Lower orders win, and equal layers use insertion
+// order. Only relative precedence matters; no retail region-set IDs survive.
+enum class UiLayerOrder {
+    LockInput,
+    Combat,
+    PortraitButtons,
+    PortraitStatus,
+    PortraitSlot0,
+    PortraitSlot1,
+    PortraitSlot2,
+    PortraitSlot3,
+    PortraitSlot4,
+    PortraitSlot5,
+    PortraitSlot6,
+    PortraitSlot7,
+    ScreenEdges,
+    Radar,
+    FormationBase,
+    MessageBox,
+    NpcTranscript,
+    NpcTrade,
+    NpcOptions,
+    SpellCasting,
+    ItemSelection,
+    FormationPanel,
+    PartyMovement,
+    PartyQuotes,
+    NpcQuoteBubble,
+    KeyboardMenu,
+    Submenu,
+    GameplayOverlays,
+    CampMain,
+    CampInventory,
+    CampPool,
+    CampSpells,
+    CampButtons,
+    CharacterChoices,
+    Standard,
+};
+
+constexpr UiLayerOrder PortraitSlotOrder(int slot)
+{
+    return static_cast<UiLayerOrder>(static_cast<int>(UiLayerOrder::PortraitSlot0) + slot);
+}
+
 // Lower layer orders win; within a layer higher priorities win, then first registration.
 enum class UiLayerMode { Normal, Modal };
 
 class UiLayer {
 public:
-    explicit UiLayer(int order = 0x33);
-    explicit UiLayer(UiLayerMode mode, int order = 0x33);
+    explicit UiLayer(UiLayerOrder order = UiLayerOrder::Standard);
+    explicit UiLayer(UiLayerMode mode, UiLayerOrder order = UiLayerOrder::Standard);
     ~UiLayer();
     UiLayer(const UiLayer&) = delete;
     UiLayer& operator=(const UiLayer&) = delete;
@@ -107,7 +152,7 @@ private:
     friend void ResetUiInput();
     friend std::size_t LiveUiTargetCount();
     friend class HitTarget;
-    int order_;
+    UiLayerOrder order_;
     bool enabled_ = true, modal_ = false;
     std::vector<std::unique_ptr<HitTarget>> targets_;
     HitTarget *saved_hover_ = nullptr, *saved_capture_ = nullptr;

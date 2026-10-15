@@ -26,7 +26,7 @@
 struct MainGameHudButtons {
     // Screen state constructs HUD before world input at the same order.
     // The submenu (0x27) stays above both.
-    UiLayer input{0x28};
+    UiLayer input{UiLayerOrder::GameplayOverlays};
     std::array<W8ButtonWidget, 2> submenu_scroll{W8ButtonWidget{input}, W8ButtonWidget{input}};
     std::array<W8ButtonWidget, 2> submenu_panel{W8ButtonWidget{input}, W8ButtonWidget{input}};
     std::array<W8ButtonWidget, 6> layout_arrows{W8ButtonWidget{input}, W8ButtonWidget{input},
@@ -46,7 +46,7 @@ struct MainGameHudButtons {
 
 // An active submenu owns its independently enabled input and button rows.
 struct MainGameSubMenu {
-    UiLayer input{0x27};
+    UiLayer input{UiLayerOrder::Submenu};
     SDL_Rect bounds{};
     int background = 0;
     bool dirty = true;

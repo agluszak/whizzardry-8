@@ -125,7 +125,13 @@ enum W8CampItemRedrawFlag {
 struct W8CampScreenState {
     std::string text_buffer;
     W8CampPage page;
-    UiLayer main_input{0x29}, inventory_input{0x2a}, pool_input{0x2b}, spell_input{0x2c};
+    UiLayer main_input{UiLayerOrder::CampMain};
+    UiLayer inventory_input{UiLayerOrder::CampInventory};
+    UiLayer pool_input{UiLayerOrder::CampPool};
+    UiLayer spell_input{UiLayerOrder::CampSpells};
+    // All camp scrollbars share this foreground layer; each control owns its
+    // registrations, but cannot disable input belonging to another scrollbar.
+    UiLayer scroll_input;
     std::array<HitTarget*, 11> main_targets{};
     std::array<HitTarget*, 20> inventory_targets{};
     std::array<HitTarget*, 8> pool_targets{};

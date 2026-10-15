@@ -179,7 +179,7 @@ void W8CharacterStatsRow::Step(int direction)
 
 void W8CharacterStatsRow::BuildSubpanel()
 {
-    m_choices = std::make_unique<UiLayer>(0x32);
+    m_choices = std::make_unique<UiLayer>(UiLayerOrder::CharacterChoices);
     m_choice_targets.clear();
     for (int index = 0; index < m_count; ++index) {
         const int top = index == 0 ? 0 : index * 22 + 2;

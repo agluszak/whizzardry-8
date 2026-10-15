@@ -651,7 +651,7 @@ void W8OptionsSaveLoadPanel::Redraw(SDL_Surface& target, bool full_redraw)
 void W8OptionsScreen::BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row,
                                         std::string_view text)
 {
-    auto editor = std::make_unique<W8OptionsTextEditor>();
+    auto editor = std::make_unique<W8OptionsTextEditor>(m_menu_input);
     editor->m_fields.Add(0x16b, row * 0x49 + 0x46, 0xfa, 0xc, 0x7f, text, 0x3b, 0xf, true);
     editor->m_fields.Focus(0);
     editor->owner = owner;
