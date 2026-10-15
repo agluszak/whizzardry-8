@@ -175,13 +175,6 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     }
 }
 
-/* Text-input mode installs cursor id 8. Lives here because the address sits
-   in the Screens translation unit. */
-int GetTextInputCursor(void)
-{
-    return W8_CURSOR_TEXT_INPUT;
-}
-
 /* Install a named cursor, or restore the held-item / default cursor when the
    caller passes W8_CURSOR_NONE (-1). Unchanged ids are ignored; a new id resets
    the frame and applies through ApplyCurrentCursor. */

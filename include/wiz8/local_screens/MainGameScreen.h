@@ -25,8 +25,8 @@ struct MainGameScreenState {
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
     UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},
-            radar{UiLayerOrder::Radar}, formation{UiLayerOrder::FormationBase},
-            world{UiLayerOrder::GameplayOverlays};
+        radar{UiLayerOrder::Radar}, formation{UiLayerOrder::FormationBase},
+        world{UiLayerOrder::GameplayOverlays};
     std::array<std::unique_ptr<UiLayer>, 8> portraits;
     std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};

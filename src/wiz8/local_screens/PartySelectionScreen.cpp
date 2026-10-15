@@ -300,7 +300,7 @@ public:
     int import_selection = 0, import_hovered = -1, import_first = 0;
     int difficulty = g_settings.difficulty;
     W8PartyCreationPage creation_page = W8_PARTY_CREATION_OPTIONS;
-    std::unique_ptr<W8RangeControl> m_range;
+    W8RangeControl m_range{input, 0x1e9, 0x31, 0x1fb, 0x12b};
     std::array<HitTarget*, 6> rows{}, slots{};
     HitTarget* import_list = nullptr;
     std::array<std::unique_ptr<W8ButtonWidget>, 6> advance;
@@ -368,7 +368,7 @@ void W8PartySelectionController::SetSelectedRow(int selection)
         static_cast<int>(collection.characters.size()) < collection.first_visible + 6) {
         collection.first_visible =
             std::max(0, std::min(selection, static_cast<int>(collection.characters.size()) - 6));
-        m_range->SetValue(collection.first_visible);
+        m_range.SetValue(collection.first_visible);
     }
     RefreshRows();
 }
@@ -573,8 +573,8 @@ bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
         const char32_t character = TypedCharacter(input);
         if (character && character < 0x80 && strchr("\\/:*?\"<>|", int(character))) return true;
         name_input->HandleInput(input);
-        OnToggle(name_input->ByteLength(0) != 0);
-    } else if (input.key == SDLK_ESCAPE || name_input->ByteLength(0)) {
+        OnToggle(name_input->Text(0).size() != 0);
+    } else if (input.key == SDLK_ESCAPE || name_input->Text(0).size()) {
         SetTargetCursor(W8_CURSOR_NONE);
         AfterUiDispatch([this, cancelled = input.key == SDLK_ESCAPE] { OnDecision(cancelled); });
     }
@@ -660,7 +660,8 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
 
     if (!name_input) {
         const auto size = CatalogArtwork::Load(0x102, 0).size(1);
-        name_input = std::make_unique<TextFieldGroup>(1);
+        name_input = std::make_unique<TextFieldGroup>(input, g_wiz_text_mono_font);
+        name_input->UseGameStyle();
         name_input->Add(0x92 + (0x160 - size.x) / 2, 0xaa, size.x - 4, size.y - 4, 0x7f, "", 0x28,
                         0x0f, true);
         name_input->Focus(0);
@@ -670,8 +671,7 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
 
 void W8PartySelectionController::Setup()
 {
-    m_range = std::make_unique<W8RangeControl>(input, 0x1e9, 0x31, 0x1fb, 0x12b);
-    m_range->on_change = [this](auto* range) {
+    m_range.on_change = [this](auto* range) {
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             g_party_selection_character_collection->first_visible = range->m_value;
             RefreshRows();
@@ -691,7 +691,7 @@ void W8PartySelectionController::Setup()
                     hovered_row = event.action == UiPointerAction::Enter ? row : -1;
                     rows_dirty = true;
                 } else if (event.action == UiPointerAction::Wheel)
-                    m_range->AdjustValue(event.wheel);
+                    m_range.AdjustValue(event.wheel);
                 else if ((event.action == UiPointerAction::Up && event.inside &&
                           (event.captured_buttons &
                            (event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK
@@ -849,7 +849,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     InvalidatePartySelectionComposition();
     const bool characters = mode == W8_PARTY_SELECT_CHARACTERS;
     const bool importing = mode == W8_PARTY_SELECT_IMPORT;
-    m_range->SetActive(characters || importing);
+    m_range.SetActive(characters || importing);
     for (int i = 0; i < 7; ++i)
         actions[i]->SetVisible(i >= 5 || characters || (importing && (i == 3 || i == 4)));
     import_list->setEnabled(importing);
@@ -867,9 +867,9 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         const int maximum = std::max(0, static_cast<int>(characters ? collection.characters.size()
                                                                     : collection.names.size()) -
                                             (characters ? 6 : 17));
-        m_range->SetRange(0, maximum);
-        m_range->SetValue(characters ? collection.first_visible : import_selection);
-        m_range->SetEnabled(maximum > 0);
+        m_range.SetRange(0, maximum);
+        m_range.SetValue(characters ? collection.first_visible : import_selection);
+        m_range.SetEnabled(maximum > 0);
         m_confirm_button->SetEnabled(CountActiveCharacters() != 0);
         for (auto& button : difficulty_buttons) button->SetVisible(false);
         npc_toggle->SetVisible(false);
@@ -1113,7 +1113,7 @@ void W8PartySelectionController::InvalidatePartySelectionComposition()
 {
     m_redraw_backdrop = summary_dirty = rows_dirty = slots_dirty = list_dirty = options_dirty =
         true;
-    m_range->InvalidateAll();
+    m_range.InvalidateAll();
     for (auto& button : actions) button->m_dirty = true;
     for (auto& button : advance) button->m_dirty = true;
     title.SetGeometryDirty();
@@ -1128,7 +1128,7 @@ void W8PartySelectionController::DrawPartySelectionComposition()
             CatalogArtwork::Load(0x103, 0).draw(target, 0, 0x140, 0x12e);
         m_redraw_backdrop = false;
     }
-    m_range->Redraw(target, false);
+    m_range.Redraw(target, false);
     DrawSummary(target);
     DrawOptions(target);
     DrawCharacters(target);
@@ -1182,9 +1182,9 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         if (maximum < 0) {
             maximum = 0;
         }
-        m_range->SetRange(0, maximum);
-        m_range->SetEnabled(maximum > 0);
-        m_range->InvalidateAll();
+        m_range.SetRange(0, maximum);
+        m_range.SetEnabled(maximum > 0);
+        m_range.InvalidateAll();
         if (selected > 0 || collection->characters.empty()) {
             --selected;
         }

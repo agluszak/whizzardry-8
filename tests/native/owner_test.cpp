@@ -336,12 +336,13 @@ void text_input_ownership()
 {
     Font font{};
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        TextFieldGroup outer(font);
+        UiLayer outer_input;
+        TextFieldGroup outer(outer_input, font);
         const auto first = outer.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "alpha", 32, 0, false);
         const auto middle = outer.Add(0, 20, 80, 20, UI_PRIORITY_NORMAL, "beta", 32, 0, false);
         const auto last = outer.Add(0, 40, 80, 20, UI_PRIORITY_NORMAL, "gamma", 32, 0, false);
         REQUIRE((first == 0 && middle == 1 && last == 2));
-        REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(first) == 5));
+        REQUIRE((outer.Text(first)[0] == 'a' && outer.Text(first).size() == 5));
         if (repeat == 0) {
             const auto* target = UiTargetAt({5, 5});
             REQUIRE(target != nullptr);
@@ -357,14 +358,15 @@ void text_input_ownership()
         }
 
         outer.Remove(middle);
-        REQUIRE(outer.ByteLength(last) == 5);
+        REQUIRE(outer.Text(last).size() == 5);
         {
-            TextFieldGroup inner(font);
+            UiLayer inner_input;
+            TextFieldGroup inner(inner_input, font);
             REQUIRE(TextFieldGroup::Focused() == &inner);
             REQUIRE(inner.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
         }
         REQUIRE(TextFieldGroup::Focused() == &outer);
-        REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(last) == 5));
+        REQUIRE((outer.Text(first)[0] == 'a' && outer.Text(last).size() == 5));
         REQUIRE(outer.Add(0, 60, 80, 20, UI_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
         outer.Remove(first);
         outer.Remove(3);
@@ -993,7 +995,8 @@ void generic_button_images()
     g_level_block = std::move(previous_level);
     REQUIRE(g_font12point1.load(filename));
     {
-        TextFieldGroup fields(g_font12point1);
+        UiLayer fields_input;
+        TextFieldGroup fields(fields_input, g_font12point1);
         const auto field = fields.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "", 1000, 0x0f, false);
         fields.Focus(field);
         const std::string clusters = "é👩‍👩‍👧‍👦中";
@@ -1031,7 +1034,7 @@ void generic_button_images()
         fields.SetText(field, long_text);
         fields.SetCursor(long_text.size());
         REQUIRE(fields.Cursor() == 300);
-        REQUIRE(fields.ByteLength(field) == 300);
+        REQUIRE(fields.Text(field).size() == 300);
         REQUIRE(fields.HandleInput(backspace));
         REQUIRE((fields.Cursor() == 297 && fields.Text(field).size() == 297));
     }
@@ -1149,7 +1152,8 @@ TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-laye
     REQUIRE(target);
     SDL_FillSurfaceRect(target.get(), nullptr, 0xffff);
     Font font{};
-    TextFieldGroup fields(font);
+    UiLayer fields_input;
+    TextFieldGroup fields(fields_input, font);
     const auto field = fields.Add(0, 0, 80, 20, 0, "", 32, 0, false);
     fields.Focus(field);
     fields.ClearFocus();
@@ -1165,7 +1169,8 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
     UiStateSnapshot saved_state;
     ResetUiInput();
     Font font{};
-    TextFieldGroup outer(font);
+    UiLayer outer_input;
+    TextFieldGroup outer(outer_input, font);
     const int outer_field = outer.Add(0, 0, 80, 20, 0, "outer", 32, 0xf, false);
     outer.Focus(outer_field);
     outer.SetCursor(2);
@@ -1260,7 +1265,8 @@ TEST_CASE("Split fields share editing and restore focus after rejecting excessiv
 {
     UiStateSnapshot saved_state;
     Font font{};
-    TextFieldGroup outer(font);
+    UiLayer outer_input;
+    TextFieldGroup outer(outer_input, font);
     outer.Add(0, 0, 80, 20, 0, "name", 20, 2, false);
     outer.Focus(0);
     W8DialogBase dialog;
