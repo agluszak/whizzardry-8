@@ -151,10 +151,6 @@ static void CheckLossless(const char* name)
         SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
                                SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
         SDL_GetIOSize(output.get())));
-    SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
-    srColorSurfaceIFace::SurfaceDesc description;
-    REQUIRE(srImage::describe(description, name, input.get()));
-    REQUIRE((description.width == 2 && description.height == 2 && SDL_TellIO(input.get()) == 7));
     unsigned char signature = 0;
     SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET);
     srIO::readExact(input.get(), &signature, 1);
@@ -192,12 +188,6 @@ static void CheckErrors()
         }
         REQUIRE((rejected && SDL_TellIO(input.get()) == 0));
     }
-    unsigned char corrupt[] = {1, 2, 3};
-    auto input = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
-    SDL_SeekIO(input.get(), 1, SDL_IO_SEEK_SET);
-    srColorSurfaceIFace::SurfaceDesc description;
-    REQUIRE(
-        (!srImage::describe(description, "bad.jpg", input.get()) && SDL_TellIO(input.get()) == 1));
 }
 
 TEST_CASE("image_io_test")

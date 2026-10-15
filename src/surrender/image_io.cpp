@@ -231,38 +231,6 @@ std::unique_ptr<srColorSurfaceIFace> load(const char* path)
     return surface;
 }
 
-// FUNCTION: SURRENDER 0x1002DD70
-bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, SDL_IOStream* stream)
-{
-    const auto position = SDL_TellIO(stream);
-    if (position < 0) return false;
-    std::unique_ptr<srColorSurfaceIFace> surface;
-    try {
-        surface = load(path, stream);
-    } catch (...) {
-    }
-    if (surface) {
-        description = surface->getSurfaceDesc();
-    }
-    return SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) == position && surface != nullptr;
-}
-
-bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, wiz8::File& file)
-{
-    try {
-        return describe(description, path, file.io());
-    } catch (...) {
-        return false;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1002D8F0
-void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path)
-{
-    auto surface = load(path);
-    description = surface->getSurfaceDesc();
-}
-
 // FUNCTION: SURRENDER 0x1002DCD0
 void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, int quality)
 {

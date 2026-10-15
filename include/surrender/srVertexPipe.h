@@ -153,7 +153,6 @@ private:
     SR_DLL_IMPORT void setupST(w8_ulong index);
     SR_DLL_IMPORT void setupSpecular();
 
-    friend class srEnvironmentMapper;
     friend class srLight;
 
     struct Scratch {
