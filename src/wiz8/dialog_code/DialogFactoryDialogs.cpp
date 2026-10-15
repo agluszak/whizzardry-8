@@ -391,12 +391,8 @@ W8SplitAmountDialog::W8SplitAmountDialog(int total, SDL_Point origin)
     if (!CreateButtons()) {
         throw std::runtime_error("Cannot configure dialog controls");
     }
-    if (!CreateTextBuffers()) {
-        throw std::runtime_error("Cannot configure dialog controls");
-    }
-    if (!CreateNumericInput()) {
-        throw std::runtime_error("Cannot configure dialog controls");
-    }
+    CreateTextBuffers();
+    CreateNumericInput();
     UpdateButtonStates();
     UpdateTextBuffers();
 }
@@ -458,7 +454,7 @@ bool W8SplitAmountDialog::CreateButtons()
 }
 
 // FUNCTION: WIZ8 0x005d9d10
-bool W8SplitAmountDialog::CreateTextBuffers()
+void W8SplitAmountDialog::CreateTextBuffers()
 {
     int index;
     W8ControlsRect bounds;
@@ -472,11 +468,10 @@ bool W8SplitAmountDialog::CreateTextBuffers()
             &bounds, g_localized_strings[g_split_amount_string_ids[index]],
             g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
     }
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005d9e30
-bool W8SplitAmountDialog::CreateNumericInput()
+void W8SplitAmountDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
 
@@ -491,7 +486,6 @@ bool W8SplitAmountDialog::CreateNumericInput()
             UpdateTextBuffers();
         });
     m_split_input->m_maximum = 1000000;
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005d9f20

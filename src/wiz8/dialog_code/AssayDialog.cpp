@@ -111,15 +111,12 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_P
 
     m_character = character;
     m_item = item;
-
-    if (!PopulateText()) {
-        throw std::runtime_error("Cannot configure dialog controls");
-    }
+    PopulateText();
     m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
                            m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
                            g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
-    if (!PopulateRequirements() || !CreateTextBuffers())
-        throw std::runtime_error("Cannot configure assay controls");
+    if (!PopulateRequirements()) throw std::runtime_error("Cannot configure assay controls");
+    CreateTextBuffers();
     m_buttons[0].SetVisible(gXStatus.assay_professions_tab);
     SetProfessionIconsVisible(gXStatus.assay_professions_tab);
     m_buttons[1].SetVisible(!gXStatus.assay_professions_tab);
@@ -156,7 +153,7 @@ static int AppendAssayRequirements(const W8ItemRequirement* requirement, int cou
 }
 
 // FUNCTION: WIZ8 0x005d7310
-bool W8AssayDialog::PopulateText()
+void W8AssayDialog::PopulateText()
 {
     W8ControlsRect bounds;
     const W8ItemDatabaseRecord* record;
@@ -497,7 +494,6 @@ bool W8AssayDialog::PopulateText()
         m_text_area.AddEntry(g_localized_strings[0x90f], description, 10, 0xf, 0);
     }
     m_text_area.m_dirty = true;
-    return true;
 }
 
 /* The SurRender headers pull <iostream>, so retail emitted the VC6 stream
@@ -728,6 +724,7 @@ bool W8AssayDialog::PopulateRequirements()
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
+        if (!m_buttons[index].IsConfigured()) return false;
         m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
                                      m_y + g_assay_button_offsets[index].y);
     }
@@ -735,7 +732,7 @@ bool W8AssayDialog::PopulateRequirements()
 }
 
 // FUNCTION: WIZ8 0x005d8fb0
-bool W8AssayDialog::CreateTextBuffers()
+void W8AssayDialog::CreateTextBuffers()
 {
     int index;
     W8ControlsRect bounds;
@@ -768,7 +765,6 @@ bool W8AssayDialog::CreateTextBuffers()
         text = fmt::format("{:.1f}", GetItemUnitWeight(item) * g_item_weight_display_scale);
     }
     m_text_buffers[4]->SetText(text, g_wiz_text_font_secondary);
-    return true;
 }
 
 // FUNCTION: WIZ8 0x005d9330
