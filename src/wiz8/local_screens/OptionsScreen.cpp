@@ -1804,21 +1804,13 @@ unsigned char OptionsScreenEnter()
    region dispatch; only an unhandled Escape requests the screen transition. */
 void OptionsScreenFrame()
 {
-    SDL_Point point;
-
     if (g_dev_mode) {
         RequestExitScreen();
     }
     RepositionAmbientSounds(g_world);
     UpdateAmbientSounds(g_world);
     ServiceMusicPlaylist();
-    SGPMouseGetPos(&point);
-
     W8OptionsScreen* screen = g_options_screen.get();
-    if (screen->m_text_editor != 0) {
-        UpdateUiPointer(point.x, point.y);
-        screen = g_options_screen.get();
-    }
 
     auto& active_modal = screen->m_active_modal;
     if (active_modal) {

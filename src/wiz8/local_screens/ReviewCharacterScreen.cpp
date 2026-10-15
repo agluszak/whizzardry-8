@@ -1264,9 +1264,6 @@ void CampScreenFrame(void)
         !gXStatus.fCombatMode && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
-    SDL_Point point;
-    SGPMouseGetPos(&point);
-    UpdateUiPointer(point.x, point.y);
     if (!g_camp_screen->dialog)
         PumpUiInput({.unhandled =
                          [&](const InputEvent& input) {
@@ -1307,8 +1304,7 @@ void CampScreenFrame(void)
                                  }
                              }
                              return InputRoute::Handled;
-                         },
-                     .track_hover = false});
+                         }});
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
         !TimeUntilDeadline(g_camp_screen->animation_timer)) {
         for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
