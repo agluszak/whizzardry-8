@@ -4,6 +4,7 @@
 #include <string_view>
 #include <utility>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
@@ -192,7 +193,7 @@ bool W8DialogBase::ProcessInput()
             [this](const InputEvent& input) {
                 if (input.type == InputEventType::MouseWheel) {
                     OnMouseWheel(input.wheel);
-                } else if (input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
+                } else if (input.type == InputEventType::KeyDown && input.key == SDLK_ESCAPE) {
                     m_keep_open = false;
                 }
                 return InputRoute::Handled;

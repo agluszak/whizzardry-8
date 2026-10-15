@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -5614,7 +5615,6 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
 {
     EnvironmentColour colour_saved;
     EnvironmentColour colour_backup;
-    InputEvent atom;
     char* lines[9];
     char* wide[9];
     char groups[32];
@@ -5719,21 +5719,22 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
                                   text_options);
         }
         InvalidateRegion(0x1e, 0x64, 0x262, 0xcc);
-        if (DequeueEvent(&atom) == 0) {
-            do {
-                RenderFrame();
-                RenderFrame();
-                PumpGameEvents(true);
-            } while (gfProgramIsRunning && DequeueEvent(&atom) == 0);
+        auto next_input = PollInputEvent();
+        while (gfProgramIsRunning && !next_input) {
+            RenderFrame();
+            RenderFrame();
+            PumpGameEvents(true);
+            next_input = PollInputEvent();
         }
         if (!gfProgramIsRunning) {
             direction = 0;
             break;
         }
+        const InputEvent atom = *next_input;
         if (atom.type != InputEventType::KeyDown) {
             continue;
         }
-        if (atom.key == VK_ESCAPE) {
+        if (atom.key == SDLK_ESCAPE) {
             if (pending == 0) {
                 direction = 0;
                 break;
@@ -5742,7 +5743,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             pending = 0;
             continue;
         }
-        if (atom.key == VK_RETURN) {
+        if (atom.key == SDLK_RETURN) {
             if (pending == 0) {
                 break;
             }
@@ -5750,7 +5751,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             continue;
         }
         if (pending != 0) {
-            key = toupper(atom.key);
+            key = (atom.key <= 0x7f ? toupper(static_cast<unsigned char>(atom.key)) : atom.key);
             switch (pending) {
             case 'D':
                 if (key == 'B') {
@@ -5777,7 +5778,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
                 break;
             }
         } else {
-            switch (toupper(atom.key)) {
+            switch ((atom.key <= 0x7f ? toupper(static_cast<unsigned char>(atom.key)) : atom.key)) {
             case 'D':
                 if ((waypoint_editor_flags & 2) != 0) {
                     sprintf(lines[1], " Can only set flags in both directions in this link mode");

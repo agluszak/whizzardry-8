@@ -10,6 +10,10 @@ is no visual widget tree or second region backend.
 priority, pointer callback and optional tooltip provider. The dispatcher borrows
 live layers and maintains hover, capture, modal scopes and the tooltip timer.
 `PumpUiInput` consumes normalized SDL events and applies the screen's input policy.
+Runtime events, held keys and live command bindings use SDL keycodes. Retail virtual-key
+numbers are decoded/encoded only at the saved-binding and `MGSKeyboard.ini` boundaries.
+`PollInputEvent` returns an optional event by value; pending events belong to `InputState`
+and have no fixed event-count limit. Attaching or detaching the input window resets them.
 
 - Coordinates are in 640x480 game space. SDL rectangles are half-open; retail
   inclusive bounds are converted when constructing the target.

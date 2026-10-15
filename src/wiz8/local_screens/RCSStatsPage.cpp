@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -1037,7 +1038,7 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
         return;
     }
     if (!m_text_fields) return;
-    if (input->key == VK_TAB) {
+    if (input->key == SDLK_TAB) {
         m_text_fields->FocusNext();
         return;
     }

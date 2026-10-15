@@ -1,12 +1,12 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdlib>
 #include <memory>
 #include <string>
 #include <string_view>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -138,34 +138,34 @@ bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
         return m_keep_open;
     }
 
-    if (IsKeyHeld(VK_UP)) {
+    if (IsKeyHeld(SDLK_UP)) {
         if (m_selected_line > 0) {
             SetCurrentLine(m_selected_line - 1);
         }
-    } else if (IsKeyHeld(VK_DOWN) && m_selected_line < static_cast<int>(m_lines.size())) {
+    } else if (IsKeyHeld(SDLK_DOWN) && m_selected_line < static_cast<int>(m_lines.size())) {
         SetCurrentLine(m_selected_line + 1);
     }
 
-    switch (toupper(input->key)) {
-    case VK_ESCAPE:
+    switch (input->key) {
+    case SDLK_ESCAPE:
         m_selected_line = -1;
         m_keep_open = false;
         return false;
-    case VK_RETURN:
+    case SDLK_RETURN:
         if (m_selected_line != -1) {
             m_keep_open = false;
         }
         return m_keep_open;
-    case VK_PRIOR:
+    case SDLK_PAGEUP:
         SetCurrentLine(m_selected_line - GetVisibleLineCount());
         return m_keep_open;
-    case VK_NEXT:
+    case SDLK_PAGEDOWN:
         SetCurrentLine(m_selected_line + GetVisibleLineCount());
         return m_keep_open;
-    case VK_HOME:
+    case SDLK_HOME:
         SetCurrentLine(0);
         return m_keep_open;
-    case VK_END:
+    case SDLK_END:
         SetCurrentLine(static_cast<int>(m_lines.size()) - 1);
         return m_keep_open;
     default:
@@ -710,13 +710,13 @@ bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 {
     if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input)) return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
-        int key = toupper(input->key);
-        if (key == 0x1b) {
+        const SDL_Keycode key = input->key;
+        if (key == SDLK_ESCAPE) {
             m_keep_open = false;
         } else if (key == 0x2b) {
             IncreaseAmount(1);
             return m_keep_open;
-        } else if (key == 0x2d) {
+        } else if (key == SDLK_INSERT) {
             DecreaseAmount(1);
             return m_keep_open;
         }
@@ -1035,23 +1035,23 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse()
 
 /* Keyboard list navigation. The up/down keys move the first visible row, the
    paging keys jump, the digit keys toggle one of the four visible flags and
-   VK_ESCAPE closes the picker. */
+   SDLK_ESCAPE closes the picker. */
 // FUNCTION: WIZ8 0x005cec20
 bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 {
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
-        if (!IsKeyHeld(VK_UP)) {
-            if (IsKeyHeld(VK_DOWN)) {
+        if (!IsKeyHeld(SDLK_UP)) {
+            if (IsKeyHeld(SDLK_DOWN)) {
                 SetFirstVisible(m_first_item + 1);
             }
         } else {
             SetFirstVisible(m_first_item - 1);
         }
-        switch (toupper(input->key)) {
-        case VK_ESCAPE:
+        switch (input->key) {
+        case SDLK_ESCAPE:
             m_keep_open = false;
             return false;
-        case VK_PRIOR: {
+        case SDLK_PAGEUP: {
             int target = m_first_item - 4;
             if (target < 0) {
                 target = 0;
@@ -1059,7 +1059,7 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
             SetFirstVisible(target);
             return m_keep_open;
         }
-        case VK_NEXT: {
+        case SDLK_PAGEDOWN: {
             int target = m_first_item + 4;
             if (target > static_cast<int>(items.size()) - 4) {
                 target = static_cast<int>(items.size()) - 4;
@@ -1067,10 +1067,10 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
             SetFirstVisible(target);
             return m_keep_open;
         }
-        case VK_END:
+        case SDLK_END:
             SetFirstVisible(static_cast<int>(items.size()) - 4);
             return m_keep_open;
-        case VK_HOME:
+        case SDLK_HOME:
             SetFirstVisible(0);
             return m_keep_open;
         case '1':

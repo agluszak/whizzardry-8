@@ -6,6 +6,7 @@
 #include <string_view>
 #include <system_error>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
@@ -89,7 +90,7 @@ bool W8DialogNumericInput::HandleInput(const InputEvent* input)
 {
     if (!m_editor) return false;
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        input->key == VK_ESCAPE) {
+        input->key == SDLK_ESCAPE) {
         SetActive(false);
         return true;
     }

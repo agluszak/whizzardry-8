@@ -7,6 +7,8 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
+
 #include "compat/compiler.h"
 #include "input.h"
 #include "wiz8/catalog_artwork.h"
@@ -205,8 +207,8 @@ public:
 };
 
 struct W8OptionsKeyButton {
-    void SetKey(unsigned short key);
-    void SetKeyText(unsigned short key);
+    void SetKey(SDL_Keycode key);
+    void SetKeyText(SDL_Keycode key);
     W8MGSCommand m_primary_binding = W8_MGS_COMMAND_NONE;
     W8MGSCommand m_secondary_binding = W8_MGS_COMMAND_NONE;
     W8TextBuffer text;
@@ -221,9 +223,9 @@ public:
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
     void SelectKey(W8OptionsKeyButton* key);
-    unsigned char OnKey(unsigned short key, unsigned short modifiers);
+    unsigned char OnKey(SDL_Keycode key, unsigned short modifiers);
     void OnDialogClosed(bool accepted, int value);
-    void ClearDuplicateBinding(unsigned short key);
+    void ClearDuplicateBinding(SDL_Keycode key);
     void RefreshBindingLabels();
     int m_panel;
     std::vector<std::unique_ptr<W8OptionsKeyButton>> m_keys;

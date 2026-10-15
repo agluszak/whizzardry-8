@@ -9,6 +9,7 @@
 #include <string_view>
 #include <utility>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
@@ -1169,7 +1170,7 @@ unsigned char CampScreenEnter(void)
     g_camp_screen->item_range = std::make_unique<W8RangeControl>(0x263, 0xc1, 0x275, 0x1a1);
     g_camp_screen->item_range->on_change = [](auto* range) {
         g_camp_screen->item_scroll = range->m_value << 1;
-        if (IsKeyHeld(VK_CONTROL))
+        if (((GetInputState().modifiers & CTRL_DOWN) != 0))
             g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
         else
             g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
@@ -1267,7 +1268,7 @@ void CampScreenFrame(void)
         PumpUiInput({.unhandled =
                          [&](const InputEvent& input) {
                              if (input.type == InputEventType::KeyDown) {
-                                 if (input.key == VK_ESCAPE) {
+                                 if (input.key == SDLK_ESCAPE) {
                                      if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
                                          g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
                                          if (!g_camp_character_pending) {
@@ -1290,12 +1291,14 @@ void CampScreenFrame(void)
                                      } else {
                                          SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                                      }
-                                 } else if (input.key == 'P') {
+                                 } else if (input.key == SDLK_P) {
                                      if (g_status.game_started) {
                                          SortPartyItemPool();
                                      }
-                                 } else if (input.key == 'X' && IsKeyHeld(VK_MENU) &&
-                                            !IsKeyHeld(VK_CONTROL) && !IsKeyHeld(VK_SHIFT)) {
+                                 } else if (input.key == SDLK_X &&
+                                            ((GetInputState().modifiers & ALT_DOWN) != 0) &&
+                                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
+                                            ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
                                      ShowCampNoticeLine(g_localized_strings[0x832],
                                                         OnQuitGameDialogClosed, true, true);
                                  }
@@ -1374,7 +1377,7 @@ void DrawCampScreen(void)
     W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
-    if (!IsKeyHeld(VK_CONTROL) && state->item_icons_drawn) {
+    if (((GetInputState().modifiers & CTRL_DOWN) == 0) && state->item_icons_drawn) {
         state->redraw_flags |= W8_CAMP_REDRAW_ALL;
         state->item_icons_drawn = false;
     }
@@ -1414,7 +1417,7 @@ void DrawCampScreen(void)
         RefreshItemsTabPanel(false);
         RefreshCampSecondaryPanel(false);
         state->item_range->Redraw(GetFrameBufferSurface(), false);
-        if (IsKeyHeld(VK_CONTROL) && state->dialog == 0) {
+        if (((GetInputState().modifiers & CTRL_DOWN) != 0) && state->dialog == 0) {
             DrawCampItemIcons();
             state->item_icons_drawn = true;
         }
@@ -1828,7 +1831,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     if (gated && !IsCampActionAllowed(giReviewCharSlot)) {
         return;
     }
-    if (IsKeyHeld(VK_SHIFT)) {
+    if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
         TakeItemUnitToHand(item, slot_index, origin);
         return;
     }
@@ -2086,7 +2089,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
         return;
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
-    if (IsKeyHeld(VK_CONTROL)) {
+    if (((GetInputState().modifiers & CTRL_DOWN) != 0)) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     } else {
         if (origin == W8_ITEM_ORIGIN_BACKPACK) {
@@ -2493,7 +2496,8 @@ void PumpReviewTransition(void)
         LoadCurrentLevelData();
     }
     exit_review = false;
-    while (DequeueEvent(&input) == 1) {
+    while (auto next_input = PollInputEvent()) {
+        input = *next_input;
         switch (input.type) {
         case InputEventType::KeyDown:
         case InputEventType::LeftButtonUp:

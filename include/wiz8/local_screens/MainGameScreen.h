@@ -1,9 +1,12 @@
 #include "wiz8/design_rect.h"
 #pragma once
+
 #include <array>
 #include <memory>
 #include <optional>
 #include <string_view>
+
+#include <SDL3/SDL_keycode.h>
 
 #include "compat/compiler.h"
 #include "input.h"
@@ -63,7 +66,7 @@ public:
     W8MainGameTextKeyHandler();
     void Redraw(SDL_Surface& target, bool full_redraw);
     void SetSelectedLine(int line);
-    char HandleKey(unsigned short key);
+    char HandleKey(SDL_Keycode key);
     UiLayer input;
     W8RangeControl m_range{0x1d0, 0x16b, 0x1e2, 0x1bf};
     int m_line_count = 15, m_visible_lines = 6;

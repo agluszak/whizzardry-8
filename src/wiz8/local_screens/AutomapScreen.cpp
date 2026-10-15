@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
@@ -391,7 +392,7 @@ void ResetAutomapView(void)
 
     srVector3T<float> camera = cameraLocation();
     srVector3T<float> relative = camera - g_automap_grid_origin;
-    unsigned int key = AutomapNodeKey(&relative);
+    SDL_Keycode key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(g_automap_cell_index, key);
     if (cell > 1) {
         SetBit(g_automap_visited_cells, cell - 1);
@@ -411,7 +412,7 @@ void ResetAutomapView(void)
 bool AutomapHasCellAt(const srVector3T<float>* position)
 {
     srVector3T<float> relative = *position - g_automap_grid_origin;
-    unsigned int key = AutomapNodeKey(&relative);
+    SDL_Keycode key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(g_automap_cell_index, key);
     if (cell > 1) {
         if (!SetBit(g_automap_visited_cells, cell - 1)) {
@@ -907,19 +908,19 @@ void AutomapScreenFrame(void)
         .track_hover = false,
     });
     bool moved = false;
-    if (IsKeyHeld(VK_LEFT)) {
+    if (IsKeyHeld(SDLK_LEFT)) {
         g_automap_position.x -= g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
-    if (IsKeyHeld(VK_RIGHT)) {
+    if (IsKeyHeld(SDLK_RIGHT)) {
         g_automap_position.x += g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
-    if (IsKeyHeld(VK_UP)) {
+    if (IsKeyHeld(SDLK_UP)) {
         g_automap_position.z += g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
-    if (IsKeyHeld(VK_DOWN)) {
+    if (IsKeyHeld(SDLK_DOWN)) {
         g_automap_position.z -= g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
@@ -1175,7 +1176,7 @@ static srVector3T<float> GetAutomapCellPosition(unsigned int index)
     srVector3T<float> cell;
     cell.SetZero();
     if (index < g_automap_cell_keys.size()) {
-        unsigned int key = g_automap_cell_keys[index];
+        SDL_Keycode key = g_automap_cell_keys[index];
         float half = g_automap_grid_cell_size * g_float_half;
         cell.Set((key >> 0x15) * g_automap_grid_cell_size + half,
                  (key & 0x3ff) * g_automap_grid_cell_size + half,
@@ -1931,19 +1932,19 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
     ShowAutomapNoteTooltip(g_automap_editing_note);
     auto& text = g_automap_editing_note->text;
     const auto last = text.empty() ? 0 : text.size() - 1; // Trailing cursor marker.
-    if (key >= 32 && key <= 0x10ffff &&
+    if (key >= SDLK_SPACE && key <= 0x10ffff &&
         wiz8::text::to_utf16(text).size() + (key > 0xffff ? 2 : 1) <= 40) {
         std::string inserted;
         utf8::append(key, std::back_inserter(inserted));
         text.insert(last, inserted);
         g_automap_redraw = true;
     } else {
-        if (input->key == VK_BACK) {
+        if (input->key == SDLK_BACKSPACE) {
             if (last)
                 text.erase(wiz8::text::previous_grapheme(text, last),
                            last - wiz8::text::previous_grapheme(text, last));
             g_automap_redraw = true;
-        } else if (input->key == VK_RETURN) {
+        } else if (input->key == SDLK_RETURN) {
             text.resize(last);
             if (text.empty()) {
                 EraseAutomapNote(g_automap_editing_note);
@@ -1955,7 +1956,7 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
             }
             g_automap_editing_note = 0;
             g_automap_redraw = true;
-        } else if (input->key == VK_ESCAPE) {
+        } else if (input->key == SDLK_ESCAPE) {
             EraseAutomapNote(g_automap_editing_note);
             g_automap_redraw = true;
             if (g_automap_tool != 0) {
@@ -1990,7 +1991,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
         return 1;
     }
     switch (input->key) {
-    case 8:
+    case SDLK_BACKSPACE:
         /* Backspace zooms out one step, or all the way from the full view. */
         if (g_automap_position.y < g_automap_top_y) {
             if (g_automap_zoom_mode == 1) {
@@ -2015,11 +2016,11 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             SetAutomapToolCursor(g_automap_tool);
         }
         return 1;
-    case 0xd: {
+    case SDLK_RETURN: {
         AutomapZoomInButton();
         return 1;
     }
-    case 0x1b:
+    case SDLK_ESCAPE:
     drop_tool:
         /* Escape drops the tool, or leaves the screen when none is held. */
         if (g_automap_tool == 0) {
@@ -2029,13 +2030,13 @@ unsigned char HandleAutomapKey(const InputEvent* input)
         g_automap_tool = 0;
         SetAutomapToolCursor(0);
         return 1;
-    case 0x20:
+    case SDLK_SPACE:
         AutomapCyclePageButton();
         return 1;
-    case 0x23:
+    case SDLK_END:
         RestoreAutomapCameraPosition();
         break;
-    case 0x24: {
+    case SDLK_HOME: {
         g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
         {
             srVector3T<float> center(g_automap_bounds_min.x + g_automap_bounds_max.x,
@@ -2049,27 +2050,27 @@ unsigned char HandleAutomapKey(const InputEvent* input)
         SetAutomapButtonMode(0);
         return 1;
     }
-    case 0x2d:
+    case SDLK_INSERT:
         if (g_automap_tool == 2) {
             return 1;
         }
         g_automap_tool = 2;
         SetAutomapToolCursor(2);
         return 1;
-    case 0x2e:
+    case SDLK_DELETE:
         if (g_automap_tool == 3) {
             return 1;
         }
         g_automap_tool = 3;
         SetAutomapToolCursor(3);
         return 1;
-    case 0x31:
-    case 0x32:
-    case 0x33:
-    case 0x34:
+    case SDLK_1:
+    case SDLK_2:
+    case SDLK_3:
+    case SDLK_4:
         SetAutomapLayer(input->key - 0x31);
         return 1;
-    case 0x41:
+    case SDLK_A:
         /* Developer: reveal the whole map. */
         if (g_dev_mode) {
             std::ranges::fill(g_automap_visited_cells, true);
@@ -2092,7 +2093,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             return 1;
         }
         break;
-    case 0x43:
+    case SDLK_C:
         /* Developer: forget the whole map. */
         if (g_dev_mode) {
             std::ranges::fill(g_automap_visited_cells, false);
@@ -2101,21 +2102,21 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             return 1;
         }
         break;
-    case 0x49:
+    case SDLK_I:
         if (g_dev_mode) {
             g_automap_developer_i_toggle = !g_automap_developer_i_toggle;
             g_automap_redraw = true;
             return 1;
         }
         break;
-    case 0x53:
+    case SDLK_S:
         if (g_dev_mode) {
             g_automap_redraw = true;
             g_automap_show_all_monsters = !g_automap_show_all_monsters;
             return 1;
         }
         break;
-    case 0x70:
+    case SDLK_F1:
         if (g_dev_mode) {
             g_automap_saved_camera.position = g_automap_position;
             ResetCurrentEnvironment();
@@ -2123,7 +2124,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             goto drop_tool;
         }
         break;
-    case 0x79:
+    case SDLK_F10:
         if (g_dev_mode) {
             g_automap_state->blink_enabled = !g_automap_state->blink_enabled;
             return 1;

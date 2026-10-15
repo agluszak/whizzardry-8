@@ -283,7 +283,8 @@ void W8Item::UpdateAnimation()
     if ((rep->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
-    if ((rep->flags & W8_ITEM_ENTITY_ROTATE) != 0 && !IsKeyHeld(VK_CONTROL)) {
+    if ((rep->flags & W8_ITEM_ENTITY_ROTATE) != 0 &&
+        ((GetInputState().modifiers & CTRL_DOWN) == 0)) {
         glm::mat3 rotation;
         rotation = m_pRep->GetRotation();
         rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));

@@ -1,11 +1,11 @@
 #include <algorithm>
-#include <cctype>
 #include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
@@ -222,8 +222,8 @@ bool W8MessageDialogBase::HandleInput(const InputEvent* input)
     }
 
     if (allow_cancel) {
-        int key = toupper(input->key);
-        if (key == VK_ESCAPE) {
+        const SDL_Keycode key = input->key;
+        if (key == SDLK_ESCAPE) {
             accepted = false;
             is_open = false;
             return false;

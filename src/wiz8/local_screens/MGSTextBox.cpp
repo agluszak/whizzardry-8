@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -1112,14 +1113,14 @@ static void InsertDialogueTextCharacter(char32_t character)
     InvalidateDialogueTextCursor();
 }
 
-void DeleteDialogueTextCharacter(unsigned int key)
+void DeleteDialogueTextCharacter(SDL_Keycode key)
 {
     auto& input = *g_level_block->dialogue_text_input;
-    if (key == 8 && input.cursor) {
+    if (key == SDLK_BACKSPACE && input.cursor) {
         const auto previous = wiz8::text::previous_grapheme(input.text, input.cursor);
         input.text.erase(previous, input.cursor - previous);
         input.cursor = previous;
-    } else if (key == 0x2e && input.cursor < input.text.size()) {
+    } else if (key == SDLK_DELETE && input.cursor < input.text.size()) {
         const auto next = wiz8::text::next_grapheme(input.text, input.cursor);
         input.text.erase(input.cursor, next - input.cursor);
     }
@@ -1239,14 +1240,14 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
         input_event->type != InputEventType::KeyRepeat) {
         return 1;
     }
-    unsigned int key = input_event->key;
+    SDL_Keycode key = input_event->key;
     switch (key) {
-    case 8:
-    case 0x2e:
+    case SDLK_BACKSPACE:
+    case SDLK_DELETE:
         DeleteDialogueTextCharacter(key);
         return 1;
-    case 0x0d:
-    case 0x1b:
+    case SDLK_RETURN:
+    case SDLK_ESCAPE:
         if (input->completion_callback != 0) {
             input->completion_callback();
         }
@@ -1258,10 +1259,10 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
         ReleaseDialogueTextInput();
         RedrawTextBox();
         return 1;
-    case 0x20:
+    case SDLK_SPACE:
         InsertDialogueTextCharacter(' ');
         return 1;
-    case 0x23: {
+    case SDLK_END: {
         size_t length = input->text.size();
         if (input->cursor < length) {
             input->cursor = length;
@@ -1269,19 +1270,19 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
         }
         return 1;
     }
-    case 0x24:
+    case SDLK_HOME:
         if (input->cursor != 0) {
             input->cursor = 0;
             InvalidateDialogueTextCursor();
         }
         return 1;
-    case 0x25:
+    case SDLK_LEFT:
         if (input->cursor != 0) {
             input->cursor = wiz8::text::previous_grapheme(input->text, input->cursor);
             InvalidateDialogueTextCursor();
         }
         return 1;
-    case 0x27:
+    case SDLK_RIGHT:
         if (input->cursor < input->text.size()) {
             input->cursor = wiz8::text::next_grapheme(input->text, input->cursor);
             InvalidateDialogueTextCursor();
@@ -1291,8 +1292,8 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
         break;
     }
 
-    char character = TranslateKeyToCharacter(static_cast<unsigned short>(key),
-                                             static_cast<unsigned char>(input_event->modifiers));
+    char character =
+        TranslateKeyToCharacter(key, static_cast<unsigned char>(input_event->modifiers));
     if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z') ||
         (character >= 'a' && character <= 'z') || (character >= '!' && character <= '/') ||
         (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||

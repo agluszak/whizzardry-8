@@ -10,6 +10,7 @@
 #include <string_view>
 #include <utility>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
@@ -103,7 +104,7 @@ static int g_options_combat_mode_labels[2] = {0x7f6, 0x7f5};
 static int g_options_audio_labels[4] = {0x81e, 0x81f, 0x821, 0x820};
 
 struct W8OptionsKeyName {
-    unsigned short key;
+    SDL_Keycode key;
     unsigned short reserved;
     int label;
 };
@@ -121,16 +122,55 @@ struct W8OptionsKeyboardPage {
 };
 
 // GLOBAL: WIZ8 0x0064d2f8
-static W8OptionsKeyName g_options_key_names[] = {
-    {112, 0, 2158}, {113, 0, 2159}, {114, 0, 2160}, {115, 0, 2161}, {116, 0, 2162}, {117, 0, 2163},
-    {118, 0, 2164}, {119, 0, 2165}, {120, 0, 2166}, {121, 0, 2167}, {122, 0, 2168}, {123, 0, 2169},
-    {9, 0, 2170},   {144, 0, 2171}, {8, 0, 2172},   {45, 0, 2173},  {46, 0, 2174},  {35, 0, 2175},
-    {34, 0, 2176},  {33, 0, 2177},  {36, 0, 2178},  {13, 0, 2179},  {32, 0, 2180},  {40, 0, 2181},
-    {37, 0, 2182},  {39, 0, 2183},  {38, 0, 2184},  {19, 0, 2185},  {145, 0, 2186}, {20, 0, 2187},
-    {96, 0, 2188},  {97, 0, 2189},  {98, 0, 2190},  {99, 0, 2191},  {100, 0, 2192}, {101, 0, 2193},
-    {102, 0, 2194}, {103, 0, 2195}, {104, 0, 2196}, {105, 0, 2197}, {106, 0, 2198}, {107, 0, 2199},
-    {108, 0, 2200}, {109, 0, 2201}, {110, 0, 2202}, {111, 0, 2203}, {144, 0, 2171}, {192, 0, 2204},
-    {0, 0, 2157}};
+static W8OptionsKeyName g_options_key_names[] = {{SDLK_F1, 0, 2158},
+                                                 {SDLK_F2, 0, 2159},
+                                                 {SDLK_F3, 0, 2160},
+                                                 {SDLK_F4, 0, 2161},
+                                                 {SDLK_F5, 0, 2162},
+                                                 {SDLK_F6, 0, 2163},
+                                                 {SDLK_F7, 0, 2164},
+                                                 {SDLK_F8, 0, 2165},
+                                                 {SDLK_F9, 0, 2166},
+                                                 {SDLK_F10, 0, 2167},
+                                                 {SDLK_F11, 0, 2168},
+                                                 {SDLK_F12, 0, 2169},
+                                                 {SDLK_TAB, 0, 2170},
+                                                 {SDLK_NUMLOCKCLEAR, 0, 2171},
+                                                 {SDLK_BACKSPACE, 0, 2172},
+                                                 {SDLK_INSERT, 0, 2173},
+                                                 {SDLK_DELETE, 0, 2174},
+                                                 {SDLK_END, 0, 2175},
+                                                 {SDLK_PAGEDOWN, 0, 2176},
+                                                 {SDLK_PAGEUP, 0, 2177},
+                                                 {SDLK_HOME, 0, 2178},
+                                                 {SDLK_RETURN, 0, 2179},
+                                                 {SDLK_SPACE, 0, 2180},
+                                                 {SDLK_DOWN, 0, 2181},
+                                                 {SDLK_LEFT, 0, 2182},
+                                                 {SDLK_RIGHT, 0, 2183},
+                                                 {SDLK_UP, 0, 2184},
+                                                 {SDLK_PAUSE, 0, 2185},
+                                                 {SDLK_SCROLLLOCK, 0, 2186},
+                                                 {SDLK_CAPSLOCK, 0, 2187},
+                                                 {SDLK_KP_0, 0, 2188},
+                                                 {SDLK_KP_1, 0, 2189},
+                                                 {SDLK_KP_2, 0, 2190},
+                                                 {SDLK_KP_3, 0, 2191},
+                                                 {SDLK_KP_4, 0, 2192},
+                                                 {SDLK_KP_5, 0, 2193},
+                                                 {SDLK_KP_6, 0, 2194},
+                                                 {SDLK_KP_7, 0, 2195},
+                                                 {SDLK_KP_8, 0, 2196},
+                                                 {SDLK_KP_9, 0, 2197},
+                                                 {SDLK_KP_MULTIPLY, 0, 2198},
+                                                 {SDLK_KP_PLUS, 0, 2199},
+                                                 {SDLK_KP_ENTER, 0, 2200},
+                                                 {SDLK_KP_MINUS, 0, 2201},
+                                                 {SDLK_KP_PERIOD, 0, 2202},
+                                                 {SDLK_KP_DIVIDE, 0, 2203},
+                                                 {SDLK_NUMLOCKCLEAR, 0, 2171},
+                                                 {SDLK_GRAVE, 0, 2204},
+                                                 {0, 0, 2157}};
 
 // GLOBAL: WIZ8 0x0064d480
 static W8OptionsKeyRow g_options_key_rows[] = {
@@ -618,9 +658,9 @@ void W8OptionsScreen::BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row,
     m_text_editor = std::move(editor);
 }
 
-void W8OptionsKeyButton::SetKey(unsigned short key)
+void W8OptionsKeyButton::SetKey(SDL_Keycode key)
 {
-    if (key == VK_ESCAPE) {
+    if (key == SDLK_ESCAPE) {
         return;
     }
 
@@ -628,17 +668,19 @@ void W8OptionsKeyButton::SetKey(unsigned short key)
         g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(m_primary_binding));
     if (binding != 0) {
         binding->key = key;
+        binding->unmapped_retail_key = 0;
     }
     if (m_secondary_binding != W8_MGS_COMMAND_NONE) {
         binding = g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(m_secondary_binding));
         if (binding != 0) {
             binding->key = key;
+            binding->unmapped_retail_key = 0;
         }
     }
     SetKeyText(key);
 }
 
-void W8OptionsKeyButton::SetKeyText(unsigned short key)
+void W8OptionsKeyButton::SetKeyText(SDL_Keycode key)
 {
     std::string text;
     for (const auto* name = g_options_key_names; name->key != 0; ++name) {
@@ -772,12 +814,12 @@ void W8OptionsKeyboardPanel::SetActive(bool active)
     SelectKey(nullptr);
 }
 
-unsigned char W8OptionsKeyboardPanel::OnKey(unsigned short key, unsigned short modifiers)
+unsigned char W8OptionsKeyboardPanel::OnKey(SDL_Keycode key, unsigned short modifiers)
 {
     if (modifiers != 0) {
         return 0;
     }
-    if (key != VK_ESCAPE) {
+    if (key != SDLK_ESCAPE) {
         ClearDuplicateBinding(key);
     }
     m_captured_button->SetKey(key);
@@ -794,7 +836,7 @@ void W8OptionsKeyboardPanel::OnDialogClosed(bool accepted, int)
     }
 }
 
-void W8OptionsKeyboardPanel::ClearDuplicateBinding(unsigned short key)
+void W8OptionsKeyboardPanel::ClearDuplicateBinding(SDL_Keycode key)
 {
     int row_index = 0;
     if (g_options_key_rows[0].primary_binding == W8_MGS_COMMAND_NONE) {
@@ -806,12 +848,14 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(unsigned short key)
         MGSKeyBinding* binding =
             g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(row->primary_binding));
         if (binding != 0 && binding->key == key) {
-            binding->key = 0;
+            binding->key = SDLK_UNKNOWN;
+            binding->unmapped_retail_key = 0;
             if (g_options_key_rows[row_index].secondary_binding != W8_MGS_COMMAND_NONE) {
                 binding = g_mgs_keyboard->GetBinding(
                     g_mgs_keyboard->FindBinding(g_options_key_rows[row_index].secondary_binding));
                 if (binding != 0) {
-                    binding->key = 0;
+                    binding->key = SDLK_UNKNOWN;
+                    binding->unmapped_retail_key = 0;
                 }
             }
 
@@ -1278,7 +1322,7 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
     W8OptionsTextEditor* editor = m_text_editor.get();
     if (editor != 0) {
         if (IsTypingEvent(*input)) {
-            if (input->key != VK_ESCAPE && input->key != VK_RETURN) {
+            if (input->key != SDLK_ESCAPE && input->key != SDLK_RETURN) {
                 const char32_t character = TypedCharacter(*input);
                 if (character != 0 && character < 0x80 &&
                     strchr("\\/:*?\"<>|", int(character)) != 0) {
@@ -1288,12 +1332,12 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
                 return 0;
             }
             SetTargetCursor(W8_CURSOR_NONE);
-            editor->owner->OnTextEditComplete(editor, input->key == VK_ESCAPE);
+            editor->owner->OnTextEditComplete(editor, input->key == SDLK_ESCAPE);
             m_text_editor.reset();
             return 1;
         }
     } else if (m_key_capture != 0 && input->type == InputEventType::KeyDown) {
-        return m_key_capture->OnKey(static_cast<unsigned short>(input->key), input->modifiers);
+        return m_key_capture->OnKey(input->key, input->modifiers);
     }
     return 0;
 }
@@ -1802,7 +1846,7 @@ void OptionsScreenFrame()
                 },
             .unhandled =
                 [](const InputEvent& input) {
-                    if (input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
+                    if (input.type == InputEventType::KeyDown && input.key == SDLK_ESCAPE) {
                         RequestScreenTransition();
                     }
                     return InputRoute::Handled;

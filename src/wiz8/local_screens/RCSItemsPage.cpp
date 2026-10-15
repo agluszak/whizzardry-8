@@ -796,7 +796,7 @@ void ToggleCampItemFilter(W8CampItemFilterButton tab)
     }
     g_camp_screen->item_scroll = 0;
     RebuildCampItemList();
-    if (!IsKeyHeld(VK_CONTROL)) {
+    if (((GetInputState().modifiers & CTRL_DOWN) == 0)) {
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
         return;
     }

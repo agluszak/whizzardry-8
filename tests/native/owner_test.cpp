@@ -17,6 +17,7 @@
 #include <variant>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
@@ -1264,13 +1265,13 @@ TEST_CASE("Split fields share editing and restore focus after rejecting excessiv
     REQUIRE(amount.m_value == 123);
     REQUIRE(amount.HandleInput(&digit)); // 1233 is rejected without moving the caret.
     REQUIRE(amount.m_value == 123);
-    const InputEvent backspace{.type = InputEventType::KeyDown, .key = VK_BACK};
+    const InputEvent backspace{.type = InputEventType::KeyDown, .key = SDLK_BACKSPACE};
     REQUIRE(amount.HandleInput(&backspace));
     REQUIRE(amount.m_value == 12);
     const InputEvent letter{.type = InputEventType::Text, .text = U'x'};
     REQUIRE(amount.HandleInput(&letter));
     REQUIRE(amount.m_value == 12);
-    const InputEvent escape{.type = InputEventType::KeyDown, .key = VK_ESCAPE};
+    const InputEvent escape{.type = InputEventType::KeyDown, .key = SDLK_ESCAPE};
     REQUIRE(amount.HandleInput(&escape));
     REQUIRE_FALSE(amount.m_active);
     REQUIRE(TextFieldGroup::Focused() == &outer);
@@ -1321,16 +1322,15 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
 {
     UiStateSnapshot saved_state;
     ResetUiInput();
-    InputEvent pending;
-    while (DequeueEvent(&pending)) {
+    while (PollInputEvent()) {
     }
     auto layer = std::make_unique<UiLayer>();
     layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
         if (event.action == UiPointerAction::Down) AfterUiDispatch([&] { layer.reset(); });
         return UiResult::Handled;
     });
-    QueueEvent(InputEventType::LeftButtonDown, {15, 15});
-    QueueEvent(InputEventType::LeftButtonUp, {15, 15});
+    PostInputEvent({.type = InputEventType::LeftButtonDown, .position = {15, 15}});
+    PostInputEvent({.type = InputEventType::LeftButtonUp, .position = {15, 15}});
     int consumed = 0;
     UiInputPolicy policy;
     policy.track_hover = false;
@@ -1342,9 +1342,10 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
     REQUIRE(PumpUiInput(policy));
     REQUIRE(consumed == 1);
     REQUIRE(layer == nullptr);
-    REQUIRE(DequeueEvent(&pending));
-    REQUIRE(pending.type == InputEventType::LeftButtonUp);
-    REQUIRE_FALSE(DequeueEvent(&pending));
+    auto pending = PollInputEvent();
+    REQUIRE(pending);
+    REQUIRE(pending->type == InputEventType::LeftButtonUp);
+    REQUIRE_FALSE(PollInputEvent());
 }
 
 TEST_CASE("A handler may remove its own target or layer synchronously", "[owner][ui-layer]")

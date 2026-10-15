@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_log.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -1220,12 +1221,12 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                     break;
                 }
                 if (received_events) {
-                    InputEvent input;
-                    if (DequeueEvent(&input) != 0 && input.type == InputEventType::KeyDown) {
-                        if (input.key == VK_RETURN) {
+                    if (auto input = PollInputEvent();
+                        input && input->type == InputEventType::KeyDown) {
+                        if (input->key == SDLK_RETURN) {
                             x_index += 2;
                             z_index = 0;
-                        } else if (input.key == VK_ESCAPE) {
+                        } else if (input->key == SDLK_ESCAPE) {
                             aborted = true;
                             if (g_build_level_links) {
                                 g_build_level_links = false;

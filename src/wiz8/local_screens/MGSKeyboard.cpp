@@ -1,12 +1,16 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <exception>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
+#include <SDL3/SDL_endian.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
@@ -29,6 +33,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/key_bindings.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -84,113 +89,95 @@ MGSKeyboard* g_mgs_keyboard;
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
-    for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->command == command) {
-            return index;
-        }
-    }
-    return -1;
+    const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
+    return found == m_bindings.end() ? -1 : static_cast<int>(found - m_bindings.begin());
 }
 
 // FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
-    for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->active != 0 && event->type == InputEventType::KeyDown &&
-            binding->modifiers == event->modifiers && binding->key == event->key) {
-            return binding->command;
-        }
-    }
+    if (event->type != InputEventType::KeyDown || event->key == SDLK_UNKNOWN)
+        return W8_MGS_COMMAND_NONE;
+    for (const auto& binding : m_bindings)
+        if (binding.active && binding.key == event->key && binding.modifiers == event->modifiers)
+            return binding.command;
     return W8_MGS_COMMAND_NONE;
 }
 
 // FUNCTION: WIZ8 0x0055d300
-MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
+MGSKeyBinding* MGSKeyboard::GetBinding(int index)
 {
     if (index < 0 || m_bindings.empty()) {
         return nullptr;
     }
     // Preserve the binding table's fallback to its first entry.
     if (std::cmp_greater_equal(index, m_bindings.size())) {
-        return m_bindings.front().get();
+        return &m_bindings.front();
     }
-    return m_bindings[index].get();
+    return &m_bindings[index];
 }
 
 // FUNCTION: WIZ8 0x0055d320
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
-    const auto found = m_command_index.find(command);
-    if (found == m_command_index.end()) {
-        return false;
-    }
-    const auto* binding = found->second;
-    if (IsKeyHeld(binding->key)) {
-        unsigned short modifiers = 0;
-        if (IsKeyHeld(VK_SHIFT)) {
-            modifiers |= SHIFT_DOWN;
-        }
-        if (IsKeyHeld(VK_MENU)) {
-            modifiers |= ALT_DOWN;
-        }
-        if (IsKeyHeld(VK_CONTROL)) {
-            modifiers |= CTRL_DOWN;
-        }
-        if (modifiers == binding->modifiers) {
-            return true;
-        }
-    }
-    return false;
+    const int index = FindBinding(command);
+    return index >= 0 && IsKeyHeld(m_bindings[index].key) &&
+           m_bindings[index].modifiers == GetInputState().modifiers;
 }
 
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale
    presses do not fire against the freshly entered screen state. */
 // FUNCTION: WIZ8 0x0055D3C0
-void DrainInputEventQueue(void)
+void DrainInputEventQueue()
 {
-    InputEvent event;
-
-    while (DequeueEvent(&event)) {
+    while (PollInputEvent()) {
     }
 }
 
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    m_command_index.clear();
     m_bindings.clear();
 }
+
+void MGSKeyboard::SetBinding(MGSKeyBinding binding)
+{
+    const int index = FindBinding(binding.command);
+    if (index >= 0) m_bindings.erase(m_bindings.begin() + index);
+    m_bindings.push_back(binding);
+}
+
+namespace {
+// Exact retail layout at the file boundary; runtime bindings have normal C++ layout.
+#pragma pack(push, 1)
+struct RetailKeyBinding {
+    std::uint16_t key;
+    std::uint16_t modifiers;
+    std::uint16_t active;
+    std::uint32_t command;
+};
+#pragma pack(pop)
+static_assert(sizeof(RetailKeyBinding) == 10);
+} // namespace
 
 // FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
 try {
-    int count;
-
-    if (clear) {
-        Clear();
-    }
+    if (clear) Clear();
+    std::uint32_t count;
     handle.read_exact(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
-        auto binding = std::make_unique<MGSKeyBinding>();
-        handle.read_exact(binding.get(), sizeof(*binding));
-
-        int old_index = FindBinding(binding->command);
-        if (old_index != -1) {
-            m_command_index.erase(binding->command);
-            m_bindings.erase(m_bindings.begin() + old_index);
-        }
-        auto* borrowed = binding.get();
-        m_bindings.push_back(std::move(binding));
-        // Copy the packed disk field before unordered_map binds its arguments.
-        m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
+    count = SDL_Swap32LE(count);
+    if (count > (handle.size() - handle.tell()) / sizeof(RetailKeyBinding)) return false;
+    for (std::uint32_t index = 0; index < count; ++index) {
+        RetailKeyBinding record;
+        handle.read_exact(&record, sizeof(record));
+        const auto retail_key = SDL_Swap16LE(record.key);
+        const auto key = KeyFromRetailBinding(retail_key);
+        SetBinding({key, SDL_Swap16LE(record.modifiers), SDL_Swap16LE(record.active),
+                    static_cast<W8MGSCommand>(SDL_Swap32LE(record.command)),
+                    key == SDLK_UNKNOWN ? retail_key : std::uint16_t(0)});
     }
-    return 1;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -198,12 +185,17 @@ try {
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
-    int count = static_cast<int>(m_bindings.size());
+    const auto count = SDL_Swap32LE(static_cast<std::uint32_t>(m_bindings.size()));
     handle.write(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
-        handle.write(m_bindings[index].get(), sizeof(MGSKeyBinding));
+    for (const auto& binding : m_bindings) {
+        const RetailKeyBinding record{SDL_Swap16LE(binding.key == SDLK_UNKNOWN
+                                                       ? binding.unmapped_retail_key
+                                                       : KeyToRetailBinding(binding.key)),
+                                      SDL_Swap16LE(binding.modifiers), SDL_Swap16LE(binding.active),
+                                      SDL_Swap32LE(static_cast<std::uint32_t>(binding.command))};
+        handle.write(&record, sizeof(record));
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00592BE0
@@ -241,7 +233,8 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
         return 1;
     }
     if (IsRecordModeActive()) {
-        if (!IsKeyHeld(VK_CONTROL) && HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
+        if (((GetInputState().modifiers & CTRL_DOWN) == 0) &&
+            HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
             ApplyRecordModeLine();
             return 1;
         }
@@ -636,8 +629,8 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_DEBUG_INJECT_CLICK:
         if (IsCursorImageInsideViewport()) {
             const SDL_Point position = GetGameMousePosition();
-            QueueEvent(InputEventType::LeftButtonDown, position);
-            QueueEvent(InputEventType::LeftButtonUp, position);
+            PostInputEvent({.type = InputEventType::LeftButtonDown, .position = position});
+            PostInputEvent({.type = InputEventType::LeftButtonUp, .position = position});
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:

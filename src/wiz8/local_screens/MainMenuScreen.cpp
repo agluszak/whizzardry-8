@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
@@ -270,22 +271,22 @@ void MainMenuScreenFrame()
                     }
                 } else {
                     switch (input.key) {
-                    case VK_RETURN:
+                    case SDLK_RETURN:
                         DrawMainMenuItem(g_main_menu_selected_item, 2);
                         ActivateMainMenuItem(static_cast<short>(g_main_menu_selected_item));
                         break;
-                    case VK_ESCAPE:
-                    case 'E':
-                    case 'X':
+                    case SDLK_ESCAPE:
+                    case SDLK_E:
+                    case SDLK_X:
                         RequestExitScreen();
                         break;
-                    case VK_PRIOR:
+                    case SDLK_PAGEUP:
                         SelectMainMenuItem(0);
                         break;
-                    case VK_NEXT:
+                    case SDLK_PAGEDOWN:
                         SelectMainMenuItem(5);
                         break;
-                    case VK_UP:
+                    case SDLK_UP:
                         DrawMainMenuItem(g_main_menu_selected_item, 0);
                         if (g_main_menu_selected_item > 0) {
                             --g_main_menu_selected_item;
@@ -294,7 +295,7 @@ void MainMenuScreenFrame()
                         }
                         DrawMainMenuItem(g_main_menu_selected_item, 1);
                         break;
-                    case VK_DOWN:
+                    case SDLK_DOWN:
                         DrawMainMenuItem(g_main_menu_selected_item, 0);
                         if (g_main_menu_selected_item < 5) {
                             ++g_main_menu_selected_item;
@@ -303,13 +304,13 @@ void MainMenuScreenFrame()
                         }
                         DrawMainMenuItem(g_main_menu_selected_item, 1);
                         break;
-                    case 'L':
+                    case SDLK_L:
                         ActivateMainMenuItem(2);
                         break;
-                    case 'O':
+                    case SDLK_O:
                         ActivateMainMenuItem(4);
                         break;
-                    case 'S':
+                    case SDLK_S:
                         ActivateMainMenuItem(1);
                         break;
                     }

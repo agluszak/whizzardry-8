@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_keycode.h>
 #include <fmt/format.h>
 
 #include "compat/native.h"
@@ -180,10 +181,11 @@ char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
     char character;
     std::string text;
 
-    if (IsKeyHeld(VK_CONTROL)) {
+    if (((GetInputState().modifiers & CTRL_DOWN) != 0)) {
         return 0;
     }
-    character = static_cast<char>(toupper(input->key));
+    if (input->key > 0x7f) return 0;
+    character = static_cast<char>(toupper(static_cast<unsigned char>(input->key)));
     if (input->type != InputEventType::KeyUp) {
         return 0;
     }
@@ -206,7 +208,8 @@ char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
         return -1;
     } else {
         text = &character;
-        if (!IsKeyHeld(VK_SHIFT) && !IsKeyHeld(0x14) && text[0] >= 'A' && text[0] <= 'Z') {
+        if (((GetInputState().modifiers & SHIFT_DOWN) == 0) && !IsKeyHeld(SDLK_CAPSLOCK) &&
+            text[0] >= 'A' && text[0] <= 'Z') {
             text[0] += 0x20;
         }
         g_record_mode_line[g_record_mode_length] = text[0];
