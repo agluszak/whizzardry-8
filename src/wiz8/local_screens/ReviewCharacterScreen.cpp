@@ -1390,7 +1390,7 @@ void DrawCampScreen(void)
         if (state->redraw_flags == W8_CAMP_REDRAW_ALL) {
             state->item_redraw_flags = 0xffffffff;
             if (state->dialog != 0) {
-                state->dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+                state->dialog->m_dirty = true;
             }
         }
         DrawCampHeader();

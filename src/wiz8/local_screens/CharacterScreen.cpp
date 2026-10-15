@@ -50,6 +50,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/ui_input.h"
@@ -221,8 +222,7 @@ void W8CharacterScreen::UpdateDialog()
                 accepted = static_cast<W8MessageDialogBase*>(m_dialog)->accepted;
                 m_capture_dialog_result = false;
             }
-            delete m_dialog;
-            m_dialog = 0;
+            RetireModal(std::unique_ptr<ModalContent>(std::exchange(m_dialog, nullptr)), false);
             HandleDialogResult(m_dialog_response, accepted);
 #pragma clang diagnostic pop
         }

@@ -46,7 +46,7 @@ void W8ListBoxDialog::OnDown()
 void W8ListBoxDialog::OnOk()
 {
     m_keep_open = false;
-    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005cd130
@@ -54,7 +54,7 @@ void W8ListBoxDialog::OnCancel()
 {
     m_keep_open = false;
     SetCurrentLine(-1);
-    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005cd1e0

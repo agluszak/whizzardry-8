@@ -67,9 +67,7 @@ public:
 class W8ListBoxDialog : public W8DialogBase {
 public:
     W8ListBoxDialog();
-    virtual ~W8ListBoxDialog() override;
-    virtual int CreateControls() override;
-    virtual void DestroyControls() override;
+    void Configure();
     virtual void Draw(SDL_Surface& target) override;
 
     virtual void SetText(std::string_view text) override;
@@ -120,13 +118,10 @@ class W8SplitAmountDialog : public W8DialogBase {
 public:
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(int)> on_complete;
-    W8SplitAmountDialog();
     /* The split-size entry point; the pool total seeds both the
        remaining and total fields. */
-    W8SplitAmountDialog(int total);
+    W8SplitAmountDialog(int total, SDL_Point origin);
     virtual ~W8SplitAmountDialog() override;
-    virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
@@ -173,8 +168,6 @@ public:
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(W8WorldItem*)> on_complete;
     W8TriggerItemPickerDialog();
-    virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw(SDL_Surface& target) override;
 
     virtual bool ProcessInput() override;
@@ -219,10 +212,8 @@ class W8SplitItemDialog : public W8DialogBase {
 public:
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(int)> on_complete;
-    W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count);
+    W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count, SDL_Point origin);
     virtual ~W8SplitItemDialog() override;
-    virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
@@ -231,10 +222,8 @@ private:
     /* Create and place the arrow, frame, accept and cancel
        buttons; eight for inventory splits, ten in trade modes. */
     bool CreateButtons();
-    void DestroyButtons();
     /* Create the label text buffers and fill the item-name rows. */
     bool CreateTextBuffers();
-    void DestroyTextBuffers();
     /* Create the count entry field over its backing button. */
     bool CreateNumericInput();
     /* Refresh the two trade-price labels in trade modes. */
@@ -255,7 +244,7 @@ private:
 
 public:
     std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */
-    W8TextBuffer* m_texts[14];
+    std::array<std::unique_ptr<W8TextBuffer>, 14> m_texts;
     std::unique_ptr<W8DialogNumericInput> m_count_input;
     /* The numeric field while a click or keypress owns it. */
     W8DialogNumericInput* m_active_input;

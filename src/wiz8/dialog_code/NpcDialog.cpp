@@ -79,13 +79,17 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
         width = 200;
     }
     m_bounds = {(640 - width) / 2, 184, width, height};
+    if (!Configure()) {
+        m_cancelled = true;
+        m_keep_open = false;
+    }
 }
 
 // FUNCTION: WIZ8 0x005DA860
 W8NpcDialog::~W8NpcDialog() = default;
 
 // FUNCTION: WIZ8 0x005DA8B0
-int W8NpcDialog::CreateControls()
+bool W8NpcDialog::Configure()
 {
     int index;
     std::string line;
@@ -94,7 +98,7 @@ int W8NpcDialog::CreateControls()
     m_background.generic_image = LoadGenericButtonImages(
         {}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {},
         "Data\\Dialogs\\DialogBackground.sti", 0, 0, 0);
-    if (!m_background.generic_image) return 4;
+    if (!m_background.generic_image) return false;
     m_input.add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1}, {},
                 UI_PRIORITY_BACKGROUND);
     if (m_message->kind == W8_NPC_ENTRY_OPTIONS) {
@@ -181,20 +185,15 @@ int W8NpcDialog::CreateControls()
             &bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
-    m_initialized = true;
-    return 0;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005DAE00
 void W8NpcDialog::DrawModal(SDL_Surface& target)
 {
     int index;
+    if (!m_keep_open) return;
     if (m_dirty) {
-        if (!m_initialized && CreateControls() != 0) {
-            m_cancelled = true;
-            m_keep_open = false;
-            return;
-        }
         for (index = 0; index < 2; ++index) {
             if (m_text_buffers[index] != 0) {
                 m_text_buffers[index]->SetGeometryDirty();

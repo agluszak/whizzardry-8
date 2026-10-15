@@ -165,12 +165,12 @@ void OpenItemInfoDialog(W8ItemInstance* item)
 
     if (!IsItemWornByCharacter(g_review_character, item) &&
         !IsItemCarriedByCharacter(g_review_character, item)) {
-        dialog = new W8AssayDialog(item, 0);
+        dialog = new W8AssayDialog(item, 0, {g_info_dialog_x, g_info_dialog_y});
     } else {
-        dialog = new W8AssayDialog(item, g_review_character);
+        dialog = new W8AssayDialog(item, g_review_character, {g_info_dialog_x, g_info_dialog_y});
     }
     dialog->SetText("");
-    dialog->SetOrigin(g_info_dialog_x, g_info_dialog_y);
+
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
@@ -290,9 +290,10 @@ void OpenSplitStackDialog(W8ItemInstance* item)
         (g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
         g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         g_split_item_source = item;
-        dialog = new W8SplitItemDialog(g_item_split_inventory_mode, item, -1);
+        dialog = new W8SplitItemDialog(g_item_split_inventory_mode, item, -1,
+                                       {g_split_dialog_x, g_split_dialog_y});
         dialog->SetText("");
-        dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
+
         dialog->on_complete = SplitStackDialogResult;
         DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);

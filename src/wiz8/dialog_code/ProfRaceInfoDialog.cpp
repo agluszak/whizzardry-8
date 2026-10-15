@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -84,37 +85,24 @@ W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
 }
 
 // FUNCTION: WIZ8 0x005DEC40
-int W8ProfRaceInfoDialogBase::CreateControls()
+void W8ProfRaceInfoDialogBase::Configure()
 {
-    W8DialogBase::CreateControls();
     if (!PopulateText()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
 
-    W8DialogScrollBar::Resources resources;
-    resources.track_path = g_popup_race_profession_path;
-    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
-    resources.track_frame = 1;
-    resources.on_scroll = [this](int first_visible_entry) {
-        ScrollTextArea(m_text_area, first_visible_entry);
-    };
-    m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x159, m_y + 0x29, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb8);
 
     CreateCloseButton(m_button, 0x14f, 0xe8);
-    return 0;
+    return;
 }
 
 // FUNCTION: WIZ8 0x005DED60
 void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
 {
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+    if (m_dirty) {
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
@@ -205,6 +193,7 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
     for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
         m_minimums[attribute] = g_profession_attribute_minimums[uiIndex].values[attribute];
     }
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005DF250
@@ -292,6 +281,7 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
             m_minimums[attribute] = -1;
         }
     }
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005DF6F0

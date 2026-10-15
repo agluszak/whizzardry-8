@@ -670,9 +670,10 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
 {
     W8AssayDialog* dialog;
 
-    dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_use_item_owner_index]);
+    dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_use_item_owner_index],
+                               {g_info_dialog_x, 0x48});
     dialog->SetText("");
-    dialog->SetOrigin(g_info_dialog_x, 0x48);
+
     dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
         SetTargetCursor(cursor);
         RequestRedraw(W8_MAIN_REDRAW_ALL);

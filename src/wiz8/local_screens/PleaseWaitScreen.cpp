@@ -32,6 +32,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/sr_api.h"
@@ -201,7 +202,7 @@ void PleaseWaitScreenFrame(void)
             g_swap_disc_dialog->Draw(GetFrameBufferSurface());
             if (!g_swap_disc_dialog->ProcessInput()) {
                 if (!g_swap_disc_dialog->accepted) {
-                    g_swap_disc_dialog.reset();
+                    RetireModal(std::move(g_swap_disc_dialog), false);
                     RequestScreenTransition();
                     return;
                 }
@@ -316,7 +317,7 @@ void PleaseWaitScreenFrame(void)
         if (!GetWorld()) {
             srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
         }
-        g_swap_disc_dialog.reset();
+        RetireModal(std::move(g_swap_disc_dialog), false);
         RequestScreenTransition();
         if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
             SetIntroVideoIndex(4);

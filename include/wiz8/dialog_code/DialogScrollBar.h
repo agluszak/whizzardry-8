@@ -15,10 +15,9 @@ public:
         int track_frame;
         std::function<void(int first_visible_entry)> on_scroll;
     };
-    explicit W8DialogScrollBar(UiLayer& layer);
+    W8DialogScrollBar(UiLayer& layer, Resources resources);
     W8DialogScrollBar(const W8DialogScrollBar&) = delete;
     W8DialogScrollBar& operator=(const W8DialogScrollBar&) = delete;
-    bool CreateControls(const Resources* resources);
     void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height,
                    int view_height);
     void UpdateThumb();
@@ -29,17 +28,16 @@ public:
     void ScrollToMouse(int mouse_y);
 
 private:
-    bool m_initialized;
     bool m_visible;
 
 public:
     bool m_dirty; /* owning dialogs set this before Draw */
 private:
-    int m_entry_count;
-    int m_first_visible_entry;
-    int m_entry_height;
-    int m_view_height;
-    W8ControlsRect m_track_bounds; /* left, top, right, bottom */
+    int m_entry_count = 1;
+    int m_first_visible_entry = 0;
+    int m_entry_height = 1;
+    int m_view_height = 1;
+    W8ControlsRect m_track_bounds{}; /* left, top, right, bottom */
 private:
     W8ButtonWidget m_up_button;
     W8ButtonWidget m_down_button;

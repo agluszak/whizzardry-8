@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -70,33 +71,18 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
     SetOrigin(0x9c, 0x5a);
     SetExtent(0x14a, 0x12c);
     SetBackground(g_spell_info_background_path, 0);
-}
-
-// FUNCTION: WIZ8 0x005dbcf0
-int W8SpellInfoDialog::CreateControls()
-{
-    W8DialogBase::CreateControls();
     if (!PopulateText()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
 
-    W8DialogScrollBar::Resources resources;
-    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
-    resources.track_path = g_spell_info_background_path;
-    resources.track_frame = 1;
-    resources.on_scroll = [this](int first_visible_entry) {
-        ScrollTextArea(m_text_area, first_visible_entry);
-    };
-    m_scroll_bar.CreateControls(&resources);
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x43, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb9);
 
     CreateCloseButton(m_button, 0x11a, 0x104);
-    return 0;
 }
 
+// FUNCTION: WIZ8 0x005dbcf0
 // FUNCTION: WIZ8 0x005dbe00
 void W8SpellInfoDialog::Draw(SDL_Surface& target)
 {
@@ -104,10 +90,7 @@ void W8SpellInfoDialog::Draw(SDL_Surface& target)
     W8SpellRealm realm;
     W8SpellRealmAnimation* animation;
 
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+    if (m_dirty) {
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;

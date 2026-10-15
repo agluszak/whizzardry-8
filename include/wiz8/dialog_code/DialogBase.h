@@ -12,8 +12,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-enum { W8_DIALOG_DIRTY_REDRAW = 1u };
-
 class W8DialogBase;
 class W8ButtonWidget;
 class W8DialogTextArea;
@@ -30,9 +28,7 @@ public:
     UiLayer& InputLayer() { return m_input; }
     ~W8DialogBase() override;
     void DrawModal(SDL_Surface& target) override { Draw(target); }
-    void RequestModalRedraw() override { m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW; }
-    virtual int CreateControls();
-    virtual void DestroyControls();
+    void RequestModalRedraw() override { m_dirty = true; }
     virtual void Draw(SDL_Surface& target);
 
     virtual void SetText(std::string_view text);
@@ -51,7 +47,7 @@ public:
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */
-    unsigned int m_dirty_flags;
+    bool m_dirty;
 
 protected:
     void BeginModalInput();
@@ -59,7 +55,6 @@ protected:
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);
     void ScrollTextArea(W8DialogTextArea& area, int first_visible_line);
 
-    int m_error;
     HitTarget* m_body = nullptr;
     std::string m_text;
     Font* m_font;
@@ -70,7 +65,6 @@ protected:
     int m_y;
     int m_width;
     int m_height;
-    bool m_initialized;
 
 public:
     /* Cleared to close the dialog; ProcessInput keeps running while set. */

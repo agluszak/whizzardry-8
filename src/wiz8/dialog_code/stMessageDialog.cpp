@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -16,6 +17,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
@@ -76,6 +78,8 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
                                      bool cancel, bool size_to_message, bool wrap_message,
                                      int maximum_width, int maximum_height)
 {
+    if (m_message_button.IsConfigured())
+        EraseRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
     /* 0x005D2950 compares the line counter unsigned; the signed compare in
        this function is the width clamp at 0x005D295E, and `width` carries it. */
     unsigned int index;
@@ -124,6 +128,7 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         }
         SetClientExtent(width, height);
     }
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005d2a50
@@ -165,15 +170,14 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
 }
 
 // FUNCTION: WIZ8 0x005d2d00
-int W8MessageDialogBase::CreateControls()
+void W8MessageDialogBase::Configure()
 {
-    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     if (!m_edge_image) {
         m_edge_image = LoadGenericButtonImages(
             {}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {},
             m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (!m_edge_image) {
-            return m_error = 3;
+            throw std::runtime_error("Cannot load message inlay");
         }
     }
     m_message_button.Configure(
@@ -197,24 +201,12 @@ int W8MessageDialogBase::CreateControls()
         m_cancel_button.SetPosition(m_x + m_width / 2 + button_width / 2, button_y);
         m_confirm_button.SetVisible(m_show_confirm);
         m_cancel_button.SetVisible(m_show_confirm && allow_cancel);
-        return 0;
+        return;
     }
-    DestroyControls();
-    return m_error = 6;
+    throw std::runtime_error("Cannot configure message buttons");
 }
 
 // FUNCTION: WIZ8 0x005d2f40
-void W8MessageDialogBase::DestroyControls()
-{
-
-    W8DialogBase::DestroyControls();
-    m_edge_image.reset();
-    m_message_button.Reset();
-    m_confirm_button.Reset();
-    m_cancel_button.Reset();
-    m_lines.clear();
-}
-
 // FUNCTION: WIZ8 0x005d3020
 bool W8MessageDialogBase::HandleInput(const InputEvent* input)
 {
@@ -265,7 +257,7 @@ void W8MessageDialogBase::Close(bool accept)
 {
     accepted = accept;
     is_open = false;
-    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_dirty = true;
 }
 
 std::function<void()> W8MessageDialogBase::TakeCompletion(bool completed)

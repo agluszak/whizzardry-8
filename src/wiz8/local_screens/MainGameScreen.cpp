@@ -6736,12 +6736,13 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
         g_pending_main_game_dialog = std::move(g_modal_owner);
     }
     if (character_slot != -1) {
-        dialog = new W8AssayDialog(item, &g_status.buffers.Char[character_slot]);
+        dialog = new W8AssayDialog(item, &g_status.buffers.Char[character_slot],
+                                   {g_info_dialog_x, 0x48});
     } else {
-        dialog = new W8AssayDialog(item, 0);
+        dialog = new W8AssayDialog(item, 0, {g_info_dialog_x, 0x48});
     }
     dialog->SetText("");
-    dialog->SetOrigin(g_info_dialog_x, 0x48);
+
     dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
@@ -7209,18 +7210,20 @@ void OpenNpcTradeQuantityDialog(void)
     }
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) {
         dialog = new W8SplitItemDialog(g_item_split_sell_mode, g_npc_interaction_state->trade_item,
-                                       g_npc_interaction_state->trade_quantity);
+                                       g_npc_interaction_state->trade_quantity,
+                                       {g_split_dialog_x, g_split_dialog_y});
     } else if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_BUY ||
                g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SHOPLIFT) {
         dialog = new W8SplitItemDialog(g_item_split_buy_mode, g_npc_interaction_state->trade_item,
-                                       g_npc_interaction_state->trade_quantity);
+                                       g_npc_interaction_state->trade_quantity,
+                                       {g_split_dialog_x, g_split_dialog_y});
     } else {
-        dialog =
-            new W8SplitItemDialog(g_item_split_inventory_mode, g_npc_interaction_state->trade_item,
-                                  g_npc_interaction_state->trade_quantity);
+        dialog = new W8SplitItemDialog(
+            g_item_split_inventory_mode, g_npc_interaction_state->trade_item,
+            g_npc_interaction_state->trade_quantity, {g_split_dialog_x, g_split_dialog_y});
     }
     dialog->SetText("");
-    dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
+
     dialog->on_complete = NpcTradeSplitDialogResult;
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }

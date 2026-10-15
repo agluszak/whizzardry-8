@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -55,36 +56,23 @@ W8StatInfoDialogBase::W8StatInfoDialogBase()
 }
 
 // FUNCTION: WIZ8 0x005df9d0
-int W8StatInfoDialogBase::CreateControls()
+void W8StatInfoDialogBase::Configure()
 {
-    W8DialogBase::CreateControls();
     if (!PopulateText()) {
-        m_error = 7;
-        return 7;
+        throw std::runtime_error("Cannot configure dialog controls");
     }
 
-    W8DialogScrollBar::Resources resources;
-    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
-    resources.track_path = g_info_dialog_background;
-    resources.track_frame = 1;
-    resources.on_scroll = [this](int first_visible_entry) {
-        ScrollTextArea(textarea, first_visible_entry);
-    };
-    scrollbar.CreateControls(&resources);
     scrollbar.SetLayout(m_x + 299, m_y + 0x26, textarea.GetTotalLineCount(), 0,
                         textarea.GetLineHeight(), 0xb9);
 
     CreateCloseButton(button, 0x11a, 0xe6);
-    return 0;
+    return;
 }
 
 // FUNCTION: WIZ8 0x005dfae0
 void W8StatInfoDialogBase::Draw(SDL_Surface& target)
 {
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+    if (m_dirty) {
         textarea.m_dirty = true;
         scrollbar.m_dirty = true;
         button.m_dirty = true;
@@ -151,6 +139,7 @@ W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[uiIndex];
     m_detail_id = g_attr_table0[uiIndex];
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005dfe40
@@ -165,6 +154,7 @@ W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, boo
     m_first = first;
     m_second = second;
     m_bonus = bonus;
+    Configure();
 }
 
 // FUNCTION: WIZ8 0x005dffa0
@@ -204,4 +194,5 @@ W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIn
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[16 + uiIndex];
     m_detail_id = g_attr_table1[uiIndex];
+    Configure();
 }
