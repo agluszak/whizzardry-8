@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -36,7 +37,7 @@ extern const unsigned int g_W8DialogTextAreaShortenText = 0x04;
 // FUNCTION: WIZ8 0x005d1ab0
 void W8DialogTextArea::SetFirstVisibleEntry(unsigned int index)
 {
-    if (!m_all_lines.empty() && index <= m_all_lines.size() &&
+    if (!m_all_lines.empty() && index < m_visible_lines.size() &&
         (static_cast<unsigned int>(m_first_visible_entry) != index || m_first_visible_line != 0)) {
         m_first_visible_entry = index;
         m_first_visible_line = 0;
@@ -80,11 +81,12 @@ void W8DialogTextArea::Paint(SDL_Surface& target)
              ++index) {
             if (m_relayout_needed) {
                 unsigned int height = GetLineHeight();
-                bounds.bottom = bounds.top + m_visible_lines[index]->m_lineCount * height;
-                m_visible_lines[index]->SetLayoutBounds(&bounds, false);
+                bounds.bottom = bounds.top + VisibleEntry(index)->m_lineCount * height;
+                VisibleEntry(index)->SetLayoutBounds(&bounds, false);
                 bounds.top = bounds.bottom + m_entry_spacing;
             }
-            m_visible_lines[index]->Paint(target);
+            VisibleEntry(index)->Paint(target, index == m_selected_visible_entry,
+                                       index == m_highlighted_entry);
         }
         m_relayout_needed = false;
     }
@@ -97,7 +99,7 @@ void W8DialogTextArea::SetFirstVisibleLine(int requested_line)
     unsigned int font_height = m_font->height();
     for (unsigned int index = 0; index < m_visible_lines.size(); ++index) {
         for (unsigned int line = 0;
-             line < m_visible_lines[index]->m_lineCount +
+             line < VisibleEntry(index)->m_lineCount +
                         static_cast<unsigned int>(m_entry_spacing) / font_height;
              ++line, ++position) {
             if (position == requested_line) {
@@ -119,7 +121,7 @@ int W8DialogTextArea::GetTotalLineCount()
 {
     int total = 0;
     for (int index = 0; index < static_cast<int>(m_visible_lines.size()); ++index) {
-        int lines = m_visible_lines[index]->m_lineCount;
+        int lines = VisibleEntry(index)->m_lineCount;
         total += lines + static_cast<unsigned int>(m_entry_spacing) / m_font->height();
     }
     if (total != 0) {
@@ -152,36 +154,27 @@ void W8DialogTextArea::SetLineHeight(unsigned int height)
 {
     m_line_height_override = height;
     m_relayout_needed = true;
-    /* Retail uses the visible count with the owning list, not visible entries. */
-    for (int index = 0; index < static_cast<int>(m_visible_lines.size()); ++index) {
-        m_all_lines[index]->SetLineHeight(m_line_height_override);
-    }
+    m_dirty = true;
+    for (auto& entry : m_all_lines) entry->SetLineHeight(height);
 }
 
 // FUNCTION: WIZ8 0x005d1e80
 bool W8DialogTextArea::SelectEntry(int index)
 {
-    if (!m_visible_lines.empty() && !m_visible_lines[index]->m_selected) {
-        m_visible_lines[index]->SetSelected(true);
-        m_selected_visible_entry = index;
-        m_selection_dirty = true;
-        return true;
-    }
-    return false;
+    if (index < 0 || index >= static_cast<int>(m_visible_lines.size()) ||
+        index == m_selected_visible_entry)
+        return false;
+    m_selected_visible_entry = index;
+    m_selection_dirty = true;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005d1ed0
 bool W8DialogTextArea::ClearSelection()
 {
-    if (m_visible_lines.empty()) {
-        m_selected_visible_entry = -1;
-    } else if (m_selected_visible_entry != -1) {
-        m_visible_lines[m_selected_visible_entry]->SetSelected(false);
-        m_selection_dirty = true;
-        m_selected_visible_entry = -1;
-        return true;
-    }
-    return false;
+    if (std::exchange(m_selected_visible_entry, -1) == -1) return false;
+    m_selection_dirty = true;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005d2120
@@ -197,8 +190,10 @@ unsigned int W8DialogTextArea::FindVisibleEntryAtLine(unsigned int target, unsig
 {
     unsigned int position = 0;
     for (unsigned int index = m_first_visible_entry; index < m_visible_lines.size(); ++index) {
-        for (unsigned int line = m_first_visible_line;
-             line < m_visible_lines[index]->m_lineCount + spacing; ++line, ++position) {
+        for (unsigned int line = index == static_cast<unsigned int>(m_first_visible_entry)
+                                     ? m_first_visible_line
+                                     : 0;
+             line < VisibleEntry(index)->m_lineCount + spacing; ++line, ++position) {
             if (position == target) return index;
         }
     }
@@ -223,11 +218,8 @@ bool W8DialogTextArea::UpdateSelectionFromPoint(int, int y)
     if (!(m_behavior_flags & g_W8DialogTextAreaPointSelection)) return false;
     int line_height = GetLineHeight();
     unsigned int target = (y - m_bounds.top) / line_height;
-    if (target == static_cast<unsigned int>(m_selected_visible_entry)) return false;
-    bool changed = ClearSelection();
-    unsigned int index = FindVisibleEntryAtLine(target, spacing);
-    if (index != static_cast<unsigned int>(-1)) return SelectEntry(index);
-    return changed;
+    const unsigned int index = FindVisibleEntryAtLine(target, spacing);
+    return index == static_cast<unsigned int>(-1) ? ClearSelection() : SelectEntry(index);
 }
 
 // FUNCTION: WIZ8 0x005d20a0
@@ -240,41 +232,26 @@ bool W8DialogTextArea::ClearPointSelection()
 std::optional<std::string_view> W8DialogTextArea::GetVisibleEntryText(unsigned int index) const
 {
     if (index >= m_visible_lines.size()) return std::nullopt;
-    return m_visible_lines[index]->GetText();
+    return VisibleEntry(index)->GetText();
 }
 
 // FUNCTION: WIZ8 0x005d2150
 bool W8DialogTextArea::HighlightVisibleEntry(int index)
 {
-    if (!m_visible_lines.empty() && !m_visible_lines[index]->m_entry_highlighted) {
-        W8DialogTextEntry* entry = m_visible_lines[index];
-        if (!entry->m_entry_highlighted) {
-            entry->m_entry_highlighted = true;
-            entry->SetGeometryDirty();
-        }
-        m_highlighted_entry = index;
-        m_selection_dirty = true;
-        return true;
-    }
-    return false;
+    if (index < 0 || index >= static_cast<int>(m_visible_lines.size()) ||
+        index == m_highlighted_entry)
+        return false;
+    m_highlighted_entry = index;
+    m_selection_dirty = true;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005d21a0
 bool W8DialogTextArea::ClearEntryHighlight()
 {
-    if (m_visible_lines.empty()) {
-        m_highlighted_entry = -1;
-    } else if (m_highlighted_entry != -1) {
-        W8DialogTextEntry* entry = m_visible_lines[m_highlighted_entry];
-        if (entry->m_entry_highlighted) {
-            entry->m_entry_highlighted = false;
-            entry->SetGeometryDirty();
-        }
-        m_selection_dirty = true;
-        m_highlighted_entry = -1;
-        return true;
-    }
-    return false;
+    if (std::exchange(m_highlighted_entry, -1) == -1) return false;
+    m_selection_dirty = true;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005d2420
@@ -287,11 +264,9 @@ W8DialogTextEntry* W8DialogTextArea::GetEntry(unsigned int index)
 // FUNCTION: WIZ8 0x005d2440
 int W8DialogTextArea::GetOwningEntryIndex(int visible_index)
 {
-    const auto* visible = m_visible_lines[visible_index];
-    for (int index = 0; index < static_cast<int>(m_all_lines.size()); ++index) {
-        if (m_all_lines[index].get() == visible) return index;
-    }
-    return -1;
+    return visible_index >= 0 && visible_index < static_cast<int>(m_visible_lines.size())
+               ? m_visible_lines[visible_index]
+               : -1;
 }
 
 // FUNCTION: WIZ8 0x005d24a0
@@ -329,8 +304,6 @@ int W8DialogTextArea::AddEntry(std::string_view prefix, std::string_view text,
 void W8DialogTextArea::RemoveEntry(unsigned int index)
 {
     if (!m_all_lines.empty() && index < m_all_lines.size()) {
-        if (m_all_lines[index]->m_entry_highlighted) m_highlighted_entry = -1;
-        if (m_all_lines[index]->m_selected) m_selected_visible_entry = -1;
         m_all_lines.erase(m_all_lines.begin() + index);
         if (m_first_visible_entry != 0 &&
             m_all_lines.size() <= static_cast<unsigned int>(m_first_visible_entry) &&
@@ -349,29 +322,17 @@ void W8DialogTextArea::RebuildVisibleEntries()
     ClearEntryHighlight();
     ClearSelection();
     m_visible_lines.clear();
-    for (int index = 0; index < static_cast<int>(m_all_lines.size()); ++index) {
-        if (m_all_lines[index]->m_category == static_cast<unsigned char>(m_category_filter) ||
-            m_category_filter == -1) {
-            if (!m_sorted) {
-                m_visible_lines.push_back(m_all_lines[index].get());
-            } else {
-                const std::string_view text = *GetEntryText(index);
-                int position;
-                for (position = 0; position < static_cast<int>(m_visible_lines.size());
-                     ++position) {
-                    if (CompareTextIgnoreAsciiCase(text, *GetVisibleEntryText(position)) < 0) break;
-                }
-                if (position == static_cast<int>(m_visible_lines.size())) {
-                    m_visible_lines.push_back(m_all_lines[index].get());
-                } else {
-                    m_visible_lines.insert(m_visible_lines.begin() + position,
-                                           m_all_lines[index].get());
-                }
-            }
-        }
-    }
-    m_first_visible_entry = 0;
-    m_first_visible_line = 0;
+    for (int index = 0; index < static_cast<int>(m_all_lines.size()); ++index)
+        if (m_category_filter == -1 ||
+            m_all_lines[index]->m_category == static_cast<unsigned char>(m_category_filter))
+            m_visible_lines.push_back(index);
+    if (m_sorted)
+        std::stable_sort(m_visible_lines.begin(), m_visible_lines.end(), [this](int a, int b) {
+            return CompareTextIgnoreAsciiCase(m_all_lines[a]->GetText(),
+                                              m_all_lines[b]->GetText()) < 0;
+        });
+    m_first_visible_entry = m_first_visible_line = 0;
+    m_dirty = m_relayout_needed = true;
 }
 
 // FUNCTION: WIZ8 0x005d2400
@@ -399,11 +360,13 @@ bool W8DialogTextArea::ScrollDown(bool check_only)
     int height = m_bounds.bottom - m_bounds.top;
     int visible_line = 1;
     for (unsigned int index = m_first_visible_entry; index < m_visible_lines.size(); ++index) {
-        for (unsigned int line = m_first_visible_line;
-             line < m_visible_lines[index]->m_lineCount + spacing; ++line, ++visible_line) {
+        for (unsigned int line = index == static_cast<unsigned int>(m_first_visible_entry)
+                                     ? m_first_visible_line
+                                     : 0;
+             line < VisibleEntry(index)->m_lineCount + spacing; ++line, ++visible_line) {
             unsigned int line_height = GetLineHeight();
             if (static_cast<int>(line_height * visible_line) > height) {
-                W8TextBuffer* text = m_visible_lines[m_first_visible_entry];
+                W8TextBuffer* text = VisibleEntry(m_first_visible_entry);
                 if (static_cast<unsigned int>(m_first_visible_line) <
                     text->m_lineCount - 1 + spacing) {
                     if (!check_only) ++m_first_visible_line;
@@ -440,7 +403,7 @@ bool W8DialogTextArea::ScrollUp(bool check_only)
             --m_first_visible_line;
         } else {
             --m_first_visible_entry;
-            W8TextBuffer* text = m_visible_lines[m_first_visible_entry];
+            W8TextBuffer* text = VisibleEntry(m_first_visible_entry);
             if (text->m_lineCount + spacing > 1) {
                 m_first_visible_line = text->m_lineCount - 1 + spacing;
             }

@@ -58,6 +58,10 @@ public:
     void SetFirstVisibleEntry(unsigned int index);
 
 private:
+    W8DialogTextEntry* VisibleEntry(int index) const
+    {
+        return m_all_lines[m_visible_lines[index]].get();
+    }
     unsigned int FindVisibleEntryAtLine(unsigned int target, unsigned int spacing);
 
     W8ControlsRect m_bounds; /* passed to entry construction */
@@ -65,7 +69,7 @@ private:
     int m_first_visible_entry;
     int m_first_visible_line;
     std::vector<std::unique_ptr<W8DialogTextEntry>> m_all_lines; /* owns entries */
-    std::vector<W8DialogTextEntry*> m_visible_lines; /* non-owning view */
+    std::vector<int> m_visible_lines; /* indices into the owning entries */
     bool m_layout_initialized;
 
 public:

@@ -50,6 +50,8 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
+#include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -1755,6 +1757,28 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
 
     REQUIRE(font.load("font.sti"));
+    {
+        W8DialogTextArea area;
+        const W8ControlsRect bounds{0, 0, 100, 100};
+        area.Configure(&bounds, font, g_W8DialogTextAreaPointSelection);
+        area.AddEntry("", "Z", 0, 0, 0);
+        area.AddEntry("", "A\nB", 0, 0, 1);
+        area.AddEntry("", "C", 0, 0, 1);
+        area.SetCategoryFilter(1);
+        REQUIRE(area.GetOwningEntryIndex(0) == 1);
+        REQUIRE(area.UpdateSelectionFromPoint(1, 1));
+        REQUIRE_FALSE(area.UpdateSelectionFromPoint(1, font.height() + 1));
+        REQUIRE(area.UpdateSelectionFromPoint(1, 2 * font.height() + 1));
+        area.SetLineHeight(12);
+        REQUIRE(area.GetEntry(0)->GetLineHeight() == 12);
+        REQUIRE(area.GetEntry(2)->GetLineHeight() == 12);
+        area.SetCategoryFilter(-1);
+        area.SetSorted(true);
+        REQUIRE(area.GetOwningEntryIndex(0) == 1);
+        REQUIRE(area.GetOwningEntryIndex(2) == 0);
+        area.RemoveEntry(1);
+        REQUIRE(area.GetOwningEntryIndex(0) == 1);
+    }
     // Empty item rows can still receive a click after a transfer, before the
     // next screen recomposition hides their targets.
     for (const auto* image :
