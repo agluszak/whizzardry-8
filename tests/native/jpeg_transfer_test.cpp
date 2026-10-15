@@ -28,7 +28,6 @@
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 
 using Bytes = std::vector<Uint8>;
