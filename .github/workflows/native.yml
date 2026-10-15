@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ~/.conan2/p
-          key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/linux-clang22') }}
+          key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*') }}
           restore-keys: |
             conan-clang22-${{ matrix.preset }}-
       - name: Select software Vulkan driver
@@ -59,24 +59,26 @@ jobs:
         run: ccache --zero-stats
       - name: Resolve Conan dependencies
         run: |
-          conan profile detect --force
           build_type=Debug
           if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
             build_type=RelWithDebInfo
           fi
           CC=clang-22 CXX=clang++-22 conan install . \
-            -pr:h conan/profiles/linux-clang22 -pr:b default \
+            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc15 \
             -s:h build_type="$build_type" -c tools.system.package_manager:mode=install \
             -c tools.system.package_manager:sudo=True \
             --build=missing \
             -of "build/${{ matrix.preset }}/conan"
-      # Store built dependencies even if CMake configure or a later test fails.
+      - name: Clean Conan build intermediates
+        if: github.event_name == 'push' && steps.conan-cache.outputs.cache-hit != 'true'
+        run: conan cache clean '*'
+      # Only main's native jobs publish package binaries.
       - name: Save Conan packages
-        if: steps.conan-cache.outputs.cache-hit != 'true'
+        if: github.event_name == 'push' && steps.conan-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ~/.conan2/p
-          key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/linux-clang22') }}
+          key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*') }}
       - name: Configure
         run: |
           build_type=Debug
@@ -226,7 +228,7 @@ jobs:
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ~/.conan2/p
-          key: conan-clang22-linux-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/linux-clang22') }}
+          key: conan-clang22-linux-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*') }}
           restore-keys: |
             conan-clang22-linux-
       - name: Determine analysis scope
@@ -239,34 +241,14 @@ jobs:
       # Include-cleaner must analyze direct includes, not headers supplied by
       # the game's PCH. Keep unity off for both checks so the database covers
       # every first-party translation unit.
-      # Bootstrap the committed recipe-revision lock from an actual Conan
-      # dependency resolution; skip once conan.lock exists in the repository.
-      - name: Export Conan lockfile
-        if: matrix.check == 'include-hygiene' && hashFiles('conan.lock') == ''
-        run: |
-          conan profile detect --force
-          conan lock create . \
-            -pr:h conan/profiles/linux-clang22 -pr:b default \
-            -s:h build_type=Debug --lockfile-out="$RUNNER_TEMP/conan-generated.lock"
-          echo CONAN_LOCK_BEGIN
-          cat "$RUNNER_TEMP/conan-generated.lock"
-          echo CONAN_LOCK_END
       - name: Resolve Conan dependencies for analysis
         run: |
-          conan profile detect --force
           CC=clang-22 CXX=clang++-22 conan install . \
-            -pr:h conan/profiles/linux-clang22 -pr:b default \
+            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc15 \
             -s:h build_type=Debug -c tools.system.package_manager:mode=install \
             -c tools.system.package_manager:sudo=True \
             --build=missing \
             -of build/linux-tidy/conan
-      # Store built dependencies even if CMake configure or a later test fails.
-      - name: Save Conan packages
-        if: steps.conan-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/.conan2/p
-          key: conan-clang22-linux-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/linux-clang22') }}
       - name: Configure analysis database
         run: |
           source build/linux-tidy/conan/conanbuild.sh
