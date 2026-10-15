@@ -71,6 +71,7 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
     SetOrigin(0x9c, 0x5a);
     SetExtent(0x14a, 0x12c);
     SetBackground(g_spell_info_background_path, 0);
+    UseInfoPopupInput(m_scroll_bar);
     if (!PopulateText()) {
         throw std::runtime_error("Cannot configure dialog controls");
     }
@@ -281,22 +282,6 @@ void W8SpellInfoDialog::DrawLabels(SDL_Surface& target)
     width = g_wiz_text_font_secondary.textWidth(text);
     DrawText(target, g_wiz_text_font_secondary, {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33},
              text);
-}
-
-/* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;
-   /OPT:NOICF emits this copy. */
-void W8SpellInfoDialog::OnRightButtonUp()
-{
-    if (m_right_button_down) {
-        m_keep_open = false;
-    }
-}
-
-/* Same folded body as W8MonsterInfoDialog::OnMouseWheel at 0x005D6E70;
-   /OPT:NOICF emits this copy. */
-void W8SpellInfoDialog::OnMouseWheel(int delta)
-{
-    m_scroll_bar.ScrollBy(delta);
 }
 
 bool W8SpellInfoDialog::TakeDirty()

@@ -7,9 +7,8 @@
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/local_code/ButtonWidget.h"
 
-/* Dialog Code\SpellInfoDialog.cpp. The constructor stores the spell id; Draw
-   and DrawLabels index g_spell_records with it. Construction, the close
-   callback and OnMouseWheel sit with the other popup-info dialogs. */
+/* The constructor stores the spell id; Draw and DrawLabels index
+   g_spell_records with it. */
 // VTABLE: WIZ8 0x005efab0
 class W8SpellInfoDialog : public W8DialogBase {
 public:
@@ -17,8 +16,6 @@ public:
     virtual void Draw(SDL_Surface& target) override;
     bool TakeDirty() override;
     bool ProcessInput() override;
-    virtual void OnRightButtonUp() override;
-    virtual void OnMouseWheel(int delta) override;
 
 private:
     bool PopulateText();

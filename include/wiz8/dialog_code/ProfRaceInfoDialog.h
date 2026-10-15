@@ -40,8 +40,6 @@ public:
     W8ProfRaceInfoDialogBase();
     virtual void Draw(SDL_Surface& target) override;
     bool TakeDirty() override;
-    virtual void OnRightButtonUp() override;
-    virtual void OnMouseWheel(int delta) override;
 
 protected:
     void Configure();

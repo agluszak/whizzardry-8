@@ -82,6 +82,7 @@ W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
     SetOrigin(0x85, 0x69);
     SetExtent(0x177, 0x10e);
     SetBackground(g_popup_race_profession_path, 0);
+    UseInfoPopupInput(m_scroll_bar);
 }
 
 // FUNCTION: WIZ8 0x005DEC40
@@ -156,21 +157,6 @@ bool W8ProfRaceInfoDialogBase::PopulateText()
     m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
     m_text_area.SetEntrySpacing(0);
     return true;
-}
-
-/* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;
-   /OPT:NOICF emits this copy. */
-void W8ProfRaceInfoDialogBase::OnRightButtonUp()
-{
-    if (m_right_button_down) {
-        m_keep_open = false;
-    }
-}
-
-// FUNCTION: WIZ8 0x005DF010
-void W8ProfRaceInfoDialogBase::OnMouseWheel(int delta)
-{
-    m_scroll_bar.ScrollBy(delta);
 }
 
 /* Copies the row straight out of the table: every profession has minimums, so

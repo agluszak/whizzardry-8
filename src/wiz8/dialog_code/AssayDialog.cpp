@@ -108,6 +108,7 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_P
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
+    UseInfoPopupInput(m_scroll_bar);
 
     m_character = character;
     m_item = item;
@@ -512,21 +513,6 @@ void W8AssayDialog::Draw(SDL_Surface& target)
         if (text) text->Paint(target);
     m_text_area.Paint(target);
     m_scroll_bar.Draw(target);
-}
-
-/* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;
-   /OPT:NOICF emits this copy. */
-void W8AssayDialog::OnRightButtonUp()
-{
-    if (m_right_button_down) {
-        m_keep_open = false;
-    }
-}
-
-// FUNCTION: WIZ8 0x005d9720
-void W8AssayDialog::OnMouseWheel(int delta)
-{
-    m_scroll_bar.ScrollBy(delta);
 }
 
 void W8AssayDialog::ShowTab(bool professions)
