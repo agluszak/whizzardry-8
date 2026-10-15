@@ -26,7 +26,7 @@ class WhizzardryDependencies(ConanFile):
     def configure(self):
         # SDL keeps ALSA support on Linux, without pulling in PulseAudio and
         # the whole unrelated sound-server dependency graph.
-        self.options["sdl"].pulse = False
+        self.options["sdl"].pulseaudio = False
         # Keep JPEG and PNG; avoid heavyweight optional image codecs.
         self.options["sdl_image"].with_avif = False
         self.options["sdl_image"].with_libtiff = False
