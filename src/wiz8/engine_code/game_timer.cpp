@@ -1,6 +1,7 @@
 #include "wiz8/engine_code/game_timer.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 
 #include "wiz8/compat/native.h"
