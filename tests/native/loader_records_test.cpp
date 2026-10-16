@@ -11,6 +11,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -26,6 +27,7 @@
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "scoped_asset_roots.h"
+#include "surrender/srNode.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/Camera.h"
@@ -41,6 +43,7 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/octree_spatial.h"
+#include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -1584,4 +1587,100 @@ TEST_CASE_METHOD(LocationVariableFixture,
     REQUIRE(GetLocationVarValueByName("Existing") == 42);
     REQUIRE(GetLocationVarIDByName("First") == -1);
     REQUIRE(GetLocationVarIDByName("Second") == -1);
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fields",
+                 "[loader][records]")
+{
+    for (const auto [version, size] :
+         {std::pair{1, 0x216}, std::pair{2, 0x218}, std::pair{3, 0x21d}, std::pair{4, 0x225}}) {
+        W8LevelParticleRecord record{};
+        std::strcpy(record.name, "Emitter");
+        record.rotation_axis = {0, 1, 0};
+        record.material.opacity = 1;
+        record.attachment_key = 7;
+        record.start_frame = 4;
+        record.end_frame = 9;
+        std::string bytes;
+        append(bytes, std::int32_t{1});
+        append(bytes, static_cast<std::uint8_t>(version));
+        bytes.append(reinterpret_cast<const char*>(&record), size);
+        store("particles.bin", bytes);
+        auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
+        W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+        srNode scene;
+        std::vector<std::unique_ptr<stParticle>> particles;
+        REQUIRE(ReadWorldParticles(&info, &scene, &particles));
+        REQUIRE(particles.size() == 1);
+        REQUIRE(particles.front()->getName() == "EMITTER");
+        REQUIRE(particles.front()->attachment_key == (version < 2 ? -1 : 7));
+        REQUIRE(particles.front()->start_frame == (version < 4 ? -1 : 4));
+        REQUIRE(particles.front()->end_frame == (version < 4 ? -1 : 9));
+    }
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Malformed particle sections publish no scene objects",
+                 "[loader][records]")
+{
+    W8LevelParticleRecord first{};
+    std::strcpy(first.name, "First");
+    first.rotation_axis = {0, 1, 0};
+    first.material.opacity = 1;
+    auto second = first;
+    bool truncate = false;
+    std::int32_t count = 2;
+    SECTION("Short second record")
+    {
+        truncate = true;
+    }
+    SECTION("Unterminated name")
+    {
+        std::memset(second.name, 'x', sizeof(second.name));
+    }
+    SECTION("Nonfinite flutter period")
+    {
+        second.flutter_mode = 1;
+        second.flutter_period = std::numeric_limits<float>::quiet_NaN();
+    }
+    SECTION("Out-of-range flutter period")
+    {
+        second.flutter_mode = 1;
+        second.flutter_period = 0x1p32f;
+    }
+    SECTION("Negative count")
+    {
+        count = -1;
+    }
+    std::string bytes;
+    append(bytes, count);
+    append(bytes, std::uint8_t{4});
+    append(bytes, first);
+    append(bytes, std::uint8_t{4});
+    append(bytes, second);
+    if (truncate) bytes.pop_back();
+    store("particles.bin", bytes);
+    auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
+    W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+    srNode scene;
+    std::vector<std::unique_ptr<stParticle>> particles;
+    particles.push_back(std::make_unique<stParticle>(nullptr, 0));
+    const auto* existing = particles.front().get();
+    REQUIRE_FALSE(ReadWorldParticles(&info, &scene, &particles));
+    REQUIRE(particles.size() == 1);
+    REQUIRE(particles.front().get() == existing);
+    REQUIRE(scene.getChild() == nullptr);
+}
+
+TEST_CASE("Octree particle registration checks the whole batch before publishing",
+          "[loader][records]")
+{
+    W8Octree octree(nullptr, nullptr);
+    octree.m_fAccumulating = true;
+    octree.m_ulNumParticles = 1;
+    stParticle first(nullptr, 0), second(nullptr, 0);
+    const std::array<stParticle*, 2> particles{&first, &second};
+    REQUIRE_THROWS(octree.AddLoadedParticles(particles));
+    REQUIRE(octree.m_particles.empty());
+    octree.AddLoadedParticles(std::span(particles).first(1));
+    REQUIRE(octree.m_particles == std::vector<stParticle*>{&first});
 }

@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <optional>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -195,7 +196,7 @@ public:
     W8Octree(const W8Octree&) = delete;
     W8Octree& operator=(const W8Octree&) = delete;
     void AddLoadedProp(W8Prop* prop);
-    void AddLoadedParticle(stParticle* particle);
+    void AddLoadedParticles(std::span<stParticle* const> particles);
     /* Store the prop-sunlight bit array once it has been given a size. */
     void SetPropSunBits(std::vector<bool> bits);
     /* Whether prop `offset` past prop_sun_base has its sunlight bit; a
