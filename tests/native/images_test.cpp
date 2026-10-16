@@ -339,7 +339,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && image->format == SDL_PIXELFORMAT_RGB565));
         const auto frame = ConvertBitmapToFrameSurface(*image);
         REQUIRE(static_cast<const std::uint8_t*>(frame->pixels)[1] ==
-                0x3e); // RGB565 red bits become RGB555.
+                0xbe); // RGB565 red bits become opaque ARGB1555.
         header.uiStoredSize = 1;
         write_rgb();
         REQUIRE(!load("native-rgb.sti"));
