@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cstddef>
 #include <cstring>
 #include <iterator>
 #include <span>
@@ -7,12 +6,9 @@
 #include <SDL3/SDL_pixels.h>
 
 #include "compat/compiler.h"
-#include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_uint4.hpp"
 #include "glm/geometric.hpp"
-#include "glm/vector_relational.hpp"
 #include "surrender/pixel_math.h"
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
