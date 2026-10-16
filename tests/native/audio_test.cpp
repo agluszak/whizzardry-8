@@ -635,11 +635,12 @@ TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown re
                  "[audio][ownership]")
 {
     startOfflineAudio();
-    wiz8::sound::Playback other;
+    wiz8::sound::Playback other, replacement;
     unsigned calls = 0;
     auto first = wiz8::sound::play("tone.wav", {.on_finished = [&] {
                                        ++calls;
                                        wiz8::sound::stop(other);
+                                       replacement = wiz8::sound::play("tone.wav", {.loops = 0});
                                        wiz8::sound::shutdown();
                                    }});
     REQUIRE(first);
@@ -650,6 +651,8 @@ TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown re
     REQUIRE(calls == 1);
     REQUIRE_FALSE(wiz8::sound::is_playing(first));
     REQUIRE_FALSE(wiz8::sound::is_playing(other));
+    REQUIRE(replacement);
+    REQUIRE_FALSE(wiz8::sound::is_playing(replacement));
     wiz8::sound::service();
     REQUIRE(calls == 1);
 }
@@ -716,7 +719,7 @@ TEST_CASE_METHOD(AudioFixture,
     REQUIRE(calls == 0);
 }
 
-TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until service or next play",
+TEST_CASE_METHOD(AudioFixture, "Only servicing audio dispatches deferred completion callbacks",
                  "[audio][ownership]")
 {
     startOfflineAudio();
@@ -728,7 +731,7 @@ TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until ser
     REQUIRE(calls == 0);
     auto next = wiz8::sound::play("tone.wav");
     REQUIRE(next);
-    REQUIRE(calls == 1);
+    REQUIRE(calls == 0);
     wiz8::sound::service();
     REQUIRE(calls == 1);
 }
