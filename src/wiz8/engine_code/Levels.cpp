@@ -580,7 +580,7 @@ unsigned char UnloadLevel(const char* save_directory)
         EndCombat(true);
     }
 
-    if (g_status.current_level < W8_LEVEL_COUNT) {
+    if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
         g_status.level_progress[g_status.current_level].sight_clock = g_status.world_clock;
     }
 

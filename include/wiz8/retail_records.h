@@ -670,6 +670,17 @@ struct StatusBuffers {
     std::uint32_t party_rows;
 };
 static_assert(sizeof(StatusBuffers) == 0x0c);
+struct LevelProgress {
+    std::uint8_t visited;
+    std::uint16_t combat_end_count;
+    std::int16_t monster_kill_count;
+    std::uint32_t experience_gained;
+    std::int32_t gold_collected;
+    std::int32_t sight_clock;
+    std::uint8_t unknown_11[0x10];
+};
+static_assert(sizeof(LevelProgress) == 0x21);
+
 struct GlobalStatus {
     StatusBuffers buffers;
     bool game_started; /* 0x000c */
@@ -699,7 +710,7 @@ struct GlobalStatus {
     unsigned char status_header_prefix[0xd4];
     unsigned int uiTurnsElapsed; /* 0x19d8 */
     unsigned char status_header_suffix[0x28];
-    W8LevelProgressRow level_progress[W8_LEVEL_COUNT];
+    LevelProgress level_progress[W8_LEVEL_COUNT];
     unsigned char unknown_2013[0x294];
     /* 0x22a7: CamPos staged by recall when the anchor is on another level;
        LoadLevel restores it after the new world exists. */

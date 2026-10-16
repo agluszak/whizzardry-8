@@ -1852,7 +1852,7 @@ void AddPartyGold(int amount, bool announce)
     sound_path = "Data\\Sound\\Misc\\ChaChing.wav";
 
     g_status.party_gold += amount;
-    if (g_status.current_level < 0x2f) {
+    if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
         g_status.level_progress[g_status.current_level].gold_collected += amount;
     }
 

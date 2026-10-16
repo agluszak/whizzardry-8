@@ -13,6 +13,9 @@ struct W8LevelFolderRecord {
     signed char level_band;
 };
 
+#pragma pack(pop)
+
+// Live counters have normal native alignment; retail storage has its own record.
 struct W8LevelProgressRow {
     bool visited;
     /* 0x01: incremented by the combat teardown for each finished fight while
@@ -26,10 +29,6 @@ struct W8LevelProgressRow {
     int sight_clock;
     unsigned char unknown_11[0x10];
 };
-
-#pragma pack(pop)
-
-static_assert(sizeof(W8LevelProgressRow) == 0x21, "W8LevelProgressRow_must_be_0x21");
 
 // Native asset paths, relative to the game filesystem.
 struct W8LevelInfo {

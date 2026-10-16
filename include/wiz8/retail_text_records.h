@@ -816,6 +816,26 @@ template<> struct Record<W8Character> {
               bytes.subspan(offsetof(Disk, has_saved_location), sizeof(Disk::has_saved_location)));
     }
 };
+template<> struct Record<W8LevelProgressRow> {
+    using Disk = LevelProgress;
+    template<class R, class B, class Value, class Text>
+    static void fields(R& runtime, B bytes, Value value, Text)
+    {
+        value(&runtime.visited, bytes.subspan(offsetof(Disk, visited), sizeof(Disk::visited)));
+        value(&runtime.combat_end_count,
+              bytes.subspan(offsetof(Disk, combat_end_count), sizeof(Disk::combat_end_count)));
+        value(&runtime.monster_kill_count,
+              bytes.subspan(offsetof(Disk, monster_kill_count), sizeof(Disk::monster_kill_count)));
+        value(&runtime.experience_gained,
+              bytes.subspan(offsetof(Disk, experience_gained), sizeof(Disk::experience_gained)));
+        value(&runtime.gold_collected,
+              bytes.subspan(offsetof(Disk, gold_collected), sizeof(Disk::gold_collected)));
+        value(&runtime.sight_clock,
+              bytes.subspan(offsetof(Disk, sight_clock), sizeof(Disk::sight_clock)));
+        value(&runtime.unknown_11,
+              bytes.subspan(offsetof(Disk, unknown_11), sizeof(Disk::unknown_11)));
+    }
+};
 template<> struct Record<W8GlobalStatus> {
     using Disk = GlobalStatus;
     template<class R, class B, class Value, class Text>
@@ -867,8 +887,11 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, uiTurnsElapsed), sizeof(Disk::uiTurnsElapsed)));
         value(&runtime.status_header_suffix, bytes.subspan(offsetof(Disk, status_header_suffix),
                                                            sizeof(Disk::status_header_suffix)));
-        value(&runtime.level_progress,
-              bytes.subspan(offsetof(Disk, level_progress), sizeof(Disk::level_progress)));
+        for (std::size_t level = 0; level < W8_LEVEL_COUNT; ++level)
+            nested(runtime.level_progress[level],
+                   bytes.subspan(offsetof(Disk, level_progress) + level * sizeof(LevelProgress),
+                                 sizeof(LevelProgress)),
+                   value, text);
         value(&runtime.unknown_2013,
               bytes.subspan(offsetof(Disk, unknown_2013), sizeof(Disk::unknown_2013)));
         value(&runtime.pending_move_location, bytes.subspan(offsetof(Disk, pending_move_location),

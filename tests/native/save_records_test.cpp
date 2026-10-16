@@ -1009,6 +1009,11 @@ static void global_status_record()
     status.party_gold = 0x12345678;
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
+    for (const int level : {0, W8_LEVEL_COUNT - 1}) {
+        status.level_progress[level] = {true, 0x1234, -7, 0x89abcdef, -9, 0x01020304, {}};
+        std::fill(std::begin(status.level_progress[level].unknown_11),
+                  std::end(status.level_progress[level].unknown_11), 0xa5);
+    }
     const auto path = wiz8::user_path("gsta.bin");
     W8Chunk chunks;
     REQUIRE(chunks.OpenWrite(path));
@@ -1022,6 +1027,12 @@ static void global_status_record()
     REQUIRE((chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes)));
     const auto status_image = wiz8::retail::encode(status);
     REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
+    std::array<unsigned char, 0x21> expected_progress{
+        1, 0x34, 0x12, 0xf9, 0xff, 0xef, 0xcd, 0xab, 0x89, 0xf7, 0xff, 0xff, 0xff, 4, 3, 2, 1};
+    std::fill(expected_progress.begin() + 0x11, expected_progress.end(), 0xa5);
+    for (const int level : {0, W8_LEVEL_COUNT - 1})
+        REQUIRE(std::equal(expected_progress.begin(), expected_progress.end(),
+                           bytes + 0x1a04 + level * 0x21));
     REQUIRE(bytes[0x242f] == 0xa5);
     REQUIRE(bytes[0x49be] == 0x5a);
     REQUIRE(bytes[0x49bf] == 0x17);
@@ -1061,6 +1072,8 @@ static void global_status_record()
     LoadGameStatus(&chunks, &restored);
     REQUIRE(restored.party_gold == status.party_gold);
     const auto restored_image = wiz8::retail::encode(restored);
+    REQUIRE(std::equal(status_image.begin() + 0x1a04, status_image.begin() + 0x2013,
+                       restored_image.begin() + 0x1a04));
     for (auto offset : {0x242f, 0x49be, 0x49bf})
         REQUIRE(restored_image[offset] == status_image[offset]);
     for (int slot = 0; slot < 8; ++slot) {
