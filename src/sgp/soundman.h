@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09, 2026-10-11.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09, 2026-10-11, 2026-10-16.
    Distributed under the accompanying SFI Source Code license agreement. */
 #pragma once
 
@@ -31,7 +31,7 @@ struct PlayOptions {
     // Listener-relative position; the listener faces -Z with +Y up.
     std::optional<glm::vec3> position{};
     std::uint32_t fade_in_ms = 0;
-    // Dispatched from service() or the next playback start, never the mixer thread.
+    // Dispatched on the game thread by service().
     std::function<void()> on_finished{};
 };
 
