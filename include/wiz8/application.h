@@ -8,7 +8,6 @@ extern "C" {
 extern bool gfProgramIsRunning;
 extern bool gfLoadAtStartup;
 extern std::string gzStringDataOverride;
-extern bool gfUsingBoundsChecker;
 extern bool gfCapturingVideo;
 extern bool gfApplicationActive;
 extern bool gfGameInitialized;

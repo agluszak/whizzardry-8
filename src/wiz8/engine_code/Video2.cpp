@@ -5,6 +5,7 @@
 #include <cstring>
 #include <exception>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <span>
 #include <sstream>
@@ -141,8 +142,6 @@ bool g_flush_pending = true;
 int g_screen_width = 640;
 // GLOBAL: WIZ8 0x603c40
 int g_screen_height = 480;
-// GLOBAL: WIZ8 0x603c44
-int g_screen_depth = 16;
 // GLOBAL: WIZ8 0x603c48
 int g_pixel_format = 9;
 // GLOBAL: WIZ8 0x603d74
@@ -479,11 +478,9 @@ unsigned char InitializePrimarySurface(void)
     return 1;
 }
 
-/* Selects and starts the configured SurRender display driver, binds it to the
-   top-level window. The final 3DVideo.CFG line still accepts "none" to disable
-   audio; other historical device names use the native mixer. Driver and API names
-   come from the SR export table and retail strings; the file format is the
-   five-line format emitted by 3DSetup.exe. */
+/* Starts the SDL GPU renderer using the dimensions from the legacy five-line
+   3DVideo.CFG file. Its driver and depth lines are ignored; the final audio
+   line still accepts "none" to disable sound. */
 // The 3DSetup configuration's audio device line; "none" disables sound.
 static bool s_setup_disables_audio = false;
 
@@ -496,7 +493,6 @@ bool SetupDisablesAudio()
 unsigned char InitializeVideoDevice(void)
 try {
     std::istringstream config;
-    char device[100] = "";
     char audio_setting[100] = "";
     char line[10] = "";
     char* newline;
@@ -516,21 +512,12 @@ try {
         config.setstate(std::ios::failbit);
     }
     if (config) {
-        config.getline(device, sizeof(device));
-        newline = strchr(device, '\r');
-        if (newline) {
-            *newline = '\0';
-        }
-        newline = strchr(device, '\n');
-        if (newline) {
-            *newline = '\0';
-        }
+        config.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Legacy driver.
         config.getline(line, sizeof(line));
         g_screen_width = atoi(line);
         config.getline(line, sizeof(line));
         g_screen_height = atoi(line);
-        config.getline(line, sizeof(line));
-        g_screen_depth = atoi(line);
+        config.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Legacy depth.
         config.getline(audio_setting, sizeof(audio_setting));
         newline = strchr(audio_setting, '\r');
         if (newline) {
@@ -1591,9 +1578,6 @@ void SetViewport(const DesignRect& bounds)
     }
 }
 
-// GLOBAL: WIZ8 0x00603c70
-char g_video_config_file[260] = "3DVideo.CFG";
-
 // FUNCTION: WIZ8 0x004229d0
 void PrintScreen(void)
 {
@@ -2034,18 +2018,6 @@ void SetFullscreenSceneLast(unsigned char value)
 bool HasEnoughFreeDiskSpace(void)
 {
     return W8HasEnoughSaveSpace();
-}
-
-// FUNCTION: WIZ8 0x00427a30
-void VideoSetConfigFile(const char* path)
-{
-    strcpy(g_video_config_file, path);
-}
-
-// FUNCTION: WIZ8 0x00427a60
-char* VideoGetConfigFile(void)
-{
-    return g_video_config_file;
 }
 
 // FUNCTION: WIZ8 0x004229b0

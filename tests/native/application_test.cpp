@@ -32,7 +32,7 @@ TEST_CASE("application_test")
     roots.user = directory.path.string();
     ScopedAssetRoots scoped_roots{roots};
 
-    for (const auto option : {"/VIDEOCFG", "/STRINGDATA", "/VIDEOCFG="}) {
+    for (const auto option : {"/STRINGDATA", "/STRINGDATA="}) {
         const std::array<std::string_view, 1> arguments{option};
         bool rejected = false;
         try {
@@ -45,8 +45,7 @@ TEST_CASE("application_test")
         CheckStopped();
     }
 
-    const std::array<std::string_view, 4> arguments{"/STRINGDATA=string data.wiz", "/window",
-                                                    "/vIdEoCfG", "C:\\missing video.cfg"};
+    const std::array<std::string_view, 2> arguments{"/STRINGDATA=string data.wiz", "/window"};
     for (int attempt = 0; attempt < 2; ++attempt) {
         bool failed = false;
         try {
@@ -56,7 +55,6 @@ TEST_CASE("application_test")
         }
         REQUIRE(failed);
         REQUIRE(gzStringDataOverride == "string data.wiz");
-        REQUIRE(std::string_view(VideoGetConfigFile()) == "C:\\missing video.cfg");
         CheckStopped();
     }
 
