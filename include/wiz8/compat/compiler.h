@@ -1,17 +1,9 @@
 #pragma once
 
-#include <stddef.h>
-#include <stdint.h>
+#include <cstdint>
 
 #include "native.h"
 
-typedef int32_t w8_long;
-typedef uint32_t w8_ulong;
-typedef uintptr_t w8_ulong_ptr;
-
-#define W8_PRINTF(format_index, first_argument)                                                    \
-    __attribute__((format(printf, format_index, first_argument)))
-
-#ifndef __cplusplus
-#include <assert.h>
-#endif
+using w8_long = std::int32_t;
+using w8_ulong = std::uint32_t;
+using w8_ulong_ptr = std::uintptr_t;
