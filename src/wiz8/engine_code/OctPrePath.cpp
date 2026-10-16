@@ -10,7 +10,6 @@
 #include <utility>
 #include <vector>
 
-#include "geometry.h"
 #include "index_algorithms.h"
 #include "navigation_flags.h"
 #include "packed_bits.h"
