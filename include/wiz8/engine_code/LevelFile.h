@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -42,19 +43,6 @@ enum W8LevelTriggerType : char {
 
 /* ---- Fixed-width disk records ---- */
 #pragma pack(push, 1)
-
-/* One path keyframe: position and an axis/angle rotation. Scaled paths add a
-   per-frame scale. */
-struct W8LevelFilePathNode { /* 0x1c */
-    srVector3T<float> position;
-    float angle;
-    srVector3T<float> axis;
-};
-
-struct W8LevelFileScaledPathNode { /* 0x28 */
-    W8LevelFilePathNode path;
-    srVector3T<float> scale;
-};
 
 struct W8LevelFileFramePosition {
     unsigned short frame;
@@ -211,6 +199,17 @@ struct W8LevelFileNamedPosition { /* 0x9d */
 
 /* ---- Runtime records, transferred field by field ---- */
 
+// Runtime keyframes; level-file transfers encode each component explicitly.
+struct W8LevelFilePathNode {
+    glm::vec3 position{0};
+    float angle = 0;
+    glm::vec3 axis{0};
+};
+struct W8LevelFileScaledPathNode {
+    W8LevelFilePathNode path;
+    glm::vec3 scale{0};
+};
+
 /* A keyframed path. Scaled paths (scaled == 2) store W8LevelFileScaledPathNode
    frames, the others W8LevelFilePathNode frames. */
 struct W8LevelFilePathAI {
@@ -230,7 +229,7 @@ struct W8LevelFilePathAI {
     W8LevelFileScaledPathNode Node(int frame) const
     {
         if (IsScaled()) return scaled_paths[frame];
-        return {paths[frame], srVector3T<float>(1.0f, 1.0f, 1.0f)};
+        return {paths[frame], glm::vec3(1.0f)};
     }
 };
 
@@ -242,17 +241,17 @@ struct W8LevelFileMesh {
     int num_vertices = 0;
     int num_faces = 0;
     unsigned char flags = 0;           /* W8LevelMeshFlag; version >= 3 */
-    srVector3T<float> location{};      /* version >= 2 */
+    glm::vec3 location{0};      /* version >= 2 */
     float rotation_angle = 0;          /* version >= 2 */
-    srVector3T<float> rotation_axis{}; /* version >= 2 */
-    srVector3T<float> scale{};         /* version >= 2 */
+    glm::vec3 rotation_axis{0}; /* version >= 2 */
+    glm::vec3 scale{0};         /* version >= 2 */
     char mapping_count = 0;            /* version >= 4; at most one mapping */
     short mapped_value = 0;
     short mapped_key = 0;
     char lod_mode = 0;    /* LOD meshes */
     float lod_scale = 0;  /* short LOD meshes with lod_mode >= 2 */
-    std::vector<srVector3T<float>> vertices;
-    std::vector<std::vector<srVector3T<float>>> lods;
+    std::vector<glm::vec3> vertices;
+    std::vector<std::vector<glm::vec3>> lods;
     std::vector<std::vector<short>> lod_shorts; /* three shorts per vertex */
     std::vector<W8LevelFileCompressedFace> compressed_faces;
     std::vector<W8SerializedMeshFace> faces;

@@ -6,7 +6,6 @@
 
 class srCamera;
 class srGERD;
-class srModeler;
 
 // VTABLE: SURRENDER 0x10077230 srScene
 // class srScene

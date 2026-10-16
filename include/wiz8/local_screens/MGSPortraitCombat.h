@@ -1,6 +1,6 @@
 #pragma once
 
-class srVector2i;
+#include "glm/ext/vector_int2.hpp"
 /* The portrait combat sub-menu's bank buttons and the shared (menu, entry)
    state tables. */
 
@@ -39,13 +39,13 @@ extern char g_cont_toggle_path[];
 extern char g_cont_pending_path[];
 extern char g_roof_buttons_path[];
 extern char g_layout_arrows_path[];
-extern srVector2i g_submenu_button_positions[9];
-extern srVector2i g_scroll_button_positions[2];
-extern srVector2i g_submenu_panel_button_positions[2];
-extern srVector2i g_options_disk_position;
-extern srVector2i g_combat_stance_positions[5];
-extern srVector2i g_roof_button_positions[3];
-extern srVector2i g_layout_arrow_positions[6];
+extern glm::ivec2 g_submenu_button_positions[9];
+extern glm::ivec2 g_scroll_button_positions[2];
+extern glm::ivec2 g_submenu_panel_button_positions[2];
+extern glm::ivec2 g_options_disk_position;
+extern glm::ivec2 g_combat_stance_positions[5];
+extern glm::ivec2 g_roof_button_positions[3];
+extern glm::ivec2 g_layout_arrow_positions[6];
 /* The (menu, item) keyed entry message/help indexes both menus build rows
    from; the keyboard menu shares them. */
 extern short g_submenu_entry_message_ids[25];

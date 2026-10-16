@@ -65,7 +65,7 @@ w8_ulong srTexture::getNewFrameHandle()
 // FUNCTION: SURRENDER 0x1005EA90
 void srTexture::invalidateFrameHandle(w8_ulong handle)
 {
-    for (srGERD* device = srGERD::getFirstOpen(); device != 0; device = device->getNextOpen()) {
+    if (auto* device = srGERD::getActive()) {
         device->invalidateTextureByFrameHandle(handle);
     }
 }

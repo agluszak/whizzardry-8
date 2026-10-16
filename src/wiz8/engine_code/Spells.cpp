@@ -1116,7 +1116,7 @@ void Update3DSounds()
         do {
             stSound3D* sound = g_sound3d_instances[index];
             if (sound->sound_handle != nullptr) {
-                srVector3T<double> world = sound->getWorldSpaceLocation();
+                glm::dvec3 world = sound->getWorldSpaceLocation();
                 if (!wiz8::sound::is_playing(sound->sound_handle)) {
                     bool dead = sound->auto_release;
                     sound->sound_handle = nullptr;

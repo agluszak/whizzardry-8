@@ -25,7 +25,6 @@
 #include "surrender/picking_math.h"
 #include "surrender/srClip.h"
 #include "surrender/srMath.h"
-#include "surrender/srTriangulator.h"
 #include "surrender/triangle_projection.h"
 #include "surrender/triangle_runs.h"
 #include "wiz8/navigation_math.h"
@@ -115,9 +114,6 @@ static void VectorMethods()
     const auto horizontal = normalizedOrZero(glm::dvec2(3, 4));
     REQUIRE(std::abs(glm::length(horizontal) - 1) < 1e-14);
     REQUIRE(normalizedOrZero(glm::vec3(0)) == glm::vec3(0));
-    point.Set(1, 0, 0);
-    point.RotateAboutZ(1, 0);
-    REQUIRE((std::abs(point.x) < 1e-6f && std::abs(point.y - 1) < 1e-6f));
 }
 
 TEST_CASE("vector_math_test")
@@ -126,7 +122,7 @@ TEST_CASE("vector_math_test")
     PackedStorage();
     VectorMethods();
     ClippingAndLighting();
-    std::puts("ok: packed storage, guarded vector methods, rotations, clipping and lighting");
+    std::puts("ok: packed storage, guarded vector methods, clipping and lighting");
 }
 
 TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp policies",
@@ -314,32 +310,4 @@ TEST_CASE("Projected area keeps orientation and closed triangle edge coverage")
     std::swap(triangle[0], triangle[2]);
     REQUIRE(srTriangleProjection::containsClosed(triangle, {.5f, .5f}));
     REQUIRE_FALSE(srTriangleProjection::containsClosed(triangle, {-1, 1}));
-}
-
-TEST_CASE("Triangulation returns optional indexed triangles from counted point views")
-{
-    srTriangulator empty(std::span<const glm::vec2>{});
-    REQUIRE_FALSE(empty.next());
-    const std::array<glm::vec2, 2> segment{{{0, 0}, {2, 0}}};
-    srTriangulator short_polygon(segment);
-    REQUIRE_FALSE(short_polygon.next());
-    const std::array<glm::vec2, 4> collinear{{{0, 0}, {1, 0}, {2, 0}, {3, 0}}};
-    srTriangulator invalid(collinear);
-    REQUIRE_FALSE(invalid.next());
-    const std::array<glm::vec2, 5> concave{{{0, 0}, {2, 0}, {2, 2}, {1, 1}, {0, 2}}};
-    srTriangulator triangulator(concave);
-    unsigned count = 0;
-    float area = 0;
-    while (const auto triangle = triangulator.next()) {
-        for (unsigned corner = 0; corner < 3; ++corner) {
-            REQUIRE((*triangle)[corner] >= 0);
-            REQUIRE((*triangle)[corner] < static_cast<int>(concave.size()));
-        }
-        const auto a = concave[triangle->x], b = concave[triangle->y], c = concave[triangle->z];
-        area += glm::length(glm::cross(glm::vec3(b - a, 0), glm::vec3(c - a, 0))) * .5f;
-        ++count;
-    }
-    REQUIRE(count == 3);
-    REQUIRE(area == 3);
-    REQUIRE_FALSE(triangulator.next());
 }

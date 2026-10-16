@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -22,10 +23,12 @@
 #include "file_faults.h"
 #include "float_constants.h"
 #include "geometry.h"
+#include "glm/ext/vector_float3.hpp"
 #include "scoped_asset_roots.h"
 #include "surrender/srMath.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctBuildTree.h"
@@ -39,6 +42,7 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_text_records.h"
@@ -260,14 +264,21 @@ static void level_records()
     append(bytes, 7);
     append(bytes, 0u);
     append(bytes, 1);
-    alignas(4) W8LevelFileScaledPathNode node{};
-    node.path.position.x = 42;
-    append(bytes, node);
+    // Ten disk floats, independent of the runtime keyframe/vector layout.
+    append(bytes, std::array<float, 10>{42, 2, 3, 0.5f, 0, 1, 0, 2, 3, 4});
     store("path.bin", bytes);
     file = wiz8::open_file("path.bin");
     W8LevelFilePathAI path{};
     REQUIRE((ReadPathAIFile(*file, path)));
     REQUIRE((path.PathCount() == 1 && path.scaled_paths[0].path.position.x == 42));
+    auto encoded = wiz8::open_file("path-output.bin", wiz8::OpenMode::replace);
+    REQUIRE(WritePathAIFile(*encoded, path));
+    encoded->close();
+    encoded = wiz8::open_file("path-output.bin");
+    REQUIRE(encoded->size() == static_cast<std::int64_t>(bytes.size()));
+    std::string roundtrip(bytes.size(), '\0');
+    encoded->read_exact(roundtrip.data(), roundtrip.size());
+    REQUIRE(roundtrip == bytes);
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("path.bin", bytes.substr(0, end));
         file = wiz8::open_file("path.bin");
@@ -408,7 +419,8 @@ static void wgd_banks()
     data.ReadProcessedGameData(file.get());
     // Environment motion factors are normalized by the processed loader.
     const auto roundtrip = geometry_snapshot(data);
-    const auto geometry_bytes = snapshot.size() - data.EnvironsCount() * sizeof(W8EnvironRecord);
+    const auto geometry_bytes =
+        snapshot.size() - data.EnvironsCount() * sizeof(wiz8::retail::Environ);
     REQUIRE((roundtrip.substr(0, geometry_bytes) == snapshot.substr(0, geometry_bytes)));
 }
 
@@ -580,14 +592,14 @@ static void path_tables()
     store("nodes.bin", bytes);
     auto file = wiz8::open_file("nodes.bin");
     REQUIRE((path.ReadPathNodes(file.get())));
-    auto* values = path.m_pPathValues;
-    auto* paths = path.m_pCondPaths;
-    REQUIRE((path.m_ulNumCondPaths == 1 && path.navigation_filter == 9));
+    auto* values = path.m_pPathValues.get();
+    auto* paths = path.m_pCondPaths.data();
+    REQUIRE((path.m_pCondPaths.size() == 1 && path.navigation_filter == 9));
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("nodes.bin", bytes.substr(0, end));
         file = wiz8::open_file("nodes.bin");
         REQUIRE((!path.ReadPathNodes(file.get())));
-        REQUIRE((path.m_pPathValues == values && path.m_pCondPaths == paths &&
+        REQUIRE((path.m_pPathValues.get() == values && path.m_pCondPaths.data() == paths &&
                  path.navigation_filter == 9));
     }
     auto bad = bytes;
@@ -595,9 +607,9 @@ static void path_tables()
                 sizeof(conditional.name));
     store("nodes.bin", bad);
     file = wiz8::open_file("nodes.bin");
-    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pCondPaths == paths));
+    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pCondPaths.data() == paths));
     path.path_node_count = -1;
-    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pPathValues == values));
+    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pPathValues.get() == values));
 }
 
 struct LoaderFixture {
@@ -1103,4 +1115,170 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
     auto file = wiz8::open_file("items.bin");
     W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
+}
+
+TEST_CASE_METHOD(LoaderFixture,
+                 "Waypoint graph growth retains indices and conditional edge updates",
+                 "[loader][pathing]")
+{
+    W8Octree tree(nullptr, nullptr);
+    const struct RestoreOctree {
+        W8Octree* previous;
+        ~RestoreOctree() { g_octree = previous; }
+    } restore{g_octree};
+    g_octree = &tree;
+    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(0);
+    tree.m_spatial.m_node_extent = 1;
+    W8PathingService path;
+    path.m_pPathValues = std::make_unique<std::unordered_multimap<unsigned, unsigned>>();
+    path.grid_scale = 1;
+    path.span = 1;
+    for (unsigned i = 1; i <= 150; ++i) {
+        const srVector3 position(i, 1, 1);
+        path.AddWaypoint(&position);
+        path.m_waypoints[i].flags |= W8_WAYPOINT_CONDITIONAL;
+        const auto node = path.AllocateSearchNode();
+        REQUIRE(node == i);
+        REQUIRE(path.m_search_nodes[node].flags == 0);
+        REQUIRE(path.m_search_nodes[node].parent_node == 0);
+        path.m_search_nodes[node].parent_node = node - 1;
+        path.m_search_nodes[node].position = position;
+        if (i > 1) path.AddWaypointLink(1, i, W8_PATH_EDGE_TELEPORTAL);
+    }
+    REQUIRE(path.m_waypoints.size() == 151);
+    REQUIRE(path.m_pEdges.size() == 150);
+    for (unsigned i = 1; i <= 150; ++i) {
+        REQUIRE(path.m_waypoints[i].index == i);
+        REQUIRE(path.m_waypoints[i].position == srVector3(i, 1, 1));
+        REQUIRE(path.m_search_nodes[i].parent_node == i - 1);
+        REQUIRE(path.m_search_nodes[i].position == path.m_waypoints[i].position);
+    }
+    unsigned edge = path.m_waypoints[1].first_edge;
+    for (unsigned destination = 2; destination <= 150; ++destination) {
+        REQUIRE(edge != 0);
+        REQUIRE(path.m_pEdges[edge].source == 1);
+        REQUIRE(path.m_pEdges[edge].destination == destination);
+        edge = path.m_pEdges[edge].next;
+    }
+    REQUIRE(edge == 0);
+    const auto first_edge = path.m_waypoints[1].first_edge;
+    path.m_pEdges[first_edge].flags = 0;
+    REQUIRE(path.UpdateWaypointLink(1, 2, W8_PATH_EDGE_TELEPORTAL));
+    REQUIRE(path.m_pEdges.size() == 150);
+    REQUIRE(path.m_pEdges[first_edge].flags ==
+            (W8_PATH_EDGE_TELEPORTAL | W8_PATH_EDGE_CONDITIONAL));
+
+    path.level_name = "graph";
+    path.path_node_count = 1;
+    path.edge_node_count = 1;
+    std::vector<W8FileWaypoint> snapshot(path.m_waypoints.size());
+    for (std::size_t i = 0; i < snapshot.size(); ++i) {
+        snapshot[i].flags = path.m_waypoints[i].flags;
+        snapshot[i].first_edge = path.m_waypoints[i].first_edge;
+        snapshot[i].position = path.m_waypoints[i].position;
+    }
+    REQUIRE(path.WriteWaypointFile(snapshot));
+    REQUIRE(path.ReadWaypointFile());
+    REQUIRE(path.m_waypoints.size() == snapshot.size());
+    REQUIRE(path.m_pEdges.size() == 150);
+    for (std::size_t i = 1; i < snapshot.size(); ++i) {
+        REQUIRE(path.m_waypoints[i].position == snapshot[i].position);
+        REQUIRE(path.m_waypoints[i].first_edge == snapshot[i].first_edge);
+    }
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
+                 "[loader][records]")
+{
+    const struct RestoreTables {
+        std::array<glm::vec3, 256> environment = g_environment_colours0;
+        std::array<glm::vec3, 256> light = g_environment_colours1;
+        ~RestoreTables()
+        {
+            g_environment_colours0 = environment;
+            g_environment_colours1 = light;
+        }
+    } restore;
+    std::string bytes;
+    for (int index = 0; index < 256; ++index) {
+        bytes.push_back(static_cast<char>(index));
+        bytes.push_back(static_cast<char>(255 - index));
+        bytes.push_back(static_cast<char>(index / 2));
+    }
+    for (const auto& [read, table] :
+         {std::pair{&ReadEnvironmentColourTable, &g_environment_colours0},
+          std::pair{&ReadLightColourTable, &g_environment_colours1}}) {
+        store("colours.bin", bytes);
+        auto file = wiz8::open_file("colours.bin");
+        REQUIRE(read(file.get()));
+        REQUIRE(file->tell() == 768);
+        for (int index : {0, 1, 127, 255}) {
+            const glm::vec3 expected(index, 255 - index, index / 2);
+            REQUIRE((*table)[index] == expected * (1.0f / 255.0f));
+        }
+        const auto complete = *table;
+        store("colours.bin", bytes.substr(0, 767));
+        file = wiz8::open_file("colours.bin");
+        REQUIRE_FALSE(read(file.get()));
+        REQUIRE(*table == complete);
+    }
+}
+
+TEST_CASE("Collision disk codecs retain vector components and unknown bytes", "[loader][records]")
+{
+    wiz8::retail::Environ environment{};
+    environment.value_00 = 17;
+    environment.ground_latch = 1;
+    environment.airborne = 3;
+    environment.pad_06[0] = 0xa5;
+    environment.pad_06[1] = 0x5a;
+    environment.scale = 2;
+    environment.vector = {3, -4, 5};
+    environment.value_40 = 11;
+    W8EnvironRecord live_environment;
+    wiz8::retail::decode_image(environment, live_environment);
+    REQUIRE(live_environment.vector == glm::vec3(3, -4, 5));
+    REQUIRE(live_environment.ground_latch);
+    REQUIRE(live_environment.scale == 2);
+    const auto encoded_environment = wiz8::retail::encode(live_environment);
+    REQUIRE(std::memcmp(encoded_environment.data(), &environment, sizeof(environment)) == 0);
+
+    wiz8::retail::RegionVolume region{};
+    region.flags = 0x10203040;
+    region.m_region = 0x1234;
+    region.positional[5] = 0x9a;
+    region.value_18 = 0x87654321;
+    for (int i = 0; i < 9; ++i) region.m_points[i] = {float(i), float(i + 10), float(i + 20)};
+    for (int i = 0; i < 6; ++i)
+        region.m_planes[i] = {{float(i + 30), float(i + 40), float(i + 50)}, float(i + 60)};
+    W8OctRegionVolume live_region{};
+    wiz8::retail::decode_image(region, live_region);
+    REQUIRE(live_region.m_region == 0x1234);
+    REQUIRE(live_region.m_points[8] == glm::vec3(8, 18, 28));
+    REQUIRE(live_region.m_planes[5].normal.glmValue() == glm::vec3(35, 45, 55));
+    REQUIRE(live_region.m_planes[5].w == 65);
+    const auto encoded_region = wiz8::retail::encode(live_region);
+    REQUIRE(std::memcmp(encoded_region.data(), &region, sizeof(region)) == 0);
+}
+
+TEST_CASE_METHOD(LoaderFixture,
+                 "Octree sample points transfer float triples independently of GLM layout",
+                 "[loader][records]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_sample_points = {{1, -2, 3.5f}, {4, 5, -6}};
+    REQUIRE(tree.SavePoints("sample-fixture.lvl"));
+    auto file = wiz8::open_file("sample-fixture.pts");
+    REQUIRE(file->size() == 4 + 6 * sizeof(float));
+    unsigned int count = 0;
+    file->read_exact(&count, sizeof(count));
+    REQUIRE(count == 2);
+    std::array<float, 6> coordinates{};
+    file->read_exact(coordinates.data(), coordinates.size() * sizeof(float));
+    REQUIRE(coordinates == std::array<float, 6>{1, -2, 3.5f, 4, 5, -6});
+    file->close();
+    tree.m_sample_points.clear();
+    REQUIRE(tree.LoadPointFiles("sample-fixture.lvl"));
+    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
 }

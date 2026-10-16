@@ -23,7 +23,6 @@
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
 #include "compat/compiler.h"
-#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srARGB.h"
 #include "surrender/srCamera.h"
@@ -36,7 +35,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srModeler.h"
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
@@ -207,20 +205,6 @@ static int shared_surface_lifetimes()
 
 TEST_CASE("imports_test")
 {
-    {
-        srModeler modeler;
-        srModeler::Triangle triangle;
-        for (int row = 0; row < 2; ++row) {
-            for (int vertex = 0; vertex < 3; ++vertex)
-                triangle.vertices[vertex].position =
-                    glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
-            modeler.addTriangle(triangle);
-        }
-        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{0.f, 12.f}));
-        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Y) == std::pair{0.f, 22.f}));
-        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Z) == std::pair{-2.f, 0.f}));
-        REQUIRE_FALSE(modeler.getAxialBounds(static_cast<srModeler::e_axis>(-1)));
-    }
     for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
         REQUIRE(fesetround(mode) == 0);
         const double inputs[] = {0.0,

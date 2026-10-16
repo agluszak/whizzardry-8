@@ -15,7 +15,9 @@
 #include "GrCycle.h"
 #include "compat/native.h"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
+#include "glm/geometric.hpp"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -64,27 +66,27 @@ try {
     }
     path->rotations.resize(point_count);
     if (path->version == 2) path->scales.resize(point_count);
+    const auto read_vector = [&] {
+        glm::vec3 value(0);
+        handle->read_exact(&value.x, sizeof(float));
+        handle->read_exact(&value.y, sizeof(float));
+        handle->read_exact(&value.z, sizeof(float));
+        return value;
+    };
     for (int index = 0; index < point_count; ++index) {
-        srVector3T<float> point, axis;
+        glm::vec3 point = read_vector();
         float angle;
-        handle->read_exact(&point.x, 4);
-        handle->read_exact(&point.y, 4);
-        handle->read_exact(&point.z, 4);
-        point *= g_double_five_hundred;
+        point *= 500.0f;
         PathAIAddPoint(*path, point);
         handle->read_exact(&angle, 4);
-        handle->read_exact(&axis.x, 4);
-        handle->read_exact(&axis.y, 4);
-        handle->read_exact(&axis.z, 4);
+        const auto axis = read_vector();
         auto& rotation = path->rotations[index];
         rotation = glm::mat3(1);
         if (angle != g_double_zero) {
-            rotation *=
-                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                              normalizedOrZero(glm::vec3(axis.glmValue()))));
+            rotation *= glm::mat3_cast(
+                glm::angleAxis(float(std::atan2(sin(angle), cos(angle))), normalizedOrZero(axis)));
         }
-        if (path->version == 2)
-            handle->read_exact(&path->scales[index], sizeof(path->scales[index]));
+        if (path->version == 2) path->scales[index] = read_vector();
     }
     *output = path.release();
     return true;
@@ -110,7 +112,9 @@ void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
     if (path == 0 || representation == 0) {
         srAssertFail("pPathAI&&pRep", PATH_AI_CPP, 0x595, 0);
     }
-    PathAIPosition(path, &representation->parent_location);
+    auto position = representation->parent_location.glmValue();
+    PathAIPosition(path, &position);
+    representation->parent_location = position;
     representation->location = representation->parent_location;
 }
 
@@ -132,7 +136,7 @@ void PathAIClearOwned(W8PathAI* path)
 }
 
 // FUNCTION: WIZ8 0x004a9c30
-void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point)
+void PathAIAddPoint(W8PathAI& path, const glm::vec3& point)
 {
     if (path.nodes.empty()) {
         path.position = 0;
@@ -148,7 +152,7 @@ void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point)
 
     float total_length = 0;
     for (std::size_t index = 0; index + 1 < path.nodes.size(); ++index) {
-        total_length += (path.nodes[index] - path.nodes[index + 1]).Length();
+        total_length += glm::length(path.nodes[index] - path.nodes[index + 1]);
     }
     path.total_length = total_length;
     if (path.position > g_float_zero && total_length > g_float_zero) {
@@ -179,7 +183,7 @@ float PathAIGetValue(W8PathAI* path)
 }
 
 // FUNCTION: WIZ8 0x004a9e90
-bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
+bool PathAINextPoint(W8PathAI* path, glm::vec3* point)
 {
     if (path == 0 || path->nodes.empty()) {
         return false;
@@ -232,9 +236,7 @@ void PathAISetValue(W8PathAI* path, float value)
 // FUNCTION: WIZ8 0x004a9fe0
 void PathAIAdvanceByDistance(W8PathAI* path, float distance)
 {
-    srVector3T<float> position;
-    srVector3T<float>* next;
-    srVector3T<float>* current;
+    glm::vec3 position(0);
     unsigned int index;
     float remaining;
     float segment;
@@ -262,8 +264,7 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
     while (true) {
         PathAIPosition(path, &position);
         index = path->point_index + 1;
-        next = &path->nodes[index];
-        segment = (position - *next).Length();
+        segment = glm::length(position - path->nodes[index]);
         if (remaining < segment) {
             break;
         }
@@ -278,9 +279,7 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
         }
     }
     index = path->point_index;
-    next = &path->nodes[index + 1];
-    current = &path->nodes[index];
-    segment = (*current - *next).Length();
+    segment = glm::length(path->nodes[index] - path->nodes[index + 1]);
     path->interpolation_fraction = (segment * path->interpolation_fraction + remaining) / segment;
 }
 
@@ -371,7 +370,7 @@ bool PathAITick(W8PathAI* path, signed char direction)
 }
 
 // FUNCTION: WIZ8 0x004aa370
-void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
+void PathAIPosition(W8PathAI* path, glm::vec3* value)
 {
     if (!path || path->nodes.empty()) return;
     if (!path->animated) {
@@ -406,8 +405,7 @@ void PathAIApply(W8PathAI* path, srNode* target)
     int index;
     float blend;
     srNode* node;
-    srVector3T<float>* scale_vector;
-    srVector3T<float> position;
+    glm::vec3 position(0);
     glm::dvec3 location;
     glm::mat3 rotation;
     glm::mat3 next;
@@ -417,13 +415,12 @@ void PathAIApply(W8PathAI* path, srNode* target)
     }
     PathAIPosition(path, &position);
 
+    location = glm::dvec3(position);
     node = target->first_child_;
     if (node == 0) {
-        location = glm::dvec3(position.glmValue());
         target->setLocation(location);
     } else {
         do {
-            location = glm::dvec3(position.glmValue());
             node->setLocation(location);
             node = node->next_sibling_;
         } while (node != 0);
@@ -472,14 +469,12 @@ void PathAIApply(W8PathAI* path, srNode* target)
         }
 
         if (!path->scales.empty()) {
-            scale_vector = &path->scales[index];
+            location = glm::dvec3(path->scales[index]);
             node = target->first_child_;
             if (node == 0) {
-                location = glm::dvec3(scale_vector->glmValue());
                 target->setScale(location);
             } else {
                 do {
-                    location = glm::dvec3(scale_vector->glmValue());
                     node->setScale(location);
                     node = node->next_sibling_;
                 } while (node != 0);
