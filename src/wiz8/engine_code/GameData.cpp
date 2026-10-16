@@ -505,11 +505,11 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
     for (index = 0; index < objects.size(); ++index) {
         prop = g_world->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0) {
-            gd_prop = prop->m_gd_prop;
+            gd_prop = prop->m_gd_prop.get();
             prop->flags |= 0x10;
             if (gd_prop == 0) {
                 prop->BuildOrRefreshPathingRepresentation();
-                gd_prop = prop->m_gd_prop;
+                gd_prop = prop->m_gd_prop.get();
                 if (gd_prop == 0) {
                     return 0;
                 }
@@ -1021,7 +1021,7 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
     auto* prop = g_world->collidable_props[prop_id];
     prop->flags |= 0x10;
     if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation();
-    auto* gd_prop = prop->m_gd_prop;
+    auto* gd_prop = prop->m_gd_prop.get();
     if (gate != 0 && gd_prop->m_flags.unattached) return false;
 
     const auto start = trace->start;

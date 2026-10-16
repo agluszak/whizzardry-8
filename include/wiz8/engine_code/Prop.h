@@ -1,14 +1,18 @@
 #pragma once
 
+#include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
 #include "surrender/srBoundingBox.h"
+#include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/game_timer.h"
 
 class GDProp;
 struct W8AnimObj;
@@ -35,15 +39,12 @@ struct W8PropAnimationSegment {
     unsigned char tag;
 };
 
-/* Prop.cpp's m_pRep.  Assertions name the member; the constructor allocates
-   0xc4 bytes, runs the AnimRep constructor, then installs the Prop-owned
-   animation pointer, speed, and the slot vector at 0xb0.  The secondary
-   vtable at 0xb0 is the growable-vector specialization at 0x005EC1D0. */
+// Optional animation data and segment values belong to the representation.
 class W8PropRepresentation : public W8AnimRep {
 public:
     /* Default construction is inlined at Prop::Prop. */
     W8PropRepresentation()
-        : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
+        : animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
           play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
           footstep_material(0xff)
     {
@@ -60,7 +61,8 @@ public:
     /* CreateAndLoadProp loads m_pRep into ECX, then passes (pInfo, pProp). */
     bool LoadProp(W8ReadLevelInfo* info, W8Prop* prop); /* 0x0044AEE0 */
 
-    W8AnimObj* animation;  /* 0x98 */
+    std::optional<W8AnimObj> animation;
+    W8AnimObj* Animation() { return animation ? &*animation : nullptr; }
     float animation_speed; /* 0x9c */
     /* 0xa0: integer path position accumulator.  UpdatePropAnimation adds the elapsed
        frame count to it with a dword add, compares it against the animation's
@@ -71,15 +73,11 @@ public:
     float play_chance;            /* 0xa8: constructed as 0.5 */
     unsigned char saved_subcycle; /* 0xac */
     unsigned char frame_steps;    /* 0xad */
-    std::vector<W8PropAnimationSegment*> slots; /* 0xb0 */
+    std::vector<W8PropAnimationSegment> slots; /* 0xb0 */
     unsigned char footstep_surface;          /* 0xc0 */
     unsigned char footstep_material;         /* 0xc1 */
 }; /* 0xc4 */
 
-/* Engine Code\Prop.cpp.  Prop::Prop() calls W8GrObject::W8GrObject and
-   allocates operator new(0x90), which proves both the base and the extent.
-   m_pRep and m_pTimer are the assertion-backed names; the representation is
-   the Prop-owned W8PropRepresentation stored through GrObject's m_pRep slot. */
 /* Combined W8Prop::flags masks; these are distinct from representation flags. */
 enum {
     W8_PROP_COLLIDABLE = 0x01u,
@@ -90,6 +88,8 @@ enum {
 };
 
 class W8Prop : public W8GrObject {
+    W8PropRepresentation representation;
+
 public:
     W8Prop();                   /* 0x0044BC00 */
     virtual ~W8Prop() override; /* complete destructor 0x0044BEC0 */
@@ -97,7 +97,7 @@ public:
     W8PropRepresentation* Rep() const { return static_cast<W8PropRepresentation*>(m_pRep); }
 
     void DetachAnimationInstances(W8World* world);
-    W8Prop(const W8Prop&) = default;
+    W8Prop(const W8Prop&) = delete;
     W8Prop& operator=(const W8Prop&) = delete;
     void UpdatePropAnimation();
     /* Re-apply every animation path and roll the position snapshots forward.
@@ -163,13 +163,13 @@ public:
 
     Trigger* trigger;   /* 0x18 */
     unsigned int flags; /* 0x1c */
-    char* m_name;       /* 0x20 */
+    std::string name;
     /* 0x24: UpdatePropAnimation stores the animation timer's progress here, then
        reduces it by the whole-frame count - the fractional remainder. */
     float anim_frame_fraction;
-    W8GameTimer* m_pTimer;                         /* 0x28 */
+    W8GameTimer timer;
     glm::vec3 animation_position;          /* 0x2c: written by ApplyAnimationFrame */
-    GDProp* m_gd_prop;                             /* 0x38 */
+    std::unique_ptr<GDProp> m_gd_prop;
     glm::vec3 previous_animation_position; /* 0x3c */
     /* Prop::Prop writes two identity bases here as nine floats each. */
     glm::mat3 previous_animation_rotation; /* 0x48 */

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
@@ -20,7 +21,10 @@ struct W8AmbientSoundConfig {
    native emitters own their audio clip and no longer have that binary layout. */
 class W8AmbientSound {
 public:
-    W8AmbientSound(); /* 0x00479040 */
+    W8AmbientSound();
+    ~W8AmbientSound();
+    W8AmbientSound(const W8AmbientSound&) = delete;
+    W8AmbientSound& operator=(const W8AmbientSound&) = delete;
 
     /* 0x004790D0: true when listener is inside the rotated/scaled min-max region */
     bool IsInsideRegion(const glm::vec3* listener);
@@ -33,7 +37,7 @@ public:
 
     W8AmbientSound* FindNextMatching(const char* match_name, W8AmbientSound* previous);
 
-    char* pacSoundName;          /* 0x000: assertion-backed at 0x47A790 */
+    std::string name;
     W8AmbientSoundConfig config; /* 0x004: wave filename; shared sounds match on it */
     unsigned char stopped;       /* 0x084: script-stopped via the ByName commands */
     glm::vec3 position;  /* 0x088: emitter world position */
@@ -154,5 +158,3 @@ extern bool g_footstep_alternate;
 extern int g_previous_ambient_footstep_variant;
 extern const char* g_footstep_names[];
 extern const char* g_footstep_surfaces[];
-/* Zeroed 128-byte ambient name image; only its first word is ever read — a
-   `memcpy` of it followed by a memset seeds an empty fixed-size name. */

@@ -57,7 +57,7 @@ void MtGigas1Setup(void)
     if (pTrigger != 0) {
         prop = pTrigger->GetProp();
         if (prop != 0) {
-            g_plate_prop = prop->m_gd_prop;
+            g_plate_prop = prop->m_gd_prop.get();
         }
     }
     if (GetLocationVarIDByName("PPlateDown") == -1) {

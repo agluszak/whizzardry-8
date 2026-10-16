@@ -227,8 +227,8 @@ void AssociateWorldLights(W8World* world)
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
                 W8Prop* prop = GetWorldProp(world, prop_index);
 
-                if (prop->m_name != 0 &&
-                    SDL_strcasecmp(prop->m_name, light->getName().c_str()) == 0) {
+                if (!prop->name.empty() &&
+                    SDL_strcasecmp(prop->name.c_str(), light->getName().c_str()) == 0) {
                     srModelInstance* instance = prop->ToggleRepAnimationDefault();
                     light->m_prop = prop;
                     GetModelAnimatedTexture(instance)->animation_mode = W8_TEXTURE_ANIM_MANUAL;
@@ -1152,7 +1152,7 @@ try {
     prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
-        W8AnimObj* animation = prop->Rep()->animation;
+        W8AnimObj* animation = prop->Rep()->Animation();
 
         if ((prop->flags & W8_PROP_NO_DIRECT_SUN) != 0) {
             unsigned int animation_count = AnimObjListCount(animation, 2);

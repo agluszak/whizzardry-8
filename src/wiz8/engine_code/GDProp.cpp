@@ -300,10 +300,10 @@ void AddItemToSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
         W8Prop* prop = g_world->collidable_props[sector];
-        GDProp* gd = prop->m_gd_prop;
+        GDProp* gd = prop->m_gd_prop.get();
         if (gd == 0) {
             prop->BuildOrRefreshPathingRepresentation();
-            gd = prop->m_gd_prop;
+            gd = prop->m_gd_prop.get();
             if (gd == 0) {
                 return;
             }

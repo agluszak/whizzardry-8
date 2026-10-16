@@ -39,6 +39,7 @@
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
@@ -1730,4 +1731,23 @@ TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete s
     std::memcpy(invalid.data() + 40, &negative, sizeof(negative));
     REQUIRE(load(invalid) == 0);
     REQUIRE(first.userdata.empty());
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name", "[loader][prop]")
+{
+    std::string bytes;
+    append(bytes, static_cast<unsigned char>(7));
+    append(bytes, static_cast<unsigned char>(1));
+    append(bytes, static_cast<unsigned char>(0));
+    for (int i = 0; i < 3; ++i) append(bytes, 0.0f);
+    append(bytes, 0u);
+    bytes.append(64, 'x');
+    store("bad-prop.dat", bytes);
+    auto file = wiz8::open_file(wiz8::asset_path("bad-prop.dat"));
+    W8ReadLevelInfo info{};
+    info.hFile = file.get();
+    W8Prop prop;
+    prop.name = "previous";
+    REQUIRE_FALSE(prop.Rep()->LoadProp(&info, &prop));
+    REQUIRE(prop.name == "previous");
 }
