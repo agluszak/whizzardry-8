@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
+
 #include "Navigator.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "layouts/targeting.h"
@@ -9,7 +11,6 @@
 #include "message_box.h"
 #include "surrender/srCamera.h"
 #include "surrender/srMath.h"
-#include "wiz8/ascii.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -52,7 +53,7 @@ void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
     if (count != 0) {
         for (int index = 0; index < static_cast<int>(count); ++index) {
             W8CameraPath* path = GetWorldCameraPath(world, index);
-            if (wiz8::iequals(path->name0, name)) {
+            if (SDL_strcasecmp(path->name0, name) == 0) {
                 UpdateCameraPathState(world, path, active);
                 return;
             }
@@ -93,15 +94,15 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     path->active = false;
     SetEnvironmentLoadFlag(g_saved_environment_flag);
     if (g_status.current_level == 1) {
-        if (wiz8::iequals(path->name0, "Camera01")) {
+        if (SDL_strcasecmp(path->name0, "Camera01") == 0) {
             g_npc_dialogue.Queue(W8NpcPortraitString{0x721});
             g_npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
             return;
         }
-        if (wiz8::iequals(path->name0, "Camera02")) {
+        if (SDL_strcasecmp(path->name0, "Camera02") == 0) {
             npc = GetNpcStateByKind(0x33);
         } else {
-            if (!wiz8::iequals(path->name0, "Camera03")) {
+            if (SDL_strcasecmp(path->name0, "Camera03") != 0) {
                 return;
             }
             group = FindFirstMonsterByID(0x18c);
@@ -130,8 +131,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
         }
         return;
     }
-    if (g_status.current_level == 4 && !wiz8::iequals(path->name0, "CameraPath2")) {
-        if (wiz8::iequals(path->name0, "CameraPath3")) {
+    if (g_status.current_level == 4 && SDL_strcasecmp(path->name0, "CameraPath2") != 0) {
+        if (SDL_strcasecmp(path->name0, "CameraPath3") == 0) {
             ClearMainGameTargetState();
             group = FindFirstMonsterByID(0x1b4);
             if (group != 0) {
@@ -139,7 +140,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
                 return;
             }
-        } else if (wiz8::iequals(path->name0, "CameraPath4")) {
+        } else if (SDL_strcasecmp(path->name0, "CameraPath4") == 0) {
             ResetLevelDataVectors();
             return;
         }

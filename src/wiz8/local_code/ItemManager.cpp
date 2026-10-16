@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
 
@@ -31,7 +32,6 @@
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
-#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -200,7 +200,7 @@ int FindItemTableByName(const char* name)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (wiz8::iequals(name, g_item_tables[index].name)) {
+        if (SDL_strcasecmp(name, g_item_tables[index].name) == 0) {
             return index;
         }
     }
@@ -335,7 +335,7 @@ int FindItemRecordByName(const char* name)
     for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
-            if (wiz8::iequals(g_item_records[index].display_name.c_str(), name)) {
+            if (SDL_strcasecmp(g_item_records[index].display_name.c_str(), name) == 0) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {

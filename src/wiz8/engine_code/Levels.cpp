@@ -9,6 +9,7 @@
 #include <string>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <wiz8/asset_paths.h>
@@ -27,7 +28,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
-#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -226,7 +226,7 @@ static int LevelFindIDByLocationCode(const char* location_code)
     int level_id;
 
     for (level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
-        if (wiz8::iequals(g_level_folders[level_id].location_code, location_code)) {
+        if (SDL_strcasecmp(g_level_folders[level_id].location_code, location_code) == 0) {
             return level_id;
         }
     }

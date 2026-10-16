@@ -8,6 +8,7 @@
 #include <span>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
 #include "Navigator.h"
@@ -23,7 +24,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
 #include "surrender/srMath.h"
-#include "wiz8/ascii.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Cursor3d.h"
@@ -245,7 +245,7 @@ signed char FindFactionByName(const char* name)
     signed char faction;
 
     for (faction = 0; faction < W8_FACTION_COUNT; ++faction) {
-        if (wiz8::iequals(g_faction_names[faction], name)) {
+        if (SDL_strcasecmp(g_faction_names[faction], name) == 0) {
             return faction;
         }
     }

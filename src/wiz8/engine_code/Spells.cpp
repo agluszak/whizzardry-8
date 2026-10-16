@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -31,7 +32,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
-#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -391,8 +391,8 @@ static int FindSpellCycleByName(const char* name)
         srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x532, 0);
     }
     for (int index = 0; index < SPELL_NUM_CYCLES; ++index) {
-        if (wiz8::iequals_prefix(name, g_spell_cycle_names[index],
-                                 strlen(g_spell_cycle_names[index]))) {
+        if (SDL_strncasecmp(name, g_spell_cycle_names[index], strlen(g_spell_cycle_names[index])) ==
+            0) {
             return index;
         }
     }
@@ -475,12 +475,12 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             }
 
             sound_type = W8_SOUND_EVENT_NONE;
-            if (wiz8::iequals(pac_name, "SOUND_FRAME")) {
+            if (SDL_strcasecmp(pac_name, "SOUND_FRAME") == 0) {
                 sound_type = W8_SOUND_EVENT_FRAME;
-            } else if (wiz8::iequals(pac_name, "SOUND_CYCLE")) {
+            } else if (SDL_strcasecmp(pac_name, "SOUND_CYCLE") == 0) {
                 sound_type = W8_SOUND_EVENT_CYCLE;
             } else {
-                if (wiz8::iequals(pac_name, "SHAKE_FRAME")) {
+                if (SDL_strcasecmp(pac_name, "SHAKE_FRAME") == 0) {
                     intensity = 1.0f;
                     duration = 1.0f;
                     distance = 10.0f;
@@ -503,7 +503,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             if (*visual != 0 && (*visual)->IsCycleSupported(static_cast<signed char>(index))) {
                 snprintf(wave_path, sizeof(wave_path), "Data\\Spells\\Sounds\\%s.WAV", pac_value);
                 event = std::make_unique<W8SoundEvent>(sound_type, index, frame, 0, wave_path,
-                                                       wiz8::iequals(loop_name, "LOOP"));
+                                                       SDL_strcasecmp(loop_name, "LOOP") == 0);
                 if (event != 0) {
                     (*visual)->AddSoundEvent(std::move(event));
                 }

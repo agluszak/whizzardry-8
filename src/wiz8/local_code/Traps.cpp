@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
 #include "input.h"
@@ -17,7 +18,6 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "surrender/srMath.h"
-#include "wiz8/ascii.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -132,7 +132,7 @@ void ApplyRecordModeLine(void)
 {
     char message[1024];
 
-    if (!wiz8::iequals(g_record_mode_line, s_delete_log)) {
+    if (SDL_strcasecmp(g_record_mode_line, s_delete_log) != 0) {
         WriteRecordModeEntry();
         return;
     }

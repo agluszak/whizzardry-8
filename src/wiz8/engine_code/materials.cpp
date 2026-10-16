@@ -52,7 +52,6 @@
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "wiz8/application.h"
-#include "wiz8/ascii.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDFileIO.h"
@@ -1981,11 +1980,10 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
         const std::string texture_folder(path.substr(0, file_start));
         const std::string texture_file(path.substr(file_start));
         const auto dot = texture_file.rfind('.');
-        const std::string_view extension = dot == std::string::npos
-                                               ? std::string_view{}
-                                               : std::string_view(texture_file).substr(dot);
+        const char* extension =
+            texture_file.c_str() + (dot == std::string::npos ? texture_file.size() : dot);
 
-        if (path.size() > 3 && wiz8::iequals_prefix(extension, ".IFL", 4)) {
+        if (path.size() > 3 && SDL_strncasecmp(extension, ".IFL", 4) == 0) {
             texture =
                 LoadAnimatedTexture(texture_folder.c_str(), texture_file.c_str(), source, true);
         } else {
@@ -2118,7 +2116,7 @@ std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
     const auto split = full_path.find_last_of("/\\:");
     const std::string folder(full_path.substr(0, split == full_path.npos ? 0 : split + 1));
     const std::string name(full_path.substr(split == full_path.npos ? 0 : split + 1));
-    if (name.size() >= 4 && wiz8::iequals(name.c_str() + name.size() - 4, ".IFL"))
+    if (name.size() >= 4 && SDL_strcasecmp(name.c_str() + name.size() - 4, ".IFL") == 0)
         return LoadAnimatedTexture(folder.c_str(), name.c_str(), source, required);
     return LoadTextureFromFolder(folder.c_str(), name.c_str(), required);
 }

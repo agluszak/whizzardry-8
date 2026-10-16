@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
 #include "IntervalGate.h"
@@ -26,7 +27,6 @@
 #include "random.h"
 #include "surrender/srMath.h"
 #include "wiz8/application.h"
-#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
@@ -1094,7 +1094,7 @@ void MonGen::SetEncounterTable(int index)
 {
     encounter_table_index = index;
     if (auto* table = GetEncounterTable(index);
-        table && wiz8::iequals_prefix(table->name, "HARASSMENT", 10)) {
+        table && SDL_strncasecmp(table->name, "HARASSMENT", 10) == 0) {
         flags |= W8_MONGEN_STORY_GATED;
     }
 }
@@ -1106,7 +1106,7 @@ int FindEncounterTableByName(const char* name)
 {
     for (int index = 0; index < static_cast<int>(g_encounter_tables.size()); ++index) {
         W8EncounterTableRuntime* table = &g_encounter_tables[index];
-        if (wiz8::iequals_prefix(table->name, name, strlen(name))) {
+        if (SDL_strncasecmp(table->name, name, strlen(name)) == 0) {
             return index;
         }
     }

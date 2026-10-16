@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
+
 #include "AnimRep.hpp"
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
@@ -25,7 +27,6 @@
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
-#include "wiz8/ascii.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Video2.h"
@@ -61,7 +62,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
             for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
                 auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
                 if (animation != nullptr &&
-                    wiz8::iequals_prefix(animation->getName().c_str(), "mouth", 5)) {
+                    SDL_strncasecmp(animation->getName().c_str(), "mouth", 5) == 0) {
                     return animation;
                 }
             }
@@ -164,7 +165,7 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
                 continue;
             }
 
-            if (wiz8::iequals(texture->getName().c_str(), old_name)) {
+            if (SDL_strcasecmp(texture->getName().c_str(), old_name) == 0) {
                 replaced = true;
                 while (polygon < mesh->polygon_count && textures[polygon].get() == texture) {
                     textures[polygon] = replacement;
@@ -528,7 +529,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || first_pass) {
                 if (mesh.poly_textures[0][0] != 0 ||
                     ((mesh.textures[0][0] != 0) &&
-                     (!wiz8::iequals_prefix("blank", mesh.textures[0][0]->getName().c_str(), 5)))) {
+                     (SDL_strncasecmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
                     g_vertex_scratch.resize(mesh.vertex_count);
 
                     std::span<const glm::vec3> poly_normals;

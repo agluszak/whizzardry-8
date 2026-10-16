@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
+
 #include "camera_motion.h"
 #include "compat/compiler.h"
 #include "environment_colour.h"
@@ -24,7 +26,6 @@
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "wiz8/ascii.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -557,7 +558,7 @@ stParticle* FindParticleByName(W8World* world, const char* name)
         for (int index = 0; index < count; ++index) {
             stParticle* particle = world->particles[index].get();
 
-            if (wiz8::iequals(particle->getName().c_str(), name)) {
+            if (SDL_strcasecmp(particle->getName().c_str(), name) == 0) {
                 return particle;
             }
         }
@@ -833,7 +834,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
     if (name == 0) {
         return false;
     }
-    if (wiz8::iequals("PARTY", name)) {
+    if (SDL_strcasecmp("PARTY", name) == 0) {
         *position = cameraLocation();
         return true;
     }
@@ -841,7 +842,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
     int count = static_cast<int>(g_world->named_positions.size());
     for (int index = 0; index < count; ++index) {
         const W8NamedPosition* entry = &g_world->named_positions[index];
-        if (wiz8::iequals(name, entry->name)) {
+        if (SDL_strcasecmp(name, entry->name) == 0) {
             *position = entry->position;
             if (angle != 0) {
                 *angle = entry->angle;
