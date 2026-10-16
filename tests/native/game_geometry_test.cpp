@@ -38,7 +38,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srClock.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srIlluminator.h"
@@ -1190,19 +1189,10 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and way
     REQUIRE(start == glm::vec3(1, 2, 3));
 }
 
-namespace {
-struct SharedClock {
-    srClock clock;
-    srClock* saved = std::exchange(g_shared_timer_base, &clock);
-    ~SharedClock() { g_shared_timer_base = saved; }
-};
-}
-
 TEST_CASE_METHOD(SurRenderTestFixture,
                  "Prop position and delta queries preserve animation stepping",
                  "[geometry][animation]")
 {
-    SharedClock shared_clock;
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
     auto& animation = *prop.Rep()->animation;
@@ -1285,7 +1275,6 @@ TEST_CASE_METHOD(SurRenderTestFixture,
                  "Prop bounds aggregate frames without changing the current frame",
                  "[geometry][animation]")
 {
-    SharedClock shared_clock;
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
     auto& animation = *prop.Rep()->animation;
@@ -1579,12 +1568,6 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
 TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering",
                  "[geometry]")
 {
-    struct RestoreClock {
-        srClock* previous = g_shared_timer_base;
-        ~RestoreClock() { g_shared_timer_base = previous; }
-    } restore;
-    srClock clock;
-    g_shared_timer_base = &clock;
     stParticle empty(nullptr, 0);
     REQUIRE(!empty.activateParticle(true));
     stParticle particles(nullptr, 2);

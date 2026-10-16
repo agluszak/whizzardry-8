@@ -28,7 +28,6 @@
 #include "particle_modes.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srClock.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
@@ -178,7 +177,7 @@ stParticle::stParticle(srNode* parent, int count, Ownership ownership)
         return;
     }
     AllocateParticles(count);
-    last_integration_tick = g_shared_timer_base->milliseconds();
+    last_integration_tick = GameClockMilliseconds();
     last_emission_tick = last_integration_tick;
 }
 
@@ -236,7 +235,7 @@ stParticle::stParticle(const stParticle& other, Ownership ownership)
     bounds_origin = other.bounds_origin;
     bounds_radius = other.bounds_radius;
     update_flags = W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
-    last_integration_tick = g_shared_timer_base->milliseconds();
+    last_integration_tick = GameClockMilliseconds();
     last_emission_tick = last_integration_tick;
     attachment_key = other.attachment_key;
 
@@ -280,7 +279,7 @@ std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
     }
 
     particle_active[index] = 1;
-    birth_ticks[index] = g_shared_timer_base->milliseconds();
+    birth_ticks[index] = GameClockMilliseconds();
 
     float magnitude = 0.0f;
     if (speed_mode == W8_PARTICLE_SPEED_FIXED) {
@@ -364,7 +363,7 @@ void stParticle::DeactivateParticle(unsigned int index)
 // FUNCTION: WIZ8 0x00499FA0
 void stParticle::Update()
 {
-    unsigned int now = g_shared_timer_base->milliseconds();
+    unsigned int now = GameClockMilliseconds();
     if (now - last_emitted_at < emission_gap) {
         return;
     }
@@ -536,7 +535,7 @@ void stParticle::traverse(srNode::TraverseInfo& info)
 void stParticle::SetTraversalEnabled(bool enabled)
 {
     if (enabled && !traversal_enabled) {
-        last_emission_tick = g_shared_timer_base->milliseconds();
+        last_emission_tick = GameClockMilliseconds();
     }
     traversal_enabled = enabled;
 }
@@ -566,7 +565,7 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
 
     float phase = 0;
     if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
-        phase = float(g_shared_timer_base->milliseconds() % flutter_period) / int(flutter_period) *
+        phase = float(GameClockMilliseconds() % flutter_period) / int(flutter_period) *
                 g_camera_angle_period;
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
     for (unsigned index = 0; index < particle_count; ++index) {
@@ -737,7 +736,7 @@ void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
 void stParticle::SetActive(unsigned char active)
 {
     if (active != 0 && emitting == 0) {
-        unsigned int now = g_shared_timer_base->milliseconds();
+        unsigned int now = GameClockMilliseconds();
         last_integration_tick = now;
         last_emission_tick = now;
     }

@@ -20,7 +20,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -187,8 +186,6 @@ struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
     W8World* previous_world = GetWorld();
-    srClock* previous_clock = g_shared_timer_base;
-    srClock clock;
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
     W8World world{};
@@ -197,7 +194,6 @@ struct SpellVisualFixture {
     SpellVisualFixture()
     {
         REQUIRE(srInit());
-        g_shared_timer_base = &clock;
         octree = std::make_unique<W8Octree>(nullptr, nullptr);
         g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
@@ -211,7 +207,6 @@ struct SpellVisualFixture {
         DestroyAllSpellVisuals(&world);
         octree.reset();
         g_octree = previous_octree;
-        g_shared_timer_base = previous_clock;
         SetCurrentWorld(previous_world);
         srExit();
     }

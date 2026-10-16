@@ -1,5 +1,12 @@
 link_libraries(Catch2::Catch2WithMain wiz8_asset_preparation)
 
+# Reuse the runtime clock hook for deterministic timer checks without game assets.
+add_executable(native_game_timer_test native/game_timer_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/compat/native_helpers.cpp")
+target_compile_definitions(native_game_timer_test PRIVATE WIZ8_RUNTIME_TESTS=1)
+target_link_libraries(native_game_timer_test PRIVATE WIZ8_GAME_CORE)
+catch_discover_tests(native_game_timer_test TEST_PREFIX "native_game_timer/")
+
 add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE WIZ8_GAME_CORE)
 catch_discover_tests(native_game_geometry_test TEST_PREFIX "native_game_geometry/")

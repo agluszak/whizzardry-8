@@ -30,7 +30,6 @@
 #include "particle_modes.h"
 #include "random.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -536,7 +535,7 @@ void W8GrCycle::TickAnimation(float scale)
         signed char subcycle_count = GetNumSubCycles();
 
         if (subcycle_count != 0) {
-            unsigned int now = g_shared_timer_base->milliseconds();
+            unsigned int now = GameClockMilliseconds();
             unsigned int elapsed = now - representation->timer;
             float rate;
             float progress;
@@ -639,7 +638,7 @@ unsigned char W8GrCycle::ApplyPendingCycle()
             representation->subcycle = subcycle_count - 1;
         }
         representation->animation_playing = 1;
-        representation->timer = g_shared_timer_base->milliseconds();
+        representation->timer = GameClockMilliseconds();
         return 1;
     }
     return 0;
@@ -783,7 +782,7 @@ void W8GrCycle::ResetRepresentation()
     PathAIResetRecord(m_pAI.get());
     target->frame_direction = W8_ANIMATION_FORWARD;
     target->subcycle = 0;
-    target->timer = g_shared_timer_base->milliseconds();
+    target->timer = GameClockMilliseconds();
 }
 
 /* Push the cycle's animation state into the live scene.

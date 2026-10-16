@@ -1,32 +1,29 @@
 #include "wiz8/engine_code/game_timer.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 
-#include "surrender/srClock.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 
-/* The game-timer unit: a small timer object over one shared, reference-counted
-   clock singleton. The image names neither the unit nor the classes -
-   the assertion anchors only bound this code to the gap between
-   Engine Code\Octree.cpp and Engine Code\BitArray.cpp - so both classes carry
-   address-qualified positional names and the file name is descriptive.
+std::uint32_t GameClockTicks()
+{
+    return static_cast<std::uint32_t>(w8_clock_us() /
+                                      (1'000'000 / W8_SHARED_TIMER_TICKS_PER_SECOND));
+}
 
-   The globals live at 0x006598B8..0x006598D2 and are declared, not defined:
-   their addresses in the original data segment are the authority. */
+std::uint32_t GameClockMilliseconds()
+{
+    return static_cast<std::uint32_t>(w8_get_ticks());
+}
 
-// GLOBAL: WIZ8 0x006598B8
-srClock* g_shared_timer_base;
-// GLOBAL: WIZ8 0x006598C0
-static srClock* g_shared_timer;
 // GLOBAL: WIZ8 0x006598C4
 int g_shared_timer_pause_base;
 // GLOBAL: WIZ8 0x006598C8
 int g_shared_timer_pause_time;
-// GLOBAL: WIZ8 0x006598CC
-static int g_shared_timer_refs;
 // GLOBAL: WIZ8 0x006598D0
 bool g_shared_timer_paused;
 // GLOBAL: WIZ8 0x006598D1
@@ -41,12 +38,7 @@ const float g_float_ten_thousand = 10000.0f;
 void PauseSharedGameTimers(void)
 {
     g_shared_timer_paused = true;
-    if (g_shared_timer == 0) {
-        return;
-    }
-
-    g_shared_timer_pause_time =
-        g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_base;
+    g_shared_timer_pause_time = GameClockTicks() - g_shared_timer_pause_base;
 
     if (g_game_time_accumulator != 0 && !g_game_time_accumulator->m_flags.paused) {
         g_game_time_accumulator->m_flags.paused = true;
@@ -60,11 +52,8 @@ void ResumeSharedGameTimers(void)
 {
     g_shared_timer_paused = false;
     g_shared_timer_flag0 = false;
-    if (g_shared_timer != 0) {
-        g_shared_timer_pause_base =
-            g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_time;
-        g_shared_timer_pause_time = 0;
-    }
+    g_shared_timer_pause_base = GameClockTicks() - g_shared_timer_pause_time;
+    g_shared_timer_pause_time = 0;
 
     W8GameTimeAccumulator* timer = g_game_time_accumulator;
     if (timer != 0) {
@@ -78,50 +67,10 @@ void ResumeSharedGameTimers(void)
     }
 }
 
-// VTABLE: WIZ8 0x005ec0a4
-// class W8GameTimer
-
-// FUNCTION: WIZ8 0x00439a00
-W8GameTimer::~W8GameTimer()
-{
-    srClock* shared = m_shared;
-
-    if (shared == g_shared_timer) {
-        if (--g_shared_timer_refs <= 0) {
-            if (g_shared_timer != 0) {
-                delete g_shared_timer;
-            }
-            g_shared_timer = 0;
-            g_shared_timer_base = 0;
-            g_shared_timer_refs = 0;
-        }
-    } else if (shared != 0) {
-        delete shared;
-    }
-    m_shared = 0;
-}
-
 // FUNCTION: WIZ8 0x00439a60
 int W8GameTimer::GetTime()
 {
     return ReadClock();
-}
-
-static void EnsureSharedGameTimer()
-{
-    if (g_shared_timer == 0) {
-        g_shared_timer_paused = false;
-        g_shared_timer_flag0 = false;
-        g_level_motion_resume_pending = false;
-
-        srClock* timer = new srClock;
-
-        g_shared_timer = timer;
-        g_shared_timer_base = timer;
-        g_shared_timer_refs = 0;
-        g_shared_timer_pause_base = 0;
-        g_shared_timer_pause_time = 0;
-    }
 }
 
 // FUNCTION: WIZ8 0x00439550
@@ -137,15 +86,11 @@ W8GameTimer::W8GameTimer(float duration, bool raw_time)
     m_clock_mode = W8_TIMER_CLOCK_SHARED;
     m_flags = initial_flags;
     m_flags.raw_time = raw_time;
-    m_shared = 0;
     m_start = 0;
     m_end = 0;
     m_duration_seconds = 0;
     m_duration_scale = 1.0f;
 
-    EnsureSharedGameTimer();
-    m_shared = g_shared_timer;
-    ++g_shared_timer_refs;
     m_start = ReadClock();
     m_duration_seconds = duration;
     m_duration = static_cast<int>(duration * 10000.0f);
