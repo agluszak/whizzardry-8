@@ -20,7 +20,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -46,6 +45,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
@@ -183,12 +183,31 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
     REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
 }
 
+TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resources][lifecycle]")
+{
+    W8Character character{};
+    const struct Cleanup {
+        ~Cleanup() { DestroyGameplayObjects(); }
+    } cleanup;
+    InitializeGameplayRuntimeObjects();
+    gXStatus.character_event_queue->pending_events.push_back(
+        std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 0));
+    gXStatus.gameplay_timer->SetDuration(1.0f);
+
+    // Replacing the status must destroy the old owners, including their nested events.
+    InitializeGameplayRuntimeObjects();
+    REQUIRE(gXStatus.character_event_queue->IsMainQueueEmpty());
+    REQUIRE(gXStatus.gameplay_timer->m_duration_seconds == 300.0f);
+    DestroyGameplayObjects();
+    DestroyGameplayObjects();
+    REQUIRE_FALSE(gXStatus.character_event_queue);
+    REQUIRE_FALSE(gXStatus.gameplay_timer);
+}
+
 struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
     W8World* previous_world = GetWorld();
-    srClock* previous_clock = g_shared_timer_base;
-    srClock clock;
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
     W8World world{};
@@ -197,7 +216,6 @@ struct SpellVisualFixture {
     SpellVisualFixture()
     {
         REQUIRE(srInit());
-        g_shared_timer_base = &clock;
         octree = std::make_unique<W8Octree>(nullptr, nullptr);
         g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
@@ -211,7 +229,6 @@ struct SpellVisualFixture {
         DestroyAllSpellVisuals(&world);
         octree.reset();
         g_octree = previous_octree;
-        g_shared_timer_base = previous_clock;
         SetCurrentWorld(previous_world);
         srExit();
     }
