@@ -40,7 +40,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srClip.h"
-#include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
@@ -49,6 +48,7 @@
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/surface_storage.h"
 
 class srModelInstance;
@@ -231,7 +231,7 @@ srGERD::Statistics srGERD::getStatistics()
         }
     }
     auto result = this->statistics;
-    result.elapsed = srCore.getTimer()->seconds() - result.elapsed;
+    result.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000 - result.elapsed;
     return result;
 }
 
@@ -240,7 +240,7 @@ void srGERD::resetStatistics()
 {
     statistics = {};
     drainRenderers(RendererDrain::statistics);
-    statistics.elapsed = srCore.getTimer()->seconds();
+    statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
     frame_statistics = statistics;
 }
 

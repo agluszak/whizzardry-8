@@ -5,11 +5,10 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srCamera.h"
-#include "surrender/srClock.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
+#include "wiz8/compat/native.h"
 
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
@@ -111,7 +110,7 @@ void srScene::render(srGERD& renderer, srCamera* camera)
 srScene::Statistics srScene::getStatistics() const
 {
     Statistics result = statistics;
-    result.elapsed = srCore.getTimer()->seconds() - result.elapsed;
+    result.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000 - result.elapsed;
     return result;
 }
 
@@ -119,7 +118,7 @@ srScene::Statistics srScene::getStatistics() const
 void srScene::resetStatistics()
 {
     statistics = {};
-    statistics.elapsed = srCore.getTimer()->seconds();
+    statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
 }
 
 // FUNCTION: SURRENDER 0x10056B50
