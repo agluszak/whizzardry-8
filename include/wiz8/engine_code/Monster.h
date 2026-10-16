@@ -96,10 +96,6 @@ struct W8MonsterRep : public W8EmitterHost {
     unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Monster* monster, int cycle_index,
                                 int value);
 
-    /* The spell-icon list; named by the SetMonsterSpellIcon assert
-       "pMonRep->GetSpellIcons()". */
-    std::vector<W8MonsterSpellIcon*>* GetSpellIcons() { return spell_icons; }
-
     std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];              /* 0x0ac */
     std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];             /* 0x25c */
     std::deque<EmitterLights> light_lists[W8_MONSTER_CYCLE_COUNT]; /* 0x40c */
@@ -111,7 +107,7 @@ struct W8MonsterRep : public W8EmitterHost {
        attachment layout read by UpdateAttachedObjects. */
     int icon_count;
     W8Item* objects[8];   /* 0x5c8 */
-    std::vector<W8MonsterSpellIcon*>* spell_icons; /* 0x5e8: W8MonsterSpellIcon records */
+    std::vector<W8MonsterSpellIcon> spell_icons;
     float standing_height;
     float scale;
     float minimum_scale;
