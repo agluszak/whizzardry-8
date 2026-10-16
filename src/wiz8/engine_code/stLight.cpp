@@ -1,7 +1,6 @@
 #include "wiz8/engine_code/stLight.hpp"
 
 #include <cmath>
-#include <cstring>
 #include <vector>
 
 #include "compat/compiler.h"
