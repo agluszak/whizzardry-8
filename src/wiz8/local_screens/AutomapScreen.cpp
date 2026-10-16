@@ -668,7 +668,6 @@ unsigned char AutomapScreenEnter(void)
         if (!g_automap_surface) {
             g_automap_surface =
                 std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
-            auto* surface = g_automap_surface.get();
         }
     }
     g_automap_redraw = true;

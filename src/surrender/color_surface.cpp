@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
@@ -25,7 +24,6 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
-#include "surrender/srMath.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "wiz8/surface_storage.h"
