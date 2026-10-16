@@ -15,7 +15,6 @@ srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     ambient_light = glm::vec3(0.2f);
     fog_color = glm::vec3(0.1f, 0.2f, 0.4f);
-    traversal.renderer = 0;
     enabled = 0;
     if (parent != 0) {
         setParent(parent, 0);
@@ -56,7 +55,6 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     }
     traversal.entries.clear();
     traversal.nodes.clear();
-    traversal.renderer = info.renderer;
     first_child_->traverse(traversal);
     const auto node_count = static_cast<w8_long>(traversal.nodes.size());
     const auto entry_count = static_cast<w8_long>(traversal.entries.size());

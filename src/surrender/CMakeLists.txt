@@ -1,5 +1,4 @@
 set(SURRENDER_SOURCES
-    bounder.cpp
     camera.cpp
     clipplane.cpp
     core.cpp

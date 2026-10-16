@@ -46,7 +46,7 @@ public:
 protected:
     std::uint32_t enabled = 0;       /* 0x138 */
     Statistics statistics;           /* 0x140 */
-    TraverseInfo traversal;          /* 0x158 (renderer at 0x170) */
+    TraverseInfo traversal;
     glm::vec3 ambient_light;         /* 0x174 */
     glm::vec3 fog_color;             /* 0x180 */
 };
