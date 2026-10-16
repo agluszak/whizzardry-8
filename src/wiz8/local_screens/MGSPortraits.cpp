@@ -1111,6 +1111,11 @@ void ReleasePortraitControls()
 {
     portrait_buttons.reset();
 }
+
+bool PortraitControlsExist(void)
+{
+    return portrait_buttons != nullptr;
+}
 void ReleaseConditionButtons()
 {
     condition_icons.reset();

@@ -1189,11 +1189,11 @@ W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
     return ChooseAttackMode(modes);
 }
 
-/* The display name of whatever a combat slot names, for the spell and attack
-   notices. A target that is its own source answers the reflexive pronoun
-   instead of the name. */
+/* The bare display name of whatever a combat slot names, for the attack
+   notices (spell notices use Magic.cpp's " at ..." form). A target that is its
+   own source answers the reflexive pronoun instead of the name. */
 // FUNCTION: WIZ8 0x00546b40
-std::string SpellTargetString(W8TargetSource* source, W8CombatSlot* target)
+static std::string CombatTargetName(const W8TargetSource* source, const W8CombatSlot* target)
 {
     W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
@@ -1971,7 +1971,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                     PostMonsterNotice(
                         monster_info,
                         fmt::sprintf(g_localized_strings[0x269],
-                                     SpellTargetString(&source, &monster_info->Target)));
+                                     CombatTargetName(&source, &monster_info->Target)));
                 }
                 return 2;
             }
@@ -1982,7 +1982,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         if (fumbled || source.target_diverted != 0) {
             PostMonsterNotice(monster_info,
                               fmt::sprintf(g_localized_strings[0x269],
-                                           SpellTargetString(&source, &monster_info->Target)));
+                                           CombatTargetName(&source, &monster_info->Target)));
             if (g_combat_state->attack_report.deferred) {
                 ReportMonsterAttackResult(monster_info, &g_combat_state->attack_report);
             }
@@ -4161,7 +4161,7 @@ int ResolveCharacterAttack(int party_slot)
                 PostCharacterNotice(
                     party_slot,
                     fmt::sprintf(g_localized_strings[0x269],
-                                 SpellTargetString(&source, &party_row->target_out_of_combat)));
+                                 CombatTargetName(&source, &party_row->target_out_of_combat)));
             }
             ResetCombatSlot(&g_combat_state->TargetHit);
             row->attack_sound_played = false;
@@ -4179,7 +4179,7 @@ int ResolveCharacterAttack(int party_slot)
             PostCharacterNotice(
                 party_slot,
                 fmt::sprintf(g_localized_strings[0x269],
-                             SpellTargetString(&source, &party_row->target_out_of_combat)));
+                             CombatTargetName(&source, &party_row->target_out_of_combat)));
             if (g_combat_state->attack_report.deferred) {
                 ReportCharacterAttackResult(party_slot, &g_combat_state->attack_report);
             }

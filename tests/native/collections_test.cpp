@@ -213,15 +213,20 @@ static bool journalSerialization()
     ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)}};
     const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
-    const std::array<W8JournalEntry, count> expected{{{1, static_cast<W8FactId>(10), 0},
-                                                      {5, static_cast<W8FactId>(20), 7},
-                                                      {9, static_cast<W8FactId>(30), -1}}};
-    static_assert(sizeof(W8JournalEntry) == 12);
+    // Retail entries: level, fact, a one-byte flag and three uninitialized bytes.
+    struct DiskEntry {
+        std::int32_t level, fact;
+        std::uint8_t flag[4];
+    };
+    const std::array<DiskEntry, count> disk{{{1, 10, {0x00, 0x60, 0x50, 0x00}},
+                                             {5, 20, {0x01, 0x60, 0x50, 0x00}},
+                                             {9, 30, {0x01, 0xff, 0xff, 0xff}}}};
+    static_assert(sizeof(disk) == count * 12);
     {
         auto file = wiz8::open_file(input_path, wiz8::OpenMode::replace);
         file->write(&format, sizeof(format));
         file->write(&count, sizeof(count));
-        file->write(expected.data(), sizeof(expected));
+        file->write(disk.data(), sizeof(disk));
     }
     {
         auto file = wiz8::open_file(input_path);
@@ -230,8 +235,9 @@ static bool journalSerialization()
     REQUIRE(g_fact_journal_entries.size() == count);
     for (int i = 0; i < count; ++i) {
         const auto& actual = g_fact_journal_entries[i];
-        REQUIRE((actual.level == expected[i].level && actual.fact == expected[i].fact &&
-                 actual.alternate_text == expected[i].alternate_text));
+        // Only the low byte is the flag; the padding must not turn it on.
+        REQUIRE((actual.level == disk[i].level && actual.fact == disk[i].fact &&
+                 actual.alternate_text == (disk[i].flag[0] != 0)));
     }
     {
         auto file = wiz8::open_file(output_path, wiz8::OpenMode::replace);

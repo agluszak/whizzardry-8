@@ -246,6 +246,14 @@ void File::write(const void* data, std::size_t bytes)
         if (!count || SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY) sdl_failure("write file");
     }
 }
+
+void File::write_padded(std::string_view text, std::size_t width)
+{
+    if (!width) throw std::invalid_argument("empty fixed-width field");
+    std::string field(width, '\0');
+    text.copy(field.data(), std::min(text.size(), width - 1));
+    write(field.data(), field.size());
+}
 std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
 {
     WIZ8_FILE_OPERATION(seek);

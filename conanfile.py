@@ -17,6 +17,8 @@ class WhizzardryDependencies(ConanFile):
 
     def requirements(self):
         self.requires("sdl/3.4.14")
+        if self.settings.os == "Linux":
+            self.requires("libalsa/system", override=True)
         self.requires("sdl_image/3.4.4")
         self.requires("ffmpeg/7.1.3")
         self.requires("zlib/1.3.1")
@@ -32,6 +34,8 @@ class WhizzardryDependencies(ConanFile):
         self.options["sdl"].pulseaudio = False
         self.options["sdl"].sndio = False
         self.options["sdl"].dbus = False
+        # SDL's platform state is shared by the game and its media libraries.
+        self.options["sdl"].shared = True
         # Keep JPEG and PNG; avoid heavyweight optional image codecs.
         self.options["sdl_image"].with_avif = False
         self.options["sdl_image"].with_libtiff = False

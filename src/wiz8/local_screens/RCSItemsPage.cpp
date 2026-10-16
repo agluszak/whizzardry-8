@@ -392,6 +392,7 @@ void UseHeldItemOnItem(W8ItemInstance* item)
         if (CanItemLeaveItsSlot(item)) {
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_ITEM;
+            target.pPCItem = item;
             if (CommitPartySlotSpell(giCasterCharSlot, W8_SPELL_IDENTIFY_ITEM, 8, &target) == 1) {
                 OpenItemInfoDialog(item);
                 if (!item->identified) {

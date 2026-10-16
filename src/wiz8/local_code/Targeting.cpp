@@ -2035,10 +2035,10 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group)
 /* Re-aim a party slot whose pending action's target can no longer be used:
    outside combat the stored target is simply cleared, while in combat a live
    attack, spell or item action repicks a monster - the target's own group
-   first, then the generic fallback picker - and aims at it. When the repick
-   lands the option flag drives a held-item cursor refresh, and with it clear
-   the slot's stored combat target is re-validated once against the in-combat
-   action before being aimed at again. */
+   first, then the generic fallback picker - and aims the resolved context's
+   block at it. A nonzero `arg` restarts the breath cycle. Repicking the
+   executing (out-of-combat) target also copies it to the in-combat target when
+   that one no longer matches or reaches. */
 // FUNCTION: WIZ8 0x00536570
 bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
 {
@@ -2094,12 +2094,13 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
                 new_target.iGroupID = -1;
                 new_target.iType = W8_TARGET_KIND_MONSTER;
                 new_target.iMonsterID = selected;
-                AimAtTarget(party_slot, &new_target, static_cast<W8TargetingContext>(arg));
+                // 0x00536876: the new target goes into the resolved context's block.
+                AimAtTarget(party_slot, &new_target, resolved);
                 result = true;
                 if (arg != 0) {
                     StartBreathCycle(party_slot, false);
                 }
-                if (arg == 0) {
+                if (resolved == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
                     if (g_settings.verbose_combat_messages != 0) {
                         PostCharacterNotice(party_slot, g_localized_strings[0x26b]);
                     }
@@ -2123,7 +2124,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
         new_target.iChar = -1;
         new_target.iGroupID = -1;
         new_target.iType = W8_TARGET_KIND_NONE;
-        AimAtTarget(party_slot, &new_target, static_cast<W8TargetingContext>(arg));
+        AimAtTarget(party_slot, &new_target, resolved);
     }
     if (gXStatus.fCombatMode && action_context == W8_TARGETING_CONTEXT_IN_COMBAT &&
         target->iType != previous_kind) {

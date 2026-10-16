@@ -1741,7 +1741,6 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
     int count;
     unsigned int signature;
     unsigned int version;
-    char name[0x40];
     W8Prop* prop;
 
     signature = 0xDEADD00D;
@@ -1752,8 +1751,7 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
     handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
-        strcpy(name, prop->m_name);
-        handle.write(name, 0x40);
+        handle.write_padded(prop->m_name, 0x40);
         if ((handle.write(&prop->Rep()->subcycle, 1), true) != 0 &&
             (handle.write(&prop->Rep()->first_frame, 1), true) != 0 &&
             (handle.write(&prop->Rep()->last_frame, 1), true) != 0 &&

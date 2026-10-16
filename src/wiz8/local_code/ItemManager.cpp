@@ -188,32 +188,12 @@ int FindItemTableByName(const char* name)
     return -1;
 }
 
-static std::unique_ptr<W8WorldItem> CreateTableItem(int item_id, const glm::vec3* position)
-{
-    W8ItemInstance item;
-    W8ItemInstance* item_pointer;
-    std::unique_ptr<W8WorldItem> result;
-
-    if (item_id == -1) {
-        item_pointer = 0;
-    } else {
-        ReplaceOrCreateItem(&item, item_id, false, false, false);
-        item_pointer = &item;
-    }
-    result = CreateWorldItem(item_pointer, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
-    if (result == 0) {
-        srAssertFail("pItemInfo", "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp", 0x18e,
-                     0);
-    }
-    return result;
-}
-
 // FUNCTION: WIZ8 0x004f88f0
 int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_items,
-                           unsigned int table_id, unsigned int maximum_items)
+                           unsigned int table_id, unsigned int maximum_items,
+                           const glm::vec3& position)
 {
     unsigned int party_level = GetAveragePartyLevel();
-    glm::vec3 position;
     std::vector<int> candidates;
     W8ItemTableRecord* table;
     W8ItemTableEntry* entry;
@@ -232,8 +212,9 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         if (table->entries[entry_index].selector != 0) {
             item_record = &g_item_records[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items.push_back(CreateTableItem(
-                    g_item_tables[table_id].entries[entry_index].item_id, &position));
+                output_items.push_back(
+                    SpawnItem(g_item_tables[table_id].entries[entry_index].item_id, &position,
+                              W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
@@ -277,7 +258,8 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         entry = &table->entries[entry_index];
         random_value = Random(total_weight);
         if (random_value <= entry->weight) {
-            output_items.push_back(CreateTableItem(entry->item_id, &position));
+            output_items.push_back(
+                SpawnItem(entry->item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             candidates.erase(candidates.begin() + position_index);
             ++selected_count;
         }
@@ -1176,7 +1158,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                                 items.push_back(std::move(item));
                             }
                         } else if (entry->type == 1) {
-                            GenerateItemsFromTable(items, entry->item_id, rolls);
+                            GenerateItemsFromTable(items, entry->item_id, rolls, position);
                         }
                     }
                 }

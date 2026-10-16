@@ -1,8 +1,10 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 
+#include <chrono>
 #include <exception>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <SDL3/SDL_log.h>
@@ -205,8 +207,9 @@ void PleaseWaitScreenFrame(void)
         if (g_load_descriptor->save_payload) {
             delete g_load_descriptor->save_payload;
         }
-        while (w8_get_ticks() - g_load_descriptor->entered_tick < 500) {
-        }
+        // Keep the saving notice up for at least half a second, without spinning.
+        if (const auto shown = w8_get_ticks() - g_load_descriptor->entered_tick; shown < 500)
+            std::this_thread::sleep_for(std::chrono::milliseconds(500 - shown));
         break;
     }
     case 3:

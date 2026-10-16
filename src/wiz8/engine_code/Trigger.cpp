@@ -2256,7 +2256,6 @@ void Trigger::RunDestination(const char* destination)
 void Trigger::GenerateItemGroup()
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
-    glm::vec3 position;
     unsigned int table_id;
     unsigned int maximum_items;
     int index;
@@ -2272,7 +2271,7 @@ void Trigger::GenerateItemGroup()
     }
 
     maximum_items = RollDice(&g_item_tables[table_id].item_count_dice);
-    GenerateItemsFromTable(items, table_id, maximum_items);
+    GenerateItemsFromTable(items, table_id, maximum_items, position);
     if (world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0);
     }
@@ -2289,8 +2288,6 @@ void Trigger::GenerateItemGroup()
 // FUNCTION: WIZ8 0x00445670
 W8WorldItem* Trigger::GetOrCreateItemGroup(bool create)
 {
-    glm::vec3 position;
-
     if (create && world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0);
     }
@@ -3665,24 +3662,14 @@ int GetLocationVarValueByName(const char* name)
 // FUNCTION: WIZ8 0x004441e0
 void SaveLocationVariables(wiz8::File& handle)
 {
-    int variable_count = static_cast<int>(g_location_variable_names.size());
-    bool written;
-
-    written = (handle.write(&variable_count, sizeof(variable_count)), true) != 0;
+    const int variable_count = static_cast<int>(g_location_variable_names.size());
+    handle.write(&variable_count, sizeof(variable_count));
     for (int index = 0; index < variable_count; ++index) {
-        int value;
-        char name[0x80];
-        int level;
-
-        if (!written) {
-            return;
-        }
-        value = g_location_variable_values[index];
-        strcpy(name, g_location_variable_names[index]);
-        level = g_location_variable_levels[index];
-        written = (handle.write(&value, sizeof(value)), true) &&
-                  (handle.write(name, sizeof(name)), true) &&
-                  (handle.write(&level, sizeof(level)), true);
+        const int value = g_location_variable_values[index];
+        const int level = g_location_variable_levels[index];
+        handle.write(&value, sizeof(value));
+        handle.write_padded(g_location_variable_names[index], 0x80);
+        handle.write(&level, sizeof(level));
     }
 }
 

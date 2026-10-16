@@ -59,6 +59,9 @@ public:
     // Read the remaining bytes as owned text, without encoding or newline conversion.
     std::string read_text();
     void write(const void* data, std::size_t bytes);
+    // Write `text` as a fixed field of `width` bytes: truncated to leave room
+    // for the terminator, then NUL-padded, so no stale bytes reach the file.
+    void write_padded(std::string_view text, std::size_t width);
     std::int64_t seek(std::int64_t offset, SeekOrigin origin);
     std::int64_t tell() const;
     std::int64_t size() const;

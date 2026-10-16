@@ -790,7 +790,7 @@ void W8PartySelectionController::Setup()
                                            .string = std::string(""),
                                            .usFont = &(index == 1 ? g_wiz_text_font_secondary
                                                                   : g_wiz_text_bold_font),
-                                           .sForeColor = 0,
+                                           .sForeColor = 4,
                                            .sShadowColor = -1},
                           {x, y, size.x, size.y},
                           {.on_click =

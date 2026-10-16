@@ -126,7 +126,6 @@ int ChooseCharacterAttackHand(int party_slot);
 void PrepareCharacterAttacks(int party_slot);
 int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode);
 W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand);
-std::string SpellTargetString(W8TargetSource* source, W8CombatSlot* target);
 int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode);
 bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_value,
                              int armor_value, unsigned int palette);

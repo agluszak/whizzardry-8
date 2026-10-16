@@ -101,9 +101,6 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
    monster; a few spell ids prune on extra monster-record rules. */
 void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers);
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id);
-/* The highest power level this slot can afford to cast the spell
-   at for its current target; zero when none is castable. */
-unsigned int ChooseSpellPowerLevelForTarget(int party_slot, int spell_id, int identify_context);
 extern unsigned char g_profession_spellbooks[W8_PROFESSION_COUNT];
 /* The spell a missile type carries, or W8_SPELL_NONE. */
 int MissileSpellId(int missile_type);
