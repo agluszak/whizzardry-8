@@ -1,7 +1,5 @@
 #include <algorithm>
-#include <array>
 #include <cstddef>
-#include <memory>
 #include <stdexcept>
 
 #include <SDL3/SDL_iostream.h>
@@ -12,49 +10,11 @@
 #include <SDL3_image/SDL_image.h>
 
 #include "asset_paths.h"
-#include "jpeg_validate.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/surface_storage.h"
 
 namespace {
-struct JpegHeader {
-    unsigned width = 0;
-    unsigned height = 0;
-    unsigned components = 0;
-};
-
-SDLSurfaceOwner loadJpeg(SDL_IOStream* io)
-{
-    if (SDL_GetIOSize(io) > 256 * 1024 * 1024 || SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
-        return {nullptr, SDL_DestroySurface};
-    size_t size = 0;
-    std::unique_ptr<void, decltype(&SDL_free)> bytes(SDL_LoadFile_IO(io, &size, false), SDL_free);
-    JpegHeader header;
-    if (!bytes || size > 256 * 1024 * 1024 || SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR ||
-        !srValidateJpeg(static_cast<const unsigned char*>(bytes.get()), size, &header.width,
-                        &header.height, &header.components))
-        return {nullptr, SDL_DestroySurface};
-    auto source = srIO::own(SDL_IOFromConstMem(bytes.get(), size));
-    SDLSurfaceOwner decoded(IMG_LoadJPG_IO(source.get()), SDL_DestroySurface);
-    if (!decoded || decoded->w != int(header.width) || decoded->h != int(header.height))
-        return {nullptr, SDL_DestroySurface};
-    const bool four_channels = header.components == 4;
-    SDLSurfaceOwner bgr(SDL_ConvertSurface(decoded.get(), four_channels ? SDL_PIXELFORMAT_BGRA32
-                                                                        : SDL_PIXELFORMAT_BGR24),
-                        SDL_DestroySurface);
-    if (!bgr) return {nullptr, SDL_DestroySurface};
-    if (header.components != 1) return bgr;
-    auto result = CreateCpuStorage(header.width, header.height, SDL_PIXELFORMAT_INDEX8);
-    std::array<SDL_Color, 256> gray;
-    for (unsigned i = 0; i < gray.size(); ++i) gray[i] = {Uint8(i), Uint8(i), Uint8(i), 255};
-    if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(result.get()), gray.data(), 0, gray.size()) ||
-        !SDL_BlitSurface(bgr.get(), nullptr, result.get(), nullptr))
-        return {nullptr, SDL_DestroySurface};
-    return result;
-}
-
 const char* extension(const char* path)
 {
     if (!path || !*path) throw std::runtime_error("Image filename is NULL or empty");
@@ -122,7 +82,6 @@ SDLSurfaceOwner loadImage(const char* path, SDL_IOStream* io)
         const auto size = SDL_GetIOSize(io);
         if (size <= 0 || size > 256 * 1024 * 1024 || SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
             return {nullptr, SDL_DestroySurface};
-        if (isJpeg(type)) return loadJpeg(io);
         if (SDL_strcasecmp(type, "tga") == 0) {
             auto result = loadTga(io);
             if (result && SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR)
