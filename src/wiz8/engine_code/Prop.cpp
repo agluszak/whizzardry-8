@@ -28,6 +28,7 @@
 #include "random.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -51,7 +52,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/xstatus.h"
 
 /* Reset before the world Prop update; set when a Prop whose animation
@@ -1042,7 +1042,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                 next_scale = path->scales[next_frame];
                 scale_vector = current_scale * inv + next_scale * anim_frame_fraction;
             }
-            node = instance->first_child_;
+            node = instance->getChild();
             if (node == 0) {
                 instance->setRotation(rotation);
                 location = glm::dvec3(position);
@@ -1060,7 +1060,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                         scale_location = glm::dvec3(scale_vector);
                         node->setScale(scale_location);
                     }
-                    node = node->next_sibling_;
+                    node = node->getNext();
                 } while (node != 0);
             }
             previous_animation_position = animation_position;
@@ -1088,7 +1088,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         } else {
             rep_position = Rep()->GetLocation();
             rep_rotation = Rep()->GetRotation();
-            node = instance->first_child_;
+            node = instance->getChild();
             if (node == 0) {
                 location = glm::dvec3(rep_position);
                 instance->setLocation(location);
@@ -1098,7 +1098,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                     location = glm::dvec3(rep_position);
                     node->setLocation(location);
                     node->setRotation(rep_rotation);
-                    node = node->next_sibling_;
+                    node = node->getNext();
                 } while (node != 0);
             }
         }
@@ -1530,7 +1530,7 @@ try {
                 const glm::vec3 axis(0, 1, 0);
                 instance->setAlignment(1);
                 instance->setAlignAxis(axis);
-                child = instance->first_child_;
+                child = instance->getChild();
                 if (child != 0) {
                     srModelInstance* child_instance = static_cast<srModelInstance*>(child);
                     child_instance->setAlignment(1);

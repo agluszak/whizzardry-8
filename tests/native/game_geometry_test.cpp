@@ -34,7 +34,6 @@
 #include "surrender/model_view_scope.h"
 #include "surrender/plane_math.h"
 #include "surrender/segment_math.h"
-#include "surrender/srBounder.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
@@ -51,7 +50,6 @@
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/triangle_projection.h"
-#include "surrender_test_fixture.h"
 #include "wiz8/camera_motion.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/direction_angles.h"
@@ -506,8 +504,7 @@ static void triangle_visibility()
     REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Sprite and cursor meshes preserve face winding and UV seams", "[geometry]")
+TEST_CASE("Sprite and cursor meshes preserve face winding and UV seams", "[geometry]")
 {
     // This factory must work without the former modeller initialization protocol.
     std::unique_ptr<srModelInstance> sprite(
@@ -568,37 +565,37 @@ TEST_CASE_METHOD(SurRenderTestFixture,
             }
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Renderer bounds", "[geometry]")
+TEST_CASE("Renderer bounds", "[geometry]")
 {
     renderer_bounds();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Triangle visibility", "[geometry]")
+TEST_CASE("Triangle visibility", "[geometry]")
 {
     triangle_visibility();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Bounding volumes", "[geometry]")
+TEST_CASE("Bounding volumes", "[geometry]")
 {
     bounds();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Planes and segments", "[geometry]")
+TEST_CASE("Planes and segments", "[geometry]")
 {
     planes_and_segments();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Cameras and throwing", "[geometry]")
+TEST_CASE("Cameras and throwing", "[geometry]")
 {
     camera_and_throw();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Linked mesh bounds", "[geometry]")
+TEST_CASE("Linked mesh bounds", "[geometry]")
 {
     linked_mesh_bounds();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[geometry]")
+TEST_CASE("Model bounds are independent values", "[geometry]")
 {
     auto mesh = std::make_shared<srMeshModel>(0, 2);
     mesh->getVertexLoc()[0] = glm::vec3(-4, -3, -2);
@@ -661,8 +658,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     REQUIRE(std::abs(linked_model.getBounds().sphere.radius - std::sqrt(56.0f)) < 1e-5f);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate the cache",
-                 "[geometry]")
+TEST_CASE("Material query overrides do not mutate the cache", "[geometry]")
 {
     stMaterial material;
     material.setDiffuse(glm::vec4(.2f, .3f, .4f, .8f));
@@ -684,7 +680,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate t
     REQUIRE(original.diffuse == glm::vec4(.2f, .3f, .4f, .8f));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Baked lighting", "[geometry]")
+TEST_CASE("Baked lighting", "[geometry]")
 {
     baked_lighting();
 }
@@ -768,9 +764,8 @@ TEST_CASE("Ground shadow projection retains rotated scale center and coordinate 
     }
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Ground polygon queries return owned sorted runs beyond thirty faces",
-                 "[geometry][octree]")
+TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
+          "[geometry][octree]")
 {
     W8World world{};
     const struct RestoreWorld {
@@ -1124,8 +1119,7 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
     REQUIRE(local_copy == local);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Navigator releases replaced and cleared paths",
-                 "[geometry][navigation]")
+TEST_CASE("Navigator releases replaced and cleared paths", "[geometry][navigation]")
 {
     struct TrackedPath : W8PathAI {
         explicit TrackedPath(int& releases) : releases(releases) {}
@@ -1159,8 +1153,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Navigator releases replaced and cleared 
     REQUIRE(releases == 4);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and waypoint snapshots",
-                 "[geometry][navigation]")
+TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
 {
     W8Navigator navigator;
     navigator.movement.velocity = {1, 2, 3};
@@ -1188,9 +1181,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and way
     REQUIRE(start == glm::vec3(1, 2, 3));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Prop position and delta queries preserve animation stepping",
-                 "[geometry][animation]")
+TEST_CASE("Prop position and delta queries preserve animation stepping", "[geometry][animation]")
 {
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
@@ -1223,8 +1214,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(prop.GetDelta() == delta);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite caching and path values",
-                 "[geometry][animation]")
+TEST_CASE("Animation bounds retain composite caching and path values", "[geometry][animation]")
 {
     W8AnimObj animation;
     animation.path_lists = true;
@@ -1240,8 +1230,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
         mesh->frame_count = 1;
         mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
         mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
-        mesh->meshes.push_back(
-            std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
+        mesh->meshes.push_back(std::make_unique<stModelInstance>(nullptr));
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));
@@ -1270,9 +1259,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
     for (const auto& path : animation.paths[0]) REQUIRE(PathAIGetValue(path.get()) == 0.75f);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Prop bounds aggregate frames without changing the current frame",
-                 "[geometry][animation]")
+TEST_CASE("Prop bounds aggregate frames without changing the current frame",
+          "[geometry][animation]")
 {
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
@@ -1300,9 +1288,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Monster bounds scale and translate independent optional values",
-                 "[geometry][animation]")
+TEST_CASE("Monster bounds scale and translate independent optional values", "[geometry][animation]")
 {
     W8AnimObj animation;
     animation.frame_bounds = {{true, {-1, -2, -3}, {4, 5, 6}}};
@@ -1398,10 +1384,8 @@ TEST_CASE("Software backface selection preserves thresholds and active order", "
     REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
 }
 
-TEST_CASE_METHOD(
-    SurRenderTestFixture,
-    "Clip plane normalization preserves consumer transform ordering and degenerate planes",
-    "[geometry][rendering]")
+TEST_CASE("Clip plane normalization preserves consumer transform ordering and degenerate planes",
+          "[geometry][rendering]")
 {
     srGERD renderer;
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -1419,13 +1403,12 @@ TEST_CASE_METHOD(
             glm::vec4(0, 0, 0, 4));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission",
-                 "[geometry]")
+TEST_CASE("Empty software backface selections skip mesh submission", "[geometry]")
 {
     srGERD renderer;
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
     stMeshModel model(1, 3);
-    auto* pipeline = srTriMeshPipeline::Get(&renderer);
+    auto* pipeline = &renderer.meshPipeline();
     std::array<glm::vec3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
     std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     const std::array<glm::vec3, 1> normals{{{0, 0, 1}}};
@@ -1444,8 +1427,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     REQUIRE(pipeline->triangle_count == before);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Failed mesh materials release renderer and restore enable flags", "[geometry]")
+TEST_CASE("Failed mesh materials release renderer and restore enable flags", "[geometry]")
 {
     class FailingMaterial : public srMaterial {
     public:
@@ -1453,10 +1435,9 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     };
     srGERD renderer;
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    // Reuse a CPU batch as sorted without requiring a window or GPU context.
-    auto* batch = renderer.lockRenderer();
-    batch->sorted = 1;
-    renderer.unlockRenderer(batch, 0);
+    renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    auto* batch = &renderer.batchRenderer();
+    renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
     renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
     srMeshModel native(1, 3);
     stMeshModel extended(1, 3);
@@ -1487,8 +1468,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
         REQUIRE_FALSE(renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING));
         REQUIRE(renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS));
         renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-        auto* resumed = renderer.lockRenderer();
-        renderer.unlockRenderer(resumed, 0);
+        auto* resumed = &renderer.batchRenderer();
         REQUIRE(resumed == batch);
         renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
     }
@@ -1564,8 +1544,7 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
     REQUIRE(!surfaceTriangle(indices));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering",
-                 "[geometry]")
+TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
 {
     stParticle empty(nullptr, 0);
     REQUIRE(!empty.activateParticle(true));
@@ -1669,8 +1648,7 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
     REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and light-bank rules",
-                 "[geometry]")
+TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry]")
 {
     struct RestoreLighting {
         glm::vec3 offset = g_environment_offset;
@@ -1733,9 +1711,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and 
     REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Static and frame normals share area weighting across shade seams",
-                 "[geometry][mesh]")
+TEST_CASE("Static and frame normals share area weighting across shade seams", "[geometry][mesh]")
 {
     stMeshModel mesh(3, 5);
     const std::array<glm::vec3, 5> positions{
@@ -1854,12 +1830,11 @@ public:
 TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled descent",
           "[geometry][rendering]")
 {
-    SurRenderTestFixture runtime;
     const auto check = []<class Effect>() {
         srNode root;
-        auto* sibling = new TraversalMarker(root);
-        auto* effect = new Effect(&root);
-        auto* child = new TraversalMarker(*effect);
+        auto* sibling = root.adoptChild(std::make_unique<TraversalMarker>(root));
+        auto* effect = root.adoptChild(std::make_unique<Effect>(nullptr));
+        auto* child = effect->adoptChild(std::make_unique<TraversalMarker>(*effect));
         effect->clearFlag(srNode::FLAG_GLOBAL);
         srNode::TraverseInfo info;
         root.traverse(info);
@@ -1902,7 +1877,6 @@ TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled
 TEST_CASE("Wizardry light inactivity and missing definitions have distinct traversal policies",
           "[geometry][rendering]")
 {
-    SurRenderTestFixture runtime;
     struct RestoreFlags {
         unsigned saved = g_light_update_flags;
         ~RestoreFlags() { g_light_update_flags = saved; }
@@ -1911,7 +1885,7 @@ TEST_CASE("Wizardry light inactivity and missing definitions have distinct trave
     stLight light(nullptr);
     light.setIntensity(1);
     light.clearFlag(srNode::FLAG_GLOBAL);
-    auto* child = new TraversalMarker(light);
+    auto* child = light.adoptChild(std::make_unique<TraversalMarker>(light));
     srNode::TraverseInfo info;
     light.traverse(info);
     REQUIRE(info.entries.empty()); // Active without a definition skips children too.
@@ -2130,9 +2104,8 @@ TEST_CASE("Build-node consumption preserves octant order and compact indices", "
     REQUIRE(root.nodeCount() == 1);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Prop bounds return complete boxes and register inclusive octree cells",
-                 "[geometry][octree]")
+TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells",
+          "[geometry][octree]")
 {
     GDProp empty;
     REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
@@ -2264,9 +2237,8 @@ TEST_CASE("Region merging rekeys every member and weights GLM centers by cell po
     REQUIRE(independent.region_centers.empty());
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Mesh permutations keep GLM channels corners shades and active polygons aligned",
-                 "[geometry][rendering]")
+TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygons aligned",
+          "[geometry][rendering]")
 {
     srMeshModel mesh(2, 3);
     mesh.setPassCount(2);
@@ -2328,9 +2300,8 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Model-view scopes reject overflow without taking another scope's stack entry",
-                 "[geometry][rendering]")
+TEST_CASE("Model-view scopes reject overflow without taking another scope's stack entry",
+          "[geometry][rendering]")
 {
     srGERD renderer;
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -2349,9 +2320,8 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     }
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Linked main and highlight draws share the instance termination boundary",
-                 "[geometry][rendering]")
+TEST_CASE("Linked main and highlight draws share the instance termination boundary",
+          "[geometry][rendering]")
 {
     struct ProbeMesh : stMeshModel {
         ProbeMesh() : stMeshModel(0, 0) {}
@@ -2378,7 +2348,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     stModelInstance instance(nullptr);
     instance.setModel(model);
     instance.highlight_colour = {1, 0, 0, 1};
-    srNode termination(&instance, srNode::Ownership::independent);
+    srNode termination(&instance);
     termination.setFlag(srNode::FLAG_TERMINATE);
     const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
     renderer.setAmbientLight(ambient);
@@ -2395,18 +2365,14 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(renderer.getAmbientLight() == ambient);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Failed instance materials restore picking lighting and material overrides",
-                 "[geometry][rendering]")
+TEST_CASE("Failed instance materials restore picking lighting and material overrides",
+          "[geometry][rendering]")
 {
     struct FailingMaterial : srMaterial {
         void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
     };
     srGERD renderer;
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    auto* batch = renderer.lockRenderer();
-    batch->sorted = 1;
-    renderer.unlockRenderer(batch, 0);
     auto model = std::make_shared<stMeshModel>(1, 3);
     model->getVertexLoc()[0] = {-0.5f, -0.5f, 0.5f};
     model->getVertexLoc()[1] = {0.5f, -0.5f, 0.5f};
@@ -2440,50 +2406,8 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(pick->triangle_index == 7);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Bounds rejection restores transforms before returning or traversing children",
-                 "[geometry][rendering]")
-{
-    struct Child : srNode {
-        explicit Child(srNode& parent) : srNode(&parent, Ownership::independent) {}
-        bool visited = false;
-        glm::mat4 view{0};
-        void traverse(TraverseInfo& info) override
-        {
-            visited = true;
-            view = info.renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
-        }
-    };
-    srGERD renderer;
-    renderer.matrixMode(srGERD::MATRIX_PROJECTION);
-    renderer.loadIdentity();
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer.loadIdentity();
-    srBounder bounder;
-    bounder.setLocation(0.25, 0, 0);
-    Child child(bounder);
-    renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
-    srNode::TraverseInfo info;
-    info.renderer = &renderer;
-    const auto view = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
-    const std::array<srNode::BoundInfo, 3> bounds{
-        {{{-3, -1, -1}, {-2, 1, 1}, {-3, 0, 0}, 0.1f, 1}, // Sphere rejection.
-         {{-3, -1, -1}, {-2, 1, 1}, {0, 0, 0}, 4, 1}, // Box rejection.
-         {{0, -1, -1}, {1, 1, 1}, {0.5f, 0, 0}, 1, 1}}};
-    for (std::size_t i = 0; i < bounds.size(); ++i) {
-        bounder.setBounds(bounds[i]);
-        child.visited = false;
-        bounder.traverse(info);
-        REQUIRE(renderer.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
-        REQUIRE(child.visited == (i == 2));
-        if (child.visited) REQUIRE(child.view == view);
-    }
-    renderer.popClipPlane();
-}
-
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Model render scopes restore GLM transforms and exclusions after a failed draw",
-                 "[geometry][rendering]")
+TEST_CASE("Model render scopes restore GLM transforms and exclusions after a failed draw",
+          "[geometry][rendering]")
 {
     struct Probe : srModel {
         bool fail = false;
@@ -2527,10 +2451,8 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     }
 }
 
-TEST_CASE_METHOD(
-    SurRenderTestFixture,
-    "Material vertex splits preserve first-face attributes without a fixed scratch limit",
-    "[geometry][rendering]")
+TEST_CASE("Material vertex splits preserve first-face attributes without a fixed scratch limit",
+          "[geometry][rendering]")
 {
     constexpr unsigned materials = 80;
     constexpr unsigned faces_count = 120;
@@ -2725,9 +2647,7 @@ TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep s
     REQUIRE(surface.slope == 0);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "octree camera snapshots use native basis columns and plane coefficients",
-                 "[geometry]")
+TEST_CASE("octree camera snapshots use native basis columns and plane coefficients", "[geometry]")
 {
     srCamera camera;
     camera.setLocation(glm::dvec3(3, -7, 11));
@@ -2889,8 +2809,7 @@ TEST_CASE("Camera rotation and movement share the level motion flag policy", "[g
             W8_CAMERA_MOTION_LOOK_UP);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initialized values",
-                 "[geometry]")
+TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
 {
     const struct RestoreRuntime {
         W8EnvironRecord* environ = g_environ;
@@ -2930,19 +2849,18 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initi
             glm::vec3(0));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Environment ambient scales scenes and lights while retaining the source colour",
-                 "[geometry]")
+TEST_CASE("Environment ambient scales scenes and lights while retaining the source colour",
+          "[geometry]")
 {
     const struct RestoreLights {
         std::vector<stLight*> lights = g_environment_lights;
         ~RestoreLights() { g_environment_lights = lights; }
     } restore;
-    srScene scene;
     stLight light(nullptr);
     g_environment_lights = {&light};
     W8World world{};
-    world.static_scene = &scene;
+    world.static_scene = std::make_unique<srScene>();
+    auto& scene = *world.static_scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
     ApplyEnvironmentColour(&world, 0.75f, &colour);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
@@ -2959,9 +2877,8 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(ambient == glm::vec3(0));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Submesh splitting owns all buffers beyond the old six-region capacity",
-                 "[geometry][octree]")
+TEST_CASE("Submesh splitting owns all buffers beyond the old six-region capacity",
+          "[geometry][octree]")
 {
     W8OctPreTreeGeometry geometry{};
     geometry.m_vertices.resize(4);
@@ -3009,6 +2926,12 @@ TEST_CASE("Positional sound copies register each live node once", "[scene][sound
         assigned = source;
         assigned = source;
         stSound3D copied(source);
+        auto owned = std::make_unique<stSound3D>("service.wav", nullptr);
+        auto* borrowed = Retain3DSound(std::move(owned));
+        REQUIRE(borrowed->getParent() == nullptr);
+        REQUIRE(g_sound3d_instances.size() == initial + 4);
+        Release3DSounds();
+        Release3DSounds();
         REQUIRE(g_sound3d_instances.size() == initial + 3);
         for (auto* node : {&source, &assigned, &copied})
             REQUIRE(std::ranges::count(g_sound3d_instances, node) == 1);

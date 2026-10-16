@@ -25,6 +25,7 @@
 #include "message_box.h"
 #include "random.h"
 #include "retail_records.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
@@ -77,7 +78,6 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 

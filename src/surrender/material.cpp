@@ -3,7 +3,6 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srClass.h"
-#include "surrender/srCore.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"

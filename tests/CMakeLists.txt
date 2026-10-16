@@ -134,7 +134,7 @@ catch_discover_tests(native_owner_test
     TEST_PREFIX "native_owners/"
     TEST_SPEC "~[.death]"
     PROPERTIES TIMEOUT 10)
-foreach(mode plain message button-self-destroy)
+foreach(mode plain button-self-destroy)
     add_test(NAME native_assertion_${mode}
         COMMAND "${CMAKE_COMMAND}" "-DPROGRAM=$<TARGET_FILE:native_owner_test>" "-DMODE=${mode}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/assertion_failure.cmake")

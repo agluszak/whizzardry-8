@@ -14,8 +14,6 @@ class srGERD;
 // VTABLE: WIZ8 0x005EC748 stSurface2D
 class stSurface2D : public srNode {
 public:
-    enum { UPDATE_FULL_TILE = 1 };
-
     stSurface2D(std::shared_ptr<SDL_Surface> surface, int width, int height, srNode* parent,
                 int tile_size);
 
@@ -27,7 +25,6 @@ public:
     void setScale(float scale); /* 0x0047E560 */
     /* The ortho tile render pass; process() forwards the renderer to it. */
     void DrawTiles(srGERD* renderer); /* 0x0047E100 */
-    void enableTextureUpdateFlags(unsigned int flag);
     void setAlphaTestEnabled(bool enabled);
     void invalidateTiles();
     void updateRectangle(srGERD* renderer, int left, int top, int right, int bottom);
@@ -46,5 +43,4 @@ public:
     float field_16c;
     float texture_coordinates[4][2]; /* 0x170: u, v per corner */
     float scale;                     /* 0x190 */
-    int texture_update_flags;
 };

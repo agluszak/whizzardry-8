@@ -25,7 +25,6 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/sr_api.h"
 
 class srTexture;
 

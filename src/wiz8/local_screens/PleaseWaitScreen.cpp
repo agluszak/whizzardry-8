@@ -14,6 +14,7 @@
 #include "compat/native.h"
 #include "layouts/levels.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
@@ -31,7 +32,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/sr_api.h"
 
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the
    tail from the screen-state record it was entered with; the frame handler reads

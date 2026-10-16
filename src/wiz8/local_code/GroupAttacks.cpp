@@ -13,6 +13,7 @@
 #include "local_code/Factions.h"
 #include "random.h"
 #include "sight_state.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
@@ -29,7 +30,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 
 #define GROUP_ATTACKS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GroupAttacks.cpp"

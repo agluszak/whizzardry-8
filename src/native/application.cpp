@@ -22,6 +22,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game_init.h"
@@ -149,6 +150,7 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }
     }
+    Release3DSounds();
     ReleaseCatalogArtwork();
     ShutdownButtonImageManager();
     ReleaseMenuFonts();

@@ -23,6 +23,7 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/containers.h"
@@ -36,7 +37,6 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/text_line.h"
 #include "wiz8/xstatus.h"
 

@@ -5,11 +5,9 @@
 
 #include "surrender/srClipPlane.h"
 #include "surrender/srLight.h"
-#include "surrender_test_fixture.h"
 
 TEST_CASE("Copied scene resources preserve owned names and unnamed state")
 {
-    SurRenderTestFixture runtime;
     srClipPlane first;
     const std::string long_name(2048, 'x');
     first.setName(long_name);

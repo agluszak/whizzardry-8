@@ -26,6 +26,7 @@
 #include "local_code/RangeControl.h"
 #include "local_code/TextBuffer.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "ui_input.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
@@ -57,7 +58,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/spell_ids.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 

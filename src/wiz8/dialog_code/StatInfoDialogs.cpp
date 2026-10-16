@@ -14,13 +14,13 @@
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
+#include "surrender/srDebug.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/sr_api.h"
 
 /* Dialog Code\StatInfoDialogs.cpp. Two attribute-info dialogs whose
    constructors are the same body twice over: the canonical pair differs only

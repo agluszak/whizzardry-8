@@ -28,6 +28,7 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "retail_records.h"
+#include "surrender/srDebug.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -60,7 +61,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/spell_ids.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/text_line.h"
 #include "wiz8/utility.h"
@@ -882,10 +882,6 @@ void W8Missile::StartIfHostActive()
 // FUNCTION: WIZ8 0x004a4180
 void W8Missile::DestroyMissile()
 {
-    if (m_plsLights != 0) {
-        wiz8::clear_and_dispose(*m_plsLights,
-                                [](stLight* light) { WorldRemoveLight(g_world, light); });
-    }
     delete this;
 }
 
@@ -990,7 +986,7 @@ bool W8Missile::IsCycleSupported(signed char cycle)
 // FUNCTION: WIZ8 0x004a4300
 void W8Missile::SetCycle(signed char cycle)
 {
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < 0 || cycle >= 2) {
         srAssertFail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST", MISSILE_CPP,

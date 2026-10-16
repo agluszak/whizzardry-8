@@ -16,8 +16,10 @@
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srDebug.h"
 #include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
@@ -35,21 +37,10 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srTexture.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 
 class srModel;
 
-static int assertions = 0;
-static void assertion(const char* expression, const char* path, w8_long line, const char* message)
-{
-    if (strcmp(expression, "native probe") || strcmp(path, "imports_test.cpp") || line != 42 ||
-        strcmp(message, "value 7")) {
-        fputs("assertion arguments\n", stderr);
-        exit(1);
-    }
-    ++assertions;
-}
 static int destroyed_nodes = 0;
 struct ClientNode : srNode {
     bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
@@ -145,21 +136,20 @@ TEST_CASE("imports_test")
     }
     REQUIRE(fesetround(FE_TONEAREST) == 0);
     REQUIRE(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
-    srAssertSetFunc(assertion);
-    REQUIRE(srInit());
     REQUIRE(shared_surface_lifetimes() == 0);
     REQUIRE(shared_model_lifetimes() == 0);
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srScene;
-        auto child = new ClientNode;
+        auto* child = scene->adoptChild(std::make_unique<ClientNode>());
         child->setParent(scene, 0);
         REQUIRE(scene->getChildCount() == 1);
         delete scene;
         REQUIRE(destroyed_nodes == before_destruction + 1);
 
         auto parent_node = new ClientNode;
-        auto transformed_child = new ClientNode;
+        auto transformed_owner = std::make_unique<ClientNode>();
+        auto* transformed_child = transformed_owner.get();
         transformed_child->setParent(parent_node, 0);
         REQUIRE(transformed_child->getWorldSpaceLocation().x == 0);
         REQUIRE((!parent_node->transformDirty() && !transformed_child->transformDirty()));
@@ -255,9 +245,10 @@ TEST_CASE("imports_test")
         // Copied lights must own independent registry entries and scene links.
         auto parent = new ClientNode;
         auto original = new srLight(parent);
-        auto sibling = new srLight(parent);
-        auto clone = new srLight(*original);
-        REQUIRE(clone->getParent() != parent);
+        auto* sibling = parent->adoptChild(std::make_unique<srLight>());
+        auto copied = std::make_unique<srLight>(*original);
+        REQUIRE(copied->getParent() == nullptr);
+        auto* clone = parent->adoptChild(std::move(copied));
         clone->setParent(parent, 0);
         delete original;
         REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent &&
@@ -301,9 +292,8 @@ TEST_CASE("imports_test")
         REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
         for (auto value : values) REQUIRE(decoder.decompressSymbol() == value);
     }
-    srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7);
-    REQUIRE(assertions == 1);
-    srExit();
-    srAssertSetFunc(nullptr);
+    REQUIRE_THROWS_WITH(srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7),
+                        "Debug assertion in module imports_test.cpp line 42 failed:\n\n"
+                        "Expression [ native probe ] evaluates to false.\n\nvalue 7\n");
     puts("ok: native renderer consumer imports, generated special members and variadic assertion");
 }

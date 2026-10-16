@@ -30,6 +30,7 @@
 #include "retail_records.h"
 #include "soundman.h"
 #include "spell_ids.h"
+#include "surrender/srDebug.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "wiz8/containers.h"
@@ -59,11 +60,24 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/text_line.h"
 
 // GLOBAL: WIZ8 0x0065BE40
 std::vector<stSound3D*> g_sound3d_instances;
+// Only fire-and-forget positional sounds belong to the audio service.
+static std::vector<std::unique_ptr<stSound3D>> g_service_sounds;
+
+stSound3D* Retain3DSound(std::unique_ptr<stSound3D> sound)
+{
+    auto* borrowed = sound.get();
+    g_service_sounds.push_back(std::move(sound));
+    return borrowed;
+}
+
+void Release3DSounds()
+{
+    g_service_sounds.clear();
+}
 
 /* Names of the seven bitmap cycles in each of the four spell-visual groups,
    in load order: FLASH, EXPLOSION, TARGET and CONE. */
@@ -202,7 +216,7 @@ void W8SpellVisual::AdvanceAnimationFrame(int value, int arg_flags)
 // FUNCTION: WIZ8 0x004ac580
 void W8SpellVisual::SetCycle(signed char cycle)
 {
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < SPELL_CYCLE_FIRST || cycle > SPELL_CYCLE_LAST) {
         srAssertFail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST",
@@ -256,7 +270,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
             while (instance != 0) {
                 glm::dvec3 scale(scale0, scale0, scale0);
                 instance->setScale(scale);
-                instance = static_cast<srModelInstance*>(instance->first_child_);
+                instance = static_cast<srModelInstance*>(instance->getChild());
             }
 
             const auto monster_position = monster->GetPosition();
@@ -321,10 +335,6 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
 {
     wiz8::erase_first(world->spell_visuals, visual);
-    if (visual->m_plsLights) {
-        wiz8::clear_and_dispose(*visual->m_plsLights,
-                                [world](stLight* light) { WorldRemoveLight(world, light); });
-    }
     delete visual;
 }
 
@@ -1035,7 +1045,6 @@ stSound3D::stSound3D(const char* name, srNode* parent) : srNode(static_cast<srNo
     sound_handle = nullptr;
     volume = 0x7f;
     falloff = 25000.0f;
-    auto_release = false;
     g_sound3d_instances.push_back(this);
 }
 
@@ -1049,7 +1058,7 @@ stSound3D::~stSound3D()
 }
 
 // FUNCTION: WIZ8 0x004AEBF0
-unsigned char stSound3D::Play(bool loop, bool release_when_done)
+unsigned char stSound3D::Play(bool loop)
 {
     if (wave_name.empty()) {
         return 0;
@@ -1059,7 +1068,6 @@ unsigned char stSound3D::Play(bool loop, bool release_when_done)
         options.loops = 0;
     }
     sound_handle = wiz8::sound::play(wave_name, std::move(options));
-    auto_release = release_when_done;
     return sound_handle != nullptr;
 }
 
@@ -1095,11 +1103,8 @@ void stSound3D::Stop()
     }
 }
 
-/* Per-frame 3D sound servicing for the instanced sound list: each live entry
-   that stopped playing is dropped (releasing it removes it from the vector, so
-   the walk count and index step back together); each playing one is re-aimed
-   relative to the camera and re-volumed by distance and the configured
-   effects-volume. */
+/* Update borrowed positional nodes, then retire finished service-owned sounds.
+   Caller-owned sounds retain their independent lifetime. */
 // FUNCTION: WIZ8 0x004aefd0
 void Update3DSounds()
 {
@@ -1112,13 +1117,7 @@ void Update3DSounds()
             if (sound->sound_handle != nullptr) {
                 glm::dvec3 world = sound->getWorldSpaceLocation();
                 if (!wiz8::sound::is_playing(sound->sound_handle)) {
-                    bool dead = sound->auto_release;
                     sound->sound_handle = nullptr;
-                    if (dead) {
-                        delete sound;
-                        --count;
-                        --index;
-                    }
                 } else {
                     glm::vec3 to_listener;
                     glm::vec3 offset;
@@ -1155,6 +1154,7 @@ void Update3DSounds()
             ++index;
         } while (index < count);
     }
+    std::erase_if(g_service_sounds, [](const auto& sound) { return !sound->IsPlaying(); });
 }
 
 /* Detach every spell icon the monster's representation owns before the

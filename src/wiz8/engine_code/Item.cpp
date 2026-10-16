@@ -24,6 +24,7 @@
 #include "random.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -36,7 +37,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 
 #define ITEM_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp"
@@ -109,13 +109,13 @@ void W8Item::AttachMesh(W8World* world)
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x219, 0);
     }
-    if (mesh->first_child_ == 0) {
+    if (mesh->getChild() == 0) {
         mesh->clearFlag(srNode::FLAG_DISABLE);
     }
     mesh->setParent(world->dynamic_scene, 0);
     location = m_pRep->GetLocation();
     rotation = m_pRep->GetRotation();
-    child = mesh->first_child_;
+    child = mesh->getChild();
     if (child == 0) {
         widened = glm::dvec3(location);
         mesh->setLocation(widened);
@@ -126,7 +126,7 @@ void W8Item::AttachMesh(W8World* world)
         widened = glm::dvec3(location);
         child->setLocation(widened);
         child->setRotation(rotation);
-        child = child->next_sibling_;
+        child = child->getNext();
     } while (child != 0);
 }
 
@@ -290,10 +290,10 @@ void W8Item::UpdateAnimation()
         rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));
         srNode* mesh = rep->m_psrMesh.get();
         m_pRep->SetRotation(&rotation);
-        if (mesh->first_child_ == 0) {
+        if (mesh->getChild() == 0) {
             mesh->setRotation(rotation);
         } else {
-            for (srNode* child = mesh->first_child_; child != 0; child = child->next_sibling_) {
+            for (srNode* child = mesh->getChild(); child != 0; child = child->getNext()) {
                 child->setRotation(rotation);
             }
         }
@@ -350,10 +350,10 @@ void W8Item::SetYaw(float angle)
     glm::mat3 rotation(glm::eulerAngleY(static_cast<float>(NormalizeAngle(angle))));
     srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     m_pRep->SetRotation(&rotation);
-    if (mesh->first_child_ == 0) {
+    if (mesh->getChild() == 0) {
         mesh->setRotation(rotation);
     } else {
-        for (srNode* child = mesh->first_child_; child != 0; child = child->next_sibling_) {
+        for (srNode* child = mesh->getChild(); child != 0; child = child->getNext()) {
             child->setRotation(rotation);
         }
     }

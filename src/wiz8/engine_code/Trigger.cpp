@@ -36,6 +36,7 @@
 #include "random.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "wiz8/containers.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -80,7 +81,6 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spell_ids.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
@@ -1026,18 +1026,12 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
         position = glm::vec3(this->position.x, this->position.y, this->position.z);
     }
 
-    stSound3D* sound = new stSound3D(sound_name, 0);
-    if (sound != 0) {
-        glm::dvec3 sound_position;
-        sound_position = glm::dvec3(position);
-        sound->volume = volume;
-        sound->setLocation(sound_position);
-        if (sound->Play(false, true) != 0) {
-            return true;
-        }
-        delete sound;
-    }
-    return false;
+    auto sound = std::make_unique<stSound3D>(sound_name, nullptr);
+    sound->volume = volume;
+    sound->setLocation(glm::dvec3(position));
+    if (!sound->Play(false)) return false;
+    Retain3DSound(std::move(sound));
+    return true;
 }
 
 /* Timed actions pause their private timer with the game clock, then dispatch

@@ -18,6 +18,7 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -28,6 +29,7 @@
 #include "particle_modes.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
@@ -45,7 +47,6 @@
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 
 // GLOBAL: WIZ8 0x005ebc60
 const float g_float_one_five_hundredth = 0.0020000000949949026f;
@@ -169,8 +170,7 @@ void stParticle::AllocateParticles(unsigned int count)
 }
 
 // FUNCTION: WIZ8 0x00497AF0
-stParticle::stParticle(srNode* parent, int count, Ownership ownership)
-    : srNode(static_cast<srNode*>(0), ownership)
+stParticle::stParticle(srNode* parent, int count) : srNode(static_cast<srNode*>(0))
 {
     setParent(parent, 1);
     if (count == 0) {
@@ -184,8 +184,7 @@ stParticle::stParticle(srNode* parent, int count, Ownership ownership)
 /* A copy shares material and static texture, but starts with no live
    particles, fresh animation frames and fresh timing. */
 // FUNCTION: WIZ8 0x00498180
-stParticle::stParticle(const stParticle& other, Ownership ownership)
-    : srNode(static_cast<srNode*>(0), ownership)
+stParticle::stParticle(const stParticle& other) : srNode(static_cast<srNode*>(0))
 {
     persisted = other.persisted;
     start_frame = other.start_frame;
@@ -676,7 +675,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->setCullMode(srGERD::CULL_NONE);
     renderer->setPickKey(0);
 
-    srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(renderer);
+    srTriMeshPipeline* pipeline = &renderer->meshPipeline();
 
     pipeline->active_triangles = std::span(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
@@ -714,7 +713,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     {
         const srMeshSubmission::PickScope picking(*renderer, true);
-        pipeline->FlushIfCurrent();
+        pipeline->Flush();
     }
     renderer->popEnable();
 }

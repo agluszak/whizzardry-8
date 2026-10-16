@@ -14,6 +14,7 @@
 #include "ReadMesh.h"
 #include "asset_paths.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/3d.h"
@@ -22,7 +23,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 
 /* VC6 places `float x = 0.0f` in .bss; retail keeps this slot in initialized
    .data next to g_float_one. Const storage lands in .rdata with physical

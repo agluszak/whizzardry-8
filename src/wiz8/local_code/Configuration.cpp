@@ -6,13 +6,13 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
+#include "surrender/srDebug.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/sr_api.h"
 
 // GLOBAL: WIZ8 0x006850c8
 W8GameSettings g_settings;
@@ -66,10 +66,6 @@ void LoadGameConfiguration(void)
     }
     SetSoundEffectsVolume(g_settings.sound_effects_volume);
     SetMusicVolume(g_settings.music_volume);
-    if (g_settings.gamma < 0.1f || g_settings.gamma > 2.0f) {
-        g_settings.gamma = 1.0f;
-    }
-    SetDisplayGamma(g_settings.gamma);
 }
 
 // FUNCTION: WIZ8 0x0054b6d0

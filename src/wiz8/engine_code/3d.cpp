@@ -24,6 +24,7 @@
 #include "surrender/plane_math.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
@@ -47,7 +48,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/geometry.h"
-#include "wiz8/sr_api.h"
 
 #define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
 
@@ -117,7 +117,7 @@ void FinalizeStaticScene(srScene* scene)
 {
     srNode* node;
 
-    for (node = scene->first_child_; node != 0; node = node->next_sibling_) {
+    for (node = scene->getChild(); node != 0; node = node->getNext()) {
         if (typeid(*node) == typeid(srLight)) {
             static_cast<srLight*>(node)->setGroupMask(1);
         }
@@ -170,7 +170,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
         const auto box = mesh->getBounds().box.transformed(world);
-        for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
+        for (auto* node = lights; node; node = walk_chain ? node->getNext() : nullptr) {
             const auto* light = dynamic_cast<stLight*>(node);
             if (!light || SDL_strncasecmp(node->getName().c_str(), "Sun", 3) == 0) continue;
             const float range = static_cast<float>(
@@ -201,9 +201,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
 // FUNCTION: WIZ8 0x0046F410
 unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
 {
-    for (; node != 0; node = node->next_sibling_) {
-        if (node->first_child_ != 0) {
-            FinalizeWorldScenes(node->first_child_, dynamic_scene);
+    for (; node != 0; node = node->getNext()) {
+        if (node->getChild() != 0) {
+            FinalizeWorldScenes(node->getChild(), dynamic_scene);
         }
         if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             BakeInstanceVertexLightingIfNeeded(instance, dynamic_scene);
@@ -217,7 +217,7 @@ unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
 // FUNCTION: WIZ8 0x0046F4A0
 unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNode* dynamic_scene)
 {
-    srNode* lights = dynamic_scene->first_child_;
+    srNode* lights = dynamic_scene->getChild();
 
     if ((instance->render_flags & stModelInstance::RENDER_LIGHTING_BAKED) == 0) {
         instance->render_flags |= stModelInstance::RENDER_LIGHTING_BAKED;
@@ -295,7 +295,7 @@ std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel
     if (model == nullptr) {
         srAssertFail("pstMeshModel", THREE_D_CPP, 0x5bf, 0);
     }
-    auto instance = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
+    auto instance = std::make_unique<stModelInstance>(nullptr);
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
     return instance;
@@ -304,7 +304,7 @@ std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel
 // FUNCTION: WIZ8 0x0046F680
 std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance)
 {
-    auto copy = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
+    auto copy = std::make_unique<stModelInstance>(nullptr);
     *copy = instance;
     copy->setName("ST_CreateInstance");
     return copy;
@@ -319,9 +319,9 @@ static void ConfigureLightDefaults(stLight& light, const char* name)
 }
 
 // FUNCTION: WIZ8 0x0046DF90
-stLight* CreateLight(srNode* parent, const char* name)
+std::unique_ptr<stLight> CreateLight(srNode* parent, const char* name)
 {
-    stLight* light = new stLight(parent);
+    auto light = std::make_unique<stLight>(parent);
     ConfigureLightDefaults(*light, name);
     return light;
 }
@@ -340,13 +340,7 @@ stLight* CreateWorldLight(W8World* world, const char* name)
         srAssertFail("name", THREE_D_CPP, 570, 0);
     }
 
-    if (world == 0) {
-        // Not tied to a world (animation template): scene-owned like any other node.
-        auto* light = new stLight(static_cast<srNode*>(nullptr));
-        ConfigureLightDefaults(*light, name);
-        return light;
-    }
-    auto light = std::make_unique<stLight>(world->static_scene, srNode::Ownership::independent);
+    auto light = std::make_unique<stLight>(world->static_scene.get());
     ConfigureLightDefaults(*light, name);
     return AddWorldLight(world, std::move(light));
 }
@@ -361,7 +355,7 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
         srAssertFail("pWorld", THREE_D_CPP, 604, 0);
     }
 
-    auto light = std::make_unique<stLight>(world->static_scene, srNode::Ownership::independent);
+    auto light = std::make_unique<stLight>(world->static_scene.get());
     ConfigureLightDefaults(*light, name);
     light->near_start = 0.0;
     light->near_end = 0.0;
@@ -472,13 +466,13 @@ W8Prop* WorldGetPropAt(W8World*, int index)
 // FUNCTION: WIZ8 0x0046e860
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument)
 {
-    SetSceneMeshShaderLowBits(owner->static_scene, argument);
+    SetSceneMeshShaderLowBits(owner->static_scene.get(), argument);
 }
 
 // FUNCTION: WIZ8 0x0046e880
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument)
 {
-    SetSceneMeshShaderBit3(owner->static_scene, argument);
+    SetSceneMeshShaderBit3(owner->static_scene.get(), argument);
 }
 
 /* Walk one scene subtree and toggle shader DEPTH_WRITE on every mesh model of
@@ -488,7 +482,7 @@ void SetWorldSceneMeshShaderBit3(W8World* owner, int argument)
 void SetSceneMeshShaderBit3(srNode* node, int argument)
 {
     srShader shader;
-    for (; node != 0; node = node->next_sibling_) {
+    for (; node != 0; node = node->getNext()) {
         if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             for (stMeshModel* mesh :
                  stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
@@ -514,8 +508,8 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
                 }
             }
         }
-        if (node->first_child_ != 0) {
-            SetSceneMeshShaderBit3(node->first_child_, argument);
+        if (node->getChild() != 0) {
+            SetSceneMeshShaderBit3(node->getChild(), argument);
         }
     }
 }
@@ -526,7 +520,7 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
 void SetSceneMeshShaderLowBits(srNode* node, int argument)
 {
     srShader shader;
-    for (; node != 0; node = node->next_sibling_) {
+    for (; node != 0; node = node->getNext()) {
         if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             for (stMeshModel* mesh :
                  stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
@@ -554,8 +548,8 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
                 }
             }
         }
-        if (node->first_child_ != 0) {
-            SetSceneMeshShaderLowBits(node->first_child_, argument);
+        if (node->getChild() != 0) {
+            SetSceneMeshShaderLowBits(node->getChild(), argument);
         }
     }
 }
@@ -563,7 +557,7 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
 // FUNCTION: WIZ8 0x0046f4f0
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value)
 {
-    for (; node != 0; node = static_cast<srModelInstance*>(node->first_child_)) {
+    for (; node != 0; node = static_cast<srModelInstance*>(node->getChild())) {
         node->setExclusionMask(value);
     }
 }

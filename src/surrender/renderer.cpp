@@ -508,7 +508,7 @@ void srGERD::Renderer::drawSorted()
 
 /* Program the GERD vertex-array slots from the bound batch: diffuse,
    specular (+ its w alone when only the alpha attribute is present) and a
-   per-stage {st} or repacked {st,q} texcoord stream. */
+   per-stage texture coordinate and Q streams. */
 // FUNCTION: SURRENDER 0x10026360
 void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count)
 {

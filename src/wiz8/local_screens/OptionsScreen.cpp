@@ -1120,29 +1120,20 @@ void W8OptionsAudioPanel::OnPrimary(W8ButtonWidget* control)
 void W8OptionsGraphicsPanel::Populate()
 {
     m_content_top += 22;
-    W8OptionsSlider* slider = AddSlider(0x811, &g_options_values.gamma, false);
-    slider->m_minimumPosition = 0.1f;
-    slider->m_maximumPosition = 1.9f;
-    slider->UpdatePixelPosition();
-    slider->on_change = [](float value) { SetDisplayGamma(value); };
-    slider->SetEnabled(GetRendererModeByte());
-    m_content_top += 22;
-    AddCheckbox(0x816, &g_options_values.render_options[4]);
+    AddCheckbox(0x816, &g_options_values.render_options[3]);
     AddCheckbox(0x819, &g_options_values.smooth_monster_animations);
     AddCheckbox(0x81a, &g_options_values.smooth_world_animations);
-    AddCheckbox(0x81b, &g_options_values.render_options[6]);
+    AddCheckbox(0x81b, &g_options_values.render_options[5]);
     AddCheckbox(0x818, &g_options_values.monster_shadows);
-    AddCheckbox(0x817, &g_options_values.render_options[5]);
-    AddCheckbox(0x81d, &g_options_values.render_options[8]);
+    AddCheckbox(0x817, &g_options_values.render_options[4]);
+    AddCheckbox(0x81d, &g_options_values.render_options[6]);
 }
 
 void W8OptionsAdvancedGraphicsPanel::Populate()
 {
     m_content_top += 22;
-    AddCheckbox(0x815, &g_options_values.render_options[3]);
-    AddCheckbox(0x814, &g_options_values.render_options[2]);
+    AddCheckbox(0x815, &g_options_values.render_options[2]);
     AddCheckbox(0x812, &g_options_values.render_options[0]);
-    AddCheckbox(0x81c, &g_options_values.render_options[7]);
     AddCheckbox(0x813, &g_options_values.render_options[1]);
 }
 
@@ -1420,11 +1411,6 @@ void W8OptionsValues::TransferSettings()
     }
     TransferByte(&auto_advance_character, &g_settings.auto_advance_character);
     TransferByte(&autotarget_spells, &g_settings.autotarget_spells);
-    if (applying == 0) {
-        gamma = g_settings.gamma;
-    } else {
-        g_settings.gamma = gamma;
-    }
     TransferByte(&pc_confirmations, &g_settings.pc_confirmations);
     TransferByte(&pc_subtitles, &g_settings.pc_subtitles);
     if (applying == 0) {
@@ -1445,13 +1431,11 @@ void W8OptionsValues::TransferSettings()
     }
     TransferRenderOption(&render_options[0], W8_RENDER_OPTION_MIP_MAPPING);
     TransferRenderOption(&render_options[1], W8_RENDER_OPTION_MISSILE_LIGHTS);
-    TransferRenderOption(&render_options[2], W8_RENDER_OPTION_DITHER);
-    TransferRenderOption(&render_options[3], W8_RENDER_OPTION_MESH_SKY);
-    TransferRenderOption(&render_options[4], W8_RENDER_OPTION_VIDEO_SYNC);
-    TransferRenderOption(&render_options[5], W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS);
-    TransferRenderOption(&render_options[6], W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
-    TransferRenderOption(&render_options[7], W8_RENDER_OPTION_HIGH_TEXTURE_CACHE);
-    TransferRenderOption(&render_options[8], W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
+    TransferRenderOption(&render_options[2], W8_RENDER_OPTION_MESH_SKY);
+    TransferRenderOption(&render_options[3], W8_RENDER_OPTION_VIDEO_SYNC);
+    TransferRenderOption(&render_options[4], W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS);
+    TransferRenderOption(&render_options[5], W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
+    TransferRenderOption(&render_options[6], W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
     TransferByte(&monster_shadows, &g_settings.monster_shadows);
     TransferByte(&smooth_monster_animations, &g_settings.smooth_monster_animations);
     TransferByte(&smooth_world_animations, &g_settings.smooth_world_animations);

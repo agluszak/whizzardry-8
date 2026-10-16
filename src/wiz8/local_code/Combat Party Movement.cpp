@@ -10,6 +10,7 @@
 #include "local_code/Targeting.h"
 #include "random.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "timer.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/float_constants.h"
@@ -26,7 +27,6 @@
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

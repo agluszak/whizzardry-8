@@ -13,10 +13,8 @@
 
 #include "compat/compiler.h"
 #include "surface_pixels.h"
-#include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
@@ -184,10 +182,7 @@ static void CheckErrors()
 
 TEST_CASE("image_io_test")
 {
-    REQUIRE(srExit());
-    for (int cycle = 0; cycle < 3; ++cycle) {
-        REQUIRE((srInit() && srCore.isInitialized()));
-        REQUIRE(srInit());
+    {
         for (bool top : {false, true})
             for (bool rle : {false, true}) CheckImage("test.TGA", Targa(top, rle, false));
         auto alpha = Targa(true, false, true);
@@ -197,6 +192,16 @@ TEST_CASE("image_io_test")
         CheckImage("test.bmp", Bitmap());
         CheckImage("test.pcx", PCX(false));
         CheckImage("palette.pcx", PCX(true));
+        // Indexed TGA files without a palette use the retail color cube and gray ramp.
+        // The decoded surface must retain that palette after the decoder returns.
+        std::vector<unsigned char> indexed(18);
+        indexed[2] = 1;
+        indexed[12] = indexed[14] = 2;
+        indexed[16] = 8;
+        indexed[17] = 0x20;
+        indexed.insert(indexed.end(), {0, 209, 210, 255});
+        const w8_ulong indexed_colors[]{0xff000033, 0xffffffcc, 0xff000000, 0xffffffff};
+        CheckImage("default-palette.tga", indexed, indexed_colors);
         CheckJPEG();
         CheckLossless("dir.jpg/lossless.PNG");
         CheckLossless("lossless.BMP");
@@ -206,8 +211,6 @@ TEST_CASE("image_io_test")
             auto stream = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
             REQUIRE(!srImage::load(name, stream.get()));
         }
-        REQUIRE((srExit() && !srCore.isInitialized()));
-        REQUIRE(srExit());
     }
-    puts("ok: direct image loading, JPEG export and SurRender reinitialization");
+    puts("ok: direct image loading and JPEG export without renderer initialization");
 }

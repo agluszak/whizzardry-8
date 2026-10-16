@@ -50,9 +50,8 @@
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/xstatus.h"
-
-extern srScene* g_cursor_scene;
 
 static std::vector<unsigned int> ReadFrame()
 {
@@ -190,8 +189,8 @@ TEST_CASE("world graphics")
         VideoPositionToolTip(300, 200);
         RenderFrame();
         const auto tooltip = ReadFrame();
-        auto* tooltip_node =
-            static_cast<srModelInstance*>(g_cursor_scene->findChild("Video2DRectToPolygon"));
+        auto* node = g_overlay_scenes.cursor->findChild("Video2DRectToPolygon");
+        auto* tooltip_node = static_cast<srModelInstance*>(node);
         REQUIRE(tooltip_node);
         auto* mesh = static_cast<srMeshModel*>(tooltip_node->getModel());
         auto* texture = static_cast<srTexture*>(mesh->getTexture(0, 0));

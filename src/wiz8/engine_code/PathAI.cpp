@@ -18,6 +18,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -26,7 +27,6 @@
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 
@@ -416,13 +416,13 @@ void PathAIApply(W8PathAI* path, srNode* target)
     PathAIPosition(path, &position);
 
     location = glm::dvec3(position);
-    node = target->first_child_;
+    node = target->getChild();
     if (node == 0) {
         target->setLocation(location);
     } else {
         do {
             node->setLocation(location);
-            node = node->next_sibling_;
+            node = node->getNext();
         } while (node != 0);
     }
 
@@ -458,25 +458,25 @@ void PathAIApply(W8PathAI* path, srNode* target)
             }
         }
 
-        node = target->first_child_;
+        node = target->getChild();
         if (node == 0) {
             target->setRotation(rotation);
         } else {
             do {
                 node->setRotation(rotation);
-                node = node->next_sibling_;
+                node = node->getNext();
             } while (node != 0);
         }
 
         if (!path->scales.empty()) {
             location = glm::dvec3(path->scales[index]);
-            node = target->first_child_;
+            node = target->getChild();
             if (node == 0) {
                 target->setScale(location);
             } else {
                 do {
                     node->setScale(location);
-                    node = node->next_sibling_;
+                    node = node->getNext();
                 } while (node != 0);
             }
         }

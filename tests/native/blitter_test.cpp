@@ -20,7 +20,6 @@
 #include "image.h"
 #include "shading.h"
 #include "sprite.h"
-#include "surrender_test_fixture.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/surface_storage.h"
@@ -322,8 +321,7 @@ TEST_CASE("shadow rectangles preserve inclusive legacy endpoints", "[blit]")
     REQUIRE(pixel(*target, 3, 4) == 0x1234);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Overlay border copies preserve offset source coordinates",
-                 "[blit]")
+TEST_CASE("Overlay border copies preserve offset source coordinates", "[blit]")
 {
     auto source = surface(6, 5);
     for (int y = 0; y < source->h; ++y)

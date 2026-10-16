@@ -1,4 +1,3 @@
-#include <chrono>
 #include <cstdio>
 #include <thread>
 
@@ -7,20 +6,11 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srClock.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 
 TEST_CASE("renderer platform")
 {
-    srClock timer;
-    const double before = timer.seconds();
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-    REQUIRE(timer.seconds() > before);
-    REQUIRE(timer.milliseconds() >= 1);
-    REQUIRE(timer.ticks(10000) >= 10);
-
     for (int cycle = 0; cycle < 3; ++cycle) {
-        REQUIRE((srInit() && srCore.isInitialized()));
         {
             srGERD gerd;
             gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -39,22 +29,9 @@ TEST_CASE("renderer platform")
             gerd.loadIdentity();
             REQUIRE(gerd.lockBuffer() == nullptr);
             REQUIRE(gerd.getError() == srGERD::ERROR_WINDOW_NOT_OPEN);
-            auto* renderer = gerd.lockRenderer();
-            gerd.unlockRenderer(renderer, 1);
+            auto* renderer = &gerd.batchRenderer();
+            renderer->submit();
             auto statistics = renderer->getStatistics();
-            REQUIRE(statistics.device_calls == 1);
-
-            bool reused = false;
-            std::jthread worker([&] {
-                auto* acquired = gerd.lockRenderer();
-                reused = acquired == renderer;
-                gerd.unlockRenderer(acquired, 1);
-                gerd.flushImmediateRenderers();
-                gerd.flushRenderers();
-            });
-            worker.join();
-            REQUIRE(reused);
-            statistics = renderer->getStatistics();
             REQUIRE(statistics.device_calls == 1);
 
             gerd.flushImmediateRenderers();
@@ -87,9 +64,7 @@ TEST_CASE("renderer platform")
             REQUIRE(combined.input_triangles == 7);
         }
         REQUIRE(srGERD::getActive() == nullptr);
-        REQUIRE((srExit() && !srCore.isInitialized()));
-        REQUIRE(srExit());
     }
 
-    puts("ok: renderer clock, owner-thread submission and core reinitialization");
+    puts("ok: renderer submission and independent resource lifetimes");
 }

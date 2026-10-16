@@ -7,13 +7,13 @@
 #include <fmt/format.h>
 
 #include "input.h"
+#include "surrender/srDebug.h"
 #include "utf8/checked.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/mipe.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/unicode.h"
 
 #define MIPE_EDIT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\mipeEdit.cpp"

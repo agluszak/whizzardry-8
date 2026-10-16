@@ -36,12 +36,10 @@
 #include "glm/ext/vector_float4.hpp"
 #include "himage.h"
 #include "input.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
 #include "wiz8/application.h"
@@ -110,7 +108,7 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     const auto normals = pipe.getEyeSpaceNormal();
     coordinates = pipe.getST(0, 1);
     count = pipe.getVertexCount();
-    srCore.getStatisticsManager()->statistics.texture_coordinate_operations += count;
+
     for (index = 0; index < count; ++index) {
         coordinates[index] = glm::vec2((normals[index].x + g_float_one) * g_float_half,
                                        (normals[index].y + g_float_one) * g_float_half);

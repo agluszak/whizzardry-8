@@ -1,29 +1,28 @@
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
-#include <future>
 #include <memory>
 #include <span>
 #include <stdexcept>
-#include <thread>
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "catch2/catch_message.hpp"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
-#include "surrender/srCore.h"
+#include "surface_pixels.h"
 #include "surrender/srFog.h"
 #include "surrender/srGERD.h"
 #include "surrender/srLight.h"
@@ -31,67 +30,48 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
-#include "surrender/srStatisticsManager.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
-#include "surrender_test_fixture.h"
+#include "wiz8/surface_storage.h"
 
 namespace {
 class TestNode : public srNode {
 public:
-    explicit TestNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent)
-        : srNode(parent, ownership)
-    {
-    }
+    explicit TestNode(srNode* parent = nullptr) : srNode(parent) {}
     ~TestNode() override { ++destroyed; }
     TestNode& operator=(const TestNode&) = default;
     static inline int destroyed = 0;
 };
 
-bool recursiveSceneGraph()
+bool sceneRelationships()
 {
     TestNode first;
     TestNode second;
     first.setLocation(10, 0, 0);
     second.setLocation(-10, 0, 0);
-    auto* child = new TestNode(&first);
+    auto child = std::make_unique<TestNode>(&first);
     child->setLocation(3, 0, 0);
     const auto world = child->getWorldSpaceLocation();
-
-    srNode::lockSceneGraph();
-    srNode::lockSceneGraph();
-    REQUIRE(srNode::isSceneGraphLocked());
     REQUIRE(child->setParent(&second, 1));
     REQUIRE(child->getParent() == &second);
     REQUIRE(std::abs(child->getWorldSpaceLocation().x - world.x) < 1e-6);
-    REQUIRE(!second.setParent(child, 0));
-    REQUIRE(!child->setParent(child, 0));
-    *child = first; // assignment must also recurse through the explicit lock
-    srNode::unlockSceneGraph();
-    REQUIRE(srNode::isSceneGraphLocked());
+    REQUIRE(!second.setParent(child.get(), 0));
+    REQUIRE(!child->setParent(child.get(), 0));
+    REQUIRE(child->getParent() == &second);
+    REQUIRE(child->setParent(nullptr, 1));
+    REQUIRE(child->getParent() == nullptr);
+    REQUIRE(std::abs(child->getWorldSpaceLocation().x - world.x) < 1e-6);
+    *child = first;
+    REQUIRE(child->getParent() == nullptr);
+    REQUIRE(child->setParent(&first, 0));
 
-    std::promise<void> started;
-    std::promise<void> finished;
-    auto done = finished.get_future();
-    std::jthread worker([&] {
-        started.set_value();
-        child->setParent(&first, 0);
-        finished.set_value();
-    });
-    started.get_future().wait();
-    const bool blocked =
-        done.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
-    srNode::unlockSceneGraph();
-    worker.join();
-    REQUIRE((blocked && !srNode::isSceneGraphLocked()));
-    REQUIRE(child->getParent() == &first);
-
-    // Parent destruction recurses into child destruction under the same mutex.
     const int before = TestNode::destroyed;
     {
         TestNode parent;
-        new TestNode(new TestNode(&parent));
+        auto* branch = parent.adoptChild(std::make_unique<TestNode>());
+        branch->adoptChild(std::make_unique<TestNode>());
     }
     REQUIRE(TestNode::destroyed == before + 3);
     return true;
@@ -365,12 +345,8 @@ public:
             const auto colors = pipe.getSpecular();
             for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.5f);
         }
-        auto& statistics = srCore.getStatisticsManager()->statistics;
-        const auto before_diffuse = statistics.diffuse_operations;
-        const auto before_specular = statistics.specular_operations;
+
         light.process(pipe);
-        REQUIRE(statistics.diffuse_operations - before_diffuse == (channels & 1 ? count : 0));
-        REQUIRE(statistics.specular_operations - before_specular == (channels & 2 ? count : 0));
         const float attenuation = directional || attenuation_kind == 0 ? 1.f
                                   : attenuation_kind == 4              ? .25f
                                                                        : .5f;
@@ -645,21 +621,7 @@ bool materialChannelOperations()
 
 bool rendererOwnership()
 {
-    {
-        srGERD growing;
-        std::array<srGERD::Renderer*, 32> borrowed{};
-        for (std::size_t index = 0; index < borrowed.size(); ++index) {
-            borrowed[index] = growing.lockRenderer();
-            for (std::size_t previous = 0; previous < index; ++previous) {
-                REQUIRE(borrowed[index] != borrowed[previous]);
-            }
-        }
-        for (auto* renderer : borrowed) growing.unlockRenderer(renderer, 0);
-        REQUIRE(growing.lockRenderer() == borrowed.back());
-        growing.unlockRenderer(borrowed.back(), 0);
-    }
-    // No context or window is opened: these checks only exercise CPU ownership
-    // and the renderer's owner-thread submission bookkeeping.
+    // These checks exercise CPU ownership without a window or GPU context.
     srGERD gerd;
     struct TransformInstance : srModelInstance {
         using srModelInstance::scopedRenderTransform;
@@ -695,61 +657,19 @@ bool rendererOwnership()
             REQUIRE(gerd.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
         }
     }
-    auto* renderer = gerd.lockRenderer(); // nested flush/create locks
-    gerd.unlockRenderer(renderer, 1);
-    auto statistics = renderer->getStatistics();
-    REQUIRE(statistics.device_calls == 1);
-
-    for (int mode = 0; mode < 4; ++mode) {
-        std::promise<srGERD::Renderer*> acquired;
-        std::promise<void> release;
-        auto permission = release.get_future();
-        std::jthread worker([&] {
-            auto* borrowed = gerd.lockRenderer();
-            acquired.set_value(borrowed);
-            permission.wait();
-            // Give the owner time to enter the waiting path while still busy.
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            gerd.unlockRenderer(borrowed, 1);
-            gerd.flushImmediateRenderers(); // workers must not submit to the DD
-            gerd.flushRenderers();
-        });
-        auto* borrowed = acquired.get_future().get();
-        release.set_value();
-        if (mode == 0) {
-            gerd.flushImmediateRenderers();
-        } else if (mode == 2) {
-            gerd.resetStatistics();
-        } else {
-            gerd.flushRenderers();
-        }
-        worker.join();
-        REQUIRE(borrowed == renderer);
-        statistics = renderer->getStatistics();
-        REQUIRE(statistics.device_calls == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
-        if (mode == 2) {
-            // Reuse the CPU renderer as a sorted renderer without opening a
-            // window, to exercise flushSort's worker-release wait as well.
-            renderer->sorted = 1;
-            gerd.toggle(srGERD::ENABLE_SORTED_RENDERING);
-        }
-    }
-
-    // Sorted acquisition must wait without monopolizing the mutex or handing out a busy batch.
-    REQUIRE(gerd.lockRenderer() == renderer);
-    std::promise<srGERD::Renderer*> acquired;
-    auto ready = acquired.get_future();
-    std::jthread contender([&] {
-        auto* borrowed = gerd.lockRenderer();
-        acquired.set_value(borrowed);
-        gerd.unlockRenderer(borrowed, 0);
-    });
-    const bool waited =
-        ready.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
-    gerd.unlockRenderer(renderer, 0);
-    auto* resumed = ready.get();
-    contender.join();
-    REQUIRE((waited && resumed == renderer));
+    auto* immediate = &gerd.batchRenderer();
+    immediate->submit();
+    REQUIRE(immediate->getStatistics().device_calls == 1);
+    gerd.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    auto* renderer = &gerd.batchRenderer();
+    REQUIRE(renderer != immediate);
+    renderer->submit();
+    REQUIRE(renderer->getStatistics().device_calls == 1);
+    gerd.resetStatistics();
+    REQUIRE(immediate->getStatistics().device_calls == 0);
+    REQUIRE(renderer->getStatistics().device_calls == 0);
+    gerd.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    REQUIRE(&gerd.batchRenderer() == immediate);
 
     renderer->indices.alloc(2);
     renderer->vertices.alloc(3);
@@ -868,7 +788,7 @@ bool pipelineRecordTexcoords()
     // Consume the producer's actual records, including a second record and
     // both UV channels. A layout/stride mismatch used to crash menu rendering.
     srGERD renderer;
-    auto* pipeline = srTriMeshPipeline::Get(&renderer);
+    auto* pipeline = &renderer.meshPipeline();
     std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
     std::array<w8_ulong, 3> indices{2, 0, 1};
     glm::mat4 identity;
@@ -905,7 +825,7 @@ bool pipelineRecordTexcoords()
     input.positions = positions;
     input.vertex_arrays = arrays;
     input.records = std::span{pipeline->records}.first(pipeline->slot_count);
-    pipeline->vertex_pipe->process(input);
+    pipeline->vertex_pipe.process(input);
     for (unsigned channel = 0; channel < output.size(); ++channel)
         for (unsigned vertex = 0; vertex < positions.size(); ++vertex) {
             REQUIRE(output[channel][vertex].x == source[channel][indices[vertex]].x);
@@ -992,11 +912,9 @@ bool countedGeometryTransforms()
 
 TEST_CASE("Scene membership preserves independent node ownership")
 {
-    REQUIRE(srInit());
     const int before = TestNode::destroyed;
-    const auto root_children = srCore.getRootNode()->getChildCount();
-    auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
-    REQUIRE(srCore.getRootNode()->getChildCount() == root_children);
+    auto owned = std::make_unique<TestNode>(nullptr);
+    REQUIRE(owned->getParent() == nullptr);
     {
         TestNode scene;
         REQUIRE(owned->setParent(&scene, 0));
@@ -1006,30 +924,33 @@ TEST_CASE("Scene membership preserves independent node ownership")
     REQUIRE(owned->getParent() == nullptr);
     owned.reset();
     REQUIRE(TestNode::destroyed == before + 2);
-    REQUIRE(srExit());
 }
 
 TEST_CASE("Scene adoption transfers node destruction ownership")
 {
-    REQUIRE(srInit());
     const int before = TestNode::destroyed;
     {
         TestNode scene;
-        auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
+        auto owned = std::make_unique<TestNode>(nullptr);
         auto* observed = scene.adoptChild(std::move(owned));
         REQUIRE_FALSE(owned);
         REQUIRE(observed->getParent() == &scene);
         REQUIRE(scene.getChildCount() == 1);
+        {
+            TestNode render_parent;
+            REQUIRE(observed->setParent(&render_parent, 0));
+            REQUIRE(scene.getChildCount() == 0);
+        }
+        REQUIRE(observed->getParent() == nullptr);
+        REQUIRE(TestNode::destroyed == before + 1);
     }
-    REQUIRE(TestNode::destroyed == before + 2);
-    REQUIRE(srExit());
+    REQUIRE(TestNode::destroyed == before + 3);
 }
 
 TEST_CASE("renderer_ownership_test")
 {
     for (int cycle = 0; cycle < 2; ++cycle) {
-        REQUIRE(srInit());
-        REQUIRE(recursiveSceneGraph());
+        REQUIRE(sceneRelationships());
         REQUIRE(processorOwnership());
         REQUIRE(countedGeometryTransforms());
         REQUIRE(rendererOwnership());
@@ -1040,14 +961,12 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(pipelineRecordTexcoords());
         REQUIRE(rendererTextureStages());
         REQUIRE(rendererCornerRemapping());
-        REQUIRE(srExit());
         REQUIRE(srGERD::getActive() == nullptr);
     }
 }
 
 TEST_CASE("Picking honors counted selections, direct indices, nearest depth and atomic validation")
 {
-    SurRenderTestFixture runtime;
     srGERD renderer;
     srModelInstance selected;
     renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));

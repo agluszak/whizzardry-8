@@ -20,7 +20,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srModel.h"
 #include "surrender/srShader.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexProcessor.h"
 
@@ -30,7 +29,6 @@
 
 #include "surrender/mesh_math.h"
 #include "surrender/mesh_submission.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
@@ -719,9 +717,7 @@ void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
     setDirtyAll();
 }
 // GLOBAL: SURRENDER 0x100A4790
-srTriMeshPipeline* srTriMeshPipeline::pipe = 0;
-
-srTriMeshPipeline::srTriMeshPipeline() : vertex_pipe(std::make_unique<srVertexPipe>())
+srTriMeshPipeline::srTriMeshPipeline()
 {
     Reset(nullptr);
 }
@@ -759,7 +755,7 @@ void srTriMeshPipeline::Reset(srGERD* renderer)
     shader.value = 0x0100241b;
     texture0 = 0;
     texture1 = 0;
-    material = srCore.getMaterial();
+    material = nullptr;
 
     PrepareSlot();
 }
@@ -847,16 +843,6 @@ void srTriMeshPipeline::FlushSlots()
         culler_input.clip_mask = retain_clip_mask ? clip.mask : 0;
     }
 
-    if (!active_triangles) {
-        srCore.getStatisticsManager()->statistics.triangles_submitted +=
-            slot_count * triangle_count;
-    } else {
-        srCore.getStatisticsManager()->statistics.triangles_submitted +=
-            slot_count * active_triangles->size();
-    }
-    ++srCore.getStatisticsManager()->statistics.meshes_submitted;
-    srCore.getStatisticsManager()->statistics.vertices_submitted += slot_count * vertex_count;
-
     const auto total =
         active_triangles ? static_cast<w8_ulong>(active_triangles->size()) : triangle_count;
     w8_ulong batch_limit = total;
@@ -898,14 +884,10 @@ void srTriMeshPipeline::FlushSlots()
 
         auto culler_output = srTriangleCuller::cull(culler_input);
         if (!culler_output.indices.empty()) {
-            srCore.getStatisticsManager()->statistics.triangles_after_culling +=
-                slot_count * culler_output.triangleCount();
-            srCore.getStatisticsManager()->statistics.vertices_after_culling +=
-                slot_count * culler_output.vertexCount();
 
-            srGERD::Renderer* renderer = this->renderer->lockRenderer();
+            auto* renderer = &this->renderer->batchRenderer();
 
-            try {
+            {
                 this->vertex_arrays.resize(slot_count);
                 srVertexArray* vertex_arrays = this->vertex_arrays.data();
                 vertex_arrays[0] =
@@ -970,7 +952,7 @@ void srTriMeshPipeline::FlushSlots()
                     records[pass_index].channels = disable_mask | renderer_disable_mask;
                 }
 
-                vertex_pipe->process(pipe_input);
+                vertex_pipe.process(pipe_input);
 
                 srGERD::Renderer::TriInput render_input;
                 render_input.record_count = slot_count;
@@ -983,38 +965,23 @@ void srTriMeshPipeline::FlushSlots()
                 render_input.project_clip_near = &project_clip_near;
                 render_input.sort_bias = sort_bias;
                 renderer->render(render_input);
-            } catch (...) {
-                this->renderer->unlockRenderer(renderer, 0);
-                throw;
             }
-            this->renderer->unlockRenderer(renderer, 0);
+            if (renderer->isBatchFull()) renderer->submit();
         }
 
         processed += batch_limit;
     }
 }
 
-// FUNCTION: SURRENDER 0x10043E00
-srTriMeshPipeline* srTriMeshPipeline::Get(srGERD* renderer)
+srTriMeshPipeline& srGERD::meshPipeline()
 {
-    srTriMeshPipeline* pipeline;
-
-    if (renderer == 0) {
-        return 0;
-    }
-
-    if (pipe == 0) {
-        pipe = new srTriMeshPipeline();
-    }
-
-    pipeline = pipe;
-    pipeline->Reset(renderer);
-    return pipe;
+    mesh_pipeline.Reset(this);
+    return mesh_pipeline;
 }
 
 srTriMeshPipeline& srTriMeshPipeline::beginMesh(srGERD& renderer, const srMeshModel::TriMesh& mesh)
 {
-    auto& pipeline = *Get(&renderer);
+    auto& pipeline = renderer.meshPipeline();
     pipeline.records.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
     pipeline.passes.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
     pipeline.PrepareSlot();

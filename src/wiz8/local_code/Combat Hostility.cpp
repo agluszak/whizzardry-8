@@ -13,6 +13,7 @@
 #include "local_code/HealthStaminaMana.h"
 #include "monster_actions.h"
 #include "random.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/layouts/character.h"
@@ -39,7 +40,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/spell_ids.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

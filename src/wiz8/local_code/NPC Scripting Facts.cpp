@@ -12,6 +12,7 @@
 #include "message_box.h"
 #include "random.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GameData.h"
@@ -51,7 +52,6 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
 #include "xstatus.h"
 

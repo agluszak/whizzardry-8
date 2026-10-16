@@ -4,7 +4,9 @@
 
 #include "srClass.h"
 #include "srMath.h"
-#include "srVertexPipe.h"
+#include "srVertexProcessor.h"
+
+class srVertexPipe;
 
 // VTABLE: SURRENDER 0x10075538 srMaterial
 class srMaterial : public srClass {

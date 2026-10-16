@@ -27,8 +27,7 @@ class stModelInstance : public srModelInstance {
 public:
     enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
 
-    explicit stModelInstance(srNode* parent,
-                             Ownership ownership = Ownership::parent); /* 0x0047EC80 */
+    explicit stModelInstance(srNode* parent); /* 0x0047EC80 */
     stModelInstance& operator=(const stModelInstance& other); /* 0x0047EDF0 */
 
     /* Queues opaque models ahead of their siblings and sorted-rendering

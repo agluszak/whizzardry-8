@@ -12,11 +12,11 @@
 #include "asset_paths.h"
 #include "input.h"
 #include "mgs_commands.h"
+#include "surrender/srDebug.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/key_bindings.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/sr_api.h"
 
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800
    asserts this unit (line 478); it is the only body placed here. */

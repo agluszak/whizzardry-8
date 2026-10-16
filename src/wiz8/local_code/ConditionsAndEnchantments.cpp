@@ -13,6 +13,7 @@
 #include "monster_spell_icons.h"
 #include "random.h"
 #include "spell_ids.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
@@ -46,7 +47,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

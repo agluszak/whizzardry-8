@@ -5,7 +5,6 @@
 #include <SDL3/SDL_surface.h>
 
 #include "surrender/srClass.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srTexture.h"
 

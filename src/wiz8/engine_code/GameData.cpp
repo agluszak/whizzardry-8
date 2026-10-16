@@ -31,6 +31,7 @@
 #include "random.h"
 #include "soundman.h"
 #include "surrender/segment_math.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
@@ -69,7 +70,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/packed_bits.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
 

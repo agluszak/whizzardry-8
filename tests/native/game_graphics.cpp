@@ -43,6 +43,7 @@
 #include "wiz8/bink_video.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/surface_storage.h"
 
@@ -51,7 +52,6 @@ class srScene;
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
-extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
 struct FixtureRoot {
@@ -90,8 +90,7 @@ TEST_CASE("game graphics")
     REQUIRE(InitializeRendererSceneObjects());
     auto targa = srImage::load("data\\automap\\map_monsterfriendly_a.tga");
     REQUIRE((targa && targa->w > 0 && targa->h > 0));
-    REQUIRE(!srTriMeshPipeline::Get(nullptr));
-    auto pipeline = srTriMeshPipeline::Get(g_gerd.get());
+    auto pipeline = &g_gerd->meshPipeline();
     REQUIRE(pipeline);
     pipeline->Flush();
     const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
@@ -124,7 +123,7 @@ TEST_CASE("game graphics")
         g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
         g_surface_node->DrawTiles(g_gerd.get());
-        RenderScene(g_cursor_scene, g_overlay_camera, nullptr, false);
+        RenderScene(g_overlay_scenes.cursor.get(), g_overlay_scenes.camera.get(), nullptr, false);
         g_gerd->endFrame();
     }
     auto buffer = g_gerd->lockBuffer();
@@ -253,15 +252,12 @@ TEST_CASE("game graphics")
         const auto draw = [&] {
             g_gerd->setTexture(&*texture, 0);
             g_gerd->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
-            REQUIRE(g_gerd->isTextureCached(&*texture));
         };
         draw();
         texture.reset();
         texture.emplace(std::shared_ptr<SDL_Surface>(std::move(green)));
-        REQUIRE_FALSE(g_gerd->isTextureCached(&*texture));
         draw();
         g_gerd->invalidateTextureCache();
-        REQUIRE_FALSE(g_gerd->isTextureCached(&*texture));
         draw();
         buffer = g_gerd->lockBuffer();
         REQUIRE(buffer);

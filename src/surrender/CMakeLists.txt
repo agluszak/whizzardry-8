@@ -1,8 +1,6 @@
 set(SURRENDER_SOURCES
-    bounder.cpp
     camera.cpp
     clipplane.cpp
-    core.cpp
     debug.cpp
     fog.cpp
     vertex_pipe.cpp
@@ -23,7 +21,6 @@ set(SURRENDER_SOURCES
     scene.cpp
     renderer.cpp
     texture.cpp
-    statistics.cpp
 )
 
 find_package(JPEG CONFIG REQUIRED)

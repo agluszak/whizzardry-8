@@ -21,6 +21,7 @@
 #include "local_code/Factions.h"
 #include "random.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "utf8/checked.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -58,7 +59,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

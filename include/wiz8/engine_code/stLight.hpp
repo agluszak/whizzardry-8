@@ -4,9 +4,9 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srDebug.h"
 #include "surrender/srLight.h"
 #include "surrender/srNode.h"
-#include "wiz8/sr_api.h"
 
 class W8Prop;
 struct W8PathAI;
@@ -131,12 +131,7 @@ class stLight : public srLight {
 public:
     virtual ~stLight() override; /* 0x0049C430 */
 
-    stLight() {}
-    explicit stLight(Ownership ownership)
-        : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT, ownership)
-    {
-    }
-    explicit stLight(srNode* parent, Ownership ownership = Ownership::parent); /* 0x0049C2C0 */
+    explicit stLight(srNode* parent = nullptr); /* 0x0049C2C0 */
     stLight& operator=(const stLight& other); /* 0x0049C690 */
 
 public:
@@ -191,4 +186,3 @@ void LoadLightStates(wiz8::File& handle);
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world, which owns it, before adding it to the
    returned list. */
-std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source);

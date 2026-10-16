@@ -11,14 +11,12 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "surrender/mesh_submission.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
@@ -71,7 +69,7 @@ static W8GroundShadowMapper g_ground_shadow_material_parameters;
 // FUNCTION: WIZ8 0x004D6090
 void W8GroundShadowMapper::process(srVertexPipe& pipe)
 {
-    srCore.getStatisticsManager()->statistics.texture_coordinate_operations += pipe.vertex_count;
+
     pipe.lazy_setup_mask |= 1 << CHANNEL_ST0;
 
     if (pipe.vertex_count == 0) return;

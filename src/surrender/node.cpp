@@ -1,7 +1,5 @@
-#include <atomic>
 #include <cmath>
 #include <cstdint>
-#include <mutex>
 
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -13,16 +11,9 @@
 #include "glm/matrix.hpp"
 #include "surrender/model_view_scope.h"
 #include "surrender/srClass.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-
-// GLOBAL: SURRENDER 0x100A49E0
-std::recursive_mutex srNode::sceneGraphCSect;
-
-// GLOBAL: SURRENDER 0x100A49FC
-std::atomic<w8_long> srNode::sceneGraphLockCount{0};
 
 // The node repair step orthonormalizes rows, preserving its zero-row behavior.
 static void orthonormalizeRotation(glm::dmat3& rotation)
@@ -34,34 +25,6 @@ static void orthonormalizeRotation(glm::dmat3& rotation)
         rows[row] = glm::normalize(rows[row]);
     }
     rotation = glm::transpose(rows);
-}
-
-// FUNCTION: SURRENDER 0x10050340
-void srNode::lockSceneGraph()
-{
-    sceneGraphCSect.lock();
-    ++sceneGraphLockCount;
-}
-
-// FUNCTION: SURRENDER 0x10050360
-void srNode::unlockSceneGraph()
-{
-    --sceneGraphLockCount;
-    sceneGraphCSect.unlock();
-}
-
-// FUNCTION: SURRENDER 0x10050380
-int srNode::isSceneGraphLocked()
-{
-    return sceneGraphLockCount.load() != 0;
-}
-
-// FUNCTION: SURRENDER 0x10050390
-void srNode::notifyDependent()
-{
-    constexpr std::uint32_t notifications = 0xffffffffu;
-    notifyParents(notifications);
-    notifyChildren(notifications);
 }
 
 // FUNCTION: SURRENDER 0x100503C0
@@ -76,30 +39,6 @@ void srNode::notifyChildren(std::uint32_t notifications)
             child->notifyChildren(pending);
         }
     }
-}
-
-// FUNCTION: SURRENDER 0x10050410
-void srNode::notifyParents(std::uint32_t notifications)
-{
-    w8_ulong pending = ~this->notifications & notifications;
-    if (pending != 0) {
-        this->notifications |= pending;
-        if (parent_ != 0) {
-            parent_->notifyParents(pending);
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x10050450
-void srNode::setNotify(e_notify notification)
-{
-    notifications |= 1 << notification;
-}
-
-// FUNCTION: SURRENDER 0x10050470
-void srNode::clearNotify(e_notify notification)
-{
-    notifications &= ~(1 << notification);
 }
 
 // FUNCTION: SURRENDER 0x10050490
@@ -127,12 +66,6 @@ void srNode::traverseEffect(TraverseInfo& info)
 // FUNCTION: SURRENDER 0x100504F0
 void srNode::process(const ProcessInfo& info, e_processType type) {}
 
-// FUNCTION: SURRENDER 0x10050500
-void srNode::updateBounds()
-{
-    clearNotify(NOTIFY_BOUNDS_DIRTY);
-}
-
 // FUNCTION: SURRENDER 0x10050510
 srNode::BoundInfo srNode::getLocalBounds()
 {
@@ -143,53 +76,19 @@ srNode::BoundInfo srNode::getLocalBounds()
 srNode& srNode::operator=(const srNode& other)
 {
     if (this != &other) {
-        std::lock_guard access(sceneGraphCSect);
         srClass::operator=(other);
         flags = other.flags;
         location = other.location;
         scale = other.scale;
         rotation = other.rotation;
-        notifyDependent();
+        setWSDirty();
     }
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x10050690
-int srNode::processSignal(w8_ulong signal, void* value)
-{
-    return 1;
-}
-
-// FUNCTION: SURRENDER 0x100506A0
-void srNode::signalInternal(w8_ulong signal, void* value)
-{
-    /* Depth-first walk: at each level the sibling chain is recursed first,
-       then the first-child chain is iterated while processSignal keeps
-       returning nonzero. */
-    srNode* node = this;
-    do {
-        if (node->next_sibling_ != 0) {
-            node->next_sibling_->signalInternal(signal, value);
-        }
-        if (node->processSignal(signal, value) == 0) {
-            return;
-        }
-        node = node->first_child_;
-    } while (node != 0);
-}
-
-// FUNCTION: SURRENDER 0x100506E0
-void srNode::signal(w8_ulong signal, void* value)
-{
-    if (processSignal(signal, value) != 0 && first_child_ != 0) {
-        first_child_->signalInternal(signal, value);
-    }
-}
-
 // FUNCTION: SURRENDER 0x10050C10
-srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == Ownership::parent)
+srNode::srNode(srNode* parent)
 {
-    std::lock_guard access(sceneGraphCSect);
     world_transform0 = glm::dmat4x3(1);
     world_transform1 = glm::mat4x3(1);
     next_sibling_ = 0;
@@ -200,32 +99,25 @@ srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == 
     rotation = glm::dmat3(1);
     scale = glm::dvec3(1);
     notifications = 0;
-    if (parent || parent_owns_) setParent(parent, 0);
+    if (parent) setParent(parent, 0);
 }
 
-/* Destroy owned children; independently owned render members are detached. */
-// FUNCTION: SURRENDER 0x10050E20
+// Links borrow; detach surviving children before destroying this node's owners.
 srNode::~srNode()
 {
-    std::lock_guard access(sceneGraphCSect);
     unlink();
-    while (first_child_ != nullptr) {
-        if (first_child_->parent_owns_) {
-            delete first_child_;
-        } else {
-            first_child_->detach();
-        }
-    }
+    while (first_child_) first_child_->setParent(nullptr, 0);
 }
 
-/* Reparenting under the scene-graph lock; preserve_world_transform decomposes
-   the current world transform into the local slots before unlinking, then
-   rebuilds them against the new parent's inverse basis (orthonormalized by
-   Gram-Schmidt) so the node's world placement survives the move. */
+void srNode::eraseOwnedChild(const srNode* child)
+{
+    std::erase_if(owned_children_, [child](const auto& owned) { return owned.get() == child; });
+}
+
+// Reparenting preserves world placement when requested, independent of ownership.
 // FUNCTION: SURRENDER 0x10050F00
 int srNode::setParent(srNode* parent, int preserve_world_transform)
 {
-    std::lock_guard access(sceneGraphCSect);
     if (parent == this) {
         return 0;
     }
@@ -238,7 +130,7 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         scale = getWorldSpaceScale();
     }
     unlink();
-    if (parent != 0 || ((parent = srCore.getRootNode()) != this && parent != 0)) {
+    if (parent != nullptr) {
         parent_ = parent;
         next_sibling_ = parent->first_child_;
         if (next_sibling_ != 0) {
@@ -256,20 +148,11 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
             scale *= inverse_scale;
         }
     }
-    notifyDependent();
     setWSDirty();
     if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
         updateTransformation();
     }
     return 1;
-}
-
-void srNode::detach()
-{
-    std::lock_guard access(sceneGraphCSect);
-    unlink();
-    parent_owns_ = false;
-    setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10050B70
@@ -297,7 +180,7 @@ void srNode::unlink()
     previous_sibling_ = 0;
     next_sibling_ = 0;
     parent_ = 0;
-    notifyDependent();
+    setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10051370
@@ -333,12 +216,6 @@ srNode* srNode::getChild() const
 srNode* srNode::getNext() const
 {
     return next_sibling_;
-}
-
-// FUNCTION: SURRENDER 0x10051A50
-srNode* srNode::getPrev() const
-{
-    return previous_sibling_;
 }
 
 // FUNCTION: SURRENDER 0x10051A60
@@ -382,18 +259,7 @@ int srNode::testFlag(e_flag flag) const
 // FUNCTION: SURRENDER 0x10051D40
 void srNode::setWSDirty()
 {
-    /* The dirty fan-out to parents and children can rewrite the notification word, so the
-       positional bit is saved first and restored after. */
-    const auto bounds_dirty = notifications & (1u << NOTIFY_BOUNDS_DIRTY);
-    notifyParents(1u << NOTIFY_BOUNDS_DIRTY);
     notifyChildren(1u << NOTIFY_TRANSFORM_DIRTY);
-    notifications = (notifications & ~(1u << NOTIFY_BOUNDS_DIRTY)) | bounds_dirty;
-}
-
-// FUNCTION: SURRENDER 0x10051DB0
-double srNode::getDistance(const srNode& node) const
-{
-    return glm::distance(getWorldSpaceLocation(), node.getWorldSpaceLocation());
 }
 
 // FUNCTION: SURRENDER 0x100536B0
@@ -505,32 +371,6 @@ void srNode::setLocation(double x, double y, double z)
     setLocation(glm::dvec3(x, y, z));
 }
 
-void srNode::setLocationComponent(unsigned component, double value)
-{
-    if (location[component] != value) {
-        location[component] = value;
-        setWSDirty();
-    }
-}
-
-// FUNCTION: SURRENDER 0x10054840
-void srNode::setLocationX(double x)
-{
-    setLocationComponent(0, x);
-}
-
-// FUNCTION: SURRENDER 0x10054870
-void srNode::setLocationY(double y)
-{
-    setLocationComponent(1, y);
-}
-
-// FUNCTION: SURRENDER 0x100548A0
-void srNode::setLocationZ(double z)
-{
-    setLocationComponent(2, z);
-}
-
 // FUNCTION: SURRENDER 0x100548D0
 void srNode::setScale(const glm::dvec3& scale)
 {
@@ -611,50 +451,6 @@ void srNode::move(const glm::dvec3& offset)
     }
 }
 
-void srNode::moveAlongAxis(unsigned axis, double distance)
-{
-    if (distance != 0) {
-        location += rotation[axis] * distance;
-        setWSDirty();
-    }
-}
-
-// FUNCTION: SURRENDER 0x10053AD0
-void srNode::moveForward(double distance)
-{
-    moveAlongAxis(2, distance);
-}
-
-// FUNCTION: SURRENDER 0x10053B40
-void srNode::moveBackward(double distance)
-{
-    moveAlongAxis(2, -distance);
-}
-
-// FUNCTION: SURRENDER 0x10053BB0
-void srNode::moveLeft(double distance)
-{
-    moveAlongAxis(0, -distance);
-}
-
-// FUNCTION: SURRENDER 0x10053C20
-void srNode::moveRight(double distance)
-{
-    moveAlongAxis(0, distance);
-}
-
-// FUNCTION: SURRENDER 0x10053C90
-void srNode::moveUp(double distance)
-{
-    moveAlongAxis(1, distance);
-}
-
-// FUNCTION: SURRENDER 0x10053D00
-void srNode::moveDown(double distance)
-{
-    moveAlongAxis(1, -distance);
-}
-
 // FUNCTION: SURRENDER 0x10053F70
 void srNode::rotate(const glm::dmat3& rotation)
 {
@@ -723,45 +519,6 @@ void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
     setWSDirty();
 }
 
-void srNode::turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount)
-{
-    auto basis = getWorldSpaceRotation();
-    const unsigned numerator = axis == 0 ? 1 : 0;
-    const unsigned denominator = axis == 2 ? 1 : 2;
-    const double turn =
-        std::atan2(glm::dot(basis[numerator], direction), glm::dot(basis[denominator], direction));
-    const double angle = (axis == 1 ? turn : -turn) * amount;
-    glm::dvec3 rotation_axis(0);
-    rotation_axis[axis] = 1;
-    basis *= glm::mat3_cast(glm::angleAxis(angle, rotation_axis));
-    orthonormalizeRotation(basis);
-    setWorldSpaceRotation(basis);
-}
-
-// FUNCTION: SURRENDER 0x10052D80
-void srNode::pitchAt(const glm::dvec3& target, double amount)
-{
-    turnWorldSpaceAxisToward(0, normalizedOrZero(target - getWorldSpaceLocation()), amount);
-}
-
-// FUNCTION: SURRENDER 0x100533D0
-void srNode::pitchAt(const srNode* target, double amount)
-{
-    pitchAt(target->getWorldSpaceLocation(), amount);
-}
-
-// FUNCTION: SURRENDER 0x10052FC0
-void srNode::yawAt(const glm::dvec3& target, double amount)
-{
-    turnWorldSpaceAxisToward(1, normalizedOrZero(target - getWorldSpaceLocation()), amount);
-}
-
-// FUNCTION: SURRENDER 0x10053420
-void srNode::yawAt(const srNode* target, double amount)
-{
-    yawAt(target->getWorldSpaceLocation(), amount);
-}
-
 // FUNCTION: SURRENDER 0x10053210
 void srNode::rollUp(double amount)
 {
@@ -771,17 +528,4 @@ void srNode::rollUp(double amount)
     rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(0, 0, 1)));
     orthonormalizeRotation(rotation);
     setWorldSpaceRotation(rotation);
-}
-
-// FUNCTION: SURRENDER 0x10053470
-void srNode::rollAt(const glm::dvec3& target, double amount)
-{
-    turnWorldSpaceAxisToward(2, target, amount);
-}
-
-// FUNCTION: SURRENDER 0x10053660
-void srNode::rollAt(const srNode* target, double amount)
-{
-    auto rotation = target->getWorldSpaceRotation<glm::dmat3>();
-    rollAt(rotation[0], amount);
 }

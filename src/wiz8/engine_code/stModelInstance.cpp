@@ -323,8 +323,7 @@ void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& s
 }
 
 // FUNCTION: WIZ8 0x0047EC80
-stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
-    : srModelInstance(static_cast<srNode*>(nullptr), ownership)
+stModelInstance::stModelInstance(srNode* parent) : srModelInstance(static_cast<srNode*>(nullptr))
 {
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;
@@ -612,7 +611,7 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     double scale = height;
     renderer.scale(scale, scale, scale);
 
-    srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
+    srTriMeshPipeline* pipeline = &renderer.meshPipeline();
     pipeline->triangle_count = std::size(g_shadow_triangles);
     pipeline->triangles = g_shadow_triangles;
     pipeline->vertex_count = std::size(g_shadow_positions);
@@ -632,5 +631,5 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     pipeline->SetFlags(shader);
     ++pipeline->slot_count;
     pipeline->PrepareSlot();
-    pipeline->FlushIfCurrent();
+    pipeline->Flush();
 }
