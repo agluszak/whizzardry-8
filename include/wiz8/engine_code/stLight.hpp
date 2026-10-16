@@ -35,8 +35,10 @@ enum W8LightDefinitionKind {
 class stLightDefinition {
 public:
     stLightDefinition() : kind(W8_LIGHT_DEFINITION_NONE) {}
+    stLightDefinition(const stLightDefinition&) = default;
+    stLightDefinition& operator=(const stLightDefinition&) = default;
     virtual ~stLightDefinition();
-    virtual stLightDefinition* Clone() const = 0;
+    virtual std::unique_ptr<stLightDefinition> Clone() const = 0;
     virtual bool IsEnabledForSubcycle(unsigned char subcycle) = 0;
 
     W8LightDefinitionKind kind;
@@ -49,24 +51,9 @@ class stParametricLightDefinition : public stLightDefinition {
 public:
     stParametricLightDefinition() { kind = W8_LIGHT_DEFINITION_PARAMETRIC; }
     // FUNCTION: WIZ8 0x004A2140
-    virtual stLightDefinition* Clone() const override
+    virtual std::unique_ptr<stLightDefinition> Clone() const override
     {
-        stParametricLightDefinition* copy = new stParametricLightDefinition;
-        if (copy == 0) {
-            srAssertFail("pNew", "..\\Engine Code\\Include\\stLight.hpp", 0x56, 0);
-        }
-        copy->flags = flags;
-        copy->flicker_chance = flicker_chance;
-        copy->color = color;
-        copy->color_to = color_to;
-        copy->intensity = intensity;
-        copy->intensity_to = intensity_to;
-        copy->period = period;
-        copy->rate = rate;
-        copy->path_speed = path_speed;
-        copy->subcycle_min = subcycle_min;
-        copy->subcycle_max = subcycle_max;
-        return copy;
+        return std::make_unique<stParametricLightDefinition>(*this);
     }
 
     // FUNCTION: WIZ8 0x004A21E0
@@ -109,7 +96,7 @@ public:
     {
         kind = W8_LIGHT_DEFINITION_KEYFRAMED;
     }
-    virtual stLightDefinition* Clone() const override;
+    virtual std::unique_ptr<stLightDefinition> Clone() const override;
     virtual bool IsEnabledForSubcycle(unsigned char subcycle) override;
 
     std::vector<int> frame_sums;
@@ -145,7 +132,7 @@ public:
     float positionalX() const { return m_position.x; }
     float positionalY() const { return m_position.y; }
     float positionalZ() const { return m_position.z; }
-    stLightDefinition* definition() const { return m_definition; }
+    stLightDefinition* definition() const { return m_definition.get(); }
     void ConfigureMonsterCopy()
     {
         attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
@@ -158,7 +145,7 @@ public:
        form VC6 emits for a class type's memberwise assignment, not through three
        independent displacement loads. */
     glm::vec3 m_position;    /* 0x228 */
-    stLightDefinition* m_definition; /* 0x234: owned */
+    std::unique_ptr<stLightDefinition> m_definition;
     /* Oscillation direction: zero sweeps intensity down, nonzero sweeps up. */
     unsigned char m_direction;
     /* Raised by light-toggle triggers; the save path serializes the names of
@@ -168,7 +155,7 @@ public:
     float m_level_time;
     /* Current 0..1 sweep level driving intensity and the color lerp. */
     float m_level;
-    W8PathAI* path_ai; /* 0x244 */
+    std::unique_ptr<W8PathAI> path_ai;
     /* Current path entry index, advanced by m_path_direction. */
     int m_path_index;
     /* w8_get_ticks()/1000 timestamp of the last path advance. */

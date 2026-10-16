@@ -216,7 +216,7 @@ public:
     virtual ~W8Navigator();                /* 0x00452120 */
     /* Takes ownership, releasing the previous path. Null clears it;
        assigning the current path preserves it. GetPathAI only borrows. */
-    virtual void SetPathAI(W8PathAI* path_ai);
+    virtual void SetPathAI(std::unique_ptr<W8PathAI> path);
     virtual W8PathAI* GetPathAI();
     void ResetPathAI();
     void SetScale(float scale);
@@ -362,7 +362,7 @@ public:
     W8Navigator* linked_navigator;
     unsigned int unknown_060;
     unsigned int unknown_064;
-    W8PathAI* path_ai;
+    std::unique_ptr<W8PathAI> path_ai;
     /* 0x00451EC0 fills these as -500 and +500 triples. */
     glm::vec3 minimum;
     glm::vec3 maximum;
