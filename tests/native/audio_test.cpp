@@ -612,6 +612,25 @@ TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until comp
     REQUIRE(lifetime.expired());
 }
 
+TEST_CASE_METHOD(AudioFixture, "Paused playback survives completion polling", "[audio][ownership]")
+{
+    startOfflineAudio();
+    unsigned calls = 0;
+    auto sound = wiz8::sound::play("tone.wav", {.on_finished = [&] { ++calls; }});
+    REQUIRE(sound);
+    REQUIRE(MIX_PauseAllTracks(w8_native::audio_mixer()));
+    mix(8192);
+    wiz8::sound::service();
+    REQUIRE(calls == 0);
+    REQUIRE(wiz8::sound::volume(sound).has_value());
+    REQUIRE(MIX_ResumeAllTracks(w8_native::audio_mixer()));
+    REQUIRE(wiz8::sound::is_playing(sound));
+    mix(8192);
+    wiz8::sound::service();
+    REQUIRE(calls == 1);
+    REQUIRE_FALSE(wiz8::sound::volume(sound));
+}
+
 TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown reentry",
                  "[audio][ownership]")
 {
