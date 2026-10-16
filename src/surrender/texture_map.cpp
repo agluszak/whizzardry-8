@@ -1,13 +1,14 @@
 #include <memory>
 #include <utility>
 
+#include <SDL3/SDL_surface.h>
+
 #include "compat/compiler.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 
 // FUNCTION: SURRENDER 0x10060270
-srTextureMap::srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface)
+srTextureMap::srTextureMap(std::shared_ptr<SDL_Surface> surface)
 {
     frame_handle = getNewFrameHandle();
     setSurfacePtr(std::move(surface));
@@ -36,7 +37,7 @@ void srTextureMap::getMipmapData(const MultiRequest& request)
 }
 
 // FUNCTION: SURRENDER 0x100604E0
-void srTextureMap::setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface)
+void srTextureMap::setSurfacePtr(std::shared_ptr<SDL_Surface> surface)
 {
     if (surface != this->surface) {
         invalidate();
@@ -46,7 +47,7 @@ void srTextureMap::setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface)
 }
 
 // FUNCTION: SURRENDER 0x10060490
-srColorSurfaceIFace* srTextureMap::getSurfacePtr() const
+SDL_Surface* srTextureMap::getSurfacePtr() const
 {
     return surface.get();
 }

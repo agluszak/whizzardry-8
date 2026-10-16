@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -13,6 +12,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -29,6 +29,7 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
+#include "wiz8/surface_storage.h"
 
 /* SurRender drives a device the way it drove OpenGL 1.x: state setters,
    client-side vertex arrays and immediate draws, interleaved with clears and
@@ -169,7 +170,8 @@ public:
         : device(0), window(0), color_target(0), depth_target(0), depth_format(), vertex_shader(0),
           fragment_shader(0), vertex_buffer(0), vertex_buffer_size(0), command_buffer(0), width(0),
           height(0), cull_mode(CULL_NONE), polygon_mode(POLYGON_FILL), polygon_offset(0),
-          vertex_arrays(), readback_dirty(0), locked(0), trace(SDL_getenv("WIZ8_SRDD_TRACE") != 0)
+          vertex_arrays(), readback_dirty(false), locked(0),
+          trace(SDL_getenv("WIZ8_SRDD_TRACE") != 0)
     {
         projection.projection = glm::mat4(1);
         memset(&clear_values, 0, sizeof(clear_values));
@@ -220,7 +222,7 @@ public:
             closeWindow();
             return false;
         }
-        readback.assign((size_t)width * height, 0);
+        readback = CreateCpuStorage(width, height, SDL_PIXELFORMAT_BGRA32);
         return true;
     }
 
@@ -259,44 +261,20 @@ public:
         commands.push_back(command);
     }
 
-    void lockBuffer() override
+    SDL_Surface* lockBuffer() override
     {
         if (locked++ == 0) {
             download();
         }
+        return readback.get();
     }
 
-    void unlockBuffer() override
+    void unlockBuffer(bool modified) override
     {
+        readback_dirty |= modified;
         if (locked > 0 && --locked == 0 && readback_dirty != 0) {
             upload();
         }
-    }
-
-    void readPixels(w8_long x, w8_long y, bool vertical, std::span<w8_ulong> pixels) override
-    {
-        auto line = bufferLine(x, y, vertical, pixels.size());
-        const auto stride = vertical ? width : 1;
-        for (size_t i = 0; i < line.size(); ++i) {
-            pixels[i] = readback[line.offset + i * stride];
-        }
-    }
-
-    void writePixels(w8_long x, w8_long y, bool vertical, std::span<const w8_ulong> pixels) override
-    {
-        auto line = bufferLine(x, y, vertical, pixels.size());
-        const auto stride = vertical ? width : 1;
-        for (size_t i = 0; i < line.size(); ++i) {
-            readback[line.offset + i * stride] = pixels[i];
-        }
-        readback_dirty |= line.size() != 0;
-    }
-
-    void fillPixels(w8_long x, w8_long y, w8_long count, w8_ulong pixel) override
-    {
-        auto line = bufferLine(x, y, false, count > 0 ? count : 0);
-        std::fill_n(readback.begin() + line.offset, line.size(), pixel);
-        readback_dirty |= line.size() != 0;
     }
 
     void setSwapInterval(w8_ulong interval) override
@@ -1035,7 +1013,7 @@ private:
         SDL_WaitForGPUFences(device, true, &fence_object, 1);
         SDL_ReleaseGPUFence(device, fence_object);
         const void* mapped = SDL_MapGPUTransferBuffer(device, transfer, false);
-        memcpy(readback.data(), mapped, readback.size() * 4);
+        memcpy(readback->pixels, mapped, size_t(readback->pitch) * readback->h);
         SDL_UnmapGPUTransferBuffer(device, transfer);
         SDL_ReleaseGPUTransferBuffer(device, transfer);
         readback_dirty = 0;
@@ -1049,8 +1027,8 @@ private:
         info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
         info.size = width * height * 4;
         SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device, &info);
-        memcpy(SDL_MapGPUTransferBuffer(device, transfer, false), readback.data(),
-               readback.size() * 4);
+        memcpy(SDL_MapGPUTransferBuffer(device, transfer, false), readback->pixels,
+               size_t(readback->pitch) * readback->h);
         SDL_UnmapGPUTransferBuffer(device, transfer);
         SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(command);
         SDL_GPUTextureTransferInfo source = {transfer, 0, width, height};
@@ -1063,19 +1041,6 @@ private:
         SDL_EndGPUCopyPass(copy);
         SDL_ReleaseGPUTransferBuffer(device, transfer);
         readback_dirty = 0;
-    }
-
-    struct BufferLine {
-        size_t offset = 0, count = 0;
-        size_t size() const { return count; }
-    };
-    BufferLine bufferLine(w8_long x, w8_long y, bool vertical, size_t count) const
-    {
-        if (x < 0 || y < 0 || static_cast<w8_ulong>(x) >= width ||
-            static_cast<w8_ulong>(y) >= height) {
-            return {};
-        }
-        return {size_t(y) * width + x, std::min(count, size_t(vertical ? height - y : width - x))};
     }
 
     SDL_GPUDevice* device;
@@ -1111,8 +1076,8 @@ private:
     std::vector<PendingUpload> uploads;
     std::vector<Vertex> vertices;
     std::vector<DrawCommand> commands;
-    std::vector<uint32_t> readback;
-    int readback_dirty;
+    SDLSurfaceOwner readback{nullptr, SDL_DestroySurface};
+    bool readback_dirty;
     int locked;
     bool trace;
 };

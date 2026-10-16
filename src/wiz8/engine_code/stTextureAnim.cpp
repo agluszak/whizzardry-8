@@ -5,6 +5,8 @@
 #include <memory>
 #include <utility>
 
+#include <SDL3/SDL_pixels.h>
+
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "surrender/srTexture.h"
@@ -170,7 +172,6 @@ void stTextureAnim::setupDefaultValues()
     } else {
         texture_dimensions_.width = 1;
         texture_dimensions_.height = 1;
-        texture_dimensions_.palette = 0;
     }
 }
 
@@ -182,5 +183,5 @@ unsigned char stTextureAnim::Prepare()
         file->getTextureFrameHandle();
         return file->hasAlpha();
     }
-    return texture_dimensions_.format.alpha_bits != 0;
+    return SDL_ISPIXELFORMAT_ALPHA(texture_dimensions_.format);
 }

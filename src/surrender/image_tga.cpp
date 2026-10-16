@@ -2,24 +2,20 @@
 #include <array>
 #include <cstddef>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
 
-#include "image_helpers.h"
-#include "surrender/srARGB.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srPalette.h"
-#include "surrender/srPixelConvert.h"
+#include "wiz8/surface_storage.h"
 
 namespace srImage {
 namespace tga {
@@ -111,15 +107,15 @@ inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels, unsi
 }
 } // namespace tga
 
-std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
+SDLSurfaceOwner loadTga(SDL_IOStream* source)
 {
-    if (!srCore.isInitialized()) return nullptr;
+    if (!srCore.isInitialized()) return {nullptr, SDL_DestroySurface};
     try {
         const auto size = SDL_GetIOSize(source);
         if (size < 18 || size > 256 * 1024 * 1024 || SDL_SeekIO(source, 0, SDL_IO_SEEK_SET) < 0)
-            return nullptr;
+            return {nullptr, SDL_DestroySurface};
         std::vector<Uint8> prefix(18);
-        if (SDL_ReadIO(source, prefix.data(), 18) != 18) return nullptr;
+        if (SDL_ReadIO(source, prefix.data(), 18) != 18) return {nullptr, SDL_DestroySurface};
         const unsigned type = prefix[2], depth = prefix[16], descriptor = prefix[17];
         const unsigned origin = tga::word(prefix.data() + 3), count = tga::word(prefix.data() + 5);
         const unsigned palette_bits = prefix[7], palette_bytes = (palette_bits + 7) / 8;
@@ -136,24 +132,24 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
             (has_palette && (count == 0 || origin + count > 256 ||
                              (palette_bits != 16 && palette_bits != 24 && palette_bits != 32))) ||
             (palette_only && !has_palette))
-            return nullptr;
+            return {nullptr, SDL_DestroySurface};
         const unsigned metadata = 18 + prefix[0] + (has_palette ? count * palette_bytes : 0);
-        if (metadata > size) return nullptr;
+        if (metadata > size) return {nullptr, SDL_DestroySurface};
         std::vector<Uint8> palette_data(has_palette ? count * palette_bytes : 0);
         if (SDL_SeekIO(source, 18 + prefix[0], SDL_IO_SEEK_SET) < 0 ||
             (has_palette &&
              SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size()))
-            return nullptr;
-        std::shared_ptr<srPalette> core_palette;
+            return {nullptr, SDL_DestroySurface};
+        std::shared_ptr<SDL_Palette> core_palette;
         if (indexed && !has_palette) {
             core_palette = srCore.getPalette();
-            if (!core_palette) return nullptr;
+            if (!core_palette) return {nullptr, SDL_DestroySurface};
             palette_data.resize(256 * 3);
             for (unsigned i = 0; i < 256; ++i) {
-                const srARGB color = core_palette->getColor(i);
-                palette_data[i * 3] = color.blue;
-                palette_data[i * 3 + 1] = color.green;
-                palette_data[i * 3 + 2] = color.red;
+                const SDL_Color color = core_palette->colors[i];
+                palette_data[i * 3] = color.b;
+                palette_data[i * 3 + 1] = color.g;
+                palette_data[i * 3 + 2] = color.r;
             }
             prefix[1] = 1;
             prefix[3] = prefix[4] = 0;
@@ -180,47 +176,62 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
         if (!io ||
             !tga::validatePixels(io.get(), pixel_start, Uint64(width) * height, bytes, type >= 9) ||
             SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0)
-            return nullptr;
-        Surface decoded(IMG_LoadTGA_IO(io.get()), SDL_DestroySurface);
+            return {nullptr, SDL_DestroySurface};
+        SDLSurfaceOwner decoded(IMG_LoadTGA_IO(io.get()), SDL_DestroySurface);
         if (!decoded || normalized.failed || decoded->w != int(width) || decoded->h != int(height))
-            return nullptr;
-        const auto format = indexed       ? srPixelConvert::SURFACE_P8
-                            : gray        ? srPixelConvert::SURFACE_L8
-                            : depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555
-                                                               : srPixelConvert::SURFACE_RGB555)
-                            : depth == 24 ? srPixelConvert::SURFACE_BGR24
-                            : (descriptor & 15) ? srPixelConvert::SURFACE_BGRA32
-                                                : srPixelConvert::SURFACE_BGRX32;
-        auto surface = std::make_unique<srColorSurface>(format, width, height);
-        if (!surface || !copyRows(*decoded, *surface, bytes, descriptor & 0x10)) return nullptr;
+            return {nullptr, SDL_DestroySurface};
+        const auto format = indexed             ? SDL_PIXELFORMAT_INDEX8
+                            : gray              ? SDL_PIXELFORMAT_INDEX8
+                            : depth == 16       ? ((descriptor & 15) ? SDL_PIXELFORMAT_ARGB1555
+                                                                     : SDL_PIXELFORMAT_XRGB1555)
+                            : depth == 24       ? SDL_PIXELFORMAT_BGR24
+                            : (descriptor & 15) ? SDL_PIXELFORMAT_BGRA32
+                                                : SDL_PIXELFORMAT_BGRX32;
+        auto surface = CreateCpuStorage(width, height, format);
+        for (unsigned y = 0; y < height; ++y)
+            SDL_memcpy(static_cast<Uint8*>(surface->pixels) + size_t(y) * surface->pitch,
+                       static_cast<const Uint8*>(decoded->pixels) + size_t(y) * decoded->pitch,
+                       size_t(width) * bytes);
+        if ((descriptor & 0x10) && !SDL_FlipSurface(surface.get(), SDL_FLIP_HORIZONTAL))
+            return {nullptr, SDL_DestroySurface};
+        if (gray) {
+            std::array<SDL_Color, 256> colors;
+            for (unsigned i = 0; i < colors.size(); ++i)
+                colors[i] = {Uint8(i), Uint8(i), Uint8(i), 255};
+            if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(surface.get()), colors.data(), 0, 256))
+                return {nullptr, SDL_DestroySurface};
+        }
         if (indexed) {
             if (core_palette) {
-                surface->setPalette(core_palette);
+                if (!SDL_SetSurfacePalette(surface.get(), core_palette.get()))
+                    return {nullptr, SDL_DestroySurface};
             } else {
                 const auto* palette = SDL_GetSurfacePalette(decoded.get());
-                if (!palette || unsigned(palette->ncolors) != count) return nullptr;
-                std::array<srARGB, 256> colors{};
+                if (!palette || unsigned(palette->ncolors) != count)
+                    return {nullptr, SDL_DestroySurface};
+                std::array<SDL_Color, 256> colors{};
                 SDL_memset(colors.data(), 0, sizeof(colors));
                 for (unsigned i = 0; i < count; ++i) {
-                    colors[origin + i].red = palette->colors[i].r;
-                    colors[origin + i].green = palette->colors[i].g;
-                    colors[origin + i].blue = palette->colors[i].b;
-                    colors[origin + i].alpha = palette_bits == 32 ? palette_data[i * 4 + 3] : 255;
+                    colors[origin + i].r = palette->colors[i].r;
+                    colors[origin + i].g = palette->colors[i].g;
+                    colors[origin + i].b = palette->colors[i].b;
+                    colors[origin + i].a = palette_bits == 32 ? palette_data[i * 4 + 3] : 255;
                 }
                 for (unsigned y = 0; y < height; ++y) {
-                    const auto* row = static_cast<const Uint8*>(surface->getDataPtr()) +
-                                      size_t(y) * surface->getPitch();
+                    const auto* row =
+                        static_cast<const Uint8*>(surface->pixels) + size_t(y) * surface->pitch;
                     for (unsigned x = 0; x < width; ++x)
-                        if (row[x] < origin || row[x] >= origin + count) return nullptr;
+                        if (row[x] < origin || row[x] >= origin + count)
+                            return {nullptr, SDL_DestroySurface};
                 }
-                auto generated = std::make_shared<srPalette>(colors.data(), origin + count);
-                generated->setName("TGA-importer generated palette");
-                surface->setPalette(std::move(generated));
+                if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(surface.get()), colors.data(), 0,
+                                          origin + count))
+                    return {nullptr, SDL_DestroySurface};
             }
         }
         return surface;
     } catch (...) {
-        return nullptr;
+        return {nullptr, SDL_DestroySurface};
     }
 }
 } // namespace srImage

@@ -6,8 +6,6 @@ set(SURRENDER_SOURCES
     debug.cpp
     fog.cpp
     vertex_pipe.cpp
-    filter.cpp
-    color_surface.cpp
     gerd.cpp
     gerd_filters.cpp
     huffman.cpp
@@ -23,8 +21,6 @@ set(SURRENDER_SOURCES
     model_instance.cpp
     node.cpp
     scene.cpp
-    palette.cpp
-    pixel_convert.cpp
     renderer.cpp
     texture.cpp
     texture_map.cpp

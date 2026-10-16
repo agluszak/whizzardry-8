@@ -46,12 +46,9 @@
 #include "surrender/srCamera.h"
 #include "surrender/srClass.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srFilter.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureIFace.h"
 #include "utf8/checked.h"
@@ -89,6 +86,7 @@
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/packed_bits.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
@@ -148,7 +146,7 @@ struct W8AutomapState {
 // GLOBAL: WIZ8 0x0068f268
 static std::unique_ptr<W8AutomapState> g_automap_state;
 // GLOBAL: WIZ8 0x0068f274
-std::unique_ptr<srColorSurface> g_automap_surface;
+SDLSurfaceOwner g_automap_surface{nullptr, SDL_DestroySurface};
 
 void AutomapZoomInButton(void);
 static void ZoomAutomapOut();
@@ -669,10 +667,7 @@ unsigned char AutomapScreenEnter(void)
         g_world_render_enabled = 0;
         g_monster_shadow_updates_enabled = 0;
         if (!g_automap_surface) {
-            g_automap_surface =
-                std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
-            auto* surface = g_automap_surface.get();
-            if (surface) surface->setFilter(&srBoxFilter);
+            g_automap_surface = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_ARGB1555);
         }
     }
     g_automap_redraw = true;
@@ -1243,10 +1238,8 @@ void RenderAutomapFrame(void)
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
             }
-            auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                            GetFrameBufferSurface());
-            surface->setFilter(&srBoxFilter);
-            surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
+            SDL_Rect region{0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
+            SDL_BlitSurface(g_automap_surface.get(), &region, &GetFrameBufferSurface(), &region);
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3);
             SetRendererAutoFlipEnabled(false);
@@ -1277,10 +1270,9 @@ void UpdateAutomapPageButtons(void)
 int RestoreAutomapRect(DesignRect* rect)
 {
     if (g_automap_surface != 0) {
-        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, GetFrameBufferSurface());
-        screen.setFilter(&srBoxFilter);
-        screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
-                    rect->bottom);
+        SDL_Surface& screen = GetFrameBufferSurface();
+        SDL_Rect region{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top};
+        SDL_BlitSurface(g_automap_surface.get(), &region, &screen, &region);
     }
     return 1;
 }
@@ -1502,17 +1494,15 @@ static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
 static std::unique_ptr<stModelInstance2D> CreateAutomapMarkerSprite(const char* path)
 {
     std::shared_ptr<stTextureFile> texture = LoadAutomapMarkerTexture(path);
-    srColorSurface* surface = texture->getSurface();
+    SDL_Surface* surface = texture->getSurface();
     if (!surface) {
         return {};
     }
-    auto marker = std::unique_ptr<stModelInstance2D>(
-        CreateSpriteFromTexture(texture, surface->getWidth() * g_viewport_x_scale,
-                                surface->getHeight() * g_viewport_y_scale, true, false));
+    auto marker = std::unique_ptr<stModelInstance2D>(CreateSpriteFromTexture(
+        texture, surface->w * g_viewport_x_scale, surface->h * g_viewport_y_scale, true, false));
     if (!marker) return {};
     marker->detach();
     static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-    surface->setFilter(&srBSplineFilter);
     return marker;
 }
 
@@ -1523,16 +1513,15 @@ void CreateAutomapMarkerSprites(void)
     if (g_automap_party_marker == 0) {
         std::shared_ptr<stTextureFile> texture =
             LoadAutomapMarkerTexture("Data\\Automap\\map_partymarker_a.tga");
-        srColorSurface* surface = texture->getSurface();
+        SDL_Surface* surface = texture->getSurface();
         if (surface != 0) {
             g_automap_party_marker.reset(
-                CreateSpriteFromTexture(texture, surface->getWidth() * g_viewport_x_scale,
-                                        surface->getHeight() * g_viewport_x_scale, true, true));
+                CreateSpriteFromTexture(texture, surface->w * g_viewport_x_scale,
+                                        surface->h * g_viewport_x_scale, true, true));
             g_automap_party_marker->detach();
             g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
             static_cast<srMeshModel*>(g_automap_party_marker->getModel())
                 ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-            surface->setFilter(&srBSplineFilter);
             g_automap_party_marker->SetGlowEnabled(true);
             glm::vec4 first;
             glm::vec4 second;
@@ -1738,15 +1727,15 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
         return 0;
     }
     const SpriteFrame& properties = video_object.frames.front();
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
-    surface->fill(0);
-    surface->setFilter(&srBSplineFilter);
+    auto surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(0x40, 0x40, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
+    SDL_FillSurfaceRect(surface.get(), nullptr, 0);
     int y = (0x40 - properties.height) / 2;
     int x = (0x40 - properties.width) / 2;
     BlitVideoObjectToColorSurface(video_object, 0, *surface, x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
-    const auto width = surface->getWidth() * g_viewport_x_scale;
-    const auto height = surface->getHeight() * g_viewport_y_scale;
+    const auto width = surface->w * g_viewport_x_scale;
+    const auto height = surface->h * g_viewport_y_scale;
     auto* parent = g_overlay_scenes.fullscreen.get();
     auto* node = MakePolygonBrush(parent, surface, width, height, 0.0f, 0.0f, 1.0f, 1.0f, 1);
     auto owned = std::unique_ptr<stModelInstance2D>(static_cast<stModelInstance2D*>(node));

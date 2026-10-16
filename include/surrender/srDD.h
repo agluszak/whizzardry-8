@@ -1,5 +1,7 @@
 #pragma once
 
+struct SDL_Surface;
+
 #include <cstdint>
 #include <span>
 
@@ -85,12 +87,8 @@ public:
     virtual void flushFrame() = 0;
     virtual void flipFrame() = 0;
     virtual void clearBuffers(std::uint32_t buffers) = 0;
-    virtual void lockBuffer() = 0;
-    virtual void unlockBuffer() = 0;
-    virtual void readPixels(w8_long x, w8_long y, bool vertical, std::span<w8_ulong> pixels) = 0;
-    virtual void writePixels(w8_long x, w8_long y, bool vertical,
-                             std::span<const w8_ulong> pixels) = 0;
-    virtual void fillPixels(w8_long x, w8_long y, w8_long count, w8_ulong pixel) = 0;
+    virtual SDL_Surface* lockBuffer() = 0;
+    virtual void unlockBuffer(bool modified = false) = 0;
     virtual void setSwapInterval(w8_ulong interval) = 0;
     virtual void setScissor(const Scissor& scissor) = 0;
     virtual void setViewPort(const ViewPort& viewport) = 0;

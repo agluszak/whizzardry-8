@@ -99,8 +99,7 @@ void EraseRegion(int left, int top, int right, int bottom);
 extern const float g_viewport_x_scale;
 extern const float g_viewport_y_scale;
 
-class srColorSurface;
-class srColorSurfaceIFace;
+struct SDL_Surface;
 class srModelInstance;
 class srNode;
 class srTextureIFace;
@@ -113,7 +112,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                            double height, bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
-unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect,
+unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
                                    bool render_secondary);
 void SetPickKey(void* key);
 
@@ -152,12 +151,12 @@ void DrawVideoInspector(int left, unsigned int top);
 unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node);
 /* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
-srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface,
+srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<SDL_Surface> surface,
                                   double width, double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
 bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
-                                   srColorSurface& destination, int x, int y);
+                                   SDL_Surface& destination, int x, int y);
 class stTextureAnim;
 
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
@@ -190,16 +189,16 @@ extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
-extern std::shared_ptr<srColorSurface> g_primary_color_surface;
-void DrawColorSurface(srColorSurface* surface, int x, int y);
-srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float width, float height,
+extern std::shared_ptr<SDL_Surface> g_primary_color_surface;
+void DrawColorSurface(SDL_Surface* surface, int x, int y);
+srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
                         bool additive); /* 0x00424A90 */
 extern bool g_texture_cache_enabled;
 extern std::unique_ptr<srGERD> g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
 extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
-extern std::shared_ptr<srColorSurface> g_mouse_surface;
+extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern srModelInstance* g_current_model_instance;
 extern int g_renderer_mode;
 extern int g_overlay_render_mode;

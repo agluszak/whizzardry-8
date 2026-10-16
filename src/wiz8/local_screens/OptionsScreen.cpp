@@ -29,8 +29,6 @@
 #include "layouts/world.h"
 #include "mgs_commands.h"
 #include "soundman.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srPixelConvert.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
@@ -58,6 +56,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -609,8 +608,8 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_save->screenshot.capture_result == 0) {
         CatalogArtwork::Load(0xf6, 0).draw(target, 0, x + 6, y + 6);
     } else {
-        auto portrait = std::make_unique<srColorSurface>(
-            srPixelConvert::SURFACE_ARGB1555, m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
+        auto portrait =
+            CreateCpuStorage(0x50, 0x3c, SDL_PIXELFORMAT_ARGB1555, m_save->screenshot.pixels, 0xa0);
         DrawColorSurface(portrait.get(), x + 6, y + 6);
     }
 

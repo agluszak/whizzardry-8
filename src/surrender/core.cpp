@@ -1,20 +1,25 @@
+#include <array>
+#include <cmath>
+#include <cstring>
 #include <memory>
+#include <stdexcept>
+
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
 
 #include "surrender/srClock.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srFilter.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
-#include "surrender/srPalette.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
+#include "wiz8/surface_storage.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
 void _srLibraryInit(void)
@@ -22,7 +27,6 @@ void _srLibraryInit(void)
     if (srAssertGetFunc() == 0) {
         srAssertSetFunc(srDefaultAssertFailFunc);
     }
-    initPixelTables();
 }
 
 // FUNCTION: SURRENDER 0x10015040
@@ -34,18 +38,36 @@ int srInit()
         _srLibraryInit();
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
-        srCore.setFilter(0);
-        srCore.palette = std::make_shared<srPalette>(nullptr, 0x100);
-        srCore.palette->setName("SurRender default palette");
+        srCore.palette = std::shared_ptr<SDL_Palette>(SDL_CreatePalette(256), SDL_DestroyPalette);
+        if (!srCore.palette) throw std::runtime_error(SDL_GetError());
+        std::array<SDL_Color, 256> colors;
+        unsigned index = 0;
+        for (unsigned red = 0; red < 6; ++red)
+            for (unsigned green = 0; green < 6; ++green)
+                for (unsigned blue = 0; blue < 6; ++blue)
+                    if (red != green || red != blue)
+                        colors[index++] = {Uint8(red * 51), Uint8(green * 51), Uint8(blue * 51),
+                                           255};
+        for (unsigned gray = 0; gray < 46; ++gray) {
+            const auto value = Uint8(std::lround(gray * 255.0 / 45));
+            colors[index++] = {value, value, value, 255};
+        }
+        if (!SDL_SetPaletteColors(srCore.palette.get(), colors.data(), 0, colors.size()))
+            throw std::runtime_error(SDL_GetError());
         srCore.root_node = std::make_unique<srScene>(nullptr);
         srCore.root_node->setName("SurRender root node");
         srCore.material = std::make_unique<srMaterial>();
         srCore.material->setName("SurRender default material");
-        srCore.surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_L8, 0x40, 0x40);
-        srCore.surface->setName("SurRender default surface");
-        for (int i = 0; i < 0x1000; ++i) {
-            srCore.surface->setPixelRaw(i & 0x3f, i / 64, srLogo[i]);
-        }
+        srCore.surface = std::shared_ptr<SDL_Surface>(
+            CreateCpuStorage(64, 64, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
+        std::array<SDL_Color, 256> gray;
+        for (unsigned i = 0; i < gray.size(); ++i) gray[i] = {Uint8(i), Uint8(i), Uint8(i), 255};
+        if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(srCore.surface.get()), gray.data(), 0, 256))
+            throw std::runtime_error(SDL_GetError());
+        for (int y = 0; y < 64; ++y)
+            std::memcpy(static_cast<unsigned char*>(srCore.surface->pixels) +
+                            y * srCore.surface->pitch,
+                        srLogo + y * 64, 64);
         srCore.texture = std::make_unique<srTextureMap>(srCore.surface);
         srCore.texture->setName("SurRender default texture");
         srCore.initialized = 1;
@@ -79,29 +101,13 @@ int srExit()
 }
 
 // FUNCTION: SURRENDER 0x10015a70
-srColorSurfaceIFace* srCore::getSurface() const
+SDL_Surface* srCore::getSurface() const
 {
     return surface.get();
 }
 
-// FUNCTION: SURRENDER 0x10015AD0
-srFilter* srCore::getFilter() const
-{
-    return filter;
-}
-
-// FUNCTION: SURRENDER 0x10015AE0
-void srCore::setFilter(srFilter* filter)
-{
-    if (filter != 0) {
-        this->filter = filter;
-        return;
-    }
-    this->filter = &srTriangleFilter;
-}
-
 // FUNCTION: SURRENDER 0x10015B50
-std::shared_ptr<srPalette> srCore::getPalette() const
+std::shared_ptr<SDL_Palette> srCore::getPalette() const
 {
     return palette;
 }
@@ -133,7 +139,6 @@ void srCore::reset()
 {
     texture.reset();
     surface.reset();
-    filter = 0;
     root_node.reset();
     palette.reset();
 }

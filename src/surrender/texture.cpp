@@ -1,16 +1,16 @@
 #include <cstddef>
-#include <memory>
 #include <string>
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 
 #include "compat/compiler.h"
 #include "surrender/srClass.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
-#include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
+#include "wiz8/surface_storage.h"
 
 // GLOBAL: SURRENDER 0x100A4A20
 // Lazy e_flag names, "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS"
@@ -21,15 +21,12 @@ w8_ulong srTexture::_frameHandle;
 // FUNCTION: SURRENDER 0x1005E440
 srTexture::srTexture()
 {
-    texture_dimensions_.format.fourcc = 0;
     texture_dimensions_.hints = 0;
     texture_dimensions_.width = 0x40;
     texture_dimensions_.height = 0x40;
-    texture_dimensions_.palette = srCore.getPalette();
-    texture_dimensions_.filter = srCore.getFilter();
     texture_dimensions_.hints = 0;
     texture_dimensions_.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    texture_dimensions_.format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB4444);
+    texture_dimensions_.format = SDL_PIXELFORMAT_ARGB4444;
     texture_flags_ = 0;
     mipmap_bias = 0.0f;
     packed_state = 0xe43;
@@ -78,24 +75,16 @@ void srTexture::setDimensions(const Dimensions& dimensions)
 }
 
 // FUNCTION: SURRENDER 0x1005EBE0
-void srTexture::setupDefaultValuesFromSurface(srColorSurfaceIFace* surface)
+void srTexture::setupDefaultValuesFromSurface(SDL_Surface* surface)
 {
     if (surface != 0) {
-        texture_dimensions_.width = surface->getWidth();
-        texture_dimensions_.height = surface->getHeight();
-        texture_dimensions_.format = surface->getPixelFormat();
-        texture_dimensions_.palette = surface->getPalette();
+        texture_dimensions_.width = surface->w;
+        texture_dimensions_.height = surface->h;
+        texture_dimensions_.format = surface->format;
     } else {
         texture_dimensions_.width = 1;
         texture_dimensions_.height = 1;
-        texture_dimensions_.palette = 0;
     }
-}
-
-// FUNCTION: SURRENDER 0x1005EB00
-srFilter* srTexture::getFilter() const
-{
-    return texture_dimensions_.filter;
 }
 
 // FUNCTION: SURRENDER 0x1005EB20
@@ -120,12 +109,6 @@ void srTexture::setPriority(float priority)
 float srTexture::getMipmapBias() const
 {
     return mipmap_bias;
-}
-
-// FUNCTION: SURRENDER 0x1005EB30
-void srTexture::setFilter(srFilter* filter)
-{
-    texture_dimensions_.filter = filter;
 }
 
 // FUNCTION: SURRENDER 0x1005EBD0
@@ -303,13 +286,15 @@ const char* srTextureIFace::getTextureName()
     return getName().c_str();
 }
 
-void srTexture::copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request)
+void srTexture::copyMipmapChain(SDL_Surface& source, const MultiRequest& request)
 {
     if (request.destinations.empty()) return;
-    if (auto* first = request.destinations.front()) first->copy(source);
+    if (auto* first = request.destinations.front())
+        StretchCpuSurface(source, *first, SDL_SCALEMODE_LINEAR);
     for (std::size_t level = 1; level < request.destinations.size(); ++level) {
         auto* destination = request.destinations[level];
         auto* previous = request.destinations[level - 1];
-        if (destination && previous) destination->copy(*previous);
+        if (destination && previous)
+            StretchCpuSurface(*previous, *destination, SDL_SCALEMODE_LINEAR);
     }
 }

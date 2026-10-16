@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "GrCycle.h"
@@ -19,10 +21,8 @@
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srClock.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
@@ -51,10 +51,11 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
 
-extern std::shared_ptr<srColorSurface> g_mouse_surface;
-extern std::unique_ptr<srColorSurface> g_automap_surface;
+extern std::shared_ptr<SDL_Surface> g_mouse_surface;
+extern SDLSurfaceOwner g_automap_surface;
 
 static void shutdown_survivors()
 {
@@ -64,11 +65,13 @@ static void shutdown_survivors()
     model->GetVertexLocations(0, true, 0.0f);
     // A model whose owner survives srExit() is destroyed after reinitialization.
     auto survivor = model;
-    auto palette = srCore.getPalette();
-    g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
-    g_mouse_surface->setPalette(palette);
-    g_automap_surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
-    g_automap_surface->setPalette(palette);
+    std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(SDL_CreatePalette(256),
+                                                                        SDL_DestroyPalette);
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
+    REQUIRE(SDL_SetSurfacePalette(g_mouse_surface.get(), palette.get()));
+    g_automap_surface = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8);
+    REQUIRE(SDL_SetSurfacePalette(g_automap_surface.get(), palette.get()));
 
     struct InterruptedScene : srScene {
         explicit InterruptedScene(const std::shared_ptr<stMeshModel>& model)
@@ -86,8 +89,8 @@ static void shutdown_survivors()
 
     // These are the actual global owners used by mouse and automap rendering.
     REQUIRE((srExit()));
-    g_mouse_surface->setName("Detached mouse surface");
-    REQUIRE((g_mouse_surface->getName() == "Detached mouse surface"));
+    REQUIRE(SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 17));
+    REQUIRE(*static_cast<unsigned char*>(g_mouse_surface->pixels) == 17);
     g_automap_surface.reset(); // Destruction after renderer shutdown.
     REQUIRE((srInit()));
     model.reset();

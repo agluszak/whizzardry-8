@@ -2,22 +2,21 @@
 
 #include <SDL3/SDL_iostream.h>
 
-#include "srColorSurface.h"
+#include "wiz8/surface_storage.h"
 namespace wiz8 {
 class File;
 }
 
 namespace srImage {
-// Surface allocation requires srInit().
 // Stream overloads borrow the stream. Loading starts at zero.
-std::unique_ptr<srColorSurfaceIFace> load(const char* path, SDL_IOStream* stream);
-std::unique_ptr<srColorSurfaceIFace> load(const char* path, wiz8::File& file);
-std::unique_ptr<srColorSurfaceIFace> load(const char* path);
-void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, int quality = 100);
-void save(const char* path, wiz8::File& file, srColorSurfaceIFace& surface, int quality = 100);
-void save(const char* path, srColorSurfaceIFace& surface, int quality = 100);
+SDLSurfaceOwner load(const char* path, SDL_IOStream* stream);
+SDLSurfaceOwner load(const char* path, wiz8::File& file);
+SDLSurfaceOwner load(const char* path);
+void save(const char* path, SDL_IOStream* stream, SDL_Surface& surface, int quality = 100);
+void save(const char* path, wiz8::File& file, SDL_Surface& surface, int quality = 100);
+void save(const char* path, SDL_Surface& surface, int quality = 100);
 
 // Retail TGA metadata includes global palettes, palette-only files and mirrored origins.
-std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* stream);
-std::unique_ptr<srColorSurface> loadTga(wiz8::File& file);
+SDLSurfaceOwner loadTga(SDL_IOStream* stream);
+SDLSurfaceOwner loadTga(wiz8::File& file);
 } // namespace srImage

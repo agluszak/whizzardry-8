@@ -51,13 +51,11 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClock.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "texture_animation.h"
@@ -4790,9 +4788,10 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         return;
     }
 
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x100, 0x100);
-    surface->fill(0);
-    unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
+    auto surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(0x100, 0x100, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
+    SDL_FillSurfaceRect(surface.get(), nullptr, 0);
+    unsigned char* data = static_cast<unsigned char*>(surface->pixels);
     if (data != 0) {
         std::string text;
         glm::vec3 position;
@@ -4813,10 +4812,10 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         {
 
             text = fmt::format("{:d}", amount);
-            SDLSurfaceOwner text_surface{
-                SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
-                                      SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
-                SDL_DestroySurface};
+            SDLSurfaceOwner text_surface{SDL_CreateSurfaceFrom(surface->w, surface->h,
+                                                               SDL_PIXELFORMAT_RGB565, data,
+                                                               surface->pitch),
+                                         SDL_DestroySurface};
             if (text_surface)
                 DrawText(*text_surface, g_monster_damage_font,
                          {0x80 - g_monster_damage_font.textWidth(text) / 2,

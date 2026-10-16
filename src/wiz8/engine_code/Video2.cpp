@@ -35,7 +35,6 @@
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/world.h"
 #include "surrender/srClass.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTextureIFace.h"
@@ -55,16 +54,13 @@
 #include "input.h"
 #include "sprite.h"
 #include "surrender/srCamera.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD.h"
-#include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/srStatisticsManager.h"
@@ -105,7 +101,7 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
                                             srNode* parent, unsigned char overlay);
 srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                       srNode* parent, unsigned char overlay);
-unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
+unsigned char CopySurfaceWithBorder(SDL_Surface* surface, const W8ControlsRect* rect,
                                     SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y);
 void SaveJpegScreenshot(void);
@@ -172,7 +168,7 @@ std::unique_ptr<srGERD> g_gerd;
 // GLOBAL: WIZ8 0x6596a0
 // GLOBAL: WIZ8 0x6596a4
 // GLOBAL: WIZ8 0x6596a8
-static SDLSurfaceOwner primarySurface{nullptr, SDL_DestroySurface};
+static std::shared_ptr<SDL_Surface> primarySurface;
 // GLOBAL: WIZ8 0x6596ac
 // GLOBAL: WIZ8 0x6596b0
 SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
@@ -189,7 +185,7 @@ VideoOverlayScenes g_overlay_scenes;
 // GLOBAL: WIZ8 0x659658
 // GLOBAL: WIZ8 0x65965c
 // GLOBAL: WIZ8 0x659660
-std::shared_ptr<srColorSurface> g_primary_color_surface;
+std::shared_ptr<SDL_Surface> g_primary_color_surface;
 // GLOBAL: WIZ8 0x659664
 class stSurface2D* g_surface_node;
 // GLOBAL: WIZ8 0x659680
@@ -197,7 +193,7 @@ float g_surface_scale;
 // GLOBAL: WIZ8 0x659670
 // GLOBAL: WIZ8 0x659674
 // GLOBAL: WIZ8 0x659688
-std::shared_ptr<srColorSurface> g_mouse_surface;
+std::shared_ptr<SDL_Surface> g_mouse_surface;
 // GLOBAL: WIZ8 0x65967c
 std::shared_ptr<srMaterial> g_blit_material;
 // GLOBAL: WIZ8 0x6595dc
@@ -449,7 +445,8 @@ void ReleasePrimarySurface(void)
 unsigned char InitializePrimarySurface(void)
 {
     if (g_sgp_pixel_format == SDL_PIXELFORMAT_UNKNOWN) return 0;
-    primarySurface.reset(SDL_CreateSurface(640, 480, g_sgp_pixel_format));
+    primarySurface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(640, 480, g_sgp_pixel_format).release(), SDL_DestroySurface);
     if (!primarySurface) return 0;
     SDL_SetSurfaceBlendMode(primarySurface.get(), SDL_BLENDMODE_NONE);
     return 1;
@@ -919,7 +916,7 @@ void RenderFrame(void)
    the stored game viewport applies. Saves use this for SHOT screenshots, and
    the automap uses it for its backdrop. */
 // FUNCTION: WIZ8 0x00426f80
-unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect,
+unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
                                    bool render_secondary)
 {
     srGERD* gerd = g_gerd.get();
@@ -953,10 +950,9 @@ unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rec
     if (rect != 0) {
         gerd->setViewPort(0, 0, gerd->getWidth(), gerd->getHeight());
     }
-    srColorSurfaceIFace* buffer = gerd->lockBuffer();
+    SDL_Surface* buffer = gerd->lockBuffer();
     if (buffer != 0) {
-        target->setFilter(&srBoxFilter);
-        target->copy(*buffer);
+        StretchCpuSurface(*buffer, *target, SDL_SCALEMODE_NEAREST);
         gerd->unlockBuffer();
         return 1;
     }
@@ -1016,12 +1012,7 @@ void GetWorldColour(glm::vec3* colour)
 // FUNCTION: WIZ8 0x00427260
 bool RendererBufferIsLockable(void)
 {
-    srColorSurfaceIFace* surface = g_gerd->lockBuffer();
-    if (surface != 0) {
-        g_gerd->unlockBuffer();
-        return true;
-    }
-    return false;
+    return g_gerd && g_gerd->isWindowOpen();
 }
 
 // FUNCTION: WIZ8 0x00427830
@@ -1055,7 +1046,7 @@ static void SetSpriteQuad(srMeshModel& model, float width, float height,
 }
 
 // FUNCTION: WIZ8 0x00424EB0
-srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface,
+srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<SDL_Surface> surface,
                                   double width, double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay)
 {
@@ -1137,20 +1128,12 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
 
 // FUNCTION: WIZ8 0x00484A40
 bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
-                                   srColorSurface& destination, int x, int y)
+                                   SDL_Surface& destination, int x, int y)
 {
     if (region >= sprites.frames.size()) {
         return false;
     }
-    const auto& pixel_format = destination.getPixelFormat();
-    const auto format =
-        pixel_format.alpha_bits ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555;
-    SDLSurfaceOwner view{SDL_CreateSurfaceFrom(destination.getWidth(), destination.getHeight(),
-                                               format, destination.getDataPtr(),
-                                               destination.getPitch()),
-                         SDL_DestroySurface};
-    if (!view) return false;
-    DrawSprite(*view, sprites, region, x, y);
+    DrawSprite(destination, sprites, region, x, y);
     return true;
 }
 
@@ -1183,9 +1166,9 @@ bool ResizeMouseCursorSurface(int width, int height)
         extent = 256;
     else
         extent = -1;
-    if (!g_mouse_surface->resize(extent, extent)) {
-        return false;
-    }
+    if (extent < 0) return false;
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(extent, extent, g_mouse_surface->format).release(), SDL_DestroySurface);
     delete g_cursor_node;
     mapping_scale = g_surface_scale / extent;
     g_cursor_node = MakePolygonBrush(g_overlay_scenes.cursor.get(), g_mouse_surface, extent / 640.0,
@@ -1269,7 +1252,7 @@ void RefreshMouseCursorTexture(void)
 // FUNCTION: WIZ8 0x00427e70
 bool ClearMouseSurface(void)
 {
-    g_mouse_surface->fill(0);
+    SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 0);
     return true;
 }
 
@@ -1310,8 +1293,8 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
         g_cursor_width = width < 641 ? width : 640;
         g_cursor_height = height < 481 ? height : 480;
         if (g_cursor_node) {
-            location.x = g_cursor_width / 640.0 + g_mouse_surface->getWidth() / 1280.0;
-            location.y = 1.0 - g_cursor_height / 480.0 - g_mouse_surface->getHeight() / 960.0;
+            location.x = g_cursor_width / 640.0 + g_mouse_surface->w / 1280.0;
+            location.y = 1.0 - g_cursor_height / 480.0 - g_mouse_surface->h / 960.0;
             location.z = 0.0;
             g_cursor_node->setLocation(location);
             if (reset_tick) {
@@ -1484,9 +1467,8 @@ static void FlushUiUpload()
 {
     const auto upload = TakeUiUpload();
     if (SDL_RectEmpty(&upload)) return;
-    const auto& description = *primarySurface;
-    g_surface_node->updateRectangle(g_gerd.get(), description.pixels, description.pitch, upload.x,
-                                    upload.y, upload.x + upload.w, upload.y + upload.h);
+    g_surface_node->updateRectangle(g_gerd.get(), upload.x, upload.y, upload.x + upload.w,
+                                    upload.y + upload.h);
 }
 
 void SetScaledViewport(const DesignRect& bounds)
@@ -1674,7 +1656,7 @@ void VideoRemoveToolTip(void)
 }
 
 // FUNCTION: WIZ8 0x00424A90
-srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float width, float height,
+srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
                         bool additive)
 {
     srTextureIFace::e_hint hint;
@@ -1717,18 +1699,17 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 unsigned char InitializeMouseSurface(void)
 {
     if (g_pixel_format == 7) {
-        g_mouse_surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
+        g_mouse_surface = std::shared_ptr<SDL_Surface>(
+            CreateCpuStorage(128UL, 128UL, SDL_PIXELFORMAT_RGB565).release(), SDL_DestroySurface);
     } else if (g_pixel_format == 8) {
-        g_mouse_surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, 128UL, 128UL);
+        g_mouse_surface = std::shared_ptr<SDL_Surface>(
+            CreateCpuStorage(128UL, 128UL, SDL_PIXELFORMAT_XRGB1555).release(), SDL_DestroySurface);
     } else if (g_pixel_format == 9) {
-        g_mouse_surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
+        g_mouse_surface = std::shared_ptr<SDL_Surface>(
+            CreateCpuStorage(128UL, 128UL, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
     } else {
         return 0;
     }
-    g_mouse_surface->setFilter(&srBoxFilter);
     ClearMouseSurface();
     return 1;
 }
@@ -1805,8 +1786,7 @@ unsigned char InitializeRendererSceneObjects(void)
     g_viewport.bottom = 0;
 
     /* Shares the CPU surface's pixels, so they outlive its recreation. */
-    g_primary_color_surface =
-        std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, *primarySurface);
+    g_primary_color_surface = primarySurface;
 
     g_surface_node =
         new stSurface2D(g_primary_color_surface, 640, 480, g_overlay_scenes.frame[0].get(), 128);
@@ -2024,7 +2004,7 @@ int g_screenshot_page;
 // FUNCTION: WIZ8 0x004229e0
 void SaveJpegScreenshot(void)
 {
-    srColorSurfaceIFace* surface = g_gerd->lockBuffer();
+    SDL_Surface* surface = g_gerd->lockBuffer();
     if (surface != 0) {
         char filename[32];
 
@@ -2135,10 +2115,9 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
             size = ((extent <= 0x10) - 1 & 0x10) + 0x10;
         }
 
-        auto surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, size, size);
-        surface->fill(0);
-        surface->setFilter(&srBoxFilter);
+        auto surface = std::shared_ptr<SDL_Surface>(
+            CreateCpuStorage(size, size, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
+        SDL_FillSurfaceRect(surface.get(), nullptr, 0);
 
         float scale_x;
         float scale_y;
@@ -2309,7 +2288,7 @@ void VideoPositionToolTip(std::int32_t x, std::int32_t y)
    repeating its border one pixel outward, and reports the texture mapping
    scales for the resulting polygon brush. */
 // FUNCTION: WIZ8 0x00428B90
-unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
+unsigned char CopySurfaceWithBorder(SDL_Surface* surface, const W8ControlsRect* rect,
                                     SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y)
 {
@@ -2331,10 +2310,9 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
     SDLSurfaceOwner source_view{SDL_CreateSurfaceFrom(source_width, source_height, source.format,
                                                       source.pixels, source.pitch),
                                 SDL_DestroySurface};
-    SDLSurfaceOwner destination_view{
-        SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(), source.format,
-                              surface->getDataPtr(), surface->getPitch()),
-        SDL_DestroySurface};
+    SDLSurfaceOwner destination_view{SDL_CreateSurfaceFrom(surface->w, surface->h, source.format,
+                                                           surface->pixels, surface->pitch),
+                                     SDL_DestroySurface};
     if (!source_view || !destination_view ||
         !SDL_SetSurfaceBlendMode(source_view.get(), SDL_BLENDMODE_NONE) ||
         !SDL_SetSurfaceColorKey(source_view.get(), false, 0) ||
@@ -2360,14 +2338,14 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
         return 0;
     }
 
-    float scale = 1.0f / surface->getWidth();
+    float scale = 1.0f / surface->w;
     *scale_x = scale;
     *scale_x = scale * g_surface_scale + scale;
-    scale = 1.0f / surface->getHeight();
+    scale = 1.0f / surface->h;
     *scale_y = scale;
     *scale_y = scale * g_surface_scale + scale;
-    *mapping_x = (rect->right - rect->left) / static_cast<float>(surface->getWidth());
-    *mapping_y = (rect->bottom - rect->top) / static_cast<float>(surface->getHeight());
+    *mapping_x = (rect->right - rect->left) / static_cast<float>(surface->w);
+    *mapping_y = (rect->bottom - rect->top) / static_cast<float>(surface->h);
     return 1;
 }
 
@@ -2411,10 +2389,11 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
         }
     }
 
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                    static_cast<w8_ulong>(extent),
-                                                    static_cast<w8_ulong>(extent));
-    surface->setFilter(&srBoxFilter);
+    auto surface = std::shared_ptr<SDL_Surface>(CreateCpuStorage(static_cast<w8_ulong>(extent),
+                                                                 static_cast<w8_ulong>(extent),
+                                                                 SDL_PIXELFORMAT_ARGB1555)
+                                                    .release(),
+                                                SDL_DestroySurface);
     float scale_x;
     float scale_y;
     float mapping_x;
@@ -2423,7 +2402,6 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
                                &mapping_y)) {
         return 0;
     }
-    surface->getDataPtr();
     srModelInstance* node = MakePolygonBrush(parent, surface, width, height, scale_x, scale_y,
                                              mapping_x, mapping_y, overlay);
     if (node != 0) {
@@ -2452,8 +2430,7 @@ void VideoToolTip(std::string_view text)
     if (!g_tooltip_nodes.empty()) {
         return;
     }
-    auto surface =
-        std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
+    auto surface = CreateCpuStorage(0xfeUL, 0xfeUL, SDL_PIXELFORMAT_ARGB1555);
     W8ControlsRect bounds;
     bounds.left = 0;
     bounds.top = 0;
@@ -2466,21 +2443,24 @@ void VideoToolTip(std::string_view text)
     }
     g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
     g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
-    surface->fill(0);
-    void* data = surface->getDataPtr();
-    for (int y = 0; y < g_help_box_height; ++y)
-        surface->setHLine(y, 0, g_help_box_width, 0xff000000u);
-    SDLSurfaceOwner text_surface{SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
-                                                       SDL_PIXELFORMAT_RGB565, data,
-                                                       surface->getPitch()),
-                                 SDL_DestroySurface};
+    SDL_FillSurfaceRect(surface.get(), nullptr, 0);
+    void* data = surface->pixels;
+    SDL_Rect background{0, 0, g_help_box_width, g_help_box_height};
+    SDL_FillSurfaceRect(surface.get(), &background, SDL_MapSurfaceRGB(surface.get(), 0, 0, 0));
+    SDLSurfaceOwner text_surface{
+        SDL_CreateSurfaceFrom(surface->w, surface->h, SDL_PIXELFORMAT_RGB565, data, surface->pitch),
+        SDL_DestroySurface};
     if (text_surface) buffer->RenderText(*text_surface, 2, 1, true);
     w8_ulong border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
-    surface->setHLine(0, 0, g_help_box_width, border_colour);
-    surface->setHLine(g_help_box_height - 1, 0, g_help_box_width, border_colour);
-    surface->setVLine(0, 0, g_help_box_height, border_colour);
-    surface->setVLine(g_help_box_width - 1, 0, g_help_box_height, border_colour);
+    const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},
+                           {0, g_help_box_height - 1, g_help_box_width, 1},
+                           {0, 0, 1, g_help_box_height},
+                           {g_help_box_width - 1, 0, 1, g_help_box_height}};
+    SDL_FillSurfaceRects(surface.get(), edges, 4,
+                         SDL_MapSurfaceRGBA(surface.get(), (border_colour >> 16) & 255,
+                                            (border_colour >> 8) & 255, border_colour & 255,
+                                            border_colour >> 24));
 
     W8ControlsRect rect;
     rect.left = 0;
@@ -2588,16 +2568,17 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
                 extent = static_cast<w8_ulong>(-1);
             }
 
-            std::shared_ptr<srColorSurface> surface;
+            std::shared_ptr<SDL_Surface> surface;
             if (!use_argb1555) {
-                surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, extent,
-                                                           extent);
+                surface = std::shared_ptr<SDL_Surface>(
+                    CreateCpuStorage(extent, extent, SDL_PIXELFORMAT_XRGB1555).release(),
+                    SDL_DestroySurface);
             } else {
-                surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, extent,
-                                                           extent);
+                surface = std::shared_ptr<SDL_Surface>(
+                    CreateCpuStorage(extent, extent, SDL_PIXELFORMAT_ARGB1555).release(),
+                    SDL_DestroySurface);
             }
-            surface->setName("VideoVObjecttoTextureAnim:srColorSurface");
-            surface->fill(0);
+            SDL_FillSurfaceRect(surface.get(), nullptr, 0);
             if (BlitVideoObjectToColorSurface(sprites, frame, *surface, 0, 0)) {
                 auto texture = std::make_shared<srTextureMap>();
                 texture->setName("VideoVObjecttoTextureAnim");
@@ -2729,12 +2710,6 @@ void EndRenderProbe(void)
 /* 0x004229C0 is a bare JMP to RenderFrame: a tail-jump thunk with no
    distinct source entity. */
 
-// VTABLE: WIZ8 0x005EBD10
-// class srClientSupport<srColorSurface,12560>
-
-/* 0x00423F00 calls the imported ~srColorSurface: it is the local
-   ??_GsrColorSurface thunk, not the support-class deleting destructor. */
-
 // FUNCTION: WIZ8 0x00424BA0
 srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
                        bool additive)
@@ -2771,19 +2746,40 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
 }
 
 // FUNCTION: WIZ8 0x00425590
-void DrawColorSurface(srColorSurface* surface, int x, int y)
+void DrawColorSurface(SDL_Surface* surface, int x, int y)
 {
-    g_primary_color_surface->blit(x, y, *surface, 0, 0, surface->getWidth(), surface->getHeight());
+    SDL_Rect destination{x, y, surface->w, surface->h};
+    SDL_BlitSurface(surface, nullptr, g_primary_color_surface.get(), &destination);
 }
 
 // FUNCTION: WIZ8 0x00426490
 void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel)
 {
     if (x0 != 0 && y0 != 0 && x1 != 0 && y1 != 0) {
-        srColorSurfaceIFace* surface = g_gerd->lockBuffer();
+        SDL_Surface* surface = g_gerd->lockBuffer();
         if (surface != 0) {
-            surface->setLine(x0, y0, x1, y1, *pixel);
-            g_gerd->unlockBuffer();
+            SDL_Rect clip;
+            SDL_GetSurfaceClipRect(surface, &clip);
+            int x = x0, y = y0;
+            const int dx = std::abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+            const int dy = -std::abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+            int error = dx + dy;
+            while (true) {
+                if (x >= clip.x && y >= clip.y && x < clip.x + clip.w && y < clip.y + clip.h)
+                    SDL_WriteSurfacePixel(surface, x, y, (*pixel >> 16) & 255, (*pixel >> 8) & 255,
+                                          *pixel & 255, *pixel >> 24);
+                if (x == x1 && y == y1) break;
+                const int twice = 2 * error;
+                if (twice >= dy) {
+                    error += dy;
+                    x += sx;
+                }
+                if (twice <= dx) {
+                    error += dx;
+                    y += sy;
+                }
+            }
+            g_gerd->unlockBuffer(true);
         }
     }
 }
