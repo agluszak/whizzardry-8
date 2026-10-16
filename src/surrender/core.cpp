@@ -10,7 +10,6 @@
 #include <SDL3/SDL_surface.h>
 
 #include "surrender/srCore.h"
-#include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
@@ -18,20 +17,11 @@
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/surface_storage.h"
 
-// FUNCTION: SURRENDER 0x10014FE0
-void _srLibraryInit(void)
-{
-    if (srAssertGetFunc() == 0) {
-        srAssertSetFunc(srDefaultAssertFailFunc);
-    }
-}
-
 // FUNCTION: SURRENDER 0x10015040
 int srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
-        _srLibraryInit();
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
         srCore.palette = std::shared_ptr<SDL_Palette>(SDL_CreatePalette(256), SDL_DestroyPalette);

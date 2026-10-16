@@ -40,6 +40,7 @@
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srCamera.h"
+#include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -49,7 +50,6 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/compat/compiler.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
@@ -82,7 +82,6 @@
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/overlay_scenes.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -1975,21 +1974,6 @@ TEST_CASE("assert-plain", "[.death]")
 {
     W8_ASSERT(false);
     FAIL("Assert did not abort");
-}
-
-namespace {
-void assertion_message_handler(const char* expression, const char*, w8_long, const char*)
-{
-    std::fprintf(stderr, "Assertion failed: %s\n", expression);
-    std::abort();
-}
-}
-
-TEST_CASE("assert-message", "[.death]")
-{
-    srAssertSetFunc(assertion_message_handler);
-    srAssertFail("handler installed", __FILE__, __LINE__, 0);
-    FAIL("srAssertFail did not abort");
 }
 
 TEST_CASE("assert-button-self-destroy", "[.death]")

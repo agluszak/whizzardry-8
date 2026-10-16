@@ -48,6 +48,5 @@ int srInit(void);
 int srExit(void);
 
 /* Library initialization hook. */
-void _srLibraryInit(void);
 
 extern const unsigned char srLogo[0x1000];
