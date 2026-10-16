@@ -1,11 +1,9 @@
 #include <cstdio>
-#include <thread>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingSphere.h"
-#include "surrender/srClock.h"
 #include "surrender/srGERD.h"
 
 TEST_CASE("renderer platform")
