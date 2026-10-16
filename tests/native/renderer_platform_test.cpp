@@ -58,7 +58,6 @@ TEST_CASE("renderer platform")
             REQUIRE(driver.driver_id == 0);
             REQUIRE(std::string_view(driver.name) == "SDLGPU");
             REQUIRE(std::string_view(driver.api_name) == "SDL GPU");
-            REQUIRE(device->getWindowList().empty());
             REQUIRE(gerd.lockBuffer() == nullptr);
             REQUIRE(gerd.getError() == srGERD::ERROR_WINDOW_NOT_OPEN);
             auto* renderer = gerd.lockRenderer();

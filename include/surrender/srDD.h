@@ -53,12 +53,6 @@ public:
            vendor. */
         char text[9][0x40];
     };
-    /* getDisplayMode matches {width, height, depth} triples. */
-    struct WindowInfo {
-        w8_ulong width;
-        w8_ulong height;
-        w8_ulong depth;
-    };
     // CPU accumulation remains in GERD; the backend clears color, depth and stencil.
     struct ClearValues {
         glm::vec4 color;
@@ -96,7 +90,6 @@ public:
 
     virtual ~srDD() = default;
     virtual Info getInfo() = 0;
-    virtual std::span<const WindowInfo> getWindowList() = 0;
     virtual bool openWindow(w8_ulong width, w8_ulong height) = 0;
     virtual void closeWindow() = 0;
     virtual void flushFrame() = 0;
