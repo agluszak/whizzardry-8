@@ -12,7 +12,6 @@
 #include <fmt/format.h>
 
 #include "Font.h"
-#include "Types.h"
 #include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"

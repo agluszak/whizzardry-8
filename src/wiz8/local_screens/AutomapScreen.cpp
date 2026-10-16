@@ -44,7 +44,6 @@
 #include "mgs_commands.h"
 #include "sight_state.h"
 #include "surrender/srCamera.h"
-#include "surrender/srClass.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srFilter.h"
