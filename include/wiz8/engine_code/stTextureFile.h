@@ -6,7 +6,6 @@
 #include "compat/compiler.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTypeRegistry.h"
 
 namespace wiz8 {
 class File;
@@ -16,10 +15,9 @@ std::unique_ptr<srColorSurface> LoadSurface(wiz8::File* handle, w8_long*);
 
 /* Wizardry's virtual-file-backed texture. Priority, dimensions, parameters and
    name are inherited; has_alpha records the loaded surface's alpha channel. */
-class stTextureFile : public srClassSupport<stTextureFile, srTexture, 0x10001> {
+class stTextureFile : public srTexture {
 public:
     virtual ~stTextureFile() override;          /* 0x0047C8E0 */
-    static const char* sGetClassName() { return "stTextureFile"; }
 
     stTextureFile(const char* file_name, int cached); /* 0x0047C630 */
     stTextureFile& operator=(const stTextureFile& other);
@@ -36,7 +34,6 @@ public:
        of the release sequence itself. */
     void releaseSurface(); /* 0x0047BBD0 */
 
-    virtual void dump(std::ostream& stream) override;
     virtual w8_ulong getTextureFrameHandle() override;     /* 0x0047C5F0 */
     virtual void getMipmapData(const MultiRequest& request) override; /* 0x0047CA50 */
     virtual void getMipmapLevelPartial(PartialRequest& request) override;

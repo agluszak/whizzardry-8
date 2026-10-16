@@ -3,12 +3,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
-#include <ios>
 #include <iterator>
 #include <limits>
 #include <span>
-#include <sstream>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -27,10 +24,8 @@
 #include "surrender/lighting_math.h"
 #include "surrender/picking_math.h"
 #include "surrender/srClip.h"
-#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srTriangulator.h"
-#include "surrender/stream_scope.h"
 #include "surrender/triangle_projection.h"
 #include "surrender/triangle_runs.h"
 #include "wiz8/navigation_math.h"
@@ -192,35 +187,6 @@ TEST_CASE("Bounds radii preserve scalar precision and caller-selected centers")
     REQUIRE(std::isfinite(boundingRadius(large, glm::dvec3(0))));
     REQUIRE(boundingRadius(large, glm::dvec3(0)) == double(large[0].x));
 }
-
-TEST_CASE("Renderer dump formatting restores native flags on failed output")
-{
-    std::ostringstream stream;
-    stream.setf(std::ios_base::right, std::ios_base::adjustfield);
-    stream.setf(std::ios_base::hex, std::ios_base::basefield);
-    stream.setf(std::ios_base::showbase);
-    const auto original = stream.flags();
-    REQUIRE_THROWS_AS(([&] {
-                          const srDumpStreamScope outer(stream);
-                          REQUIRE((stream.flags() & std::ios_base::adjustfield) ==
-                                  std::ios_base::left);
-                          const auto inner_flags = stream.flags();
-                          {
-                              const srDumpStreamScope inner(stream);
-                          }
-                          REQUIRE(stream.flags() == inner_flags);
-                          throw std::runtime_error("failed diagnostic output");
-                      }()),
-                      std::runtime_error);
-    REQUIRE(stream.flags() == original);
-    stream.setf(std::ios_base::dec, std::ios_base::basefield);
-    stream.unsetf(std::ios_base::showbase);
-    srDumpFlags(stream, 0, nullptr);
-    srDumpFlags(stream, 0b101, "first,unused,last");
-    srDumpFlags(stream, 8, nullptr);
-    REQUIRE(stream.str() == "[NONE][first,last][3]");
-}
-
 TEST_CASE("Triangle texture runs follow depth order and retain submission limits")
 {
     const std::array<w8_ulong, 5> textures{7, 7, 8, 7, 7};

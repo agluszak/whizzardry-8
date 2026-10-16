@@ -3,14 +3,13 @@
 #include "srPixelConvert.h"
 #include "srTextureIFace.h"
 
-class srTexture : public srClassSupport<srTexture, srTextureIFace, 0x2110> {
+class srTexture : public srTextureIFace {
 public:
     virtual ~srTexture() override;
-    static const char* sGetClassName();
+
     /* Copies share the palette stored in Dimensions. */
 
     srTexture& operator=(const srTexture& other);
-    virtual void dump(std::ostream& stream) override;
     virtual w8_ulong getTextureFrameHandle() override;
     virtual float getPriority() override;
     Dimensions getDimensions() override;

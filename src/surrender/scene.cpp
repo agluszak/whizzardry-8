@@ -1,5 +1,4 @@
 
-#include <ostream>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -12,11 +11,9 @@
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x100565D0
-srScene::srScene(srNode* parent) : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
+srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     ambient_light = glm::vec3(0.2f);
     fog_color = glm::vec3(0.1f, 0.2f, 0.4f);
@@ -130,29 +127,6 @@ void srScene::resetStatistics()
 {
     statistics = {};
     statistics.elapsed = srCore.getTimer()->seconds();
-}
-
-// FUNCTION: SURRENDER 0x10056750
-void srScene::dump(std::ostream& stream)
-{
-    srNode::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  Ambient light: ";
-    stream << '{' << ambient_light.x << ',' << ambient_light.y << ',' << ambient_light.z << '}'
-           << '\n';
-    stream.width(0x20);
-    stream << "  Fog color: ";
-    stream << '{' << fog_color.x << ',' << fog_color.y << ',' << fog_color.z << '}' << '\n';
-    const auto statistics = getStatistics();
-    stream.width(0x20);
-    stream << "  Time since stat reset: " << statistics.elapsed << '\n';
-    stream.width(0x20);
-    stream << "  Render calls/sec: " << statistics.render_calls / statistics.elapsed << '\n';
-    stream.width(0x20);
-    stream << "  Global calls/sec: " << statistics.node_calls / statistics.elapsed << '\n';
-    stream.width(0x20);
-    stream << "  Process calls/sec: " << statistics.process_calls / statistics.elapsed << '\n';
 }
 
 // FUNCTION: SURRENDER 0x10056B50

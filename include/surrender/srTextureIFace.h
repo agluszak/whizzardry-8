@@ -3,16 +3,16 @@
 #include <memory>
 #include <span>
 
+#include "srClass.h"
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 #include "srPixelConvert.h"
-#include "srTypeRegistry.h"
 
 class srFilter;
 class srTexture;
 class stSurface2D;
 
-class srTextureIFace : public srClassSupport<srTextureIFace, srClass, 0x2100> {
+class srTextureIFace : public srClass {
 public:
     /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
        srTexture ctor seeds Dimensions::compression with DEFAULT. */
@@ -62,7 +62,7 @@ public:
         w8_ulong packed_state;
         float mipmap_bias;
     };
-    /* srTexture::dump: NONE / FASTEST / GOOD / BEST, else DEFAULT.
+    /* Texture filtering quality.
        setTextureDefaultMagFilter remaps DEFAULT (4) to GOOD. */
     enum e_filter {
         FILTER_NONE = 0,
@@ -92,10 +92,6 @@ public:
         CORRECTION_BEST = 2,
         CORRECTION_DEFAULT = 3
     };
-
-    // FUNCTION: SURRENDER 0x1005F5B0 SYMBOL
-    // RECOMP: ?sGetClassName@srTextureIFace@@SAPBDXZ
-    static const char* sGetClassName() { return "srTextureIFace"; }
 
     virtual w8_ulong getTextureFrameHandle() = 0;
     virtual float getPriority() = 0;

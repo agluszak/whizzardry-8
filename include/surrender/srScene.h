@@ -6,12 +6,9 @@ class srCamera;
 class srGERD;
 class srModeler;
 
-// VTABLE: SURRENDER 0x10077264
-// class srClassSupport<srScene, srNode, 4112>
-
 // VTABLE: SURRENDER 0x10077230 srScene
 // class srScene
-class srScene : public srClassSupport<srScene, srNode, 0x1010> {
+class srScene : public srNode {
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 
@@ -27,7 +24,6 @@ public:
 
     srScene& operator=(const srScene& other);
 
-    virtual void dump(std::ostream& stream) override;
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
@@ -39,8 +35,7 @@ public:
     int isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
     void resetStatistics();
-    // FUNCTION: SURRENDER 0x10056C10
-    static const char* sGetClassName() { return "srScene"; }
+
     void setAmbientLight(float red, float green, float blue);
     void setAmbientLight(const glm::vec3& color);
     void setFogColor(float red, float green, float blue);

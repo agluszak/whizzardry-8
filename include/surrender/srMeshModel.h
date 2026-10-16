@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <iosfwd>
 #include <memory>
 #include <optional>
 #include <span>
@@ -15,17 +14,12 @@
 #include "srModel.h"
 #include "srShader.h"
 #include "srTexture.h"
-#include "srTypeRegistry.h"
-
-// VTABLE: SURRENDER 0x10076D9C
-// class srClassSupport<srMeshModel, srModel, 8208>
 
 // VTABLE: SURRENDER 0x10076D48 srMeshModel
-class srMeshModel : public srClassSupport<srMeshModel, srModel, 0x2010> {
+class srMeshModel : public srModel {
 public:
     using PolygonSelection = std::optional<std::span<const w8_ulong>>;
-    /* Front/back table indices: dump labels materials[pass][0/1] and
-       renderTriMesh uses the corresponding CONTROL_FRONT/BACK bits. */
+    /* Front/back table indices, corresponding to CONTROL_FRONT/BACK. */
     enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
     /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals,
        calculateVertexNormals and updateTriMesh clear bits 0, 1, 2 and 3. */
@@ -47,7 +41,6 @@ public:
         CONTROL_SKIP_AUTO_SPHERE = 5,
         CONTROL_SORTED_RENDERING = 6
     };
-    /* The four per-pass table slots cap t.passes, as verify() asserts. */
     enum { MAX_PASSES = 4 };
     /* Borrowed triangle-mesh view: updateTriMesh fills it from the live tables. Keep the model
        and its table storage unchanged until renderTriMesh/FlushSlots finishes submission. */
@@ -95,11 +88,6 @@ public:
     w8_long findClosestVertex(const glm::vec3& point);
     srMeshModel& operator=(const srMeshModel&) = delete;
 
-    // FUNCTION: SURRENDER 0x10041AF0
-    static const char* sGetClassName() { return "srMeshModel"; }
-
-    virtual void dump(std::ostream& stream) override;
-    virtual void verify(srRuntimeClass::e_verify mode) override;
     Bounds getBounds() override;
     bool isVisible(srGERD& renderer);
     virtual void render(class srGERD& renderer) override;

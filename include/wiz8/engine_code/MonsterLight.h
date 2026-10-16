@@ -6,14 +6,7 @@
 
 class srNode;
 
-/* Monster's light: srLight plus colour-cycle/fade state. Retail never
-   installs a vtable of its own: the constructor at 0x0049D500 leaves the
-   imported srLight vtables that ??0srLight stored, and the copy constructor
-   at 0x0049D660 ends on the srLight vtables it reloads from SR.DLL. Every
-   virtual call (srLight::isActive/process vertex lighting, the deleting
-   destructor) therefore goes to srLight, so the class is novtable and adds
-   no overrides. The tables at 0x005ECD18/0x005ECD0C are the local
-   srClassSupport<srLight> instantiation (see MonsterLight.cpp). */
+/* Monster's light: srLight plus colour-cycle/fade state. */
 class MonsterLight : public srLight {
 public:
     MonsterLight(srNode* parent, bool cycle_color, float range,

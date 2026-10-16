@@ -1,4 +1,3 @@
-#include <ostream>
 
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -9,12 +8,9 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x1004a5a0
-srBounder::srBounder(srNode* parent)
-    : srClassSupport<srBounder, srNode, 0x1600>(static_cast<srNode*>(0))
+srBounder::srBounder(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     bound_mode = BOUND_MODE_DYNAMIC;
     bounds.state = 2;
@@ -168,38 +164,5 @@ void srBounder::getChildBoundingBox(srNode* node)
     }
     for (srNode* child = node->getChild(); child != 0; child = child->getNext()) {
         getChildBoundingBox(child);
-    }
-}
-
-// FUNCTION: SURRENDER 0x1004AA30
-void srBounder::dump(std::ostream& stream)
-{
-    srNode::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  Bound mode: ";
-    stream << (bound_mode == 1 ? "static\n" : "dynamic\n");
-    if (testNotify(NOTIFY_BOUNDS_DIRTY) != 0) {
-        stream << "Bounds not calculated.\n";
-    } else if (bounds.state == 0) {
-        stream << "Bounding area empty\n";
-    } else if (bounds.state == 2) {
-        stream << "Bounds contain an infinite-size child (VOLUME_INFINITE) - bounder "
-                  "deactivated\n";
-    } else {
-        stream.width(0x20);
-        stream << "  Bounding box min: ";
-        stream << '{' << bounds.minimum.x << ',' << bounds.minimum.y << ',' << bounds.minimum.z
-               << '}' << '\n';
-        stream.width(0x20);
-        stream << "  Bounding box max: ";
-        stream << '{' << bounds.maximum.x << ',' << bounds.maximum.y << ',' << bounds.maximum.z
-               << '}' << '\n';
-        stream.width(0x20);
-        stream << "  Bounding sphere origin: ";
-        stream << '{' << bounds.center.x << ',' << bounds.center.y << ',' << bounds.center.z << '}'
-               << '\n';
-        stream.width(0x20);
-        stream << "  Bounding sphere radius: " << bounds.radius << '\n';
     }
 }

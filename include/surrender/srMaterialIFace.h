@@ -1,17 +1,12 @@
 #pragma once
 
-#include "srTypeRegistry.h"
+#include "srClass.h"
 #include "srVertexProcessor.h"
 
 class srVertexPipe;
 
-// VTABLE: SURRENDER 0x100755A8
-// class srClassSupport<srMaterialIFace, srClass, 8704>
-
-class srMaterialIFace : public srClassSupport<srMaterialIFace, srClass, 0x2200> {
+class srMaterialIFace : public srClass {
 public:
-    static const char* sGetClassName();
-
     virtual srVertexProcessor::MaterialInfo getMaterialInfo() = 0;
     virtual void preProcess(srVertexPipe& pipe) = 0;
     virtual void postProcess(srVertexPipe& pipe) = 0;

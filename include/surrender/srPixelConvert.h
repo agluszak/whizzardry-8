@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <optional>
 #include <span>
-#include <string>
 
 class srPalette;
 
@@ -56,8 +55,6 @@ public:
 
         PixelFormat() : fourcc(0) {}
 
-        std::string getName() const;
-        int isValid() const;
         std::optional<std::size_t> match(std::span<const PixelFormat> formats) const;
 
         int operator==(const PixelFormat& other) const

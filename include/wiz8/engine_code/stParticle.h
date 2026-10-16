@@ -14,7 +14,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/particle_modes.h"
 
 class W8MonsterShakeCallback;
@@ -23,9 +22,8 @@ namespace wiz8 {
 class File;
 }
 
-class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
+class stParticle : public srNode {
 public:
-    static const char* sGetClassName() { return "stParticle"; }
     stParticle(srNode* parent, int count, Ownership ownership = Ownership::parent); /* 0x00497AF0 */
     stParticle(const stParticle& other, Ownership ownership = Ownership::parent); /* 0x00498180 */
     void SetActive(unsigned char active);

@@ -7,11 +7,11 @@
 #include <iterator>
 #include <memory>
 #include <new>
-#include <ostream>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <typeinfo> // IWYU pragma: keep
 #include <utility>
 #include <vector>
 
@@ -25,6 +25,7 @@
 #include "glm/ext/vector_uint4.hpp"
 #include "surrender/pixel_math.h"
 #include "surrender/raster_math.h"
+#include "surrender/srClass.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
@@ -32,8 +33,6 @@
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 #include "wiz8/surface_storage.h"
 
 // FUNCTION: SURRENDER 0x100571F0
@@ -53,16 +52,9 @@ srColorSurfaceIFace::srColorSurfaceIFace()
 }
 
 // FUNCTION: SURRENDER 0x1005A120
-srColorSurfaceIFace::srColorSurfaceIFace(const srColorSurfaceIFace& other)
-    : srClassSupport<srColorSurfaceIFace, srClass, 0x3100>()
+srColorSurfaceIFace::srColorSurfaceIFace(const srColorSurfaceIFace& other) : srClass()
 {
     *this = other;
-}
-
-// FUNCTION: SURRENDER 0x1005B280
-const char* srColorSurfaceIFace::sGetClassName()
-{
-    return "srColorSurfaceIFace";
 }
 
 // FUNCTION: SURRENDER 0x10021310
@@ -506,35 +498,6 @@ void srColorSurfaceIFace::scale(srColorSurfaceIFace& source)
     scaleAxis(scaled, true);
 }
 
-// FUNCTION: SURRENDER 0x1005AE10
-void srColorSurfaceIFace::dump(std::ostream& stream)
-{
-    srClass::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    if (filter != 0) {
-        stream << "  Filter: " << filter->getName() << '\n';
-    } else {
-        stream << "  Filter:"
-               << "not defined" << '\n';
-    }
-    stream.width(0x20);
-    stream << "  Horizontal clamp mode: " << (clamp_modes & CLAMP_HORIZONTAL) << '\n';
-    stream.width(0x20);
-    stream << "  Vertical clamp mode: " << (clamp_modes >> 1 & 1) << '\n';
-    stream.width(0x20);
-    stream << "  Dimensions: " << width << 'x' << height << 'x' << (pixel_format.pixel_size * 8 + 8)
-           << '\n';
-    stream.width(0x20);
-    stream << "  Pitch: " << pitch << '\n';
-    stream.width(0x20);
-    stream << "  Dataptr: " << getDataPtr() << '\n';
-    stream.width(0x20);
-    stream << "  Data size: " << getDataSize() << " bytes" << '\n';
-    stream.width(0x20);
-    stream << "  Pixel format: " << pixel_format.getName() << '\n';
-}
-
 // FUNCTION: SURRENDER 0x1005A040
 void srColorSurfaceIFace::flipVertical()
 {
@@ -677,8 +640,7 @@ srColorSurface& srColorSurface::operator=(const srColorSurface& other)
     return *this;
 }
 
-srColorSurface::srColorSurface(const srColorSurface& other)
-    : srClassSupport<srColorSurface, srColorSurfaceIFace, 0x3110>()
+srColorSurface::srColorSurface(const srColorSurface& other) : srColorSurfaceIFace()
 {
     *this = other;
 }
@@ -751,12 +713,6 @@ void srColorSurface::init(const srPixelConvert::PixelFormat& format, w8_ulong ar
     palette = srCore.getPalette();
     pixel_write = 0;
     pixel_read = 0;
-}
-
-// FUNCTION: SURRENDER 0x1005DE20
-const char* srColorSurface::sGetClassName()
-{
-    return "srColorSurface";
 }
 
 // FUNCTION: SURRENDER 0x1005BEC0
@@ -840,7 +796,7 @@ static bool samePalette(srPalette* first, srPalette* second)
 // FUNCTION: SURRENDER 0x1005C4D0
 int srColorSurface::isCompatible(srColorSurfaceIFace& source)
 {
-    if (source.getClassID() != getClassID()) {
+    if (typeid(source) != typeid(*this)) {
         return 0;
     }
     if (pixel_format == source.pixel_format) {
@@ -1009,7 +965,7 @@ void srColorSurface::copyNoScaling(srColorSurfaceIFace& source)
         return;
     }
     if (isCompatible(source) == 0) {
-        if (source.getClassID() != getClassID()) {
+        if (typeid(source) != typeid(*this)) {
             srColorSurfaceIFace::copyNoScaling(source);
             return;
         }
@@ -1207,16 +1163,5 @@ void srColorSurfaceIFace::magnify(srColorSurfaceIFace& source)
         for (w8_long x = 0; x < width; ++x) even[x] = srPixels::average(odd[x], even[x]);
         setPixelRow(even.data(), y * 2 + 1, 0, width);
         even.swap(odd);
-    }
-}
-
-// FUNCTION: SURRENDER 0x1005DBE0
-void srColorSurface::dump(std::ostream& stream)
-{
-    srColorSurfaceIFace::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    if (getPalette() != 0) {
-        stream.width(0x20);
-        stream << "  Palette: " << getPalette()->getName() << '\n';
     }
 }

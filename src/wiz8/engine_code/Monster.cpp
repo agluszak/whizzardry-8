@@ -59,7 +59,6 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
 #include "texture_animation.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
@@ -5057,6 +5056,7 @@ void ApplyMonsterRepresentationScale(W8Monster* target)
 {
     target->ApplyRepresentationScale();
 }
+
 // FUNCTION: WIZ8 0x004C5860
 void DeleteMonster(W8Monster* monster)
 {
@@ -5064,6 +5064,7 @@ void DeleteMonster(W8Monster* monster)
         delete monster;
     }
 }
+
 // FUNCTION: WIZ8 0x004C59C0
 void DetachMonsterRepresentation(W8Monster* monster, W8World* world)
 {
@@ -5071,6 +5072,7 @@ void DetachMonsterRepresentation(W8Monster* monster, W8World* world)
         monster->DetachRepresentation(world);
     }
 }
+
 // FUNCTION: WIZ8 0x004C5ED0
 void RefreshMonsterStandingHeight(W8Monster* monster)
 {
@@ -5078,6 +5080,7 @@ void RefreshMonsterStandingHeight(W8Monster* monster)
         monster->RefreshStandingHeight();
     }
 }
+
 // FUNCTION: WIZ8 0x004C6220
 void SetCombatInactiveFlag(unsigned char value)
 {

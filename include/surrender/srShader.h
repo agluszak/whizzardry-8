@@ -1,11 +1,5 @@
 #pragma once
 
-#include <iosfwd>
-
-class srShader;
-
-std::ostream& operator<<(std::ostream& stream, const srShader& shader);
-
 /* A shader is one 32-bit packed word. The modeler/mesh default 0x0100241b is PASS_LEQUAL, depth and
    color write, DSTBLEND_ZERO, FOG_DISABLE, GRADIENT_MODULATE, SRCBLEND_ONE, TEXTURING_DISABLE,
    DITHER_ENABLE. */
@@ -99,24 +93,6 @@ public:
         DETAILALPHA1_SHIFT = 29,
         MASK_DETAILALPHA1 = 0xe0000000
     };
-
-    /* Packed-field range test. */
-    int isValid() const
-    {
-        return !((value & PASS_MASK) > PASS_ALWAYS || (value >> DEPTH_WRITE_SHIFT & 0x1) > 1 ||
-                 (value >> COLOR_WRITE_SHIFT & 0x1) > 1 ||
-                 (value >> DSTBLEND_SHIFT & 0x7) > DSTBLEND_ONE_MINUS_SRC_ALPHA ||
-                 (value >> FOG_SHIFT & 0x3) > FOG_WHITE ||
-                 (value >> GRADIENT_SHIFT & 0x3) > GRADIENT_ADD ||
-                 (value >> SECONDARY_GRADIENT_SHIFT & 0x1) > 1 ||
-                 (value >> SRCBLEND_SHIFT & 0x3) > SRCBLEND_ONE_MINUS_SRC_ALPHA ||
-                 (value >> TEXTURING_SHIFT & 0x1) > 1 ||
-                 (value >> DETAILCOLOR0_SHIFT & 0xf) > DETAILCOLOR_DETAILBLEND ||
-                 (value >> DETAILALPHA0_SHIFT & 0x7) > DETAILALPHA_INVSCALE ||
-                 (value >> ALPHATEST_SHIFT & 0x1) > 1 || (value >> DITHER_SHIFT & 0x1) > 1 ||
-                 (value >> DETAILCOLOR1_SHIFT & 0xf) > DETAILCOLOR_DETAILBLEND ||
-                 (value >> DETAILALPHA1_SHIFT & 0x7) > DETAILALPHA_INVSCALE);
-    }
 
     w8_ulong value;
 };

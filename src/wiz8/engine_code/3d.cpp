@@ -6,6 +6,7 @@
 #include <ranges>
 #include <span>
 #include <string>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -30,7 +31,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/triangle_projection.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/Environment.h"
@@ -117,8 +117,8 @@ void FinalizeStaticScene(srScene* scene)
     srNode* node;
 
     for (node = scene->first_child_; node != 0; node = node->next_sibling_) {
-        if (auto* light = sr_cast<srLight>(node)) {
-            light->setGroupMask(1);
+        if (typeid(*node) == typeid(srLight)) {
+            static_cast<srLight*>(node)->setGroupMask(1);
         }
     }
     if (g_world != 0 && g_world->camera_light != 0) {
@@ -170,7 +170,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         }
         const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
-            const auto* light = sr_cast<stLight>(node);
+            const auto* light = dynamic_cast<stLight*>(node);
             if (!light || SDL_strncasecmp(node->getName().c_str(), "Sun", 3) == 0) continue;
             const float range = static_cast<float>(
                 g_light_range_attenuation_numerator /
@@ -204,7 +204,7 @@ unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
         if (node->first_child_ != 0) {
             FinalizeWorldScenes(node->first_child_, dynamic_scene);
         }
-        if (auto* instance = sr_cast<stModelInstance>(node)) {
+        if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             BakeInstanceVertexLightingIfNeeded(instance, dynamic_scene);
         }
     }
@@ -488,7 +488,7 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
-        if (auto* instance = sr_cast<stModelInstance>(node)) {
+        if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             for (stMeshModel* mesh :
                  stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 srShader* polygon_shader = mesh->getPolyShader(0, 0);
@@ -526,7 +526,7 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
-        if (auto* instance = sr_cast<stModelInstance>(node)) {
+        if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             for (stMeshModel* mesh :
                  stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {

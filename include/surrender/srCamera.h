@@ -10,12 +10,9 @@
 
 class srGERD;
 
-// VTABLE: SURRENDER 0x10076E74
-// class srClassSupport<srCamera, srNode, 5120>
-
 // VTABLE: SURRENDER 0x10076E40 srCamera
 // class srCamera
-class srCamera : public srClassSupport<srCamera, srNode, 0x1400> {
+class srCamera : public srNode {
 public:
     enum e_project { PROJECT_PERSPECTIVE = 0, PROJECT_ORTHOGRAPHIC = 1 };
 
@@ -46,7 +43,6 @@ public:
 
     srCamera(srNode* parent = 0);
 
-    virtual void dump(std::ostream& stream) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
     void flipHorizontal();
@@ -64,8 +60,7 @@ public:
     bool projectsAny(std::span<const glm::vec3> points);
     void setProjectionType(e_project projection);
     void normalizeViewPlane();
-    // FUNCTION: SURRENDER 0x10048020
-    static const char* sGetClassName() { return "srCamera"; }
+
     void setEnvironmentScale(float near_scale, float far_scale);
     void setFocalLength(double focal_length, double aspect_ratio);
     void setFOV(double field_of_view, double aspect_ratio);

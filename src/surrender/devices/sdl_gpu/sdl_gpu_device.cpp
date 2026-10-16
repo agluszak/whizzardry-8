@@ -11,7 +11,6 @@
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_platform.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
@@ -188,10 +187,6 @@ public:
     {
         Info info{};
         info.renderer_batch_limit = 0x100;
-        info.hardware_id = 1;
-        for (auto& text : info.text) {
-            strcpy(text, "Unknown");
-        }
         info.max_back_buffer_width = 8192;
         info.max_back_buffer_height = 8192;
         info.max_texture_stages = 2;
@@ -200,10 +195,6 @@ public:
         info.texture_max_aspect = 4096;
         /* No residency budget: SDL GPU owns the memory. */
         info.texture_ram = 0;
-        strcpy(info.text[0], "SDL GPU");
-        strcpy(info.text[1], "SDL");
-        strcpy(info.text[2], SDL_GetPlatform());
-        strcpy(info.text[3], device != 0 ? SDL_GetGPUDeviceDriver(device) : "none");
         return info;
     }
 
@@ -497,7 +488,6 @@ public:
         DriverInfo info{};
         info.driver_id = 0;
         strcpy(info.name, "SDLGPU");
-        strcpy(info.api_name, "SDL GPU");
         return info;
     }
 

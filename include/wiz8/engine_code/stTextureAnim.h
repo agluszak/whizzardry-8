@@ -6,7 +6,6 @@
 #include "compat/compiler.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/texture_animation.h"
 
 enum W8TextureTriggerMode {
@@ -15,10 +14,8 @@ enum W8TextureTriggerMode {
     W8_TEXTURE_TRIGGER_RANDOM_START = 2
 };
 
-class stTextureAnim : public srClassSupport<stTextureAnim, srTexture, 0x10000> {
+class stTextureAnim : public srTexture {
 public:
-    static const char* sGetClassName() { return "stTextureAnim"; }
-
     stTextureAnim();                           /* 0x00484BE0 */
     stTextureAnim(const stTextureAnim& other); /* 0x00485070 */
 

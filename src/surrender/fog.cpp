@@ -1,19 +1,15 @@
 #include <algorithm>
 #include <cstddef>
-#include <ostream>
 #include <span>
 #include <utility>
 
 #include "compat/compiler.h"
 #include "glm/geometric.hpp"
 #include "surrender/channel_math.h"
-#include "surrender/srDebug.h"
 #include "surrender/srFog.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
-#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x1004C0E0
 void srFog::setDensity(float density)
@@ -66,25 +62,6 @@ int srFog::isActive(srVertexPipe& pipe)
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x1004B7A0
-void srFog::verify(srRuntimeClass::e_verify mode)
-{
-    srClass::verify(mode);
-    if ((density < 0.0) || (1.0 < density)) {
-        srAssertFail("(density >= 0.0) && (density <= 1.0)",
-                     "D:\\srsdk1x\\sources\\corelib\\srFog.cpp", 0x3c, 0);
-    }
-    if (fog_start < 0.0) {
-        srAssertFail("fogStart >= 0.0", "D:\\srsdk1x\\sources\\corelib\\srFog.cpp", 0x3d, 0);
-    }
-    if (fog_end < 0.0) {
-        srAssertFail("fogEnd >= 0.0", "D:\\srsdk1x\\sources\\corelib\\srFog.cpp", 0x3e, 0);
-    }
-    if (fog_end < fog_start) {
-        srAssertFail("fogEnd >= fogStart", "D:\\srsdk1x\\sources\\corelib\\srFog.cpp", 0x3f, 0);
-    }
-}
-
 // FUNCTION: SURRENDER 0x1004B870
 void srFog::process(srVertexPipe& pipe)
 {
@@ -128,19 +105,6 @@ srFog::srFog(srNode* parent)
     fog_start = 0.0;
     fog_end = 1000.0;
     density = 0.5f;
-}
-
-// FUNCTION: SURRENDER 0x1004BD00
-void srFog::dump(std::ostream& stream)
-{
-    srNode::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "Density: " << density << '\n';
-    stream.width(0x20);
-    stream << "Fog start: " << fog_start << '\n';
-    stream.width(0x20);
-    stream << "Fog end: " << fog_end << '\n';
 }
 
 // FUNCTION: SURRENDER 0x1004C350

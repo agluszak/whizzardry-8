@@ -151,15 +151,13 @@ if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         "/FI${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
         /clang:-fsigned-char)
     set(WIZ8_GAME_OPTIONS
-        ${WIZ8_COMPAT_OPTIONS} /clang:-fwrapv /clang:-fno-strict-aliasing
-        $<$<COMPILE_LANGUAGE:CXX>:/GR->)
+        ${WIZ8_COMPAT_OPTIONS} /clang:-fwrapv /clang:-fno-strict-aliasing)
 else()
     set(WIZ8_COMPAT_OPTIONS
         "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
         -fsigned-char)
     set(WIZ8_GAME_OPTIONS
-        ${WIZ8_COMPAT_OPTIONS} -fwrapv -fno-strict-aliasing
-        $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
+        ${WIZ8_COMPAT_OPTIONS} -fwrapv -fno-strict-aliasing)
 endif()
 target_compile_options(wiz8_native_settings INTERFACE ${WIZ8_GAME_OPTIONS})
 if(WIZ8_WARNINGS_AS_ERRORS)

@@ -4,22 +4,18 @@
 #include <memory>
 #include <mutex>
 #include <new>
-#include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
 
 #include "glm/ext/vector_double3.hpp"
 #include "model_view_scope.h"
+#include "srClass.h"
 #include "srFlags.h"
 #include "srMath.h"
-#include "srTypeRegistry.h"
-
-// VTABLE: SURRENDER 0x10077204
-// class srClassSupport<srNode, srClass, 4096>
 
 // VTABLE: SURRENDER 0x100771D0 srNode
-class srNode : public srClassSupport<srNode, srClass, 0x1000> {
+class srNode : public srClass {
 public:
     class TraverseInfo {
     public:
@@ -75,10 +71,6 @@ public:
 
     srNode& operator=(const srNode& other);
 
-    static const char* sGetClassName();
-
-    virtual void dump(std::ostream& stream) override;
-
 public:
     virtual void traverse(TraverseInfo& info);
     virtual void process(const ProcessInfo& info, e_processType type);
@@ -115,15 +107,21 @@ protected:
     int testNotify(e_notify notification) const;
 
 public:
-    void dumpHierarchy(std::ostream& stream, w8_long indent) const;
-    srNode* findChild(std::string_view name) const;
-    srNode* findChildByNameAndType(std::string_view name, w8_ulong class_id) const;
-    srNode* findParent(std::string_view name) const;
-    srNode* findParentByType(w8_ulong class_id) const;
+    template<class T = srNode> T* findChild(std::string_view name) const
+    {
+        // Preserve lookup precedence: node, its siblings, then its children.
+        const auto find = [&](auto&& self, srNode* node) -> T* {
+            if (!node) return nullptr;
+            if (node->getName() == name) {
+                if (auto* match = dynamic_cast<T*>(node)) return match;
+            }
+            if (auto* match = self(self, node->getNext())) return match;
+            return self(self, node->getChild());
+        };
+        return find(find, first_child_);
+    }
     srNode* getChild() const;
     w8_long getChildCount() const;
-    std::string getFullPath() const;
-    w8_long getHierarchyLevel() const;
     srNode* getNext() const;
     // FUNCTION: SURRENDER 0x10051A40 SYMBOL
     // RECOMP: ?getParent@srNode@@QBEPAV1@XZ
@@ -250,11 +248,6 @@ private:
     void setLocationComponent(unsigned component, double value);
     void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
     void checkTransformation() const;
-    srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
-    srNode* findChildInternal(std::string_view name);
-    srNode* findParentByTypeInternal(w8_ulong class_id);
-    srNode* findParentInternal(std::string_view name);
-    void getFullPathInternal(std::string& path) const;
     void setWSDirty();
     void signalInternal(w8_ulong signal, void* value);
     void unlink();

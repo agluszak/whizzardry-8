@@ -20,9 +20,8 @@ extern std::vector<stSound3D*> g_sound3d_instances;
    and OctBuildPreTree.cpp (from 0x004B19F0) above, so a dedicated audio
    translation unit is at least as likely; no body carries a source-path
    string to settle it. Move the bodies when the gap is attributed. */
-class stSound3D : public srClassSupport<stSound3D, srNode, 0x1000b> {
+class stSound3D : public srNode {
 public:
-    static const char* sGetClassName() { return "stSound3D"; }
     stSound3D(const char* sound_name, srNode* parent); /* 0x004AE6D0 */
     virtual ~stSound3D() override;
     bool IsPlaying(); /* 0x004AEC70 */
@@ -39,9 +38,7 @@ public:
     char* wave_name; /* 0x148: owned copy of the wave filename */
     bool auto_release; /* 0x14c: release the node when playback ends */
 
-    /* srClassSupport::clone expands this class-specific assignment in the
-       header-owned template body at 0x004AF460. The source name is duplicated
-       rather than shared, while a live sound handle is deliberately not. */
+    /* Copy the wave filename, but leave a live playback handle unshared. */
     stSound3D& operator=(const stSound3D& other)
     {
         srNode::operator=(other);

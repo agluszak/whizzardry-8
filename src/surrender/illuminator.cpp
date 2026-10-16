@@ -5,11 +5,10 @@
 #include "surrender/srGERD.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x1004C7D0
 srIlluminator::srIlluminator(srNode* parent, Ownership ownership)
-    : srClassSupport<srIlluminator, srNode, 0x1200>(static_cast<srNode*>(nullptr), ownership)
+    : srNode(static_cast<srNode*>(nullptr), ownership)
 {
     if (parent != 0) {
         setParent(parent, 0);
@@ -50,12 +49,6 @@ void srIlluminator::process(const ProcessInfo& info, e_processType type)
 void srIlluminator::traverse(TraverseInfo& info)
 {
     traverseEffect(info);
-}
-
-// FUNCTION: SURRENDER 0x1004CAE0
-const char* srIlluminator::sGetClassName()
-{
-    return "srIlluminator";
 }
 
 // FUNCTION: SURRENDER 0x1004CAF0

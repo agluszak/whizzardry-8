@@ -35,7 +35,6 @@
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
@@ -67,9 +66,6 @@ const float g_particle_flutter_angle_random_scale = 0.00019174758926965296f;
 
 // VTABLE: WIZ8 0x005ECBD0
 // class stParticle
-
-// VTABLE: WIZ8 0x005ECC04
-// class srClassSupport<stParticle,srNode,65545>
 
 /* Return the renderer flags as a value. VC6 lowers the four-byte class return
    through its hidden result pointer. */
@@ -175,7 +171,7 @@ void stParticle::AllocateParticles(unsigned int count)
 
 // FUNCTION: WIZ8 0x00497AF0
 stParticle::stParticle(srNode* parent, int count, Ownership ownership)
-    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0), ownership)
+    : srNode(static_cast<srNode*>(0), ownership)
 {
     setParent(parent, 1);
     if (count == 0) {
@@ -190,7 +186,7 @@ stParticle::stParticle(srNode* parent, int count, Ownership ownership)
    particles, fresh animation frames and fresh timing. */
 // FUNCTION: WIZ8 0x00498180
 stParticle::stParticle(const stParticle& other, Ownership ownership)
-    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0), ownership)
+    : srNode(static_cast<srNode*>(0), ownership)
 {
     persisted = other.persisted;
     start_frame = other.start_frame;
@@ -728,7 +724,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
 {
     texture_frames.clear();
-    if (auto* animation = sr_cast<stTextureAnim>(texture)) {
+    if (auto* animation = dynamic_cast<stTextureAnim*>(texture.get())) {
         texture_frames.resize(particle_count * 2);
         for (unsigned int i = 0; i < texture_frames.size(); i += 2) {
             texture_frames[i] = texture_frames[i + 1] = std::make_shared<stTextureAnim>(*animation);
@@ -752,7 +748,8 @@ void stParticle::SetActive(unsigned char active)
 unsigned char stParticle::ReplaceTexture(const char* old_name,
                                          std::shared_ptr<srTextureIFace> replacement)
 {
-    if ((sr_cast<stTextureFile>(texture) || sr_cast<stTextureAnim>(texture)) &&
+    if ((dynamic_cast<stTextureFile*>(texture.get()) ||
+         dynamic_cast<stTextureAnim*>(texture.get())) &&
         SDL_strcasecmp(texture->getName().c_str(), old_name) == 0) {
         SetTexture(std::move(replacement));
         return 1;

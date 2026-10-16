@@ -9,16 +9,12 @@
 #include "compat/native.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
 #include "texture_animation.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/stTextureFile.h"
 
 // VTABLE: WIZ8 0x005EC9C0
 // class stTextureAnim
-
-// VTABLE: WIZ8 0x005ECA04
-// class srClassSupport<stTextureAnim,srTexture,65536>
 
 // FUNCTION: WIZ8 0x00484BE0
 stTextureAnim::stTextureAnim() : frame_tick(w8_get_ticks()) {}
@@ -181,7 +177,7 @@ void stTextureAnim::setupDefaultValues()
 // FUNCTION: WIZ8 0x004857B0
 unsigned char stTextureAnim::Prepare()
 {
-    auto* file = textures.empty() ? nullptr : sr_cast<stTextureFile>(textures[0]);
+    auto* file = textures.empty() ? nullptr : dynamic_cast<stTextureFile*>(textures[0].get());
     if (file != 0) {
         file->getTextureFrameHandle();
         return file->hasAlpha();

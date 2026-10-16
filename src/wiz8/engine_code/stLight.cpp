@@ -15,7 +15,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GrCycle.h"
@@ -54,8 +53,7 @@ const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
    converted tick. */
 // FUNCTION: WIZ8 0x0049C2C0
 stLight::stLight(srNode* parent, Ownership ownership)
-    : srClassSupport<stLight, srLight, 0x10006>(static_cast<srNode*>(nullptr),
-                                                srLight::PRESET_POINT, ownership)
+    : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT, ownership)
 {
     m_save_marked = false;
     m_prop = 0;

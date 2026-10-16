@@ -21,7 +21,6 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/engine_code/Octree.h"
@@ -84,12 +83,8 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
         output[i] = projection->coordinates(vertices[indices[i]]);
 }
 
-// VTABLE: WIZ8 0x005ed3f8
-// class srClassSupport<stGroundShadow,srNode,65552>
-
 // FUNCTION: WIZ8 0x004D61B0
-stGroundShadow::stGroundShadow(srNode* parent)
-    : srClassSupport<stGroundShadow, srNode, 0x10010>(static_cast<srNode*>(0))
+stGroundShadow::stGroundShadow(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     angle = 0;
     depth = 500.0f;
@@ -110,8 +105,7 @@ stGroundShadow::stGroundShadow(srNode* parent)
 }
 
 // FUNCTION: WIZ8 0x004d6430
-stGroundShadow::stGroundShadow(const stGroundShadow& other)
-    : srClassSupport<stGroundShadow, srNode, 0x10010>(static_cast<srNode*>(0))
+stGroundShadow::stGroundShadow(const stGroundShadow& other) : srNode(static_cast<srNode*>(0))
 {
     setParent(other.parent_, 1);
     setName(other.isNamed() ? other.getName() : std::string{});

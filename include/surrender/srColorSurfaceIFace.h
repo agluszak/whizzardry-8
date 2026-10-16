@@ -5,19 +5,16 @@
 #include <SDL3/SDL_rect.h>
 
 #include "srARGB.h"
+#include "srClass.h"
 #include "srFilter.h"
 #include "srMath.h"
 #include "srPixelConvert.h"
-#include "srTypeRegistry.h"
 
 class srColorSurface;
 class srPalette;
 struct W8TgaHeader;
 
-// VTABLE: SURRENDER 0x10076708
-// class srClassSupport<srColorSurfaceIFace, srClass, 12544>
-
-class srColorSurfaceIFace : public srClassSupport<srColorSurfaceIFace, srClass, 0x3100> {
+class srColorSurfaceIFace : public srClass {
 public:
     struct Rectangle {
         w8_long left;
@@ -42,9 +39,6 @@ public:
     srColorSurfaceIFace(const srColorSurfaceIFace& other);
     srColorSurfaceIFace& operator=(const srColorSurfaceIFace& other);
 
-    static const char* sGetClassName();
-
-    virtual void dump(std::ostream& stream) override;
     virtual w8_ulong getPixel(w8_long x, w8_long y);
     virtual void setPixel(w8_long x, w8_long y, w8_ulong pixel);
     virtual w8_ulong getPixelRaw(w8_long x, w8_long y);
@@ -79,12 +73,8 @@ public:
     w8_long getClampedX(w8_long x) const;
     w8_long getClampedY(w8_long y) const;
     srFilter* getFilter() const;
-// FUNCTION: SURRENDER 0x100598F0 SYMBOL
-// RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
 
     w8_long getHeight() const { return height; }
-// FUNCTION: SURRENDER 0x100599E0 SYMBOL
-// RECOMP: ?getPitch@srColorSurfaceIFace@@QBEJXZ
 
     w8_long getPitch() const { return pitch; }
     const srPixelConvert::PixelFormat& getPixelFormat() const { return pixel_format; }
@@ -98,12 +88,8 @@ public:
                 filter,
                 pixel_format};
     }
-// FUNCTION: SURRENDER 0x10059A60 SYMBOL
-// RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
 
     w8_long getWidth() const { return width; }
-// FUNCTION: SURRENDER 0x10059A90 SYMBOL
-// RECOMP: ?setFilter@srColorSurfaceIFace@@QAEXPAVsrFilter@@@Z
 
     void setFilter(srFilter* filter) { this->filter = filter; }
     void setHClampMode(int enabled);

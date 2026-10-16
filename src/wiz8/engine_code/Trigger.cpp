@@ -1885,7 +1885,6 @@ bool Trigger::RequiresItem()
 }
 
 // VTABLE: WIZ8 0x005ec104
-// class srClassSupport<Trigger,srClass,65544>
 // FUNCTION: WIZ8 0x0043ba10
 Trigger::Trigger()
 {

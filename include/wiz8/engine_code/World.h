@@ -1,8 +1,10 @@
 #pragma once
 
 #include <functional>
+#include <initializer_list>
 #include <string_view>
 
+#include "surrender/srScene.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/world.h"
 
@@ -45,19 +47,25 @@ unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, 
 
 void SetSecondaryWorld(W8World* world);
 
-/* Scene nodes of the loaded worlds (the level world, then the sky world) that
-   derive from class_id. Lookups return the first match by exact name. */
-srNode* FindWorldNode(std::string_view name, w8_ulong class_id);
-void ForEachWorldNode(w8_ulong class_id, const std::function<void(srNode*)>& visit);
+/* Scene nodes of the loaded worlds (the level world, then the sky world).
+   Lookups return the first type-compatible match by exact name. */
+void ForEachWorldNode(const std::function<void(srNode*)>& visit);
 
 template<class T> T* FindWorldNode(std::string_view name)
 {
-    return static_cast<T*>(FindWorldNode(name, T::CLASS_ID));
+    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
+        if (world && world->static_scene) {
+            if (auto* node = world->static_scene->findChild<T>(name)) return node;
+        }
+    }
+    return nullptr;
 }
 
 template<class T> void ForEachWorldNode(const std::function<void(T*)>& visit)
 {
-    ForEachWorldNode(T::CLASS_ID, [&](srNode* node) { visit(static_cast<T*>(node)); });
+    ForEachWorldNode([&](srNode* node) {
+        if (auto* match = dynamic_cast<T*>(node)) visit(match);
+    });
 }
 
 /* APST chunk: serialize every world prop's animation state. The record is a

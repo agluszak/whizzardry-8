@@ -11,7 +11,6 @@ public:
     // RECOMP: ??1srFilter@@UAE@XZ
     virtual ~srFilter() {}
 
-    virtual const char* getName() const = 0;
     virtual double getWeight(double value) const = 0;
     virtual double getSupport() const = 0;
 };
@@ -20,7 +19,6 @@ public:
 // class srBoxFilter
 class srBoxFilter : public srFilter {
 public:
-    virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
     virtual double getSupport() const override;
 };
@@ -29,7 +27,6 @@ public:
 // class srBellFilter
 class srBellFilter : public srFilter {
 public:
-    virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
     virtual double getSupport() const override;
 };
@@ -38,7 +35,6 @@ public:
 // class srBSplineFilter
 class srBSplineFilter : public srFilter {
 public:
-    virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
     virtual double getSupport() const override;
 };
@@ -47,7 +43,6 @@ public:
 // class srTriangleFilter
 class srTriangleFilter : public srFilter {
 public:
-    virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
     virtual double getSupport() const override;
 };
