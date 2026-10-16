@@ -203,6 +203,13 @@ template<class IO, class Material> void TransferMaterial(IO& io, Material& mater
     if (material.version >= 4) io.field(material.texture_modes);
 }
 
+template<class IO, class Node> void TransferPathNode(IO& io, Node& node)
+{
+    io.field(node.position);
+    io.field(node.angle);
+    io.field(node.axis);
+}
+
 template<class IO, class Path> void TransferPathAI(IO& io, Path& path)
 {
     io.field(path.version);
@@ -210,9 +217,13 @@ template<class IO, class Path> void TransferPathAI(IO& io, Path& path)
     io.field(path.position);
     io.field(path.unknown_06);
     if (path.IsScaled()) {
-        TransferArray<int>(io, path.scaled_paths);
+        TransferRecords<int>(io, path.scaled_paths, [](auto& io, auto& node) {
+            TransferPathNode(io, node.path);
+            io.field(node.scale);
+        });
     } else {
-        TransferArray<int>(io, path.paths);
+        TransferRecords<int>(io, path.paths,
+                             [](auto& io, auto& node) { TransferPathNode(io, node); });
     }
 }
 
@@ -736,7 +747,8 @@ template<class IO, class Monster> void TransferMonster(IO& io, Monster& monster)
     if constexpr (!IO::reading) header.path_node_count = DiskCount<int>(monster.path.size());
     io.field(header);
     if constexpr (IO::reading) monster.header = header;
-    io.array(monster.path, header.path_node_count);
+    io.records(monster.path, header.path_node_count);
+    for (auto& node : monster.path) TransferPathNode(io, node);
 }
 
 /* Invisible triggers before version 2 have no plane; retail registered a null

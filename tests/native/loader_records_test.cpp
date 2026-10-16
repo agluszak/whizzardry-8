@@ -262,14 +262,21 @@ static void level_records()
     append(bytes, 7);
     append(bytes, 0u);
     append(bytes, 1);
-    alignas(4) W8LevelFileScaledPathNode node{};
-    node.path.position.x = 42;
-    append(bytes, node);
+    // Ten disk floats, independent of the runtime keyframe/vector layout.
+    append(bytes, std::array<float, 10>{42, 2, 3, 0.5f, 0, 1, 0, 2, 3, 4});
     store("path.bin", bytes);
     file = wiz8::open_file("path.bin");
     W8LevelFilePathAI path{};
     REQUIRE((ReadPathAIFile(*file, path)));
     REQUIRE((path.PathCount() == 1 && path.scaled_paths[0].path.position.x == 42));
+    auto encoded = wiz8::open_file("path-output.bin", wiz8::OpenMode::replace);
+    REQUIRE(WritePathAIFile(*encoded, path));
+    encoded->close();
+    encoded = wiz8::open_file("path-output.bin");
+    REQUIRE(encoded->size() == static_cast<std::int64_t>(bytes.size()));
+    std::string roundtrip(bytes.size(), '\0');
+    encoded->read_exact(roundtrip.data(), roundtrip.size());
+    REQUIRE(roundtrip == bytes);
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("path.bin", bytes.substr(0, end));
         file = wiz8::open_file("path.bin");

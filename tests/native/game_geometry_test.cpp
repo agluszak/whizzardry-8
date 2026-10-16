@@ -2836,10 +2836,10 @@ TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bo
     frame.mesh.vertices = {{0, 0, 0}, {0, 0, 2}, {2, 0, 0}};
     frame.mesh.faces = {face};
     W8LevelFileScaledPathNode node{};
-    node.path.position.Set(1, -2, 3);
-    node.path.axis.Set(0, 2, 0);
+    node.path.position = {1, -2, 3};
+    node.path.axis = {0, 2, 0};
     node.path.angle = 1.5707963267948966f;
-    node.scale.Set(2, 3, 4);
+    node.scale = {2, 3, 4};
     W8LevelFileTransform transform{};
     transform.num_frames = 1;
     transform.frames.push_back(std::move(frame));

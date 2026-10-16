@@ -44,19 +44,6 @@ enum W8LevelTriggerType : char {
 /* ---- Fixed-width disk records ---- */
 #pragma pack(push, 1)
 
-/* One path keyframe: position and an axis/angle rotation. Scaled paths add a
-   per-frame scale. */
-struct W8LevelFilePathNode { /* 0x1c */
-    srVector3T<float> position;
-    float angle;
-    srVector3T<float> axis;
-};
-
-struct W8LevelFileScaledPathNode { /* 0x28 */
-    W8LevelFilePathNode path;
-    srVector3T<float> scale;
-};
-
 struct W8LevelFileFramePosition {
     unsigned short frame;
     unsigned short tag;
@@ -212,6 +199,17 @@ struct W8LevelFileNamedPosition { /* 0x9d */
 
 /* ---- Runtime records, transferred field by field ---- */
 
+// Runtime keyframes; level-file transfers encode each component explicitly.
+struct W8LevelFilePathNode {
+    glm::vec3 position{0};
+    float angle = 0;
+    glm::vec3 axis{0};
+};
+struct W8LevelFileScaledPathNode {
+    W8LevelFilePathNode path;
+    glm::vec3 scale{0};
+};
+
 /* A keyframed path. Scaled paths (scaled == 2) store W8LevelFileScaledPathNode
    frames, the others W8LevelFilePathNode frames. */
 struct W8LevelFilePathAI {
@@ -231,7 +229,7 @@ struct W8LevelFilePathAI {
     W8LevelFileScaledPathNode Node(int frame) const
     {
         if (IsScaled()) return scaled_paths[frame];
-        return {paths[frame], srVector3T<float>(1.0f, 1.0f, 1.0f)};
+        return {paths[frame], glm::vec3(1.0f)};
     }
 };
 

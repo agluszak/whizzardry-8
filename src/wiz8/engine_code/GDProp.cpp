@@ -451,13 +451,12 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
 {
     int surface_base = m_surface_count;
 
-    const auto axis = node.path.axis.glmValue();
+    const auto axis = node.path.axis;
     glm::mat3 rotation(1);
     if (node.path.angle != g_double_zero)
         rotation *= glm::mat3_cast(glm::angleAxis(
             float(std::atan2(sin(node.path.angle), cos(node.path.angle))), normalizedOrZero(axis)));
-    const auto translation =
-        glm::vec3(glm::dvec3(node.path.position.glmValue()) * g_double_five_hundred);
+    const auto translation = glm::vec3(glm::dvec3(node.path.position) * g_double_five_hundred);
     float factor;
 
     if ((mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 &&
@@ -466,7 +465,7 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
     } else {
         factor = static_cast<float>(g_double_five_hundred);
     }
-    const auto scale = node.scale.glmValue() * factor;
+    const auto scale = node.scale * factor;
 
     glm::mat4x3 matrix(rotation);
     matrix[3] = translation;
