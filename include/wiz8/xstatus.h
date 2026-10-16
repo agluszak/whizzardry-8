@@ -23,6 +23,7 @@ struct W8WorldItem;
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/monster_roster.h"
 
