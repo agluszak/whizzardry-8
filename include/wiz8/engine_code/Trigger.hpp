@@ -5,8 +5,8 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srClass.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/sr_api.h"
 
 class stLight;
 struct W8Item;

@@ -16,6 +16,7 @@
 #include "monster_actions.h"
 #include "random.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
@@ -64,7 +65,6 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

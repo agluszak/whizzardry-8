@@ -2,23 +2,13 @@
 
 #include "game_timer.h"
 
-/* A W8GameTimer specialization constructed at 0x0043A910 over the base built
-   by 0x00439550: it scales real elapsed time into accumulated game time.
-   Nothing in the image names it - its constructor sits in a gap between
-   assertion-anchored translation units and references no naming string - so
-   the class carries a descriptive name anchored at its constructor address
-   and its fields keep positional names. What the constructor does establish
-   is the layout: a float copied from a global, an integer derived from it,
-   and four constants. */
+// Scales real elapsed time into accumulated game time, with a per-frame clamp.
 
 // GLOBAL: WIZ8 0x006068EC
 float g_rate = 0.1f;
 
 // GLOBAL: WIZ8 0x006598bc
 W8GameTimeAccumulator* g_game_time_accumulator;
-
-// VTABLE: WIZ8 0x005ec0ac
-// class W8GameTimeAccumulator
 
 // FUNCTION: WIZ8 0x0043a910
 W8GameTimeAccumulator::W8GameTimeAccumulator()

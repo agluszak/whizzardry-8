@@ -83,7 +83,7 @@ void drawSides(srGERD& renderer, const srMeshModel::TriMesh& mesh, ConfigureSide
         const auto material_side = configure(pipeline, side);
         for (w8_long pass = 0; pass < mesh.pass_count; ++pass)
             pipeline.AppendMeshPass(mesh, pass, material_side, shaderAt(pass));
-        pipeline.FlushIfCurrent();
+        pipeline.Flush();
     }
 }
 

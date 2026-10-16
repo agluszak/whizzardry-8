@@ -13,14 +13,6 @@ class srScene : public srNode {
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 
-    struct Statistics {
-        double elapsed;              /* seconds since the last reset */
-        w8_ulong render_calls;  /* scene renders accumulated */
-        w8_ulong node_calls;    /* node visits accumulated per render */
-        w8_ulong process_calls; /* per-node process calls accumulated */
-        w8_ulong value_14;
-    };
-
     srScene(srNode* parent = 0);
 
     srScene& operator=(const srScene& other);
@@ -32,10 +24,8 @@ public:
     void enable(e_enable option);
     glm::vec3 getAmbientLight() const;
     glm::vec3 getFogColor() const;
-    Statistics getStatistics() const;
     int isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
-    void resetStatistics();
 
     void setAmbientLight(float red, float green, float blue);
     void setAmbientLight(const glm::vec3& color);
@@ -45,8 +35,7 @@ public:
 
 protected:
     std::uint32_t enabled = 0;       /* 0x138 */
-    Statistics statistics;           /* 0x140 */
-    TraverseInfo traversal;          /* 0x158 (renderer at 0x170) */
+    TraverseInfo traversal;
     glm::vec3 ambient_light;         /* 0x174 */
     glm::vec3 fog_color;             /* 0x180 */
 };

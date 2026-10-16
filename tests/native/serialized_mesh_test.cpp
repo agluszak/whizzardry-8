@@ -25,11 +25,11 @@
 #include "layouts/world.h"
 #include "materials.h"
 #include "quad.h"
-#include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
+#include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -186,7 +186,6 @@ bool LoadCycles(const std::filesystem::path& path)
 
 TEST_CASE("serialized_mesh_test")
 {
-    REQUIRE(srInit());
     ScopedTemporaryDirectory temporary{"wiz8-mesh-fixture"};
     const auto& directory = temporary.path;
     const auto good = directory / "linked.pvl", bad = directory / "duplicate.pvl";
@@ -249,12 +248,16 @@ TEST_CASE("serialized_mesh_test")
             ~TrackedInstance() override { ++destroyed; }
         };
         int destroyed = 0;
-        srScene scene(nullptr);
         W8World world{};
-        world.static_scene = &scene;
-        world.update_mesh_source = new TrackedInstance(&scene, destroyed);
-        world.psrMeshes = {new TrackedInstance(&scene, destroyed),
-                           new TrackedInstance(&scene, destroyed), nullptr};
+        world.static_scene = std::make_unique<srScene>();
+        auto& scene = *world.static_scene;
+        world.level = scene.adoptChild(std::make_unique<stLevel>(nullptr));
+        world.update_mesh_source =
+            world.level->adoptChild(std::make_unique<TrackedInstance>(nullptr, destroyed));
+        world.psrMeshes = {
+            world.level->adoptChild(std::make_unique<TrackedInstance>(nullptr, destroyed)),
+            world.level->adoptChild(std::make_unique<TrackedInstance>(nullptr, destroyed)),
+            nullptr};
         const auto empty = directory / "empty.lvl";
         wiz8::open_file(empty, wiz8::OpenMode::replace)->close();
         auto file = wiz8::open_file(empty);
@@ -262,13 +265,12 @@ TEST_CASE("serialized_mesh_test")
         REQUIRE(destroyed == 3);
         REQUIRE(world.update_mesh_source == nullptr);
         REQUIRE(world.psrMeshes.empty());
-        REQUIRE(scene.getChildCount() == 0);
+        REQUIRE(world.level->getChildCount() == 0);
         REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
         REQUIRE(destroyed == 3);
     }
     ReleaseReadMeshScratch();
     ReleaseOctMeshDefaults();
-    srExit();
     REQUIRE(ok);
     std::puts(
         "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");

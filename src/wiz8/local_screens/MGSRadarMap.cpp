@@ -36,6 +36,7 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
 
@@ -157,7 +158,7 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
     if (icon != 0) {
         icon->clearFlag(srNode::FLAG_DISABLE);
         icon->setParent(0, 1);
-        icon->setParent(g_scene_square, 1);
+        icon->setParent(g_overlay_scenes.square.get(), 1);
         icon->overlay_scene_flag |= 1;
         if (!lit) {
             icon->SetGlowEnabled(false);

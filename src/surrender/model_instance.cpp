@@ -8,17 +8,14 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "surrender/model_view_scope.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srStatisticsManager.h"
 
 // FUNCTION: SURRENDER 0x1004F920
-srModelInstance::srModelInstance(srNode* parent, Ownership ownership)
-    : srNode(static_cast<srNode*>(nullptr), ownership)
+srModelInstance::srModelInstance(srNode* parent) : srNode(static_cast<srNode*>(nullptr))
 {
     alignment_flags = 0;
     align_angle = 0.0f;
@@ -119,7 +116,6 @@ srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer,
 // FUNCTION: SURRENDER 0x1004F4B0
 void srModelInstance::process(const ProcessInfo& info, e_processType type)
 {
-    ++srCore.getStatisticsManager()->statistics.meshes_traversed;
     const auto scope = scopedRender(*info.renderer);
     getModel()->render(*info.renderer);
 }

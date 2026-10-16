@@ -1,8 +1,11 @@
 #include <array>
+#include <cstring>
 #include <memory>
 
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "glm/ext/matrix_float4x4.hpp"
@@ -50,8 +53,9 @@ struct Fixture {
     unsigned pixel()
     {
         unsigned pixel = 0;
-        device->lockBuffer();
-        device->readPixels(32, 32, false, {&pixel, 1});
+        auto* surface = device->lockBuffer();
+        std::memcpy(&pixel,
+                    static_cast<unsigned char*>(surface->pixels) + 32 * surface->pitch + 32 * 4, 4);
         device->unlockBuffer();
         return pixel & 0xffffff;
     }
@@ -126,26 +130,12 @@ TEST_CASE("Texture uploads copy pitched regions before CPU storage changes and d
     REQUIRE(fixture.pixel() == 0x00ff00);
 }
 
-TEST_CASE("Nested framebuffer locks preserve clipped column writes and fills through upload")
+TEST_CASE("SDL framebuffer edits upload only when explicitly marked modified")
 {
     Fixture fixture;
-    fixture.device->lockBuffer();
-    fixture.device->lockBuffer();
-    std::array<unsigned, 3> column{0xffff0000, 0xff00ff00, 0xff0000ff};
-    fixture.device->writePixels(32, 62, true, column);
-    fixture.device->fillPixels(32, 32, 1, 0xffffffff);
-    fixture.device->unlockBuffer();
-    std::array<unsigned, 3> result{0, 0, 0x12345678};
-    fixture.device->readPixels(32, 62, true, result);
-    REQUIRE(result[0] == column[0]);
-    REQUIRE(result[1] == column[1]);
-    REQUIRE(result[2] == 0x12345678);
-    fixture.device->unlockBuffer();
+    auto* surface = fixture.device->lockBuffer();
+    SDL_Rect pixel{32, 32, 1, 1};
+    REQUIRE(SDL_FillSurfaceRect(surface, &pixel, 0xffffffff));
+    fixture.device->unlockBuffer(true);
     REQUIRE(fixture.pixel() == 0xffffff);
-    fixture.device->lockBuffer();
-    result.fill(0);
-    fixture.device->readPixels(32, 62, true, result);
-    fixture.device->unlockBuffer();
-    REQUIRE(result[0] == column[0]);
-    REQUIRE(result[1] == column[1]);
 }

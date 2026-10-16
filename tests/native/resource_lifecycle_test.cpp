@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "GrCycle.h"
@@ -18,11 +20,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srClock.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
@@ -46,34 +44,37 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
 
-extern std::shared_ptr<srColorSurface> g_mouse_surface;
-extern std::unique_ptr<srColorSurface> g_automap_surface;
+extern std::shared_ptr<SDL_Surface> g_mouse_surface;
+extern SDLSurfaceOwner g_automap_surface;
 
-static void shutdown_survivors()
+static void source_resource_owners()
 {
-    REQUIRE((srInit()));
     auto model = std::make_shared<stMeshModel>(0, 1);
     model->InitializeVertexFrames(1);
     model->GetVertexLocations(0, true, 0.0f);
-    // A model whose owner survives srExit() is destroyed after reinitialization.
+    // The model remains alive while an interrupted scene releases its adopted instance.
     auto survivor = model;
-    auto palette = srCore.getPalette();
-    g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
-    g_mouse_surface->setPalette(palette);
-    g_automap_surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
-    g_automap_surface->setPalette(palette);
+    std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(SDL_CreatePalette(256),
+                                                                        SDL_DestroyPalette);
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
+    REQUIRE(SDL_SetSurfacePalette(g_mouse_surface.get(), palette.get()));
+    g_automap_surface = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8);
+    REQUIRE(SDL_SetSurfacePalette(g_automap_surface.get(), palette.get()));
 
     struct InterruptedScene : srScene {
         explicit InterruptedScene(const std::shared_ptr<stMeshModel>& model)
         {
-            auto* instance = new stModelInstance(this);
+            auto* instance = adoptChild(std::make_unique<stModelInstance>(nullptr));
             instance->setModel(model);
             throw std::runtime_error("Interrupted scene initialization");
         }
@@ -85,17 +86,14 @@ static void shutdown_survivors()
     }
 
     // These are the actual global owners used by mouse and automap rendering.
-    REQUIRE((srExit()));
-    g_mouse_surface->setName("Detached mouse surface");
-    REQUIRE((g_mouse_surface->getName() == "Detached mouse surface"));
-    g_automap_surface.reset(); // Destruction after renderer shutdown.
-    REQUIRE((srInit()));
+    REQUIRE(SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 17));
+    REQUIRE(*static_cast<unsigned char*>(g_mouse_surface->pixels) == 17);
+    g_automap_surface.reset();
     model.reset();
     survivor.reset();
     g_mouse_surface.reset();
     palette.reset();
     REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
-    REQUIRE((srExit()));
 }
 
 static void npc_script_teardown()
@@ -141,8 +139,8 @@ static void queued_state_teardown()
 TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization",
           "[resources][lifecycle]")
 {
-    shutdown_survivors();
-    shutdown_survivors();
+    source_resource_owners();
+    source_resource_owners();
 }
 
 TEST_CASE("NPC script owns nested quotes until release", "[resources][lifecycle]")
@@ -181,12 +179,31 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
     REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
 }
 
+TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resources][lifecycle]")
+{
+    W8Character character{};
+    const struct Cleanup {
+        ~Cleanup() { DestroyGameplayObjects(); }
+    } cleanup;
+    InitializeGameplayRuntimeObjects();
+    gXStatus.character_event_queue->pending_events.push_back(
+        std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 0));
+    gXStatus.gameplay_timer->SetDuration(1.0f);
+
+    // Replacing the status must destroy the old owners, including their nested events.
+    InitializeGameplayRuntimeObjects();
+    REQUIRE(gXStatus.character_event_queue->IsMainQueueEmpty());
+    REQUIRE(gXStatus.gameplay_timer->m_duration_seconds == 300.0f);
+    DestroyGameplayObjects();
+    DestroyGameplayObjects();
+    REQUIRE_FALSE(gXStatus.character_event_queue);
+    REQUIRE_FALSE(gXStatus.gameplay_timer);
+}
+
 struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
     W8World* previous_world = GetWorld();
-    srClock* previous_clock = g_shared_timer_base;
-    srClock clock;
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
     W8World world{};
@@ -194,8 +211,6 @@ struct SpellVisualFixture {
 
     SpellVisualFixture()
     {
-        REQUIRE(srInit());
-        g_shared_timer_base = &clock;
         octree = std::make_unique<W8Octree>(nullptr, nullptr);
         g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
@@ -209,9 +224,7 @@ struct SpellVisualFixture {
         DestroyAllSpellVisuals(&world);
         octree.reset();
         g_octree = previous_octree;
-        g_shared_timer_base = previous_clock;
         SetCurrentWorld(previous_world);
-        srExit();
     }
 };
 
@@ -269,19 +282,20 @@ static void CheckEmitterCloneLifetime()
     const int cycle = static_cast<int>(source->resources.cycles.size()) - 1;
     source->resources.cycles[cycle].animation = std::make_unique<W8AnimObj>();
     source->resources.cycles[cycle].animation->playback_scale = 3.5f;
-    auto* light = CreateWorldLight(nullptr, "EmitterClone");
+    auto owned_light = CreateLight(nullptr, "EmitterClone");
+    auto* light = owned_light.get();
     light->setLocation(11, 22, 33);
     light->m_position = {11, 22, 33};
-    source->resources.cycles[cycle].lights.lights.push_back(light);
+    source->resources.cycles[cycle].lights.lights.push_back(std::move(owned_light));
     auto copy = std::make_unique<Host>(*source);
     REQUIRE(copy->resources.cycles[cycle].animation != source->resources.cycles[cycle].animation);
-    REQUIRE(copy->resources.cycles[cycle].lights.lights.front() != light);
+    REQUIRE(copy->resources.cycles[cycle].lights.lights.front().get() != light);
     source.reset();
     REQUIRE(copy->resources.cycles[cycle].animation->playback_scale == 3.5f);
     REQUIRE(copy->value_0ac == 11);
     REQUIRE(copy->value_0b0 == 22);
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front()->positionalX() == 11);
-    REQUIRE(g_world->transient_lights.size() == 1);
+    REQUIRE(copy->resources.cycles[cycle].lights.lights.front()->getParent() == nullptr);
     copy.reset();
     REQUIRE(g_world->transient_lights.empty());
 }
@@ -412,8 +426,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
             : stModelInstance(nullptr), observations(observations)
         {
         }
-        ~ObservedInstance() override { observations.push_back(g_world->transient_lights.size()); }
-        ObservedInstance(const ObservedInstance&) = delete;
+        ~ObservedInstance() override { observations.push_back(g_world->lights_to_update.size()); }
         std::vector<std::size_t>& observations;
     };
     std::vector<std::size_t> observations;
@@ -421,7 +434,9 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
     {
         EmitterResources<2> resources;
         for (auto& cycle : resources.cycles) {
-            cycle.lights.lights.push_back(CreateWorldLight(&world, "TeardownOrder"));
+            auto light = CreateLight(nullptr, "TeardownOrder");
+            world.lights_to_update.push_back(light.get());
+            cycle.lights.lights.push_back(std::move(light));
             cycle.animation = std::make_unique<W8AnimObj>();
             auto mesh = std::make_unique<W8AniMesh>();
             mesh->meshes.push_back(std::make_unique<ObservedInstance>(observations));
@@ -430,6 +445,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
     }
     REQUIRE(observations == std::vector<std::size_t>{2, 2});
     REQUIRE(world.transient_lights.empty());
+    REQUIRE(world.lights_to_update.empty());
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by spell destruction",
@@ -437,8 +453,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
 {
     struct ObservedParticle : stParticle {
         ObservedParticle(W8World& owner, bool& destroyed, bool& scene_alive)
-            : stParticle(owner.dynamic_scene, 1, srNode::Ownership::independent), owner(owner),
-              destroyed(destroyed), scene_alive(scene_alive)
+            : stParticle(owner.dynamic_scene, 1), owner(owner), destroyed(destroyed),
+              scene_alive(scene_alive)
         {
             active_particle_count = 1;
         }
@@ -454,8 +470,9 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
     };
     bool destroyed = false, scene_alive = false;
     auto retiring_world = std::make_unique<W8World>();
-    retiring_world->static_scene = new srScene(nullptr);
-    retiring_world->dynamic_scene = new srNode(retiring_world->static_scene);
+    retiring_world->static_scene = std::make_unique<srScene>();
+    retiring_world->dynamic_scene =
+        retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
     SetCurrentWorld(retiring_world.get());
     auto visual = std::make_unique<W8SpellVisual>();
     auto attachment = std::make_unique<W8GrCycleParticleAttachment>();

@@ -35,6 +35,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/vector_float3.hpp>
 
+#include "../native/surface_pixels.h"
 #include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
@@ -63,7 +64,6 @@
 #include "local_code/SpellEffect.h"
 #include "mgs_commands.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -444,7 +444,7 @@ public:
         std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
         for (int y = 0; y < SCREEN_HEIGHT; ++y)
             for (int x = 0; x < SCREEN_WIDTH; ++x)
-                pixels[y * SCREEN_WIDTH + x] = surface->getPixel(x, y) & 0xffffff;
+                pixels[y * SCREEN_WIDTH + x] = ReadARGB(*surface, x, y) & 0xffffff;
         g_gerd->unlockBuffer();
         return pixels;
     }
@@ -1293,10 +1293,10 @@ void ResourceLifecycleScenario()
         for (int frame = 0; frame != 4; ++frame) game.frame();
         RenderFrame();
         REQUIRE(world->level->m_submitted_polygons > 0);
-        REQUIRE(g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
         g_gerd->invalidateTextureCache();
         RenderFrame();
-        REQUIRE(g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
         REQUIRE(world->level->m_submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
@@ -1309,7 +1309,7 @@ void ResourceLifecycleScenario()
         ExpectAt("reloaded-position", anchor);
     }
     RenderFrame();
-    REQUIRE(g_gerd->getTextureCacheUsed() > 0);
+    REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
 }
 
 /* The UI load test consumes the save written by the quick-save regression.

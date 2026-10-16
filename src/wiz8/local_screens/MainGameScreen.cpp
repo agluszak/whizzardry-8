@@ -54,11 +54,10 @@
 #include "random.h"
 #include "soundman.h"
 #include "sprite.h"
-#include "surrender/srColorSurface.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "surrender/srShader.h"
 #include "texture_animation.h"
@@ -159,8 +158,8 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/spell_ids.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/text_input.h"
@@ -171,7 +170,7 @@
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
-class srColorSurfaceIFace;
+struct SDL_Surface;
 
 /* Every redraw request checks the screen state first, so a request made from
    another screen is simply dropped. */
@@ -2523,7 +2522,7 @@ unsigned char MainGameScreenEnter(void)
         SetEnvironmentTimeEnabled(true);
     }
     {
-        W8GameTimer* timer = gXStatus.gameplay_timer;
+        W8GameTimer* timer = gXStatus.gameplay_timer.get();
         if (timer->m_flags.paused || (g_shared_timer_paused && !timer->m_flags.raw_time) ||
             g_shared_timer_flag0) {
             timer->m_flags.paused = false;
@@ -3384,7 +3383,7 @@ void DrawMainGameScreen(void)
             EnsureRadarMapOverlay();
         }
         if (g_node_cull_pending) {
-            for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
+            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
@@ -3392,7 +3391,7 @@ void DrawMainGameScreen(void)
         }
         RenderFrame();
         if (g_node_cull_pending) {
-            for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
+            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);
@@ -7248,7 +7247,7 @@ const float g_fade_resume_scale = -500.0f;
 // GLOBAL: WIZ8 0x0068edca
 static bool g_surprise_fade_in;
 // GLOBAL: WIZ8 0x0068edf0
-static std::shared_ptr<srColorSurfaceIFace> g_surprise_snapshot_surface;
+static std::shared_ptr<SDL_Surface> g_surprise_snapshot_surface;
 // GLOBAL: WIZ8 0x0068edf4
 static std::unique_ptr<stSurface2D> g_surprise_snapshot_overlay;
 // GLOBAL: WIZ8 0x0068edf8
@@ -7352,15 +7351,10 @@ unsigned char UpdateSurpriseFade(void)
     if (boundary) {
         if (gXStatus.surprise_phase == 0) {
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
-            const auto pitch = snapshot->pitch;
-            void* pixels = snapshot->pixels;
-            auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                            pixels, 0x280, 0x1e0, pitch);
-            g_surprise_snapshot_surface = surface;
+            g_surprise_snapshot_surface = snapshot;
             g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
-                g_surprise_snapshot_surface, 0x280, 0x1e0, g_scene_fullscreen, 0x80);
-            g_surprise_snapshot_overlay->updateRectangle(g_gerd.get(), pixels, pitch, 0, 0, 0x280,
-                                                         0x1e0);
+                g_surprise_snapshot_surface, 0x280, 0x1e0, g_overlay_scenes.fullscreen.get(), 0x80);
+            g_surprise_snapshot_overlay->updateRectangle(g_gerd.get(), 0, 0, 0x280, 0x1e0);
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {

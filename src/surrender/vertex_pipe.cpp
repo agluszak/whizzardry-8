@@ -19,11 +19,9 @@
 #include "surrender/lighting_math.h"
 #include "surrender/srARGB.h"
 #include "surrender/srBoundingSphere.h"
-#include "surrender/srCore.h"
 #include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 
@@ -169,7 +167,7 @@ void srVertexPipe::processVertexBuffer()
         const w8_ulong q_bit = 1u << (srVertexProcessor::CHANNEL_Q0 + stage);
         if ((channel_mask & st_bit) == 0) continue;
         if ((lazy_setup_mask & q_bit) == 0) mask &= ~q_bit;
-        srCore.getStatisticsManager()->statistics.texture_coordinate_operations += vertex_count;
+
         if ((lazy_setup_mask & st_bit) == 0) setupST(stage);
         lazy_setup_mask |= st_bit;
         if ((lazy_setup_mask & q_bit) == 0) setupQ(stage);
@@ -188,10 +186,9 @@ void srVertexPipe::processVertexBuffer()
 void srVertexPipe::setMaterial(srMaterialIFace* material)
 {
     if (material == 0) {
-        material = srCore.getMaterial();
+        material = &default_material;
     }
     if (material != this->material) {
-        srCore.getStatisticsManager()->statistics.material_processing_stalls += 1;
         this->material = material;
         material_info = material->getMaterialInfo();
     }
@@ -293,7 +290,6 @@ void srVertexPipe::finishDiffuseAlpha()
                              (1UL << srVertexProcessor::CHANNEL_ALPHA))) == 0) &&
         ((current_record->flags &
           (srVertexPipe::Record::HAS_COLORS | srVertexPipe::Record::HAS_ALPHA)) == 0)) {
-        srCore.getStatisticsManager()->statistics.diffuse_operations += vertex_count;
         glm::vec4 color = input->ambient_light * material_info.ambient + material_info.emissive;
         color.w = material_info.diffuse.w;
         const auto color_value = color;
@@ -312,14 +308,12 @@ void srVertexPipe::finishDiffuseAlpha()
         return;
     }
     if ((channel_mask & (1 << srVertexProcessor::CHANNEL_DIFFUSE)) != 0) {
-        srCore.getStatisticsManager()->statistics.diffuse_operations += vertex_count;
         if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
             setupDiffuse();
         }
     }
     float* alpha;
     if ((channel_mask & (1 << srVertexProcessor::CHANNEL_ALPHA)) != 0) {
-        srCore.getStatisticsManager()->statistics.alpha_operations += vertex_count;
         if ((current_record->flags & srVertexPipe::Record::HAS_ALPHA) != 0) {
             alpha = scratch.alpha + sub_batch_offset;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
@@ -344,7 +338,6 @@ void srVertexPipe::finishDiffuseAlpha()
             for (std::size_t i = 0; i < vertex_count; ++i) diffuse[i].w = opacity;
 
         } else {
-            srCore.getStatisticsManager()->statistics.alpha_operations += vertex_count;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
                 setupAlpha();
             }
@@ -375,7 +368,6 @@ void srVertexPipe::finishSpecularFog()
     glm::vec4* destination = vertex_array->specular + batch_base + sub_batch_offset;
     if ((lazy_setup_mask & ((1UL << srVertexProcessor::CHANNEL_SPECULAR) |
                             (1UL << srVertexProcessor::CHANNEL_FOG))) == 0) {
-        srCore.getStatisticsManager()->statistics.specular_operations += vertex_count;
         const glm::vec4 zero(0);
         std::fill_n(destination, vertex_count, zero);
         return;
@@ -385,7 +377,6 @@ void srVertexPipe::finishSpecularFog()
             for (std::size_t i = 0; i < vertex_count; ++i) destination[i].w = (0.0f);
 
         } else {
-            srCore.getStatisticsManager()->statistics.fog_operations += vertex_count;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) == 0) {
                 setupFog();
             }
@@ -393,12 +384,10 @@ void srVertexPipe::finishSpecularFog()
             ScaleAndStoreCoverage({fog, vertex_count}, destination, material_info.fog_scale, true);
         }
     } else {
-        srCore.getStatisticsManager()->statistics.specular_operations += vertex_count;
         if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
             setupSpecular();
         }
         if ((channel_mask & (1 << srVertexProcessor::CHANNEL_FOG)) != 0) {
-            srCore.getStatisticsManager()->statistics.fog_operations += vertex_count;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) == 0) {
                 setupFog();
             }
@@ -476,7 +465,7 @@ void srVertexPipe::setupFog()
 void srVertexPipe::applyFog(std::span<const float> values)
 {
     assert(values.size() >= vertex_count);
-    srCore.getStatisticsManager()->statistics.fog_operations += vertex_count;
+
     float* fog = scratch.fog + sub_batch_offset;
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) != 0) {
         for (w8_ulong i = 0; i < vertex_count; ++i)
@@ -720,36 +709,28 @@ std::span<const float> srVertexPipe::getEyeSpaceZDist()
 // FUNCTION: SURRENDER 0x1002C680
 std::span<float> srVertexPipe::getFog()
 {
-    prepareOutputChannel(srVertexProcessor::CHANNEL_FOG,
-                         srCore.getStatisticsManager()->statistics.fog_operations,
-                         &srVertexPipe::setupFog);
+    prepareOutputChannel(srVertexProcessor::CHANNEL_FOG, &srVertexPipe::setupFog);
     return {scratch.fog + sub_batch_offset, vertex_count};
 }
 
 // FUNCTION: SURRENDER 0x1002C6C0
 std::span<float> srVertexPipe::getAlpha()
 {
-    prepareOutputChannel(srVertexProcessor::CHANNEL_ALPHA,
-                         srCore.getStatisticsManager()->statistics.alpha_operations,
-                         &srVertexPipe::setupAlpha);
+    prepareOutputChannel(srVertexProcessor::CHANNEL_ALPHA, &srVertexPipe::setupAlpha);
     return {scratch.alpha + sub_batch_offset, vertex_count};
 }
 
 // FUNCTION: SURRENDER 0x1002C700
 std::span<glm::vec4> srVertexPipe::getDiffuse()
 {
-    prepareOutputChannel(srVertexProcessor::CHANNEL_DIFFUSE,
-                         srCore.getStatisticsManager()->statistics.diffuse_operations,
-                         &srVertexPipe::setupDiffuse);
+    prepareOutputChannel(srVertexProcessor::CHANNEL_DIFFUSE, &srVertexPipe::setupDiffuse);
     return {vertex_array->diffuse + batch_base + sub_batch_offset, vertex_count};
 }
 
 // FUNCTION: SURRENDER 0x1002C740
 std::span<glm::vec4> srVertexPipe::getSpecular()
 {
-    prepareOutputChannel(srVertexProcessor::CHANNEL_SPECULAR,
-                         srCore.getStatisticsManager()->statistics.specular_operations,
-                         &srVertexPipe::setupSpecular);
+    prepareOutputChannel(srVertexProcessor::CHANNEL_SPECULAR, &srVertexPipe::setupSpecular);
     return {vertex_array->specular + batch_base + sub_batch_offset, vertex_count};
 }
 
@@ -770,10 +751,8 @@ void* srVertexPipe::getUserArray(w8_ulong index)
     return current_record->user[index];
 }
 
-void srVertexPipe::prepareOutputChannel(srVertexProcessor::e_channel channel, w8_ulong& operations,
-                                        SetupChannel setup)
+void srVertexPipe::prepareOutputChannel(srVertexProcessor::e_channel channel, SetupChannel setup)
 {
-    operations += vertex_count;
     if ((lazy_setup_mask & (1u << channel)) == 0) (this->*setup)();
 }
 

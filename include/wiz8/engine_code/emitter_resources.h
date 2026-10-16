@@ -6,10 +6,9 @@
 #include <vector>
 
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/stLight.hpp"
 
-class stLight;
-
-// Owns lights whose scene/world registrations still require explicit removal.
+// Owns animation lights; the world update list and scene links only borrow.
 // The vector itself is a value; visual cycles borrow its stable address.
 class EmitterLights {
 public:
@@ -19,7 +18,7 @@ public:
     EmitterLights(EmitterLights&& other) noexcept { lights.swap(other.lights); }
     EmitterLights& operator=(const EmitterLights&) = delete;
     ~EmitterLights();
-    std::vector<stLight*> lights;
+    std::vector<std::unique_ptr<stLight>> lights;
 };
 
 struct EmitterCycleResources {
@@ -32,7 +31,10 @@ struct EmitterCycleResources {
     EmitterCycleResources(const EmitterCycleResources&) = delete;
     ~EmitterCycleResources() = default;
     EmitterCycleResources& operator=(const EmitterCycleResources&) = delete;
-    std::vector<stLight*>* lightView() { return lights.lights.empty() ? nullptr : &lights.lights; }
+    std::vector<std::unique_ptr<stLight>>* lightView()
+    {
+        return lights.lights.empty() ? nullptr : &lights.lights;
+    }
     void swap(EmitterCycleResources& other) noexcept
     {
         lights.lights.swap(other.lights.lights);

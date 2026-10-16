@@ -3,7 +3,6 @@
 #include <cmath>
 #include <span>
 
-#include "surrender/srClock.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/emitter_resources.h"
@@ -25,7 +24,7 @@ inline void StartEmitterCycle(W8EmitterHost& host, const W8AnimObj& animation, s
     host.active = 1;
     host.frame_direction = W8_ANIMATION_FORWARD;
     SelectInitialEmitterLod(host, cycle);
-    host.timer = g_shared_timer_base->milliseconds();
+    host.timer = GameClockMilliseconds();
     host.frame_method = animation.frame_method;
     host.animation_playing = animation.animation_playing;
     host.subcycle = 0;
@@ -64,7 +63,7 @@ inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResource
     // No allocations from here through installation. The retired resources
     // remain owned by loaded and release animation before lights on return.
     auto& destination = cycles[emitter];
-    const auto timer = g_shared_timer_base->milliseconds();
+    const auto timer = GameClockMilliseconds();
     destination.swap(loaded);
     visual.SetLights(destination.lightView());
     host.current_cycle = static_cast<signed char>(emitter);

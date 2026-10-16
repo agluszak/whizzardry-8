@@ -1,5 +1,12 @@
 link_libraries(Catch2::Catch2WithMain wiz8_asset_preparation)
 
+# Reuse the runtime clock hook for deterministic timer checks without game assets.
+add_executable(native_game_timer_test native/game_timer_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/compat/native_helpers.cpp")
+target_compile_definitions(native_game_timer_test PRIVATE WIZ8_RUNTIME_TESTS=1)
+target_link_libraries(native_game_timer_test PRIVATE WIZ8_GAME_CORE)
+catch_discover_tests(native_game_timer_test TEST_PREFIX "native_game_timer/")
+
 add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE WIZ8_GAME_CORE)
 catch_discover_tests(native_game_geometry_test TEST_PREFIX "native_game_geometry/")
@@ -127,15 +134,12 @@ catch_discover_tests(native_owner_test
     TEST_PREFIX "native_owners/"
     TEST_SPEC "~[.death]"
     PROPERTIES TIMEOUT 10)
-foreach(mode plain message button-self-destroy)
+foreach(mode plain button-self-destroy)
     add_test(NAME native_assertion_${mode}
         COMMAND "${CMAKE_COMMAND}" "-DPROGRAM=$<TARGET_FILE:native_owner_test>" "-DMODE=${mode}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/assertion_failure.cmake")
 endforeach()
 
-add_executable(native_pixel_convert_test native/pixel_convert_test.cpp)
-target_link_libraries(native_pixel_convert_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
-add_test(NAME native_pixel_convert COMMAND native_pixel_convert_test)
 
 add_executable(native_vector_math_test native/vector_math_test.cpp)
 target_link_libraries(native_vector_math_test PRIVATE SURRENDER wiz8_native_settings)

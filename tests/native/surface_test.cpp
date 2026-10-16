@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdint>
 
 #include <SDL3/SDL_pixels.h>
@@ -56,4 +57,24 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
     REQUIRE(pixel(*destination, 2, 0) == 0x1234);
     REQUIRE(pixel(*destination, 3, 0) == 0x2345);
     REQUIRE(pixel(*destination, 4, 0) == 0x4567);
+}
+
+TEST_CASE("Stretched CPU surfaces preserve aliased pixels and fill the complete image", "[surface]")
+{
+    std::array<std::uint32_t, 10> pixels{0, 0, 1, 2, 3, 4};
+    auto input = CreateCpuStorage(4, 1, SDL_PIXELFORMAT_ARGB8888, pixels.data() + 2, 16);
+    auto output = CreateCpuStorage(8, 1, SDL_PIXELFORMAT_ARGB8888, pixels.data(), 32);
+    StretchCpuSurface(*input, *output, SDL_SCALEMODE_NEAREST);
+    for (unsigned i = 0; i < 8; ++i) REQUIRE(pixels[i] == i / 2 + 1);
+
+    input = CreateCpuStorage(3, 3, SDL_PIXELFORMAT_ARGB8888);
+    output = CreateCpuStorage(6, 6, SDL_PIXELFORMAT_ARGB8888);
+    REQUIRE(SDL_FillSurfaceRect(input.get(), nullptr, 0xff4488cc));
+    REQUIRE(SDL_FillSurfaceRect(output.get(), nullptr, 0));
+    StretchCpuSurface(*input, *output, SDL_SCALEMODE_LINEAR);
+    for (int y = 0; y < output->h; ++y) {
+        const auto* row = reinterpret_cast<const std::uint32_t*>(
+            static_cast<const unsigned char*>(output->pixels) + y * output->pitch);
+        for (int x = 0; x < output->w; ++x) REQUIRE(row[x] == 0xff4488cc);
+    }
 }

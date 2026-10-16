@@ -3,6 +3,7 @@
 #include <cstring>
 #include <exception>
 #include <limits>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -24,6 +25,7 @@
 #include "message_box.h"
 #include "random.h"
 #include "retail_records.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
@@ -76,7 +78,6 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 
@@ -487,8 +488,8 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     gXStatus.monster_manager_entries[party_slot] = {};
     row->npc_index = -1;
     if (npc->character->highest_condition != W8_CONDITION_DEAD && !skip_spawn) {
-        W8MonsterRecord* records;
-        LoadMonsterDatabase(&records);
+        std::unique_ptr<W8MonsterRecord[]> records;
+        if (!LoadMonsterDatabase(&records)) return false;
         unsigned int species;
         for (species = 0; species < gXStatus.uiMonstersInDatabase; ++species) {
             if ((records[species].flags & W8_MONSTER_FLAG_NPC) != 0 &&
@@ -496,7 +497,6 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
                 break;
             }
         }
-        delete[] records;
         if (species == gXStatus.uiMonstersInDatabase) {
             return 0;
         }
@@ -2195,10 +2195,10 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
     glm::vec3 copied;
 
     if (!npc->has_monster) {
-        W8MonsterRecord* records = 0;
+        std::unique_ptr<W8MonsterRecord[]> records;
         unsigned int index = 0;
 
-        LoadMonsterDatabase(&records);
+        if (!LoadMonsterDatabase(&records)) return false;
         if (gXStatus.uiMonstersInDatabase != 0) {
             for (; index < gXStatus.uiMonstersInDatabase; ++index) {
                 if ((records[index].flags & W8_MONSTER_FLAG_NPC) != 0 &&
@@ -2207,7 +2207,6 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
                 }
             }
         }
-        delete[] records;
         if (index == gXStatus.uiMonstersInDatabase) {
             return false;
         }

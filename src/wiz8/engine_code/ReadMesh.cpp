@@ -25,6 +25,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
 #include "resource_cache.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
@@ -40,7 +41,6 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
-#include "wiz8/sr_api.h"
 
 class srMaterialIFace;
 class srTextureIFace;

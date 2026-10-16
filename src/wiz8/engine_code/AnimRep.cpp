@@ -1,10 +1,9 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srClock.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/sr_api.h"
 
 // GLOBAL: WIZ8 0x0060e608
 float g_lod_range_default0 = 3500.0f;
@@ -97,10 +96,7 @@ W8AnimRep::W8AnimRep()
       pending_behaviour(-1), bounds_min(0.0f, 0.0f, 0.0f), bounds_max(0.0f, 0.0f, 0.0f),
       bounds_extent(0), value(0), first_frame(0xff), last_frame(0xff)
 {
-    if (g_shared_timer_base == 0) {
-        srAssertFail("gpsrTimer", "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 0x4e, 0);
-    }
-    timer = g_shared_timer_base->milliseconds();
+    timer = GameClockMilliseconds();
 }
 
 /* Vtable 0x005EC1D8's clone slot allocates exactly the root's 0x64-byte
@@ -111,9 +107,7 @@ W8AnimRepBase* W8AnimRepBase::Clone()
     return new W8AnimRepBase(*this);
 }
 
-/* AnimRep.cpp copies persistent animation state, then timestamps the new
-   representation from the shared SurRender timer.  The source assertion names
-   that global `gpsrTimer`. */
+/* Copies persistent animation state, then timestamps the new representation. */
 // FUNCTION: WIZ8 0x004b54a0
 W8AnimRep::W8AnimRep(const W8AnimRep& other)
     : W8AnimRepBase(other), subcycle(other.subcycle), pending_subcycle(other.pending_subcycle),
@@ -124,10 +118,7 @@ W8AnimRep::W8AnimRep(const W8AnimRep& other)
       bounds_extent(other.bounds_extent), value(other.value), first_frame(other.first_frame),
       last_frame(other.last_frame)
 {
-    if (g_shared_timer_base == 0) {
-        srAssertFail("gpsrTimer", "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 100, 0);
-    }
-    timer = g_shared_timer_base->milliseconds();
+    timer = GameClockMilliseconds();
 }
 
 /* The abstract emitter host copies its stable settings, but starts with no

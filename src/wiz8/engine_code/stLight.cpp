@@ -3,9 +3,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -52,8 +50,7 @@ const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
    below +0x228 is stLight's own state, and both timestamps start from the same
    converted tick. */
 // FUNCTION: WIZ8 0x0049C2C0
-stLight::stLight(srNode* parent, Ownership ownership)
-    : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT, ownership)
+stLight::stLight(srNode* parent) : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT)
 {
     m_save_marked = false;
     m_prop = 0;
@@ -427,24 +424,4 @@ void LoadLightStates(wiz8::File& handle)
 bool W8OctRegionVolume::ContainsPoint(const glm::vec3& point) const
 {
     return PointInsideFrustum(point, m_planes);
-}
-
-std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source)
-{
-    if (source == nullptr) {
-        return nullptr;
-    }
-    auto* copy = new std::vector<stLight*>;
-    for (stLight* light : *source) {
-        const float x = light->positionalX();
-        const float y = light->positionalY();
-        const float z = light->positionalZ();
-        auto copied_light = std::make_unique<stLight>(srNode::Ownership::independent);
-        *copied_light = *light;
-        copied_light->ConfigureMonsterCopy();
-        copied_light->setLocation(x, y, z);
-        copied_light->setParent(0, 0);
-        copy->push_back(AddWorldLight(g_world, std::move(copied_light)));
-    }
-    return copy;
 }

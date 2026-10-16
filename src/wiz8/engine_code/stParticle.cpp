@@ -18,6 +18,7 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -28,7 +29,7 @@
 #include "particle_modes.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srClock.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
@@ -46,7 +47,6 @@
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 
 // GLOBAL: WIZ8 0x005ebc60
 const float g_float_one_five_hundredth = 0.0020000000949949026f;
@@ -170,23 +170,21 @@ void stParticle::AllocateParticles(unsigned int count)
 }
 
 // FUNCTION: WIZ8 0x00497AF0
-stParticle::stParticle(srNode* parent, int count, Ownership ownership)
-    : srNode(static_cast<srNode*>(0), ownership)
+stParticle::stParticle(srNode* parent, int count) : srNode(static_cast<srNode*>(0))
 {
     setParent(parent, 1);
     if (count == 0) {
         return;
     }
     AllocateParticles(count);
-    last_integration_tick = g_shared_timer_base->milliseconds();
+    last_integration_tick = GameClockMilliseconds();
     last_emission_tick = last_integration_tick;
 }
 
 /* A copy shares material and static texture, but starts with no live
    particles, fresh animation frames and fresh timing. */
 // FUNCTION: WIZ8 0x00498180
-stParticle::stParticle(const stParticle& other, Ownership ownership)
-    : srNode(static_cast<srNode*>(0), ownership)
+stParticle::stParticle(const stParticle& other) : srNode(static_cast<srNode*>(0))
 {
     persisted = other.persisted;
     start_frame = other.start_frame;
@@ -236,7 +234,7 @@ stParticle::stParticle(const stParticle& other, Ownership ownership)
     bounds_origin = other.bounds_origin;
     bounds_radius = other.bounds_radius;
     update_flags = W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
-    last_integration_tick = g_shared_timer_base->milliseconds();
+    last_integration_tick = GameClockMilliseconds();
     last_emission_tick = last_integration_tick;
     attachment_key = other.attachment_key;
 
@@ -280,7 +278,7 @@ std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
     }
 
     particle_active[index] = 1;
-    birth_ticks[index] = g_shared_timer_base->milliseconds();
+    birth_ticks[index] = GameClockMilliseconds();
 
     float magnitude = 0.0f;
     if (speed_mode == W8_PARTICLE_SPEED_FIXED) {
@@ -364,7 +362,7 @@ void stParticle::DeactivateParticle(unsigned int index)
 // FUNCTION: WIZ8 0x00499FA0
 void stParticle::Update()
 {
-    unsigned int now = g_shared_timer_base->milliseconds();
+    unsigned int now = GameClockMilliseconds();
     if (now - last_emitted_at < emission_gap) {
         return;
     }
@@ -536,7 +534,7 @@ void stParticle::traverse(srNode::TraverseInfo& info)
 void stParticle::SetTraversalEnabled(bool enabled)
 {
     if (enabled && !traversal_enabled) {
-        last_emission_tick = g_shared_timer_base->milliseconds();
+        last_emission_tick = GameClockMilliseconds();
     }
     traversal_enabled = enabled;
 }
@@ -566,7 +564,7 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
 
     float phase = 0;
     if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
-        phase = float(g_shared_timer_base->milliseconds() % flutter_period) / int(flutter_period) *
+        phase = float(GameClockMilliseconds() % flutter_period) / int(flutter_period) *
                 g_camera_angle_period;
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
     for (unsigned index = 0; index < particle_count; ++index) {
@@ -677,7 +675,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->setCullMode(srGERD::CULL_NONE);
     renderer->setPickKey(0);
 
-    srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(renderer);
+    srTriMeshPipeline* pipeline = &renderer->meshPipeline();
 
     pipeline->active_triangles = std::span(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
@@ -715,7 +713,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     {
         const srMeshSubmission::PickScope picking(*renderer, true);
-        pipeline->FlushIfCurrent();
+        pipeline->Flush();
     }
     renderer->popEnable();
 }
@@ -737,7 +735,7 @@ void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
 void stParticle::SetActive(unsigned char active)
 {
     if (active != 0 && emitting == 0) {
-        unsigned int now = g_shared_timer_base->milliseconds();
+        unsigned int now = GameClockMilliseconds();
         last_integration_tick = now;
         last_emission_tick = now;
     }

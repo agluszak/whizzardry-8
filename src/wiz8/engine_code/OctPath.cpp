@@ -49,6 +49,7 @@
 #include "packed_bits.h"
 #include "random.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
@@ -85,7 +86,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/navigation_math.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/text_line.h"
 #include "wiz8/ui_input.h"
@@ -4333,7 +4333,7 @@ void W8PathingService::UpdatePathVisualization(const glm::vec3& source,
             BuildPathVisualization();
             node = m_path_visualization.get();
             if (node != 0) {
-                node->setParent(world->static_scene, 1);
+                node->setParent(world->static_scene.get(), 1);
                 node->clearFlag(srNode::FLAG_DISABLE);
                 return;
             }
@@ -4363,7 +4363,7 @@ void W8PathingService::UpdatePathVisualization(const glm::vec3& source,
         if (m_path_visualization == 0) {
             EnsurePathVisualization();
             node = m_path_visualization.get();
-            node->setParent(world->static_scene, 1);
+            node->setParent(world->static_scene.get(), 1);
             node->setFlag(srNode::FLAG_TERMINATE);
             if (m_path_visualization == 0) {
                 node->clearFlag(srNode::FLAG_DISABLE);
@@ -4860,7 +4860,7 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
     instance->setName("WayPoint Mesh");
     instance->setExclusionMask(3);
     instance->setFlag(srNode::FLAG_TERMINATE);
-    instance->setParent(GetWorld()->static_scene, 0);
+    instance->setParent(GetWorld()->static_scene.get(), 0);
     m_path_visualization = std::move(instance);
     return m_path_visualization.get();
 }

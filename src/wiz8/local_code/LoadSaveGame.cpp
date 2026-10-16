@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 
 #include "AnimRep.hpp"
@@ -38,8 +39,7 @@
 #include "monster_spell_icons.h"
 #include "retail_records.h"
 #include "soundman.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srPixelConvert.h"
+#include "surrender/srDebug.h"
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
@@ -101,7 +101,7 @@
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
-#include "wiz8/sr_api.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
@@ -1472,10 +1472,10 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     rect.top = 0;
     rect.right = 640;
     rect.bottom = 480;
-    srColorSurface surface(srPixelConvert::SURFACE_ARGB1555, screenshot.pixels, 80, 60, 160);
+    auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
     SetRendererAutoFlipEnabled(false);
     ScopeExit restore([] { SetRendererAutoFlipEnabled(true); });
-    screenshot.capture_result = RenderWorldToSurface(&surface, &rect, true);
+    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true);
     RenderFrame();
 }
 

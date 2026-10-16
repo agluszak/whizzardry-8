@@ -1,28 +1,23 @@
 #pragma once
 
-#include "srPixelConvert.h"
+#include <SDL3/SDL_pixels.h>
+
 #include "srTextureIFace.h"
 
 class srTexture : public srTextureIFace {
 public:
     virtual ~srTexture() override;
 
-    /* Copies share the palette stored in Dimensions. */
-
     srTexture& operator=(const srTexture& other);
     virtual w8_ulong getTextureFrameHandle() override;
-    virtual float getPriority() override;
     Dimensions getDimensions() override;
     void setDimensions(const Dimensions& dimensions);
     virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     Parameters getParameters() override;
-    srFilter* getFilter() const;
-    void setFilter(srFilter* filter);
     void setMipmap(e_mipmap mipmap);
     void setMipmapBias(float bias);
     float getMipmapBias() const;
-    void setPriority(float priority);
     void setDimensionsDirty();
     e_compression getCompression() const;
     void setCompression(e_compression compression);
@@ -42,7 +37,7 @@ public:
     e_wrap getWrapT() const;
 
 protected:
-    static void copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request);
+    static void copyMipmapChain(SDL_Surface& source, const MultiRequest& request);
 
 public:
     /* Bit indices into texture_flags_. */
@@ -56,11 +51,10 @@ protected:
     static w8_ulong getNewFrameHandles(w8_ulong count);
     static w8_ulong _frameHandle;
     void invalidateFrameHandle(w8_ulong handle);
-    void setupDefaultValuesFromSurface(srColorSurfaceIFace* surface);
+    void setupDefaultValuesFromSurface(SDL_Surface* surface);
 
     w8_ulong packed_state;     /* 0x18: correction/mag/min/mipmap/wrap bits */
     float mipmap_bias;              /* 0x1c */
     Dimensions texture_dimensions_; /* 0x20 */
-    float texture_priority;         /* 0x4c: getPriority; the ctor seeds 0.5f */
     w8_ulong texture_flags_;   /* 0x50 */
 };

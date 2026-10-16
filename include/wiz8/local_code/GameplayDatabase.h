@@ -1,8 +1,10 @@
 #pragma once
 
+#include <memory>
+
 struct W8MonsterRecord;
 
-bool LoadMonsterDatabase(W8MonsterRecord** records);
+bool LoadMonsterDatabase(std::unique_ptr<W8MonsterRecord[]>* records);
 bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
                               W8MonsterRecord* records);
 bool LoadMonsterDatabaseRecord(unsigned int monster_species, W8MonsterRecord* record);

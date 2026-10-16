@@ -45,8 +45,6 @@ struct W8AnimObj;
 struct W8AniMesh;
 struct W8PathAI;
 
-void DestroyLightVector(std::vector<stLight*>* vector); /* 0x004A8C50 */
-
 // Reusable animation event data. Starting a shake copies this definition;
 // neither the definition nor its caller owns a running instance.
 struct ShakeDefinition {
@@ -140,9 +138,9 @@ public:
 
     void SetSubCycle(unsigned char subcycle);
     void SetBehaviour(signed char bBehaviour);
-    void SetLights(std::vector<stLight*>* lights);
-    void DetachCycleLights(std::vector<stLight*>* lights);
-    void AttachCycleLights(std::vector<stLight*>* lights);
+    void SetLights(std::vector<std::unique_ptr<stLight>>* lights);
+    void DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights);
+    void AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights);
     void AddShakeEffect(ShakeDefinition effect);
     void CreateGroundShadow(float width, float depth);
     void SetGroundShadowVisible(bool visible);
@@ -160,9 +158,8 @@ public:
 
 public:
     srModelInstance* current_model_instance;
-    std::vector<stLight*>* m_plsLights;                  /* 0x1ac */
+    std::vector<std::unique_ptr<stLight>>* m_plsLights;                  /* 0x1ac */
     std::deque<ShakeDefinition> shake_events;
-    bool m_fDeleteLights;                             /* 0x1b4: named by GrCycle.cpp:1656 */
     /* 0x1b5: the subcycle the last update pass left on the representation. */
     unsigned char last_subcycle;
     unsigned char padding_1b6[2];

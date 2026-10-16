@@ -14,6 +14,7 @@ class stLight;
 #include <algorithm>
 
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srScene.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -71,7 +72,7 @@ struct W8World {
     float environment_base_intensity;
     glm::vec3 environment_colour{1.0f};
     stLevel* level;
-    srScene* static_scene;
+    std::unique_ptr<srScene> static_scene;
     srNode* dynamic_scene;
     srCamera* camera;
     // Borrowed instances owned by the scene graph; includes the retail sentinel slot.

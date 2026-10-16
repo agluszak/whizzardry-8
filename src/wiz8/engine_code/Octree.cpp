@@ -149,7 +149,7 @@ static char g_octree_file_search_wildcard[] = "*";
 // GLOBAL: WIZ8 0x00659890
 w8_ulong* g_octree_state;
 // GLOBAL: WIZ8 0x00659894
-stModelInstance* g_octree_trace_node;
+static std::unique_ptr<stModelInstance> g_octree_trace_node;
 // GLOBAL: WIZ8 0x00659898
 bool g_octree_update_suspended;
 // GLOBAL: WIZ8 0x00659899
@@ -1078,13 +1078,13 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                         if (mesh != 0) {
                             unsigned int faces = MeasureNodeRender(mesh);
                             all_known = 9 < faces;
-                            srNode* child = mesh->first_child_;
+                            srNode* child = mesh->getChild();
                             while (child != 0 && descend) {
                                 faces = MeasureNodeRender(child);
                                 if (9 < faces) {
                                     all_known = true;
                                 }
-                                child = child->first_child_;
+                                child = child->getChild();
                             }
                             if (!all_known) {
                                 unsigned int candidate = cells[i];
@@ -1111,14 +1111,14 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                     SetBit(m_projected_regions, cell);
                                     linked = true;
                                 }
-                                srNode* child = mesh->first_child_;
+                                srNode* child = mesh->getChild();
                                 while (child != 0 && descend) {
                                     faces = MeasureNodeRender(child);
                                     if (9 < faces) {
                                         SetBit(m_projected_regions, cell);
                                         linked = true;
                                     }
-                                    child = child->first_child_;
+                                    child = child->getChild();
                                 }
                                 m_pSubmeshes[cell].flags &= 0xfffffff7;
                                 srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
@@ -1495,7 +1495,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
 void W8Octree::ToggleUpdateSuspension(W8World* world)
 {
     if (world == 0) {
-        g_octree_trace_node = 0;
+        g_octree_trace_node.reset();
         g_octree_update_suspended = false;
         return;
     }
@@ -1516,9 +1516,9 @@ void W8Octree::ToggleUpdateSuspension(W8World* world)
             ->setFlag(srNode::FLAG_TERMINATE);
     }
     if (g_octree_trace_node == 0) {
-        g_octree_trace_node =
-            world->static_scene->adoptChild(g_octree_game_data->CreateTraceModel(), 1);
-        SetModelInstanceChainExclusionMask(g_octree_trace_node, 2);
+        g_octree_trace_node = g_octree_game_data->CreateTraceModel();
+        g_octree_trace_node->setParent(world->static_scene.get(), 1);
+        SetModelInstanceChainExclusionMask(g_octree_trace_node.get(), 2);
     }
     g_octree_trace_node->clearFlag(srNode::FLAG_DISABLE);
     g_octree_trace_node->clearFlag(srNode::FLAG_TERMINATE);
@@ -2885,8 +2885,7 @@ W8Octree::~W8Octree()
     delete pathing;
     pathing = 0;
     if (g_octree_trace_node != 0) {
-        delete g_octree_trace_node;
-        g_octree_trace_node = 0;
+        g_octree_trace_node.reset();
     }
     g_octree = 0;
     ReleaseOctMeshDefaults();

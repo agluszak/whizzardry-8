@@ -20,15 +20,12 @@
 #include "image.h"
 #include "shading.h"
 #include "sprite.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srPixelConvert.h"
-#include "surrender_test_fixture.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/surface_storage.h"
 
 // Recovered helper used by UI overlays; retain its destination-first copy contract.
-unsigned char CopySurfaceWithBorder(srColorSurface*, const W8ControlsRect*, SDL_Surface&, float*,
+unsigned char CopySurfaceWithBorder(SDL_Surface*, const W8ControlsRect*, SDL_Surface&, float*,
                                     float*, float*, float*);
 
 namespace {
@@ -324,25 +321,24 @@ TEST_CASE("shadow rectangles preserve inclusive legacy endpoints", "[blit]")
     REQUIRE(pixel(*target, 3, 4) == 0x1234);
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Overlay border copies preserve offset source coordinates",
-                 "[blit]")
+TEST_CASE("Overlay border copies preserve offset source coordinates", "[blit]")
 {
     auto source = surface(6, 5);
     for (int y = 0; y < source->h; ++y)
         for (int x = 0; x < source->w; ++x) pixel(*source, x, y) = 0x8000 + y * 16 + x;
-    srColorSurface target(srPixelConvert::SURFACE_ARGB1555, 8, 8);
+    auto target = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_ARGB1555);
     for (int y = 0; y < 8; ++y)
-        for (int x = 0; x < 8; ++x) target.setPixelRaw(x, y, 0xeeee);
+        for (int x = 0; x < 8; ++x) pixel(*target, x, y) = 0xeeee;
     const W8ControlsRect rect{2, 1, 5, 3};
     float scale_x, scale_y, mapping_x, mapping_y;
-    REQUIRE(
-        CopySurfaceWithBorder(&target, &rect, *source, &scale_x, &scale_y, &mapping_x, &mapping_y));
+    REQUIRE(CopySurfaceWithBorder(target.get(), &rect, *source, &scale_x, &scale_y, &mapping_x,
+                                  &mapping_y));
     for (int y = 0; y < 8; ++y)
         for (int x = 0; x < 8; ++x) {
             const unsigned expected = x < 5 && y < 4 ? pixel(*source, 2 + std::clamp(x - 1, 0, 2),
                                                              1 + std::clamp(y - 1, 0, 1))
                                                      : 0xeeee;
-            REQUIRE(target.getPixelRaw(x, y) == expected);
+            REQUIRE(pixel(*target, x, y) == expected);
         }
 }
 

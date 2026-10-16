@@ -23,14 +23,11 @@
 #include "layouts/world.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srFilter.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTextureMap.h"
@@ -42,7 +39,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world_cursor.h"
@@ -138,8 +134,8 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
     model->setShader(shader, 0);
 
-    auto surface =
-        std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    auto surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(0x20UL, 0x20UL, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
     if (surface == 0) {
         srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
     }
@@ -151,8 +147,9 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     bytes[2] = static_cast<unsigned char>(srFloatToInt(0.0));
     bytes[1] = static_cast<unsigned char>(srFloatToInt(0.0));
     bytes[0] = static_cast<unsigned char>(srFloatToInt(127.5));
-    surface->fill(pixel);
-    surface->setFilter(&srBoxFilter);
+    SDL_FillSurfaceRect(surface.get(), nullptr,
+                        SDL_MapSurfaceRGBA(surface.get(), (pixel >> 16) & 255, (pixel >> 8) & 255,
+                                           pixel & 255, pixel >> 24));
 
     auto texture = std::make_shared<srTextureMap>();
     texture->setSurfacePtr(surface);
@@ -243,18 +240,21 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
         if (texture == 0) {
             srAssertFail("psrTexture", ST_CUBE_CPP, 0x12a, 0);
         }
-        srColorSurfaceIFace* surface = texture->getSurfacePtr();
-        surface->fill(entry->color);
-        unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
+        SDL_Surface* surface = texture->getSurfacePtr();
+        SDL_FillSurfaceRect(surface, nullptr,
+                            SDL_MapSurfaceRGBA(surface, (entry->color >> 16) & 255,
+                                               (entry->color >> 8) & 255, entry->color & 255,
+                                               entry->color >> 24));
+        unsigned char* data = static_cast<unsigned char*>(surface->pixels);
         if (data == 0) {
             srAssertFail("pBuffer", ST_CUBE_CPP, 0x130, 0);
         }
         {
             g_smfnt_font.resetPalette();
-            SDLSurfaceOwner text_surface{
-                SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
-                                      SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
-                SDL_DestroySurface};
+            SDLSurfaceOwner text_surface{SDL_CreateSurfaceFrom(surface->w, surface->h,
+                                                               SDL_PIXELFORMAT_RGB565, data,
+                                                               surface->pitch),
+                                         SDL_DestroySurface};
             if (text_surface) {
                 for (int index = 0; index < 3; ++index) {
                     std::string text;

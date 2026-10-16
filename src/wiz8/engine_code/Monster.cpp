@@ -50,14 +50,12 @@
 #include "soundman.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
-#include "surrender/srClock.h"
-#include "surrender/srColorSurface.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "texture_animation.h"
@@ -86,6 +84,7 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/emitter_resources.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -122,7 +121,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/resource_cache.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_line.h"
@@ -986,7 +984,7 @@ W8MonsterRep::W8MonsterRep()
 unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* monster,
                                           int cycle_index, int load_all)
 {
-    std::vector<stLight*>* lights = new std::vector<stLight*>;
+    EmitterLights lights;
     W8AnimObj* animation;
     unsigned char success;
     signed char cycle;
@@ -998,7 +996,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
     }
 
     animation = new W8AnimObj;
-    success = AnimObjReadFromFile(info, animation, load_all, lights, 0);
+    success = AnimObjReadFromFile(info, animation, load_all, &lights.lights, 0);
     if (cycle_index == W8_MONSTER_CYCLE_NONE) {
         cycle_index = static_cast<signed char>(animation->cycle);
     }
@@ -1020,7 +1018,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
     active = 1;
     frame_direction = W8_ANIMATION_FORWARD;
     m_bLOD = 2;
-    timer = g_shared_timer_base->milliseconds();
+    timer = GameClockMilliseconds();
     animation_behaviour = animation->behaviour;
     frame_method = animation->frame_method;
     animation_playing = animation->animation_playing;
@@ -1049,13 +1047,8 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
         }
     }
 
-    if (lights->empty()) {
-        delete lights;
-        lights = 0;
-    } else {
-        monster->SetLights(lights);
-    }
-    light_lists[cycle].push_back(lights);
+    auto& installed = light_lists[cycle].emplace_back(std::move(lights));
+    if (!installed.lights.empty()) monster->SetLights(&installed.lights);
     return success;
 }
 
@@ -1109,13 +1102,7 @@ W8MonsterRep::~W8MonsterRep()
     for (index = 0; index < 8; ++index) {
         delete objects[index];
     }
-    for (cycle = W8_MONSTER_CYCLE_BIRTH; cycle < W8_MONSTER_CYCLE_COUNT; ++cycle) {
-        int count = static_cast<int>(light_lists[cycle].size());
-        for (index = 0; index < count; ++index) {
-            DestroyLightVector(light_lists[cycle][index]);
-        }
-        light_lists[cycle].clear();
-    }
+    for (auto& cycle_lights : light_lists) cycle_lights.clear();
     wiz8::remove_all_and_delete_in_order(linked_runtime_objects);
     delete monster_light;
     delete[] name;
@@ -1135,16 +1122,10 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
         animation_scales[cycle].push_back(other->animation_scales[other_cycle][index]);
     }
 
-    for (index = 0; index < static_cast<int>(other->light_lists[other_cycle].size()); ++index) {
-        std::vector<stLight*>* source_lights = other->light_lists[other_cycle][index];
-        std::vector<stLight*>* copied_lights = CloneAnimationLightList(source_lights);
-        light_lists[cycle].push_back(copied_lights);
+    for (const auto& source : other->light_lists[other_cycle]) {
+        light_lists[cycle].emplace_back().CloneFrom(source);
     }
 }
-
-/* `new stLight` above is what forces this emission: VC6 inlines stLight's own
-   empty default constructor at the allocation site but leaves the registry
-   base's constructor out of line here. */
 
 /* The representation clone slot is an ordinary virtual copy operation.  The
    allocation size and call to the copy constructor are both visible in the
@@ -1441,7 +1422,7 @@ void W8Monster::Update()
                     m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                     m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->milliseconds();
+                    m_pRep->timer = GameClockMilliseconds();
                     m_pRep->pending_subcycle = 0;
                 }
                 break;
@@ -1458,11 +1439,11 @@ void W8Monster::Update()
                         m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                         m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->milliseconds();
+                        m_pRep->timer = GameClockMilliseconds();
                     } else {
                         m_pRep->pending_cycle = 1;
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->milliseconds();
+                        m_pRep->timer = GameClockMilliseconds();
                         m_pRep->pending_subcycle = 0;
                     }
                 }
@@ -1472,7 +1453,7 @@ void W8Monster::Update()
                     m_pRep->pending_cycle = 1;
                     m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->milliseconds();
+                    m_pRep->timer = GameClockMilliseconds();
                     m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     m_pRep->pending_subcycle = 0;
                 }
@@ -1501,7 +1482,7 @@ void W8Monster::Update()
                             runtime_flags |= W8_MONSTER_KEEP_FRAME_DIRECTION;
                         }
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->milliseconds();
+                        m_pRep->timer = GameClockMilliseconds();
                     }
                 }
                 break;
@@ -1520,7 +1501,7 @@ void W8Monster::Update()
                         m_pRep->pending_subcycle = 0;
                     }
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->milliseconds();
+                    m_pRep->timer = GameClockMilliseconds();
                 }
                 break;
             case W8_MONSTER_CYCLE_TRANSITION:
@@ -1532,7 +1513,7 @@ void W8Monster::Update()
                         m_pRep->pending_cycle = 4;
                     }
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->milliseconds();
+                    m_pRep->timer = GameClockMilliseconds();
                     m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     m_pRep->pending_subcycle = 0;
                 }
@@ -1541,7 +1522,7 @@ void W8Monster::Update()
                 if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
                     m_pRep->pending_cycle = 1;
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->milliseconds();
+                    m_pRep->timer = GameClockMilliseconds();
                     m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     m_pRep->pending_subcycle = 0;
                 }
@@ -1562,7 +1543,7 @@ void W8Monster::Update()
         (m_pRep->pending_cycle == -1 || m_pRep->pending_cycle == 1 || m_pRep->pending_cycle == 2) &&
         (g_combat_state->eCombatActionStatus != 2 || g_combat_state->pActionMonsterInfo == 0 ||
          g_combat_state->pActionMonsterInfo->location_id != location_id)) {
-        m_pRep->timer = g_shared_timer_base->milliseconds();
+        m_pRep->timer = GameClockMilliseconds();
     }
 
     if (monster_info != 0 && monster_info->uiCondition[W8_CONDITION_SLOWED] != 0) {
@@ -1960,7 +1941,7 @@ void W8Monster::ProcessScript()
                     if (cycle != W8_MONSTER_CYCLE_NONE) {
                         m_pRep->pending_cycle = static_cast<signed char>(cycle);
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->milliseconds();
+                        m_pRep->timer = GameClockMilliseconds();
                         SetSubCycle(0);
                         m_pRep->forced_subcycle = subcycle - 1;
                         if (m_pRep->pending_cycle == -1) {
@@ -2028,7 +2009,7 @@ void W8Monster::ProcessScript()
                 m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                 m_pRep->pending_cycle = 0x15;
                 m_pRep->animation_playing = 1;
-                m_pRep->timer = g_shared_timer_base->milliseconds();
+                m_pRep->timer = GameClockMilliseconds();
                 SetSubCycle(0);
                 break;
             case MONSCR_END:
@@ -2213,7 +2194,7 @@ void W8Monster::ProcessScript()
                                        static_cast<double>(position.y),
                                        static_cast<double>(position.z));
                     if (distance != 0.0f) sound->falloff = distance;
-                    if (sound->Play(false, false) == 0) {
+                    if (sound->Play(false) == 0) {
                         delete sound;
                         sound = 0;
                     } else {
@@ -3076,7 +3057,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
     glm::mat3 rotation;
     srModelInstance* model;
     stTextureAnim* mouth;
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
     int index;
     int count;
 
@@ -3170,7 +3151,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
         if (!enabled) {
             enabled = true;
             SetShakeEventVisibility(m_pRep->current_cycle);
-            lights = m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle];
+            lights = &m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle].lights;
             if (lights != 0 && (count = static_cast<int>(lights->size())) != 0) {
                 for (index = 0; index < count; ++index) {
                     ((*lights)[index])->clearFlag(srNode::FLAG_DISABLE);
@@ -3183,7 +3164,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
     } else if (enabled) {
         enabled = false;
         SetShakeEventVisibility(m_pRep->current_cycle);
-        lights = m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle];
+        lights = &m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle].lights;
         if (lights != 0 && (count = static_cast<int>(lights->size())) != 0) {
             for (index = 0; index < count; ++index) {
                 ((*lights)[index])->setFlag(srNode::FLAG_DISABLE);
@@ -3273,7 +3254,7 @@ bool W8Monster::IsCycleSupported(signed char cycle)
 void W8Monster::SetCycle(signed char cycle)
 {
     std::vector<W8AnimObj*>* animations;
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
     W8AnimObj* animation;
     signed char subcycle;
     int count;
@@ -3328,11 +3309,11 @@ void W8Monster::SetCycle(signed char cycle)
     }
 
     if (m_pRep->current_cycle != 0) {
-        lights = m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle];
+        lights = &m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle].lights;
         if (lights != 0) {
             count = static_cast<int>(lights->size());
             for (index = 0; index < count; ++index) {
-                stLight* light = (*lights)[index];
+                stLight* light = (*lights)[index].get();
 
                 light->setParent(0, 1);
                 if (light->definition() != 0) {
@@ -3364,12 +3345,12 @@ void W8Monster::SetCycle(signed char cycle)
         m_pRep->frame_direction = W8_ANIMATION_FORWARD;
     }
 
-    lights = m_pRep->light_lists[cycle][subcycle];
+    lights = &m_pRep->light_lists[cycle][subcycle].lights;
     SetLights(lights);
     if (lights != 0) {
         count = static_cast<int>(lights->size());
         for (index = 0; index < count; ++index) {
-            stLight* light = (*lights)[index];
+            stLight* light = (*lights)[index].get();
 
             light->setParent(g_world->dynamic_scene, 1);
             light->Reset();
@@ -3498,7 +3479,7 @@ void W8Monster::UpdateAttachedObjects()
         return;
     }
 
-    elapsed = g_shared_timer_base->milliseconds() - representation->timer;
+    elapsed = GameClockMilliseconds() - representation->timer;
     camera_rotation = cameraRotation(*g_world);
     base_position = movement.position;
     base_position.y += movement.vertical_base + movement.vertical_amplitude;
@@ -4152,7 +4133,7 @@ unsigned char MonsterSetAnimating(W8Monster* monster, bool animating)
         unsigned char previous = runtime->animation_playing;
 
         runtime->animation_playing = animating;
-        runtime->timer = g_shared_timer_base->milliseconds();
+        runtime->timer = GameClockMilliseconds();
         return previous;
     }
     return 0;
@@ -4790,9 +4771,10 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         return;
     }
 
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x100, 0x100);
-    surface->fill(0);
-    unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
+    auto surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(0x100, 0x100, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
+    SDL_FillSurfaceRect(surface.get(), nullptr, 0);
+    unsigned char* data = static_cast<unsigned char*>(surface->pixels);
     if (data != 0) {
         std::string text;
         glm::vec3 position;
@@ -4813,10 +4795,10 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         {
 
             text = fmt::format("{:d}", amount);
-            SDLSurfaceOwner text_surface{
-                SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
-                                      SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
-                SDL_DestroySurface};
+            SDLSurfaceOwner text_surface{SDL_CreateSurfaceFrom(surface->w, surface->h,
+                                                               SDL_PIXELFORMAT_RGB565, data,
+                                                               surface->pitch),
+                                         SDL_DestroySurface};
             if (text_surface)
                 DrawText(*text_surface, g_monster_damage_font,
                          {0x80 - g_monster_damage_font.textWidth(text) / 2,
@@ -4844,8 +4826,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             poster->setParent(g_world->dynamic_scene, 1);
             m_pRep->linked_runtime_objects.push_back(poster);
 
-            auto owned_particle = std::make_unique<stParticle>(g_world->dynamic_scene, 0xa,
-                                                               srNode::Ownership::independent);
+            auto owned_particle = std::make_unique<stParticle>(g_world->dynamic_scene, 0xa);
             particle = owned_particle.get();
             auto material = std::make_shared<srMaterial>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);

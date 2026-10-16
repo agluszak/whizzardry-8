@@ -142,6 +142,20 @@ this migration must reduce code and lifetime protocols, not add a UI framework.
 Numeric split-field editors share their owning dialog's input layer for pointer
 caret placement and modal focus rather than creating a disabled private layer.
 
+Video scene roots have a separate resource owner, `VideoOverlayScenes`. The two
+prerender pages are rendered before the world, and the frame pages retain their
+existing retirement rule. User and fullscreen scenes retain their ordering
+switch; the square scene retains its own camera, and the cursor renders last.
+These passes borrow nodes whose lifetime belongs to ordinary C++ owners.
+World and video roots own their explicitly adopted subtrees with `unique_ptr`;
+widgets, animation templates and temporary effects keep their own owners.
+`setParent(nullptr, ...)` detaches from traversal without moving ownership or
+attaching to a global root. Parent destruction detaches borrowed children.
+Scene updates, traversal and rendering run on the game thread; audio completion
+callbacks are dispatched there by the sound service. There is no graph worker
+or graph-wide lock; renderer resource locks retain their separate responsibility. Design-space bounds use `DesignRect`, converted explicitly to an
+`SDL_Rect` for the target surface.
+
 ## Layer precedence and scrollbar ownership
 
 Screens and overlays use an ordered `UiLayerOrder` enum rather than recovered

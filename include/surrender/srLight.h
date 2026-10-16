@@ -22,8 +22,7 @@ public:
         ATTENUATION_3DSTUDIO_MAX = 2
     };
 
-    srLight(srNode* parent = 0, e_preset preset = PRESET_POINT,
-            Ownership ownership = Ownership::parent);
+    srLight(srNode* parent = 0, e_preset preset = PRESET_POINT);
     ~srLight() override = default;
 
     srLight(const srLight& other) = default;

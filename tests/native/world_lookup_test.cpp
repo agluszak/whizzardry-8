@@ -9,16 +9,13 @@
 
 #include "filesystem.h"
 #include "layouts/world.h"
-#include "sr_api.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srClock.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
 
@@ -30,14 +27,14 @@ struct TestWorld {
 
     TestWorld()
     {
-        world.static_scene = new srScene(static_cast<srNode*>(0));
-        world.dynamic_scene = new srNode(world.static_scene);
+        world.static_scene = std::make_unique<srScene>();
+        world.dynamic_scene = world.static_scene->adoptChild(std::make_unique<srNode>());
     }
     ~TestWorld()
     {
         DestroyAllWorldTriggers(&world);
         particles.clear();
-        delete world.static_scene;
+        world.static_scene.reset();
     }
 };
 
@@ -85,22 +82,22 @@ bool nodes(const std::filesystem::path& directory)
     SetCurrentWorld(&level.world);
     SetSecondaryWorld(&sky.world);
 
-    auto* lamp = new stLight(level.world.dynamic_scene);
+    auto* lamp = level.world.dynamic_scene->adoptChild(std::make_unique<stLight>());
     lamp->setName("LAMP");
-    auto* torch = new stLight(level.world.static_scene);
+    auto* torch = level.world.static_scene->adoptChild(std::make_unique<stLight>());
     torch->setName("TORCH");
-    auto* sky_light = new stLight(sky.world.static_scene);
+    auto* sky_light = sky.world.static_scene->adoptChild(std::make_unique<stLight>());
     sky_light->setName("SUN");
-    auto* layer = new srClipPlane(level.world.static_scene);
+    auto* layer = level.world.static_scene->adoptChild(std::make_unique<srClipPlane>());
     layer->setName("LAYER 1");
 
     // Engine-light setup must keep its exact-type contract: stLight has its
     // own group configuration even though it derives from srLight.
-    auto* engine_light = new srLight(level.world.static_scene);
+    auto* engine_light = level.world.static_scene->adoptChild(std::make_unique<srLight>());
     engine_light->setName("TORCH");
     engine_light->setGroupMask(7);
     torch->setGroupMask(9);
-    FinalizeStaticScene(level.world.static_scene);
+    FinalizeStaticScene(level.world.static_scene.get());
     REQUIRE(engine_light->getGroupMask() == 1);
     REQUIRE(torch->getGroupMask() == 9);
 
@@ -137,17 +134,13 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
 
-    srClock clock;
-    g_shared_timer_base = &clock;
-    auto* gas = level.particles
-                    .emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1,
-                                                               srNode::Ownership::independent))
-                    .get();
+    auto* gas =
+        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
+            .get();
     gas->setName("GAS");
-    auto* idle = level.particles
-                     .emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1,
-                                                                srNode::Ownership::independent))
-                     .get();
+    auto* idle =
+        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
+            .get();
     idle->setName("IDLE");
     gas->persisted = true;
     gas->SetActive(0);
@@ -163,7 +156,6 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
-    g_shared_timer_base = 0;
 
     SetCurrentWorld(0);
     SetSecondaryWorld(0);
@@ -173,7 +165,6 @@ bool nodes(const std::filesystem::path& directory)
 
 TEST_CASE("world_lookup_test")
 {
-    REQUIRE(srInit());
     const std::filesystem::path directory = make_temporary_directory("wiz8-world-lookup");
     const bool passed = triggers() && nodes(directory);
     // Empty worlds need no collection initialization and can be torn down
@@ -181,14 +172,13 @@ TEST_CASE("world_lookup_test")
     for (int iteration = 0; iteration < 3; ++iteration) {
         auto* world = CreateWorld();
         REQUIRE(world->level != nullptr);
-        REQUIRE(world->dynamic_scene->getParent() == world->static_scene);
+        REQUIRE(world->dynamic_scene->getParent() == world->static_scene.get());
         REQUIRE(GetWorldProp(world, 0) == nullptr);
         REQUIRE(GetWorldCameraPath(world, -1) == nullptr);
         REQUIRE(GetWorldAmbientSound(world, 0) == nullptr);
         DestroyWorld(world);
     }
     std::filesystem::remove_all(directory);
-    srExit();
     REQUIRE(passed);
     std::puts("ok: world trigger, light, clip plane and particle lookups");
 }

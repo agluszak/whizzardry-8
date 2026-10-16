@@ -9,7 +9,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
@@ -22,8 +21,7 @@
 
 static_assert(std::is_same_v<decltype(srMeshModel::poly_vertices), std::vector<glm::ivec3>>);
 static_assert(std::is_same_v<decltype(srMeshModel::vertex_locations), std::vector<glm::vec3>>);
-static_assert(
-    std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe), std::unique_ptr<srVertexPipe>>);
+static_assert(std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe), srVertexPipe>);
 static_assert(!std::is_copy_constructible_v<srTriMeshPipeline>);
 
 static bool defaults()
@@ -206,8 +204,8 @@ static bool pipelineSlots()
 {
     // Metadata-only GERD/device construction: no window, GPU context or rendering is requested.
     srGERD renderer(srCreateSDLGPUDevice());
-    auto* pipeline = srTriMeshPipeline::Get(&renderer);
-    REQUIRE((pipeline && pipeline->vertex_pipe && !pipeline->active_triangles));
+    auto* pipeline = &renderer.meshPipeline();
+    REQUIRE((pipeline && !pipeline->active_triangles));
     pipeline->triangle_count = 1;
     pipeline->active_triangles.emplace();
     pipeline->FlushSlots();
@@ -237,8 +235,16 @@ static bool pipelineSlots()
             REQUIRE(pipeline->passes[previous].shaders == &shader);
         }
     }
+    // Another renderer can prepare and destroy its scratch without replacing this mesh's passes.
+    {
+        srGERD other(srCreateSDLGPUDevice());
+        auto& other_pipeline = other.meshPipeline();
+        other_pipeline.AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, srShader());
+        other_pipeline.Flush();
+    }
+    REQUIRE(pipeline->slot_count == 96);
     // Zero triangles exercise the real Flush boundary without any device work.
-    pipeline->FlushIfCurrent();
+    pipeline->Flush();
     REQUIRE((pipeline->records[0].st_source[0] == uv &&
              pipeline->passes[0].texture_tables[0] == textures));
     pipeline->Reset(&renderer);
@@ -275,11 +281,9 @@ static bool pipelineSlots()
 TEST_CASE("mesh_ownership_test")
 {
     REQUIRE(defaults());
-    REQUIRE(srInit());
     REQUIRE(zeroNormals());
     REQUIRE(lazyTables());
     REQUIRE(uvGrowth());
     REQUIRE(reset());
     REQUIRE(pipelineSlots());
-    REQUIRE(srExit());
 }

@@ -8,7 +8,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "compat/compiler.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
@@ -100,7 +99,5 @@ static void checkConsumers()
 
 TEST_CASE("hash_consumers_test")
 {
-    REQUIRE(srInit());
     checkConsumers();
-    REQUIRE(srExit());
 }

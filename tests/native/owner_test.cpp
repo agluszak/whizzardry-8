@@ -39,13 +39,17 @@
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
+#include "surrender/srCamera.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/compat/compiler.h"
+#include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -56,6 +60,7 @@
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
@@ -75,7 +80,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
-#include "wiz8/sr_api.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -116,8 +121,7 @@ void initialize_test_framebuffer()
 
 void screen_stack()
 {
-    W8CharacterEventQueue queue;
-    gXStatus.character_event_queue = &queue;
+    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
     const auto saved_intro = g_screen_handlers[W8_SCREEN_INTRO];
     const auto saved_options = g_screen_handlers[W8_SCREEN_OPTIONS];
     for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS})
@@ -1166,7 +1170,7 @@ TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-laye
     initialize_test_framebuffer();
     auto& framebuffer = GetFrameBufferSurface();
     SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234);
-    auto before = CopyCpuStorage(framebuffer);
+    SDLSurfaceOwner before(SDL_DuplicateSurface(&framebuffer), SDL_DestroySurface);
     auto target = CreateCpuStorage(100, 50, SDL_PIXELFORMAT_RGB565);
     REQUIRE(before);
     REQUIRE(target);
@@ -1929,23 +1933,24 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     auto old_secondary = std::move(g_wiz_text_font_secondary);
     REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
+        W8Character character{};
         struct RestoreParty {
             W8StatusBuffers buffers = g_status.buffers;
-            W8CharacterEventQueue* queue = gXStatus.character_event_queue;
+            std::unique_ptr<W8CharacterEventQueue> queue =
+                std::move(gXStatus.character_event_queue);
             ~RestoreParty()
             {
                 g_status.buffers = buffers;
-                gXStatus.character_event_queue = queue;
+                gXStatus.character_event_queue = std::move(queue);
             }
         } restore_party;
-        W8Character character{};
         character.fInParty = true; // Quote access must still use the previewed character directly.
-        W8CharacterEventQueue queue;
+        gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
+        auto& queue = *gXStatus.character_event_queue;
         queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
         g_status.buffers.Char = nullptr;
         g_status.buffers.XChar = nullptr;
-        gXStatus.character_event_queue = &queue;
         {
             W8CharacterSummaryDialog summary(&character);
             REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.
@@ -1968,21 +1973,6 @@ TEST_CASE("assert-plain", "[.death]")
 {
     W8_ASSERT(false);
     FAIL("Assert did not abort");
-}
-
-namespace {
-void assertion_message_handler(const char* expression, const char*, w8_long, const char*)
-{
-    std::fprintf(stderr, "Assertion failed: %s\n", expression);
-    std::abort();
-}
-}
-
-TEST_CASE("assert-message", "[.death]")
-{
-    srAssertSetFunc(assertion_message_handler);
-    srAssertFail("handler installed", __FILE__, __LINE__, 0);
-    FAIL("srAssertFail did not abort");
 }
 
 TEST_CASE("assert-button-self-destroy", "[.death]")
@@ -2298,4 +2288,44 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
     REQUIRE(accepted);
     REQUIRE(g_modal_owner.get() == replacement);
     OpenModal(nullptr);
+}
+
+TEST_CASE("Video scene shutdown releases owned roots and preserves independent children")
+{
+    int destroyed = 0;
+    struct OverlayChild : srNode {
+        int& destroyed;
+        OverlayChild(srNode* parent, int& destroyed) : srNode(parent), destroyed(destroyed) {}
+        ~OverlayChild() override { ++destroyed; }
+    };
+    for (auto* scene :
+         {&g_overlay_scenes.user, &g_overlay_scenes.fullscreen, &g_overlay_scenes.frame[0],
+          &g_overlay_scenes.frame[1], &g_overlay_scenes.square, &g_overlay_scenes.prerender[0],
+          &g_overlay_scenes.prerender[1], &g_overlay_scenes.cursor}) {
+        *scene = std::make_unique<srScene>(nullptr);
+        (*scene)->adoptChild(std::make_unique<OverlayChild>(nullptr, destroyed));
+    }
+    g_overlay_scenes.camera = std::make_unique<srCamera>(nullptr);
+    g_overlay_scenes.square_camera =
+        g_overlay_scenes.square->adoptChild(std::make_unique<srCamera>());
+    g_cursor_node = std::make_unique<srModelInstance>(g_overlay_scenes.cursor.get());
+    auto independent = std::make_unique<OverlayChild>(g_overlay_scenes.user.get(), destroyed);
+    auto borrowed_sprite = std::make_unique<stModelInstance2D>(g_overlay_scenes.frame[1].get());
+    borrowed_sprite->render_state.display_state = 4;
+    auto* retired =
+        g_overlay_scenes.frame[1]->adoptChild(std::make_unique<stModelInstance2D>(nullptr));
+    retired->render_state.display_state = 4;
+    PurgeInactiveSceneInstances(g_overlay_scenes.frame[1].get());
+    REQUIRE(borrowed_sprite->getParent() == nullptr);
+    REQUIRE(g_overlay_scenes.frame[1]->getChildCount() == 1); // The other adopted test child.
+    ShutdownVideoScenes();
+    REQUIRE(destroyed == 8);
+    REQUIRE(independent->getParent() == nullptr);
+    REQUIRE(g_cursor_node == nullptr);
+    REQUIRE(g_overlay_scenes.square_camera == nullptr);
+    REQUIRE_FALSE(g_overlay_scenes.camera);
+    REQUIRE_FALSE(g_overlay_scenes.cursor);
+    ShutdownVideoScenes();
+    REQUIRE(destroyed == 8);
+    independent.reset();
 }

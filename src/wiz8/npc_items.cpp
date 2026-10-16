@@ -53,10 +53,9 @@ static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
 {
-    unsigned int count =
-        (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
+    unsigned int count = npc->record->item_stock_rules.size();
     for (unsigned int index = 0; index < count; ++index) {
-        W8NpcItemStockRule* rule = (*npc->record->item_stock_rules)[index];
+        W8NpcItemStockRule* rule = &npc->record->item_stock_rules[index];
         if (rule->item_id == item_id) {
             return rule->quantity;
         }
@@ -172,9 +171,9 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
 
     if (static_cast<unsigned int>(g_status.world_clock - npc->restock_clock) > 0xa8c0 || force) {
         npc->restock_clock = g_status.world_clock;
-        count = (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
+        count = npc->record->item_stock_rules.size();
         for (rule_index = 0; rule_index < count; ++rule_index) {
-            rule = (*npc->record->item_stock_rules)[rule_index];
+            rule = &npc->record->item_stock_rules[rule_index];
             if (rule->persistent != 0) {
                 item_id = rule->item_id;
                 configured = GetNpcConfiguredStockQuantity(npc, item_id);
@@ -208,7 +207,6 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
 // FUNCTION: WIZ8 0x0055a630
 unsigned char PopulateNpcStock(W8NpcState* npc)
 {
-    std::vector<W8NpcItemStockRule*>* rules;
     W8NpcItemStockRule* rule;
     unsigned int rule_count;
     unsigned int rule_index;
@@ -219,19 +217,13 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
     char chance;
     char tier;
 
-    rules = npc->record->item_stock_rules;
-    if (rules == 0) {
-        npc->items.clear();
-        return 1;
-    }
-    rule_count = (rules ? rules->size() : 0);
+    rule_count = npc->record->item_stock_rules.size();
     if (rule_count == 0) {
         npc->items.clear();
         return 1;
     }
-    rule_count = (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
-        rule = (*npc->record->item_stock_rules)[rule_index];
+        rule = &npc->record->item_stock_rules[rule_index];
         item_id = rule->item_id;
         if (item_id < static_cast<int>(gXStatus.uiItemsInDatabase)) {
             persistent = rule->persistent;
@@ -342,9 +334,9 @@ int RestockNpcItems(W8NpcState* npc)
     char tier;
     char chance;
 
-    rule_count = (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
+    rule_count = npc->record->item_stock_rules.size();
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
-        rule = (*npc->record->item_stock_rules)[rule_index];
+        rule = &npc->record->item_stock_rules[rule_index];
         if (rule->persistent != 0 || (rule->item_id == 0x1fc && GetFact(W8_FACT_TEMPLAR) == 0)) {
             continue;
         }
@@ -674,11 +666,9 @@ void DecayNpcInventory(W8NpcState* npc)
                 if (entry->available_at > 0) {
                     goto next_item;
                 }
-                rule_count =
-                    (npc->record->item_stock_rules ? npc->record->item_stock_rules->size() : 0);
+                rule_count = npc->record->item_stock_rules.size();
                 for (rule_index = 0; rule_index < rule_count; ++rule_index) {
-                    rule = static_cast<W8NpcItemStockRule*>(
-                        (*npc->record->item_stock_rules)[rule_index]);
+                    rule = &npc->record->item_stock_rules[rule_index];
                     if (rule->item_id == item_id) {
                         if (rule->persistent == 1) {
                             goto next_item;

@@ -80,7 +80,7 @@ float WorldGetRenderRange(W8World* world);
 double WorldGetFarClip(W8World* world);
 void WorldSetFarClip(W8World* world, float distance);
 void WorldSetRenderRange(W8World* world, float value);
-stLight* CreateLight(srNode* parent, const char* name);
+std::unique_ptr<stLight> CreateLight(srNode* parent, const char* name);
 stLight* CreateWorldLight(W8World* world, const char* name);
 // The world takes ownership; the returned pointer is a borrowed handle until WorldRemoveLight.
 stLight* AddWorldLight(W8World* world, std::unique_ptr<stLight> light);

@@ -13,7 +13,6 @@
 #include "glm/matrix.hpp"
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
@@ -27,8 +26,7 @@
    attenuation, bit5 = far-range attenuation active. */
 
 // FUNCTION: SURRENDER 0x1004DDA0
-srLight::srLight(srNode* parent, e_preset preset, Ownership ownership)
-    : srIlluminator(static_cast<srNode*>(nullptr), ownership)
+srLight::srLight(srNode* parent, e_preset preset) : srIlluminator(static_cast<srNode*>(nullptr))
 {
     enable_flags = 0;
     derived_flags = 0;

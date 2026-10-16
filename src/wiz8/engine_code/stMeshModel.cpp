@@ -25,6 +25,7 @@
 #include "surrender/mesh_math.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
@@ -38,7 +39,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 
 class srMaterialIFace;
 
