@@ -12,6 +12,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_uint3.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/OctPreTree.h"
@@ -373,7 +374,7 @@ public:
     std::vector<W8OctRegionVolume> m_region_volumes; // Owns the spatial state's borrowed view.
     std::vector<W8OctPreTreeBranch> m_branches;
     std::vector<W8OctPreTreeLeaf> m_leaves;
-    srVector3T<w8_ulong> m_leaf_grid_dimensions;
+    glm::uvec3 m_leaf_grid_dimensions;
     std::vector<w8_ulong> m_leaf_lookup;
     w8_ulong m_branch_count;
     w8_ulong m_leaf_count;

@@ -3025,7 +3025,7 @@ void Trigger::Run(int source)
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {
                 W8SpellId spell_id;
-                srVector3T<double> position = g_world->camera->getLocation();
+                glm::dvec3 position = g_world->camera->getLocation();
 
                 if (action == 0x28) {
                     spell_id = W8_SPELL_HEX;

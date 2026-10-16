@@ -720,8 +720,8 @@ try {
         monster = monster_info->p3D;
 
         {
-            srVector3T<double> camera_location = pWorld->camera->getLocation();
-            camera_position = camera_location;
+            glm::dvec3 camera_location = pWorld->camera->getLocation();
+            camera_position = glm::vec3(camera_location);
         }
         monster->SelectLOD(&camera_position);
 

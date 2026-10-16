@@ -3594,8 +3594,8 @@ void W8PathingService::BuildPathGridWalk(const glm::vec2* from, const glm::vec2*
     walk->minor_axis0 = minor_axis;
     walk->error_reset0 = cell_size;
     walk->count = count;
-    walk->cell.Set(destination.x / cell_size, destination.y / cell_size, 0);
-    walk->step.Set(step.x, step.y, 0);
+    walk->cell = {destination.x / cell_size, destination.y / cell_size, 0};
+    walk->step = {step.x, step.y, 0};
     walk->error_delta0 = error_delta;
     walk->error0 = error;
     walk->minor_axis1 = 0;
@@ -3717,12 +3717,12 @@ bool W8PathingService::ProbeWaypointSegment(const srVector3T<float>* from,
         unsigned int direction;
         if (error >= 0 || blocked) {
             direction = directions[0];
-            (&cell.x)[walk.major_axis] += (&walk.step.x)[walk.major_axis];
+            (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
             error -= walk.error_delta0;
         } else {
             direction = directions[1];
             --iteration;
-            (&cell.x)[walk.minor_axis0] += (&walk.step.x)[walk.minor_axis0];
+            (&cell.x)[walk.minor_axis0] += walk.step[walk.minor_axis0];
             error += walk.error_reset0;
         }
         if (direction_mask != 0 && (direction_mask & 1 << (direction & 0x1f)) == 0) {
@@ -3924,16 +3924,16 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         unsigned int direction = directions[0];
         if (!diagonal_steps) {
             if (error >= 0 || blocked) {
-                (&cell.x)[walk.major_axis] += (&walk.step.x)[walk.major_axis];
+                (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
                 error -= walk.error_delta0;
             } else {
-                (&cell.x)[walk.minor_axis0] += (&walk.step.x)[walk.minor_axis0];
+                (&cell.x)[walk.minor_axis0] += walk.step[walk.minor_axis0];
                 direction = directions[1];
                 --iteration;
                 error += walk.error_reset0;
             }
         } else if (error < 0 && !blocked) {
-            (&cell.x)[walk.minor_axis0] += (&walk.step.x)[walk.minor_axis0];
+            (&cell.x)[walk.minor_axis0] += walk.step[walk.minor_axis0];
             error += walk.error_reset0;
             if (static_cast<unsigned int>(cell.y * 0x10000 + cell.x) == destination_key) {
                 --iteration;
@@ -3945,11 +3945,11 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
                 } else {
                     direction = (directions[0] + directions[1]) / 2;
                 }
-                (&cell.x)[walk.major_axis] += (&walk.step.x)[walk.major_axis];
+                (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
                 error -= walk.error_delta0;
             }
         } else {
-            (&cell.x)[walk.major_axis] += (&walk.step.x)[walk.major_axis];
+            (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
             error -= walk.error_delta0;
         }
 

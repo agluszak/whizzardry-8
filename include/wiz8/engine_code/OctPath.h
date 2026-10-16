@@ -11,6 +11,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int2.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint2.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
@@ -212,8 +213,8 @@ struct GDPropCondPaths {
    participate and the third slots are zeroed. Retail does not distinguish
    this grouping from adjacent scalar storage in the original declaration. */
 struct W8PathGridWalk {
-    srVector3T<int> cell; /* 0x00: destination X/Z cells; third component zero */
-    srVector3T<int> step; /* 0x0c: +1 or -1 per active axis; third component zero */
+    glm::ivec3 cell{0}; /* 0x00: destination X/Z cells; third component zero */
+    glm::ivec3 step{0}; /* 0x0c: +1 or -1 per active axis; third component zero */
     int major_axis;       /* 0x18: 0 for X, 1 for Z */
     int minor_axis0;      /* 0x1c: (major + 1) % 2 */
     int minor_axis1;      /* 0x20: unused second secondary axis, zero */

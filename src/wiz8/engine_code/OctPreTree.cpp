@@ -218,7 +218,8 @@ try {
     header.m_bounds[3] = m_spatial.m_clipped_bounds.maximum;
     header.m_bounds[4] = m_spatial.m_working_bounds.minimum;
     header.m_bounds[5] = m_spatial.m_working_bounds.maximum;
-    header.m_grid_dims = m_leaf_grid_dimensions;
+    header.m_grid_dims = {m_leaf_grid_dimensions.x, m_leaf_grid_dimensions.y,
+                          m_leaf_grid_dimensions.z};
     header.m_depth = m_spatial.m_depth;
     header.m_region_id_bound = m_spatial.m_region_id_bound;
     header.m_root_mesh_count = m_root_mesh_count;

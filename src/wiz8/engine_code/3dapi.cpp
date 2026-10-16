@@ -517,9 +517,9 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 PathAITick(path, 1);
                 PathAIApply(path, world->camera);
                 {
-                    srVector3T<double> location = world->camera->getLocation();
+                    glm::dvec3 location = world->camera->getLocation();
                     srVector3T<float> party_point;
-                    party_point = glm::vec3(location.glmValue());
+                    party_point = glm::vec3(location);
                     PlacePartyAtPoint(&party_point);
                 }
                 path_rotation = world->camera->getRotation<glm::mat3>();

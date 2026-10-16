@@ -13,6 +13,7 @@
 
 #include "AnimRep.hpp"
 #include "compat/native.h"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -294,7 +295,7 @@ void stModelInstance2D::SetGlowEnabled(bool enable)
 // FUNCTION: WIZ8 0x00480EF0
 unsigned short stModelInstance2D::GetScaledWidth()
 {
-    srVector3T<double> scale = getScale();
+    glm::dvec3 scale = getScale();
     float scale_z = static_cast<float>(scale.z);
     if (scale.x == 1.0f && scale.y == 1.0f && scale_z == 1.0f) {
         return render_state.width;
@@ -305,7 +306,7 @@ unsigned short stModelInstance2D::GetScaledWidth()
 // FUNCTION: WIZ8 0x00480F70
 unsigned short stModelInstance2D::GetScaledHeight()
 {
-    srVector3T<double> scale = getScale();
+    glm::dvec3 scale = getScale();
     float scale_y = static_cast<float>(scale.y);
     float scale_z = static_cast<float>(scale.z);
     if (scale.x == 1.0f && scale_y == 1.0f && scale_z == 1.0f) {
