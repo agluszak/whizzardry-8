@@ -410,7 +410,8 @@ static void wgd_banks()
     data.ReadProcessedGameData(file.get());
     // Environment motion factors are normalized by the processed loader.
     const auto roundtrip = geometry_snapshot(data);
-    const auto geometry_bytes = snapshot.size() - data.EnvironsCount() * sizeof(W8EnvironRecord);
+    const auto geometry_bytes =
+        snapshot.size() - data.EnvironsCount() * sizeof(wiz8::retail::Environ);
     REQUIRE((roundtrip.substr(0, geometry_bytes) == snapshot.substr(0, geometry_bytes)));
 }
 

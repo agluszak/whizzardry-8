@@ -34,7 +34,7 @@ struct W8OctRegionVolume {
     w8_ulong value_18;
     /* Nine 12-byte points from +0x1c to +0x88; 0x004301C0 projects the first
        against the camera and falls back to the other eight. */
-    srVector3T<float> m_points[9];
+    glm::vec3 m_points[9]{};
     W8Plane m_planes[6];
 
     bool ContainsPoint(const glm::vec3& point) const;
@@ -119,7 +119,7 @@ struct W8OctSpatialState {
 
 bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
                            const glm::vec3& normal);
-bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const glm::vec3> vertices,
                           const srBoundingBox& box);
 
 struct W8OctRegionPolygon;

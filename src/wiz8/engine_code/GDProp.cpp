@@ -112,12 +112,12 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
         if (m_pVertices != 0) {
             delete[] m_pVertices;
         }
-        m_pVertices = new srVector3T<float>[m_vertex_count];
+        m_pVertices = new glm::vec3[m_vertex_count]{};
         if (m_pVertices == 0) {
             srAssertFail("m_pVertices", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0xae,
                          0);
         }
-        memset(m_pVertices, 0, m_vertex_count * sizeof(srVector3T<float>));
+        memset(m_pVertices, 0, m_vertex_count * sizeof(glm::vec3));
     }
 }
 
@@ -259,7 +259,7 @@ void GDProp::BindTrigger(Trigger* owner)
 srBoundingBox GDProp::computeBounds()
 {
     const auto bounds = boundingBox(
-        std::span<const srVector3T<float>>{m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+        std::span<const glm::vec3>{m_pVertices, static_cast<std::size_t>(m_vertex_count)});
     m_bound_max = bounds.maximum;
     m_bound_min = bounds.minimum;
 
@@ -291,7 +291,7 @@ bool GDProp::boundsOverlap(const srBoundingBox& box)
         W8GDSurface* surface = &m_pGDSurfaces[index];
         hit = triangleIntersectsBox(
             box,
-            indexedTriangle(std::span<const srVector3>(m_pVertices, m_vertex_count),
+            indexedTriangle(std::span<const glm::vec3>(m_pVertices, m_vertex_count),
                             surface->vertex_indices),
             surface->plane.normal.glmValue());
     }
@@ -415,7 +415,7 @@ void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim
         }
     }
 
-    m_pVertices = new srVector3T<float>[m_vertex_count];
+    m_pVertices = new glm::vec3[m_vertex_count]{};
     m_pGDSurfaces = static_cast<W8GDSurface*>(malloc(m_surface_count * sizeof(W8GDSurface)));
     if (m_pGDSurfaces == 0) {
         srAssertFail("m_pGDSurfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0x364,
