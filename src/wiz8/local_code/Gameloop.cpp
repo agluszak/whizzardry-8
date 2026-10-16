@@ -102,7 +102,6 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     ReleaseSpellDatabase();
     DestroyItemDatabase();
     DestroyItemTables();
-    FreeIfNotNull(0);
     DestroyNpcDatabase();
     DestroyFactDatabase();
     DestroyLevelDatabase();

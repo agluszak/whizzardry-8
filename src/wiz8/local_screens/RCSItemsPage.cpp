@@ -167,9 +167,9 @@ void OpenItemInfoDialog(W8ItemInstance* item)
 
     if (!IsItemWornByCharacter(g_review_character, item) &&
         !IsItemCarriedByCharacter(g_review_character, item)) {
-        dialog = new W8AssayDialog(item, 0, {kInfoDialogX, kInfoDialogY});
+        dialog = new W8AssayDialog(*item, 0, {kInfoDialogX, kInfoDialogY});
     } else {
-        dialog = new W8AssayDialog(item, g_review_character, {kInfoDialogX, kInfoDialogY});
+        dialog = new W8AssayDialog(*item, g_review_character, {kInfoDialogX, kInfoDialogY});
     }
     dialog->SetText("");
 

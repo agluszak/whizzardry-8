@@ -19,7 +19,6 @@ unsigned int ItemIndex(int runtime_id);
 void SetWorldItemHighlight(int runtime_id, bool on);
 int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance);
 unsigned char InteractWithWorldItem(int runtime_id);
-W8ItemInstance* CopyWorldItemInstance(const W8WorldItem* item);
 void SetWorldItemFalling(W8WorldItem* item, bool enabled);
 void RebuildAllWorldItemInstances(void);
 

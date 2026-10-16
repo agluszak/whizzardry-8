@@ -842,7 +842,7 @@ void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
     if (index < 0 || index >= static_cast<int>(entries.size())) {
         return;
     }
-    OpenAssayDialog(CopyWorldItemInstance(entries[index].item.get()), -1);
+    OpenAssayDialog(entries[index].item->item, -1);
 }
 
 /* Thumb drag callback: while the left button is held, map the live cursor

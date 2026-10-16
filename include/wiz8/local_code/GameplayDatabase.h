@@ -15,4 +15,3 @@ bool InitializeItemDatabase(void);
 bool InitializeItemTables(void);
 void DestroyItemDatabase(void);
 void DestroyItemTables(void);
-void FreeIfNotNull(void* block);

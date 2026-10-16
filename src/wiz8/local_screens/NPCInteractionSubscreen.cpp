@@ -1555,7 +1555,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         if (item == 0) {
             return;
         }
-        dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_status.selected_character],
+        dialog = new W8AssayDialog(*item, &g_status.buffers.Char[g_status.selected_character],
                                    {kInfoDialogX, 0x48});
         dialog->SetText("");
 
@@ -2488,7 +2488,7 @@ static void OpenNpcItemAssay(void)
 
     if (g_npc_interaction_state->trade_item != 0 && image &&
         image != CatalogArtwork::Load(0x1ac).spriteSheet()) {
-        dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
+        dialog = new W8AssayDialog(*g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character],
                                    {kInfoDialogX, 0x48});
         dialog->SetText("");

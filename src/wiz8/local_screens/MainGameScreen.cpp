@@ -5146,7 +5146,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
         item = &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
     open_assay:
         if (item != 0 && item->iItemNo != -1) {
-            AfterUiDispatch([=] { OpenAssayDialog(item, slot); });
+            AfterUiDispatch([=] { OpenAssayDialog(*item, slot); });
         }
     }
     return UiResult::Handled;
@@ -5424,7 +5424,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
              ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             W8WorldItem* world_item = ItemInfo(ItemIndex(g_level_block->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
-            OpenAssayDialog(&world_item->item, -1);
+            OpenAssayDialog(world_item->item, -1);
             return UiResult::Handled;
         }
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
@@ -6504,7 +6504,7 @@ void OpenMonsterInfoDialog(int location_id)
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
    parked in the pending slot so it resumes when this one closes. */
-void OpenAssayDialog(W8ItemInstance* item, int character_slot)
+void OpenAssayDialog(const W8ItemInstance& item, int character_slot)
 {
     W8DialogBase* dialog;
 

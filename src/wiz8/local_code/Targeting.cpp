@@ -3,9 +3,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <span>
+#include <tuple>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -887,50 +888,13 @@ void UpdateAllMonsterHighlights(int party_slot, int location_id)
     }
 }
 
-/* One monster considered as an auto-attack target, and the four things the
-   ordering below reads out of it. The rest of the record is filled in as the
-   candidate is built and is what makes the sort stable across the fields it
-   does not compare. */
+// Only the fields that determine auto-target priority are retained.
 struct W8MonsterTargetCandidate {
     int location_id;
-    W8Condition state;       /* the monster's highest condition */
-    unsigned char in_reach;  /* reachable with a real attack */
-    unsigned int range_band; /* the first band that covers it */
-    unsigned int hp_current;
-    unsigned char same_group; /* shares the caller's group */
+    W8Condition state;
+    bool in_reach;
     float distance;
 };
-
-/* The order the candidates are taken in: the monster in the lowest state
-   first, then the one that can actually be reached, then the nearest. Only
-   three of the record's seven fields are compared, so the rest are carried for
-   the caller rather than for the sort. */
-// FUNCTION: WIZ8 0x0053c920
-static int CompareMonsterTargetCandidates(const void* left, const void* right)
-{
-    const W8MonsterTargetCandidate* a = (const W8MonsterTargetCandidate*)left;
-    const W8MonsterTargetCandidate* b = (const W8MonsterTargetCandidate*)right;
-
-    if (a->state < b->state) {
-        return -1;
-    }
-    if (a->state > b->state) {
-        return 1;
-    }
-    if (a->in_reach != 0 && b->in_reach == 0) {
-        return -1;
-    }
-    if (a->in_reach == 0 && b->in_reach != 0) {
-        return 1;
-    }
-    if (a->distance < b->distance) {
-        return -1;
-    }
-    if (a->distance > b->distance) {
-        return 1;
-    }
-    return 0;
-}
 
 /* Resolve where a target physically is into the slot's own point: the camera
    for the character and party kinds, the monster's model position plus its
@@ -967,89 +931,36 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
     return true;
 }
 
-/* Which monster a party slot should turn on when it has to pick one for
-   itself. Every live, in-combat, still-standing monster the slot is hostile to
-   and can reach becomes a candidate; the candidates are then ordered and the
-   first one taken.
-
-   The whole array is built before any of it is compared, which is why the
-   record carries fields the ordering never reads - they are what the caller
-   would need if it took more than the first. A monster with no hit points at
-   all is a data error rather than a candidate to skip. */
+// Select the best live enemy directly; no owning scratch array or sort is needed.
 // FUNCTION: WIZ8 0x0053c720
-static int ChooseMonsterTarget(int party_slot, int group_id, W8TargetingContext context)
+static int ChooseMonsterTarget(int party_slot, W8TargetingContext context)
 {
-    unsigned int monster_count = gXStatus.monster_roster.live().size();
-    W8MonsterTargetCandidate* candidates;
-    W8MonsterTargetCandidate* next;
-    size_t found = 0;
-    unsigned int index;
-    int chosen;
-
-    if (monster_count == 0) {
-        return BAD_INDEX;
-    }
-    candidates = static_cast<W8MonsterTargetCandidate*>(
-        malloc(monster_count * sizeof(W8MonsterTargetCandidate)));
-    if (candidates == 0) {
-        return BAD_INDEX;
-    }
-
-    next = candidates;
-    for (index = 0; index < monster_count; ++index) {
+    std::optional<W8MonsterTargetCandidate> best;
+    const auto priority = [](const W8MonsterTargetCandidate& candidate) {
+        return std::tuple(candidate.state, !candidate.in_reach, candidate.distance);
+    };
+    for (unsigned index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
-        W8MonsterRecord* record;
-        unsigned int band;
-
         if (!monster_info->fActive || !monster_info->fInCombat || monster_info->hp_current == 0 ||
             MonsterVsCharDisposition(party_slot, monster_info) != W8_DISPOSITION_HOSTILE ||
             !CanPartyMemberAimAtMonster(party_slot, 2, monster_info, context, false)) {
             continue;
         }
-
-        next->location_id = monster_info->location_id;
-        next->state = monster_info->highest_condition;
-        next->in_reach = 0;
-
-        record = GetMonsterDataForInfo(monster_info);
+        W8MonsterTargetCandidate candidate{monster_info->location_id,
+                                           monster_info->highest_condition, false,
+                                           monster_info->p3D->GetDistanceToPlayer()};
+        const auto* record = GetMonsterDataForInfo(monster_info);
         if (GetBestMonsterAttackRange(record, true) != -1) {
-            unsigned int quadrant = GetMonsterQuadrant(monster_info) & 0xff;
-
-            if (static_cast<unsigned char>(quadrant) == 2 ||
-                (!AnyoneStandsAhead(static_cast<unsigned char>(quadrant)) &&
-                 AnyoneStandsAhead(4))) {
-                next->in_reach = 1;
-            }
+            const auto quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
+            candidate.in_reach =
+                quadrant == 2 || (!AnyoneStandsAhead(quadrant) && AnyoneStandsAhead(4));
         }
-
-        /* The first range band whose reach covers where the monster is. */
-        for (band = 0; band < 4; ++band) {
-            if (monster_info->p3D->GetDistanceToPlayer() <=
-                CalcRangeDistance(static_cast<W8RangeCategory>(band))) {
-                next->range_band = band;
-                break;
-            }
-        }
-
         if (monster_info->uiHPMax == 0) {
             srAssertFail("pMonsterInfo->uiHPMax > 0", TARGETING_CPP, 0xeac, 0);
         }
-        next->hp_current = monster_info->hp_current;
-        next->same_group = static_cast<unsigned char>(monster_info->monster_group_id == group_id);
-        next->distance = monster_info->p3D->GetDistanceToPlayer();
-
-        ++found;
-        ++next;
+        if (!best || priority(candidate) < priority(*best)) best = candidate;
     }
-
-    if (found == 0) {
-        free(candidates);
-        return BAD_INDEX;
-    }
-    qsort(candidates, found, sizeof(W8MonsterTargetCandidate), CompareMonsterTargetCandidates);
-    chosen = candidates[0].location_id;
-    free(candidates);
-    return chosen;
+    return best ? best->location_id : BAD_INDEX;
 }
 
 /* The two conditions the indirect character kind reads: eighteen has to be
@@ -2034,8 +1945,8 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group)
 
 /* Re-aim a party slot whose pending action's target can no longer be used:
    outside combat the stored target is simply cleared, while in combat a live
-   attack, spell or item action repicks a monster - the target's own group
-   first, then the generic fallback picker - and aims the resolved context's
+   attack, spell or item action repicks the best monster, optionally trying
+   the alternate weapon set, and aims the resolved context's
    block at it. A nonzero `arg` restarts the breath cycle. Repicking the
    executing (out-of-combat) target also copies it to the in-combat target when
    that one no longer matches or reaches. */
@@ -2047,7 +1958,6 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
     W8CombatSlot* target;
     W8CombatSlot* target_2;
     W8CombatSlot new_target;
-    W8MonsterInfo* monster_info;
     W8TargetingContext action_context;
     W8TargetingContext resolved;
     bool is_attack_kind = false;
@@ -2058,7 +1968,6 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
     int action;
     int action_2;
     W8TargetKind previous_kind;
-    int group_id;
     int selected;
 
     if (!CanPartySlotParticipate(party_slot)) {
@@ -2080,15 +1989,9 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
         is_attack_kind = kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK;
         if ((is_attack_kind || kind == W8_ACTION_CAST_SPELL || kind == W8_ACTION_USE_ITEM) &&
             needed == W8_TARGET_NEED_ENEMY) {
-            group_id = -1;
-            if (target->iMonsterID != -1 &&
-                (monster_info = FindMonster(target->iMonsterID, false)) != 0) {
-                group_id = monster_info->monster_group_id;
-            }
-            selected = ChooseMonsterTarget(party_slot, group_id, action_context);
-            if (selected != -1 ||
-                (is_attack_kind && (selected = ChooseFallbackMonsterTarget(
-                                        party_slot, group_id, action_context)) != -1)) {
+            selected = ChooseMonsterTarget(party_slot, action_context);
+            if (selected != -1 || (is_attack_kind && (selected = ChooseFallbackMonsterTarget(
+                                                          party_slot, action_context)) != -1)) {
                 memset(&new_target, 0, sizeof(new_target));
                 new_target.iChar = -1;
                 new_target.iGroupID = -1;
@@ -2692,18 +2595,8 @@ void RefreshAllPartyTargets(void)
                 (row->action == W8_ACTION_ATTACK || row->action == W8_ACTION_BERSERK) &&
                 (row->weapon_swap_pending ||
                  CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false))) {
-                int group_id = -1;
-
-                if (row->target_in_combat.iMonsterID != -1) {
-                    const W8MonsterInfo* target_info =
-                        FindMonster(row->target_in_combat.iMonsterID, false);
-
-                    if (target_info != 0) {
-                        group_id = target_info->monster_group_id;
-                    }
-                }
-                int selected = ChooseFallbackMonsterTarget(party_slot, group_id,
-                                                           W8_TARGETING_CONTEXT_IN_COMBAT);
+                int selected =
+                    ChooseFallbackMonsterTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
 
                 if (selected != -1) {
                     W8CombatSlot action;
@@ -3245,7 +3138,7 @@ void UpdateSlotMonsterHighlights(int party_slot, bool enable)
    the ordinary group selection has no usable monster. The swap is undone when
    it finds nothing, and the slot's own valid target is kept when it has one. */
 // FUNCTION: WIZ8 0x0053c990
-int ChooseFallbackMonsterTarget(int party_slot, int group_id, W8TargetingContext context)
+int ChooseFallbackMonsterTarget(int party_slot, W8TargetingContext context)
 {
     int result = -1;
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -3259,7 +3152,7 @@ int ChooseFallbackMonsterTarget(int party_slot, int group_id, W8TargetingContext
         !IsItemBoundToWearer(&character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON]) &&
         !IsItemBoundToWearer(&character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON]) &&
         SwapWeaponSetSlots(party_slot, false, false)) {
-        result = ChooseMonsterTarget(party_slot, group_id, context);
+        result = ChooseMonsterTarget(party_slot, context);
         if (result == -1) {
             if (SwapWeaponSetSlots(party_slot, false, false)) {
                 return -1;

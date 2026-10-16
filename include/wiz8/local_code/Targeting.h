@@ -48,7 +48,7 @@ void RefreshCombatTargetHighlights(int party_slot, W8CombatSlot* target);
 void HighlightSpellTargetsAtCachedPosition(void);
 /* Pick an attack fallback, allowing the character's alternate weapon set when
    the ordinary group selection has no usable monster. */
-int ChooseFallbackMonsterTarget(int party_slot, int group_id, W8TargetingContext context);
+int ChooseFallbackMonsterTarget(int party_slot, W8TargetingContext context);
 void SetFactionFlag(signed char faction, bool flag);
 unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
 bool IsSpellTargetStillValidIn(int party_slot, int spell_id, W8TargetingContext context);
