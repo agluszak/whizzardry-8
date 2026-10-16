@@ -127,7 +127,6 @@ bool apply_spatial(AudioPlayback& playback)
 
 Playback create_playback(Group group)
 {
-    finish_stopped();
     if (!service_state.enabled) return {};
     auto playback = std::make_shared<AudioPlayback>();
     playback->group = group;

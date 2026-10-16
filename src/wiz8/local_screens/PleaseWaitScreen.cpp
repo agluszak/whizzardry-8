@@ -344,9 +344,8 @@ unsigned char PleaseWaitScreenLeave(int leaving)
     return 1;
 }
 
-/* Texture loads performed while screen four is active keep audio and the
-   animated please-wait glyph moving. The descriptor fields and the draw call
-   are the same private state used by PleaseWaitScreenFrame above. */
+/* Synchronous texture loading does not run GameLoop, so service audio here
+   and keep the animated please-wait glyph moving. */
 void UpdatePleaseWaitLoadFrame(void)
 {
     w8_ulong tick;

@@ -461,7 +461,6 @@ void UpdateAmbientSounds(W8World* world)
         int index;
 
         ServiceRandomAmbients();
-        wiz8::sound::service();
         count = static_cast<int>(world->plsAmbientSounds.size());
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
