@@ -6,6 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -75,8 +76,8 @@ static bool lazyTables()
     REQUIRE((empty.getPolyShader(0, 1) == nullptr && empty.getPolyUVIndex(0, 1) == nullptr));
     REQUIRE((empty.getVertexTexCoords(0, 0, 1) == nullptr && empty.getVertexDIG(0, 1) == nullptr));
     REQUIRE((empty.getVertexDCG(0, 1) == nullptr && empty.getVertexSCG(0, 1) == nullptr));
-    REQUIRE(empty.getPolyTexture(0, 0, 1) == nullptr);
-    REQUIRE(empty.getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1) == nullptr);
+    REQUIRE(empty.getPolygonTextureTable(0, 0, true) == nullptr);
+    REQUIRE(empty.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true) == nullptr);
 
     srMeshModel mesh(2, 3);
     REQUIRE((mesh.poly_vertices.empty() && mesh.vertex_locations.empty() &&
@@ -88,9 +89,9 @@ static bool lazyTables()
         REQUIRE((mesh.getVertexDIG(pass, 0) == nullptr && mesh.getVertexDCG(pass, 0) == nullptr));
         REQUIRE(mesh.getVertexSCG(pass, 0) == nullptr);
         for (int side = 0; side < 2; ++side) {
-            REQUIRE(mesh.getPolyTexture(pass, side, 0) == nullptr);
-            REQUIRE(mesh.getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0) ==
-                    nullptr);
+            REQUIRE(mesh.getPolygonTextureTable(pass, side, false) == nullptr);
+            REQUIRE(mesh.getVertexMaterialTable(pass, static_cast<srMeshModel::e_side>(side),
+                                                false) == nullptr);
             REQUIRE(mesh.getVertexTexCoords(pass, side, 0) == nullptr);
         }
     }
@@ -125,12 +126,13 @@ static bool lazyTables()
     }
     REQUIRE(mesh.getPolyShader(3, 1)[0].value == srShader().value);
     REQUIRE(mesh.getVertexShadeIndex(1)[0] == 0);
-    REQUIRE(mesh.getPolyTexture(3, 1, 1)[0].get() == nullptr);
-    REQUIRE(mesh.getVertexMaterial(3, srMeshModel::SIDE_BACK, 1)[0].get() == nullptr);
+    REQUIRE((*mesh.getPolygonTextureTable(3, 1, true))[0].get() == nullptr);
+    REQUIRE((*mesh.getVertexMaterialTable(3, srMeshModel::SIDE_BACK, true))[0].get() == nullptr);
     REQUIRE((mesh.getVertexDIG(-1, 1) == nullptr && mesh.getVertexDIG(4, 1) == nullptr));
     REQUIRE(mesh.getVertexTexCoords(0, 2, 1) == nullptr);
-    REQUIRE((mesh.getPolyTexture(4, 0, 1) == nullptr && mesh.getPolyShader(-1, 1) == nullptr));
-    REQUIRE(mesh.getVertexMaterial(0, static_cast<srMeshModel::e_side>(2), 1) == nullptr);
+    REQUIRE((mesh.getPolygonTextureTable(4, 0, true) == nullptr &&
+             mesh.getPolyShader(-1, 1) == nullptr));
+    REQUIRE(mesh.getVertexMaterialTable(0, static_cast<srMeshModel::e_side>(2), true) == nullptr);
     return true;
 }
 
@@ -173,8 +175,8 @@ static bool reset()
         mesh.getVertexLoc()[1] = glm::vec3(1, 2, 3);
         mesh.setUVCount(7);
         mesh.getVertexTexCoords(2, 0, 1)[6] = glm::vec2(0.5f, 0.75f);
-        mesh.getVertexMaterial(1, srMeshModel::SIDE_BACK, 1)[2] = material;
-        mesh.getPolyTexture(1, 0, 1)[0] = texture;
+        mesh.getVertexMaterialTable(1, srMeshModel::SIDE_BACK, true)->set(2, material);
+        mesh.getPolygonTextureTable(1, 0, true)->set(0, texture);
         mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
         mesh.setTexture(texture, 0, 0);
         mesh.setSortBias(0.25f);
@@ -190,9 +192,9 @@ static bool reset()
         REQUIRE((mesh.vertex_locations.empty() && mesh.vertex_locations.capacity() == 0));
         REQUIRE((mesh.texcoords[2][0].empty() && mesh.texcoords[2][0].capacity() == 0));
         REQUIRE((mesh.tri_mesh.positions == nullptr && mesh.tri_mesh.texcoords[2][0] == nullptr));
-        REQUIRE(mesh.getVertexMaterial(1, srMeshModel::SIDE_BACK, 0) == nullptr);
-        REQUIRE(
-            (mesh.getPolyTexture(1, 0, 0) == nullptr && mesh.getActivePolygonTable(0) == nullptr));
+        REQUIRE(mesh.getVertexMaterialTable(1, srMeshModel::SIDE_BACK, false) == nullptr);
+        REQUIRE((mesh.getPolygonTextureTable(1, 0, false) == nullptr &&
+                 mesh.getActivePolygonTable(0) == nullptr));
         REQUIRE(mesh.getVertexLoc()[1] == glm::vec3(0, 0, 0));
     }
     REQUIRE((material.use_count() == 1 && texture.use_count() == 1));
@@ -213,7 +215,7 @@ static bool pipelineSlots()
     REQUIRE_FALSE(pipeline->active_triangles);
     srMeshModel mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(0, 0, 1);
-    auto* textures = mesh.getPolyTexture(0, 0, 1);
+    auto* textures = mesh.getPolygonTextureTable(0, 0, true);
     auto* indices = mesh.getPolyUVIndex(0, 1);
     srShader shader;
     auto submitted = mesh.getTriMesh();
@@ -285,4 +287,39 @@ TEST_CASE("mesh_ownership_test")
     REQUIRE(uvGrowth());
     REQUIRE(reset());
     REQUIRE(pipelineSlots());
+}
+
+TEST_CASE("Mesh resource assignments retain one owner per resource and survive reindexing")
+{
+    srMeshModel mesh(3, 4);
+    auto material = std::make_shared<srMaterial>();
+    auto texture = std::make_shared<srTexture>();
+    auto* materials = mesh.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
+    auto* textures = mesh.getPolygonTextureTable(0, 0, true);
+    for (int vertex = 0; vertex < 4; ++vertex) materials->set(vertex, material);
+    for (int polygon = 0; polygon < 3; ++polygon) textures->set(polygon, texture);
+    REQUIRE(material.use_count() == 2);
+    REQUIRE(texture.use_count() == 2);
+    const auto borrowed = mesh.getTriMesh();
+    auto other = std::make_shared<srMaterial>();
+    materials->set(2, other);
+    materials->set(3, nullptr);
+    // Growing the resource pool keeps the already published table view valid.
+    REQUIRE((*borrowed.vertex_materials[0][0])[2] == other);
+    const std::array<w8_ulong, 4> permutation{3, 2, 0, 1};
+    mesh.reindexVertices(permutation);
+    REQUIRE((*materials)[0] == nullptr);
+    REQUIRE((*materials)[1] == other);
+    REQUIRE((*materials)[2] == material);
+    std::weak_ptr<srMaterial> lifetime = other;
+    other.reset();
+    materials->set(1, material);
+    REQUIRE(lifetime.expired()); // Replacing the last assignment releases ownership.
+    REQUIRE(material.use_count() == 2);
+    textures->set(1, nullptr);
+    const std::array<w8_ulong, 3> polygons{1, 2, 0};
+    mesh.reindexPolygons(polygons);
+    REQUIRE((*textures)[0] == nullptr);
+    REQUIRE((*textures)[1] == texture);
+    REQUIRE((*textures)[2] == texture);
 }

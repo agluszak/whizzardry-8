@@ -31,6 +31,7 @@
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
+#include "surrender/mesh_resources.h"
 #include "surrender/model_view_scope.h"
 #include "surrender/plane_math.h"
 #include "surrender/segment_math.h"
@@ -1654,11 +1655,11 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
                                             lights[vertex] + g_environment_offset) *
                                                2.0f));
 
-    auto* materials = mesh.getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
-    materials[0] = material;
-    materials[1] = zero_material;
-    materials[2] = nullptr;
-    materials[3] = material;
+    auto* materials = mesh.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
+    materials->set(0, material);
+    materials->set(1, zero_material);
+    materials->set(2, nullptr);
+    materials->set(3, material);
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
     const auto mixed = mesh.getTriMesh();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
@@ -2037,12 +2038,12 @@ TEST_CASE("Linked main and highlight draws share the instance termination bounda
         ProbeMesh() : stMeshModel(0, 0) {}
         int draws = 0;
         int fail_on = 0;
-        std::shared_ptr<srTexture> texture;
+        MeshResources<srTexture> textures;
         TriMesh getTriMesh() override
         {
             if (++draws == fail_on) throw std::runtime_error("mesh acquisition failed");
             TriMesh mesh;
-            mesh.poly_textures[0][0] = &texture; // A table enables the highlight path.
+            mesh.poly_textures[0][0] = &textures; // A table enables the highlight path.
             return mesh;
         }
     };

@@ -145,7 +145,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         mesh->GetVertexSunlight(true);
         if (vertex_lights.empty()) return 0;
         if (!lights) continue;
-        auto* vertex_materials = mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
+        auto* vertex_materials = mesh->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false);
         auto* base_material =
             static_cast<srMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
         const glm::vec3 base_color =
@@ -163,7 +163,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i], 1));
             world_normals[i] = normalizedOrZero(normal_matrix * normals[i]);
             auto* material =
-                vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
+                vertex_materials ? static_cast<srMaterial*>((*vertex_materials)[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
         const auto box = mesh->getBounds().box.transformed(world);

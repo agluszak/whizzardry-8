@@ -20,6 +20,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
+#include "surrender/mesh_resources.h"
 #include "surrender/srFog.h"
 #include "surrender/srGERD.h"
 #include "surrender/srLight.h"
@@ -152,13 +153,14 @@ bool processorOwnership()
     inactive.enabled = false;
     std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
-    std::array<std::shared_ptr<srMaterial>, 65> materials;
+    MeshResources<srMaterial> materials;
+    materials.resize(65);
     std::array<glm::vec4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
         positions[i] = glm::vec3(0, 0, static_cast<float>(i + 1));
         indices[i] = i;
-        materials[i] = i == 0 ? first_material : second_material;
+        materials.set(i, i == 0 ? first_material : second_material);
     }
     glm::mat4 identity;
     identity = glm::mat4(1);
@@ -168,7 +170,7 @@ bool processorOwnership()
     srVertexPipe::Record record{};
     record.flags = srVertexPipe::Record::HAS_VERTEX_MATERIALS;
     record.channels = 0xffffffff;
-    record.materials = materials.data();
+    record.materials = &materials;
     std::array<srVertexProcessor*, 3> processors{&probe, &active, &inactive};
     srVertexPipe::Input input(identity, identity);
     input.active_vertices = indices;

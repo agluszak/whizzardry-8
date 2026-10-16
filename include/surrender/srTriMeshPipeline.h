@@ -5,6 +5,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "mesh_resources.h"
 #include "srMaterial.h"
 #include "srMath.h"
 #include "srMeshModel.h"
@@ -25,7 +26,7 @@ public:
         srShader shader;
         /* Borrowed per-polygon texture tables. FlushSlots consumes them synchronously in
            Renderer::render, which copies them into owned batch data. */
-        const std::shared_ptr<srTexture>* texture_tables[2]{};
+        const MeshResources<srTexture>* texture_tables[2]{};
         const srShader* shaders = nullptr;
         const glm::vec2* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */

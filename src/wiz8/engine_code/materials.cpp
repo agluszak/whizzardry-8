@@ -22,6 +22,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "surrender/mesh_resources.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
@@ -397,13 +398,13 @@ std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const cha
 bool MeshHasAnimatedTexture(srMeshModel* model)
 {
     if (model != 0) {
-        std::shared_ptr<srTexture>* textures = model->getPolyTexture(0, 0, 0);
+        MeshResources<srTexture>* textures = model->getPolygonTextureTable(0, 0, false);
 
         if (textures != 0) {
             int polygon;
 
             for (polygon = 0; polygon < model->polygon_count; ++polygon) {
-                if (dynamic_cast<stTextureAnim*>(textures[polygon].get())) {
+                if (dynamic_cast<stTextureAnim*>((*textures)[polygon].get())) {
                     return true;
                 }
             }
@@ -421,10 +422,10 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame)
         srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
 
         if (model != 0) {
-            std::shared_ptr<srTexture>* textures = model->getPolyTexture(0, 0, 0);
+            MeshResources<srTexture>* textures = model->getPolygonTextureTable(0, 0, false);
 
             if (textures != 0) {
-                if (auto* animation = dynamic_cast<stTextureAnim*>(textures[0].get())) {
+                if (auto* animation = dynamic_cast<stTextureAnim*>((*textures)[0].get())) {
                     animation->SetFrame(frame);
                 }
             }
@@ -439,10 +440,10 @@ stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance)
         srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
 
         if (model != 0) {
-            std::shared_ptr<srTexture>* textures = model->getPolyTexture(0, 0, 0);
+            MeshResources<srTexture>* textures = model->getPolygonTextureTable(0, 0, false);
 
             if (textures != 0) {
-                return dynamic_cast<stTextureAnim*>(textures[0].get());
+                return dynamic_cast<stTextureAnim*>((*textures)[0].get());
             }
         }
     }

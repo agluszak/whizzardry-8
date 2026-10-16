@@ -17,6 +17,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "surrender/mesh_resources.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/model_view_scope.h"
 #include "surrender/srGERD.h"
@@ -54,12 +55,12 @@ stTextureAnim* stModelInstance::FindMouthTexture()
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     while (mesh != nullptr) {
-        std::shared_ptr<srTexture>* textures =
-            damage_stage == -1 ? mesh->getPolyTexture(0, 0, 0)
+        MeshResources<srTexture>* textures =
+            damage_stage == -1 ? mesh->getPolygonTextureTable(0, 0, false)
                                : mesh->GetTextureTable(damage_stage_tables[damage_stage]);
         if (textures != nullptr) {
             for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-                auto* animation = dynamic_cast<stTextureAnim*>(textures[polygon].get());
+                auto* animation = dynamic_cast<stTextureAnim*>((*textures)[polygon].get());
                 if (animation != nullptr &&
                     SDL_strncasecmp(animation->getName().c_str(), "mouth", 5) == 0) {
                     return animation;
@@ -152,25 +153,25 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
     }
 
     for (; mesh != 0; mesh = mesh->Next()) {
-        std::shared_ptr<srTexture>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
+        MeshResources<srTexture>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
         }
 
         for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-            srTexture* texture = textures[polygon].get();
+            srTexture* texture = (*textures)[polygon].get();
             if (!dynamic_cast<stTextureFile*>(texture) && !dynamic_cast<stTextureAnim*>(texture)) {
                 continue;
             }
 
             if (SDL_strcasecmp(texture->getName().c_str(), old_name) == 0) {
                 replaced = true;
-                while (polygon < mesh->polygon_count && textures[polygon].get() == texture) {
-                    textures[polygon] = replacement;
+                while (polygon < mesh->polygon_count && (*textures)[polygon].get() == texture) {
+                    textures->set(polygon, replacement);
                     ++polygon;
                 }
             } else {
-                while (polygon < mesh->polygon_count && textures[polygon].get() == texture) {
+                while (polygon < mesh->polygon_count && (*textures)[polygon].get() == texture) {
                     ++polygon;
                 }
             }

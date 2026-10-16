@@ -141,8 +141,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 mesh.shaders[0].value &= 0xffff7fff;
                 mesh.poly_shaders[0] = 0;
             }
-            std::shared_ptr<srTexture>*(*poly_textures)[2] = mesh.poly_textures;
-            if (poly_textures != 0 && !mesh.active_polygons) {
+            if (!mesh.active_polygons) {
                 const auto active = model->GetActivePolygons(-1, false);
                 if (active) {
                     mesh.active_polygons = active;

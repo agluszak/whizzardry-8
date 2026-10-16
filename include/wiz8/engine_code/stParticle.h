@@ -9,6 +9,7 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "surrender/mesh_resources.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
@@ -70,7 +71,7 @@ public:
     std::vector<glm::ivec3> triangles;
     /* Per-triangle animated texture copies; both triangles of a particle share
        one. Empty unless the texture is animated. */
-    std::vector<std::shared_ptr<srTexture>> texture_frames;
+    MeshResources<srTexture> texture_frames;
     /* Two triangle indices per still-active particle, rebuilt whenever
        update_flags carries W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY. */
     std::vector<w8_ulong> active_triangles;

@@ -256,8 +256,12 @@ void srGERD::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* 
         }
         return;
     }
-    const auto texture0 = [&](w8_ulong polygon) { return pass->texture_tables[0][polygon].get(); };
-    const auto texture1 = [&](w8_ulong polygon) { return pass->texture_tables[1][polygon].get(); };
+    const auto texture0 = [&](w8_ulong polygon) {
+        return (*pass->texture_tables[0])[polygon].get();
+    };
+    const auto texture1 = [&](w8_ulong polygon) {
+        return (*pass->texture_tables[1])[polygon].get();
+    };
     const auto shader = [&](w8_ulong polygon) { return pass->shaders[polygon].value; };
     w8_ulong set = texture_sets.intern(key);
     w8_ulong done = 0;
