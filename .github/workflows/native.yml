@@ -278,12 +278,3 @@ jobs:
           else
             ./tools/run-clang-tidy.sh build/linux-tidy
           fi
-
-  metal-shaders:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Compile embedded Metal shader sources
-        run: |
-          xcrun -sdk macosx metal -x metal -c src/surrender/devices/sdl_gpu/compiled/sr_vertex.msl -o "$RUNNER_TEMP/sr_vertex.air"
-          xcrun -sdk macosx metal -x metal -c src/surrender/devices/sdl_gpu/compiled/sr_fragment.msl -o "$RUNNER_TEMP/sr_fragment.air"

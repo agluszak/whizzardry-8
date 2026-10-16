@@ -84,6 +84,30 @@ civil-time conversion are removed. PrintScreen and the video inspector remain.
 A legacy monster-leader sentinel is normalized by its retail record decoder.
 
 SDL GPU can select SPIR-V, Metal or Direct3D 12 shaders. MSL and DXIL are produced
-offline with pinned SDL_shadercross tools and embedded at build time. CI checks
-regeneration and compiles MSL with Apple's compiler; native Metal/D3D12 gameplay
-still needs runtime verification on those platforms.
+offline with pinned SDL_shadercross tools and embedded at build time. Linux CI checks offline regeneration. Native Metal/D3D12 shader compilation and
+gameplay still need verification on those platforms; platform CI is not enabled.
+
+### Offline GPU shaders
+
+SDL GPU selects Vulkan, Metal or Direct3D 12 using embedded SPIR-V, MSL or DXIL.
+Normal builds compile GLSL to SPIR-V and embed the checked-in Metal/Direct3D
+outputs without linking a shader compiler into the game. Source digests make
+CMake reject stale offline outputs after a GLSL edit.
+
+Regenerate on Linux x86-64 using the same Conan build environment as the game
+(match the build type to that Conan configuration; this example uses Release):
+
+```sh
+cmake -S tools/shadercross -B build/shadercross -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+cmake --build build/shadercross --target shadercross --parallel 2
+python3 tools/shadercross/generate.py \
+  --shadercross build/shadercross/_deps/shadercross-build/shadercross
+```
+
+The standalone tool pins [SDL_shadercross](https://github.com/libsdl-org/SDL_shadercross),
+SPIRV-Cross and DXC. Linux CI regenerates both formats and compares the outputs.
+Linux runtime scenarios exercise Vulkan; native Metal/D3D12 shader compilation
+and game rendering still need platform verification.

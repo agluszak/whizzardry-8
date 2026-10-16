@@ -32,14 +32,12 @@ std::uint32_t Random15()
 // FUNCTION: WIZ8 0x0040efa0
 std::uint32_t Random(std::uint32_t uiRange)
 {
-    // Always return 0, if no range given (it's not an error)
-
-    if (uiRange == 0) return (0);
+    if (uiRange == 0) return 0;
     return static_cast<std::uint32_t>(std::uint64_t{Random15()} * uiRange / 0x7fff % uiRange);
 }
 
 // FUNCTION: WIZ8 0x0040efe0
 bool Chance(std::uint32_t uiChance)
 {
-    return (bool)(Random(100) < uiChance);
+    return Random(100) < uiChance;
 }
