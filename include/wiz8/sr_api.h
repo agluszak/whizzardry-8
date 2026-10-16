@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "surrender/srDebug.h"
+#include "surrender/srDebug.h" // IWYU pragma: export
 
 int srInit(void);
 int srExit(void);
