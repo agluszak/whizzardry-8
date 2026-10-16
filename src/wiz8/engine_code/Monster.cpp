@@ -406,10 +406,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         W8GrCycle* loaded = 0;
         success = LoadGrCycle(context, monster_name, &loaded, -1, load_value, "data\\monsters", 0);
         *monster = static_cast<W8Monster*>(loaded);
-        if ((*monster)->m_plsParticles != 0) {
-            for (int index = 0; index < static_cast<int>((*monster)->m_plsParticles->size());
-                 ++index) {
-                W8GrCycleParticleAttachment* event = (*(*monster)->m_plsParticles)[index];
+        if (!(*monster)->particles.empty()) {
+            for (int index = 0; index < static_cast<int>((*monster)->particles.size()); ++index) {
+                W8GrCycleParticleAttachment* event = &(*monster)->particles[index];
                 if (event->cycle == -1 && event->subcycle == -1) {
                     event->subcycle = (*monster)->m_pRep->current_subcycle;
                 }
@@ -569,12 +568,12 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                             success = LoadGrCycle(context, argument, &loaded, cycle, load_value,
                                                   "data\\monsters", 0);
                             *monster = static_cast<W8Monster*>(loaded);
-                            if ((*monster)->m_plsParticles != 0) {
+                            if (!(*monster)->particles.empty()) {
                                 for (int index = 0;
-                                     index < static_cast<int>((*monster)->m_plsParticles->size());
+                                     index < static_cast<int>((*monster)->particles.size());
                                      ++index) {
                                     W8GrCycleParticleAttachment* event =
-                                        (*(*monster)->m_plsParticles)[index];
+                                        &(*monster)->particles[index];
                                     if (event->cycle == cycle && event->subcycle == -1) {
                                         event->subcycle = (*monster)->m_pRep->current_subcycle;
                                     }
@@ -3179,12 +3178,12 @@ void W8Monster::SetShakeEventVisibility(signed char cycle)
     int index;
     int count;
 
-    if (m_plsParticles == 0 || (count = static_cast<int>(m_plsParticles->size())) == 0) {
+    if ((count = static_cast<int>(particles.size())) == 0) {
         return;
     }
 
     for (index = 0; index < count; ++index) {
-        W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
+        W8GrCycleParticleAttachment* event = &particles[index];
 
         if (event->cycle == cycle && event->subcycle == m_pRep->current_subcycle && enabled) {
             W8AnimObj* animation =
@@ -3688,7 +3687,7 @@ void W8Monster::AdvanceAnimationFrame(int value, int)
         HandleAnimationThreshold();
     }
     HandleAnimationFrame(previous_frame);
-    if (m_plsParticles != 0 && !m_plsParticles->empty()) {
+    if (!particles.empty()) {
         UpdateShakeEvents(previous_frame);
     }
 }
@@ -3863,13 +3862,13 @@ void W8Monster::UpdateShakeEvents(unsigned char previous_frame)
     int index;
     bool animation_has_range;
 
-    count = static_cast<int>(m_plsParticles->size());
+    count = static_cast<int>(particles.size());
     animation = m_pRep->animations[m_pRep->current_cycle][m_pRep->current_subcycle];
     animation_has_range = animation != 0 && animation->start_frame != 0 &&
                           animation->end_frame >= animation->start_frame;
 
     for (index = 0; index < count; ++index) {
-        event = (*m_plsParticles)[index];
+        event = &particles[index];
         if (event->cycle != m_pRep->current_cycle || event->subcycle != m_pRep->current_subcycle) {
             continue;
         }
@@ -4365,11 +4364,11 @@ unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* 
     bool success = LoadGrCycle(context, mon_name, &loaded, cycle, value, "data\\monsters", 0);
     *monster = static_cast<W8Monster*>(loaded);
 
-    if ((*monster)->m_plsParticles != 0) {
-        int count = static_cast<int>((*monster)->m_plsParticles->size());
+    if (!(*monster)->particles.empty()) {
+        int count = static_cast<int>((*monster)->particles.size());
         if (count != 0) {
             for (int index = 0; index < count; ++index) {
-                W8GrCycleParticleAttachment* event = (*(*monster)->m_plsParticles)[index];
+                W8GrCycleParticleAttachment* event = &(*monster)->particles[index];
                 if (event->cycle == cycle && event->subcycle == -1) {
                     event->subcycle = (*monster)->m_pRep->current_subcycle;
                 }
@@ -4675,8 +4674,9 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
         }
     }
 
-    if (!replaced && m_plsParticles != 0) {
-        for (W8GrCycleParticleAttachment* event : *m_plsParticles) {
+    if (!replaced && !particles.empty()) {
+        for (auto& attachment : particles) {
+            auto* event = &attachment;
             if (event->m_pstParticles->ReplaceTexture(old_name, texture) != 0) {
                 replaced = true;
             }
@@ -4978,12 +4978,12 @@ void W8Monster::ApplyRepresentationScale()
             }
         }
     }
-    if (m_plsParticles != 0) {
-        for (int index = 0; index < static_cast<int>(m_plsParticles->size()); ++index) {
-            stParticle* particle = ((*m_plsParticles)[index])->m_pstParticles.get();
+    if (!particles.empty()) {
+        for (int index = 0; index < static_cast<int>(particles.size()); ++index) {
+            stParticle* particle = particles[index].m_pstParticles.get();
             particle->SetParticleScale(m_pRep->scale);
             if (mirror_x) {
-                ((*m_plsParticles)[index])->position.x *= -1.0f;
+                particles[index].position.x *= -1.0f;
                 particle->setScale(glm::dvec3(-1.0, 1.0, 1.0));
             }
         }

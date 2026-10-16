@@ -335,26 +335,18 @@ try {
         if (!particles.empty()) {
             int index;
 
-            if ((*cycle)->m_plsParticles == 0) {
-                (*cycle)->m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>;
-            }
             for (index = 0; index < static_cast<int>(particles.size()); ++index) {
                 // The attachment takes ownership below.
                 stParticle* particle = particles[index].get();
-                W8GrCycleParticleAttachment* event = new W8GrCycleParticleAttachment;
+                auto* event = &(*cycle)->particles.emplace_back();
                 glm::dvec3 location;
 
-                if (event == 0) {
-                    srAssertFail("pPartSys", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
-                                 0x201, 0);
-                }
                 event->cycle = cycle_index;
                 event->subcycle = -1;
                 event->m_pstParticles = std::move(particles[index]);
                 location = particle->getLocation();
                 event->position = glm::vec3(location);
                 event->rotation = particle->getRotation<glm::mat3>();
-                (*cycle)->m_plsParticles->push_back(event);
             }
         }
     }
@@ -384,12 +376,10 @@ W8GrCycle::W8GrCycle()
     current_model_instance = 0;
     m_plsLights = 0;
     last_subcycle = 0;
-    m_plsParticles = 0;
     wrapped = false;
     enabled = true;
     mirror_x = false;
     aim_set = false;
-    m_ground_shadow = 0;
     frame_fraction = 0;
     scale = 1.0f;
 }
@@ -398,80 +388,44 @@ W8GrCycle::W8GrCycle()
 // FUNCTION: WIZ8 0x004a5f20
 W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(other)
 {
-    int count;
-    int index;
-
     current_model_instance = 0;
     m_plsLights = 0;
     last_subcycle = other.last_subcycle;
-    m_plsParticles = 0;
     wrapped = false;
     enabled = true;
     mirror_x = other.mirror_x;
     aim_set = false;
     scale = other.scale;
-    m_ground_shadow = 0;
     frame_fraction = 0;
     shake_events = other.shake_events;
-    if (other.m_plsParticles != 0 && !other.m_plsParticles->empty()) {
-        count = static_cast<int>(other.m_plsParticles->size());
-        m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>();
-        if (m_plsParticles == 0) {
-            srAssertFail("m_plsParticles", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
-                         0xf6, 0);
-        }
-        for (index = 0; index < count; ++index) {
-            W8GrCycleParticleAttachment* event = new W8GrCycleParticleAttachment;
-
-            if (event != 0) {
-                W8GrCycleParticleAttachment* source_event = (*other.m_plsParticles)[index];
-
-                event->cycle = source_event->cycle;
-                event->subcycle = source_event->subcycle;
-                event->m_pstParticles = std::make_unique<stParticle>(*source_event->m_pstParticles);
-                event->position = source_event->position;
-                event->rotation = source_event->rotation;
-                if (!event->m_pstParticles) {
-                    srAssertFail("m_pstParticles",
-                                 "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x66, 0);
-                }
-            }
-            m_plsParticles->push_back(event);
-        }
+    particles.reserve(other.particles.size());
+    for (const auto& source : other.particles) {
+        auto& copy = particles.emplace_back();
+        copy.cycle = source.cycle;
+        copy.subcycle = source.subcycle;
+        if (source.m_pstParticles)
+            copy.m_pstParticles = std::make_unique<stParticle>(*source.m_pstParticles);
+        copy.position = source.position;
+        copy.rotation = source.rotation;
     }
-    if (other.m_ground_shadow != 0) {
-        m_ground_shadow = new stGroundShadow(*other.m_ground_shadow);
-    }
+    if (other.m_ground_shadow)
+        m_ground_shadow = std::make_unique<stGroundShadow>(*other.m_ground_shadow);
 }
 
 // FUNCTION: WIZ8 0x004a6610
 W8GrCycle::~W8GrCycle()
 {
-    int count;
-    int index;
-
     UnregisterGrCycle(this);
     for (const auto& event : shake_events) {
         CameraShakes().Stop(event);
     }
-    if (m_plsParticles != 0) {
-        count = static_cast<int>(m_plsParticles->size());
-        for (index = 0; index < count; ++index) {
-            W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
-            std::unique_ptr<stParticle> owner = std::move(event->m_pstParticles);
-
-            delete event;
-            if (owner && owner->active_particle_count != 0 && g_world != nullptr) {
-                owner->SetActive(1);
-                owner->emission_limit = 1;
-                RetireParticle(g_world, std::move(owner));
-            }
+    for (auto& event : particles) {
+        auto owner = std::move(event.m_pstParticles);
+        if (owner && owner->active_particle_count != 0 && g_world != nullptr) {
+            owner->SetActive(1);
+            owner->emission_limit = 1;
+            RetireParticle(g_world, std::move(owner));
         }
-        delete m_plsParticles;
-        m_plsParticles = 0;
-    }
-    if (m_ground_shadow != 0) {
-        delete m_ground_shadow;
     }
 }
 
@@ -956,10 +910,7 @@ void W8GrCycle::UpdateParticleAttachments()
     float scale_y;
     float scale_z;
 
-    if (m_plsParticles == 0) {
-        return;
-    }
-    count = static_cast<int>(m_plsParticles->size());
+    count = static_cast<int>(particles.size());
     if (count == 0) {
         return;
     }
@@ -988,7 +939,7 @@ void W8GrCycle::UpdateParticleAttachments()
     scale_z = static_cast<float>(scale.z);
 
     for (index = 0; index < count; ++index) {
-        W8GrCycleParticleAttachment* attachment = (*m_plsParticles)[index];
+        W8GrCycleParticleAttachment* attachment = &particles[index];
         stParticle* particle = attachment->m_pstParticles.get();
         if (particle->emitting == 0) {
             continue;
@@ -1341,7 +1292,7 @@ int FindMappedIndexInMeshChain(stMeshModel** mesh, int key)
 // FUNCTION: WIZ8 0x004a8d50
 void W8GrCycle::CreateGroundShadow(float width, float depth)
 {
-    m_ground_shadow = new stGroundShadow(0);
+    m_ground_shadow = std::make_unique<stGroundShadow>(nullptr);
     m_ground_shadow->setName("Ground Shadow");
     m_ground_shadow->width = width;
     m_ground_shadow->depth = depth;

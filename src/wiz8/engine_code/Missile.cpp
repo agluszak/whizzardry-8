@@ -998,10 +998,10 @@ void W8Missile::SetCycle(signed char cycle)
     SetLights(lights);
     AttachCycleLights(lights);
 
-    if (m_plsParticles != 0) {
-        int count = static_cast<int>(m_plsParticles->size());
+    if (!particles.empty()) {
+        int count = static_cast<int>(particles.size());
         for (int index = 0; index < count; ++index) {
-            W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
+            W8GrCycleParticleAttachment* event = &particles[index];
             event->SelectCycle(cycle);
         }
     }

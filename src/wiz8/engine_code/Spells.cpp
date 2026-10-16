@@ -232,8 +232,9 @@ void W8SpellVisual::SetCycle(signed char cycle)
     SetLights(lights);
     AttachCycleLights(lights);
 
-    if (m_plsParticles != 0) {
-        for (W8GrCycleParticleAttachment* event : *m_plsParticles) {
+    if (!particles.empty()) {
+        for (auto& attachment : particles) {
+            auto* event = &attachment;
             event->SelectCycle(cycle);
         }
     }
