@@ -10,7 +10,6 @@
 #include "random.h"
 #include "surrender/srTexture.h"
 #include "texture_animation.h"
-#include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/stTextureFile.h"
 
 // VTABLE: WIZ8 0x005EC9C0

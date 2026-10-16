@@ -8,7 +8,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
 #include "random.h"
-#include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/layouts/game_status.h"
