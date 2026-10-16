@@ -8,7 +8,6 @@
 #include "srPalette.h"
 #include "srPixelConvert.h"
 
-class srFilter;
 class srTexture;
 class stSurface2D;
 
@@ -25,7 +24,6 @@ public:
         srPixelConvert::PixelFormat format;
         w8_ulong hints;
         e_compression compression;
-        srFilter* filter;
     };
     struct MultiRequest {
         // destinations[0] is first_level; each subsequent slot is the next mip.

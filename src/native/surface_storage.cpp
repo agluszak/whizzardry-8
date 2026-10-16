@@ -84,3 +84,17 @@ bool ClipCpuBlit(SDL_Rect& destination, SDL_Rect& source, const SDL_Rect& destin
     return clip(source, destination, source_bounds) &&
            clip(destination, source, destination_bounds);
 }
+
+void StretchCpuSurface(SDL_Surface& source, SDL_Surface& destination, SDL_ScaleMode mode)
+{
+    SDL_Surface* input = &source;
+    SDLSurfaceOwner snapshot{nullptr, SDL_DestroySurface};
+    const auto src = reinterpret_cast<std::uintptr_t>(source.pixels);
+    const auto dst = reinterpret_cast<std::uintptr_t>(destination.pixels);
+    if (dst < src + std::size_t(source.pitch) * source.h &&
+        src < dst + std::size_t(destination.pitch) * destination.h) {
+        snapshot = CopyCpuStorage(source);
+        input = snapshot.get();
+    }
+    require_sdl(SDL_StretchSurface(input, nullptr, &destination, nullptr, mode));
+}

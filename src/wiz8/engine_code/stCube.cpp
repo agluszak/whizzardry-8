@@ -25,7 +25,6 @@
 #include "surrender/srCamera.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srFilter.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
@@ -152,7 +151,6 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     bytes[1] = static_cast<unsigned char>(srFloatToInt(0.0));
     bytes[0] = static_cast<unsigned char>(srFloatToInt(127.5));
     surface->fill(pixel);
-    surface->setFilter(&srBoxFilter);
 
     auto texture = std::make_shared<srTextureMap>();
     texture->setSurfacePtr(surface);

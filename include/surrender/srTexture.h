@@ -17,8 +17,6 @@ public:
     virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     Parameters getParameters() override;
-    srFilter* getFilter() const;
-    void setFilter(srFilter* filter);
     void setMipmap(e_mipmap mipmap);
     void setMipmapBias(float bias);
     float getMipmapBias() const;

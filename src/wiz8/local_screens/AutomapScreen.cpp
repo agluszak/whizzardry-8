@@ -46,7 +46,6 @@
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srFilter.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -670,7 +669,6 @@ unsigned char AutomapScreenEnter(void)
             g_automap_surface =
                 std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
             auto* surface = g_automap_surface.get();
-            if (surface) surface->setFilter(&srBoxFilter);
         }
     }
     g_automap_redraw = true;
@@ -1243,7 +1241,6 @@ void RenderAutomapFrame(void)
             }
             auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                             GetFrameBufferSurface());
-            surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3);
@@ -1276,7 +1273,6 @@ int RestoreAutomapRect(DesignRect* rect)
 {
     if (g_automap_surface != 0) {
         srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, GetFrameBufferSurface());
-        screen.setFilter(&srBoxFilter);
         screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
                     rect->bottom);
     }
@@ -1510,7 +1506,6 @@ static std::unique_ptr<stModelInstance2D> CreateAutomapMarkerSprite(const char* 
     if (!marker) return {};
     marker->detach();
     static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-    surface->setFilter(&srBSplineFilter);
     return marker;
 }
 
@@ -1530,7 +1525,6 @@ void CreateAutomapMarkerSprites(void)
             g_automap_party_marker->setParent(g_scene_square, 1);
             static_cast<srMeshModel*>(g_automap_party_marker->getModel())
                 ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-            surface->setFilter(&srBSplineFilter);
             g_automap_party_marker->SetGlowEnabled(true);
             glm::vec4 first;
             glm::vec4 second;
@@ -1738,7 +1732,6 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     const SpriteFrame& properties = video_object.frames.front();
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
-    surface->setFilter(&srBSplineFilter);
     int y = (0x40 - properties.height) / 2;
     int x = (0x40 - properties.width) / 2;
     BlitVideoObjectToColorSurface(video_object, 0, *surface, x, y);

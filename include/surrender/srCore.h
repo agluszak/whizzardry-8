@@ -6,7 +6,6 @@
 #include "srStatisticsManager.h"
 
 class srColorSurfaceIFace;
-class srFilter;
 class srMaterial;
 class srNode;
 class srPalette;
@@ -17,7 +16,6 @@ public:
     srCore();
     ~srCore();
 
-    srFilter* getFilter() const;
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
     srMaterial* getMaterial() const { return material.get(); }
@@ -32,7 +30,6 @@ public:
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
     srClock* getTimer() const { return timer.get(); }
     int isInitialized() const;
-    void setFilter(srFilter* filter);
 
 private:
     /* srInit/srExit drive library lifecycle: they write the private field
@@ -46,7 +43,6 @@ private:
 
     std::unique_ptr<srClock> timer;
     std::shared_ptr<srColorSurfaceIFace> surface;
-    srFilter* filter = nullptr;
     std::unique_ptr<srStatisticsManager> statistics_manager;
     std::shared_ptr<srPalette> palette;
     std::unique_ptr<srNode> root_node;

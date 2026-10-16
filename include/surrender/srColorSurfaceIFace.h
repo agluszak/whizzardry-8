@@ -3,10 +3,10 @@
 #include <memory>
 
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "srARGB.h"
 #include "srClass.h"
-#include "srFilter.h"
 #include "srMath.h"
 #include "srPixelConvert.h"
 
@@ -30,7 +30,6 @@ public:
         w8_ulong height;
         w8_ulong pitch;
         w8_ulong clamp_modes;
-        srFilter* filter;
         srPixelConvert::PixelFormat pixel_format;
     };
 
@@ -59,7 +58,7 @@ public:
     virtual void setLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong pixel);
     virtual void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
                       w8_long source_y, w8_long width, w8_long height);
-    virtual void copy(srColorSurfaceIFace& source);
+    virtual void copy(srColorSurfaceIFace& source, SDL_ScaleMode mode = SDL_SCALEMODE_NEAREST);
     virtual void flipRectangle(const Rectangle& rectangle);
     virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
     virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
@@ -72,7 +71,6 @@ public:
     double getAspectRatio() const;
     w8_long getClampedX(w8_long x) const;
     w8_long getClampedY(w8_long y) const;
-    srFilter* getFilter() const;
 
     w8_long getHeight() const { return height; }
 
@@ -81,27 +79,18 @@ public:
 
     SurfaceDesc getSurfaceDesc() const
     {
-        return {static_cast<w8_ulong>(width),
-                static_cast<w8_ulong>(height),
-                static_cast<w8_ulong>(pitch),
-                clamp_modes,
-                filter,
-                pixel_format};
+        return {static_cast<w8_ulong>(width), static_cast<w8_ulong>(height),
+                static_cast<w8_ulong>(pitch), clamp_modes, pixel_format};
     }
 
     w8_long getWidth() const { return width; }
 
-    void setFilter(srFilter* filter) { this->filter = filter; }
     void setHClampMode(int enabled);
     void setVClampMode(int enabled);
 
 protected:
     virtual void copyNoScaling(srColorSurfaceIFace& source);
-    void scaleAxis(srColorSurfaceIFace& source, bool vertical);
-    virtual void scaleFast(srColorSurfaceIFace& source);
-    virtual void scale(srColorSurfaceIFace& source);
-    virtual void magnify(srColorSurfaceIFace& source);
-    virtual void minify(srColorSurfaceIFace& source);
+    virtual void scaleFast(srColorSurfaceIFace& source, SDL_ScaleMode mode);
 
     void copySurfaceParameters(const srColorSurfaceIFace& source);
     int isPixelFormatCompatible(const srColorSurfaceIFace& source) const;
@@ -116,6 +105,5 @@ protected:
     w8_long height;
     w8_long pitch;
     w8_ulong clamp_modes;
-    srFilter* filter;
     srPixelConvert::PixelFormat pixel_format;
 };

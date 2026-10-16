@@ -140,7 +140,6 @@ void stTextureFile::loadSurface()
     }
 
     setupDefaultValues();
-    surface->setFilter(getFilter());
     /* Retail reads the alpha channel count straight out of the surface's
        pixel format (unsigned SETA): the authored comparison is `> 0`. */
     has_alpha = (surface->pixel_format.alpha_bits > 0);

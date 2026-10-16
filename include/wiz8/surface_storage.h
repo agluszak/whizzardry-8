@@ -16,3 +16,6 @@ SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format,
 SDLSurfaceOwner CopyCpuStorage(SDL_Surface& source);
 bool ClipCpuBlit(SDL_Rect& destination, SDL_Rect& source, const SDL_Rect& destination_bounds,
                  const SDL_Rect& source_bounds);
+
+// Snapshot aliased storage before SDL's stretched copy.
+void StretchCpuSurface(SDL_Surface& source, SDL_Surface& destination, SDL_ScaleMode mode);

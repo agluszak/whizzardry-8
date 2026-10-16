@@ -2,11 +2,12 @@
 #include <memory>
 #include <string>
 
+#include <SDL3/SDL_surface.h>
+
 #include "compat/compiler.h"
 #include "surrender/srClass.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
-#include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srTexture.h"
@@ -26,7 +27,6 @@ srTexture::srTexture()
     texture_dimensions_.width = 0x40;
     texture_dimensions_.height = 0x40;
     texture_dimensions_.palette = srCore.getPalette();
-    texture_dimensions_.filter = srCore.getFilter();
     texture_dimensions_.hints = 0;
     texture_dimensions_.compression = srTextureIFace::COMPRESSION_DEFAULT;
     texture_dimensions_.format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB4444);
@@ -92,12 +92,6 @@ void srTexture::setupDefaultValuesFromSurface(srColorSurfaceIFace* surface)
     }
 }
 
-// FUNCTION: SURRENDER 0x1005EB00
-srFilter* srTexture::getFilter() const
-{
-    return texture_dimensions_.filter;
-}
-
 // FUNCTION: SURRENDER 0x1005EB20
 float srTexture::getPriority()
 {
@@ -120,12 +114,6 @@ void srTexture::setPriority(float priority)
 float srTexture::getMipmapBias() const
 {
     return mipmap_bias;
-}
-
-// FUNCTION: SURRENDER 0x1005EB30
-void srTexture::setFilter(srFilter* filter)
-{
-    texture_dimensions_.filter = filter;
 }
 
 // FUNCTION: SURRENDER 0x1005EBD0
@@ -306,10 +294,10 @@ const char* srTextureIFace::getTextureName()
 void srTexture::copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request)
 {
     if (request.destinations.empty()) return;
-    if (auto* first = request.destinations.front()) first->copy(source);
+    if (auto* first = request.destinations.front()) first->copy(source, SDL_SCALEMODE_LINEAR);
     for (std::size_t level = 1; level < request.destinations.size(); ++level) {
         auto* destination = request.destinations[level];
         auto* previous = request.destinations[level - 1];
-        if (destination && previous) destination->copy(*previous);
+        if (destination && previous) destination->copy(*previous, SDL_SCALEMODE_LINEAR);
     }
 }

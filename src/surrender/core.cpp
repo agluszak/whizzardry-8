@@ -5,7 +5,6 @@
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srFilter.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
@@ -34,7 +33,6 @@ int srInit()
         _srLibraryInit();
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
-        srCore.setFilter(0);
         srCore.palette = std::make_shared<srPalette>(nullptr, 0x100);
         srCore.palette->setName("SurRender default palette");
         srCore.root_node = std::make_unique<srScene>(nullptr);
@@ -84,22 +82,6 @@ srColorSurfaceIFace* srCore::getSurface() const
     return surface.get();
 }
 
-// FUNCTION: SURRENDER 0x10015AD0
-srFilter* srCore::getFilter() const
-{
-    return filter;
-}
-
-// FUNCTION: SURRENDER 0x10015AE0
-void srCore::setFilter(srFilter* filter)
-{
-    if (filter != 0) {
-        this->filter = filter;
-        return;
-    }
-    this->filter = &srTriangleFilter;
-}
-
 // FUNCTION: SURRENDER 0x10015B50
 std::shared_ptr<srPalette> srCore::getPalette() const
 {
@@ -133,7 +115,6 @@ void srCore::reset()
 {
     texture.reset();
     surface.reset();
-    filter = 0;
     root_node.reset();
     palette.reset();
 }
