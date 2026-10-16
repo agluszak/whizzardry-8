@@ -113,7 +113,7 @@ W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary)
 /* The WGD face record's fixed head: three vertex indexes, the source plane,
    and a version tag checked before the rest of the record is read. */
 struct W8GDFaceHeader { /* 0x1c */
-    int vertex_indexs[3];
+    int vertex_indices[3];
     glm::vec3 plane;
     int version;
 };
@@ -236,7 +236,7 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
     for (int index = 0; index < face_count; ++index) {
         const auto header = reader.record<W8GDFaceHeader>();
         if (header.version != 2) throw std::runtime_error("wrong WGD version");
-        for (int vertex : header.vertex_indexs)
+        for (int vertex : header.vertex_indices)
             if (vertex < 0 || vertex >= vertex_count)
                 throw std::runtime_error("invalid WGD vertex index");
         const auto data = reader.record<W8GDFaceData>();
@@ -252,7 +252,7 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
             if (fabs(header.plane[candidate]) > fabs(header.plane[axis])) axis = candidate;
         surface.flags |= axis;
         for (int corner = 0; corner < 3; ++corner) {
-            surface.vertex_indexs[corner] = header.vertex_indexs[corner] + VerticesCount();
+            surface.vertex_indices[corner] = header.vertex_indices[corner] + VerticesCount();
             surface.edge_link[corner] = -1;
         }
         surface.index = int(surfaces.size());
@@ -606,7 +606,7 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     std::vector<W8EnvironRecord> environs(header.environ_count);
     for (auto& environ : environs) wiz8::retail::read_exact(*handle, environ);
     for (const auto& surface : surfaces) {
-        for (int vertex : surface.vertex_indexs)
+        for (int vertex : surface.vertex_indices)
             if (vertex < 0 || vertex >= header.vertex_count)
                 throw std::runtime_error("invalid processed vertex index");
     }
@@ -829,9 +829,9 @@ static void InitializeCompiledSurface(W8GDSurface* compiled, const W8GDSurface* 
     polygon->plane = compiled->plane;
     polygon->degenerate = 0;
     polygon->visited = false;
-    polygon->vertices[0] = geometry.m_vertices.data() + compiled->vertex_indexs[0];
-    polygon->vertices[1] = geometry.m_vertices.data() + compiled->vertex_indexs[1];
-    polygon->vertices[2] = geometry.m_vertices.data() + compiled->vertex_indexs[2];
+    polygon->vertices[0] = geometry.m_vertices.data() + compiled->vertex_indices[0];
+    polygon->vertices[1] = geometry.m_vertices.data() + compiled->vertex_indices[1];
+    polygon->vertices[2] = geometry.m_vertices.data() + compiled->vertex_indices[2];
 }
 
 // FUNCTION: WIZ8 0x00449D10
@@ -980,9 +980,9 @@ bool ShareSurfaceEdge(W8GDSurface* first, W8GDSurface* second, glm::vec3* vertic
     int second_slot = -1;
     int last_first = -1;
     int last_second = -1;
-    int* first_index = first->vertex_indexs;
+    int* first_index = first->vertex_indices;
     for (int i = 0; i < 3; ++i) {
-        int* second_index = second->vertex_indexs;
+        int* second_index = second->vertex_indices;
         for (int j = 0; j < 3; ++j) {
             if (*first_index == *second_index) {
                 if (first_slot < 0) {
