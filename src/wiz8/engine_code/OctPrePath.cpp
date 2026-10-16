@@ -12,6 +12,7 @@
 #include "index_algorithms.h"
 #include "navigation_flags.h"
 #include "packed_bits.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"
@@ -35,7 +36,7 @@ const float g_prepath_link_height = 1.1f;
    marker below and PrePathing's teardown ever touch it. */
 class OctPrePathLog {
 public:
-    OctPrePathLog(float scale, const W8BoundingBox* bounds); /* 0x004CCE00 */
+    OctPrePathLog(float scale, const srBoundingBox* bounds); /* 0x004CCE00 */
     void MarkPathNode(W8PrePathNode* node);                  /* 0x004CCF50 */
 
     int width;
@@ -47,7 +48,7 @@ public:
 };
 
 // FUNCTION: WIZ8 0x004CCE00
-OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
+OctPrePathLog::OctPrePathLog(float scale, const srBoundingBox* bounds)
 {
     width = 0;
     rows = 0;

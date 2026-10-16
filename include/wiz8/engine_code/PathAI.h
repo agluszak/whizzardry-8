@@ -5,8 +5,8 @@
 #include <memory>
 #include <vector>
 
-#include "glm/fwd.hpp"
-#include "surrender/srMath.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 class srNode;
 class W8AnimRepBase;
@@ -35,10 +35,10 @@ struct W8PathAI : W8AIRecord {
     /* Normalized for interpolated movement, point units in discrete mode. */
     float position{};
     unsigned int unknown_08{};             /* serialized */
-    std::vector<srVector3T<float>> nodes;
+    std::vector<glm::vec3> nodes;
     int entry_index{};                     /* level camera/path entry index, assigned at load */
     std::vector<glm::mat3> rotations;
-    std::vector<srVector3T<float>> scales;
+    std::vector<glm::vec3> scales;
     bool discrete_mode{};
     unsigned int point_index{};
     float interpolation_fraction{};
@@ -68,14 +68,14 @@ void PathAIClearOwned(W8PathAI* path);
 void PathAIEnableTimedMode(W8PathAI* path);
 void PathAIResetTick(W8PathAI* path);
 float PathAIGetValue(W8PathAI* path);
-bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point);
+bool PathAINextPoint(W8PathAI* path, glm::vec3* point);
 bool PathAIIsComplete(W8PathAI* path);
 void PathAISetValue(W8PathAI* path, float value);
 void PathAIAdvanceNormalized(W8PathAI* path, float amount);
 bool PathAITick(W8PathAI* path, signed char direction);
-void PathAIPosition(W8PathAI* path, srVector3T<float>* value);
+void PathAIPosition(W8PathAI* path, glm::vec3* value);
 bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
-void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point);
+void PathAIAddPoint(W8PathAI& path, const glm::vec3& point);
 
 void PathAIAdvanceByDistance(W8PathAI* path, float value);
 

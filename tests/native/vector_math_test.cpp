@@ -114,9 +114,6 @@ static void VectorMethods()
     const auto horizontal = normalizedOrZero(glm::dvec2(3, 4));
     REQUIRE(std::abs(glm::length(horizontal) - 1) < 1e-14);
     REQUIRE(normalizedOrZero(glm::vec3(0)) == glm::vec3(0));
-    point.Set(1, 0, 0);
-    point.RotateAboutZ(1, 0);
-    REQUIRE((std::abs(point.x) < 1e-6f && std::abs(point.y - 1) < 1e-6f));
 }
 
 TEST_CASE("vector_math_test")
@@ -125,7 +122,7 @@ TEST_CASE("vector_math_test")
     PackedStorage();
     VectorMethods();
     ClippingAndLighting();
-    std::puts("ok: packed storage, guarded vector methods, rotations, clipping and lighting");
+    std::puts("ok: packed storage, guarded vector methods, clipping and lighting");
 }
 
 TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp policies",

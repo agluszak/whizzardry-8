@@ -35,6 +35,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_int3_sized.hpp"
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "index_algorithms.h"
@@ -87,6 +88,8 @@
 #include "wiz8/octree_walk.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/placement_math.h"
+#include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
@@ -653,17 +656,15 @@ void W8Octree::MarkVisibleRegions()
         if (m_projected_regions_valid && !TestBit(m_projected_regions, volume->m_region_bit)) {
             continue;
         }
-        const auto delta = view.camera_location - volume->m_points[0].glmValue();
+        const auto delta = view.camera_location - volume->m_points[0];
 
         if (glm::dot(delta, delta) >= radius_squared) {
             continue;
         }
-        bool visible =
-            srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[0].glmValue(), 0);
+        bool visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[0], 0);
 
         for (int point = 1; !visible && point < 9; ++point) {
-            visible = srPlaneMath::containsSphere(view.frustum_planes,
-                                                  volume->m_points[point].glmValue(), 0);
+            visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[point], 0);
         }
         if (visible && volume->m_region_bit != 0) {
             SetBit(m_current_regions, volume->m_region_bit);
@@ -720,10 +721,10 @@ void W8Octree::CollectVisibleCells()
     MarkVisibleRegions();
     short radius =
         static_cast<short>((static_cast<int>((view.far_clip / m_spatial.m_region_grid_cell)) + 1));
-    srVector3T<short> center;
+    glm::i16vec3 center(0);
 
     for (int axis = 0; axis < 3; ++axis) {
-        (&center.x)[axis] = static_cast<short>(
+        center[axis] = static_cast<short>(
             static_cast<int>(((view.camera_location[axis] - m_spatial.m_bounds.minimum[axis]) /
                               m_spatial.m_region_grid_cell)));
     }
@@ -821,20 +822,20 @@ try {
     std::string name = std::move(stem);
 
     FindNextLevelFile(0);
-    std::vector<srVector3T<float>> points;
+    std::vector<glm::vec3> points;
     unsigned int count = 0;
     unsigned int files = 0;
     while (FindNextLevelFile(&name) != 0) {
         auto file = wiz8::open_file(name);
         file->read_exact(&count, sizeof(count));
-        const auto bytes = std::uint64_t{count} * sizeof(srVector3T<float>);
+        const auto bytes = std::uint64_t{count} * sizeof(wiz8::retail::Vec3f);
         if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
             std::uint64_t{count} + 1 >
-                std::numeric_limits<std::size_t>::max() / sizeof(srVector3T<float>)) {
+                std::numeric_limits<std::size_t>::max() / sizeof(wiz8::retail::Vec3f)) {
             return false;
         }
-        std::vector<srVector3T<float>> next(std::size_t{count} + 1);
-        file->read_exact(next.data(), static_cast<std::size_t>(bytes));
+        std::vector<glm::vec3> next(count);
+        for (auto& point : next) wiz8::retail::read_exact(*file, point);
         points = std::move(next);
         ++files;
     }
@@ -842,7 +843,6 @@ try {
         return false;
     }
     m_sample_points = std::move(points);
-    m_point_count = count;
     m_points_dirty |= files > 1;
     return true;
 } catch (const std::exception&) {
@@ -853,7 +853,7 @@ try {
 // FUNCTION: WIZ8 0x00432d60
 bool W8Octree::SavePoints(const char* path)
 try {
-    if (m_point_count == 0 || m_sample_points.empty()) {
+    if (m_sample_points.empty() || m_sample_points.size() > UINT32_MAX) {
         return false;
     }
     std::string name = path;
@@ -862,8 +862,9 @@ try {
     }
     name += g_octree_point_extension;
     auto file = wiz8::open_file(name, wiz8::OpenMode::replace);
-    file->write(&m_point_count, sizeof(m_point_count));
-    file->write(m_sample_points.data(), std::size_t{m_point_count} * sizeof(srVector3T<float>));
+    const auto count = static_cast<std::uint32_t>(m_sample_points.size());
+    file->write(&count, sizeof(count));
+    for (const auto& point : m_sample_points) wiz8::retail::write(*file, point);
     file->close();
     return true;
 } catch (const std::exception&) {
@@ -908,7 +909,7 @@ try {
    byte over the point's cell coordinates. Region zero is never tested: it is
    the no-region sentinel. */
 // FUNCTION: WIZ8 0x00432720
-unsigned int W8Octree::RegionKeyForPoint(const srVector3T<float>* point)
+unsigned int W8Octree::RegionKeyForPoint(const glm::vec3& point)
 {
     unsigned int region = 0;
     if (1 < m_spatial.m_region_count) {
@@ -917,7 +918,7 @@ unsigned int W8Octree::RegionKeyForPoint(const srVector3T<float>* point)
             if (region != 0) {
                 return region;
             }
-            if (m_spatial.m_region_volumes[index].ContainsPoint(point->glmValue())) {
+            if (m_spatial.m_region_volumes[index].ContainsPoint(point)) {
                 region = index;
             }
             ++index;
@@ -928,7 +929,7 @@ unsigned int W8Octree::RegionKeyForPoint(const srVector3T<float>* point)
     }
     glm::ivec3 cell;
     for (int axis = 0; axis < 3; ++axis) {
-        cell[axis] = static_cast<int>(((&point->x)[axis] - m_spatial.m_bounds.minimum[axis]) /
+        cell[axis] = static_cast<int>((point[axis] - m_spatial.m_bounds.minimum[axis]) /
                                       m_spatial.m_region_grid_cell);
     }
     return (cell.x * 0x100 + cell.y) * 0x100 + cell.z + m_region_mask * 0x1000000;
@@ -982,19 +983,19 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
    empties the projected and previous sets first. Returns the region key when
    at least one cell linked, zero otherwise. */
 // FUNCTION: WIZ8 0x00431e10
-unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool descend,
-                                         bool clear_sets, unsigned int region_key)
+unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, bool clear_sets,
+                                         unsigned int region_key)
 {
     bool linked = false;
     W8World* world = GetWorld();
     std::vector<stModelInstance*> meshes;
     std::vector<int> cells;
-    view.camera_location = point->glmValue();
+    view.camera_location = point;
     view.far_clip = m_spatial.m_extent;
     char text[104];
-    sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
+    sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point.x, point.y, point.z);
     glm::dvec3 location;
-    location = glm::dvec3(point->glmValue());
+    location = glm::dvec3(point);
     world->camera->setLocation(location);
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
     view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
@@ -1237,7 +1238,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                 point.y = m_spatial.m_bounds.minimum.y + m_spatial.m_extent;
                 while (pathing->SnapToLowerPathCell(&point, true)) {
                     point.y += g_default_world_height;
-                    unsigned int key = RegionKeyForPoint(&point);
+                    unsigned int key = RegionKeyForPoint(point.glmValue());
                     if (key != last_key) {
                         if (last_key != 0) {
                             RecordRegionMeshLinks(last_key);
@@ -1246,7 +1247,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                         std::ranges::fill(m_previous_regions, false);
                         last_key = key;
                     }
-                    SampleRegionLinks(&point, false, false, key);
+                    SampleRegionLinks(point.glmValue(), false, false, key);
                     point.y -= g_default_world_height + g_startup_near_limit;
                 }
             }
@@ -1257,8 +1258,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     std::unordered_multimap<unsigned int, unsigned short>* stale;
     if (!rebuild_all) {
         if (!aborted) {
-            for (unsigned int point_index = 0; point_index < m_point_count; ++point_index) {
-                unsigned int key = SampleRegionLinks(&m_sample_points[point_index], true, true, 0);
+            for (const auto& point : m_sample_points) {
+                unsigned int key = SampleRegionLinks(point, true, true, 0);
                 RecordRegionMeshLinks(key);
             }
         }
@@ -1277,7 +1278,6 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             wiz8::remove_file(point_path);
         }
         m_sample_points.clear();
-        m_point_count = 0;
     }
     world->camera->setViewPlane(saved_width, saved_height);
     unsigned int camera_count = world->plsCameras.size();
@@ -1288,7 +1288,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                 for (int node_index = 0; node_index < static_cast<int>(entry->path->nodes.size());
                      ++node_index) {
                     unsigned int key =
-                        SampleRegionLinks(&entry->path->nodes[node_index], true, true, 0);
+                        SampleRegionLinks(entry->path->nodes[node_index], true, true, 0);
                     RecordRegionMeshLinks(key);
                 }
             }
@@ -2516,7 +2516,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             std::uint64_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong) +
             std::uint64_t{header.m_trigger_count} * sizeof(unsigned short) +
             (header.m_region_count > 1
-                 ? std::uint64_t{header.m_region_count} * sizeof(W8OctRegionVolume)
+                 ? std::uint64_t{header.m_region_count} * sizeof(wiz8::retail::RegionVolume)
                  : 0) +
             (header.m_submesh_count != 0
                  ? (std::uint64_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh)
@@ -2590,8 +2590,8 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (header.m_region_count > 1) {
             m_region_volumes.resize(std::size_t{header.m_region_count} + 2);
             m_spatial.m_region_volumes = m_region_volumes.data();
-            hOctFile->read_exact(m_spatial.m_region_volumes,
-                                 std::size_t{header.m_region_count} * sizeof(W8OctRegionVolume));
+            for (unsigned int i = 0; i < header.m_region_count; ++i)
+                wiz8::retail::read_exact(*hOctFile, m_region_volumes[i]);
         }
         hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
         if (uiTerminator != 0xffffffff) {
@@ -2770,7 +2770,6 @@ void W8Octree::Reset()
     m_pSubmeshes.clear();
     object_registry = 0;
     m_pRegionLinks = 0;
-    m_point_count = 0;
     m_sample_points.clear();
     m_path_stem.clear();
     m_region_cell = 0;
@@ -2834,7 +2833,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_spatial.m_clipped_bounds.maximum = header->m_bounds[3].glmValue();
         m_spatial.m_working_bounds.minimum = header->m_bounds[4].glmValue();
         m_spatial.m_working_bounds.maximum = header->m_bounds[5].glmValue();
-        m_leaf_grid_dimensions = header->m_grid_dims;
+        m_leaf_grid_dimensions = {header->m_grid_dims.x, header->m_grid_dims.y,
+                                  header->m_grid_dims.z};
 
         m_spatial.m_leaf_grid_stride_x = m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.z;
         m_spatial.m_leaf_grid_stride_y = m_leaf_grid_dimensions.z;
@@ -2951,8 +2951,6 @@ W8Octree::~W8Octree()
     m_particle_links = {};
     m_prop_links = {};
 
-    m_point_count = 0;
-
     delete object_registry;
 
     delete pathing;
@@ -3046,7 +3044,7 @@ std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin, const
     g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
-    visitClippedOctreeCellBox(lower, upper, glm::ivec3(m_leaf_grid_dimensions.glmValue()),
+    visitClippedOctreeCellBox(lower, upper, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
     g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};
@@ -3125,7 +3123,7 @@ std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds, unsign
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     if (excluded >= 0) SetBit(m_visited_object_bits, excluded);
-    visitClippedOctreeCellBox(start, end, glm::ivec3(m_leaf_grid_dimensions.glmValue()),
+    visitClippedOctreeCellBox(start, end, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
     g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};

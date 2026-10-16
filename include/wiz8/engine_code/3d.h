@@ -22,7 +22,6 @@ class stModelInstance;
 struct W8Item;
 struct W8GameData;
 struct W8OctRegionVolume;
-struct W8BoundingBox;
 struct W8Plane;
 template<class T> class srVector3T;
 

@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/MtGigas1.h"
 
 #include "AnimRep.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "layouts/world.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
@@ -107,7 +108,7 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     if (g_plate_prop == 0) {
         return false;
     }
-    srVector3T<double> camera_position = GetWorld()->camera->getLocation();
+    glm::dvec3 camera_position = GetWorld()->camera->getLocation();
     position.x = static_cast<float>(camera_position.x);
     position.z = static_cast<float>(camera_position.z);
     const auto bounds = g_plate_prop->computeBounds();

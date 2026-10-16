@@ -50,11 +50,7 @@ public:
         if (glm::dot(v, v) != 0) *this = glm::normalize(v) * static_cast<T>(length);
         return this;
     }
-    srVector3T* Unitize() { return Normalize(); }
-    srVector3T& Transform(const glm::mat<3, 3, T>& matrix);
-    srVector3T* RotateAboutX(double sine, double cosine);
     srVector3T* RotateAboutY(double sine, double cosine);
-    srVector3T* RotateAboutZ(double sine, double cosine);
 
     srVector3T<T>();
     srVector3T<T>(T source_0, T source_1, T source_2) : x(source_0), y(source_1), z(source_2) {}
@@ -221,38 +217,15 @@ template<class T> srVector3T<T> operator/(const srVector3T<T>& vector, double sc
     return result;
 }
 
-class srVector2i {
-public:
-    int x;
-    int y;
-};
-
 using SRBYTE = unsigned char;
 using SRDWORD = w8_ulong;
 using srVector3 = srVector3T<float>;
 static_assert(sizeof(srVector3) == 12 && alignof(srVector3) == 1);
 static_assert(std::is_trivially_copyable_v<srVector3>);
 
-template<class T> srVector3T<T>& srVector3T<T>::Transform(const glm::mat<3, 3, T>& matrix)
-{
-    *this = matrix * glmValue();
-    return *this;
-}
-template<class T> srVector3T<T>* srVector3T<T>::RotateAboutX(double sine, double cosine)
-{
-    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(1, 0, 0)) *
-                           glm::dvec3(glmValue()));
-    return this;
-}
 template<class T> srVector3T<T>* srVector3T<T>::RotateAboutY(double sine, double cosine)
 {
     *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 1, 0)) *
-                           glm::dvec3(glmValue()));
-    return this;
-}
-template<class T> srVector3T<T>* srVector3T<T>::RotateAboutZ(double sine, double cosine)
-{
-    *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 0, 1)) *
                            glm::dvec3(glmValue()));
     return this;
 }
