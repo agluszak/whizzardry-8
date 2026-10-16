@@ -1,6 +1,7 @@
 #ifndef WIZ8_XSTATUS_H
 #define WIZ8_XSTATUS_H
 
+#include <array>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -58,9 +59,9 @@ struct W8XStatus {
     int item_manager_pending;
     /* Live and unborn monster lists plus their owning storage. */
     W8MonsterRoster monster_roster;
-    std::vector<W8MonsterGroup*> monster_groups;
+    std::vector<std::unique_ptr<W8MonsterGroup>> monster_groups;
     std::vector<std::unique_ptr<W8WorldItem>> world_items;
-    std::vector<W8MonsterGroup*> encounter_groups;
+    std::vector<std::unique_ptr<W8MonsterGroup>> encounter_groups;
     bool fSurprisePossible;
     /* Set when surprise starts with no character engaged; phase 1 waits
        only while this is clear. */
@@ -101,7 +102,7 @@ struct W8XStatus {
     int held_item_source;
     unsigned char held_item_origin;
     unsigned short held_item_slot;
-    W8MonsterRecord* monster_record_cache[1000];
+    std::array<std::unique_ptr<W8MonsterRecord>, 1000> monster_record_cache;
     std::unique_ptr<W8GameTimer> gameplay_timer;
     bool save_notice_shown;
     bool npc_combat_notice_pending;
@@ -170,7 +171,7 @@ inline W8MonsterGroup* GetMonsterGroupEncounter(int index)
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.encounter_groups.size())) {
         return nullptr;
     }
-    return gXStatus.encounter_groups[index];
+    return gXStatus.encounter_groups[index].get();
 }
 
 #endif

@@ -1115,7 +1115,8 @@ try {
         if (!group) return false;
         group->version = kMonsterGroupRecordVersion;
         wiz8::retail::write_sized(*chunks, *group);
-        const unsigned char encountered = std::ranges::contains(gXStatus.encounter_groups, group);
+        const unsigned char encountered = std::ranges::any_of(
+            gXStatus.encounter_groups, [group](const auto& owner) { return owner.get() == group; });
         chunks->WriteValue(encountered);
     }
     for (unsigned int index = 0; index < monster_count; ++index)
@@ -1213,7 +1214,7 @@ try {
     group.active_member_count = 0;
     group.members_active = false;
     group.fInCombat = false;
-    list.push_back(owner.release());
+    list.push_back(std::move(owner));
     ActivateGroupMembers(&group, W8_MONSTER_LOAD_ALL_CYCLES);
     if (group.encounter_registered && group.leader_group_id == 0)
         RegisterActiveEncounterGroup(&group);

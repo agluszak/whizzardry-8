@@ -240,7 +240,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
             monster_info->p3D->SetDamageStage(damage_stage);
         }
     }
-    monster_info->monster_visibility = new W8MonsterVisibility;
+    monster_info->monster_visibility = std::make_unique<W8MonsterVisibility>();
     RequestRefreshPartyState();
     RefreshFlaggedMainGameState();
     if (record->can_open_doors != 0) {
@@ -355,18 +355,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     if (monster_species >= MAX_MONSTERS_IN_DATABASE) {
         srAssertFail("uiMonsterSpecies < MAX_MONSTERS_IN_DATABASE", MONSTER_MANAGER_CPP, 0x5f3, 0);
     }
-    W8MonsterRecord* record = gXStatus.monster_record_cache[monster_species];
-    if (record == 0) {
-        record = new W8MonsterRecord{};
-        if (record != 0) {
-            if (!LoadMonsterDatabaseRecord(monster_species, record)) {
-                delete record;
-                record = 0;
-            } else {
-                gXStatus.monster_record_cache[monster_species] = record;
-            }
-        }
-    }
+    W8MonsterRecord* record = MonsterDBFromSpecies(monster_species);
     unsigned int monster_list_index = MonsterGetIndexByLocationID(monster_info->location_id);
     unsigned int notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
@@ -529,24 +518,16 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
 // FUNCTION: WIZ8 0x004e57c0
 W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
 {
-    W8MonsterRecord* record;
-
     if (monster_species >= MAX_MONSTERS_IN_DATABASE) {
         srAssertFail("uiMonsterSpecies < MAX_MONSTERS_IN_DATABASE", MONSTER_MANAGER_CPP, 0x5f3, 0);
     }
-    record = gXStatus.monster_record_cache[monster_species];
-    if (record == 0) {
-        record = new W8MonsterRecord{};
-        if (record == 0) {
-            return 0;
-        }
-        if (!LoadMonsterDatabaseRecord(monster_species, record)) {
-            delete record;
-            return 0;
-        }
-        gXStatus.monster_record_cache[monster_species] = record;
+    auto& record = gXStatus.monster_record_cache[monster_species];
+    if (!record) {
+        auto loaded = std::make_unique<W8MonsterRecord>();
+        if (!LoadMonsterDatabaseRecord(monster_species, loaded.get())) return nullptr;
+        record = std::move(loaded);
     }
-    return record;
+    return record.get();
 }
 
 // FUNCTION: WIZ8 0x004e5720
@@ -1045,12 +1026,10 @@ bool AnyMonsterDying(void)
     return false;
 }
 
-/* The group registries still store non-owning pointer slots. Dispose any
-   groups left after normal member removal, including encounter-only groups. */
 static void ClearRemainingMonsterGroups()
 {
-    wiz8::clear_and_dispose(gXStatus.monster_groups, [](W8MonsterGroup* group) { delete group; });
-    wiz8::clear_and_dispose(gXStatus.encounter_groups, [](W8MonsterGroup* group) { delete group; });
+    gXStatus.monster_groups.clear();
+    gXStatus.encounter_groups.clear();
 }
 
 /* A monster belongs to exactly one of the live/unborn registries. Destroy
@@ -1098,13 +1077,7 @@ unsigned char ShutdownMonsterManager(void)
     if (!DestroyAllMonsterInfos()) {
         return 0;
     }
-    // Direct member access retains the packed cache's alignment information.
-    for (auto& index : gXStatus.monster_record_cache) {
-        if (index != 0) {
-            delete index;
-            index = 0;
-        }
-    }
+    gXStatus.monster_record_cache = {};
     return 1;
 }
 

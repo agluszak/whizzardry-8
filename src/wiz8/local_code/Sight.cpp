@@ -247,8 +247,7 @@ void ReleaseMonToMonVisibilityInfoAbout(int location_id)
 // FUNCTION: WIZ8 0x00505c80
 void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
 {
-    delete monster_info->monster_visibility;
-    monster_info->monster_visibility = nullptr;
+    monster_info->monster_visibility.reset();
     ReleaseMonToMonVisibilityInfoAbout(monster_info->location_id);
 }
 
