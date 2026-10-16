@@ -399,6 +399,7 @@ W8GrCycle::~W8GrCycle()
     }
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
+        if (owner) owner->CancelAnimationCallback();
         if (owner && owner->active_particle_count != 0 && g_world != nullptr) {
             owner->SetActive(1);
             owner->emission_limit = 1;

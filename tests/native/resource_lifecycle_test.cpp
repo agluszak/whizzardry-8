@@ -29,6 +29,7 @@
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/Missile.h"
+#include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Spells.h"
@@ -446,6 +447,20 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
     REQUIRE(observations == std::vector<std::size_t>{2, 2});
     REQUIRE(world.transient_lights.empty());
     REQUIRE(world.lights_to_update.empty());
+}
+
+TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster callbacks",
+                 "[resources][particles]")
+{
+    {
+        W8GrCycle cycle;
+        auto particle = std::make_unique<stParticle>(world.dynamic_scene, 1);
+        particle->active_particle_count = 1;
+        particle->callback = std::make_unique<W8MonsterShakeCallback>();
+        cycle.particles.emplace_back().m_pstParticles = std::move(particle);
+    }
+    REQUIRE(world.retired_particles.size() == 1);
+    REQUIRE_FALSE(world.retired_particles.front()->callback);
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by spell destruction",

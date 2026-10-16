@@ -75,14 +75,6 @@ struct W8MonsterSpellIcon {
     W8Item* psrBMO;
 };
 
-/* MonsterRep owns three ordinary arrays of growable vectors. The first is
-   proven as AnimObj* by its consumers, the second holds animation scales, and
-   the third owns vectors of light nodes. */
-
-/* W8MonsterRep's constructor calls the 0xac-byte W8EmitterHost constructor at
-   offset zero, constructs its three cycle arrays at +0xac/+0x25c/+0x40c,
-   and only then installs the six-slot 0x005ED200 vtable. The inherited five
-   slots are followed by one Monster-specific extension. */
 struct W8MonsterRep : public W8EmitterHost {
     W8MonsterRep();
     W8MonsterRep(const W8MonsterRep& other);
@@ -97,17 +89,18 @@ struct W8MonsterRep : public W8EmitterHost {
     unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Monster* monster, int cycle_index,
                                 int value);
 
-    std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];              /* 0x0ac */
-    std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];             /* 0x25c */
-    std::deque<EmitterLights> light_lists[W8_MONSTER_CYCLE_COUNT]; /* 0x40c */
+    // Animation models must disappear before any cycle's registered lights.
+    std::deque<EmitterLights> light_lists[W8_MONSTER_CYCLE_COUNT];
+    std::vector<std::unique_ptr<W8AnimObj>> animations[W8_MONSTER_CYCLE_COUNT];
+    std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
     unsigned char highlight_mask;
-    char* name; /* 0x5c0: owned copy */
+    std::string name;
     /* 0x5c4: number of populated party-icon entries in objects; the
        attachment layout read by UpdateAttachedObjects. */
     int icon_count;
-    W8Item* objects[8];   /* 0x5c8 */
+    std::unique_ptr<W8Item> objects[8];
     std::vector<W8MonsterSpellIcon> spell_icons;
     float standing_height;
     float scale;
@@ -129,8 +122,8 @@ struct W8MonsterRep : public W8EmitterHost {
     /* 0x610: left-handed strike chance percent; Random(100) is rolled
        against it for the mirrored attack anim. */
     int left_handed;
-    std::vector<stModelInstance*> linked_runtime_objects;
-    class MonsterLight* monster_light;
+    std::vector<std::unique_ptr<stModelInstance>> linked_runtime_objects;
+    std::unique_ptr<class MonsterLight> monster_light;
 
     unsigned char GetNumSubsPerCycle(signed char bCycle);
     /* 0x004C4660. A method, not the free function an earlier reading assumed:
@@ -398,29 +391,13 @@ void ApplyMonsterRepresentationScale(W8Monster* monster);
 
 /* Secondary vftable 0x005ed218 keeps the W8Navigator subobject at +0x18. */
 
-/* A particle temporarily takes over a monster animation while its shake event
-   runs. The derived callback restores the saved representation state when the
-   particle finishes and then deletes itself.
-
-   Class-triage: two vtables plus the derived-to-base vptr swap are real ABI
-   facts. The empty base keeps its own table at 0x005ed290; the derived
-   ordinary destructor at 0x004c3730 is the seven-byte vptr swap onto that
-   table. Nothing recovered stores or dispatches through the base pointer. */
-class W8MonsterShakeCallbackBase {
-public:
-    virtual ~W8MonsterShakeCallbackBase() = default;
-};
-
-class W8MonsterShakeCallback : public W8MonsterShakeCallbackBase {
-public:
-    W8MonsterShakeCallback() : m_pMonster(0), m_pParticles(0) {}
-
-    virtual void RestoreAnimation();
-
-    W8Monster* m_pMonster;
-    stParticle* m_pParticles;
-    unsigned char saved_behaviour;
-    signed char saved_frame_method;
+// Owned by a particle while it temporarily controls the monster animation.
+struct W8MonsterShakeCallback {
+    void RestoreAnimation();
+    W8Monster* m_pMonster = nullptr;
+    stParticle* m_pParticles = nullptr;
+    unsigned char saved_behaviour{};
+    signed char saved_frame_method{};
 };
 
 void MonsterStopAllNavigators(void);
