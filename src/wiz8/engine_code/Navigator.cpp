@@ -1283,7 +1283,7 @@ bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned bas
             projection = next;
         }
     }
-    const auto* surfaces = g_octree->pathing->m_waypoints;
+    const auto* surfaces = g_octree->pathing->m_waypoints.data();
     float height = (surfaces[path[base].value].flags >> 0xc) * g_world_scale;
     const float next_height = (surfaces[path[base + 1].value].flags >> 0xc) * g_world_scale;
     if (height != next_height) height = (next_height - height) * projection.fraction + height;

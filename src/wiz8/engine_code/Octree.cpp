@@ -3272,7 +3272,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
 void W8Octree::AdjustPortalDestination(srVector3T<float>* destination,
                                        const srVector3T<float>* source)
 {
-    if (!pathing || (!pathing->m_waypoint_editing && pathing->m_ulNumWayPoints != 0)) return;
+    if (!pathing || (!pathing->m_waypoint_editing && !pathing->m_waypoints.empty())) return;
     const auto source_point = source->glmValue();
     const auto local_destination = settleToGround(destination->glmValue(), true, 500).position;
     const auto local_source = settleToGround(source_point, true, 500).position;
