@@ -1,7 +1,6 @@
 #include "wiz8/bink_video.h"
 
 #include <cstdio>
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <stdexcept>
