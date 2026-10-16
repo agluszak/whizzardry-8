@@ -14,7 +14,6 @@
 #include "asset_paths.h"
 #include "layouts/item_tables.h"
 #include "retail_records.h"
-#include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -177,7 +176,7 @@ void DestroyItemTables(void)
    caller wants them - every record into one allocation handed back through the
    out-parameter. InitializeGame calls it with null just to publish the count. */
 // FUNCTION: WIZ8 0x0054a760
-bool LoadMonsterDatabase(W8MonsterRecord** records)
+bool LoadMonsterDatabase(std::unique_ptr<W8MonsterRecord[]>* records)
 try {
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
@@ -191,7 +190,7 @@ try {
     if (records) {
         auto block = std::make_unique<W8MonsterRecord[]>(count);
         for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, block[i]);
-        *records = block.release();
+        *records = std::move(block);
     }
     gXStatus.uiMonstersInDatabase = count;
     return true;
@@ -225,23 +224,4 @@ try {
     return true;
 } catch (const std::exception&) {
     return false;
-}
-
-// FUNCTION: WIZ8 0x0054ac90
-void DestroyNpcDatabase(void)
-{
-    if (g_npc_records) {
-        for (unsigned int index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-            if (g_npc_records[index].item_stock_rules) {
-                std::vector<W8NpcItemStockRule*>* rules = g_npc_records[index].item_stock_rules;
-                wiz8::remove_all_and_delete_in_order(*rules);
-                delete rules;
-
-                g_npc_records[index].item_stock_rules = 0;
-            }
-        }
-        delete[] g_npc_records;
-        g_npc_records = 0;
-    }
-    gXStatus.uiNpcsInDatabase = 0;
 }

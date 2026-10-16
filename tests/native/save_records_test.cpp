@@ -217,10 +217,9 @@ static void unicode_database_contracts()
         monsters->write(image.data(), image.size());
     }
     monsters->close();
-    W8MonsterRecord* records = nullptr;
+    std::unique_ptr<W8MonsterRecord[]> records;
     REQUIRE(LoadMonsterDatabase(&records));
     REQUIRE((records && std::string(records[1].name0) == "怪物😀"));
-    delete[] records;
     W8MonsterRecord single{};
     REQUIRE(LoadMonsterDatabaseRecord(1, &single));
     REQUIRE(std::string(single.name0) == "怪物😀");

@@ -370,7 +370,7 @@ void SetVoiceMuted(unsigned char muted)
 
 static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 {
-    W8CharacterEventQueue* queue = gXStatus.character_event_queue;
+    W8CharacterEventQueue* queue = gXStatus.character_event_queue.get();
 
     if (queue == 0) {
         return;

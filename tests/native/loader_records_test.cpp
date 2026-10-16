@@ -40,9 +40,11 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
@@ -634,6 +636,56 @@ struct LoaderFixture {
 TEST_CASE_METHOD(LoaderFixture, "Database record validation", "[loader][records]")
 {
     databases();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "NPC database replacement owns appended stock rules",
+                 "[loader][records]")
+{
+    const struct Cleanup {
+        ~Cleanup() { DestroyNpcDatabase(); }
+    } cleanup;
+    std::filesystem::create_directories(fixture_root / "data/databases");
+    W8NpcDatabaseRecord npc{};
+    npc.version = 2;
+    npc.source_name = "merchant";
+    std::string bytes;
+    append(bytes, 2u);
+    append(bytes, npc);
+    append(bytes, 2u);
+    append(bytes, W8NpcItemStockRule{17, 3, 1});
+    append(bytes, W8NpcItemStockRule{29, 5, 0});
+    npc.source_name = "no stock";
+    append(bytes, npc);
+    append(bytes, 0u);
+    store("data/databases/npc.dbs", bytes);
+    REQUIRE(InitializeNpcDatabase());
+    auto* original = g_npc_records;
+    REQUIRE(gXStatus.uiNpcsInDatabase == 2);
+    REQUIRE(original[0].item_stock_rules.size() == 2);
+    REQUIRE(original[0].item_stock_rules[1].item_id == 29);
+    REQUIRE(original[1].item_stock_rules.empty());
+
+    // Fail after constructing the first record and its stock. The published database survives.
+    auto truncated = bytes.substr(0, bytes.size() - sizeof(unsigned int));
+    append(truncated, 1u); // A second stock list whose payload is missing.
+    store("data/databases/npc.dbs", truncated);
+    REQUIRE_FALSE(InitializeNpcDatabase());
+    REQUIRE(g_npc_records == original);
+    REQUIRE(gXStatus.uiNpcsInDatabase == 2);
+    REQUIRE(original[0].item_stock_rules[0].quantity == 3);
+
+    npc.no_item_stock = 1;
+    bytes.clear();
+    append(bytes, 1u);
+    append(bytes, npc);
+    store("data/databases/npc.dbs", bytes);
+    REQUIRE(InitializeNpcDatabase());
+    REQUIRE(gXStatus.uiNpcsInDatabase == 1);
+    REQUIRE(g_npc_records[0].item_stock_rules.empty());
+    DestroyNpcDatabase();
+    DestroyNpcDatabase();
+    REQUIRE(g_npc_records == nullptr);
+    REQUIRE(gXStatus.uiNpcsInDatabase == 0);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Level mesh file records", "[loader][records]")
