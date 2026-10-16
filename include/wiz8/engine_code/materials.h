@@ -71,7 +71,6 @@ extern float g_material_emissive_override;
 class stTextureFile;
 
 /* Loaded resources by name; each lives while something renders with it. */
-extern ResourceCache<stMaterial> g_materials;
 extern ResourceCache<stTextureFile> g_texture_files;
 extern ResourceCache<stTextureAnim> g_texture_animations;
 

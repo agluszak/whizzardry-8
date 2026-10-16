@@ -743,7 +743,8 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* co
         light->ambient = glm::clamp(scaled, 0.0f, 1.0f);
     }
     {
-        if (auto material = g_materials.find("AnimatedCloudMaterial")) {
+        if (g_secondary_world && g_secondary_world->cloud_material) {
+            auto& material = g_secondary_world->cloud_material;
             double brightness =
                 1.0 - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
 

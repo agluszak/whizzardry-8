@@ -1,13 +1,18 @@
 #include "wiz8/engine_code/materials.h"
 
+#include <array>
+#include <bit>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <map>
 #include <memory>
 #include <optional>
 #include <span>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -116,7 +121,13 @@ srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
     return info;
 }
 
-ResourceCache<stMaterial> g_materials;
+namespace {
+// Exact render-state identity; serialized padding and texture filenames do not
+// belong to the material state shared by separate mesh texture assignments.
+using MaterialKey = std::array<std::uint32_t, 13>;
+std::map<MaterialKey, std::weak_ptr<stMaterial>> level_materials;
+std::weak_ptr<stMaterial> default_material;
+}
 ResourceCache<stTextureFile> g_texture_files;
 ResourceCache<stTextureAnim> g_texture_animations;
 
@@ -127,8 +138,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
     W8MeshMaterial result;
     std::shared_ptr<srTexture>& texture = result.texture;
     srShader* render_flags = &result.render_flags;
-    char texture_path[80] = "";
-    char material_name[80] = "";
+    std::string texture_path;
     int texture_index = -1;
     bool has_alpha = false;
     int index;
@@ -136,12 +146,14 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
     render_flags->value = 0x0100a51b; /* packed srShader; TEXTURING set until no texture */
     for (index = 0; index < 4; ++index) {
         if (source->texture_names[index][0] != '\0') {
-            if (bitmap_folder[0] == '\0') {
-                strcpy(texture_path, source->texture_names[index]);
-            } else {
-                snprintf(texture_path, sizeof(texture_path), "%s\\%s", bitmap_folder,
-                         source->texture_names[index]);
-            }
+            const std::string_view field(source->texture_names[index],
+                                         sizeof(source->texture_names[index]));
+            const auto terminator = field.find('\0');
+            if (terminator == field.npos)
+                throw std::runtime_error("Unterminated material texture name");
+            const auto name = field.substr(0, terminator);
+            texture_path = bitmap_folder[0] == '\0' ? std::string(name)
+                                                    : fmt::format("{}\\{}", bitmap_folder, name);
             texture_index = index;
             /* Retail 0x004b8c93: a texture found only in the fourth slot marks
                the material as alpha-carrying before any texture is loaded. */
@@ -152,7 +164,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
         }
     }
 
-    if (texture_path[0] == '\0') {
+    if (texture_path.empty()) {
         render_flags->value &= ~srShader::MASK_TEXTURING;
     } else {
         const std::string_view path = texture_path;
@@ -203,24 +215,29 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
         render_flags->value &= ~8UL;
     }
 
-    snprintf(material_name, sizeof(material_name),
-             "Mt%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f"
-             "%1.2f%1.2f%1.2f%1.2f%1.2f%d%c",
-             source->ambient.x, source->ambient.y, source->ambient.z, source->diffuse.x,
-             source->diffuse.y, source->diffuse.z, source->specular.x, source->specular.y,
-             source->specular.z, source->shininess, source->opacity, source->emission,
-             source->emission, source->emission, static_cast<int>(source->surface_flags),
-             /* Retail passes the string's address for %c, so the name ends in
-               that address's low byte. */
-             static_cast<int>(
-                 reinterpret_cast<w8_ulong_ptr>( // reinterpret-ok: retail formats the pointer
-                     texture_path[0] == '\0' ? "F" : "T")));
-
-    std::shared_ptr<stMaterial> concrete = g_materials.find(material_name);
-    if (concrete == 0) {
+    const bool textured = !texture_path.empty();
+    // Take scalar values before bit_cast: packed disk fields must not escape
+    // through references that require native float alignment.
+    const auto bits = [](float value) { return std::bit_cast<std::uint32_t>(value); };
+    const MaterialKey key{bits(source->specular.x),
+                          bits(source->specular.y),
+                          bits(source->specular.z),
+                          bits(source->diffuse.x),
+                          bits(source->diffuse.y),
+                          bits(source->diffuse.z),
+                          bits(source->opacity == 0.0f ? 0.7f : source->opacity),
+                          bits(textured ? source->ambient.x : source->diffuse.x),
+                          bits(textured ? source->ambient.y : source->diffuse.y),
+                          bits(textured ? source->ambient.z : source->diffuse.z),
+                          bits(textured ? source->emission : 0.f),
+                          source->surface_flags,
+                          textured};
+    auto& cached = level_materials[key];
+    auto concrete = cached.lock();
+    if (!concrete) {
         concrete = std::make_shared<stMaterial>();
-        concrete->setName(material_name);
-        g_materials.insert(material_name, concrete);
+        concrete->setName("Level material");
+        cached = concrete;
         concrete->parms.specular =
             glm::vec4(source->specular.x, source->specular.y, source->specular.z, 0.0f);
         concrete->dirty = 1;
@@ -234,7 +251,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
         concrete->dirty = 1;
         concrete->setOpacity(source->opacity == 0.0f ? 0.7f : source->opacity);
 
-        if (texture_path[0] == '\0') {
+        if (texture_path.empty()) {
             concrete->parms.ambient =
                 glm::vec4(source->diffuse.x, source->diffuse.y, source->diffuse.z, 1.0f);
             concrete->dirty = 1;
@@ -265,11 +282,11 @@ W8MeshMaterial CreateDefaultMaterial()
     W8MeshMaterial result;
     result.render_flags.value = 0x0100251b;
 
-    std::shared_ptr<stMaterial> concrete = g_materials.find(DEFAULT_MATERIAL_NAME);
+    auto concrete = default_material.lock();
     if (concrete == 0) {
         concrete = std::make_shared<stMaterial>();
         concrete->setName(DEFAULT_MATERIAL_NAME);
-        g_materials.insert(DEFAULT_MATERIAL_NAME, concrete);
+        default_material = concrete;
 
         glm::vec4 color;
         color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
