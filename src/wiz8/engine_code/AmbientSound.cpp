@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -29,7 +28,6 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/containers.h"
