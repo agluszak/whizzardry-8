@@ -94,15 +94,33 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
     if (size <= 0 || std::uint64_t(size) > max_image_bytes)
         throw std::runtime_error("Invalid image file size");
     unsigned first_color = 0;
-    if (format == ImageFormat::tga) {
-        std::array<std::uint8_t, 18> header;
+    // These fixed-size fields bound decoder allocations and PCX row strides.
+    // JPEG marker parsing belongs to SDL_image/libjpeg.
+    if (format != ImageFormat::jpeg) {
+        std::array<std::uint8_t, 128> header;
         const auto position = file.tell();
-        file.read_exact(header.data(), header.size());
+        file.read_exact(header.data(), format == ImageFormat::pcx ? 128 : 18);
         file.seek(position, wiz8::SeekOrigin::begin);
-        if (header[2] == 1 || header[2] == 9) {
-            first_color = little_word(header.data() + 3);
-            if (first_color + little_word(header.data() + 5) > 256)
-                throw std::runtime_error("Invalid TGA palette range");
+        if (format == ImageFormat::pcx) {
+            const auto left = little_word(header.data() + 4);
+            const auto top = little_word(header.data() + 6);
+            const auto right = little_word(header.data() + 8);
+            const auto bottom = little_word(header.data() + 10);
+            const auto stride = little_word(header.data() + 66);
+            if (header[0] != 10 || header[2] > 1 || header[3] != 8 || right < left ||
+                bottom < top || right >= 32768 || bottom >= 32768 ||
+                !safe_dimensions(right - left + 1, bottom - top + 1) ||
+                (header[65] != 1 && header[65] != 3) || stride < right - left + 1 ||
+                stride >= 32768)
+                throw std::runtime_error("Invalid PCX dimensions or row stride");
+        } else {
+            if (!safe_dimensions(little_word(header.data() + 12), little_word(header.data() + 14)))
+                throw std::runtime_error("Invalid TGA dimensions");
+            if (header[2] == 1 || header[2] == 9) {
+                first_color = little_word(header.data() + 3);
+                if (first_color + little_word(header.data() + 5) > 256)
+                    throw std::runtime_error("Invalid TGA palette range");
+            }
         }
     }
     const char* type = format == ImageFormat::pcx   ? "PCX"
