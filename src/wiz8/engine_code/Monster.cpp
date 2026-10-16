@@ -57,7 +57,6 @@
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "texture_animation.h"
@@ -4790,7 +4789,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         return;
     }
 
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x100, 0x100);
+    auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, 0x100, 0x100);
     surface->fill(0);
     unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
     if (data != 0) {

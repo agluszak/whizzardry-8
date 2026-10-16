@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
@@ -16,31 +17,23 @@
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 
 #include "compat/compiler.h"
 #include "surrender/raster_math.h"
+#include "surrender/srARGB.h"
 #include "surrender/srClass.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srPalette.h"
-#include "surrender/srPixelConvert.h"
 #include "wiz8/surface_storage.h"
 
 // FUNCTION: SURRENDER 0x100571F0
-srColorSurfaceIFace::srColorSurfaceIFace() : width(0), height(0), pitch(0), clamp_modes(0)
+srColorSurfaceIFace::srColorSurfaceIFace()
+    : width(0), height(0), pitch(0), clamp_modes(0), pixel_format(SDL_PIXELFORMAT_UNKNOWN)
 {
-    pixel_format.red_bits = 0;
-    pixel_format.red_shift = 0;
-    pixel_format.green_bits = 0;
-    pixel_format.green_shift = 0;
-    pixel_format.blue_bits = 0;
-    pixel_format.blue_shift = 0;
-    pixel_format.alpha_bits = 0;
-    pixel_format.alpha_shift = 0;
-    pixel_format.color_model = srPixelConvert::COLOR_RGB;
-    pixel_format.pixel_size = srPixelConvert::PIXEL_SIZE_8;
 }
 
 // FUNCTION: SURRENDER 0x1005A120
@@ -83,7 +76,7 @@ int srColorSurfaceIFace::rescale(w8_long width, w8_long height)
 }
 
 // FUNCTION: SURRENDER 0x10021370
-int srColorSurfaceIFace::changePixelFormat(const srPixelConvert::PixelFormat& format, int preserve)
+int srColorSurfaceIFace::changePixelFormat(SDL_PixelFormat format, int preserve)
 {
     return 0;
 }
@@ -451,34 +444,6 @@ void srColorSurfaceIFace::flipHorizontal()
     flipRectangle(rectangle);
 }
 
-/* The SDL format matching a SurRender layout, or a raw container of the same size. */
-static SDL_PixelFormat StorageFormat(const srPixelConvert::PixelFormat& format)
-{
-    const int bits = (format.pixel_size + 1) * 8;
-    if (format.color_model == srPixelConvert::COLOR_RGB && format.fourcc == 0) {
-        const auto mask = [](unsigned bits, unsigned shift) {
-            return bits == 0 ? 0u : ((1u << bits) - 1u) << shift;
-        };
-        const SDL_PixelFormat matched = SDL_GetPixelFormatForMasks(
-            bits, mask(format.red_bits, format.red_shift),
-            mask(format.green_bits, format.green_shift), mask(format.blue_bits, format.blue_shift),
-            mask(format.alpha_bits, format.alpha_shift));
-        if (matched != SDL_PIXELFORMAT_UNKNOWN) {
-            return matched;
-        }
-    }
-    switch (format.pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8:
-        return SDL_PIXELFORMAT_INDEX8;
-    case srPixelConvert::PIXEL_SIZE_16:
-        return SDL_PIXELFORMAT_RGB565;
-    case srPixelConvert::PIXEL_SIZE_24:
-        return SDL_PIXELFORMAT_RGB24;
-    default:
-        return SDL_PIXELFORMAT_ARGB8888;
-    }
-}
-
 void srColorSurface::adopt(SDL_Surface* surface)
 {
     if (surface == nullptr) {
@@ -490,7 +455,15 @@ void srColorSurface::adopt(SDL_Surface* surface)
 
 void srColorSurface::allocate()
 {
-    adopt(CreateCpuStorage(width, height, StorageFormat(pixel_format)).release());
+    adopt(CreateCpuStorage(width, height, pixel_format).release());
+    if (SDL_ISPIXELFORMAT_INDEXED(pixel_format)) {
+        std::array<srARGB, 256> colors;
+        for (unsigned i = 0; i < colors.size(); ++i) {
+            colors[i].red = colors[i].green = colors[i].blue = i;
+            colors[i].alpha = 255;
+        }
+        setPalette(std::make_shared<srPalette>(colors.data(), colors.size()));
+    }
 }
 
 bool srColorSurface::hasFixedStorage() const
@@ -499,63 +472,31 @@ bool srColorSurface::hasFixedStorage() const
 }
 
 // FUNCTION: SURRENDER 0x1005B790
-srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulong arg_width,
-                               w8_ulong arg_height)
-{
-    init(format, arg_width, arg_height, 0);
-    allocate();
-    const auto functions = srPixelConvert::selectFuncs(format);
-    pixel_write = functions.write;
-    pixel_read = functions.read;
-}
-
 // FUNCTION: SURRENDER 0x1005B8A0
-srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, w8_ulong arg_width,
-                               w8_ulong arg_height)
+srColorSurface::srColorSurface(SDL_PixelFormat type, w8_ulong arg_width, w8_ulong arg_height)
 {
-    const auto format = srPixelConvert::pixelFormat(type);
+    const auto format = type;
     init(format, arg_width, arg_height, 0);
     allocate();
-    const auto functions = srPixelConvert::selectFuncs(format);
-    pixel_write = functions.write;
-    pixel_read = functions.read;
 }
 
 /* The data-taking variants view caller storage, which must outlive the surface. */
 // FUNCTION: SURRENDER 0x1005B9C0
-srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, void* data, w8_ulong arg_width,
+srColorSurface::srColorSurface(SDL_PixelFormat type, void* data, w8_ulong arg_width,
                                w8_ulong arg_height, w8_ulong arg_pitch)
 {
-    const auto format = srPixelConvert::pixelFormat(type);
+    const auto format = type;
     init(format, arg_width, arg_height, arg_pitch);
-    adopt(
-        CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
-    const auto functions = srPixelConvert::selectFuncs(format);
-    pixel_write = functions.write;
-    pixel_read = functions.read;
+    adopt(CreateCpuStorage(arg_width, arg_height, format, data, arg_pitch).release());
 }
 
 // FUNCTION: SURRENDER 0x1005BAC0
-srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, void* data,
-                               w8_ulong arg_width, w8_ulong arg_height, w8_ulong arg_pitch)
+srColorSurface::srColorSurface(SDL_PixelFormat type, SDL_Surface& shared)
 {
-    init(format, arg_width, arg_height, arg_pitch);
-    adopt(
-        CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
-    const auto functions = srPixelConvert::selectFuncs(format);
-    pixel_write = functions.write;
-    pixel_read = functions.read;
-}
-
-srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& shared)
-{
-    const auto format = srPixelConvert::pixelFormat(type);
+    const auto format = type;
     init(format, shared.w, shared.h, shared.pitch);
     ++shared.refcount;
     adopt(&shared);
-    const auto functions = srPixelConvert::selectFuncs(format);
-    pixel_write = functions.write;
-    pixel_read = functions.read;
 }
 
 // FUNCTION: SURRENDER 0x1005D520
@@ -565,8 +506,6 @@ srColorSurface& srColorSurface::operator=(const srColorSurface& other)
         srColorSurfaceIFace::operator=(other);
         adopt(CopyCpuStorage(*other.storage).release());
         palette = other.palette;
-        pixel_write = other.pixel_write;
-        pixel_read = other.pixel_read;
     }
     return *this;
 }
@@ -597,43 +536,61 @@ std::shared_ptr<srPalette> srColorSurface::getPalette()
 // FUNCTION: SURRENDER 0x1005B580
 void srColorSurface::setPalette(std::shared_ptr<srPalette> palette)
 {
-    this->palette = palette;
+    this->palette = std::move(palette);
+    if (this->palette && SDL_ISPIXELFORMAT_INDEXED(pixel_format)) {
+        std::array<SDL_Color, 256> colors{};
+        const auto count = std::min<w8_long>(256, this->palette->getPaletteSize());
+        for (int i = 0; i < count; ++i) {
+            const auto color = this->palette->getColor(i);
+            colors[i] = {color.red, color.green, color.blue, color.alpha};
+        }
+        if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(storage.get()), colors.data(), 0, count))
+            throw std::runtime_error(SDL_GetError());
+    }
 }
 
 // FUNCTION: SURRENDER 0x1005B5B0
 unsigned char* srColorSurface::getAddress(w8_long x, w8_long y)
 {
     return static_cast<unsigned char*>(getDataPtr()) + pitch * y +
-           (pixel_format.pixel_size + 1) * x;
+           SDL_BYTESPERPIXEL(pixel_format) * x;
 }
 
 // FUNCTION: SURRENDER 0x1005B5D0
 void srColorSurface::convertToARGB8888(w8_ulong* pixels, const void* source, w8_ulong count)
 {
-    srPixelConvert::ConversionInfo info;
-    info.dest = pixels;
-    info.source = source;
-    info.count = count;
-    info.palette = palette.get();
-    info.format = &pixel_format;
-    pixel_read(info);
+    if (!SDL_ISPIXELFORMAT_INDEXED(pixel_format)) {
+        ConvertCpuPixels(pixels, source, count, pixel_format, SDL_PIXELFORMAT_ARGB8888);
+        return;
+    }
+    auto view = CreateCpuStorage(count, 1, pixel_format, const_cast<void*>(source), count);
+    SDL_SetSurfacePalette(view.get(), SDL_GetSurfacePalette(storage.get()));
+    for (w8_ulong x = 0; x < count; ++x) {
+        Uint8 r, g, b, a;
+        SDL_ReadSurfacePixel(view.get(), x, 0, &r, &g, &b, &a);
+        pixels[x] =
+            (std::uint32_t(a) << 24) | (std::uint32_t(r) << 16) | (std::uint32_t(g) << 8) | b;
+    }
 }
 
-// FUNCTION: SURRENDER 0x1005B610
 void srColorSurface::convertFromARGB8888(void* pixels, const w8_ulong* source, w8_ulong count)
 {
-    srPixelConvert::ConversionInfo info;
-    info.dest = pixels;
-    info.source = source;
-    info.count = count;
-    info.palette = palette.get();
-    info.format = &pixel_format;
-    pixel_write(info);
+    if (!SDL_ISPIXELFORMAT_INDEXED(pixel_format)) {
+        ConvertCpuPixels(pixels, source, count, SDL_PIXELFORMAT_ARGB8888, pixel_format);
+        return;
+    }
+    auto view = CreateCpuStorage(count, 1, pixel_format, pixels, count);
+    SDL_SetSurfacePalette(view.get(), SDL_GetSurfacePalette(storage.get()));
+    for (w8_ulong x = 0; x < count; ++x) {
+        const auto p = source[x];
+        SDL_WriteSurfacePixel(view.get(), x, 0, Uint8(p >> 16), Uint8(p >> 8), Uint8(p),
+                              Uint8(p >> 24));
+    }
 }
 
 // FUNCTION: SURRENDER 0x1005B6B0
-void srColorSurface::init(const srPixelConvert::PixelFormat& format, w8_ulong arg_width,
-                          w8_ulong arg_height, w8_ulong arg_pitch)
+void srColorSurface::init(SDL_PixelFormat format, w8_ulong arg_width, w8_ulong arg_height,
+                          w8_ulong arg_pitch)
 {
     SurfaceDesc desc{};
     desc.width = arg_width;
@@ -642,8 +599,6 @@ void srColorSurface::init(const srPixelConvert::PixelFormat& format, w8_ulong ar
     desc.pixel_format = format;
     setSurfaceDesc(desc);
     palette = srCore.getPalette();
-    pixel_write = 0;
-    pixel_read = 0;
 }
 
 // FUNCTION: SURRENDER 0x1005BEC0
@@ -676,13 +631,12 @@ int srColorSurface::rescale(w8_long arg_width, w8_long arg_height)
             return 1;
         }
         if (!hasFixedStorage()) {
-            srColorSurface scaled(srPixelConvert::SURFACE_BGRA32, arg_width, arg_height);
+            srColorSurface scaled(SDL_PIXELFORMAT_BGRA32, arg_width, arg_height);
             scaled.copySurfaceParameters(*this);
             scaled.copy(*this);
             srColorSurface resized(pixel_format, arg_width, arg_height);
             resized.setPalette(palette);
-            resized.pixel_write = pixel_write;
-            resized.pixel_read = pixel_read;
+
             resized.copy(scaled);
             width = arg_width;
             height = arg_height;
@@ -694,7 +648,7 @@ int srColorSurface::rescale(w8_long arg_width, w8_long arg_height)
 }
 
 // FUNCTION: SURRENDER 0x1005BDE0
-int srColorSurface::changePixelFormat(const srPixelConvert::PixelFormat& format, int preserve)
+int srColorSurface::changePixelFormat(SDL_PixelFormat format, int preserve)
 {
     if (hasFixedStorage()) {
         return 0;
@@ -708,8 +662,6 @@ int srColorSurface::changePixelFormat(const srPixelConvert::PixelFormat& format,
         adopt(converted.storage.release());
         pixel_format = converted.pixel_format;
         clamp_modes = converted.clamp_modes;
-        pixel_write = converted.pixel_write;
-        pixel_read = converted.pixel_read;
     }
     return 1;
 }
@@ -729,7 +681,7 @@ int srColorSurface::isCompatible(srColorSurfaceIFace& source)
         return 0;
     }
     if (pixel_format == source.pixel_format) {
-        if (pixel_format.color_model == srPixelConvert::COLOR_INDEXED &&
+        if (SDL_ISPIXELFORMAT_INDEXED(pixel_format) &&
             !samePalette(getPalette().get(), source.getPalette().get())) {
             return 0;
         }
@@ -742,14 +694,14 @@ int srColorSurface::isCompatible(srColorSurfaceIFace& source)
 w8_ulong srColorSurface::getPixelRaw(w8_long x, w8_long y)
 {
     w8_ulong pixel = 0;
-    std::memcpy(&pixel, getAddress(x, y), pixel_format.pixel_size + 1);
+    std::memcpy(&pixel, getAddress(x, y), SDL_BYTESPERPIXEL(pixel_format));
     return pixel;
 }
 
 // FUNCTION: SURRENDER 0x1005C030
 void srColorSurface::setPixelRaw(w8_long x, w8_long y, w8_ulong pixel)
 {
-    std::memcpy(getAddress(x, y), &pixel, pixel_format.pixel_size + 1);
+    std::memcpy(getAddress(x, y), &pixel, SDL_BYTESPERPIXEL(pixel_format));
 }
 
 // FUNCTION: SURRENDER 0x1005D940
@@ -771,7 +723,7 @@ void srColorSurface::setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x_st
 std::span<unsigned char> srColorSurface::rawPixelRow(w8_long y, w8_long x_start, w8_long x_end)
 {
     if (y < 0 || y >= height || x_start < 0 || x_start >= x_end || x_end > width) return {};
-    const auto bytes = std::size_t(x_end - x_start) * (pixel_format.pixel_size + 1);
+    const auto bytes = std::size_t(x_end - x_start) * SDL_BYTESPERPIXEL(pixel_format);
     return {getAddress(x_start, y), bytes};
 }
 
@@ -795,7 +747,7 @@ void srColorSurface::transferColumn(std::span<Pixel> pixels, w8_long x, w8_long 
     constexpr bool reading = !std::is_const_v<Pixel>;
     constexpr std::size_t chunkSize = 256;
     std::array<unsigned char, chunkSize * sizeof(w8_ulong)> buffer;
-    const unsigned bytes = pixel_format.pixel_size + 1;
+    const unsigned bytes = SDL_BYTESPERPIXEL(pixel_format);
     for (std::size_t offset = 0; offset < pixels.size(); offset += chunkSize) {
         const auto count = std::min(chunkSize, pixels.size() - offset);
         auto* chunk = pixels.data() + offset;
@@ -839,6 +791,9 @@ void srColorSurface::flipRectangle(const Rectangle& rectangle)
                                    (rectangle.bottom < rectangle.top ? SDL_FLIP_VERTICAL : 0));
     if (flip != SDL_FLIP_NONE) {
         auto flipped = CreateCpuStorage(region.w, region.h, storage->format);
+        if (auto* colors = SDL_GetSurfacePalette(storage.get()))
+            if (!SDL_SetSurfacePalette(flipped.get(), colors))
+                throw std::runtime_error(SDL_GetError());
         if (!SDL_BlitSurface(storage.get(), &region, flipped.get(), nullptr) ||
             !SDL_FlipSurface(flipped.get(), flip) ||
             !SDL_BlitSurface(flipped.get(), nullptr, storage.get(), &region))

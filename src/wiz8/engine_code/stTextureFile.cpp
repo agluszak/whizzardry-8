@@ -5,6 +5,8 @@
 #include <string>
 #include <utility>
 
+#include <SDL3/SDL_pixels.h>
+
 #include "asset_paths.h"
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
@@ -142,7 +144,7 @@ void stTextureFile::loadSurface()
     setupDefaultValues();
     /* Retail reads the alpha channel count straight out of the surface's
        pixel format (unsigned SETA): the authored comparison is `> 0`. */
-    has_alpha = (surface->pixel_format.alpha_bits > 0);
+    has_alpha = (SDL_ISPIXELFORMAT_ALPHA(surface->getPixelFormat()));
 }
 
 // FUNCTION: WIZ8 0x0047CA50

@@ -3,10 +3,11 @@
 #include <memory>
 #include <span>
 
+#include <SDL3/SDL_pixels.h>
+
 #include "srClass.h"
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
-#include "srPixelConvert.h"
 
 class srTexture;
 class stSurface2D;
@@ -21,7 +22,7 @@ public:
         w8_ulong width;
         w8_ulong height;
         std::shared_ptr<srPalette> palette;
-        srPixelConvert::PixelFormat format;
+        SDL_PixelFormat format;
         w8_ulong hints;
         e_compression compression;
     };

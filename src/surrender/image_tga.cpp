@@ -8,6 +8,7 @@
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
@@ -19,7 +20,6 @@
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srPalette.h"
-#include "surrender/srPixelConvert.h"
 
 namespace srImage {
 namespace tga {
@@ -184,13 +184,13 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
         Surface decoded(IMG_LoadTGA_IO(io.get()), SDL_DestroySurface);
         if (!decoded || normalized.failed || decoded->w != int(width) || decoded->h != int(height))
             return nullptr;
-        const auto format = indexed       ? srPixelConvert::SURFACE_P8
-                            : gray        ? srPixelConvert::SURFACE_L8
-                            : depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555
-                                                               : srPixelConvert::SURFACE_RGB555)
-                            : depth == 24 ? srPixelConvert::SURFACE_BGR24
-                            : (descriptor & 15) ? srPixelConvert::SURFACE_BGRA32
-                                                : srPixelConvert::SURFACE_BGRX32;
+        const auto format = indexed             ? SDL_PIXELFORMAT_INDEX8
+                            : gray              ? SDL_PIXELFORMAT_INDEX8
+                            : depth == 16       ? ((descriptor & 15) ? SDL_PIXELFORMAT_ARGB1555
+                                                                     : SDL_PIXELFORMAT_XRGB1555)
+                            : depth == 24       ? SDL_PIXELFORMAT_BGR24
+                            : (descriptor & 15) ? SDL_PIXELFORMAT_BGRA32
+                                                : SDL_PIXELFORMAT_BGRX32;
         auto surface = std::make_unique<srColorSurface>(format, width, height);
         if (!surface || !copyRows(*decoded, *surface, bytes, descriptor & 0x10)) return nullptr;
         if (indexed) {

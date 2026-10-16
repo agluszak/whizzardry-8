@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "GrCycle.h"
@@ -22,7 +23,6 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
@@ -65,9 +65,9 @@ static void shutdown_survivors()
     // A model whose owner survives srExit() is destroyed after reinitialization.
     auto survivor = model;
     auto palette = srCore.getPalette();
-    g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
+    g_mouse_surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_INDEX8, 2, 2);
     g_mouse_surface->setPalette(palette);
-    g_automap_surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
+    g_automap_surface = std::make_unique<srColorSurface>(SDL_PIXELFORMAT_INDEX8, 2, 2);
     g_automap_surface->setPalette(palette);
 
     struct InterruptedScene : srScene {

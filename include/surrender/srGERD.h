@@ -607,8 +607,7 @@ private:
         Texture* prev;
         Texture* next;
         w8_ulong id;
-        srPixelConvert::PixelFormat pixel_format =
-            srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB32);
+        SDL_PixelFormat pixel_format = SDL_PIXELFORMAT_BGRA32;
         std::vector<unsigned char> surface_data;
         std::string name;
         TextureCacheData device;
@@ -696,7 +695,7 @@ private:
     e_error openWindowInternal(const OpenInfo& info);
     void _lockBuffer();
     void _unlockBuffer();
-    std::optional<srPixelConvert::PixelFormat> getPixelFormat() const;
+    std::optional<SDL_PixelFormat> getPixelFormat() const;
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
     RendererEntry* createRenderer(int sorted);

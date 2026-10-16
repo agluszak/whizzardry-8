@@ -49,7 +49,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureIFace.h"
 #include "utf8/checked.h"
@@ -667,7 +666,7 @@ unsigned char AutomapScreenEnter(void)
         g_monster_shadow_updates_enabled = 0;
         if (!g_automap_surface) {
             g_automap_surface =
-                std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
+                std::make_unique<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, 640, 480);
         }
     }
     g_automap_redraw = true;
@@ -1238,8 +1237,8 @@ void RenderAutomapFrame(void)
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
             }
-            auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                            GetFrameBufferSurface());
+            auto surface =
+                std::make_unique<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, GetFrameBufferSurface());
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3);
@@ -1271,7 +1270,7 @@ void UpdateAutomapPageButtons(void)
 int RestoreAutomapRect(DesignRect* rect)
 {
     if (g_automap_surface != 0) {
-        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, GetFrameBufferSurface());
+        srColorSurface screen(SDL_PIXELFORMAT_ARGB1555, GetFrameBufferSurface());
         screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
                     rect->bottom);
     }
@@ -1729,7 +1728,7 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
         return 0;
     }
     const SpriteFrame& properties = video_object.frames.front();
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
+    auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     int y = (0x40 - properties.height) / 2;
     int x = (0x40 - properties.width) / 2;

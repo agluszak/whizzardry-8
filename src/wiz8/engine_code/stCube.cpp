@@ -29,7 +29,6 @@
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTextureMap.h"
@@ -137,8 +136,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
     model->setShader(shader, 0);
 
-    auto surface =
-        std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, 0x20UL, 0x20UL);
     if (surface == 0) {
         srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
     }

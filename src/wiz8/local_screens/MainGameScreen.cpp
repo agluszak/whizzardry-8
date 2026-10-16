@@ -16,6 +16,7 @@
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
@@ -58,7 +59,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "surrender/srShader.h"
 #include "texture_animation.h"
@@ -7354,8 +7354,8 @@ unsigned char UpdateSurpriseFade(void)
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
             const auto pitch = snapshot->pitch;
             void* pixels = snapshot->pixels;
-            auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                            pixels, 0x280, 0x1e0, pitch);
+            auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, pixels, 0x280,
+                                                            0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
                 g_surprise_snapshot_surface, 0x280, 0x1e0, g_scene_fullscreen, 0x80);

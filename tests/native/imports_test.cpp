@@ -38,7 +38,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTextureMap.h"
@@ -85,11 +84,11 @@ static int surface_storage()
     auto palette = std::make_shared<srPalette>();
     const auto references = palette.use_count();
     {
-        srColorSurface borrowed(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 20);
+        srColorSurface borrowed(SDL_PIXELFORMAT_BGRA32, pixels.data(), 3, 2, 20);
         borrowed.setPalette(palette);
         REQUIRE((borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40));
         REQUIRE((!borrowed.resize(4, 3) && !borrowed.rescale(4, 3)));
-        const auto format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_RGB24);
+        const auto format = SDL_PIXELFORMAT_RGB24;
         REQUIRE(!borrowed.changePixelFormat(format, 1));
 
         srColorSurface copied(borrowed);
@@ -101,12 +100,12 @@ static int surface_storage()
         copied = static_cast<const srColorSurface&>(copied);
         REQUIRE(copied.getPixelRaw(0, 0) == 0x12345678);
 
-        srColorSurface assigned(srPixelConvert::SURFACE_BGRA32, 1, 1);
+        srColorSurface assigned(SDL_PIXELFORMAT_BGRA32, 1, 1);
         assigned = borrowed;
         REQUIRE(assigned.getDataPtr() != pixels.data());
         REQUIRE(samePixels(assigned, pixels.data()));
         REQUIRE(palette.use_count() == references + 3);
-        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2,
+        srColorSurface view(SDL_PIXELFORMAT_BGRA32, assigned.getDataPtr(), 3, 2,
                             assigned.getPitch());
         assigned = view;
         REQUIRE(samePixels(assigned, pixels.data()));
@@ -124,7 +123,7 @@ static int surface_storage()
         REQUIRE(assigned.getPixel(0, 0) == 0xff336699);
 
         std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
-        srColorSurface other_borrowed(srPixelConvert::SURFACE_BGRA32, other_pixels.data(), 1, 1, 4);
+        srColorSurface other_borrowed(SDL_PIXELFORMAT_BGRA32, other_pixels.data(), 1, 1, 4);
         other_borrowed = borrowed;
         REQUIRE(other_pixels == (std::array<unsigned char, 4>{1, 2, 3, 4}));
         REQUIRE(other_borrowed.getDataPtr() != pixels.data());
@@ -136,7 +135,7 @@ static int surface_storage()
     {
         SDL_Surface* owner = SDL_CreateSurface(2, 2, SDL_PIXELFORMAT_ARGB1555);
         REQUIRE(owner);
-        srColorSurface shared(srPixelConvert::SURFACE_ARGB1555, *owner);
+        srColorSurface shared(SDL_PIXELFORMAT_ARGB1555, *owner);
         REQUIRE((shared.getDataPtr() == owner->pixels && !shared.resize(4, 4)));
         SDL_DestroySurface(owner);
         shared.setPixelRaw(1, 1, 0x7fff);
@@ -184,7 +183,7 @@ static int shared_surface_lifetimes()
         palette_lifetime = palette;
         srPalette borrowed;
         borrowed = *palette;
-        auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
+        auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_INDEX8, 2, 2);
         surface->setPalette(palette);
         surface_lifetime = surface;
         Map first(surface), second;
