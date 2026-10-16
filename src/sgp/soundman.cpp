@@ -45,10 +45,8 @@ struct AudioPlayback {
     std::function<void()> on_finished;
     Group group = Group::effects;
     std::uint64_t started_at = 0;
-    std::uint32_t volume = 127;
-    std::uint32_t rate = 44100;
     Sint64 duration = -1;
-    std::optional<glm::vec3> position;
+    bool positional = false;
 };
 
 namespace {
@@ -96,24 +94,20 @@ std::string resolve_path(std::string_view path)
     return filename;
 }
 
-bool set_gain(AudioPlayback& playback, std::uint32_t volume)
+bool set_gain(MIX_Track* track, std::uint32_t volume)
 {
-    const auto clamped = std::min(volume, 127u);
-    if (!MIX_SetTrackGain(playback.track.get(), float(clamped) / 127)) return false;
-    playback.volume = clamped;
-    return true;
+    return MIX_SetTrackGain(track, float(std::min(volume, 127u)) / 127);
 }
 
 // The listener sits at the origin facing -Z, so +X is its right ear. Keep the old
 // backend's disabled distance model and 20% opposite-ear floor; callers apply falloff.
-bool apply_spatial(AudioPlayback& playback)
+bool apply_spatial(MIX_Track* track, const glm::vec3& position)
 {
-    const auto& position = *playback.position;
     const float distance = glm::length(position);
     const float pan = distance > 0 ? std::clamp(position.x / distance, -1.0f, 1.0f) : 0;
     const MIX_StereoGains gains{distance > 0 ? std::max(0.2f, (1 - pan) * 0.5f) : 1,
                                 distance > 0 ? std::max(0.2f, (1 + pan) * 0.5f) : 1};
-    return MIX_SetTrackStereo(playback.track.get(), &gains);
+    return MIX_SetTrackStereo(track, &gains);
 }
 
 Playback create_playback(Group group)
@@ -141,14 +135,13 @@ Playback start(Playback playback, Clip clip, PlayOptions options)
                     std::int64_t(bend),
                 1, UINT32_MAX));
     }
-    playback->rate = rate;
-    playback->position = options.position;
+    playback->positional = options.position.has_value();
     const auto properties = SDL_CreateProperties();
     bool ok = properties && rate > 0 &&
-              set_gain(*playback, options.volume.value_or(service_state.default_volume)) &&
+              set_gain(&track, options.volume.value_or(service_state.default_volume)) &&
               MIX_SetTrackFrequencyRatio(
                   &track, std::clamp(float(rate) / float(natural_rate), 0.01f, 100.0f)) &&
-              (!playback->position || apply_spatial(*playback)) &&
+              (!options.position || apply_spatial(&track, *options.position)) &&
               SDL_SetNumberProperty(properties, MIX_PROP_PLAY_LOOPS_NUMBER,
                                     options.loops == 0 ? -1 : Sint64(options.loops) - 1) &&
               (options.fade_in_ms == 0 ||
@@ -362,21 +355,21 @@ void set_default_volume(std::uint32_t volume)
 // FUNCTION: WIZ8 0x00409210
 bool set_volume(const Playback& playback, std::uint32_t volume)
 {
-    return live(playback) && set_gain(*playback, volume);
+    return live(playback) && set_gain(playback->track.get(), volume);
 }
 
 // FUNCTION: WIZ8 0x004092a0
 std::optional<std::uint32_t> volume(const Playback& playback)
 {
-    return live(playback) ? std::optional(playback->volume) : std::nullopt;
+    if (!live(playback)) return std::nullopt;
+    return std::uint32_t(MIX_GetTrackGain(playback->track.get()) * 127 + 0.5f);
 }
 
 // FUNCTION: WIZ8 0x0040ab20
 void set_position(const Playback& playback, glm::vec3 position)
 {
-    if (!live(playback) || !playback->position) return;
-    playback->position = position;
-    apply_spatial(*playback);
+    if (!live(playback) || !playback->positional) return;
+    apply_spatial(playback->track.get(), position);
 }
 
 // FUNCTION: WIZ8 0x004097f0
