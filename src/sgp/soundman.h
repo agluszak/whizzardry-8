@@ -46,7 +46,7 @@ void shutdown();
 // Dispatches completion callbacks for tracks the mixer has finished.
 void service();
 
-// Retail never caches clips this large; play() rejects them, stream() accepts them.
+// play() streams clips at or above this size instead of adding them to the cache.
 inline constexpr std::uint32_t kMaxCachedClipBytes = 0xc8000;
 
 Clip load(std::string_view path);
