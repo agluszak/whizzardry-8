@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 
 #include "AnimRep.hpp"
@@ -39,7 +40,6 @@
 #include "retail_records.h"
 #include "soundman.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srPixelConvert.h"
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
@@ -1472,7 +1472,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     rect.top = 0;
     rect.right = 640;
     rect.bottom = 480;
-    srColorSurface surface(srPixelConvert::SURFACE_ARGB1555, screenshot.pixels, 80, 60, 160);
+    srColorSurface surface(SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 80, 60, 160);
     SetRendererAutoFlipEnabled(false);
     ScopeExit restore([] { SetRendererAutoFlipEnabled(true); });
     screenshot.capture_result = RenderWorldToSurface(&surface, &rect, true);

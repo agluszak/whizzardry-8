@@ -28,7 +28,6 @@
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srPixelConvert.h"
 
 using Bytes = std::vector<Uint8>;
 using OwnedSurface = std::unique_ptr<srColorSurfaceIFace>;
@@ -39,9 +38,9 @@ static Bytes fixture(const char* name)
     REQUIRE(input.good());
     return {std::istreambuf_iterator<char>(input), {}};
 }
-static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_surfaceType type)
+static void checkFormat(const srColorSurfaceIFace& surface, SDL_PixelFormat type)
 {
-    const auto expected = srPixelConvert::pixelFormat(type);
+    const auto expected = type;
     REQUIRE(surface.getPixelFormat() == expected);
     const auto description = surface.getSurfaceDesc();
     REQUIRE(description.pixel_format == expected);
@@ -113,8 +112,7 @@ static void jpegTests()
             p[2] = p[0] + 60;
             p[3] = 40;
         }
-    auto source =
-        std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16);
+    auto source = std::make_unique<srColorSurface>(SDL_PIXELFORMAT_BGRA32, pixels.data(), 3, 2, 16);
     const auto rgb = encode(*source);
     REQUIRE(rgb == encode(*source, 100));
     REQUIRE(rgb == encode(*source, 200));
@@ -127,9 +125,9 @@ static void jpegTests()
         const unsigned pixel_bytes = four_channels ? 4 : 3;
         auto surface = loadJpeg(*data);
         REQUIRE((surface && surface->getWidth() == 3 && surface->getHeight() == 2));
-        checkFormat(*surface, monochrome      ? srPixelConvert::SURFACE_L8
-                              : four_channels ? srPixelConvert::SURFACE_BGRA32
-                                              : srPixelConvert::SURFACE_BGR24);
+        checkFormat(*surface, monochrome      ? SDL_PIXELFORMAT_INDEX8
+                              : four_channels ? SDL_PIXELFORMAT_BGRA32
+                                              : SDL_PIXELFORMAT_BGR24);
         auto io = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
         srImage::Surface decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
         REQUIRE(decoded);
@@ -185,13 +183,13 @@ static void pitchTests()
 {
     struct Format {
         SDL_PixelFormat sdl;
-        srPixelConvert::e_surfaceType sr;
+        SDL_PixelFormat sr;
         unsigned bytes;
     };
-    for (const auto format : {Format{SDL_PIXELFORMAT_INDEX8, srPixelConvert::SURFACE_L8, 1},
-                              Format{SDL_PIXELFORMAT_ARGB1555, srPixelConvert::SURFACE_ARGB1555, 2},
-                              Format{SDL_PIXELFORMAT_BGR24, srPixelConvert::SURFACE_BGR24, 3},
-                              Format{SDL_PIXELFORMAT_BGRA32, srPixelConvert::SURFACE_BGRA32, 4}}) {
+    for (const auto format : {Format{SDL_PIXELFORMAT_INDEX8, SDL_PIXELFORMAT_INDEX8, 1},
+                              Format{SDL_PIXELFORMAT_ARGB1555, SDL_PIXELFORMAT_ARGB1555, 2},
+                              Format{SDL_PIXELFORMAT_BGR24, SDL_PIXELFORMAT_BGR24, 3},
+                              Format{SDL_PIXELFORMAT_BGRA32, SDL_PIXELFORMAT_BGRA32, 4}}) {
         const unsigned row_bytes = 3 * format.bytes, src_pitch = row_bytes + 5,
                        dst_pitch = row_bytes + 7;
         Bytes src(2 * src_pitch, 0xac), dst(2 * dst_pitch, 0xcd);
@@ -222,20 +220,19 @@ static void pitchTests()
 struct TgaFixture {
     Bytes encoded, expected;
     unsigned bytes;
-    srPixelConvert::e_surfaceType format;
+    SDL_PixelFormat format;
 };
 static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned origin, bool alpha,
                              unsigned palette_bits = 24, bool with_palette = true)
 {
     TgaFixture fixture;
     fixture.bytes = depth / 8;
-    fixture.format =
-        indexed       ? srPixelConvert::SURFACE_P8
-        : depth == 8  ? srPixelConvert::SURFACE_L8
-        : depth == 16 ? (alpha ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555)
-        : depth == 24 ? srPixelConvert::SURFACE_BGR24
-        : alpha       ? srPixelConvert::SURFACE_BGRA32
-                      : srPixelConvert::SURFACE_BGRX32;
+    fixture.format = indexed       ? SDL_PIXELFORMAT_INDEX8
+                     : depth == 8  ? SDL_PIXELFORMAT_INDEX8
+                     : depth == 16 ? (alpha ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555)
+                     : depth == 24 ? SDL_PIXELFORMAT_BGR24
+                     : alpha       ? SDL_PIXELFORMAT_BGRA32
+                                   : SDL_PIXELFORMAT_BGRX32;
     Bytes& file = fixture.encoded;
     file.resize(18);
     file[0] = 3;

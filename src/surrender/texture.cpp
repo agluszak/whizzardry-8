@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 
 #include "compat/compiler.h"
@@ -9,7 +10,6 @@
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
 
@@ -22,14 +22,13 @@ w8_ulong srTexture::_frameHandle;
 // FUNCTION: SURRENDER 0x1005E440
 srTexture::srTexture()
 {
-    texture_dimensions_.format.fourcc = 0;
     texture_dimensions_.hints = 0;
     texture_dimensions_.width = 0x40;
     texture_dimensions_.height = 0x40;
     texture_dimensions_.palette = srCore.getPalette();
     texture_dimensions_.hints = 0;
     texture_dimensions_.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    texture_dimensions_.format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB4444);
+    texture_dimensions_.format = SDL_PIXELFORMAT_ARGB4444;
     texture_flags_ = 0;
     mipmap_bias = 0.0f;
     packed_state = 0xe43;

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_properties.h>
 #include <catch2/catch_test_macros.hpp>
 
@@ -15,7 +16,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srPixelConvert.h"
 #include "wiz8/sr_api.h"
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
@@ -98,7 +98,7 @@ static std::vector<unsigned char> PCX(bool indexed)
 
 class PixelOnlySurface : public srColorSurface {
 public:
-    PixelOnlySurface() : srColorSurface(srPixelConvert::SURFACE_RGB565, nullptr, 16, 16, 32) {}
+    PixelOnlySurface() : srColorSurface(SDL_PIXELFORMAT_RGB565, nullptr, 16, 16, 32) {}
 
     void getPixelRow(w8_ulong* pixels, w8_long, w8_long begin, w8_long end) override
     {
@@ -137,7 +137,7 @@ static void CheckJPEG()
 
 static void CheckLossless(const char* name)
 {
-    srColorSurface source(srPixelConvert::SURFACE_BGRA32, 2, 2);
+    srColorSurface source(SDL_PIXELFORMAT_BGRA32, 2, 2);
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x) source.setPixel(x, y, colors[y * 2 + x]);
     auto output = srIO::own(SDL_IOFromDynamicMem());
@@ -165,7 +165,7 @@ static void CheckLossless(const char* name)
 
 static void CheckErrors()
 {
-    srColorSurface source(srPixelConvert::SURFACE_BGR24, 2, 2);
+    srColorSurface source(SDL_PIXELFORMAT_BGR24, 2, 2);
     for (const char* path : {static_cast<const char*>(nullptr), "", "image.pcx", "image",
                              "dir.png/image", "dir\\name.jpg\\image"}) {
         auto output = srIO::own(SDL_IOFromDynamicMem());

@@ -21,7 +21,6 @@
 #include "shading.h"
 #include "sprite.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender_test_fixture.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -330,7 +329,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Overlay border copies preserve offset so
     auto source = surface(6, 5);
     for (int y = 0; y < source->h; ++y)
         for (int x = 0; x < source->w; ++x) pixel(*source, x, y) = 0x8000 + y * 16 + x;
-    srColorSurface target(srPixelConvert::SURFACE_ARGB1555, 8, 8);
+    srColorSurface target(SDL_PIXELFORMAT_ARGB1555, 8, 8);
     for (int y = 0; y < 8; ++y)
         for (int x = 0; x < 8; ++x) target.setPixelRaw(x, y, 0xeeee);
     const W8ControlsRect rect{2, 1, 5, 3};

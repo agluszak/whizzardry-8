@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <wiz8/filesystem.h>
 
@@ -15,7 +16,6 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
-#include "surrender/srPixelConvert.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/surface2d.h"
 
@@ -319,7 +319,7 @@ void W8NativeVideo::present(SDL_Surface* target)
     const auto& description = *target;
     if (!state->presentation_surface) {
         state->presentation_surface = std::make_shared<srColorSurface>(
-            srPixelConvert::SURFACE_RGB555, description.w, description.h);
+            SDL_PIXELFORMAT_XRGB1555, description.w, description.h);
         state->presentation_tiles = new stSurface2D(state->presentation_surface, description.w,
                                                     description.h, nullptr, 128);
         state->presentation_tiles->setAlphaTestEnabled(false);

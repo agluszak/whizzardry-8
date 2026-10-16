@@ -18,7 +18,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srPixelConvert.h"
 #include "wiz8/filesystem.h"
 
 namespace srImage {
@@ -75,11 +74,10 @@ std::unique_ptr<srColorSurface> loadJpeg(SDL_IOStream* io)
                                                                          : SDL_PIXELFORMAT_BGR24),
                          SDL_DestroySurface);
     if (!bgr) return nullptr;
-    auto result =
-        std::make_unique<srColorSurface>(header.components == 1 ? srPixelConvert::SURFACE_L8
-                                         : four_channels        ? srPixelConvert::SURFACE_BGRA32
-                                                                : srPixelConvert::SURFACE_BGR24,
-                                         header.width, header.height);
+    auto result = std::make_unique<srColorSurface>(header.components == 1 ? SDL_PIXELFORMAT_INDEX8
+                                                   : four_channels        ? SDL_PIXELFORMAT_BGRA32
+                                                                          : SDL_PIXELFORMAT_BGR24,
+                                                   header.width, header.height);
     if (!result->getDataPtr()) return nullptr;
     if (header.components == 1) {
         for (unsigned y = 0; y < header.height; ++y) {
@@ -129,13 +127,13 @@ void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& sourc
     const auto& format = source.getPixelFormat();
     if (!source.getWidth() || !source.getHeight() || source.getWidth() > 65535 ||
         source.getHeight() > 65535 || source.getPitch() <= 0 ||
-        Uint64(source.getPitch()) < Uint64(source.getWidth()) * (unsigned(format.pixel_size) + 1) ||
+        Uint64(source.getPitch()) < Uint64(source.getWidth()) * (SDL_BYTESPERPIXEL(format)) ||
         Uint64(source.getWidth()) * source.getHeight() > 64 * 1024 * 1024)
         throw std::runtime_error("Image output dimensions are invalid");
     const bool jpeg = output == OutputFormat::jpeg;
-    auto copy = std::make_unique<srColorSurface>(jpeg ? srPixelConvert::SURFACE_RGB24
-                                                      : srPixelConvert::SURFACE_BGRA32,
-                                                 source.getWidth(), source.getHeight());
+    auto copy =
+        std::make_unique<srColorSurface>(jpeg ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_BGRA32,
+                                         source.getWidth(), source.getHeight());
     if (!copy->getDataPtr()) throw std::runtime_error("Image output allocation failed");
     copy->copy(source);
     srImage::Surface view(
@@ -183,8 +181,8 @@ std::unique_ptr<srColorSurfaceIFace> loadImage(const char* path, SDL_IOStream* i
         Surface converted(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32),
                           SDL_DestroySurface);
         if (!converted) return nullptr;
-        auto result = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, converted->w,
-                                                       converted->h);
+        auto result =
+            std::make_unique<srColorSurface>(SDL_PIXELFORMAT_BGRA32, converted->w, converted->h);
         if (!copyRows(*converted, *result, 4)) {
             return nullptr;
         }

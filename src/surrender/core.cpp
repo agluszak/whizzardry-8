@@ -1,5 +1,7 @@
 #include <memory>
 
+#include <SDL3/SDL_pixels.h>
+
 #include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
@@ -8,7 +10,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
@@ -21,7 +22,6 @@ void _srLibraryInit(void)
     if (srAssertGetFunc() == 0) {
         srAssertSetFunc(srDefaultAssertFailFunc);
     }
-    initPixelTables();
 }
 
 // FUNCTION: SURRENDER 0x10015040
@@ -39,7 +39,7 @@ int srInit()
         srCore.root_node->setName("SurRender root node");
         srCore.material = std::make_unique<srMaterial>();
         srCore.material->setName("SurRender default material");
-        srCore.surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_L8, 0x40, 0x40);
+        srCore.surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_INDEX8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
         for (int i = 0; i < 0x1000; ++i) {
             srCore.surface->setPixelRaw(i & 0x3f, i / 64, srLogo[i]);

@@ -2,13 +2,13 @@
 
 #include <memory>
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
 #include "srARGB.h"
 #include "srClass.h"
 #include "srMath.h"
-#include "srPixelConvert.h"
 
 class srColorSurface;
 class srPalette;
@@ -30,7 +30,7 @@ public:
         w8_ulong height;
         w8_ulong pitch;
         w8_ulong clamp_modes;
-        srPixelConvert::PixelFormat pixel_format;
+        SDL_PixelFormat pixel_format;
     };
 
     virtual ~srColorSurfaceIFace() override = default;
@@ -50,7 +50,7 @@ public:
     virtual w8_long getDataSize();
     virtual int resize(w8_long width, w8_long height);
     virtual int rescale(w8_long width, w8_long height);
-    virtual int changePixelFormat(const srPixelConvert::PixelFormat& format, int preserve);
+    virtual int changePixelFormat(SDL_PixelFormat format, int preserve);
     virtual void fill(w8_ulong pixel);
     virtual void fillRectangle(SDL_Rect rectangle, w8_ulong pixel);
     virtual void setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulong pixel);
@@ -75,7 +75,7 @@ public:
     w8_long getHeight() const { return height; }
 
     w8_long getPitch() const { return pitch; }
-    const srPixelConvert::PixelFormat& getPixelFormat() const { return pixel_format; }
+    SDL_PixelFormat getPixelFormat() const { return pixel_format; }
 
     SurfaceDesc getSurfaceDesc() const
     {
@@ -105,5 +105,5 @@ protected:
     w8_long height;
     w8_long pitch;
     w8_ulong clamp_modes;
-    srPixelConvert::PixelFormat pixel_format;
+    SDL_PixelFormat pixel_format;
 };

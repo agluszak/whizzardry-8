@@ -1,6 +1,7 @@
 #pragma once
 
-#include "srPixelConvert.h"
+#include <SDL3/SDL_pixels.h>
+
 #include "srTextureIFace.h"
 
 class srTexture : public srTextureIFace {

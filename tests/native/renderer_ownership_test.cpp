@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "catch2/catch_message.hpp"
@@ -33,7 +34,6 @@
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTextureIFace.h"
@@ -1066,13 +1066,13 @@ TEST_CASE("Counted mipmap chains copy adjacent levels and stop at missing destin
     SurRenderTestFixture runtime;
     constexpr w8_ulong color = 0xff102030;
     const auto source = [] {
-        auto pixels = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, 8, 8);
+        auto pixels = std::make_unique<srColorSurface>(SDL_PIXELFORMAT_BGRA32, 8, 8);
         pixels->fill(color);
         return pixels;
     };
-    srColorSurface first(srPixelConvert::SURFACE_BGRA32, 4, 4);
-    srColorSurface second(srPixelConvert::SURFACE_BGRA32, 2, 2);
-    srColorSurface third(srPixelConvert::SURFACE_BGRA32, 1, 1);
+    srColorSurface first(SDL_PIXELFORMAT_BGRA32, 4, 4);
+    srColorSurface second(SDL_PIXELFORMAT_BGRA32, 2, 2);
+    srColorSurface third(SDL_PIXELFORMAT_BGRA32, 1, 1);
     std::array<srColorSurfaceIFace*, 3> destinations{&first, &second, &third};
     const srTextureIFace::MultiRequest request{3, destinations};
     srTextureMap map{std::shared_ptr<srColorSurfaceIFace>(source())};

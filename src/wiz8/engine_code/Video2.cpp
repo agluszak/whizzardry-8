@@ -62,7 +62,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/srStatisticsManager.h"
@@ -1143,7 +1142,7 @@ bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t reg
     }
     const auto& pixel_format = destination.getPixelFormat();
     const auto format =
-        pixel_format.alpha_bits ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555;
+        SDL_ISPIXELFORMAT_ALPHA(pixel_format) ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555;
     SDLSurfaceOwner view{SDL_CreateSurfaceFrom(destination.getWidth(), destination.getHeight(),
                                                format, destination.getDataPtr(),
                                                destination.getPitch()),
@@ -1715,14 +1714,11 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 unsigned char InitializeMouseSurface(void)
 {
     if (g_pixel_format == 7) {
-        g_mouse_surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
+        g_mouse_surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_RGB565, 128UL, 128UL);
     } else if (g_pixel_format == 8) {
-        g_mouse_surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, 128UL, 128UL);
+        g_mouse_surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_XRGB1555, 128UL, 128UL);
     } else if (g_pixel_format == 9) {
-        g_mouse_surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
+        g_mouse_surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, 128UL, 128UL);
     } else {
         return 0;
     }
@@ -1806,7 +1802,7 @@ unsigned char InitializeRendererSceneObjects(void)
 
     /* Shares the CPU surface's pixels, so they outlive its recreation. */
     g_primary_color_surface =
-        std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, *primarySurface);
+        std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, *primarySurface);
 
     g_surface_node = new stSurface2D(g_primary_color_surface, 640, 480, g_scene_overlay0, 128);
     if (!g_surface_node) return 0;
@@ -2134,8 +2130,7 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
             size = ((extent <= 0x10) - 1 & 0x10) + 0x10;
         }
 
-        auto surface =
-            std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, size, size);
+        auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, size, size);
         surface->fill(0);
 
         float scale_x;
@@ -2408,9 +2403,8 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
         }
     }
 
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                    static_cast<w8_ulong>(extent),
-                                                    static_cast<w8_ulong>(extent));
+    auto surface = std::make_shared<srColorSurface>(
+        SDL_PIXELFORMAT_ARGB1555, static_cast<w8_ulong>(extent), static_cast<w8_ulong>(extent));
     float scale_x;
     float scale_y;
     float mapping_x;
@@ -2448,8 +2442,7 @@ void VideoToolTip(std::string_view text)
     if (!g_tooltip_nodes.empty()) {
         return;
     }
-    auto surface =
-        std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
+    auto surface = std::make_unique<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, 0xfeUL, 0xfeUL);
     W8ControlsRect bounds;
     bounds.left = 0;
     bounds.top = 0;
@@ -2585,11 +2578,11 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
 
             std::shared_ptr<srColorSurface> surface;
             if (!use_argb1555) {
-                surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, extent,
-                                                           extent);
+                surface =
+                    std::make_shared<srColorSurface>(SDL_PIXELFORMAT_XRGB1555, extent, extent);
             } else {
-                surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, extent,
-                                                           extent);
+                surface =
+                    std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, extent, extent);
             }
             surface->setName("VideoVObjecttoTextureAnim:srColorSurface");
             surface->fill(0);
