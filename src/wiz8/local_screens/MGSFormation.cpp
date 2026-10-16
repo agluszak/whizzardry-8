@@ -10,11 +10,11 @@
 #include <SDL3/SDL_surface.h>
 
 #include "compat/native.h"
+#include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "local_code/ControlsRect.h"
 #include "sprite.h"
-#include "surrender/srMath.h"
 #include "timer.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
@@ -41,7 +41,7 @@
 /* On-board (left, top) of each of the fifteen cell markers,
    relative to the board anchor. */
 // GLOBAL: WIZ8 0x0064daf4
-static srVector2i g_formation_marker_offsets[15] = {
+static glm::ivec2 g_formation_marker_offsets[15] = {
     {0x26, 0x9},  {0x19, 0xd},  {0x33, 0xd},  {0x43, 0x26}, {0x3f, 0x19},
     {0x3f, 0x33}, {0x26, 0x43}, {0x33, 0x3f}, {0x19, 0x3f}, {0x9, 0x26},
     {0xd, 0x33},  {0xd, 0x19},  {0x26, 0x1e}, {0x1e, 0x2a}, {0x2e, 0x2a},
@@ -49,7 +49,7 @@ static srVector2i g_formation_marker_offsets[15] = {
 
 /* Screen (left, top) of the fifteen cell controls. */
 // GLOBAL: WIZ8 0x0064db6c
-static srVector2i g_formation_cell_positions[15] = {
+static glm::ivec2 g_formation_cell_positions[15] = {
     {0x5a, 0x1c}, {0x3d, 0x25}, {0x77, 0x25}, {0x98, 0x5a}, {0x8f, 0x3d},
     {0x8f, 0x77}, {0x5a, 0x98}, {0x77, 0x8f}, {0x3d, 0x8f}, {0x1c, 0x5a},
     {0x25, 0x77}, {0x25, 0x3d}, {0x5a, 0x48}, {0x48, 0x61}, {0x6c, 0x61},

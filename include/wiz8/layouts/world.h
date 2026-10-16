@@ -13,12 +13,12 @@ class stLight;
 
 #include <algorithm>
 
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
-#include "wiz8/environment_colour.h"
 #include "wiz8/named_position.h"
 
 class srCamera;
@@ -74,7 +74,7 @@ struct W8World {
     /* Snapshot of environment_intensity taken when a fade-out starts; the
        lighting transition multiplies g_light_scale by this base. */
     float environment_base_intensity;
-    EnvironmentColour environment_colour;
+    glm::vec3 environment_colour{1.0f};
     stLevel* level;
     srScene* static_scene;
     srNode* dynamic_scene;

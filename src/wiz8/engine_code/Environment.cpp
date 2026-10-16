@@ -1,5 +1,6 @@
 #include "wiz8/engine_code/Environment.h"
 
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -12,8 +13,9 @@
 #include "AnimRep.hpp"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "environment_colour.h"
+#include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
@@ -268,7 +270,7 @@ static void ClampEnvironmentComponent(float& component)
 }
 
 /* The two binary colour tables differ only in their destination array. */
-static bool ReadColourTable(wiz8::File* file, EnvironmentColour (&colours)[256])
+static bool ReadColourTable(wiz8::File* file, std::array<glm::vec3, 256>& colours)
 try {
     unsigned char components[256 * 3];
     memset(components, 0xff, sizeof(components));
@@ -300,11 +302,11 @@ bool ReadEnvironmentColourTable(wiz8::File* file)
     return ReadColourTable(file, g_environment_colours0);
 }
 
-static void BuildColourRamp(EnvironmentColour (&colours)[256])
+static void BuildColourRamp(std::array<glm::vec3, 256>& colours)
 {
     for (int index = 0; index < 256; ++index) {
         const float value = (index < 128 ? index : 255 - index) * (1.0f / 127.0f);
-        colours[index] = value;
+        colours[index] = glm::vec3(value);
     }
 }
 
@@ -364,8 +366,7 @@ void SetSkyEnabled(bool enabled)
     ReleaseRendererObject(g_environment_object0);
     ReleaseRendererObject(g_environment_object1);
 
-    EnvironmentColour direction;
-    direction = 0.0;
+    glm::vec3 direction(0);
     PublishLightDirection(&direction);
     if (g_world == 0 || g_world->camera == 0) {
         return;
@@ -434,7 +435,7 @@ void RefreshEnvironment(void)
     AdvanceEnvironmentClock();
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
     if (phase != static_cast<unsigned int>(g_last_environment_colour_phase)) {
-        EnvironmentColour colour = g_environment_colours0[phase];
+        glm::vec3 colour = g_environment_colours0[phase];
         SetWorldEnvironmentColour(g_world, colour);
         g_last_environment_colour_phase = static_cast<int>(phase);
     }
@@ -445,7 +446,7 @@ void RefreshEnvironment(void)
 // FUNCTION: WIZ8 0x00483AE0
 void SetWorldEnvironmentIntensity(W8World* world, float value)
 {
-    EnvironmentColour colour;
+    glm::vec3 colour{1.0f};
 
     if (world == 0) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
@@ -458,7 +459,7 @@ void SetWorldEnvironmentIntensity(W8World* world, float value)
         value = static_cast<float>(g_double_zero);
     }
     if (world->static_scene == 0) {
-        colour = 0.0;
+        colour = glm::vec3(0);
         ApplyEnvironmentColour(world, value, &colour);
         return;
     }
@@ -467,7 +468,7 @@ void SetWorldEnvironmentIntensity(W8World* world, float value)
 
 static float ApplyWorldLightingIntensity(W8World* world, float intensity)
 {
-    EnvironmentColour colour;
+    glm::vec3 colour{1.0f};
     if (g_double_one <= intensity || g_double_zero < intensity) {
         if (g_double_one <= intensity) {
             intensity = static_cast<float>(g_double_one);
@@ -476,8 +477,7 @@ static float ApplyWorldLightingIntensity(W8World* world, float intensity)
         intensity = static_cast<float>(g_double_zero);
     }
     if (world->static_scene == 0) {
-        colour.SetZero();
-        SaturateColor(&colour);
+        colour = glm::vec3(0);
         ApplyEnvironmentColour(world, intensity, &colour);
     } else {
         ApplyEnvironmentColour(world, intensity, &world->environment_colour);
@@ -494,7 +494,7 @@ void BeginWorldLightingFade(float duration)
 {
     W8World* world;
     float intensity;
-    EnvironmentColour direction;
+    glm::vec3 direction{1.0f};
 
     if (duration == g_float_zero) {
         g_environment_lighting_mode = 2;
@@ -518,7 +518,7 @@ void BeginWorldLightingFade(float duration)
         }
 
         direction = g_light_direction;
-        SaturateColor(&direction);
+        direction = glm::clamp(direction, 0.0f, 1.0f);
         PublishLightDirection(&direction);
         return;
     }
@@ -548,7 +548,7 @@ void UpdateEnvironmentLighting(void)
     W8World* world;
     float scale;
     float intensity;
-    EnvironmentColour direction;
+    glm::vec3 direction{1.0f};
 
     if (elapsed == 0) {
         return;
@@ -577,7 +577,7 @@ void UpdateEnvironmentLighting(void)
 
     direction = g_light_direction;
     direction *= scale;
-    SaturateColor(&direction);
+    direction = glm::clamp(direction, 0.0f, 1.0f);
     PublishLightDirection(&direction);
 
     if (intensity == g_float_zero) {
@@ -650,14 +650,14 @@ void ResetEnvironment(void)
 /* The direction light comes from. Setting it also hands the new direction to
    the renderer, so the two are not a plain field pair. */
 // FUNCTION: WIZ8 0x00483650
-void SetLightDirection(const EnvironmentColour* direction)
+void SetLightDirection(const glm::vec3* direction)
 {
     g_light_direction = *direction;
     PublishLightDirection(direction);
 }
 
 // FUNCTION: WIZ8 0x00483680
-void GetLightDirection(EnvironmentColour* direction)
+void GetLightDirection(glm::vec3* direction)
 {
     *direction = g_light_direction;
 }
@@ -666,7 +666,7 @@ void GetLightDirection(EnvironmentColour* direction)
    own gate at 0x3c is clear. Both assertions belong to this body: line 616
    names the world and line 617 names the out-parameter pLightValue. */
 // FUNCTION: WIZ8 0x004839e0
-void GetWorldLightValue(const W8World* world, EnvironmentColour* pLightValue)
+void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue)
 {
     if (world == 0) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 616, 0);
@@ -677,7 +677,7 @@ void GetWorldLightValue(const W8World* world, EnvironmentColour* pLightValue)
     if (world->static_scene != 0) {
         *pLightValue = world->environment_colour;
     } else {
-        *pLightValue = 0.0;
+        *pLightValue = glm::vec3(0);
     }
 }
 
@@ -714,7 +714,7 @@ float GetWorldEnvironmentIntensity(const W8World* world)
    colour. Retail takes the colour triple by value and forwards its address to
    SetWorldEnvironment. */
 // FUNCTION: WIZ8 0x00483a60
-void SetWorldEnvironmentColour(W8World* world, EnvironmentColour colour)
+void SetWorldEnvironmentColour(W8World* world, glm::vec3 colour)
 {
     if (world == 0) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 634, 0);
@@ -729,43 +729,23 @@ const double g_inverse_half_day_ms = 2.3148148148148148e-08;
 // GLOBAL: WIZ8 0x005ec990
 const double g_half_day_ms = 43200000.0;
 
-/* Scale one colour triple by a double factor and clamp every component to the
-   unit range in place. A product helper like SaturateColor: no matching
-   srVector3T method survives in the SurRender headers. */
-// FUNCTION: WIZ8 0x00483d70
-srVector3T<float>* ScaleColourAndSaturate(srVector3T<float>* colour, double scale)
-{
-    float x = colour->x * static_cast<float>(scale);
-    colour->x = x;
-    float y = colour->y * static_cast<float>(scale);
-    colour->y = y;
-    float z = colour->z * static_cast<float>(scale);
-    colour->z = z;
-    return SaturateColor(colour);
-}
-
 /* Push one day-phase colour and intensity into the world's static scene, every
    registered environment light, and the animated cloud material. */
 // FUNCTION: WIZ8 0x00483ba0
-void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentColour* colour)
+void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* colour)
 {
     if (world == 0) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 0x2b0, 0);
     }
     if (world->static_scene != 0) {
-        srVector3T<float> ambient(colour->x, colour->y, colour->z);
-
-        ScaleColourAndSaturate(&ambient, intensity);
-        world->static_scene->setAmbientLight(ambient.x, ambient.y, ambient.z);
+        const auto ambient = glm::clamp(*colour * intensity, 0.0f, 1.0f);
+        world->static_scene->setAmbientLight(ambient);
         world->environment_colour = *colour;
         world->environment_intensity = intensity;
     }
     for (stLight* light : g_environment_lights) {
-        srVector3T<float> scaled(colour->x, colour->y, colour->z);
-
-        scaled *= static_cast<double>(intensity);
-        SaturateColor(&scaled);
-        light->ambient = scaled.glmValue();
+        glm::vec3 scaled(glm::dvec3(*colour) * static_cast<double>(intensity));
+        light->ambient = glm::clamp(scaled, 0.0f, 1.0f);
     }
     {
         if (auto material = g_materials.find("AnimatedCloudMaterial")) {

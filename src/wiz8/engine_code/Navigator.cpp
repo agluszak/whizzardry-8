@@ -1661,10 +1661,10 @@ void W8Navigator::AddPathPoint(const srVector3T<float>* position)
         movement.target_position = *position;
         movement_target = *position;
         ClearMovementStopped();
-        PathAIAddPoint(*path_ai, movement.position);
+        PathAIAddPoint(*path_ai, movement.position.glmValue());
         SetMovementTarget(&movement_target, false);
     }
-    PathAIAddPoint(*path_ai, *position);
+    PathAIAddPoint(*path_ai, position->glmValue());
 }
 
 // FUNCTION: WIZ8 0x004537c0
@@ -1966,7 +1966,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
 
     case 6:
     case 10: {
-        srVector3T<float> next;
+        glm::vec3 next(0);
 
         movement_result = g_octree->AdvanceNavigator(&movement, radius, 0.0f);
         if (movement_result == 1) {

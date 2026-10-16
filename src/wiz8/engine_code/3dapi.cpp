@@ -14,7 +14,6 @@
 
 #include "camera_motion.h"
 #include "compat/compiler.h"
-#include "environment_colour.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -215,7 +214,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 W8World* CreateWorld()
 {
     auto world = std::make_unique<W8World>();
-    world->environment_colour.SetZero();
+    world->environment_colour = glm::vec3(0);
 
     // The scene owns its children. Keep both allocations scoped until setup
     // succeeds, including failures while allocating nodes or assigning names.
@@ -518,9 +517,9 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 PathAITick(path, 1);
                 PathAIApply(path, world->camera);
                 {
-                    srVector3T<double> location = world->camera->getLocation();
+                    glm::dvec3 location = world->camera->getLocation();
                     srVector3T<float> party_point;
-                    party_point = glm::vec3(location.glmValue());
+                    party_point = glm::vec3(location);
                     PlacePartyAtPoint(&party_point);
                 }
                 path_rotation = world->camera->getRotation<glm::mat3>();

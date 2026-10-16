@@ -19,6 +19,7 @@
 
 #include <fmt/format.h>
 
+#include "glm/ext/vector_float3.hpp"
 #include "materials.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -73,6 +74,18 @@ struct LevelReader {
     static constexpr bool reading = true;
     wiz8::File& file;
 
+    void field(glm::vec3& value)
+    {
+        field(value.x);
+        field(value.y);
+        field(value.z);
+    }
+    void array(std::vector<glm::vec3>& values, std::int64_t count)
+    {
+        ValidateRecordCount(count, 3 * sizeof(float), file);
+        values.resize(static_cast<std::size_t>(count));
+        for (auto& value : values) field(value);
+    }
     template<class T> void field(T& value)
     {
         static_assert(std::is_trivially_copyable_v<T>);
@@ -108,6 +121,18 @@ struct LevelWriter {
     static constexpr bool reading = false;
     wiz8::File& file;
 
+    void field(const glm::vec3& value)
+    {
+        field(value.x);
+        field(value.y);
+        field(value.z);
+    }
+    void array(const std::vector<glm::vec3>& values, std::int64_t count)
+    {
+        if (static_cast<std::int64_t>(values.size()) != count)
+            throw LevelError("record count mismatch");
+        for (const auto& value : values) field(value);
+    }
     template<class T> void field(const T& value)
     {
         static_assert(std::is_trivially_copyable_v<T>);
@@ -178,6 +203,13 @@ template<class IO, class Material> void TransferMaterial(IO& io, Material& mater
     if (material.version >= 4) io.field(material.texture_modes);
 }
 
+template<class IO, class Node> void TransferPathNode(IO& io, Node& node)
+{
+    io.field(node.position);
+    io.field(node.angle);
+    io.field(node.axis);
+}
+
 template<class IO, class Path> void TransferPathAI(IO& io, Path& path)
 {
     io.field(path.version);
@@ -185,9 +217,13 @@ template<class IO, class Path> void TransferPathAI(IO& io, Path& path)
     io.field(path.position);
     io.field(path.unknown_06);
     if (path.IsScaled()) {
-        TransferArray<int>(io, path.scaled_paths);
+        TransferRecords<int>(io, path.scaled_paths, [](auto& io, auto& node) {
+            TransferPathNode(io, node.path);
+            io.field(node.scale);
+        });
     } else {
-        TransferArray<int>(io, path.paths);
+        TransferRecords<int>(io, path.paths,
+                             [](auto& io, auto& node) { TransferPathNode(io, node); });
     }
 }
 
@@ -202,7 +238,7 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
     io.field(mesh.num_vertices);
     io.field(mesh.num_faces);
     if constexpr (IO::reading) {
-        ValidateRecordCount(mesh.num_vertices, 2 * sizeof(srVector3T<float>), io.file);
+        ValidateRecordCount(mesh.num_vertices, 6 * sizeof(float), io.file);
         ValidateRecordCount(mesh.num_faces, 2 * sizeof(W8SerializedMeshFace), io.file);
         if (mesh.num_vertices <= 0 || mesh.num_vertices > kMaxMeshVertices) {
             ReportBuildStatus(7, fmt::format("Invalid number of vertices in mesh ({} vertices).\n",
@@ -711,7 +747,8 @@ template<class IO, class Monster> void TransferMonster(IO& io, Monster& monster)
     if constexpr (!IO::reading) header.path_node_count = DiskCount<int>(monster.path.size());
     io.field(header);
     if constexpr (IO::reading) monster.header = header;
-    io.array(monster.path, header.path_node_count);
+    io.records(monster.path, header.path_node_count);
+    for (auto& node : monster.path) TransferPathNode(io, node);
 }
 
 /* Invisible triggers before version 2 have no plane; retail registered a null

@@ -11,6 +11,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int2.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint2.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
@@ -212,8 +213,8 @@ struct GDPropCondPaths {
    participate and the third slots are zeroed. Retail does not distinguish
    this grouping from adjacent scalar storage in the original declaration. */
 struct W8PathGridWalk {
-    srVector3T<int> cell; /* 0x00: destination X/Z cells; third component zero */
-    srVector3T<int> step; /* 0x0c: +1 or -1 per active axis; third component zero */
+    glm::ivec3 cell{0}; /* 0x00: destination X/Z cells; third component zero */
+    glm::ivec3 step{0}; /* 0x0c: +1 or -1 per active axis; third component zero */
     int major_axis;       /* 0x18: 0 for X, 1 for Z */
     int minor_axis0;      /* 0x1c: (major + 1) % 2 */
     int minor_axis1;      /* 0x20: unused second secondary axis, zero */
@@ -375,7 +376,7 @@ public:
     void BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to, const glm::vec2* origin,
                            W8PathGridWalk* walk);
     bool ProbeWaypointSegment(const srVector3T<float>* from, const srVector3T<float>* to);
-    unsigned int ComputeWaypointNeighborMask(const srVector2i* cell, unsigned int path_value);
+    unsigned int ComputeWaypointNeighborMask(const glm::ivec2* cell, unsigned int path_value);
     // Return a blocked-neighbor slide direction from a live cell or the stored mask.
     std::optional<glm::vec3> neighborSlideDirection(const glm::vec3& position,
                                                     const glm::vec3& delta);
@@ -395,7 +396,7 @@ public:
        recursive result. m_probe_cell_key tracks the farthest candidate. */
     unsigned short RecurseTargetLinks(unsigned short waypoint); /* 0x004615D0 */
     unsigned short RecursePatrolLinks(unsigned short waypoint);
-    float MeasureDirectionalPath(const srVector2i* cell, int direction, unsigned int height,
+    float MeasureDirectionalPath(const glm::ivec2* cell, int direction, unsigned int height,
                                  float distance);
     float CompareDirectionalClearance(const srVector3T<float>* position,
                                       const srVector3T<float>* direction, float distance);
@@ -451,7 +452,7 @@ public:
     /* Path probe-clearance height from the octree
        header; only ConfigureForLevel writes it. */
     float path_clearance; /* 0x28 */
-    W8BoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
+    srBoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
     std::vector<W8FilePathNode> file_path_nodes; // Serialized cell/height-state records.
     // Zero is the sentinel in both indexed graph tables.
     std::vector<W8PathSurface> m_waypoints;

@@ -1,7 +1,7 @@
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 
+#include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
-#include "surrender/srMath.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/layouts/combat_state.h"
@@ -28,20 +28,20 @@ char g_submenu_icons_path[] = "Data\\Main Interface\\icons_standard.sti";
 char g_submenu_combat_icons_path[] = "Data\\Main Interface\\icon_combat_toggle.sti";
 /* The (x, y) of the nine bank buttons. */
 // GLOBAL: WIZ8 0x0064C290
-srVector2i g_submenu_button_positions[9] = {
+glm::ivec2 g_submenu_button_positions[9] = {
     {40, 452},  {70, 452},  {100, 452}, {130, 452}, {160, 452},
     {232, 452}, {262, 452}, {199, 452}, {200, 452},
 };
 /* The (x, y) of the two scroll arrows. */
 // GLOBAL: WIZ8 0x0064C330
-srVector2i g_scroll_button_positions[2] = {{300, 456}, {323, 456}};
+glm::ivec2 g_scroll_button_positions[2] = {{300, 456}, {323, 456}};
 /* The (x, y) of the two panel buttons (close and formation). */
 // GLOBAL: WIZ8 0x0064C378
-srVector2i g_submenu_panel_button_positions[2] = {{541, 452}, {571, 452}};
+glm::ivec2 g_submenu_panel_button_positions[2] = {{541, 452}, {571, 452}};
 // GLOBAL: WIZ8 0x0064C388
 char g_options_disk_path[] = "Data\\Main Interface\\options_disk.sti";
 // GLOBAL: WIZ8 0x0064C3B0
-srVector2i g_options_disk_position = {0, 450};
+glm::ivec2 g_options_disk_position = {0, 450};
 // GLOBAL: WIZ8 0x0064C3B8
 char g_attack_confirm_path[] = "Data\\Main Interface\\attack_confirm.sti";
 // GLOBAL: WIZ8 0x0064C3E0
@@ -54,18 +54,18 @@ char g_cont_toggle_path[] = "Data\\Main Interface\\cont_toggle.sti";
 char g_cont_pending_path[] = "Data\\Main Interface\\cont_pending.sti";
 /* All five combat-stance buttons share the same screen origin. */
 // GLOBAL: WIZ8 0x0064C478
-srVector2i g_combat_stance_positions[5] = {
+glm::ivec2 g_combat_stance_positions[5] = {
     {610, 450}, {610, 450}, {610, 450}, {610, 450}, {610, 450},
 };
 // GLOBAL: WIZ8 0x0064C4A0
 char g_roof_buttons_path[] = "Data\\Main Interface\\main_roof_buttons.sti";
 // GLOBAL: WIZ8 0x0064C4D0
-srVector2i g_roof_button_positions[3] = {{10, 1}, {39, 1}, {68, 1}};
+glm::ivec2 g_roof_button_positions[3] = {{10, 1}, {39, 1}, {68, 1}};
 // GLOBAL: WIZ8 0x0064C4E8
 char g_layout_arrows_path[] = "Data\\Main Interface\\main_layout_arrows.sti";
 /* Left column then right column; both columns share the same x in retail. */
 // GLOBAL: WIZ8 0x0064C518
-srVector2i g_layout_arrow_positions[6] = {
+glm::ivec2 g_layout_arrow_positions[6] = {
     {0, 371}, {0, 394}, {0, 417}, {0, 371}, {0, 394}, {0, 417},
 };
 /* The (menu, item) keyed message indexes both menus build rows from. */
