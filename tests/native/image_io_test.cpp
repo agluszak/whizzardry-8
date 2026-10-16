@@ -192,6 +192,16 @@ TEST_CASE("image_io_test")
         CheckImage("test.bmp", Bitmap());
         CheckImage("test.pcx", PCX(false));
         CheckImage("palette.pcx", PCX(true));
+        // Indexed TGA files without a palette use the retail color cube and gray ramp.
+        // The decoded surface must retain that palette after the decoder returns.
+        std::vector<unsigned char> indexed(18);
+        indexed[2] = 1;
+        indexed[12] = indexed[14] = 2;
+        indexed[16] = 8;
+        indexed[17] = 0x20;
+        indexed.insert(indexed.end(), {0, 209, 210, 255});
+        const w8_ulong indexed_colors[]{0xff000033, 0xffffffcc, 0xff000000, 0xffffffff};
+        CheckImage("default-palette.tga", indexed, indexed_colors);
         CheckJPEG();
         CheckLossless("dir.jpg/lossless.PNG");
         CheckLossless("lossless.BMP");

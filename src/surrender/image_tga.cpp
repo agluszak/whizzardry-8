@@ -139,10 +139,10 @@ SDLSurfaceOwner loadTga(SDL_IOStream* source)
             (has_palette &&
              SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size()))
             return {nullptr, SDL_DestroySurface};
-        std::shared_ptr<SDL_Palette> default_palette;
+        std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> default_palette{
+            nullptr, SDL_DestroyPalette};
         if (indexed && !has_palette) {
-            default_palette =
-                std::shared_ptr<SDL_Palette>(SDL_CreatePalette(256), SDL_DestroyPalette);
+            default_palette.reset(SDL_CreatePalette(256));
             if (default_palette) {
                 std::array<SDL_Color, 256> colors;
                 unsigned index = 0;
