@@ -4,11 +4,13 @@
 #include <array>
 #include <charconv>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -766,41 +768,52 @@ try {
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
                                  std::vector<std::unique_ptr<stParticle>>* pParticles)
 try {
-    W8LevelParticleRecord record;
-    int count;
-    int index;
-
-    pInfo->hFile->read(&count, sizeof(count));
-    for (index = 0; index < count; ++index) {
-        unsigned char version;
+    if (!pInfo || !pInfo->hFile || !pParticles) return false;
+    auto& file = *pInfo->hFile;
+    std::int32_t count;
+    file.read_exact(&count, sizeof(count));
+    constexpr std::int64_t smallest_record_bytes = 1 + 0x216;
+    if (count < 0 || count > (file.size() - file.tell()) / smallest_record_bytes) return false;
+    std::vector<W8LevelParticleRecord> records;
+    records.reserve(count);
+    for (std::int32_t index = 0; index < count; ++index) {
+        W8LevelParticleRecord record{};
+        record.attachment_key = -1;
+        record.start_frame = record.end_frame = -1;
+        std::uint8_t version;
+        file.read_exact(&version, sizeof(version));
+        std::size_t record_bytes;
+        switch (version) {
+        case 1:
+            record_bytes = 0x216;
+            break;
+        case 2:
+            record_bytes = 0x218;
+            break;
+        case 3:
+            record_bytes = 0x21d;
+            break;
+        case 4:
+            record_bytes = sizeof(record);
+            break;
+        default:
+            return false;
+        }
+        file.read_exact(&record, record_bytes);
+        if (!std::memchr(record.name, '\0', sizeof(record.name))) return false;
+        if (record.flutter_mode != 0 &&
+            (!std::isfinite(record.flutter_period) || record.flutter_period < 0 ||
+             static_cast<double>(record.flutter_period) > std::numeric_limits<unsigned int>::max()))
+            return false;
+        records.push_back(record);
+    }
+    std::vector<std::unique_ptr<stParticle>> pending;
+    std::vector<stParticle*> octree_particles;
+    pending.reserve(records.size());
+    for (auto& record : records) {
         stParticle* particle;
         glm::dvec3 axis;
         glm::dvec3 location;
-
-        pInfo->hFile->read(&version, sizeof(version));
-        if (version == 4) {
-            pInfo->hFile->read(&record, sizeof(record));
-        } else if (version == 3) {
-            pInfo->hFile->read(&record, 0x21d);
-            record.start_frame = -1;
-            record.end_frame = -1;
-        } else if (version == 2) {
-            pInfo->hFile->read(&record, 0x218);
-            record.emission_limit = 0;
-            record.requires_sorted_renderer = 0;
-            record.start_frame = -1;
-            record.end_frame = -1;
-        } else if (version == 1) {
-            pInfo->hFile->read(&record, 0x216);
-            record.attachment_key = -1;
-            record.emission_limit = 0;
-            record.requires_sorted_renderer = 0;
-            record.start_frame = -1;
-            record.end_frame = -1;
-        } else {
-            srAssertFail("0", READ_LEVEL_CPP, 0x5fe, "Unknown particle structure version");
-        }
-
         auto owned = std::make_unique<stParticle>(pScene, record.particle_count);
         particle = owned.get();
 
@@ -929,10 +942,14 @@ try {
             particle->camera_relative = 1;
             particle->SetActive(1);
         } else if (g_octree != 0) {
-            g_octree->AddLoadedParticle(particle);
+            octree_particles.push_back(particle);
         }
-        pParticles->push_back(std::move(owned));
+        pending.push_back(std::move(owned));
     }
+    pParticles->reserve(pParticles->size() + pending.size());
+    if (g_octree) g_octree->AddLoadedParticles(octree_particles);
+    pParticles->insert(pParticles->end(), std::make_move_iterator(pending.begin()),
+                       std::make_move_iterator(pending.end()));
     return 1;
 } catch (const std::exception&) {
     return false;

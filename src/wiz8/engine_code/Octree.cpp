@@ -2728,15 +2728,16 @@ void W8Octree::AddLoadedProp(W8Prop* prop)
     m_props.push_back(prop);
 }
 
-void W8Octree::AddLoadedParticle(stParticle* particle)
+void W8Octree::AddLoadedParticles(std::span<stParticle* const> particles)
 {
     if (!m_fAccumulating) {
         return;
     }
-    if (m_particles.size() >= m_ulNumParticles) {
+    if (m_particles.size() > m_ulNumParticles ||
+        particles.size() > m_ulNumParticles - m_particles.size()) {
         throw std::runtime_error("Too many particles loaded for octree.");
     }
-    m_particles.push_back(particle);
+    m_particles.insert(m_particles.end(), particles.begin(), particles.end());
 }
 
 /* Complete non-deleting teardown. LoadWorld and DestroyWorld both perform the
