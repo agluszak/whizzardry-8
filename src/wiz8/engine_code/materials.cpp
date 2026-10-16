@@ -395,15 +395,15 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                 vertices[i].m_original_position = source;
                 vertices[i].m_visited = false;
                 for (j = 0; j < 3; ++j) {
-                    float v = (&vertices[i].position.x)[j];
-                    if (v <= (&maximum.x)[j]) {
-                        if (v < (&minimum.x)[j]) {
-                            (&minimum.x)[j] = v;
-                            (&g_weld_min.x)[j] = v;
+                    float v = vertices[i].position[j];
+                    if (v <= maximum[j]) {
+                        if (v < minimum[j]) {
+                            minimum[j] = v;
+                            g_weld_min[j] = v;
                         }
                     } else {
-                        (&maximum.x)[j] = v;
-                        (&g_weld_max.x)[j] = v;
+                        maximum[j] = v;
+                        g_weld_max[j] = v;
                     }
                 }
             }
@@ -450,11 +450,11 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                 ReportBuildStatus(7, "\n Error -- Cannot load or find game data.\n");
             } else {
                 for (i = 0; i < 3; ++i) {
-                    if ((&value->minimum.x)[i] < (&minimum.x)[i]) {
-                        (&minimum.x)[i] = (&value->minimum.x)[i];
+                    if (value->minimum[i] < minimum[i]) {
+                        minimum[i] = value->minimum[i];
                     }
-                    if ((&maximum.x)[i] < (&value->maximum.x)[i]) {
-                        (&maximum.x)[i] = (&value->maximum.x)[i];
+                    if (maximum[i] < value->maximum[i]) {
+                        maximum[i] = value->maximum[i];
                     }
                 }
                 ReportBuildStatus(6, "\nBuilding OctBuildPreTree ---------------------\n");

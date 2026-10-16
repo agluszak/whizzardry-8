@@ -248,8 +248,7 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         surface.flags = data.type == 1 ? W8_GD_SURFACE_WALKABLE | W8_GD_SURFACE_PATHFINDING : 0;
         unsigned axis = 0;
         for (unsigned candidate = 1; candidate < 3; ++candidate)
-            if (fabs((&header.plane.x)[candidate]) > fabs((&header.plane.x)[axis]))
-                axis = candidate;
+            if (fabs(header.plane[candidate]) > fabs(header.plane[axis])) axis = candidate;
         surface.flags |= axis;
         for (int corner = 0; corner < 3; ++corner) {
             surface.vertex_indices[corner] = header.vertex_indices[corner] + VerticesCount();
@@ -275,14 +274,14 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
     const auto lower = reader.record<glm::vec3>();
     const auto upper = reader.record<glm::vec3>();
     for (int axis = 0; axis < 3; ++axis) {
-        if (!std::isfinite((&lower.x)[axis] * g_world_scale) ||
-            !std::isfinite((&upper.x)[axis] * g_world_scale) || (&lower.x)[axis] > (&upper.x)[axis])
+        if (!std::isfinite(lower[axis] * g_world_scale) ||
+            !std::isfinite(upper[axis] * g_world_scale) || lower[axis] > upper[axis])
             throw std::runtime_error("nonfinite WGD bounds");
-        bank_min[axis] = std::min(bank_min[axis], (&lower.x)[axis] * g_world_scale);
-        bank_max[axis] = std::max(bank_max[axis], (&upper.x)[axis] * g_world_scale);
+        bank_min[axis] = std::min(bank_min[axis], lower[axis] * g_world_scale);
+        bank_max[axis] = std::max(bank_max[axis], upper[axis] * g_world_scale);
         if (VerticesCount()) {
-            bank_min[axis] = std::min(bank_min[axis], (&minimum.x)[axis]);
-            bank_max[axis] = std::max(bank_max[axis], (&maximum.x)[axis]);
+            bank_min[axis] = std::min(bank_min[axis], minimum[axis]);
+            bank_max[axis] = std::max(bank_max[axis], maximum[axis]);
         }
     }
     auto interfaces = BuildInterfaces(names.empty() ? 0 : names.size() + 1, conditional);
