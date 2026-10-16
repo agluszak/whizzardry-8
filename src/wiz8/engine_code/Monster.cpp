@@ -588,7 +588,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         sound_type = W8_SOUND_EVENT_FOOTSTEP;
 
                     if (sound_type != W8_SOUND_EVENT_UNRECOGNIZED) {
-                        std::string cycle_name = argument;
+                        const std::string& cycle_name = argument;
                         std::string wave_name;
                         std::string loop_name;
                         int frame = 0;
@@ -622,7 +622,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                             }
                         }
                     } else if (SDL_strcasecmp(command.c_str(), "SHAKE_FRAME") == 0) {
-                        std::string cycle_name = argument;
+                        const std::string& cycle_name = argument;
                         int frame = 0;
                         float duration = 1.0f;
                         float intensity = 1.0f;
