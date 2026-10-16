@@ -375,7 +375,7 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
                 working, child, child.m_extent,
                 [&](W8OctSpatialState& candidate) {
                     return triangleIntersectsBox(candidate.bounds(), vertices,
-                                                 polygon->plane.normal.glmValue());
+                                                 polygon->plane.normal);
                 },
                 [&]() {
                     ++level_counts[working->m_depth];
@@ -1278,12 +1278,11 @@ void OctBuildPreTree::ValidatePolygonRegions()
             continue;
         }
 
-        const float position[] = {polygon.position.x, polygon.position.y, polygon.position.z};
         const auto& minimum = spatial.m_bounds.minimum;
         int cell[3];
         short count[3];
         for (int axis = 0; axis < 3; ++axis) {
-            const float relative = position[axis] - minimum[axis];
+            const float relative = polygon.position[axis] - minimum[axis];
             cell[axis] = static_cast<int>(relative / spatial.m_region_grid_cell);
             count[axis] = 1;
             if (g_region_boundary_tolerance < cell[axis] * spatial.m_region_grid_cell - relative) {

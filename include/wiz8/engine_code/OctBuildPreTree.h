@@ -11,7 +11,6 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/mesh_links.h"
@@ -35,7 +34,7 @@ struct W8OctRegionPolygon {
     /* 1-based ordinal into the geometry polygon array. */
     w8_ulong ordinal;
     W8Plane plane; /* unit normal plus signed distance */
-    srVector3T<float> position;
+    glm::vec3 position{0};
     /* Canonical material-group index assigned by the material sort. */
     w8_ulong material;
     /* The per-polygon texture/material index CreateSubMeshes copies into

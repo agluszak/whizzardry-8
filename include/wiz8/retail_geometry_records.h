@@ -16,6 +16,15 @@ struct W8OctRegionVolume;
 namespace wiz8::retail {
 
 #pragma pack(push, 1)
+// These records contain values only. Live GLM vectors never enter raw transfers.
+struct Vec3f {
+    float x, y, z;
+};
+struct Plane {
+    Vec3f normal;
+    float w;
+};
+
 /* The on-disk W8GDSurface; field meanings are documented there. */
 struct GDSurface {
     unsigned int flags;
@@ -23,7 +32,7 @@ struct GDSurface {
     int trigger_index;
     int edge_link[3];
     int vertex_indices[3];
-    W8Plane plane;
+    Plane plane;
     float distance;
     std::uint32_t hit_plane;
     unsigned char footstep_surface;
@@ -34,10 +43,6 @@ struct GDSurface {
     float slope;
 };
 
-// These records contain values only. Live GLM vectors never enter raw transfers.
-struct Vec3f {
-    float x, y, z;
-};
 struct Environ {
     std::int32_t value_00;
     std::uint8_t ground_latch, airborne, pad_06[2];
@@ -52,13 +57,11 @@ struct RegionVolume {
     std::uint8_t positional[6];
     std::uint32_t m_region_bit, value_10, m_polygon_count, value_18;
     Vec3f m_points[9];
-    struct Plane {
-        Vec3f normal;
-        float w;
-    } m_planes[6];
+    Plane m_planes[6];
 };
 #pragma pack(pop)
 static_assert(sizeof(Vec3f) == 12 && alignof(Vec3f) == 1);
+static_assert(sizeof(Plane) == 16 && alignof(Plane) == 1);
 static_assert(sizeof(Environ) == 0x44);
 static_assert(sizeof(RegionVolume) == 0xe8);
 static_assert(sizeof(GDSurface) == 0x4c);
@@ -79,7 +82,10 @@ template<> struct Record<W8GDSurface> {
         value(&runtime.edge_link, field(offsetof(Disk, edge_link), sizeof(Disk::edge_link)));
         value(&runtime.vertex_indices,
               field(offsetof(Disk, vertex_indices), sizeof(Disk::vertex_indices)));
-        value(&runtime.plane, field(offsetof(Disk, plane), sizeof(Disk::plane)));
+        value(&runtime.plane.normal.x, field(offsetof(Disk, plane) + 0, 4));
+        value(&runtime.plane.normal.y, field(offsetof(Disk, plane) + 4, 4));
+        value(&runtime.plane.normal.z, field(offsetof(Disk, plane) + 8, 4));
+        value(&runtime.plane.w, field(offsetof(Disk, plane) + 12, 4));
         value(&runtime.distance, field(offsetof(Disk, distance), sizeof(Disk::distance)));
         pointer_slot(runtime.hit_plane, field(offsetof(Disk, hit_plane), sizeof(Disk::hit_plane)));
         value(&runtime.footstep_surface,
