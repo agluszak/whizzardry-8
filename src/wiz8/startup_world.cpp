@@ -39,13 +39,12 @@ unsigned char InitializeStartupNavigation(void)
     return 1;
 }
 /* Tears down the startup navigation state InitializeStartupNavigation
-   built: the ani-mesh cache, render quality, environment globals, and the
+   built: the ani-mesh cache, environment globals, and the
    startup navigator itself. */
 // FUNCTION: WIZ8 0x0044F190
 void ShutdownStartupNavigation(void)
 {
     FreeAniMeshCache();
-    DestroyRenderQuality();
     ClearEnvironmentObjects();
     if (g_startup_world != 0) {
         delete g_startup_world;
