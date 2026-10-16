@@ -88,9 +88,6 @@ ShakeSystem& CameraShakes();
 extern const float g_float_two_hundred_fifty;
 void UpdateShakeEffects();
 
-/* 0x004A5F20 allocates 0x3c for each of these and copies them field by field:
-   a leading dword, the byte after it, an owned stParticle rebuilt through
-   0x00498180, a vector at +0x0c, and the 0x24-byte tail wholesale. */
 class W8GrCycleParticleAttachment {
 public:
     void SelectCycle(signed char selected_cycle);
@@ -161,7 +158,7 @@ public:
     std::deque<ShakeDefinition> shake_events;
     /* 0x1b5: the subcycle the last update pass left on the representation. */
     unsigned char last_subcycle;
-    std::vector<W8GrCycleParticleAttachment*>* m_plsParticles; /* 0x1b8 */
+    std::vector<W8GrCycleParticleAttachment> particles;
     /* 0x1bc: set when the frame walk wrapped to first_frame; suppresses the
        per-subcycle light reset. */
     bool wrapped;
@@ -173,7 +170,7 @@ public:
     /* The axis 0x004A7E50 aims a mode-three particle along. */
     glm::vec3 m_axis;
     float scale;
-    stGroundShadow* m_ground_shadow; /* 0x1d0: typed runtime class stGroundShadow */
+    std::unique_ptr<stGroundShadow> m_ground_shadow;
     /* Fractional frame progress after TickAnimation consumes whole frames.
        Monster interpolation and light definition time use the same fraction. */
     float frame_fraction;
