@@ -1,7 +1,6 @@
 #include "wiz8/engine_code/stTextureAnim.h"
 
 #include <algorithm>
-#include <cstdlib>
 #include <memory>
 #include <utility>
 
