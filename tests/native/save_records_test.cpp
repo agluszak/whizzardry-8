@@ -9,6 +9,7 @@
 #include "layouts/encounter_tables.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_tables.h"
+#include "layouts/levels.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "retail_records.h"
