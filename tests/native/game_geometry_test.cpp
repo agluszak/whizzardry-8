@@ -48,10 +48,8 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srModeler.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "surrender/srShader.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srVertexPipe.h"
@@ -92,6 +90,7 @@
 #include "wiz8/engine_code/mesh_links.h"
 #include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/engine_code/particle_modes.h"
+#include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -401,157 +400,6 @@ static void baked_lighting()
     instance.setModel(nullptr);
 }
 
-static void procedural_meshes()
-{
-    srModeler::Vertex a, b, midpoint;
-    a.position = {0, 2, 4};
-    b.position = {2, 4, 8};
-    a.dcg[2] = {0.2f, 0.4f, 0.6f};
-    b.dcg[2] = {0.4f, 0.8f, 1};
-    a.dig[2] = {1, 2, 3};
-    b.dig[2] = {3, 4, 5};
-    a.scg[2] = {2, 4, 6};
-    b.scg[2] = {4, 6, 8};
-    a.weights[2] = 0;
-    b.weights[2] = 1;
-    a.uv[5] = {2, 4};
-    b.uv[5] = {6, 8};
-    midpoint.interpolate(a, b, 0.5f);
-    REQUIRE((close(midpoint.position, {1, 3, 6})));
-    REQUIRE((close(midpoint.dcg[2], {0.3f, 0.6f, 0.8f})));
-    REQUIRE((close(midpoint.dig[2], {2, 3, 4})));
-    REQUIRE((close(midpoint.scg[2], {3, 5, 7})));
-    REQUIRE((midpoint.weights[2] == 0.5f && midpoint.uv[5] == glm::vec2(4, 6)));
-
-    srModeler modeler;
-    srModeler::Triangle triangle;
-    modeler.createGrid(2, 3);
-    REQUIRE((modeler.getTriangleCount() == 12));
-    REQUIRE((std::abs(modeler.getMaxVertexDist() - std::sqrt(0.5)) < 1e-5));
-    modeler.planarMap(0, 0, {});
-    for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        triangle = *modeler.getTriangle(i);
-        for (const auto& vertex : triangle.vertices)
-            REQUIRE((glm::length(vertex.uv[0] - glm::vec2(vertex.position.x + 0.5f,
-                                                          0.5f - vertex.position.y)) < 1e-5f));
-        const auto normal =
-            glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
-                       triangle.vertices[2].position - triangle.vertices[0].position);
-        REQUIRE((normal.z < 0));
-    }
-    modeler.autoSmooth(0.3, 1);
-    srModeler::Triangle first, second;
-    first = *modeler.getTriangle(0);
-    second = *modeler.getTriangle(1);
-    REQUIRE(((first.flags & second.flags) != 0));
-    second.shaders[0].value ^= 1;
-    modeler.setTriangle(1, second);
-    modeler.autoSmooth(0.3, 0);
-    first = *modeler.getTriangle(0);
-    second = *modeler.getTriangle(1);
-    REQUIRE(((first.flags & second.flags) == 0));
-    modeler.addFromModeler(modeler);
-    REQUIRE((modeler.getTriangleCount() == 24));
-    modeler.scale({2, 3, 1});
-    modeler.move({10, 20, 30});
-    REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{9.f, 11.f}));
-
-    REQUIRE_FALSE(modeler.getTriangle(modeler.getTriangleCount()).has_value());
-
-    modeler.createSphere(8);
-    REQUIRE((modeler.getTriangleCount() == 128));
-    for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        triangle = *modeler.getTriangle(i);
-        for (const auto& vertex : triangle.vertices)
-            REQUIRE((std::abs(glm::length(vertex.position) - 0.5f) < 1e-5f));
-        const auto normal =
-            glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
-                       triangle.vertices[2].position - triangle.vertices[0].position);
-        REQUIRE((glm::dot(normal, triangle.vertices[0].position) >= -1e-7f));
-    }
-    srMeshModel sphere(0, 0);
-    modeler.convert(sphere, 1);
-    REQUIRE((sphere.vertex_location_count == 58 && sphere.polygon_count == 112));
-    modeler.createTorus(8, 6, 0.4);
-    REQUIRE((modeler.getTriangleCount() == 96));
-    for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        triangle = *modeler.getTriangle(i);
-        for (const auto& vertex : triangle.vertices) {
-            const float ring = glm::length(glm::vec2(vertex.position)) - 0.5f;
-            REQUIRE(
-                (std::abs(ring * ring + vertex.position.z * vertex.position.z - 0.04f) < 1e-5f));
-        }
-    }
-    srMeshModel torus(0, 0);
-    modeler.convert(torus, 1);
-    REQUIRE((torus.vertex_location_count == 48 && torus.polygon_count == 96));
-    modeler.discard();
-    triangle = srModeler::Triangle{};
-    triangle.vertices[0].position = {0, 0, 0};
-    triangle.vertices[1].position = {2, 0, 0};
-    triangle.vertices[2].position = {0, 2, 0};
-    triangle.vertices[1].dcg[0] = {0.2f, 0.4f, 0.6f};
-    triangle.vertices[1].dig[0] = {2, 3, 4};
-    triangle.vertices[1].scg[0] = {0.5f, 0.6f, 0.7f};
-    triangle.vertices[1].weights[0] = 0.25f;
-    triangle.vertices[1].uv[0] = {1, 0};
-    modeler.addTriangle(triangle);
-    modeler.tesselateEdges(1.1);
-    double area = 0;
-    for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        triangle = *modeler.getTriangle(i);
-        for (int edge = 0; edge < 3; ++edge)
-            REQUIRE((glm::distance(triangle.vertices[edge].position,
-                                   triangle.vertices[(edge + 1) % 3].position) <= 1.10001f));
-        area +=
-            glm::length(glm::cross(triangle.vertices[1].position - triangle.vertices[0].position,
-                                   triangle.vertices[2].position - triangle.vertices[0].position)) *
-            0.5;
-    }
-    REQUIRE((std::abs(area - 2) < 1e-5));
-    srMeshModel mesh(0, 0);
-    modeler.convert(mesh, 1);
-    REQUIRE((static_cast<w8_ulong>(mesh.polygon_count) == modeler.getTriangleCount()));
-    const auto index = mesh.findClosestVertex({2, 0, 0});
-    REQUIRE((mesh.getVertexLoc()[index] == glm::vec3(2, 0, 0)));
-    REQUIRE((mesh.getVertexDCG(0, 0)[index] == glm::vec4(0.2f, 0.4f, 0.6f, 0.25f)));
-    REQUIRE((mesh.getVertexDIG(0, 0)[index] == glm::vec3(2, 3, 4)));
-    REQUIRE((mesh.getVertexSCG(0, 0)[index] == glm::vec4(0.5f, 0.6f, 0.7f, 1)));
-    REQUIRE((mesh.getVertexTexCoords(0, 0, 0)[index] == glm::vec2(1, 0)));
-
-    modeler.discard();
-    modeler.autoSmooth(0.3, 1); // Empty models have no adjacency graph.
-    modeler.addTriangle(srModeler::Triangle{});
-    modeler.convert(mesh, 0);
-    REQUIRE((mesh.vertex_location_count == 1 && mesh.polygon_count == 1));
-    REQUIRE((mesh.getMaxRadius() == 0));
-
-    // Concave polygons triangulate in either winding and on every coordinate plane.
-    const std::array<glm::vec2, 5> outline{{{0, 0}, {2, 0}, {2, 2}, {1, 1}, {0, 2}}};
-    for (int omitted = 0; omitted < 3; ++omitted)
-        for (bool reversed : {false, true}) {
-            srModeler::Polygon polygon(5);
-            const int u = omitted == 0 ? 1 : 0, v = omitted == 2 ? 1 : 2;
-            for (int i = 0; i < 5; ++i) {
-                const auto point = outline[reversed ? 4 - i : i];
-                polygon.vertices[i].position[u] = point.x;
-                polygon.vertices[i].position[v] = point.y;
-            }
-            modeler.discard();
-            modeler.addPolygon(polygon);
-            REQUIRE((modeler.getTriangleCount() == 3));
-            area = 0;
-            for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-                triangle = *modeler.getTriangle(i);
-                area += glm::length(glm::cross(
-                            triangle.vertices[1].position - triangle.vertices[0].position,
-                            triangle.vertices[2].position - triangle.vertices[0].position)) *
-                        0.5;
-            }
-            REQUIRE((std::abs(area - 3) < 1e-5));
-        }
-}
-
 static void renderer_bounds()
 {
     srGERD renderer(srCreateSDLGPUDevice());
@@ -659,9 +507,66 @@ static void triangle_visibility()
     REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Procedural meshes", "[geometry]")
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Sprite and cursor meshes preserve face winding and UV seams", "[geometry]")
 {
-    procedural_meshes();
+    // This factory must work without the former modeller initialization protocol.
+    std::unique_ptr<srModelInstance> sprite(
+        MakePolygonBrush(nullptr, nullptr, 2, 4, 0.125f, 0.25f, 0.5f, 0.625f, false));
+    auto* quad = dynamic_cast<srMeshModel*>(sprite->getModel());
+    REQUIRE(quad != nullptr);
+    REQUIRE(quad->getPolygonCount() == 2);
+    REQUIRE(quad->getVertexCount() == 4);
+    for (const auto& face : quad->poly_vertices) {
+        const auto a = quad->vertex_locations[face.x];
+        const auto b = quad->vertex_locations[face.y];
+        const auto c = quad->vertex_locations[face.z];
+        REQUIRE(glm::cross(b - a, c - a).z < 0);
+    }
+    for (int i = 0; i < 4; ++i) {
+        const auto position = quad->vertex_locations[i];
+        const glm::vec2 expected((position.x / 2 + 0.5f) * 0.5f + 0.125f,
+                                 (0.5f - position.y / 4) * 0.625f + 0.25f);
+        REQUIRE(quad->texcoords[0][0][i] == expected);
+    }
+    std::unique_ptr<srModelInstance> empty(
+        MakePolygonBrush(nullptr, nullptr, 0, 4, 0, 0, 1, 1, false));
+    auto* empty_quad = dynamic_cast<srMeshModel*>(empty->getModel());
+    REQUIRE(empty_quad != nullptr);
+    REQUIRE(empty_quad->getPolygonCount() == 0);
+    REQUIRE(empty_quad->getVertexCount() == 0);
+    std::unique_ptr<W8WorldCursorNode, decltype(&DestroyWorldCursorCube)> cursor(
+        CreateWorldCursorCube(), DestroyWorldCursorCube);
+    auto* instance = dynamic_cast<stModelInstance*>(cursor->node);
+    REQUIRE(instance != nullptr);
+    auto* cube = dynamic_cast<srMeshModel*>(instance->getModel());
+    REQUIRE(cube != nullptr);
+    REQUIRE(cube->getPolygonCount() == 12);
+    REQUIRE(cube->getVertexCount() == 24);
+    REQUIRE(cube->getMaterial(0, srMeshModel::SIDE_FRONT) != nullptr);
+    REQUIRE(cube->getMaterial(0, srMeshModel::SIDE_BACK) == nullptr);
+    REQUIRE(cube->getTexture(0, 0) != nullptr);
+    const glm::vec3 center(0, 250, 0);
+    for (const auto& face : cube->poly_vertices) {
+        const auto a = cube->vertex_locations[face.x];
+        const auto b = cube->vertex_locations[face.y];
+        const auto c = cube->vertex_locations[face.z];
+        REQUIRE(glm::dot(glm::cross(b - a, c - a), a - center) > 0);
+    }
+    for (int face = 0; face < 6; ++face) {
+        const auto first = face * 4;
+        REQUIRE(cube->texcoords[0][0][first] == glm::vec2(1, 1));
+        REQUIRE(cube->texcoords[0][0][first + 1] == glm::vec2(0, 1));
+        REQUIRE(cube->texcoords[0][0][first + 2] == glm::vec2(0, 0));
+        REQUIRE(cube->texcoords[0][0][first + 3] == glm::vec2(1, 0));
+    }
+    const auto* normals = cube->getVertexNormal();
+    for (int i = 0; i < 24; ++i)
+        for (int j = 0; j < i; ++j)
+            if (cube->vertex_locations[i] == cube->vertex_locations[j]) {
+                REQUIRE(cube->vertex_shade_indices[i] == cube->vertex_shade_indices[j]);
+                REQUIRE(normals[i] == normals[j]);
+            }
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Renderer bounds", "[geometry]")
