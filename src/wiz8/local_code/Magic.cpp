@@ -1761,9 +1761,8 @@ static unsigned int worstCondition(const w8_unaligned_uint* conditions,
     return worst;
 }
 
-/* Pick automatic power from the target of this cast. The remembered spell
-   target may belong to an earlier cast (or be empty when casting from camp).
-   Zero from a sub-decision means no reason to cast harder, so use power one. */
+/* Pick automatic power from this cast's target. Zero means that no viable
+   power was found; the caller must not turn that into a minimum-power cast. */
 // FUNCTION: WIZ8 0x004fe480
 static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spell_id,
                                                    const W8CombatSlot& target, int identify_context)
@@ -1845,10 +1844,7 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
         return 1;
     }
 
-    if (power_level != 0) {
-        return power_level;
-    }
-    return 1;
+    return power_level;
 }
 
 /* Message-table byte offsets: the "at %s" wrapper every named target goes
@@ -2538,9 +2534,10 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
         recast = false;
         clamp_power = false;
         break;
+    case W8_SPELL_POWER_CLASS_NONE:
+        return 0;
     default:
-        clamp_power = continue_cast;
-        break;
+        srAssertFail("Unsupported spell power class", MAGIC_CPP, __LINE__, nullptr);
     }
     if (clamp_power) {
         sp_needed = sp_cost * power_level;
@@ -2671,10 +2668,19 @@ finish_difficulty_adjustment:
         }
         QueueCharacterEvent(character, index, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
     }
-    result = CastSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
-                                 recast, &cast_result, 0, 0, 0);
+    // Immediate effects can recursively cast again. Pay for this attempt
+    // before they see the available mana, and refund a cancelled attempt.
+    const int mana_cost = power_level * sp_cost;
+    SpendCharacterSpellPoints(party_slot, realm, mana_cost);
+    try {
+        result = CastSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
+                                     recast, &cast_result, 0, 0, 0);
+    } catch (...) {
+        RestoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
+        throw;
+    }
+    if (cast_result == 0) RestoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
     if (cast_result != 0) {
-        SpendCharacterSpellPoints(party_slot, realm, cast_result * sp_cost);
         if (affected) {
             index = record->spell_level + cast_result;
             if (index < 2) {

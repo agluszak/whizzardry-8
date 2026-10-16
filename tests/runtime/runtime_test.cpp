@@ -1107,49 +1107,8 @@ void InventoryChestScenario()
     game.key(SDLK_ESCAPE);
     REQUIRE(game.within_frames(4, [] { return g_camp_screen->dialog == nullptr; }));
 
-    // Identify from the inventory action strip must cast on the clicked item,
-    // spend mana and show its information, rather than book an empty target.
-    auto& caster = g_status.buffers.Char[PremadeSlot()];
-    caster.iProfession = W8_PROFESSION_BISHOP;
-    caster.skills[W8_SKILL_SPELLBOOK_WIZARDRY].level = 100;
-    caster.skills[W8_SKILL_MENTAL_MAGIC].level = 100;
-    LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
-    const auto realm = g_spell_records[W8_SPELL_IDENTIFY_ITEM].realm;
-    caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
-    auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
-    REQUIRE(sword.iItemNo >= 0);
-    sword.identified = false;
-    RefreshCampItemActions(true);
-    game.frame();
-    game.click_at(240, 466); // Identify spell, not the artifacts-skill button.
-    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
-    game.click_at(175, 360);
-    REQUIRE(sword.identified);
-    REQUIRE(caster.iSPLeft[realm] < 100);
-    REQUIRE(game.within_frames(
-        4, [] { return dynamic_cast<W8AssayDialog*>(g_camp_screen->dialog.get()) != nullptr; }));
-    game.key(SDLK_ESCAPE);
-    REQUIRE(game.within_frames(4, [] { return g_camp_screen->dialog == nullptr; }));
-
-    // The next automatic cast targets a character, not the remembered item.
-    // This low-level caster cannot deliver useful duration at every power:
-    // pricing a certain failure must not divide by zero or wrap its cost.
-    LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
-    caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
-    const auto curse_realm = g_spell_records[W8_SPELL_REMOVE_CURSE].realm;
-    caster.sp_max[curse_realm] = caster.iSPLeft[curse_realm] = 100;
-    caster.uiCondition[W8_CONDITION_HEXED] = 20;
-    RefreshCampItemActions(true);
-    game.frame();
-    game.click_at(286, 466);
-    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
     const auto slot = PremadeSlot();
-    game.click_at((slot & 1) * 48 + 28, (slot / 2) * 39 + 23);
-    REQUIRE(caster.iSPLeft[curse_realm] < 100);
-    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE);
-    REQUIRE(g_status.buffers.XChar[slot].spell_target.iType == W8_TARGET_KIND_CHARACTER);
-    REQUIRE(g_status.buffers.XChar[slot].spell_target.iChar == slot);
-    caster.uiCondition[W8_CONDITION_HEXED] = 0;
+    auto& caster = g_status.buffers.Char[slot];
 
     // Use a real healing consumable through inventory. It must reach gameplay,
     // heal the user and consume exactly one unit from the carried stack.
@@ -1198,6 +1157,67 @@ void InventoryChestScenario()
         },
         20);
     game.hold_key(SDLK_LEFT, false);
+}
+
+void CampSpellsScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    game.command(W8_MGS_COMMAND_INVENTORY);
+    game.wait_screen("camp-spells", W8_SCREEN_CAMP);
+    // Identify from the inventory action strip must cast on the clicked item,
+    // spend mana and show its information, rather than book an empty target.
+    auto& caster = g_status.buffers.Char[PremadeSlot()];
+    caster.iProfession = W8_PROFESSION_BISHOP;
+    caster.uiExpLevel = 4;
+    caster.profession_levels[W8_PROFESSION_BISHOP] = 4;
+    for (const auto skill : {W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_MENTAL_MAGIC})
+        caster.skills[skill].base_level = caster.skills[skill].level = 100;
+    LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
+    const auto realm = g_spell_records[W8_SPELL_IDENTIFY_ITEM].realm;
+    caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
+    auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
+    REQUIRE(sword.iItemNo >= 0);
+    sword.identified = false;
+    RefreshCampItemActions(true);
+    game.frame();
+    game.click_at(240, 466); // Identify spell, not the artifacts-skill button.
+    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
+    game.click_at(175, 360);
+    CAPTURE(caster.profession_levels[W8_PROFESSION_BISHOP],
+            caster.skills[W8_SKILL_SPELLBOOK_WIZARDRY].level,
+            caster.skills[W8_SKILL_MENTAL_MAGIC].level,
+            GetSpellCastRating(&caster, W8_SPELL_IDENTIFY_ITEM, 2), caster.iSPLeft[realm]);
+    REQUIRE(sword.identified);
+    REQUIRE(caster.iSPLeft[realm] < 100);
+    REQUIRE(game.within_frames(
+        4, [] { return dynamic_cast<W8AssayDialog*>(g_camp_screen->dialog.get()) != nullptr; }));
+    game.key(SDLK_ESCAPE);
+    REQUIRE(game.within_frames(4, [] { return g_camp_screen->dialog == nullptr; }));
+
+    // The next automatic cast targets a character, not the remembered item.
+    // This low-level caster cannot deliver useful duration at every power:
+    // pricing a certain failure must not divide by zero or wrap its cost.
+    LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
+    caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
+        caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
+    const auto curse_realm = g_spell_records[W8_SPELL_REMOVE_CURSE].realm;
+    caster.sp_max[curse_realm] = caster.iSPLeft[curse_realm] = 100;
+    caster.uiCondition[W8_CONDITION_HEXED] = 20;
+    RefreshCampItemActions(true);
+    game.frame();
+    // Fix the roll sequence so successful but insufficient attempts repeat.
+    std::srand(1);
+    game.click_at(286, 466);
+    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
+    const auto slot = PremadeSlot();
+    game.click_at((slot & 1) * 48 + 28, (slot / 2) * 39 + 23);
+    REQUIRE(caster.iSPLeft[curse_realm] < 100);
+    REQUIRE(caster.iSPLeft[curse_realm] >= 0);
+    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE);
+    REQUIRE(g_status.buffers.XChar[slot].spell_target.iType == W8_TARGET_KIND_CHARACTER);
+    REQUIRE(g_status.buffers.XChar[slot].spell_target.iChar == slot);
+    caster.uiCondition[W8_CONDITION_HEXED] = 0;
 }
 
 void CheckWorldRender(Game& game)
@@ -2206,6 +2226,11 @@ TEST_CASE("combat", "[runtime]")
 TEST_CASE("inventory-chest", "[runtime]")
 {
     RunScenario([&] { InventoryChestScenario(); });
+}
+
+TEST_CASE("camp-spells", "[runtime]")
+{
+    RunScenario(CampSpellsScenario);
 }
 
 TEST_CASE("npc-dialogue", "[runtime]")
