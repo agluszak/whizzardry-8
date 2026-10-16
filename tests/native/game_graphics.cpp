@@ -81,8 +81,7 @@ TEST_CASE("game graphics")
     REQUIRE(InitializeRendererSceneObjects());
     auto targa = srImage::load("data\\automap\\map_monsterfriendly_a.tga");
     REQUIRE((targa && targa->w > 0 && targa->h > 0));
-    REQUIRE(!srTriMeshPipeline::Get(nullptr));
-    auto pipeline = srTriMeshPipeline::Get(g_gerd.get());
+    auto pipeline = &g_gerd->meshPipeline();
     REQUIRE(pipeline);
     pipeline->Flush();
     const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");

@@ -1424,7 +1424,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     srGERD renderer(srCreateSDLGPUDevice());
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
     stMeshModel model(1, 3);
-    auto* pipeline = srTriMeshPipeline::Get(&renderer);
+    auto* pipeline = &renderer.meshPipeline();
     std::array<glm::vec3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
     std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     const std::array<glm::vec3, 1> normals{{{0, 0, 1}}};

@@ -286,6 +286,8 @@ public:
     explicit srGERD(srDD* device);
     virtual ~srGERD() override;
 
+    srTriMeshPipeline& meshPipeline();
+
     // The open native renderer, borrowed only while its window remains open.
     static srGERD* getActive();
     e_error createContext(SDL_Window* window);
@@ -801,6 +803,8 @@ private:
         std::uint32_t enable_stack[16]{};
         w8_ulong enable_depth;
     };
+
+    srTriMeshPipeline mesh_pipeline;
 
     unsigned char unknown_0c_[4];
     // Stable entries survive concurrent additions while condition-variable waits release the lock.
