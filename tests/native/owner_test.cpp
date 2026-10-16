@@ -113,7 +113,6 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
 
 void initialize_test_framebuffer()
 {
-    ResetFontRendering();
     REQUIRE(InitializePrimarySurface());
 }
 
@@ -328,22 +327,23 @@ void image_and_sprite_ownership()
     REQUIRE(surviving_surface.w == 8);
 }
 
-void font_resource_ownership()
+void font_glyph_indices()
 {
-    initialize_test_framebuffer();
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        auto translation = CreateEnglishTransTable();
-        REQUIRE(translation.size() == 252);
-        ConfigureFontRendering(translation);
-        translation[1] = '?';
-        REQUIRE(GetIndex('B') == 1);
-        translation = {};
-        REQUIRE(GetIndex('B') == 1);
-        ConfigureFontRendering(CreateEnglishTransTable());
-        REQUIRE(GetIndex('Z') == 25);
-        ResetFontRendering();
-        ResetFontRendering();
-    }
+    REQUIRE(GetIndex(U'A') == 0);
+    REQUIRE(GetIndex(U'Z') == 25);
+    REQUIRE(GetIndex(U'a') == 26);
+    REQUIRE(GetIndex(U'9') == 61);
+    REQUIRE(GetIndex(U'?') == 90);
+    REQUIRE(GetIndex(U' ') == 92);
+    REQUIRE(GetIndex(U'Á') == 93); // The first of two matching accented entries.
+    REQUIRE(GetIndex(U'é') == 127);
+    REQUIRE(GetIndex(FONT_GLYPH_TARGET_POINT) == 149);
+    REQUIRE(GetIndex(FONT_GLYPH_TARGET_NONE) == 153);
+    REQUIRE(GetIndex(U'\0') == 154);
+    REQUIRE(GetIndex(U'¿') == 250);
+    REQUIRE(GetIndex(U'¡') == 251);
+    REQUIRE(GetIndex(U'中') == GetIndex(U'?'));
+    REQUIRE(GetIndex(U'😀') == GetIndex(U'?'));
 }
 
 void text_input_ownership()
@@ -834,7 +834,6 @@ void generic_button_images()
     images.clear();
 
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        ConfigureFontRendering(CreateEnglishTransTable());
         Font primary;
         REQUIRE(primary.load(filename));
         auto& font = primary.glyphs;
@@ -854,7 +853,6 @@ void generic_button_images()
         REQUIRE(secondary.createShades(FONT_GLOW_RED));
         REQUIRE(secondary.shades[0] != primary.shades[0]);
         primary.clear();
-        ResetFontRendering();
     }
     // Font lifetime is independent of rendering setup and has no slot limit.
     std::vector<Font> many_fonts;
@@ -862,7 +860,6 @@ void generic_button_images()
         many_fonts.emplace_back();
         REQUIRE(many_fonts.back().load(filename));
     }
-    ResetFontRendering();
     REQUIRE(many_fonts.back().height() > 0);
     many_fonts.clear();
     // Failed loads retain resources; moves preserve their ownership.
@@ -887,10 +884,10 @@ void generic_button_images()
         REQUIRE(source.height() == height);
         REQUIRE(moved.height() == 0); // NOLINT(bugprone-use-after-move)
     }
-    ConfigureFontRendering(
-        std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
+    button_image_fixture(assets, "font-all-glyphs.sti", 252, false, 2, 2, {1, 2, 3, 4, 5});
+    const char* font_filename = "font-all-glyphs.sti";
     Font primary;
-    REQUIRE(primary.load(filename));
+    REQUIRE(primary.load(font_filename));
     REQUIRE(primary.textWidth("é") > 0);
     REQUIRE(primary.codepointPrefixWidth("é中", 1) == primary.textWidth("é"));
     REQUIRE(primary.codepointPrefixWidth("é中", 2) == primary.textWidth("é中"));
@@ -963,7 +960,6 @@ void generic_button_images()
     REQUIRE(std::find(mono_pixels.begin(), mono_pixels.end(), 0xf81f) != mono_pixels.end());
 
     initialize_test_framebuffer();
-    ConfigureFontRendering(CreateEnglishTransTable());
     TakeUiUpload();
     const SDL_Point invalidation_at{16, 16};
     const int invalidated_width = primary.textWidth("A");
@@ -981,7 +977,7 @@ void generic_button_images()
     // Explicit-buffer rendering must use its font argument, even when the
     // current surface font has a different palette.
     Font secondary;
-    REQUIRE(secondary.load(filename));
+    REQUIRE(secondary.load(font_filename));
     Palette16 alternate;
     alternate.fill(0x1234);
     secondary.setPalette(alternate);
@@ -1011,7 +1007,7 @@ void generic_button_images()
     words.RebuildEntries();
     REQUIRE(words.entries.empty());
     g_level_block = std::move(previous_level);
-    REQUIRE(g_font12point1.load(filename));
+    REQUIRE(g_font12point1.load(font_filename));
     {
         UiLayer fields_input;
         TextFieldGroup fields(fields_input, g_font12point1);
@@ -1062,7 +1058,6 @@ void generic_button_images()
         REQUIRE(fields.HandleInput(backspace));
         REQUIRE((fields.Cursor() == 297 && fields.Text(field).size() == 297));
     }
-    ResetFontRendering();
     g_font12point1.clear();
     ShutdownButtonImageManager();
 
@@ -1473,9 +1468,9 @@ TEST_CASE("Sprite ownership", "[owner]")
     image_and_sprite_ownership();
 }
 
-TEST_CASE("Font resource ownership", "[owner]")
+TEST_CASE("Retail font glyph indices and fallback", "[font]")
 {
-    font_resource_ownership();
+    font_glyph_indices();
 }
 
 TEST_CASE("Font measurements skip glyphs outside the sprite sheet", "[font][owner]")
@@ -1491,13 +1486,11 @@ TEST_CASE("Font measurements skip glyphs outside the sprite sheet", "[font][owne
         w8_native::Roots roots;
         ~Restore()
         {
-            ResetFontRendering();
             g_image_assets.clear();
             w8_native::configure_paths(roots);
         }
     } restore{previous_roots};
 
-    ConfigureFontRendering(CreateEnglishTransTable());
     Font font;
     REQUIRE(font.load("font.sti"));
     REQUIRE(font.glyphs->frames.size() == 1);
