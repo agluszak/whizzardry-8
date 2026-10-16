@@ -217,8 +217,7 @@ public:
     void setPolygonOffset(w8_long offset);
 
 private:
-    SDL_GPUShader* createShader(const uint32_t* code, size_t size, SDL_GPUShaderStage stage,
-                                uint32_t sampler_count);
+    SDL_GPUShader* createShader(SDL_GPUShaderStage stage, uint32_t sampler_count);
 
     Texture createDeviceTexture(uint32_t texture_width, uint32_t texture_height, uint32_t levels);
 

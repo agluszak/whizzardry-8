@@ -1,0 +1,6 @@
+
+# Offline shader source digests must match on every checkout platform.
+src/surrender/devices/sdl_gpu/*.glsl text eol=lf
+src/surrender/devices/sdl_gpu/compiled/*.msl text eol=lf
+src/surrender/devices/sdl_gpu/compiled/*.sha256 text eol=lf
+src/surrender/devices/sdl_gpu/compiled/*.dxil binary

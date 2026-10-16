@@ -1764,7 +1764,7 @@ static void SeedNpcTheftRoll(W8Character* character, W8NpcState* npc)
             seed += g_status.buffers.Char[index].experience;
         }
     }
-    srand(seed);
+    SeedRandom(seed);
     for (; spins != 0; --spins) {
         Random(100);
     }

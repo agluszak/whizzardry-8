@@ -123,7 +123,6 @@ bool g_cursor_scene_enabled = true;
 // GLOBAL: WIZ8 0x603c6d
 bool g_overlay_scenes_enabled = true;
 // GLOBAL: WIZ8 0x603c68
-int g_frame_reset_interval = 50;
 // GLOBAL: WIZ8 0x603c39
 unsigned char g_fullscreen = 1;
 // GLOBAL: WIZ8 0x603c3a
@@ -133,7 +132,6 @@ int g_screen_width = 640;
 // GLOBAL: WIZ8 0x603c40
 int g_screen_height = 480;
 // GLOBAL: WIZ8 0x603c48
-int g_pixel_format = 9;
 // GLOBAL: WIZ8 0x65962c
 srModelInstance* g_current_model_instance;
 // GLOBAL: WIZ8 0x6596fc
@@ -164,7 +162,6 @@ static std::shared_ptr<SDL_Surface> primarySurface;
 SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
 // GLOBAL: WIZ8 0x600088
-unsigned int g_color_key = 0x3def;
 VideoOverlayScenes g_overlay_scenes;
 // GLOBAL: WIZ8 0x659660
 std::shared_ptr<SDL_Surface> g_primary_color_surface;
@@ -202,7 +199,6 @@ int g_overlay_render_mode;
 // GLOBAL: WIZ8 0x006596f0
 int g_paired_render_mode;
 // GLOBAL: WIZ8 0x65409c
-uint64_t g_last_capture_tick;
 // GLOBAL: WIZ8 0x659704
 float g_frames_per_second;
 // GLOBAL: WIZ8 0x659708
@@ -268,7 +264,6 @@ bool InitializeVideoManager(void)
     SetPickedModelInstance(0);
     g_fps_frame_count = 0;
     g_fps_window_tick = w8_get_ticks();
-    Initialize16BitPixelFormatMasks();
     if (!CreateWizardryWindow()) {
         return 0;
     }
@@ -357,23 +352,6 @@ void ShutdownVideoScenes(void)
    The startup configuration uses ARGB1555; the high bit is an opaque-pixel
    marker, while zero is the software blitters' transparent pixel. */
 // FUNCTION: WIZ8 0x004265c0
-void Initialize16BitPixelFormatMasks(void)
-{
-    switch (g_pixel_format) {
-    case 7:
-        g_sgp_pixel_format = SDL_PIXELFORMAT_RGB565;
-        g_color_key = 0x7bef;
-        break;
-    case 8:
-        g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
-        g_color_key = 0x3def;
-        break;
-    case 9:
-        g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
-        g_color_key = 0x3def;
-        break;
-    }
-}
 
 /* Registers and creates the real top-level Wizardry window.  The odd use of
    the horizontal screen metric for both axes is present in the retail body and
@@ -395,9 +373,8 @@ void ReleasePrimarySurface(void)
 
 unsigned char InitializePrimarySurface(void)
 {
-    if (g_sgp_pixel_format == SDL_PIXELFORMAT_UNKNOWN) return 0;
     primarySurface = std::shared_ptr<SDL_Surface>(
-        CreateCpuStorage(640, 480, g_sgp_pixel_format).release(), SDL_DestroySurface);
+        CreateCpuStorage(640, 480, kFramePixelFormat).release(), SDL_DestroySurface);
     if (!primarySurface) return 0;
     SDL_SetSurfaceBlendMode(primarySurface.get(), SDL_BLENDMODE_NONE);
     return 1;
@@ -829,13 +806,6 @@ void RenderFrame(void)
         SaveJpegScreenshot();
         g_screenshot_pending = false;
     }
-    if (g_auto_capture) {
-        now = w8_get_ticks();
-        if (now < g_last_capture_tick || g_last_capture_tick + g_frame_reset_interval < now) {
-            g_screenshot_pending = true;
-            g_last_capture_tick = now;
-        }
-    }
 
     next_page = g_active_page ^ 1;
     g_active_page = next_page;
@@ -883,18 +853,12 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
         GetWorldLightValue(g_world, &clear_color);
     }
     gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
-    if (g_inverted_depth_render) {
-        gerd->setClearDepth(0.0);
-    }
     gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
     if (render_secondary && g_render_mesh_sky && g_secondary_world != 0) {
         g_secondary_world->static_scene->render(*gerd, g_secondary_world->camera);
     }
     g_world->static_scene->render(*gerd, g_world->camera);
     gerd->endFrame();
-    if (g_inverted_depth_render) {
-        gerd->setClearDepth(1.0);
-    }
     gerd->flushRenderers();
     gerd->setTextureReduction(0);
     if (rect != 0) {
@@ -1618,18 +1582,8 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 // FUNCTION: WIZ8 0x00424040
 unsigned char InitializeMouseSurface(void)
 {
-    if (g_pixel_format == 7) {
-        g_mouse_surface = std::shared_ptr<SDL_Surface>(
-            CreateCpuStorage(128UL, 128UL, SDL_PIXELFORMAT_RGB565).release(), SDL_DestroySurface);
-    } else if (g_pixel_format == 8) {
-        g_mouse_surface = std::shared_ptr<SDL_Surface>(
-            CreateCpuStorage(128UL, 128UL, SDL_PIXELFORMAT_XRGB1555).release(), SDL_DestroySurface);
-    } else if (g_pixel_format == 9) {
-        g_mouse_surface = std::shared_ptr<SDL_Surface>(
-            CreateCpuStorage(128UL, 128UL, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
-    } else {
-        return 0;
-    }
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(128, 128, kFramePixelFormat).release(), SDL_DestroySurface);
     ClearMouseSurface();
     return 1;
 }
@@ -1860,10 +1814,6 @@ void SetFullscreenSceneLast(unsigned char value)
 }
 
 // FUNCTION: WIZ8 0x004298F0
-bool HasEnoughFreeDiskSpace(void)
-{
-    return W8HasEnoughSaveSpace();
-}
 
 // FUNCTION: WIZ8 0x004229b0
 bool VideoIsFullScreen(void)
@@ -1881,10 +1831,6 @@ int VideoDumpMemoryLeaks(void)
    0x42B830 address sits past the proven Video2 hull, so its placement stays
    provisional. */
 // FUNCTION: WIZ8 0x0042b830
-bool CheckCdPresent(void)
-{
-    return true;
-}
 
 // FUNCTION: WIZ8 0x00427a70
 void VideoGetClientRect(SDL_Rect* rect)
@@ -1898,10 +1844,8 @@ SDL_Surface& GetFrameBufferSurface()
 }
 
 /* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */
-void VideoCaptureToggle(void) {}
 
 // GLOBAL: WIZ8 0x006596f4
-bool g_auto_capture;
 // GLOBAL: WIZ8 0x00659724
 int g_screenshot_index;
 // GLOBAL: WIZ8 0x00659728
@@ -1914,17 +1858,10 @@ void SaveJpegScreenshot(void)
     if (surface != 0) {
         char filename[32];
 
-        if (g_auto_capture) {
-            int screenshot_index = g_screenshot_index++;
-            sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
-            PauseSharedGameTimers();
-            srImage::save(filename, *surface, 35);
-            ResumeSharedGameTimers();
-        } else {
-            int screenshot_index = g_screenshot_index++;
-            sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
-            srImage::save(filename, *surface);
-        }
+        int screenshot_index = g_screenshot_index++;
+        sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
+        srImage::save(filename, *surface);
+
         g_gerd->unlockBuffer();
     }
     g_screenshot_page = (g_screenshot_page - 1) & 1;

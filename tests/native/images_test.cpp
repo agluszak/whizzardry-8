@@ -130,7 +130,7 @@ static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const B
     if (depth == 8)
         header.Indexed.uiNumberOfColours = 256;
     else {
-        const auto* native_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+        const auto* native_format = SDL_GetPixelFormatDetails(kFramePixelFormat);
         REQUIRE(native_format != nullptr);
         header.RGB.uiRedMask = native_format->Rmask;
         header.RGB.uiGreenMask = native_format->Gmask;
@@ -252,11 +252,6 @@ static std::vector<std::uint8_t> bitmap_bytes(const SDL_Surface& image)
     return bytes;
 }
 
-static void rgb555()
-{
-    g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
-}
-
 static void check_pcx(const SDL_Surface& image)
 {
     REQUIRE((image.w == 3 && image.h == 2 && indexed(image)));
@@ -271,8 +266,8 @@ static void check_pcx(const SDL_Surface& image)
     }
     const auto palette = Create16BPPPalette(colors);
     REQUIRE(palette[0] == 0); // Exact black stays transparent.
-    REQUIRE(palette[1] == 1); // Non-black quantizing to zero is substituted.
-    REQUIRE(palette[2] == 0x7c00);
+    REQUIRE(palette[1] == 0x8001); // Non-black quantizing to zero is substituted.
+    REQUIRE(palette[2] == 0xfc00);
 }
 
 struct ImageFixture {
@@ -303,15 +298,9 @@ struct ImageFixture {
         asset_roots.configure({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)});
 
         extract_test_archive("data\\data.slf");
-        rgb555();
     }
 
-    ~ImageFixture()
-    {
-        g_image_assets.clear();
-
-        rgb555();
-    }
+    ~ImageFixture() { g_image_assets.clear(); }
 };
 
 TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[image][decoding]")
@@ -325,7 +314,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         header.usWidth = 2;
         header.usHeight = 1;
         header.ubDepth = 16;
-        const auto* native_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+        const auto* native_format = SDL_GetPixelFormatDetails(kFramePixelFormat);
         REQUIRE(native_format);
         header.RGB.uiRedMask = native_format->Rmask;
         header.RGB.uiGreenMask = native_format->Gmask;
@@ -350,7 +339,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && image->format == SDL_PIXELFORMAT_RGB565));
         const auto frame = ConvertBitmapToFrameSurface(*image);
         REQUIRE(static_cast<const std::uint8_t*>(frame->pixels)[1] ==
-                0x3e); // RGB565 red bits become RGB555.
+                0xbe); // RGB565 red bits become opaque ARGB1555.
         header.uiStoredSize = 1;
         write_rgb();
         REQUIRE(!load("native-rgb.sti"));
@@ -378,13 +367,6 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         auto complete = load("dotted.dir/default.pcx");
         REQUIRE(complete);
         check_pcx(*complete);
-        g_sgp_pixel_format = SDL_PIXELFORMAT_ABGR1555;
-        auto custom = load("dotted.dir/default.pcx");
-        REQUIRE((custom && indexed(*custom)));
-        const auto palette = Create16BPPPalette(bitmap_palette(*custom));
-        REQUIRE(palette[0] == 0);
-        REQUIRE((palette[1] == 0x8001 && palette[2] == 0x801f));
-        rgb555();
     }
 
     {
@@ -394,23 +376,14 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         palette[2] = {255, 0, 0, 0};
         palette[255] = {17, 121, 244, 0};
         const auto packed_palette = Create16BPPPalette(palette);
-        REQUIRE((packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00));
-        g_sgp_pixel_format = SDL_PIXELFORMAT_RGB565;
-        REQUIRE(Get16BPPColor(SDL_Color{255, 0, 0, 255}) == 0xf800);
-        REQUIRE(Get16BPPColor(SDL_Color{0, 255, 0, 255}) == 0x07e0);
-        REQUIRE(Get16BPPColor(SDL_Color{0, 0, 255, 255}) == 0x001f);
-        REQUIRE(Get16BPPColor(SDL_Color{1, 1, 1, 255}) == 1);
-        rgb555();
+        REQUIRE(
+            (packed_palette[0] == 0 && packed_palette[1] == 0x8001 && packed_palette[2] == 0xfc00));
         const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, false);
-        REQUIRE((shaded[0] == 0 && shaded[255] == 0x0c0f));
+        REQUIRE((shaded[0] == 0 && shaded[255] == 0x8c0f));
         const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, true);
-        REQUIRE((mono[0] == 0 && mono[255] == 0x4c06));
+        REQUIRE((mono[0] == 0 && mono[255] == 0xcc06));
         const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, false);
-        REQUIRE(clamped[255] == 0x7fff);
-        g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
-        const auto opaque = Create16BPPPalette(palette);
-        REQUIRE((opaque[0] == 0 && opaque[1] == 0x8001 && opaque[2] == 0xfc00));
-        rgb555();
+        REQUIRE(clamped[255] == 0xffff);
     }
 
     const std::uint16_t packed[]{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
@@ -442,7 +415,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((bitmap_palette(*image)[3].r == 0 &&
                  bitmap_palette(*image)[255].a == SDL_ALPHA_OPAQUE));
         const auto palette = Create16BPPPalette(bitmap_palette(*image));
-        REQUIRE((palette[0] == 0 && palette[1] == 1));
+        REQUIRE((palette[0] == 0 && palette[1] == 0x8001));
         auto offset_palette = indexed_tga();
         word(offset_palette, 3, 16);
         offset_palette[28] += 16;
@@ -539,8 +512,8 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
         header.RGB.uiGreenMask = 0x07e0;
         memcpy(bytes.data(), &header, sizeof(header));
         fixture(assets / "rgb565.sti", bytes);
-        for (std::uint16_t alpha : {std::uint16_t(0), std::uint16_t(0x8000)}) {
-            g_sgp_pixel_format = alpha ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555;
+        {
+            constexpr std::uint16_t alpha = 0x8000;
             auto image = load("rgb565.sti");
             REQUIRE(image);
             const std::array<std::uint16_t, 4> expected{0, std::uint16_t(0x7c00 | alpha),
@@ -553,7 +526,6 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
                                 expected.data() + y * 2, 2 * sizeof(std::uint16_t)));
         }
     }
-    rgb555();
 }
 
 TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership at loading",
@@ -744,12 +716,6 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
 
 TEST_CASE("SDL sprite drawing preserves opaque pixels across native formats")
 {
-    const auto previous_format = g_sgp_pixel_format;
-    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
-    struct RestoreFormat {
-        SDL_PixelFormat format;
-        ~RestoreFormat() { g_sgp_pixel_format = format; }
-    } restore{previous_format};
     SpriteFrame frame;
     frame.width = 2;
     frame.height = 1;

@@ -135,11 +135,8 @@ static char g_octree_file_search_wildcard[] = "*";
 // GLOBAL: WIZ8 0x00659890
 w8_ulong* g_octree_state;
 // GLOBAL: WIZ8 0x00659894
-static std::unique_ptr<stModelInstance> g_octree_trace_node;
 // GLOBAL: WIZ8 0x00659898
-bool g_octree_update_suspended;
 // GLOBAL: WIZ8 0x00659899
-bool g_octree_trace_enabled;
 
 /* Build a packed four-byte colour from four components and answer its
    address. The receiver is the output slot. */
@@ -152,7 +149,6 @@ W8Octree* g_octree;
 static char g_region_link_extension[] = ".rlk";
 
 // GLOBAL: WIZ8 0x006598a8
-bool g_octree_disabled;
 // GLOBAL: WIZ8 0x006598b0
 static unsigned short g_octree_region_debug_last;
 
@@ -166,22 +162,17 @@ bool g_render_unlit;
 // GLOBAL: WIZ8 0x0065a0ed
 bool g_render_cull_front;
 // GLOBAL: WIZ8 0x0065a0ee
-bool g_inverted_depth_render;
 // GLOBAL: WIZ8 0x0065a146
 bool g_render_untextured;
 
 // FUNCTION: WIZ8 0x0042bc00
-void NoOct(void)
-{
-    g_octree_disabled = true;
-}
 
 // GLOBAL: WIZ8 0x005ec02c
 static const float NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE = 50.0f;
 
 /* Noise falloff on the trace resolver's sphere-distance penalty: the farther
    the probe is along the ray, the more the candidate's effective distance is
-   discounted. Shared with CreateTraceModel. */
+   discounted. */
 // GLOBAL: WIZ8 0x005ebc78
 const float g_float_fifteen_hundredths = 0.15000000596046448f;
 /* Vertical snap ceiling for navigator placement: the source may rise or fall
@@ -226,7 +217,7 @@ void W8OctreeView::captureCamera(const srCamera& camera)
 void W8Octree::UpdateCameraVisibility()
 {
     W8World* world = GetWorld();
-    if (g_octree_update_suspended || m_visibility_suspended) {
+    if (m_visibility_suspended) {
         return;
     }
 
@@ -235,9 +226,6 @@ void W8Octree::UpdateCameraVisibility()
     std::ranges::fill(m_visited_polygon_bits, false);
     std::ranges::fill(m_projected_regions, false);
     UpdateVisibility();
-    if (g_octree_trace_enabled) {
-        UpdateWorldTrace();
-    }
 }
 
 // FUNCTION: WIZ8 0x004304a0
@@ -1368,25 +1356,6 @@ try {
    is derived on each axis by quantizing the camera position relative to the
    spatial minimum, and the box spans one cell from there. */
 // FUNCTION: WIZ8 0x00433eb0
-unsigned char W8Octree::UpdateWorldTrace()
-{
-    glm::vec3 camera;
-    glm::ivec3 cell;
-    glm::vec3 minimum;
-    glm::vec3 maximum;
-    w8_ulong color;
-
-    camera = cameraLocation();
-    cell = cellAt(camera);
-    minimum = glm::vec3(cell.x * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.x,
-                        cell.y * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y,
-                        cell.z * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.z);
-    maximum = glm::vec3(minimum.x + m_spatial.m_node_extent, minimum.y + m_spatial.m_node_extent,
-                        minimum.z + m_spatial.m_node_extent);
-    w8_ulong* packed = PackColourToLong(&color, 0.0, 1.0, 0.0, 0.0);
-    DrawWorldBox(g_world, minimum, maximum, *packed);
-    return 1;
-}
 
 // GLOBAL: WIZ8 0x005ebf60
 const double g_color_byte_scale = 255.0;
@@ -1474,37 +1443,6 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
    state, while suspending drops every mesh from view, clears the visited
    region bytes, and lazily attaches the render node to the static scene. */
 // FUNCTION: WIZ8 0x00434020
-void W8Octree::ToggleUpdateSuspension(W8World* world)
-{
-    if (world == 0) {
-        g_octree_trace_node.reset();
-        g_octree_update_suspended = false;
-        return;
-    }
-    g_octree_update_suspended = (!g_octree_update_suspended);
-    if (!g_octree_update_suspended) {
-        g_octree_trace_node->setFlag(srNode::FLAG_DISABLE);
-        g_octree_trace_node->setFlag(srNode::FLAG_TERMINATE);
-        m_reset_visibility = true;
-        MarkRendererReady();
-        return;
-    }
-    for (unsigned short mesh_index = 0; mesh_index < m_meshCount; ++mesh_index) {
-        m_pSubmeshes[static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index])->mesh_index + 1]
-            .mesh = mesh_index;
-        m_pSubmeshes[mesh_index + 1].flags &= 0xffffffc7;
-        static_cast<stModelInstance*>(world->psrMeshes[mesh_index])->setFlag(srNode::FLAG_DISABLE);
-        static_cast<stModelInstance*>(world->psrMeshes[mesh_index])
-            ->setFlag(srNode::FLAG_TERMINATE);
-    }
-    if (g_octree_trace_node == 0) {
-        g_octree_trace_node = g_octree_game_data->CreateTraceModel();
-        g_octree_trace_node->setParent(world->static_scene.get(), 1);
-        SetModelInstanceChainExclusionMask(g_octree_trace_node.get(), 2);
-    }
-    g_octree_trace_node->clearFlag(srNode::FLAG_DISABLE);
-    g_octree_trace_node->clearFlag(srNode::FLAG_TERMINATE);
-}
 
 // FUNCTION: WIZ8 0x00434220
 unsigned char W8Octree::TestNoiseLineOfSight(const glm::vec3* from, glm::vec3* to, float* range,
@@ -2646,7 +2584,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
 // Installed assets are already prepared. Missing OCT/PVL falls back to LVL.
 int CheckLevelAssetSet(const char* level_path)
 {
-    if (g_octree_disabled || std::string_view(level_path).find("Sky") != std::string_view::npos ||
+    if (std::string_view(level_path).find("Sky") != std::string_view::npos ||
         std::string_view(level_path).find("sky") != std::string_view::npos)
         return -1;
     auto pvl = wiz8::asset_path(level_path);
@@ -2808,7 +2746,6 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
 
     m_spatial.m_level_kind = 3;
     m_fAccumulating = true;
-    ToggleUpdateSuspension(0);
 }
 
 void W8Octree::AddLoadedProp(W8Prop* prop)
@@ -2851,9 +2788,6 @@ W8Octree::~W8Octree()
 
     delete pathing;
     pathing = 0;
-    if (g_octree_trace_node != 0) {
-        g_octree_trace_node.reset();
-    }
     g_octree = 0;
     ReleaseOctMeshDefaults();
 }

@@ -36,6 +36,7 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "../native/surface_pixels.h"
+#include "random.h"
 #include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
@@ -204,9 +205,9 @@ public:
         SDL_SetLogOutputFunction(CaptureLog, nullptr);
         const std::string_view arguments[] = {"/WINDOW"};
         application_.emplace(arguments);
-        // The game seeds rand() from the clock. Catch's seed makes a run
+        // The game seeds Random15() from the clock. Catch's seed makes a run
         // repeatable: CTest fixes it, and failures print it.
-        std::srand(Catch::getSeed());
+        SeedRandom(Catch::getSeed());
         window_ = reinterpret_cast<SDL_Window*>(ghWindow);
         REQUIRE(window_);
         SDL_Event focus{};

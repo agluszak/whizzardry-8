@@ -48,8 +48,6 @@ inline void InvalidateRegion(SDL_Rect bounds)
 SDL_Rect TakeUiUpload();
 extern void PrintScreen(void);
 
-void VideoCaptureToggle(void);
-
 enum { INVAL_SRC_TRANS = 1, PIXEL_DEPTH = 16, SCREEN_WIDTH = 640, SCREEN_HEIGHT = 480 };
 
 bool VideoIsFullScreen(void);
@@ -58,7 +56,6 @@ bool VideoResizeWindow(void);
 void VideoInspectorEnable(void);
 bool VideoInspectorIsEnabled(void);
 int VideoDumpMemoryLeaks(void);
-bool CheckCdPresent(void);
 void VideoGetClientRect(SDL_Rect* rect);
 SDL_Surface& GetFrameBufferSurface();
 void VideoToolTip(std::string_view text);
@@ -85,7 +82,6 @@ bool HasScreenTransitionObjects(void); /* 0x004297D0 */
 void InvalidateScreenRects(DesignRect* rects, unsigned int count);
 
 /* Renderer state and helpers shared by the product C++ consumers. */
-extern bool g_auto_capture;
 extern int g_cursor_image_height;
 /* 0x00652DA4: set while the swaying camera view is active; see
    SetCameraSwayMode in 3dapi.cpp. */
@@ -182,7 +178,6 @@ class srMaterial;
 class srScene;
 class stSurface2D;
 
-extern int g_pixel_format;
 extern unsigned char g_fullscreen;
 extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
@@ -238,7 +233,6 @@ unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const glm::vec3* direction);
 void GetWorldColour(glm::vec3* colour); /* 0x00427290 */
 void ReleaseObject(stModelInstance2D* object);
-void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);
 unsigned char InitializePrimarySurface(void);
 void ReleasePrimarySurface(void);
@@ -251,7 +245,6 @@ unsigned char EnableCursorScene(void);
 void SetWorldModelPickingEnabled(bool enabled);
 bool RendererBufferIsLockable(void);
 void SetRendererAutoFlipEnabled(bool enabled);
-bool HasEnoughFreeDiskSpace(void);
 srModelInstance* GetPickedModelInstance(void);
 void SetPickedModelInstance(srModelInstance* value);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */

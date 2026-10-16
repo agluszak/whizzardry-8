@@ -23,7 +23,6 @@
 
 #include "Font.h"
 #include "Item.h"
-#include "application.h"
 #include "asset_paths.h"
 #include "camera_motion.h"
 #include "compat/compiler.h"
@@ -4513,7 +4512,7 @@ void UpdateFormationPortraitRefresh(void)
         entry = &gXStatus.monster_manager_entries[party_slot];
         if (g_level_block->portrait_refresh_pending[party_slot] == 0) {
             if (entry->damage_splat_active || entry->effect_icon_active ||
-                (entry->portrait_event_active && gfCapturingVideo == 0)) {
+                (entry->portrait_event_active)) {
                 RefreshSelectedPartyPortrait(party_slot);
                 entry->auto_portrait_refresh = true;
             }

@@ -36,7 +36,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "timer.h"
-#include "wiz8/application.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
@@ -962,9 +961,6 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     }
     if (!active) {
         record->portrait_event_active = false;
-        if (gfCapturingVideo != 0) {
-            return;
-        }
         record->portrait.frame = 6;
         record->portrait.frame_dirty = true;
         int pc_slot = RPCPtrToPCSlot(record);
@@ -1025,9 +1021,6 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     }
 
     record->portrait_event_active = true;
-    if (gfCapturingVideo != 0) {
-        return;
-    }
     record->portrait.frame = 7;
     record->portrait.frame_dirty = true;
     record->portrait.frame_clock = w8_get_ticks() + (0x78);

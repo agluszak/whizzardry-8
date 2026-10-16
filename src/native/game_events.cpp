@@ -14,7 +14,6 @@ bool gfLoadAtStartup = false;
 // GLOBAL: WIZ8 0x006505a4
 std::string gzStringDataOverride;
 // GLOBAL: WIZ8 0x006505a8
-bool gfCapturingVideo = false;
 // GLOBAL: WIZ8 0x006f0630
 bool gfApplicationActive = false;
 // GLOBAL: WIZ8 0x006f0628

@@ -43,7 +43,6 @@
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
-#include "wiz8/compat/debug_heap.h"
 #include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
@@ -1265,8 +1264,7 @@ try {
     gXStatus.monster_roster.add(std::move(owner), unborn);
     group->monsters.push_back(info.location_id);
     const auto leader = static_cast<unsigned int>(group->leader_location_id);
-    if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN ||
-        leader < static_cast<unsigned int>(info.location_id))
+    if (leader < static_cast<unsigned int>(info.location_id))
         group->leader_location_id = info.location_id;
     ++group->member_count;
     RequestRedrawParty();

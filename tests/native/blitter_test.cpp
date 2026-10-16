@@ -344,19 +344,12 @@ TEST_CASE("Overlay border copies preserve offset source coordinates", "[blit]")
 
 TEST_CASE("Sprite transparency preserves opaque RGB regardless of alpha bits", "[blit]")
 {
-    struct
-        RestoreFormat { // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
-        SDL_PixelFormat original = g_sgp_pixel_format;
-        ~RestoreFormat()
-        {
-            ReleasePrimarySurface();
-            g_sgp_pixel_format = original;
-        }
-    } restore;
-    for (auto format :
-         {SDL_PIXELFORMAT_RGB565, SDL_PIXELFORMAT_ARGB1555, SDL_PIXELFORMAT_XRGB1555}) {
-        g_sgp_pixel_format = format;
-        REQUIRE(InitializePrimarySurface());
+    const struct ReleaseSurface {
+        ~ReleaseSurface() { ReleasePrimarySurface(); }
+    } cleanup;
+    REQUIRE(InitializePrimarySurface());
+    const auto format = kFramePixelFormat;
+    {
         auto sprites = sprite_sheet(4, 1, {0, 1, SpriteFrame::kTransparent, 2});
         for (unsigned i = 0; i < sprites.colors.size(); ++i) sprites.colors[i] = 0x8000 | i;
         const auto image = RenderSpriteToImage(sprites, 0);
@@ -456,19 +449,6 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
     REQUIRE(source->pitch == blitter_pitch);
     REQUIRE(indexed_target->pitch == blitter_pitch);
     REQUIRE(indexed_source->pitch == blitter_pitch);
-    class PixelFormatRestore {
-    public:
-        explicit PixelFormatRestore(SDL_PixelFormat format) : previous_(g_sgp_pixel_format)
-        {
-            g_sgp_pixel_format = format;
-        }
-        ~PixelFormatRestore() { g_sgp_pixel_format = previous_; }
-        PixelFormatRestore(const PixelFormatRestore&) = delete;
-        PixelFormatRestore& operator=(const PixelFormatRestore&) = delete;
-
-    private:
-        SDL_PixelFormat previous_;
-    } restore_pixel_format(target->format);
 
     const SDL_Rect full{0, 0, 640, blitter_height};
     std::array<std::uint16_t, 256> palette{};
@@ -591,8 +571,10 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
             std::memcpy(static_cast<std::uint8_t*>(bitmap->pixels) + y * bitmap->pitch,
                         static_cast<const std::uint8_t*>(source->pixels) + y * blitter_pitch,
                         blitter_pitch);
-        REQUIRE(Create16BPPPalette(bitmap_palette) == palette);
-        auto indexed_surface = ConvertBitmapToFrameSurface(*bitmap);
+        // This golden describes explicit RGB565 input storage, independent
+        // of the fixed ARGB1555 UI framebuffer.
+        SDLSurfaceOwner indexed_surface{SDL_ConvertSurface(bitmap.get(), target->format),
+                                        SDL_DestroySurface};
         REQUIRE(indexed_surface);
         const SDL_Rect subrect{2, 3, static_cast<int>(width), 4};
         BlitImage(*target, 3, 2, *indexed_surface, &subrect);

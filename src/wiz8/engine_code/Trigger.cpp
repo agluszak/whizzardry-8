@@ -2266,7 +2266,7 @@ void Trigger::GenerateItemGroup()
         return;
     }
 
-    srand(item_group_seed);
+    SeedRandom(item_group_seed);
     table_id = FindItemTableByName(inline_action_data);
     if (table_id == static_cast<unsigned int>(-1)) {
         return;

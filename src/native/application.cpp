@@ -20,7 +20,6 @@
 #include "soundman.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/filesystem.h"
@@ -35,8 +34,6 @@ struct LaunchOptions {
     bool inspector = false;
     bool load_at_startup = false;
     bool windowed = false;
-    bool capture = false;
-    bool no_octree = false;
     std::string string_data;
 };
 
@@ -54,10 +51,6 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
             options.load_at_startup = true;
         else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
             options.windowed = true;
-        else if (SDL_strcasecmp(option.c_str(), "/CAPTURE") == 0)
-            options.capture = true;
-        else if (SDL_strcasecmp(option.c_str(), "/NOOCT") == 0)
-            options.no_octree = true;
         else if (SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
             const auto value = separator != std::string_view::npos
                                    ? arguments[index].substr(separator + 1)
@@ -86,11 +79,9 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             wiz8::create_directory(wiz8::user_path(directory));
         const auto options = ParseArguments(arguments);
         gfLoadAtStartup = options.load_at_startup;
-        gfCapturingVideo = options.capture;
         gzStringDataOverride = options.string_data;
         if (options.inspector) VideoInspectorEnable();
         if (options.windowed) VideoFullScreen(false);
-        if (options.no_octree) NoOct();
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
         ConfigureFontRendering(CreateEnglishTransTable());
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))

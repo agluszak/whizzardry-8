@@ -45,8 +45,7 @@ ScopedClipRect::~ScopedClipRect()
 SDLSurfaceOwner CreateFrameSurface(int width, int height)
 {
     if (width <= 0 || height <= 0) throw std::invalid_argument("Frame surface dimensions");
-    SDLSurfaceOwner result{SDL_CreateSurface(width, height, g_sgp_pixel_format),
-                           SDL_DestroySurface};
+    SDLSurfaceOwner result{SDL_CreateSurface(width, height, kFramePixelFormat), SDL_DestroySurface};
     if (!result) throw std::runtime_error(SDL_GetError());
     require_sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
     return result;

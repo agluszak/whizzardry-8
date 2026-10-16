@@ -32,7 +32,7 @@ private:
 };
 
 SDL_Surface& GetFrameBufferSurface();
-// Surfaces in g_sgp_pixel_format without blending.
+// Surfaces in kFramePixelFormat without blending.
 SDLSurfaceOwner CreateFrameSurface(int width, int height);
 SDLSurfaceOwner ConvertBitmapToFrameSurface(const SDL_Surface& bitmap);
 void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,

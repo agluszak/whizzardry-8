@@ -23,7 +23,7 @@ struct CivilTime {
     int year;
     unsigned month, day, hour, minute, second;
     unsigned fraction_100ns;
-    unsigned day_of_week; // Sunday = 0. Ignored when encoding.
+    unsigned day_of_week; // Sunday = 0.
 };
 
 // 1601-based 100ns ticks. Sub-100ns SDL times round down, including before 1970.
@@ -33,8 +33,6 @@ std::optional<SDL_Time> file_time_to_sdl(DiskFileTime time) noexcept;
 // Full uint64 disk range, with all 100ns digits retained (years 1601..60056).
 // Chrono calendar arithmetic is used in 400-year eras, not nanosecond durations.
 CivilTime file_time_to_utc(DiskFileTime time) noexcept;
-// Invalid calendar values and values beyond uint64 ticks throw.
-DiskFileTime file_time_from_utc(const CivilTime& time);
 
 SDL_DateTime current_local_time();
 int current_utc_offset_seconds(); // SDL local offset, seconds EAST of UTC.

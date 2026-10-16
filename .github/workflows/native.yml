@@ -258,6 +258,16 @@ jobs:
             -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
           cmake --build build/linux-tidy --target surrender_shader_headers
+      - name: Verify offline Metal and Direct3D shaders
+        run: |
+          source build/linux-tidy/conan/conanbuild.sh
+          cmake -S tools/shadercross -B build/shadercross -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+          cmake --build build/shadercross --target shadercross --parallel 2
+          python3 tools/shadercross/generate.py --check \
+            --shadercross build/shadercross/_deps/shadercross-build/shadercross
       - name: Run clang-tidy
         env:
           CLANG_TIDY: clang-tidy-22

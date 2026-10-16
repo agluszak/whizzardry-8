@@ -310,7 +310,6 @@ public:
        falling back to the camera eye when the cursor is unset. */
     void UpdateCameraVisibility();
     void UpdateVisibility();
-    unsigned char UpdateWorldTrace();
     /* Store `path` with its extension stripped into m_path_stem; the sibling
        data files are then derived from the stem. */
     bool SetPathStem(const char* path); /* 0x0042CF90 */
@@ -339,7 +338,6 @@ public:
     std::vector<w8_ulong> polygonsNearPoint(const glm::vec3& center, float radius,
                                             float height); /* 0x00438780 */
     int CountBadRegionMeshLinks(W8OctSpatialState* spatial);
-    void ToggleUpdateSuspension(W8World* world);
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
@@ -448,25 +446,18 @@ public:
 
 extern W8Octree* g_octree;
 
-/* The SGP /NOOCT startup switch sets this flag; an Octree-unit body reads it. */
-void NoOct(void);
-extern bool g_octree_disabled;
-
 bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
 extern w8_ulong* g_octree_state;
 extern const float g_octree_cell_scale;
 extern w8_ulong g_octree_bytes_read;
 extern int g_prop_sun_index;
-extern bool g_octree_update_suspended;
-extern bool g_octree_trace_enabled;
 /* Renderer switches the region-link build toggles: suppress baked vertex
    lighting, force front-face culling and strip textures while sampling. */
 extern bool g_render_unlit;
 extern bool g_render_cull_front;
 /* Inverted-depth / alternate pass-compare mode; renderTriMesh forces GEQUAL
    and the frame clear path uses a zero clear-depth while this is set. */
-extern bool g_inverted_depth_render;
 extern bool g_render_untextured;
 
 int CheckLevelAssetSet(const char* level_path);

@@ -15,7 +15,7 @@ std::array<std::uint16_t, 65536> ShadeTable{};
 // FUNCTION: WIZ8 0x00413e80
 void SetShadeTablePercent(float percent)
 {
-    // Steps of 4 reach every 5- and 6-bit channel level of the packed formats.
+    // Preserve the existing quantized 5-bit shade levels, sampled in steps of 4.
     for (unsigned red = 0; red < 256; red += 4)
         for (unsigned green = 0; green < 256; green += 4)
             for (unsigned blue = 0; blue < 256; blue += 4) {

@@ -29,7 +29,6 @@
 #include "local_code/Factions.h"
 #include "random.h"
 #include "surrender/srDebug.h"
-#include "wiz8/application.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
@@ -401,7 +400,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
         LinkMonsterGroupToLeader(group, companion_group);
     }
 
-    if (g_dev_mode && gfCapturingVideo == 0 && g_current_screen_state.id != W8_SCREEN_PLEASE_WAIT) {
+    if (g_dev_mode && g_current_screen_state.id != W8_SCREEN_PLEASE_WAIT) {
         W8MonsterRecord* group_record = MonsterGroupGetRecord(group);
         std::string group_name =
             group->member_count == 1 ? group_record->name0 : group_record->name1;

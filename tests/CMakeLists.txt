@@ -232,7 +232,7 @@ target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
 foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest quick-save combat npc-dialogue load-game)
-    # A fixed seed makes the game's rand() rolls repeatable.
+    # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"

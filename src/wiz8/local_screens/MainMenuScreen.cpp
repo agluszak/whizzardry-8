@@ -29,7 +29,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -48,7 +47,6 @@ bool g_main_menu_redraw;
 // GLOBAL: WIZ8 0x0069c4b4
 static short g_main_menu_selected_item;
 // GLOBAL: WIZ8 0x0069c4c4
-bool g_main_menu_warning_shown;
 // GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
 // The modal dialog belongs to this screen, not a global registry.
@@ -223,13 +221,7 @@ unsigned char MainMenuScreenEnter(void)
         g_pending_main_menu_message.clear();
         return 1;
     }
-    if (!HasEnoughFreeDiskSpace() && !g_main_menu_warning_shown) {
-        main_menu_dialog.reset(CreateMessageDialog());
-        dialog = main_menu_dialog.get();
-        dialog->SetClientExtent(0xfa, 200);
-        dialog->SetMessage(g_localized_strings[0x7ee], 1, 0x32, true, false, true, true, 0, 0x15e);
-        g_main_menu_warning_shown = true;
-    }
+
     return 1;
 }
 

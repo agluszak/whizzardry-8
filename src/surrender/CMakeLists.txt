@@ -37,7 +37,7 @@ if(WIZ8_UNITY_BUILD OR WIZ8_SURRENDER_UNITY_BUILD)
         UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
 endif()
 
-# SDL3 GPU device: GLSL compiled to SPIR-V headers at build time.
+# SPIR-V is built from GLSL; offline SDL_shadercross outputs cover Metal/D3D12.
 find_program(GLSLANG_VALIDATOR NAMES glslangValidator glslangValidator.exe REQUIRED)
 set(SDL_GPU_DEVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/devices/sdl_gpu")
 set(SDL_GPU_SHADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/sdl_gpu_shaders")
@@ -58,6 +58,27 @@ foreach(shader vertex fragment)
         VERBATIM
     )
     list(APPEND SDL_GPU_SHADER_HEADERS "${header}")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${SDL_GPU_DEVICE_DIR}/sr_${shader}.glsl"
+        "${SDL_GPU_DEVICE_DIR}/compiled/sr_${shader}.sha256")
+    file(SHA256 "${SDL_GPU_DEVICE_DIR}/sr_${shader}.glsl" source_digest)
+    file(READ "${SDL_GPU_DEVICE_DIR}/compiled/sr_${shader}.sha256" embedded_digest)
+    string(STRIP "${embedded_digest}" embedded_digest)
+    if(NOT source_digest STREQUAL embedded_digest)
+        message(FATAL_ERROR "Stale ${shader} shaders: regenerate with tools/shadercross/generate.py")
+    endif()
+    foreach(format msl dxil)
+        set(input "${SDL_GPU_DEVICE_DIR}/compiled/sr_${shader}.${format}")
+        set(header "${SDL_GPU_SHADER_DIR}/sr_${shader}.${format}.h")
+        add_custom_command(OUTPUT "${header}"
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${SDL_GPU_SHADER_DIR}"
+            COMMAND "${CMAKE_COMMAND}" "-DINPUT=${input}" "-DOUTPUT=${header}"
+                "-DSYMBOL=sr_${shader}_${format}"
+                -P "${PROJECT_SOURCE_DIR}/cmake/EmbedShader.cmake"
+            DEPENDS "${input}" "${PROJECT_SOURCE_DIR}/cmake/EmbedShader.cmake"
+            VERBATIM)
+        list(APPEND SDL_GPU_SHADER_HEADERS "${header}")
+    endforeach()
 endforeach()
 # Lint-only configurations need generated shader headers without compiling SurRender.
 add_custom_target(surrender_shader_headers DEPENDS ${SDL_GPU_SHADER_HEADERS})

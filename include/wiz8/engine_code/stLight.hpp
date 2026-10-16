@@ -84,7 +84,7 @@ public:
        flicker, 3 one-way ramp); bit 3 lerps diffuse toward the target color,
        bit 5 ping-pongs the path direction at the ends. */
     unsigned int flags;
-    /* Per-update flicker probability, compared against rand()/32768. */
+    /* Per-update flicker probability, compared against Random15()/32768. */
     float flicker_chance;
     glm::vec3 color;
     /* The diffuse color the intensity sweep lerps toward under flag bit 3. */

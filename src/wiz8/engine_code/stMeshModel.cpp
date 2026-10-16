@@ -251,8 +251,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
         {
             const srMeshSubmission::EnableScope enabled(
                 renderer,
-                g_inverted_depth_render ||
-                    (mesh.control_flags & (1UL << srMeshModel::CONTROL_SORTED_RENDERING)) != 0);
+                (mesh.control_flags & (1UL << srMeshModel::CONTROL_SORTED_RENDERING)) != 0);
 
             if (g_render_cull_front) {
                 renderer.setCullMode(srGERD::CULL_NONE);
@@ -280,8 +279,6 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                     },
                     [&](w8_long pass) {
                         auto shader = mesh.shaders[pass];
-                        if (g_inverted_depth_render)
-                            shader.value = (shader.value & 0xfffffffeUL) | 6UL;
                         return shader;
                     });
             }

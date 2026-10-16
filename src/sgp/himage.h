@@ -38,7 +38,7 @@ struct SpriteFrame {
 struct SpriteSheet {
     Palette8 palette{};
     std::vector<SpriteFrame> frames;
-    // `palette` packed in g_sgp_pixel_format.
+    // `palette` packed in kFramePixelFormat.
     Palette16 colors{};
 };
 
@@ -67,4 +67,4 @@ Palette16 Create16BPPPalette(const Palette8& pPalette);
 std::uint16_t Get16BPPColor(SDL_Color color);
 // The rendering session's 16-bit format: the framebuffer, frame surfaces, cached
 // images and every packed palette or colour use it.
-extern SDL_PixelFormat g_sgp_pixel_format;
+inline constexpr SDL_PixelFormat kFramePixelFormat = SDL_PIXELFORMAT_ARGB1555;

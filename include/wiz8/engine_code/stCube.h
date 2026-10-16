@@ -66,7 +66,6 @@ void SetWorldCursorNodeName(W8WorldCursorNode* entry, const char* name);
 void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
 /* 0x0048E3E0: the world-cursor node under the screen point, or 0. */
 W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
-void DrawWorldBox(W8World* world, glm::vec3 minimum, glm::vec3 maximum, w8_ulong color);
 unsigned char SaveWorldCursorNodeStates(wiz8::File& handle);
 unsigned char SaveWorldCursorNodes(wiz8::File& handle);
 unsigned int LoadWorldCursorNodes(wiz8::File& handle);
