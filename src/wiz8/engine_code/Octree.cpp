@@ -87,6 +87,7 @@
 #include "wiz8/octree_walk.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/placement_math.h"
+#include "wiz8/retail_geometry_records.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
@@ -653,17 +654,15 @@ void W8Octree::MarkVisibleRegions()
         if (m_projected_regions_valid && !TestBit(m_projected_regions, volume->m_region_bit)) {
             continue;
         }
-        const auto delta = view.camera_location - volume->m_points[0].glmValue();
+        const auto delta = view.camera_location - volume->m_points[0];
 
         if (glm::dot(delta, delta) >= radius_squared) {
             continue;
         }
-        bool visible =
-            srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[0].glmValue(), 0);
+        bool visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[0], 0);
 
         for (int point = 1; !visible && point < 9; ++point) {
-            visible = srPlaneMath::containsSphere(view.frustum_planes,
-                                                  volume->m_points[point].glmValue(), 0);
+            visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[point], 0);
         }
         if (visible && volume->m_region_bit != 0) {
             SetBit(m_current_regions, volume->m_region_bit);
@@ -2516,7 +2515,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             std::uint64_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong) +
             std::uint64_t{header.m_trigger_count} * sizeof(unsigned short) +
             (header.m_region_count > 1
-                 ? std::uint64_t{header.m_region_count} * sizeof(W8OctRegionVolume)
+                 ? std::uint64_t{header.m_region_count} * sizeof(wiz8::retail::RegionVolume)
                  : 0) +
             (header.m_submesh_count != 0
                  ? (std::uint64_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh)
@@ -2590,8 +2589,8 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (header.m_region_count > 1) {
             m_region_volumes.resize(std::size_t{header.m_region_count} + 2);
             m_spatial.m_region_volumes = m_region_volumes.data();
-            hOctFile->read_exact(m_spatial.m_region_volumes,
-                                 std::size_t{header.m_region_count} * sizeof(W8OctRegionVolume));
+            for (unsigned int i = 0; i < header.m_region_count; ++i)
+                wiz8::retail::read_exact(*hOctFile, m_region_volumes[i]);
         }
         hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
         if (uiTerminator != 0xffffffff) {

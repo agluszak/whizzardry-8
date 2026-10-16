@@ -44,6 +44,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/octree_walk.h"
+#include "wiz8/retail_geometry_records.h"
 #include "wiz8/sr_api.h"
 
 #define OCTPRETREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPreTree.cpp"
@@ -313,11 +314,9 @@ try {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Trigger list.\n");
         return 0;
     }
-    if (header.m_region_count > 1 &&
-        (file->write(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)),
-         true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Region array.\n");
-        return 0;
+    if (header.m_region_count > 1) {
+        for (unsigned int i = 0; i < header.m_region_count; ++i)
+            wiz8::retail::write(*file, m_spatial.m_region_volumes[i]);
     }
     file->write(&sentinel, 4);
     if (header.m_submesh_count != 0) {
@@ -1529,7 +1528,7 @@ srBoundingBox W8OctSpatialState::GetClippedBounds() const
 /* Test a triangle against an axis-aligned box.  The inexpensive containment
    and separating-axis checks precede explicit triangle-edge intersections
    with all six box faces. */
-bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const glm::vec3> vertices,
                           const srBoundingBox& box)
 {
     return triangleIntersectsBox(box, indexedTriangle(vertices, surface.vertex_indices),

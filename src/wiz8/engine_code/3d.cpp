@@ -709,7 +709,7 @@ bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& b
     for (unsigned corner = 0; corner < 8; ++corner)
         if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) return true;
     for (unsigned corner = 1; corner < 9; ++corner)
-        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) return true;
+        if (bounds.containsHalfOpen(volume.m_points[corner])) return true;
     return false;
 }
 

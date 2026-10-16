@@ -409,7 +409,7 @@ void W8EnvironRecord::SetScaledMotion(const glm::vec3& motion)
 // FUNCTION: WIZ8 0x00421850
 glm::vec3 W8EnvironRecord::withScaledMotion(const glm::vec3& position) const
 {
-    return position + vector.glmValue() * scale;
+    return position + vector * scale;
 }
 
 // FUNCTION: WIZ8 0x0041FE20
@@ -447,7 +447,7 @@ unsigned char W8LevelDataRecord::ClampCameraToBounds(const srVector3T<float>* mi
         motion_displacement.z = minimum->z - maximum->z;
     }
 
-    g_environ->vector.SetZero();
+    g_environ->vector = glm::vec3(0);
     if (below_min_y) {
         if (g_status.world_suspended) {
             g_level_override = false;
@@ -746,9 +746,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     environ_record->scale = level->camera_scale;
     gravity.Set(environ_record->gravity_x, environ_record->gravity_y, environ_record->gravity_z);
     scaled = gravity * static_cast<double>(environ_record->scale);
-    environ_record->vector += scaled;
-    if (g_camera_motion_divisor < environ_record->vector.Length()) {
-        environ_record->vector.SetLength(g_camera_motion_divisor);
+    environ_record->vector += scaled.glmValue();
+    if (g_camera_motion_divisor < glm::length(environ_record->vector)) {
+        environ_record->vector = normalizedOrZero(environ_record->vector) * g_camera_motion_divisor;
     }
     level->motion_displacement = environ_record->withScaledMotion(level->motion_displacement);
 
@@ -1075,7 +1075,7 @@ bool W8GameData::TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace
 }
 
 bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
-                                   std::span<const srVector3T<float>> vertices_bank, int count,
+                                   std::span<const glm::vec3> vertices_bank, int count,
                                    w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
                                    int mode)
 {
@@ -1265,7 +1265,7 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
             vertex_materials[destination] = g_oct_mesh_default.material;
             *corners[corner] = destination;
             shade_indices[destination] = destination;
-            vertex_locs[destination] = m_pVertices[surface->vertex_indices[corner]].glmValue();
+            vertex_locs[destination] = m_pVertices[surface->vertex_indices[corner]];
         }
         vertex += 3;
     }
@@ -1602,7 +1602,7 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
     *origin = *hit_point;
     if (glm::dot(normal, s_entry_direction) < g_collision_opposed_normal_threshold) {
         direction->SetZero();
-        g_environ->vector = 0.0f;
+        g_environ->vector = glm::vec3(0);
         return false;
     }
     unit = direction->glmValue() / direction_length;
@@ -1729,14 +1729,14 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
 bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to)
 {
     const W8GDSurface* other = g_octree_game_data->m_pSurfaces.data() + surface_index;
-    const srVector3T<float>* vertices = g_octree_game_data->m_pVertices.data();
+    const glm::vec3* vertices = g_octree_game_data->m_pVertices.data();
     glm::vec3 this_centroid(g_float_zero, g_float_zero, g_float_zero);
     glm::vec3 other_centroid(g_float_zero, g_float_zero, g_float_zero);
     for (int vertex = 0; vertex < 3; ++vertex) {
-        const srVector3T<float>* this_vertex = vertices + vertex_indices[vertex];
-        this_centroid += this_vertex->glmValue();
-        const srVector3T<float>* other_vertex = vertices + other->vertex_indices[vertex];
-        other_centroid += other_vertex->glmValue();
+        const glm::vec3* this_vertex = vertices + vertex_indices[vertex];
+        this_centroid += *this_vertex;
+        const glm::vec3* other_vertex = vertices + other->vertex_indices[vertex];
+        other_centroid += *other_vertex;
     }
     const glm::vec3 delta =
         (this_centroid - other_centroid) * static_cast<float>(g_collision_centroid_scale);
@@ -1764,7 +1764,7 @@ bool W8GDSurface::ApplyEnvironContact(glm::vec3& direction)
     glm::vec3 normal;
     normal = plane.normal.glmValue();
     float factor = g_environ->motion_factor;
-    glm::vec3 slide = g_environ->vector.glmValue() * g_environ->scale;
+    glm::vec3 slide = g_environ->vector * g_environ->scale;
     glm::vec3 unit = slide;
     unit = normalizedOrZero(unit);
     if (glm::dot(unit, normal) >= g_collision_opposed_normal_threshold) {
@@ -2029,7 +2029,7 @@ void ResetCurrentEnvironment(void)
         if (g_octree_game_data != 0 && !g_octree_game_data->m_ppEnvirons.empty()) {
             g_environ = g_octree_game_data->m_ppEnvirons[0].get();
         }
-        g_environ->vector.SetZero();
+        g_environ->vector = glm::vec3(0);
         if (g_environment_load_flag != 0) {
             g_environ->motion_factor = 1.0f;
         }
@@ -2049,7 +2049,7 @@ unsigned char SetEnvironmentLoadFlag(unsigned char flag)
     srVector3T<float> zero_vector(0.0f, 0.0f, 0.0f);
     unsigned char previous = g_environment_load_flag;
     if (g_environ != 0) {
-        g_environ->vector = zero_vector;
+        g_environ->vector = zero_vector.glmValue();
         if (flag == 0) {
             g_environ->motion_factor = 1.0f;
         }
@@ -2528,11 +2528,11 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
         camera_motion_velocity = motion_velocity - contact_velocity;
         camera_motion_displacement = camera_motion_velocity * camera_scale;
         allow_override = UpdateFootstepFromMotion();
-        camera_motion_velocity -= g_environ->vector.glmValue();
+        camera_motion_velocity -= g_environ->vector;
         projected = contact_velocity;
         gravity = {g_environ->gravity_x, g_environ->gravity_y, g_environ->gravity_z};
         projected = ProjectVectorOntoVector(projected, gravity);
-        environ_vector = g_environ->vector.glmValue();
+        environ_vector = g_environ->vector;
         if (glm::length(environ_vector) < glm::length(projected)) {
             g_environ->vector = projected;
         }

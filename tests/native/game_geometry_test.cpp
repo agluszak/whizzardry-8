@@ -204,7 +204,7 @@ static void planes_and_segments()
     environment.scale = 2;
     environment.airborne = 0;
     environment.SetScaledMotion(glm::vec3(4, 6, 8));
-    REQUIRE((environment.vector == srVector3(2, 3, 4) && environment.airborne == 1));
+    REQUIRE((environment.vector == glm::vec3(2, 3, 4) && environment.airborne == 1));
 
     glm::vec3 vector(3, 4, 5), target(0, 2, 0), zero(0);
     vector = ProjectVectorOntoVector(vector, target);

@@ -106,10 +106,9 @@ inline RuntimeTriangle runtimeTriangle(std::span<const srVector3, 3> vertices)
 }
 
 template<class Indices>
-inline RuntimeTriangle indexedTriangle(std::span<const srVector3> vertices, const Indices& indices)
+inline RuntimeTriangle indexedTriangle(std::span<const glm::vec3> vertices, const Indices& indices)
 {
-    return {vertices[indices[0]].glmValue(), vertices[indices[1]].glmValue(),
-            vertices[indices[2]].glmValue()};
+    return {vertices[indices[0]], vertices[indices[1]], vertices[indices[2]]};
 }
 
 /* Unit plane through three vertices. The result is also the plane record
@@ -179,7 +178,7 @@ inline float SignedPlaneDistance(const W8Plane& plane, const glm::vec3& point)
     return glm::dot(plane.normal.glmValue(), point) + plane.w;
 }
 
-void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
+void ClassifySurfacePlane(const glm::vec3* vertices, W8GDSurface* surface);
 /* Segment intersection projected onto the plane perpendicular to axis. */
 bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
                         const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis);

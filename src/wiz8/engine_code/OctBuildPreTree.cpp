@@ -525,14 +525,15 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
         volume->m_polygon_count = 0;
         volume->m_region = region;
         volume->m_region_bit = region;
+        volume->m_points[0] = glm::vec3(0);
         for (int corner = 0; corner != 8; ++corner) {
-            volume->m_points[corner + 1] = record.corners[corner] * g_world_scale;
-            volume->m_points[0] += record.corners[corner] * g_world_scale * 0.125f;
+            volume->m_points[corner + 1] = record.corners[corner].glmValue() * g_world_scale;
+            volume->m_points[0] += record.corners[corner].glmValue() * g_world_scale * 0.125f;
         }
         volume->value_18 = record.value_06;
         std::array<glm::vec3, 8> points;
         for (unsigned corner = 0; corner < points.size(); ++corner)
-            points[corner] = volume->m_points[corner + 1].glmValue();
+            points[corner] = volume->m_points[corner + 1];
         const auto sorted = sortedFrustumCorners(points);
         for (unsigned corner = 0; corner < sorted.size(); ++corner)
             volume->m_points[corner + 1] = sorted[corner];
