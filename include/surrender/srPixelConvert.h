@@ -1,9 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <optional>
-#include <span>
-
 class srPalette;
 
 class srPixelConvert {
@@ -55,16 +51,7 @@ public:
 
         PixelFormat() : fourcc(0) {}
 
-        std::optional<std::size_t> match(std::span<const PixelFormat> formats) const;
-
-        int operator==(const PixelFormat& other) const
-        {
-            const w8_ulong* a = reinterpret_cast<const w8_ulong*>(
-                this); // reinterpret-ok: packed pixel-format block compare
-            const w8_ulong* b = reinterpret_cast<const w8_ulong*>(
-                &other); // reinterpret-ok: packed pixel-format block compare
-            return a[4] == b[4] && b[0] == a[0] && b[1] == a[1] && a[3] == b[3] && a[2] == b[2];
-        }
+        bool operator==(const PixelFormat& other) const = default;
     };
 
     /* Converters receive the run description by reference; palette carries
@@ -78,7 +65,6 @@ public:
     };
     typedef void (*ConversionFunc)(const ConversionInfo& info);
 
-    static e_surfaceType mapPixelFormat(const PixelFormat& format);
     static PixelFormat pixelFormat(e_surfaceType type);
     struct ConversionFunctions {
         ConversionFunc write = nullptr;

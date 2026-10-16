@@ -2,8 +2,6 @@
 #include <cstddef>
 #include <cstring>
 #include <iterator>
-#include <limits>
-#include <optional>
 #include <span>
 
 #include <SDL3/SDL_pixels.h>
@@ -310,58 +308,6 @@ void initFormats()
 }
 
 } // namespace
-static glm::vec4 channelBitCounts(const srPixelConvert::PixelFormat& format)
-{
-    return glm::vec4(format.red_bits, format.green_bits, format.blue_bits, format.alpha_bits);
-}
-
-// FUNCTION: SURRENDER 0x10008020
-std::optional<std::size_t>
-srPixelConvert::PixelFormat::match(std::span<const PixelFormat> formats) const
-{
-    if (formats.empty()) return std::nullopt;
-    if (formats.size() == 1) return 0;
-    if (fourcc != 0) {
-        const auto exact = std::ranges::find(formats, fourcc, &PixelFormat::fourcc);
-        if (exact != formats.end()) return exact - formats.begin();
-    }
-    const auto wanted = channelBitCounts(*this);
-    const auto required = glm::min(wanted, glm::vec4(1));
-    std::optional<std::size_t> best;
-    float best_distance = std::numeric_limits<float>::infinity();
-    int best_bytes = 5;
-    for (std::size_t index = 0; index < formats.size(); ++index) {
-        const auto& candidate = formats[index];
-        const auto bits = channelBitCounts(candidate);
-        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required)))
-            continue;
-        // Only shortfall costs distance; byte-sized channel counts score exactly in float.
-        const auto shortfall = glm::min(bits - wanted, glm::vec4(0));
-        const auto distance = glm::dot(shortfall, shortfall);
-        if (distance < best_distance ||
-            (distance == best_distance && candidate.pixel_size < best_bytes)) {
-            best = index;
-            best_distance = distance;
-            best_bytes = candidate.pixel_size;
-        }
-    }
-    if (best) return best;
-    // No compatible class: retain the first widest format.
-    return std::ranges::max_element(formats, {}, &PixelFormat::pixel_size) - formats.begin();
-}
-
-// FUNCTION: SURRENDER 0x10008240
-srPixelConvert::e_surfaceType srPixelConvert::mapPixelFormat(const PixelFormat& format)
-{
-    initFormats();
-    for (w8_ulong i = 0; i < 25; i++) {
-        if (format_table[i].format == format) {
-            return static_cast<e_surfaceType>(i);
-        }
-    }
-    return SURFACE_INVALID;
-}
-
 // FUNCTION: SURRENDER 0x10008290
 srPixelConvert::PixelFormat srPixelConvert::pixelFormat(e_surfaceType type)
 {
