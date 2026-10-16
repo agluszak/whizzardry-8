@@ -1188,3 +1188,24 @@ TEST_CASE("Collision disk codecs retain vector components and unknown bytes", "[
     const auto encoded_region = wiz8::retail::encode(live_region);
     REQUIRE(std::memcmp(encoded_region.data(), &region, sizeof(region)) == 0);
 }
+
+TEST_CASE_METHOD(LoaderFixture,
+                 "Octree sample points transfer float triples independently of GLM layout",
+                 "[loader][records]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_sample_points = {{1, -2, 3.5f}, {4, 5, -6}};
+    REQUIRE(tree.SavePoints("sample-fixture.lvl"));
+    auto file = wiz8::open_file("sample-fixture.pts");
+    REQUIRE(file->size() == 4 + 6 * sizeof(float));
+    unsigned int count = 0;
+    file->read_exact(&count, sizeof(count));
+    REQUIRE(count == 2);
+    std::array<float, 6> coordinates{};
+    file->read_exact(coordinates.data(), coordinates.size() * sizeof(float));
+    REQUIRE(coordinates == std::array<float, 6>{1, -2, 3.5f, 4, 5, -6});
+    file->close();
+    tree.m_sample_points.clear();
+    REQUIRE(tree.LoadPointFiles("sample-fixture.lvl"));
+    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
+}

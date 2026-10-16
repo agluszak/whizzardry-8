@@ -327,14 +327,14 @@ public:
     bool ReadRegionLinkFile(const char* level_name);
     /* Region containing `point` (1-based index into the volume array), else
        the packed auto-region key (level<<24)|cell. */
-    unsigned int RegionKeyForPoint(const srVector3T<float>* point); /* 0x00432720 */
+    unsigned int RegionKeyForPoint(const glm::vec3& point); /* 0x00432720 */
     /* Link `region_key` to every mesh marked in m_projected_regions,
        inserting unseen (region, mesh) pairs into m_pRegionLinks. */
     void RecordRegionMeshLinks(unsigned int region_key); /* 0x004327F0 */
     /* Sweep the camera around `point`, mark cells whose meshes still draw
        into m_projected_regions and return `point`'s region key (zero when
        nothing linked). */
-    unsigned int SampleRegionLinks(const srVector3T<float>* point, bool descend, bool clear_sets,
+    unsigned int SampleRegionLinks(const glm::vec3& point, bool descend, bool clear_sets,
                                    unsigned int region_key); /* 0x00431E10 */
     /* Rebuild the region-link table by camera-sampling the region grid;
        `rebuild_all` sweeps every cell and discards the saved point list, a
@@ -432,8 +432,7 @@ public:
     bool m_region_links_dirty;
     bool m_points_dirty;
     unsigned char m_padding_16e[2];
-    w8_ulong m_point_count;
-    std::vector<srVector3T<float>> m_sample_points;
+    std::vector<glm::vec3> m_sample_points;
     /* Region-link sample cell size read from .oct offset 0xac; the link
        builder strides the x/z grid by it (times three for a sparse pass). */
     float m_region_cell;
