@@ -1366,7 +1366,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
                 append(bytes, edge);
             }
         }
-        store("waypoints.WPT", bytes);
+        store("waypoints.wpt", bytes);
         REQUIRE(path.ReadWaypointFile());
         REQUIRE(path.m_waypoints.size() == 3);
         REQUIRE(path.m_waypoints[1].position == glm::vec3(1, 2, 3));
@@ -1378,7 +1378,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
         auto* waypoints = path.m_waypoints.data();
         auto* edges = path.m_pEdges.data();
         for (std::size_t end = 0; end < bytes.size(); ++end) {
-            store("waypoints.WPT", bytes.substr(0, end));
+            store("waypoints.wpt", bytes.substr(0, end));
             REQUIRE_FALSE(path.ReadWaypointFile());
             REQUIRE(path.m_waypoints.data() == waypoints);
             REQUIRE(path.m_pEdges.data() == edges);
