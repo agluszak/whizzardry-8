@@ -608,14 +608,14 @@ void UpdateSpellEffects(void)
         for (int visual_index = 0;
              visual_index < static_cast<int>(effect.spell_visuals.size()) && alive;
              ++visual_index) {
-            W8SpellVisual* visual = effect.spell_visuals[visual_index].get();
+            W8SpellVisual* visual = effect.spell_visuals[visual_index];
             if (!visual->finished) {
                 alive = false;
             }
         }
         for (int missile_index = 0;
              missile_index < static_cast<int>(effect.missiles.size()) && alive; ++missile_index) {
-            W8Missile* missile = effect.missiles[missile_index].get();
+            W8Missile* missile = effect.missiles[missile_index];
             if (!missile->flight_done) {
                 alive = false;
             }
@@ -640,7 +640,7 @@ void UpdateSpellEffects(void)
 
                 for (int missile_index = 0;
                      missile_index < static_cast<int>(effect.missiles.size()); ++missile_index) {
-                    missile = effect.missiles[missile_index].get();
+                    missile = effect.missiles[missile_index];
                     missile->block_released = 1;
                     effect.missiles.erase(effect.missiles.begin() + missile_index);
                 }
@@ -703,7 +703,7 @@ void UpdateSpellEffects(void)
         }
         for (int release_visual = 0; release_visual < static_cast<int>(effect.spell_visuals.size());
              ++release_visual) {
-            W8SpellVisual* visual = effect.spell_visuals[release_visual].get();
+            W8SpellVisual* visual = effect.spell_visuals[release_visual];
             visual->auto_release = true;
             if (effect.sustained) {
                 visual->finished = true;
