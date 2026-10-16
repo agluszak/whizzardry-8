@@ -461,7 +461,9 @@ static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld
 try {
     std::vector<srClipPlane*> clip_planes;
     glm::vec4 plane;
-    glm::vec4 serialized_position;
+    struct {
+        float x, y, z, w;
+    } serialized_position;
     glm::dvec3 position;
     srClipPlane* clip_plane;
     char name[64];

@@ -27,7 +27,6 @@ struct srVertexArray {
 };
 
 /* Interface with no data beyond its vptr. */
-#pragma pack(push, 4)
 // VTABLE: SURRENDER 0x10076c74 srVertexProcessor
 class srVertexProcessor {
 public:
@@ -76,5 +75,3 @@ public:
 
 public:
 };
-
-#pragma pack(pop)
