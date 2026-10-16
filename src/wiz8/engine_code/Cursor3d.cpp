@@ -1,8 +1,6 @@
 #include "wiz8/engine_code/Cursor3d.h"
 
 #include <cmath>
-#include <cstdlib>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -65,6 +63,7 @@ constexpr float kCursorSightProbeHeight = 750.0f;
 
 // GLOBAL: WIZ8 0x0065ba8c
 W8WorldCursorState* gp3DCursor;
+static std::unique_ptr<W8WorldCursorState> world_cursor;
 
 // GLOBAL: WIZ8 0x0065ba94
 static srNode* g_cursor_value;
@@ -103,104 +102,95 @@ void InitializeWorldCursor(void)
     DisableCursorScene();
     SetMouseCursorHotspot(0, 0);
     if (gp3DCursor == 0) {
-        gp3DCursor = static_cast<W8WorldCursorState*>(malloc(sizeof(*gp3DCursor)));
+        world_cursor = std::make_unique<W8WorldCursorState>();
+        gp3DCursor = world_cursor.get();
+        gp3DCursor->enabled = true;
+        gp3DCursor->track_ground = true;
+        gp3DCursor->range = 50000.0f;
+        gp3DCursor->left_held = false;
+        gp3DCursor->monster_group_id = g_cursor_saved_group_id;
+        gp3DCursor->detached = false;
+        gp3DCursor->march_enabled = true;
+        gp3DCursor->footprint_mode = false;
+        gp3DCursor->dragged_info = 0;
+        context.directory = "Data\\Monsters";
+        context.world = g_world;
+        LoadMonsterCycle(&context, "3DCursor", &gp3DCursor->monster, -1, 1);
+        MonsterSetCycle(gp3DCursor->monster, 0);
+        gp3DCursor->last_published = glm::vec3(-100000000.0f);
+        gp3DCursor->position = glm::vec3(0);
+        gp3DCursor->cam_rel_offset = glm::vec3(0);
+        gp3DCursor->monster->inactive = true;
+        WarpSystemCursor(0x140, 0xf0);
+        gp3DCursor->input_delta.x = 0;
+        gp3DCursor->input_delta.y = 0;
+        gp3DCursor->input_delta.z = 0;
+        position = gp3DCursor->position;
+        MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
+        g_world->plsMonsters.push_back(gp3DCursor->monster);
+        UpdateCycleRepresentation(gp3DCursor->monster, g_world);
+        MonsterSetActive(gp3DCursor->monster, false);
+        gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
+        gp3DCursor->light->intensity = 1.0f;
+        ConfigureWorldLight(gp3DCursor->light, 2500.0f);
+        gp3DCursor->light->ambient = glm::vec3(0);
+        gp3DCursor->light->diffuse = glm::vec3(1);
+        gp3DCursor->light->specular = glm::vec3(0);
+        gp3DCursor->light->setLocation(1000.0, 0.0, 0.0);
+        if (gp3DCursor->particle != 0) {
+            auto material = std::make_shared<srMaterial>();
+            colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+            material->setEmissive(colour);
+            material->setDiffuse(colour);
+            gp3DCursor->particle->SetMaterial(std::move(material));
+            gp3DCursor->particle->SetTexture(
+                LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "particle.tga", true));
+            shader.value = 0x100c433;
+            gp3DCursor->particle->SetRenderFlags(shader);
+            gp3DCursor->particle->rotateX(-1.5707963);
+            gp3DCursor->particle->particle_size = 100.0;
+            gp3DCursor->particle->emission_interval = 300;
+            gp3DCursor->particle->acceleration = {0.0f, -1000.0f, 0.0f};
+            gp3DCursor->particle->has_acceleration = 1;
+            gp3DCursor->particle->initial_speed = 500.0f;
+            gp3DCursor->particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;
+            gp3DCursor->particle->emission_mode = W8_PARTICLE_EMISSION_SINGLE;
+            gp3DCursor->particle->bounds_mode = W8_PARTICLE_BOUNDS_NONE;
+            gp3DCursor->particle->expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
+            gp3DCursor->particle->lifetime_ms = 6000;
+            gp3DCursor->particle->cone_yaw = 1.5707963f;
+            gp3DCursor->particle->cone_pitch = 1.5707963f;
+            gp3DCursor->particle->speed_min = 500.0f;
+            gp3DCursor->particle->speed_max = 1000.0f;
+            gp3DCursor->particle->SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
+            gp3DCursor->particle->flutter_amplitude = 50.0f;
+            gp3DCursor->particle->flutter_period = 1000;
+        }
+        ApplyWorldCursorInput();
         if (gp3DCursor != 0) {
-            memset(gp3DCursor, 0, sizeof(*gp3DCursor));
-            gp3DCursor->monster = 0;
-            gp3DCursor->unknown_08 = 1;
-            gp3DCursor->group_bind_pending = false;
-            gp3DCursor->input_delta.x = 0;
-            gp3DCursor->input_delta.y = 0;
-            gp3DCursor->input_delta.z = 0;
-            gp3DCursor->light = 0;
-            gp3DCursor->enabled = true;
-            gp3DCursor->track_ground = true;
-            gp3DCursor->range = 50000.0f;
-            gp3DCursor->left_held = false;
-            gp3DCursor->monster_group_id = g_cursor_saved_group_id;
-            gp3DCursor->detached = false;
-            gp3DCursor->march_enabled = true;
-            gp3DCursor->footprint_mode = false;
-            gp3DCursor->dragged_info = 0;
-            context.directory = "Data\\Monsters";
-            context.world = g_world;
-            LoadMonsterCycle(&context, "3DCursor", &gp3DCursor->monster, -1, 1);
-            MonsterSetCycle(gp3DCursor->monster, 0);
-            gp3DCursor->last_published = glm::vec3(-100000000.0f);
-            gp3DCursor->position = glm::vec3(0);
-            gp3DCursor->cam_rel_offset = glm::vec3(0);
-            gp3DCursor->monster->inactive = true;
-            WarpSystemCursor(0x140, 0xf0);
-            gp3DCursor->input_delta.x = 0;
-            gp3DCursor->input_delta.y = 0;
-            gp3DCursor->input_delta.z = 0;
-            position = gp3DCursor->position;
-            MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
-            g_world->plsMonsters.push_back(gp3DCursor->monster);
-            UpdateCycleRepresentation(gp3DCursor->monster, g_world);
-            MonsterSetActive(gp3DCursor->monster, false);
-            gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
-            gp3DCursor->light->intensity = 1.0f;
-            ConfigureWorldLight(gp3DCursor->light, 2500.0f);
-            gp3DCursor->light->ambient = glm::vec3(0);
-            gp3DCursor->light->diffuse = glm::vec3(1);
-            gp3DCursor->light->specular = glm::vec3(0);
-            gp3DCursor->light->setLocation(1000.0, 0.0, 0.0);
-            if (gp3DCursor->particle != 0) {
-                auto material = std::make_shared<srMaterial>();
-                colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-                material->setEmissive(colour);
-                material->setDiffuse(colour);
-                gp3DCursor->particle->SetMaterial(std::move(material));
-                gp3DCursor->particle->SetTexture(
-                    LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "particle.tga", true));
-                shader.value = 0x100c433;
-                gp3DCursor->particle->SetRenderFlags(shader);
-                gp3DCursor->particle->rotateX(-1.5707963);
-                gp3DCursor->particle->particle_size = 100.0;
-                gp3DCursor->particle->emission_interval = 300;
-                gp3DCursor->particle->acceleration = {0.0f, -1000.0f, 0.0f};
-                gp3DCursor->particle->has_acceleration = 1;
-                gp3DCursor->particle->initial_speed = 500.0f;
-                gp3DCursor->particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;
-                gp3DCursor->particle->emission_mode = W8_PARTICLE_EMISSION_SINGLE;
-                gp3DCursor->particle->bounds_mode = W8_PARTICLE_BOUNDS_NONE;
-                gp3DCursor->particle->expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
-                gp3DCursor->particle->lifetime_ms = 6000;
-                gp3DCursor->particle->cone_yaw = 1.5707963f;
-                gp3DCursor->particle->cone_pitch = 1.5707963f;
-                gp3DCursor->particle->speed_min = 500.0f;
-                gp3DCursor->particle->speed_max = 1000.0f;
-                gp3DCursor->particle->SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
-                gp3DCursor->particle->flutter_amplitude = 50.0f;
-                gp3DCursor->particle->flutter_period = 1000;
+            camera_position = cameraLocation();
+            if (!gp3DCursor->detached) {
+                gp3DCursor->cam_rel_offset += camera_position;
             }
-            ApplyWorldCursorInput();
-            if (gp3DCursor != 0) {
-                camera_position = cameraLocation();
-                if (!gp3DCursor->detached) {
-                    gp3DCursor->cam_rel_offset += camera_position;
-                }
-                gp3DCursor->detached = true;
-            }
-            ClearCombatSelection();
-            const auto bounds = gp3DCursor->monster->GetAnimationBounds();
-            if (!bounds) return;
-            const auto& [minimum, maximum] = *bounds;
-            gp3DCursor->probe_center = bounds->center();
-            gp3DCursor->probe_offsets[0] = maximum;
-            gp3DCursor->probe_offsets[1] = glm::vec3(minimum.x, maximum.y, maximum.z);
-            gp3DCursor->probe_offsets[2] = glm::vec3(minimum.x, maximum.y, minimum.z);
-            gp3DCursor->probe_offsets[3] = glm::vec3(maximum.x, maximum.y, minimum.z);
-            gp3DCursor->probe_offsets[4] = glm::vec3(maximum.x, minimum.y, maximum.z);
-            gp3DCursor->probe_offsets[5] = glm::vec3(minimum.x, minimum.y, maximum.z);
-            gp3DCursor->probe_offsets[6] = minimum;
-            gp3DCursor->probe_offsets[7] = glm::vec3(maximum.x, minimum.y, minimum.z);
-            UpdateWorldCursorPlacement();
-            if (g_dev_mode && (((GetInputState().modifiers & SHIFT_DOWN) != 0) ||
-                               ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
-                g_cursor_pick_latch = true;
-            }
+            gp3DCursor->detached = true;
+        }
+        ClearCombatSelection();
+        const auto bounds = gp3DCursor->monster->GetAnimationBounds();
+        if (!bounds) return;
+        const auto& [minimum, maximum] = *bounds;
+        gp3DCursor->probe_center = bounds->center();
+        gp3DCursor->probe_offsets[0] = maximum;
+        gp3DCursor->probe_offsets[1] = glm::vec3(minimum.x, maximum.y, maximum.z);
+        gp3DCursor->probe_offsets[2] = glm::vec3(minimum.x, maximum.y, minimum.z);
+        gp3DCursor->probe_offsets[3] = glm::vec3(maximum.x, maximum.y, minimum.z);
+        gp3DCursor->probe_offsets[4] = glm::vec3(maximum.x, minimum.y, maximum.z);
+        gp3DCursor->probe_offsets[5] = glm::vec3(minimum.x, minimum.y, maximum.z);
+        gp3DCursor->probe_offsets[6] = minimum;
+        gp3DCursor->probe_offsets[7] = glm::vec3(maximum.x, minimum.y, minimum.z);
+        UpdateWorldCursorPlacement();
+        if (g_dev_mode && (((GetInputState().modifiers & SHIFT_DOWN) != 0) ||
+                           ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
+            g_cursor_pick_latch = true;
         }
     }
 }
@@ -240,8 +230,8 @@ void ReleaseWorldCursor(void)
     EnableCursorScene();
     RequestRefreshPartyState();
     ClearTargetMarker();
-    free(cursor);
-    gp3DCursor = 0;
+    gp3DCursor = nullptr;
+    world_cursor.reset();
 }
 
 /* The tracked cursor position, or the origin while there is no cursor. */
@@ -326,7 +316,6 @@ void ApplyWorldCursorInput(void)
     glm::vec3 delta;
     glm::vec3 lifted;
     glm::vec3 clamped;
-    float saved_y = gp3DCursor->position.y;
 
     if (gp3DCursor == 0) {
         srAssertFail("gp3DCursor", CURSOR3D_CPP, 0x188, 0);
@@ -334,6 +323,7 @@ void ApplyWorldCursorInput(void)
     if (!gp3DCursor->enabled) {
         srAssertFail("gp3DCursor->fEnabled", CURSOR3D_CPP, 0x189, 0);
     }
+    const float saved_y = gp3DCursor->position.y;
     delta = glm::vec3(gp3DCursor->input_delta.x * 1e+01f, gp3DCursor->input_delta.y * 1e+01f,
                       gp3DCursor->input_delta.z * 1e+01f);
     gp3DCursor->input_delta.x = 0;
