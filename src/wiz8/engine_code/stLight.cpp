@@ -65,7 +65,6 @@ stLight::stLight(srNode* parent) : srLight(static_cast<srNode*>(nullptr), srLigh
     m_position = glm::vec3(0);
     m_level = 0;
     m_definition = 0;
-    m_unknown_238 = 0;
     m_level_time = m_path_time = w8_get_ticks() * 0.001f;
 }
 
@@ -97,7 +96,6 @@ stLight& stLight::operator=(const stLight& other)
     } else {
         m_definition = 0;
     }
-    m_unknown_238 = other.m_unknown_238;
     m_direction = other.m_direction;
     if (other.path_ai != 0) {
         path_ai = new W8PathAI(*other.path_ai);

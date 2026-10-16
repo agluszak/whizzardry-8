@@ -159,13 +159,11 @@ public:
        independent displacement loads. */
     glm::vec3 m_position;    /* 0x228 */
     stLightDefinition* m_definition; /* 0x234: owned */
-    unsigned char m_unknown_238;     /* 0x238 */
     /* Oscillation direction: zero sweeps intensity down, nonzero sweeps up. */
     unsigned char m_direction;
     /* Raised by light-toggle triggers; the save path serializes the names of
        lights carrying it so their toggled state persists in savegames. */
     bool m_save_marked; /* 0x23a */
-    unsigned char m_padding_23b;
     /* w8_get_ticks()/1000 timestamp of the last intensity/color update. */
     float m_level_time;
     /* Current 0..1 sweep level driving intensity and the color lerp. */

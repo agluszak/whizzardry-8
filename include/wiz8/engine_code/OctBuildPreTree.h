@@ -51,7 +51,6 @@ struct W8OctRegionPolygon {
     W8OctPreTreeVertex* vertices[3];
     /* Whole source mesh face copied by the polygon builder. */
     W8ReadMeshFace face;
-    unsigned char padding_71[3];
 
     /* Tests the polygon's representative point against six frustum planes;
        inside means every plane distance is non-negative. */
@@ -132,11 +131,9 @@ struct OctBuildPreTree : W8OctBuildTree {
 
     w8_ulong path_capacity;
     unsigned short selected_depth;
-    unsigned short padding_c2;
     w8_ulong level_counts[10];
     std::vector<w8_ulong> region_paths;
     bool mesh_linking;
-    unsigned char padding_f5[3];
     std::vector<glm::vec3> region_centers;
     /* Region remap table indexed by old region id; RemapNodeRegions frees it
        after rewriting every leaf's region list through it. */
@@ -149,8 +146,6 @@ struct OctBuildPreTree : W8OctBuildTree {
     OctRegionObjectLinks particle_regions;
     OctRegionObjectLinks prop_regions;
     W8OctPreTreeGeometry* game_data;
-    w8_ulong unknown_138;
-    w8_ulong unknown_13c;
 };
 
 #endif

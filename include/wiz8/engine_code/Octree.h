@@ -60,7 +60,6 @@ struct W8OctreeTrace {
     float hit_limit = 1.0e20f;
     float length = 0;
     unsigned short state = 0;
-    unsigned short pad_2e = 0;
 
     W8OctreeTrace() = default;
     W8OctreeTrace(const glm::vec3& from, const glm::vec3& to);
@@ -377,7 +376,6 @@ public:
     W8OctreeObjectRegistry* object_registry;
     std::string m_path_stem;
     bool m_fAccumulating;
-    unsigned char m_padding_0c5[3];
     w8_ulong m_vertex_count;
     w8_ulong m_leaf_polygon_stream_len;
     std::vector<w8_ulong> m_polygon_index_stream;
@@ -408,7 +406,6 @@ public:
     std::vector<unsigned short> m_trigger_indices;
     w8_ulong m_trace_skip_flag;
     w8_ulong m_region_list_len;
-    w8_ulong m_unknown_13c;
     /* The leaf-level mask: VerifyPolygonRegions rebuilds it as
        (1 << m_leaf_level) - 1 and the packed-cell writers emit it as the top
        byte of each (mask<<24 | x<<16 | y<<8 | z) key. */
@@ -422,12 +419,8 @@ public:
     bool m_reset_visibility;
     bool m_region_links_ready;
     bool m_projected_regions_valid;
-    /* Set after a location matches a region, cleared before visibility
-       collection. No consumer or Reset initialization is established. */
-    unsigned char m_location_region_matched; // bool-byte-ok: stores alone do not establish bool
     bool m_region_links_dirty;
     bool m_points_dirty;
-    unsigned char m_padding_16e[2];
     std::vector<glm::vec3> m_sample_points;
     /* Region-link sample cell size read from .oct offset 0xac; the link
        builder strides the x/z grid by it (times three for a sparse pass). */
@@ -449,16 +442,11 @@ public:
     w8_ulong m_gd_result_count;
     std::array<w8_ulong, 10000> m_aulGDObjs;
     W8OctreeView view;
-    w8_ulong m_unknown_27c[6];
     bool m_visibility_suspended;
-    unsigned char m_padding_295;
     /* The build's directional-sun count: the driver stores the light total
        and CreateSubMeshes emits it as each OctMeshModel's version and
        sizes the per-sun vertex light arrays from it. */
     unsigned short m_sun_count;
-    unsigned char m_padding_298;
-    unsigned char m_unknown_299;
-    unsigned char m_padding_29a[2];
 };
 
 class OctPreTree : public W8Octree {
@@ -484,8 +472,6 @@ public:
     int m_lBlocks[30];
     w8_ulong polygon_cursor;
     W8OctPreTreeGeometry* game_data;
-    w8_ulong unknown_3a8;
-    w8_ulong unknown_3ac;
     w8_ulong deepest_link_list;
     /* Path-node grid pitch: BuildPathLists sets it to m_region_cell * 2. */
     float path_node_extent;

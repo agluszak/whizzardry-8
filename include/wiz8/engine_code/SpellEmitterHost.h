@@ -29,12 +29,10 @@ public:
 
     unsigned int value_0ac;
     unsigned int value_0b0;
-    unsigned char unknown_0b4[0x24];
     EmitterResources<28> resources;
     /* Set for spawned visuals: UpdateRepresentation then adds the
        camera-facing yaw rotation on top of the mode's orientation. */
     bool billboard;
-    unsigned char padding_379[3];
 }; /* 0x37c */
 
 #endif

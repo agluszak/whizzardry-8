@@ -3019,8 +3019,6 @@ W8PathingService::W8PathingService()
     span = 0;
     path_node_count = 0;
     edge_node_count = 0;
-    m_unknown_014 = 0;
-    m_removed_edge_count = 0;
     m_path_visualization = 0;
     m_marked_path_nodes.assign(100, false);
     m_visited_path_nodes.assign(100, false);
@@ -3055,12 +3053,11 @@ W8PathingService::W8PathingService()
    of that box scaled down to one height unit; the cell count is how many of those units fit in
    1.25 grid cells, plus one, and bounds the vertical band the height lookups accept. */
 // FUNCTION: WIZ8 0x00458a50
-void W8PathingService::ConfigureForLevel(int size, float grid_scale, float path_clearance,
-                                         const srBoundingBox& bounds, const char* name)
+void W8PathingService::ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
+                                         const char* name)
 {
     path_node_count = size;
     this->grid_scale = grid_scale;
-    this->path_clearance = path_clearance;
     level_bounds.minimum = bounds.minimum;
     level_bounds.maximum = bounds.maximum;
     span = (level_bounds.maximum.y - level_bounds.minimum.y) * g_path_span_scale;
@@ -5080,7 +5077,6 @@ void W8PathingService::RemoveWaypointLink(unsigned short edge_index)
         }
 
         memset(&m_pEdges[edge_index], 0, sizeof(W8PathEdge));
-        ++m_removed_edge_count;
         MarkRendererReady();
         waypoints_dirty = true;
     }

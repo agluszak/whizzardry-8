@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_LEVELS_H
 #define WIZ8_LAYOUTS_LEVELS_H
 
+#include <string>
+
 #pragma pack(push, 1)
 
 struct W8LevelFolderRecord {
@@ -29,19 +31,10 @@ struct W8LevelProgressRow {
 
 static_assert(sizeof(W8LevelProgressRow) == 0x21, "W8LevelProgressRow_must_be_0x21");
 
-/* LevelBuildInfoByID fills eight consecutive path buffers. LoadLevel passes
-   the first three to LoadWorld as the level folder,
-   mutable level filename and bitmap folder; the remaining buffers are the
-   complete level path and the corresponding four sky paths. */
+// Native asset paths, relative to the game filesystem.
 struct W8LevelInfo {
-    char level_folder[0x64];
-    char level_file_name[0x64];
-    char level_bitmap_folder[0x64];
-    char level_path[0x100];
-    char sky_folder[0x64];
-    char sky_file_name[0x64];
-    char sky_bitmap_folder[0x64];
-    char sky_path[0x100];
+    std::string level_path;
+    std::string sky_path;
 };
 
 /* The forty-seven real levels. Level ids 47..56 are the test-level slots the

@@ -74,8 +74,6 @@ OctPreTree* g_oct_pre_tree = 0;
 OctPreTree::OctPreTree() : W8Octree(0, 0)
 {
     game_data = 0;
-    unknown_3a8 = 0;
-    unknown_3ac = 0;
     deepest_link_list = 0;
     m_region_cell = 0.0f;
     path_node_extent = 0;
@@ -1042,8 +1040,8 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
         if (pre_pathing == 0) {
             ReportBuildStatus(7, "Could not create PrePathing object\n");
         }
-        pre_pathing->ConfigureForLevel(path_node_count, m_region_cell, m_path_clearance,
-                                       m_spatial.bounds(), m_path_stem.c_str());
+        pre_pathing->ConfigureForLevel(path_node_count, m_region_cell, m_spatial.bounds(),
+                                       m_path_stem.c_str());
         if (!pre_pathing->BuildPathList(head, &node_map)) {
             return 0;
         }

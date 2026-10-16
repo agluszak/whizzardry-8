@@ -49,7 +49,6 @@ struct W8NavigatorAttachment {
     unsigned short position_cursor;
     unsigned short path_position_index;
     unsigned short follow_offset;
-    unsigned short padding_0e;
     glm::vec3 segment_start;
     glm::vec3 path_destination;
     glm::vec3 start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
@@ -64,7 +63,6 @@ struct W8NavigatorAttachment {
     /* Direct segment length after initialization; MeasurePathLength later
        replaces it with the eligible route length and latches flag 0x00400000. */
     float path_length;
-    unsigned char padding_05c[4];
 
     W8NavigatorAttachment(); /* 0x00456210 */
     /* The from/to form 0x004604B0 constructs on the stack: both endpoints of
@@ -145,7 +143,6 @@ public:
 struct W8NavigatorMovementState {
     unsigned int navigation_filter;
     unsigned short location_id;
-    unsigned short padding_006;
     int leadership_rank;
     int active_rank;
     /* -1 means no resolved target. Navigation and OctPath use this as the
@@ -171,11 +168,9 @@ struct W8NavigatorMovementState {
     float movement_speed;
     float turn_rate;
     unsigned short flags;
-    unsigned char padding_06e[6];
     bool pitch_enabled;
     bool roll_enabled;
     bool boundary_enabled;
-    unsigned char padding_077;
     float vertical_velocity;
     float vertical_base;
     float vertical_amplitude;
@@ -194,7 +189,6 @@ struct W8NavigatorMovementState {
     float vertical_offset;
     float scale;
     bool position_adjusted;
-    unsigned char padding_0c9[3];
 
     W8NavigatorMovementState(); /* 0x004572C0 */
     /* A second, different set of defaults over the same subobject, run by
@@ -376,7 +370,6 @@ public:
        owner deactivates (monster despawn, cursor teardown), restored on
        activation; traceSphereHit and GameData skip navigators with it zero. */
     bool active;
-    unsigned char padding_089[3];
     void (*movement_callback)(W8Navigator* navigator);
     /* Trace-hit exclusion mask: traceSphereHit skips monsters whose
        (trace_mask & flags) is nonzero; configureStartupRange raises bit 0. */
@@ -389,19 +382,16 @@ public:
     /* 0x09d: raised by the trigger sweep after it reactivates the monster
        (members_active, animation restart, rep/path reset). */
     bool reactivated;
-    unsigned char padding_09e[2];
     std::unique_ptr<W8NavigatorOwned0A0> owned_object;
     glm::vec3 tracked_position;
     float tracked_distance;
     bool tracked_dirty;
-    unsigned char padding_0b5[3];
     int linked_update_time;
     bool movement_plan_failed;
     /* Raised on combat entry for the group leader's navigator (or the monster
        itself when unlinked); SetNavigatorLinkMode uses it to re-base the group
        onto the navigator's path when free-roam resumes. */
     bool group_linked;
-    unsigned char padding_0be[2];
     /* Constructed first as its own 0xcc-byte subobject, then Reset by this
        owner. Copy construction constructs a fresh attachment and transfers
        selected settings; it never shares the source's path allocation. */
