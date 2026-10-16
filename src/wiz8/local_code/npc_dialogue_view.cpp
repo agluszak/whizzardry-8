@@ -302,7 +302,7 @@ void RestoreCurrentNpcQuoteBubble(void)
 {
     W8NpcState* const speaker = g_npc_dialogue.speaker();
     const int current_quote = g_npc_dialogue.current_quote();
-    W8NpcScriptFile* script_file = speaker != 0 ? speaker->script_file : 0;
+    W8NpcScriptFile* script_file = speaker != 0 ? speaker->script_file.get() : 0;
     if (script_file != 0 && current_quote < static_cast<int>(script_file->quote_count)) {
         SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + current_quote,
                                  current_quote, 0xffffffff);

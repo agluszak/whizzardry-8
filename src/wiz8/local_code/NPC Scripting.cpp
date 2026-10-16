@@ -180,7 +180,7 @@ static int g_npc_region_quotes[15][0x12] = {
 // FUNCTION: WIZ8 0x00528CD0
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
 {
-    W8NpcScriptFile* script = g_npc_dialogue.speaker()->script_file;
+    W8NpcScriptFile* script = g_npc_dialogue.speaker()->script_file.get();
     int entry_index;
     int quote_index;
 
@@ -348,8 +348,6 @@ void ReloadNpcScriptResources(W8NpcState* npc)
 {
     const std::string script_name = FormatNpcVoiceSoundPath(npc);
     std::string resource_name = fmt::format("Data\\NPC Scripts\\{}.nsf", script_name);
-    ReleaseNpcScriptFile(npc->script_file);
-    npc->script_file = nullptr;
     npc->script_file = LoadNpcScriptFile(resource_name);
     if (npc->script_file != 0) {
         W8Monster* monster = GetNpcMonster(npc);
@@ -577,7 +575,7 @@ void W8NpcDialogue::RunNextAction()
             pending_quotes_.push_back(quote_index);
         }
 
-        W8NpcScriptFile* script = session_.npc->script_file;
+        W8NpcScriptFile* script = session_.npc->script_file.get();
         if (script != 0 && !quote_line->suppress_entries && quote_index < script->quote_count) {
             W8NpcScriptQuote* quote = &script->quotes[quote_index];
             for (index = 0; index < quote->entry_count; ++index) {
@@ -607,7 +605,7 @@ void W8NpcDialogue::RunNextAction()
         void operator()(const W8NpcQueuedQuote&) const {}
         void operator()(const W8NpcQueuedEntry& queued) const
         {
-            W8NpcScriptFile* script = npc != 0 ? npc->script_file : 0;
+            W8NpcScriptFile* script = npc != 0 ? npc->script_file.get() : 0;
             if (script != 0 && queued.quote_index >= 0 &&
                 queued.quote_index < static_cast<int>(script->quotes.size()) &&
                 queued.entry_index >= 0 &&
@@ -830,9 +828,8 @@ void AuditNpcScriptQuotes(void)
         for (const auto& name :
              wiz8::list_directory(wiz8::asset_path("Data\\NPC Scripts"), "*.nsf")) {
             path = fmt::format("Data\\NPC Scripts\\{}", name);
-            script = LoadNpcScriptFile(path);
-            std::unique_ptr<W8NpcScriptFile, decltype(&ReleaseNpcScriptFile)> script_owner(
-                script, &ReleaseNpcScriptFile);
+            auto script_owner = LoadNpcScriptFile(path);
+            script = script_owner.get();
             if (script != 0) {
                 file_lines = 0;
                 file_quotes = 0;
