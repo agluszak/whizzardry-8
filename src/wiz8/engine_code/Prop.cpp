@@ -1088,12 +1088,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             rep_rotation = Rep()->GetRotation();
             node = instance->first_child_;
             if (node == 0) {
-                location = glm::dvec3(rep_position);
+                location = glm::dvec3(rep_position.glmValue());
                 instance->setLocation(location);
                 instance->setRotation(rep_rotation);
             } else {
                 do {
-                    location = glm::dvec3(rep_position);
+                    location = glm::dvec3(rep_position.glmValue());
                     node->setLocation(location);
                     node->setRotation(rep_rotation);
                     node = node->next_sibling_;
