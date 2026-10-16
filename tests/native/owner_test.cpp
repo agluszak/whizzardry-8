@@ -28,7 +28,6 @@
 #include <fmt/printf.h>
 
 #include "Font.h"
-#include "Types.h"
 #include "application.h"
 #include "himage.h"
 #include "image.h"
@@ -41,6 +40,7 @@
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
+#include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
@@ -1966,7 +1966,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
 
 TEST_CASE("assert-plain", "[.death]")
 {
-    Assert(false);
+    W8_ASSERT(false);
     FAIL("Assert did not abort");
 }
 

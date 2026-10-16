@@ -13,7 +13,6 @@
 #include <glm/geometric.hpp>
 
 #include "Navigator.h"
-#include "Types.h"
 #include "conditions.h"
 #include "equipment_slots.h"
 #include "glm/ext/vector_float3.hpp"
@@ -67,6 +66,8 @@
 #include "wiz8/xstatus.h"
 
 #define TARGETING_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Targeting.cpp"
+
+constexpr int BAD_INDEX = -1;
 
 /* Point a source at one party character. Everything is cleared first and the
    monster id invalidated, so a source built this way never reads as a monster;

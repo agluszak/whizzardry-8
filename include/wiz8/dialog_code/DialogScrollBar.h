@@ -2,7 +2,6 @@
 
 #include <functional>
 
-#include "Types.h"
 #include "compat/compiler.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
