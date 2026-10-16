@@ -25,7 +25,6 @@
 #include "surrender/mesh_math.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
@@ -65,7 +64,7 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices) : srMeshModel(polyg
     vertex_light_table = 0;
     vertex_compression_scale = 1.0f;
     last_decompress_release_tick = w8_get_ticks();
-    render_control.value &= ~0x10UL;
+    render_control &= ~0x10UL;
     setDirty(DIRTY_BOUNDS);
     automap_filter_active = false;
 }
@@ -79,7 +78,7 @@ stMeshModel::~stMeshModel()
 
 srModel::Bounds stMeshModel::getBounds()
 {
-    if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
+    if ((dirty_flags & (1UL << DIRTY_BOUNDS)) != 0) {
         CalculateLinkedBounds();
     }
     return {{bounds_minimum, bounds_maximum}, {bounds_center, bounds_radius}};

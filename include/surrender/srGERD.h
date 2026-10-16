@@ -1,6 +1,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -20,7 +21,6 @@
 #include "srClass.h"
 #include "srColorSurfaceIFace.h"
 #include "srDD.h"
-#include "srFlags.h"
 #include "srMath.h"
 #include "srModel.h"
 #include "srRendererDefs.h"
@@ -336,7 +336,7 @@ public:
     void flush();
     void flushRenderers();
     void flushImmediateRenderers();
-    void clear(const srFlags<e_buffer>& buffers);
+    void clear(std::uint32_t buffers);
     w8_long getHeight() const;
     w8_long getWidth() const;
     void resetStatistics();
@@ -485,7 +485,7 @@ public:
     void popEnvironment();
     void setEnvironmentRange(float minimum, float maximum);
     void setEnvironmentScaleFactor(float scale, float inverse_scale);
-    void setClipState(srFlags<srRendererDefs::e_clip> state);
+    void setClipState(std::uint32_t state);
     void setAntiAlias(e_antiAlias mode);
     void setTexture(srTextureIFace* texture, w8_ulong layer);
     void setTextureDefaultCorrection(srTextureIFace::e_correction correction);
@@ -565,7 +565,7 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BAE0 SYMBOL
     // RECOMP: ?isEnabled@srGERD@@QBEHW4e_enable@1@@Z
-    int isEnabled(e_enable option) const { return (enable_flags.value & (1UL << option)) != 0; }
+    int isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
 
     // FUNCTION: SURRENDER 0x1001BB90 SYMBOL
     // RECOMP: ?setCullMode@srGERD@@QAEXW4e_cullMode@1@@Z
@@ -588,16 +588,14 @@ public:
     }
 
     // FUNCTION: SURRENDER 0x1001BEF0 SYMBOL
-    // RECOMP: ?setVertexArrayMask@srGERD@@QAEXV?$srFlags@W4e_vertexArray@srRendererDefs@@@@@Z
-    void setVertexArrayMask(srFlags<srRendererDefs::e_vertexArray> mask)
+    void setVertexArrayMask(std::uint32_t mask)
     {
         vertex_arrays.mask = mask;
         vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
     }
 
     // FUNCTION: SURRENDER 0x1001BEE0 SYMBOL
-    // RECOMP: ?getVertexArrayMask@srGERD@@QBE?AV?$srFlags@W4e_vertexArray@srRendererDefs@@@@XZ
-    srFlags<srRendererDefs::e_vertexArray> getVertexArrayMask() const { return vertex_arrays.mask; }
+    std::uint32_t getVertexArrayMask() const { return vertex_arrays.mask; }
 
     void setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
                            const void* values);
@@ -875,7 +873,7 @@ private:
 
         Environment environment_stack[16];
         w8_ulong environment_depth;
-        srFlags<e_enable> enable_stack[16];
+        std::uint32_t enable_stack[16]{};
         w8_ulong enable_depth;
     };
 
@@ -886,7 +884,7 @@ private:
     std::condition_variable_any renderers_idle;
     mutable std::recursive_mutex state_section;
     std::thread::id owner_thread;
-    srFlags<e_enable> enable_flags;
+    std::uint32_t enable_flags = 0;
     enum {
         DIRTY_FRAME_ENABLE = 0x1UL,
         DIRTY_GAMMA = 0x2UL,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -8,7 +9,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "srFlags.h"
 #include "srMaterial.h"
 #include "srMath.h"
 #include "srModel.h"
@@ -115,17 +115,16 @@ public:
     void setDirty(e_flags flag)
     {
         w8_ulong mask = 1 << flag;
-        if ((dirty_flags.value & mask) == 0) {
-            dirty_flags.set(flag, 1);
-            dirty_flags.set(DIRTY_TRI_MESH, 1);
+        if ((dirty_flags & mask) == 0) {
+            dirty_flags |= mask | (1u << DIRTY_TRI_MESH);
         }
     }
     // FUNCTION: SURRENDER 0x10041750 SYMBOL
     // RECOMP: ?clearDirty@srMeshModel@@QAEXW4e_flags@1@@Z
-    void clearDirty(e_flags flag) { dirty_flags.set(flag, 0); }
+    void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
     // FUNCTION: SURRENDER 0x10041770 SYMBOL
     // RECOMP: ?testDirty@srMeshModel@@QBEHW4e_flags@1@@Z
-    int testDirty(e_flags flag) const { return (dirty_flags.value & (1 << flag)) != 0; }
+    int testDirty(e_flags flag) const { return (dirty_flags & (1 << flag)) != 0; }
     srShader* getPolyShader(w8_long polygon, int layer);
     srShader getShader(w8_long polygon) const;
     void setShader(srShader shader, w8_long pass);
@@ -148,7 +147,7 @@ public:
     // FUNCTION: SURRENDER 0x10041830
     void enable(e_control control)
     {
-        render_control.set(control, 1);
+        render_control |= 1u << control;
         setDirty(DIRTY_TRI_MESH);
     }
     int isEnabled(e_control control) const;
@@ -209,6 +208,6 @@ public:
     w8_long uv_count = 0;
     float sort_bias = 0.0f;
     TriMesh tri_mesh;
-    srFlags<e_flags> dirty_flags;
-    srFlags<e_control> render_control;
+    std::uint32_t dirty_flags = 0;
+    std::uint32_t render_control = 0;
 };

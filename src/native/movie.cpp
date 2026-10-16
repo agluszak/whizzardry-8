@@ -12,7 +12,6 @@
 #include "compat/native.h"
 #include "native/movie_audio.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
 #include "wiz8/engine_code/Video2.h"
@@ -350,7 +349,7 @@ void W8NativeVideo::present(SDL_Surface* target)
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);
-    g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
+    g_gerd->clear(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH);
     g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
     g_gerd->loadIdentity();
     state->presentation_tiles->DrawTiles(g_gerd);

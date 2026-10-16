@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <span>
 
-#include "srFlags.h"
 #include "srMath.h"
 #include "srRendererDefs.h"
 #include "srShader.h"
@@ -84,7 +84,7 @@ public:
     virtual void closeWindow() = 0;
     virtual void flushFrame() = 0;
     virtual void flipFrame() = 0;
-    virtual void clearBuffers(const srFlags<e_buffer>& buffers) = 0;
+    virtual void clearBuffers(std::uint32_t buffers) = 0;
     virtual void lockBuffer() = 0;
     virtual void unlockBuffer() = 0;
     virtual void readPixels(w8_long x, w8_long y, bool vertical, std::span<w8_ulong> pixels) = 0;

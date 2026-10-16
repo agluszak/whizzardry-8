@@ -35,7 +35,6 @@
 #include "layouts/world.h"
 #include "surrender/srClass.h"
 #include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTextureIFace.h"
@@ -826,7 +825,7 @@ void RenderFrame(void)
         w8_ulong width = g_gerd->getWidth();
         const auto rect = ToSurfaceRect(g_viewport, width, height);
         g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-        g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
+        g_gerd->clear(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH);
         g_gerd->setScissor(0, 0, width, height);
     }
     }
@@ -962,7 +961,7 @@ unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rec
     if (g_inverted_depth_render) {
         gerd->setClearDepth(0.0);
     }
-    gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
+    gerd->clear(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH);
     if (render_secondary && g_render_mesh_sky && g_secondary_world != 0) {
         g_secondary_world->static_scene->render(*gerd, g_secondary_world->camera);
     }
@@ -2672,7 +2671,7 @@ void BeginRenderProbe(void)
     g_gerd->setAmbientLight(1.0f, 1.0f, 1.0f, 1.0f);
     g_gerd->beginFrame();
     g_gerd->setScissor(0, 0, g_gerd->getWidth(), g_gerd->getHeight());
-    g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
+    g_gerd->clear(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH);
     g_gerd->endFrame();
 }
 

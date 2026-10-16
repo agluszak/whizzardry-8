@@ -15,7 +15,6 @@
 #include "glm/matrix.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srCamera.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 
@@ -32,17 +31,17 @@ void srCamera::process(const ProcessInfo& info, e_processType type)
 // FUNCTION: SURRENDER 0x10047E10
 srCamera::e_project srCamera::getProjectionType() const
 {
-    return static_cast<e_project>(flags.value & (1UL << FLAG_PROJECTION_TYPE));
+    return static_cast<e_project>(flags & (1UL << FLAG_PROJECTION_TYPE));
 }
 
 // FUNCTION: SURRENDER 0x10047E20
 void srCamera::setProjectionType(e_project projection)
 {
     if (projection == PROJECT_PERSPECTIVE) {
-        flags.value &= ~(1UL << FLAG_PROJECTION_TYPE);
+        flags &= ~(1UL << FLAG_PROJECTION_TYPE);
         return;
     }
-    flags.value |= 1UL << FLAG_PROJECTION_TYPE;
+    flags |= 1UL << FLAG_PROJECTION_TYPE;
 }
 
 // FUNCTION: SURRENDER 0x10047E50
@@ -72,7 +71,7 @@ void srCamera::processPush(srGERD* renderer)
     rectangle.top *= scale;
     rectangle.bottom *= scale;
 
-    if ((flags.value & (1UL << FLAG_PROJECTION_TYPE)) == 0) {
+    if ((flags & (1UL << FLAG_PROJECTION_TYPE)) == 0) {
         renderer->frustum(rectangle.left, rectangle.right, rectangle.bottom, rectangle.top,
                           near_plane, far_plane);
     } else {
@@ -104,7 +103,7 @@ double srCamera::getAspectRatio() const
 // FUNCTION: SURRENDER 0x10048450
 srCamera::srCamera(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
-    flags.value = 0;
+    flags = 0;
     near_clip = 0.1;
     far_clip = 1000.0;
     environment_near = 0.0f;

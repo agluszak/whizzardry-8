@@ -26,7 +26,6 @@
 #include "input.h"
 #include "sprite.h"
 #include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -110,7 +109,7 @@ TEST_CASE("game graphics")
                     g_gerd->isWindowOpen());
         REQUIRE(error == srGERD::ERROR_NONE);
         g_gerd->setClearColor(0, 0, 0, 1);
-        g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
+        g_gerd->clear(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH);
         g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
         g_surface_node->DrawTiles(g_gerd);
