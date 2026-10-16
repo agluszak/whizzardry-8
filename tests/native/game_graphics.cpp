@@ -21,7 +21,6 @@
 #include <wiz8/asset_paths.h>
 
 #include "../../src/native/movie.h"
-#include "compat/video.h"
 #include "image_assets.h"
 #include "input.h"
 #include "sprite.h"
@@ -33,7 +32,6 @@
 #include "wiz8/bink_video.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
 
 class srScene;
