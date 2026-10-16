@@ -142,7 +142,6 @@ void wiz8::Application::shutdown() noexcept
         }
     }
     gfGameInitialized = false;
-    Release3DSounds();
     wiz8::sound::shutdown();
     if (game_started_) {
         try {
@@ -151,6 +150,7 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }
     }
+    Release3DSounds();
     ReleaseCatalogArtwork();
     ShutdownButtonImageManager();
     ReleaseMenuFonts();
