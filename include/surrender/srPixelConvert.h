@@ -5,34 +5,32 @@ class srPalette;
 class srPixelConvert {
 public:
     enum e_surfaceType {
-        SURFACE_AP44 = 0x00,
-        SURFACE_AL44 = 0x01,
-        SURFACE_L8 = 0x02,
-        SURFACE_A8 = 0x03,
-        SURFACE_P8 = 0x04,
-        SURFACE_AP88 = 0x05,
-        SURFACE_AL88 = 0x06,
-        SURFACE_RGB565 = 0x07,
-        SURFACE_RGB555 = 0x08,
-        SURFACE_ARGB1555 = 0x09,
-        SURFACE_RGB444 = 0x0a,
-        SURFACE_ARGB4444 = 0x0b,
-        SURFACE_BGR24 = 0x0c,
-        SURFACE_BGRX32 = 0x0d,
-        SURFACE_BGRA32 = 0x0e,
-        SURFACE_Y4U2V2 = 0x0f,
-        SURFACE_A8Y4U2V2 = 0x10,
-        SURFACE_RGB332 = 0x11,
-        SURFACE_BGR565 = 0x13,
-        SURFACE_ARGB32 = 0x14,
-        SURFACE_BGR555 = 0x15,
-        SURFACE_ABGR32 = 0x16,
-        SURFACE_RGBA32 = 0x17,
-        SURFACE_RGB24 = 0x18,
-        SURFACE_INVALID = 0x19
+        SURFACE_AP44,
+        SURFACE_AL44,
+        SURFACE_L8,
+        SURFACE_A8,
+        SURFACE_P8,
+        SURFACE_AP88,
+        SURFACE_AL88,
+        SURFACE_RGB565,
+        SURFACE_RGB555,
+        SURFACE_ARGB1555,
+        SURFACE_RGB444,
+        SURFACE_ARGB4444,
+        SURFACE_BGR24,
+        SURFACE_BGRX32,
+        SURFACE_BGRA32,
+        SURFACE_RGB332,
+        SURFACE_BGR565,
+        SURFACE_ARGB32,
+        SURFACE_BGR555,
+        SURFACE_ABGR32,
+        SURFACE_RGBA32,
+        SURFACE_RGB24,
+        SURFACE_INVALID
     };
 
-    enum e_colorModel { COLOR_RGB = 0, COLOR_YUV = 1, COLOR_INTENSITY = 2, COLOR_INDEXED = 3 };
+    enum e_colorModel { COLOR_RGB, COLOR_INTENSITY, COLOR_INDEXED };
     enum e_pixelSize { PIXEL_SIZE_8 = 0, PIXEL_SIZE_16 = 1, PIXEL_SIZE_24 = 2, PIXEL_SIZE_32 = 3 };
 
     struct PixelFormat {

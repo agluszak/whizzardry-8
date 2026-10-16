@@ -6,12 +6,9 @@
 #include <SDL3/SDL_pixels.h>
 
 #include "compat/compiler.h"
-#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_uint4.hpp"
-#include "glm/geometric.hpp"
 #include "surrender/pixel_math.h"
 #include "surrender/srARGB.h"
-#include "surrender/srMath.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "wiz8/surface_storage.h"
@@ -21,8 +18,6 @@
    formats whose converter does not fit a generic kernel. */
 void writeRGB(const srPixelConvert::ConversionInfo& info);
 void readRGB(const srPixelConvert::ConversionInfo& info);
-void writeYUV(const srPixelConvert::ConversionInfo& info);
-void readYUV(const srPixelConvert::ConversionInfo& info);
 void writeIntensity(const srPixelConvert::ConversionInfo& info);
 void readIntensity(const srPixelConvert::ConversionInfo& info);
 void writeIndexed(const srPixelConvert::ConversionInfo& info);
@@ -45,8 +40,6 @@ GenericConversionFunctions(srPixelConvert::e_colorModel model)
     switch (model) {
     case srPixelConvert::COLOR_RGB:
         return {writeRGB, readRGB};
-    case srPixelConvert::COLOR_YUV:
-        return {writeYUV, readYUV};
     case srPixelConvert::COLOR_INTENSITY:
         return {writeIntensity, readIntensity};
     case srPixelConvert::COLOR_INDEXED:
@@ -102,16 +95,7 @@ unsigned char lutReduce4[256];
 unsigned char lutReduce2[256];
 
 // GLOBAL: SURRENDER 0x100A2438
-FormatEntry format_table[25];
-
-/* YUV conversion matrices: rgbToYUV rows are the Y, U and V weights applied to the source pixel's
-   float channels; yuvToRGB rows decode the expanded Y, U and V back to R, G and B. */
-// GLOBAL: SURRENDER 0x100A2758
-const glm::vec3 yuvToRGB[3] = {
-    glm::vec3(1.0f, 0.956f, 0.620f),
-    glm::vec3(1.0f, -0.272f, -0.647f),
-    glm::vec3(1.0f, -1.108f, 1.705f),
-};
+FormatEntry format_table[srPixelConvert::SURFACE_INVALID];
 
 // GLOBAL: SURRENDER 0x100A2BFC
 unsigned char lutExpand128[128];
@@ -119,12 +103,6 @@ unsigned char lutExpand128[128];
 w8_long lutRamp18[256];
 // GLOBAL: SURRENDER 0x100A397C
 w8_long lutRamp54[256];
-// GLOBAL: SURRENDER 0x100A3D80
-const glm::vec3 rgbToYUV[3] = {
-    glm::vec3(0.299f, 0.587f, 0.114f),
-    glm::vec3(0.596f, -0.275f, -0.321f),
-    glm::vec3(0.212f, -0.528f, 0.311f),
-};
 // GLOBAL: SURRENDER 0x100A41A4
 w8_long lutRamp183[256];
 
@@ -265,14 +243,8 @@ void initFormats()
                srPixelConvert::PIXEL_SIZE_32, 0);
     initFormat(srPixelConvert::SURFACE_BGRA32, 8, 0x10, 8, 8, 8, 0, 8, 0x18,
                srPixelConvert::COLOR_RGB, srPixelConvert::PIXEL_SIZE_32, 0);
-    initFormat(srPixelConvert::SURFACE_Y4U2V2, 4, 4, 2, 2, 2, 0, 0, 0, srPixelConvert::COLOR_YUV,
-               srPixelConvert::PIXEL_SIZE_8, 0);
-    initFormat(srPixelConvert::SURFACE_A8Y4U2V2, 4, 4, 2, 2, 2, 0, 8, 8, srPixelConvert::COLOR_YUV,
-               srPixelConvert::PIXEL_SIZE_16, 0);
     initFormat(srPixelConvert::SURFACE_RGB332, 3, 5, 3, 2, 2, 0, 0, 0, srPixelConvert::COLOR_RGB,
                srPixelConvert::PIXEL_SIZE_8, 0);
-    initFormat(0x12, 3, 5, 3, 2, 2, 0, 8, 0, srPixelConvert::COLOR_RGB,
-               srPixelConvert::PIXEL_SIZE_16, 0);
     initFormat(srPixelConvert::SURFACE_BGR565, 5, 0, 6, 5, 5, 0xb, 0, 0, srPixelConvert::COLOR_RGB,
                srPixelConvert::PIXEL_SIZE_16, 0);
     initFormat(srPixelConvert::SURFACE_ARGB32, 8, 8, 8, 0x10, 8, 0x18, 8, 0,
@@ -308,7 +280,7 @@ void initFormats()
 srPixelConvert::PixelFormat srPixelConvert::pixelFormat(e_surfaceType type)
 {
     initFormats();
-    if (static_cast<int>(type) < 0 || static_cast<int>(type) > 0x18) {
+    if (static_cast<int>(type) < 0 || type >= SURFACE_INVALID) {
         type = SURFACE_BGRA32;
     }
     return format_table[type].format;
@@ -380,60 +352,6 @@ struct PackedChannels {
                alpha.reduce(value.a);
     }
 };
-
-/* Clamps a decoded YUV channel to a byte for the srARGB pack. */
-static int clampChannel(float value)
-{
-    if (0.0f < value) {
-        if (value < 255.0f) {
-            return srFloatToInt(value);
-        }
-        return 0xff;
-    }
-    return 0;
-}
-
-/* YUVA write dispatcher: every case float-vectorizes the source pixel, dot-products it with the
-   rgbToYUV rows, then quantizes the Y, U and V results through the format's channel reduction
-   tables. The destination index comes from the shifted green-channel term instead of the loop
-   index, so writes scatter across the head of the destination. */
-// FUNCTION: SURRENDER 0x100088D0
-void writeYUV(const srPixelConvert::ConversionInfo& info)
-{
-    const auto& format = *info.format;
-    const PackedChannels channels(format);
-    ConvertPixelRun(info, 4, format.pixel_size + 1, [&](w8_ulong pixel, w8_ulong) {
-        const auto color = srPixels::channels(pixel);
-        const glm::vec3 rgb(color);
-        const glm::vec3 yuv(glm::dot(rgbToYUV[0], rgb), glm::dot(rgbToYUV[1], rgb),
-                            glm::dot(rgbToYUV[2], rgb));
-        const auto y = srFloatToInt(yuv.x), u = srFloatToInt(yuv.y), v = srFloatToInt(yuv.z);
-        const auto index = channels.green.reduce((u >> 8) & 255);
-        return PixelAt{channels.red.reduce((y >> 16) & 255) | index |
-                           channels.blue.reduce(v & 255) | channels.alpha.reduce(color.a),
-                       index};
-    });
-}
-
-/* YUVA read dispatcher: every case expands the packed Y, U and V channels through the format's
-   channel expansion tables, dot-products them with the yuvToRGB rows, clamps the results and packs
-   an srARGB. The destination index comes from the expanded green (U) channel instead of the loop
-   index. */
-// FUNCTION: SURRENDER 0x10008F70
-void readYUV(const srPixelConvert::ConversionInfo& info)
-{
-    const auto& format = *info.format;
-    const PackedChannels channels(format);
-    ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong) {
-        const auto color = channels.expand(pixel);
-        const glm::vec3 yuv(color);
-        const glm::vec3 rgb(glm::dot(yuvToRGB[0], yuv), glm::dot(yuvToRGB[1], yuv),
-                            glm::dot(yuvToRGB[2], yuv));
-        return PixelAt{srPixels::pack({clampChannel(rgb.x), clampChannel(rgb.y),
-                                       clampChannel(rgb.z), color.a}),
-                       color.g};
-    });
-}
 
 /* PXXA (palette index + optional alpha) write dispatcher: every case
    quantizes the source color through the surface palette, shifts the index
