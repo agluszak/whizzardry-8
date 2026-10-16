@@ -1,6 +1,5 @@
 #include "wiz8/engine_code/materials.h"
 
-#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

@@ -1,7 +1,6 @@
 #include "wiz8/engine_code/OctPath.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
