@@ -3,21 +3,22 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 // Mesh assignments share each distinct resource once. Rendering borrows this
 // table object, so growing its resource pool does not invalidate the view.
 template<class T> struct MeshResources {
-    std::vector<std::shared_ptr<T>> resources;
     std::vector<std::uint32_t> indices;
 
     bool empty() const { return indices.empty(); }
     std::size_t size() const { return indices.size(); }
     const std::shared_ptr<T>& operator[](std::size_t element) const
     {
-        return resources[indices[element]];
+        return resources[indices[element]].value;
     }
     void resize(std::size_t count)
     {
@@ -25,34 +26,45 @@ template<class T> struct MeshResources {
             *this = {};
             return;
         }
-        if (count && resources.empty()) resources.emplace_back();
-        const bool shrinking = count < indices.size();
+        if (resources.empty()) resources.emplace_back();
+        for (std::size_t element = count; element < indices.size(); ++element)
+            release(indices[element]);
         indices.resize(count);
-        if (shrinking) {
-            for (std::size_t i = 1; i < resources.size(); ++i)
-                if (std::find(indices.begin(), indices.end(), i) == indices.end())
-                    resources[i].reset();
-        }
     }
     void set(std::size_t element, std::shared_ptr<T> resource)
     {
         const auto old = indices[element];
-        auto found = std::find(resources.begin(), resources.end(), resource);
+        if (resources[old].value == resource) return;
+        auto found = std::find_if(resources.begin(), resources.end(),
+                                  [&](const auto& entry) { return entry.value == resource; });
         if (found == resources.end()) {
             // Entry zero represents unassigned elements and is never reused.
-            found = std::find(resources.begin() + 1, resources.end(), nullptr);
+            found = std::find_if(resources.begin() + 1, resources.end(),
+                                 [](const auto& entry) { return !entry.value; });
             if (found == resources.end()) {
-                resources.push_back(std::move(resource));
+                if (resources.size() > std::numeric_limits<std::uint32_t>::max())
+                    throw std::length_error("Too many distinct mesh resources");
+                resources.push_back({std::move(resource), 0});
                 found = resources.end() - 1;
             } else {
-                *found = std::move(resource);
+                found->value = std::move(resource);
             }
         }
         const auto selected = static_cast<std::uint32_t>(found - resources.begin());
         indices[element] = selected;
-        if (old != selected && resources[old] &&
-            std::find(indices.begin(), indices.end(), old) == indices.end()) {
-            resources[old].reset();
-        }
+        if (selected != 0) ++found->assignments;
+        release(old);
+    }
+
+private:
+    struct Resource {
+        std::shared_ptr<T> value;
+        std::size_t assignments = 0;
+    };
+    std::vector<Resource> resources;
+
+    void release(std::uint32_t index)
+    {
+        if (index != 0 && --resources[index].assignments == 0) resources[index].value.reset();
     }
 };

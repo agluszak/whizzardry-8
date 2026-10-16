@@ -322,4 +322,14 @@ TEST_CASE("Mesh resource assignments retain one owner per resource and survive r
     REQUIRE((*textures)[0] == nullptr);
     REQUIRE((*textures)[1] == texture);
     REQUIRE((*textures)[2] == texture);
+    // Shrinking after reindexing releases only resources with no remaining uses.
+    textures->resize(2);
+    REQUIRE(texture.use_count() == 2);
+    textures->resize(1);
+    REQUIRE(texture.use_count() == 1);
+    textures->resize(3);
+    textures->set(2, texture); // Reuse a released pool entry.
+    textures->set(2, texture); // Reassigning the same resource must not add a use.
+    textures->set(2, nullptr);
+    REQUIRE(texture.use_count() == 1);
 }
