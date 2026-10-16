@@ -5,15 +5,15 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "srMaterialIFace.h"
+#include "srMaterial.h"
 #include "srMath.h"
 #include "srMeshModel.h"
 #include "srShader.h"
-#include "srTextureIFace.h"
+#include "srTexture.h"
 #include "srVertexPipe.h"
 
 class srGERD;
-class srMaterialIFace;
+class srMaterial;
 
 /* Shared lazy singleton behind srTriMeshPipeline::pipe; owns an srVertexPipe. */
 class srTriMeshPipeline {
@@ -21,11 +21,11 @@ public:
     enum { FRUSTUM_CLIPPING = 1u, LIMIT_VERTEX_BATCHES = 2u };
 
     struct Pass {
-        srTextureIFace* textures[2]{};
+        srTexture* textures[2]{};
         srShader shader;
         /* Borrowed per-polygon texture tables. FlushSlots consumes them synchronously in
            Renderer::render before unlockRenderer queues owned render data. */
-        const std::shared_ptr<srTextureIFace>* texture_tables[2]{};
+        const std::shared_ptr<srTexture>* texture_tables[2]{};
         const srShader* shaders = nullptr;
         const glm::vec2* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
@@ -76,9 +76,9 @@ public:
     e_boundsSource bounds_source;
     w8_ulong unknown_70;
     srShader shader;
-    srTextureIFace* texture0;
-    srTextureIFace* texture1;
-    srMaterialIFace* material;
+    srTexture* texture0;
+    srTexture* texture1;
+    srMaterial* material;
     w8_ulong slot_count;
     srGERD* renderer;
     std::unique_ptr<srVertexPipe> vertex_pipe;

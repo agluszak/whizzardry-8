@@ -18,6 +18,8 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -34,6 +36,7 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "glm/vector_relational.hpp"
+#include "surrender/SDLGPUDevice.h"
 #include "surrender/model_view_scope.h"
 #include "surrender/picking_math.h"
 #include "surrender/plane_math.h"
@@ -42,13 +45,12 @@
 #include "surrender/srClip.h"
 #include "surrender/srClock.h"
 #include "surrender/srCore.h"
-#include "surrender/srDD.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "wiz8/surface_storage.h"
 
 class srModelInstance;
@@ -56,62 +58,18 @@ class srVertexProcessor;
 
 srGERD* srGERD::active = nullptr;
 
-// FUNCTION: SURRENDER 0x1001EEA0
-srGERD::TexturePool::TexturePool() : count(0), free(nullptr) {}
-
-srGERD::Texture* srGERD::TexturePool::allocate()
-{
-    if (free == 0) {
-        w8_ulong chunk_count = count;
-        if (chunk_count < 2) {
-            chunk_count = 1;
-        } else if (0xff < (w8_long)chunk_count) {
-            chunk_count = 0x100;
-        }
-        chunks.emplace_back(chunk_count);
-        Texture* chunk = chunks.back().data();
-        free = chunk;
-        Texture* link = chunk;
-        for (w8_ulong index = chunk_count; index != 0; --index) {
-            link->prev = link + 1;
-            ++link;
-        }
-        chunk[chunk_count - 1].prev = 0;
-    }
-    Texture* texture = free;
-    free = texture->prev;
-    ++count;
-    return texture;
-}
-
-void srGERD::TexturePool::release(Texture* texture)
-{
-    if (texture == 0) {
-        return;
-    }
-    --count;
-    texture->prev = free;
-    free = texture;
-    if (count == 0) {
-        chunks.clear();
-        free = nullptr;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10019A00 SYMBOL
 // RECOMP: ??0MatrixStack@srGERD@@QAE@XZ
 srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
 // FUNCTION: SURRENDER 0x10019320
-srGERD::srGERD(srDD* device)
+srGERD::srGERD()
     : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{}, clear_state{},
-      texture_slots{}, texture_parms{}, texture_state{}, polygon_mode(POLYGON_FILL),
-      polygon_offset(0), texture_deleted(nullptr), texture_head(nullptr), texture_default(nullptr),
-      texture_cache_used(0), texture_cache_size(0), texture_sequence(0), texture_reduction(0),
-      texture_hash_enabled(false), vertex_arrays_dirty(0)
+      texture_slots{}, texture_parms{}, texture_state{}, polygon_offset(0),
+      texture_default(nullptr), texture_cache_used(0), texture_cache_size(0), texture_sequence(0),
+      texture_reduction(0), texture_hash_enabled(false), vertex_arrays_dirty(0)
 {
     owner_thread = std::this_thread::get_id();
-    this->device.dd = device;
     this->device.window = 0;
     this->device.back_buffer_type = static_cast<e_backBuffer>(0);
     vertex_arrays_dirty = 0xffffffff;
@@ -145,13 +103,11 @@ srGERD::srGERD(srDD* device)
     texture_iface[1] = 0;
     enable_flags |= 1u << ENABLE_POSITIONAL_0;
     this->device.hints[0] = static_cast<e_hintMode>(0);
-    initTextureParameterMatrix();
-    this->device.driver_info = getDD()->getDriverInfo();
     initClearColors();
     initLights();
     initMatrices();
     initView();
-    setName(this->device.driver_info.name);
+    setName("SDL GPU");
 }
 
 // FUNCTION: SURRENDER 0x10019F40
@@ -159,7 +115,6 @@ srGERD::~srGERD()
 {
     deleteRenderers();
     deleteContext();
-    delete device.dd;
 }
 
 // FUNCTION: SURRENDER 0x1001B010
@@ -169,11 +124,6 @@ srGERD& srGERD::operator=(const srGERD& other)
 }
 
 // FUNCTION: SURRENDER 0x10017920
-srDD* srGERD::getDD() const
-{
-    statistics.device_calls++;
-    return device.dd;
-}
 
 // FUNCTION: SURRENDER 0x10017A50
 void srGERD::setTextureReduction(w8_long reduction)
@@ -183,10 +133,10 @@ void srGERD::setTextureReduction(w8_long reduction)
 }
 
 // FUNCTION: SURRENDER 0x10017AC0
-void srGERD::setTexture(srTextureIFace* texture, w8_ulong layer)
+void srGERD::setTexture(srTexture* texture, w8_ulong layer)
 {
     std::lock_guard access(state_section);
-    if (layer < device.info.max_texture_stages && texture_iface[layer] != texture) {
+    if (layer < SDLGPUDevice::max_texture_stages && texture_iface[layer] != texture) {
         texture_iface[layer] = texture;
         changeTexture(texture, layer, 0);
         dirty |= 1 << (layer + DIRTY_TEXTURE_SHIFT);
@@ -411,7 +361,7 @@ void srGERD::prepareDrawState()
     checkViewStateChanges();
     checkDrawStateChanges();
     if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
-        getDD()->setVertexArrayInfo(&vertex_arrays);
+        device.gpu.setVertexArrayInfo(&vertex_arrays);
         vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
     }
 }
@@ -421,7 +371,7 @@ void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8
 {
     if ((enable_flags & 4) == 0) {
         prepareDrawState();
-        getDD()->drawArrays(primitive, first, count);
+        device.gpu.drawArrays(primitive, first, count);
         statistics.draw_calls++;
     }
 }
@@ -432,7 +382,7 @@ void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
 {
     if ((enable_flags & 4) == 0) {
         prepareDrawState();
-        getDD()->drawElements(primitive, {static_cast<const w8_ulong*>(indices), count});
+        device.gpu.drawElements(primitive, {static_cast<const w8_ulong*>(indices), count});
         statistics.draw_calls++;
     }
 }
@@ -460,7 +410,7 @@ srGERD* srGERD::getActive()
     return active;
 }
 
-void srGERD::unbindTexture(const srTextureIFace* texture)
+void srGERD::unbindTexture(const srTexture* texture)
 {
     if (auto* renderer = getActive()) {
         std::lock_guard access(renderer->state_section);
@@ -470,11 +420,12 @@ void srGERD::unbindTexture(const srTextureIFace* texture)
 }
 
 // FUNCTION: SURRENDER 0x10018330
-void srGERD::invalidateTexture(srTextureIFace* texture)
+void srGERD::invalidateTexture(srTexture* texture)
 {
     std::lock_guard access(state_section);
     if (texture != 0) {
-        invalidateTextureByFrameHandle(texture->getTextureFrameHandle());
+        const auto entry = texture_lookup.find(texture);
+        if (entry != texture_lookup.end()) invalidateTexture(*entry->second);
     }
 }
 
@@ -494,10 +445,10 @@ void srGERD::invalidateResidentTexture(Texture& texture)
         if (texture.surface_data.empty() || std::this_thread::get_id() != owner_thread) {
             invalidateTexture(texture);
         } else {
-            getDD()->deleteTexture(texture.device.gpu);
+            device.gpu.deleteTexture(texture.device.gpu);
             texture.device.gpu.handle = 0;
             texture.device.gpu.size = 0;
-            for (w8_ulong stage = 0; stage < device.info.max_texture_stages; ++stage) {
+            for (w8_ulong stage = 0; stage < SDLGPUDevice::max_texture_stages; ++stage) {
                 if (texture_slots[stage] == &texture) {
                     texture_slots[stage] = 0;
                 }
@@ -511,7 +462,7 @@ void srGERD::invalidateResidentTexture(Texture& texture)
 // FUNCTION: SURRENDER 0x100280F0
 void srGERD::resetCurrentTexPointers()
 {
-    for (w8_ulong stage = 0; stage < device.info.max_texture_stages; ++stage) {
+    for (w8_ulong stage = 0; stage < SDLGPUDevice::max_texture_stages; ++stage) {
         texture_iface[stage] = 0;
         texture_slots[stage] = 0;
     }
@@ -522,63 +473,34 @@ void srGERD::resetCurrentTexPointers()
 // FUNCTION: SURRENDER 0x10028150
 void srGERD::markTextureAsDeleted(Texture& texture)
 {
-    if (texture.device.deleted == 0) {
-        if (texture.prev != 0) {
-            texture.prev->next = texture.next;
-        }
-        if (texture.next != 0) {
-            texture.next->prev = texture.prev;
-        }
-        if (&texture == texture_head) {
-            texture_head = texture.next;
-        }
-        texture.prev = 0;
-        Texture* previous = texture_deleted;
-        texture.next = previous;
-        if (previous != 0) {
-            previous->prev = &texture;
-        }
-        texture_deleted = &texture;
-        texture.device.deleted = 1;
+    if (auto entry = texture_lookup.extract(texture.source); entry) {
+        deleted_textures.push_back(std::move(entry.mapped()));
     }
 }
 
 // FUNCTION: SURRENDER 0x10018390
-void srGERD::invalidateTextureByFrameHandle(w8_ulong handle)
-{
-    std::lock_guard access(state_section);
-    if (handle != 0 && texture_hash_enabled) {
-        const auto entry = texture_lookup.find(handle);
-        Texture* texture = entry == texture_lookup.end() ? nullptr : entry->second;
-        if (texture != 0) {
-            invalidateTexture(*texture);
-        }
-    }
-}
 
 // FUNCTION: SURRENDER 0x10017BC0
 void srGERD::invalidateResidentTextures()
 {
     flushImmediateRenderers();
     std::lock_guard access(state_section);
-    Texture* texture = texture_head;
-    while (texture != 0) {
-        Texture* next = texture->next;
-        invalidateResidentTexture(*texture);
-        texture = next;
+    for (auto it = texture_lookup.begin(); it != texture_lookup.end();) {
+        auto& texture = *it++->second;
+        invalidateResidentTexture(texture);
     }
     resetCurrentTexPointers();
 }
 
 // FUNCTION: SURRENDER 0x10017C40
-void srGERD::invalidateResidentTexture(srTextureIFace* texture)
+void srGERD::invalidateResidentTexture(srTexture* texture)
 {
     flushImmediateRenderers();
     std::lock_guard access(state_section);
     if (texture != 0) {
-        w8_ulong handle = texture->getTextureFrameHandle();
+        auto* handle = texture->resolve();
         const auto entry = texture_lookup.find(handle);
-        Texture* found = entry == texture_lookup.end() ? nullptr : entry->second;
+        Texture* found = entry == texture_lookup.end() ? nullptr : entry->second.get();
         if (found != 0) {
             invalidateResidentTexture(*found);
         }
@@ -596,94 +518,48 @@ void srGERD::setTextureCacheSize(w8_ulong bytes)
 }
 
 // FUNCTION: SURRENDER 0x100180A0
-void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y,
+void srGERD::setTextureSubImage(srTexture* texture, w8_long mipmap, w8_long x, w8_long y,
                                 w8_long width, w8_long height)
 {
     std::lock_guard access(state_section);
-    if (isWindowOpen() == 0) {
-        return;
-    }
-    w8_ulong handle = texture->getTextureFrameHandle();
-    const auto entry = texture_lookup.find(handle);
-    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
-    if (resident != 0 && resident->device.first_level <= (w8_ulong)mipmap &&
-        (w8_ulong)mipmap <= resident->device.last_level) {
-        srTextureIFace::PartialRequest request;
-        request.width = resident->device.width;
-        request.height = resident->device.height;
-        request.mipmap_level = mipmap;
-        request.source_right = x + width;
-        request.source_bottom = y + height;
-        if (x < 0) {
-            x = 0;
-        }
-        if (y < 0) {
-            y = 0;
-        }
-        request.destination_x = x;
-        request.destination_y = y;
-        w8_ulong shift = (w8_ulong)((char)mipmap - (char)resident->device.first_level);
-        w8_ulong level_width = request.width >> (shift & 0x1f);
-        if (level_width == 0) {
-            level_width = 1;
-        }
-        w8_ulong level_height = request.height >> (shift & 0x1f);
-        if (level_height == 0) {
-            level_height = 1;
-        }
-        if (level_width < (w8_ulong)request.source_right) {
-            request.source_right = (w8_long)level_width;
-        }
-        if (level_height < (w8_ulong)request.source_bottom) {
-            request.source_bottom = (w8_long)level_height;
-        }
-        w8_ulong bytes_per_pixel = SDL_BYTESPERPIXEL(resident->pixel_format);
-        w8_ulong pitch = bytes_per_pixel * level_width;
-        if (resident->surface_data.empty()) {
-            std::vector<unsigned char> staging(static_cast<std::size_t>(bytes_per_pixel) *
-                                               level_height * level_width);
-            auto destination = CreateCpuStorage(level_width, level_height, resident->pixel_format,
-                                                staging.data(), pitch);
-            request.destination = destination.get();
-            texture->getMipmapLevelPartial(request);
-            destination.reset();
-            getDD()->uploadTexture(resident->device.gpu, mipmap - resident->device.first_level,
-                                   {static_cast<w8_ulong>(x), static_cast<w8_ulong>(y),
-                                    static_cast<w8_ulong>(request.source_right - x),
-                                    static_cast<w8_ulong>(request.source_bottom - y)},
-                                   staging, pitch);
-        } else {
-            auto destination = CreateCpuStorage(level_width, level_height, resident->pixel_format,
-                                                resident->mipPixels(mipmap).data(), pitch);
-            request.destination = destination.get();
-            texture->getMipmapLevelPartial(request);
-            if (resident->device.gpu.handle == 0) {
-                uploadTexture(*resident);
-            } else {
-                getDD()->uploadTexture(resident->device.gpu, mipmap - resident->device.first_level,
-                                       {static_cast<w8_ulong>(x), static_cast<w8_ulong>(y),
-                                        static_cast<w8_ulong>(request.source_right - x),
-                                        static_cast<w8_ulong>(request.source_bottom - y)},
-                                       resident->mipPixels(mipmap), pitch);
-            }
-        }
-    }
+    if (!isWindowOpen() || !texture) return;
+    texture = texture->resolve();
+    const auto entry = texture_lookup.find(texture);
+    if (entry == texture_lookup.end()) return;
+    auto& resident = *entry->second;
+    if (mipmap < 0 || static_cast<w8_ulong>(mipmap) > resident.device.last_level) return;
+    auto* pixels = texture->getSurfacePtr();
+    if (!pixels) return;
+    const auto level_width = resident.device.width >> mipmap;
+    const auto level_height = resident.device.height >> mipmap;
+    SDL_Rect region{x, y, width, height};
+    const SDL_Rect bounds{0, 0, static_cast<int>(level_width), static_cast<int>(level_height)};
+    if (!SDL_GetRectIntersection(&region, &bounds, &region)) return;
+    auto destination = CreateCpuStorage(level_width, level_height, resident.pixel_format,
+                                        resident.mipPixels(mipmap).data(), level_width * 4);
+    const SDL_Rect source{region.x + texture->source_region.x, region.y + texture->source_region.y,
+                          region.w, region.h};
+    if (!SDL_BlitSurface(pixels, &source, destination.get(), &region))
+        throw std::runtime_error(SDL_GetError());
+    if (!resident.device.gpu.handle)
+        uploadTexture(resident);
+    else
+        device.gpu.uploadTexture(resident.device.gpu, mipmap,
+                                 {static_cast<w8_ulong>(region.x), static_cast<w8_ulong>(region.y),
+                                  static_cast<w8_ulong>(region.w), static_cast<w8_ulong>(region.h)},
+                                 resident.mipPixels(mipmap), level_width * 4);
 }
 
 // FUNCTION: SURRENDER 0x10018480
 void srGERD::invalidateTextureCache()
 {
     std::lock_guard access(state_section);
-    if (texture_hash_enabled) {
-        Texture* texture = texture_head;
-        while (texture != 0) {
-            Texture* next = texture->next;
-            invalidateTexture(*texture);
-            texture = next;
-        }
-        resetCurrentTexPointers();
-        texture_sequence = 0;
+    for (auto it = texture_lookup.begin(); it != texture_lookup.end();) {
+        auto& texture = *it++->second;
+        invalidateTexture(texture);
     }
+    resetCurrentTexPointers();
+    texture_sequence = 0;
 }
 
 // FUNCTION: SURRENDER 0x10018500
@@ -691,11 +567,7 @@ w8_ulong srGERD::getResidentTextureMemUsed() const
 {
     std::lock_guard access(state_section);
     w8_ulong used = 0;
-    for (Texture* texture = texture_head; texture != 0; texture = texture->next) {
-        if (texture->device.gpu.handle != 0 && texture->device.gpu.size > 0) {
-            used += texture->device.gpu.size;
-        }
-    }
+    for (const auto& [source, texture] : texture_lookup) used += texture->device.gpu.size;
     return used;
 }
 
@@ -750,7 +622,7 @@ void srGERD::checkFrameStateChanges()
 void srGERD::applyFrameStateChanges()
 {
     if ((dirty & DIRTY_SWAP_INTERVAL) != 0) {
-        getDD()->setSwapInterval(display.swap_interval);
+        device.gpu.setSwapInterval(display.swap_interval);
     }
     dirty &= ~DIRTY_FRAME_STATE;
     statistics.frame_state_count++;
@@ -804,8 +676,8 @@ srGERD::RendererEntry* srGERD::createRenderer(int sorted)
     Renderer::Parameters parameters;
     parameters.gerd = this;
     parameters.sorted = sorted != 0;
-    parameters.batch_limit = device.info.renderer_batch_limit;
-    parameters.texture_stages = device.info.max_texture_stages;
+    parameters.batch_limit = SDLGPUDevice::renderer_batch_limit;
+    parameters.texture_stages = SDLGPUDevice::max_texture_stages;
     auto renderer = std::make_unique<Renderer>(parameters);
     renderers.push_front(RendererEntry{std::move(renderer)});
     renderers_idle.notify_all();
@@ -907,7 +779,7 @@ void srGERD::endFrame()
     }
     if ((state_flags & STATE_FRAME_STARTED) != 0) {
         flushRenderers();
-        getDD()->flushFrame();
+        device.gpu.flushFrame();
         state_flags &= ~STATE_FRAME_STARTED;
     }
 }
@@ -929,7 +801,7 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
         return;
     }
     flush();
-    getDD()->flipFrame();
+    device.gpu.flipFrame();
     statistics.frames += 1;
     state_flags |= STATE_FRAME_FLIPPED;
     frame_statistics = getStatistics();
@@ -944,7 +816,7 @@ void srGERD::flush()
     }
     checkAllStateChanges();
     flushImmediateRenderers();
-    getDD()->flushFrame();
+    device.gpu.flushFrame();
 }
 
 // FUNCTION: SURRENDER 0x1001CD20
@@ -1212,8 +1084,8 @@ void srGERD::clear(std::uint32_t buffers)
     if (buffers != 0) {
         checkViewStateChanges();
         const auto& values = clear_state.clear_values;
-        getDD()->setClearValues({values.color, static_cast<float>(values.depth), values.stencil});
-        getDD()->clearBuffers(buffers);
+        device.gpu.setClearValues({values.color, static_cast<float>(values.depth), values.stencil});
+        device.gpu.clearBuffers(buffers);
     }
 }
 
@@ -1231,7 +1103,7 @@ void srGERD::applyViewStateChanges()
         }
     }
     if ((dirty & (DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE)) != 0) {
-        srDD::ViewPort viewport;
+        SDLGPUDevice::ViewPort viewport;
         viewport.x = state.view_left;
         viewport.y = state.view_top;
         viewport.width = state.view_right - viewport.x;
@@ -1239,7 +1111,7 @@ void srGERD::applyViewStateChanges()
         viewport.min_depth = state.depth_min;
         viewport.max_depth = state.depth_max;
         if ((state_flags & STATE_CLOSING_WINDOW) == 0) {
-            getDD()->setViewPort(viewport);
+            device.gpu.setViewPort(viewport);
         }
     }
     if ((this->dirty & DIRTY_PROJECTION) != 0) {
@@ -1256,7 +1128,7 @@ void srGERD::applyViewStateChanges()
             state.project_clip_near *= scale;
         }
         if ((state_flags & STATE_CLOSING_WINDOW) == 0) {
-            getDD()->setProjectionMatrix(state.project_clip_near);
+            device.gpu.setProjectionMatrix(state.project_clip_near);
         }
     }
     if ((this->dirty & DIRTY_SCISSOR) != 0) {
@@ -1297,7 +1169,7 @@ void srGERD::recalcScissor()
     } else {
         state.scissor_flags &= ~2UL;
     }
-    getDD()->setScissor(state.scissor);
+    device.gpu.setScissor(state.scissor);
 }
 
 // FUNCTION: SURRENDER 0x100215A0
@@ -1718,47 +1590,36 @@ void srGERD::applyDrawStateChanges()
 {
     std::lock_guard access(state_section);
     if ((dirty & DIRTY_FOG_COLOR) != 0) {
-        getDD()->setFogColor(fog_color);
+        device.gpu.setFogColor(fog_color);
     }
     if ((dirty & DIRTY_SHADER) != 0) {
-        getDD()->setShader(shader);
+        device.gpu.setShader(shader);
         statistics.shader_sets++;
     }
     removeDeletedTextures();
     if ((dirty & DIRTY_TEXTURE0) != 0) {
         changeTexture(texture_iface[0], 0, 1);
     }
-    if (((dirty & DIRTY_TEXTURE1) != 0) && (1 < device.info.max_texture_stages)) {
+    if (((dirty & DIRTY_TEXTURE1) != 0) && (1 < SDLGPUDevice::max_texture_stages)) {
         changeTexture(texture_iface[1], 1, 1);
     }
     if ((dirty & DIRTY_CULLING) != 0) {
         switch (state.cull_mode) {
         case CULL_BACK:
-            getDD()->setCullMode(state.winding != 0 ? srDD::CULL_FRONT : srDD::CULL_BACK);
+            device.gpu.setCullMode(state.winding != 0 ? SDLGPUDevice::CULL_FRONT
+                                                      : SDLGPUDevice::CULL_BACK);
             break;
         case CULL_FRONT:
-            getDD()->setCullMode(state.winding == 0 ? srDD::CULL_FRONT : srDD::CULL_BACK);
+            device.gpu.setCullMode(state.winding == 0 ? SDLGPUDevice::CULL_FRONT
+                                                      : SDLGPUDevice::CULL_BACK);
             break;
         case CULL_NONE:
-            getDD()->setCullMode(srDD::CULL_NONE);
-            break;
-        }
-    }
-    if ((dirty & DIRTY_POLYGON_MODE) != 0) {
-        switch (polygon_mode) {
-        case POLYGON_POINT:
-            getDD()->setPolygonMode(srDD::POLYGON_POINT);
-            break;
-        case POLYGON_LINE:
-            getDD()->setPolygonMode(srDD::POLYGON_LINE);
-            break;
-        case POLYGON_FILL:
-            getDD()->setPolygonMode(srDD::POLYGON_FILL);
+            device.gpu.setCullMode(SDLGPUDevice::CULL_NONE);
             break;
         }
     }
     if ((dirty & DIRTY_POLYGON_OFFSET) != 0) {
-        getDD()->setPolygonOffset(polygon_offset);
+        device.gpu.setPolygonOffset(polygon_offset);
     }
     dirty &= ~DIRTY_DRAW_STATE;
     statistics.draw_state_applies++;
@@ -1767,12 +1628,8 @@ void srGERD::applyDrawStateChanges()
 // FUNCTION: SURRENDER 0x100281B0
 void srGERD::removeDeletedTextures()
 {
-    Texture* texture = texture_deleted;
-    while (texture != 0) {
-        Texture* next = texture->next;
-        deleteTexture(*texture);
-        texture = next;
-    }
+    for (auto& texture : deleted_textures) deleteTexture(*texture);
+    deleted_textures.clear();
 }
 
 // FUNCTION: SURRENDER 0x100286B0
@@ -1786,169 +1643,84 @@ void srGERD::releaseTextureSurfaceData(Texture& texture)
 // FUNCTION: SURRENDER 0x100286F0
 void srGERD::deleteTexture(Texture& texture)
 {
-    for (w8_ulong stage = 0; stage < device.info.max_texture_stages; ++stage) {
+    for (w8_ulong stage = 0; stage < SDLGPUDevice::max_texture_stages; ++stage) {
         if (&texture == texture_slots[stage]) {
-            texture_slots[stage] = 0;
-            dirty |= 1UL << (stage + DIRTY_TEXTURE_SHIFT);
+            texture_slots[stage] = nullptr;
+            dirty |= 1u << (stage + DIRTY_TEXTURE_SHIFT);
         }
     }
-    if (texture.prev != 0) {
-        texture.prev->next = texture.next;
-    }
-    if (texture.next != 0) {
-        texture.next->prev = texture.prev;
-    }
-    if (&texture == texture_deleted) {
-        texture_deleted = texture.next;
-    }
-    texture_lookup.erase(texture.id);
-    getDD()->deleteTexture(texture.device.gpu);
-    texture.name.clear();
-    texture.device.gpu.handle = 0;
-    texture.device.gpu.size = 0;
-    texture.prev = 0;
-    texture.next = 0;
-    texture.device.deleted = 0;
+    device.gpu.deleteTexture(texture.device.gpu);
     releaseTextureSurfaceData(texture);
-    texture.id = 0;
-    texture.device = {};
-    texture_pool.release(&texture);
 }
 
 // FUNCTION: SURRENDER 0x10028910
-srGERD::Texture* srGERD::findLowestPriority()
+srGERD::Texture* srGERD::findEvictionCandidate(const Texture* keep)
 {
-    Texture* texture = texture_head;
-    Texture* found = 0;
-    w8_ulong last_use = texture_sequence + 1;
-    float lowest = 1.01f;
-    if (texture == 0) {
-        return 0;
+    Texture* found = nullptr;
+    for (const auto& [source, owned] : texture_lookup) {
+        auto* texture = owned.get();
+        if (texture == keep || texture == texture_default || texture == texture_slots[0] ||
+            texture == texture_slots[1])
+            continue;
+        if (!found || texture->device.last_use < found->device.last_use) found = texture;
     }
-    do {
-        if (texture->device.priority < lowest ||
-            (texture->device.priority == lowest && texture->device.last_use < last_use)) {
-            int bound = 0;
-            for (w8_ulong stage = 0; stage < device.info.max_texture_stages; ++stage) {
-                if (texture_slots[stage] == texture) {
-                    bound = 1;
-                    break;
-                }
-            }
-            if (bound == 0) {
-                lowest = texture->device.priority;
-                last_use = texture->device.last_use;
-                found = texture;
-            }
-        }
-        texture = texture->next;
-        if (texture == 0) {
-            return found;
-        }
-    } while (true);
+    return found;
 }
 
 // FUNCTION: SURRENDER 0x10028990
-srGERD::Texture* srGERD::allocTexture(w8_ulong id)
+srGERD::Texture* srGERD::allocTexture(srTexture* source)
 {
-    Texture* texture = texture_pool.allocate();
-    texture->id = id;
-    texture_lookup.emplace(texture->id, texture);
-    texture->next = texture_head;
-    texture->prev = 0;
-    if (texture_head != 0) {
-        texture_head->prev = texture;
-    }
-    texture_head = texture;
-    texture->device = {};
-    texture->name.clear();
-    texture->device.resident = 0;
-    texture->device.deleted = 0;
-    return texture;
+    auto texture = std::make_unique<Texture>();
+    texture->source = source;
+    auto* result = texture.get();
+    texture_lookup.emplace(source, std::move(texture));
+    return result;
 }
 
 // FUNCTION: SURRENDER 0x10028FB0
-void srGERD::setTextureParameters(w8_ulong stage, const srTextureIFace::Parameters& parameters)
+void srGERD::setTextureParameters(w8_ulong stage, const srTexture::Parameters& requested)
 {
-    w8_ulong state = parameters.packed_state;
-    float bias = parameters.mipmap_bias;
-    w8_ulong packed =
-        ((((texture_state.wrap_s_map[(state >> srTextureIFace::Parameters::WRAP_S_SHIFT) & 1] &
-            0xfffffff3) |
-           (texture_state.wrap_t_map[(state >> srTextureIFace::Parameters::WRAP_T_SHIFT) & 1] << 2))
-              << 2 |
-          (texture_state.mipmap_map[(state >> srTextureIFace::Parameters::MIPMAP_SHIFT) & 3] &
-           0xffffffc3))
-             << 2 |
-         (texture_state
-              .min_filter_map[(state >> srTextureIFace::Parameters::MIN_FILTER_SHIFT) & 7] &
-          0xffffff03))
-            << 2 |
-        (texture_state.mag_filter_map[(state >> srTextureIFace::Parameters::MAG_FILTER_SHIFT) & 7] &
-         0xfffffc0f);
-    packed = (packed << 4) |
-             (texture_state.correction_map[state & srTextureIFace::Parameters::CORRECTION_MASK] &
-              0xffffc00f);
-    srDD::TexParms* parms = &texture_parms[stage];
-    if (packed == parms->packed && bias == parms->mipmap_bias) {
-        return;
-    }
-    parms->packed = packed;
-    parms->mipmap_bias = bias;
+    const auto mag = requested.mag == srTexture::FILTER_DEFAULT ? texture_state.default_mag_filter
+                                                                : requested.mag;
+    const auto min = requested.min == srTexture::FILTER_DEFAULT ? texture_state.default_min_filter
+                                                                : requested.min;
+    const auto mip = requested.mipmap == srTexture::MIPMAP_DEFAULT ? texture_state.default_mipmap
+                                                                   : requested.mipmap;
+    const SDLGPUDevice::TexParms resolved{
+        mag >= srTexture::FILTER_GOOD ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST,
+        min >= srTexture::FILTER_GOOD ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST,
+        mip == srTexture::MIPMAP_BEST ? SDL_GPU_SAMPLERMIPMAPMODE_LINEAR
+                                      : SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+        requested.wrap_s == srTexture::WRAP_CLAMP ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+                                                  : SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+        requested.wrap_t == srTexture::WRAP_CLAMP ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+                                                  : SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+        requested.mipmap_bias,
+        mip == srTexture::MIPMAP_NONE ? 0.0f : 16.0f};
+    if (texture_parms[stage] == resolved) return;
+    texture_parms[stage] = resolved;
     ++statistics.texture_parameter_sets;
-    getDD()->setTextureParameters(stage, *parms);
+    device.gpu.setTextureParameters(stage, resolved);
 }
 
 // FUNCTION: SURRENDER 0x10029400
-void srGERD::changeTexture(srTextureIFace* texture, w8_ulong stage, int apply_parms)
+void srGERD::changeTexture(srTexture* texture, w8_ulong stage, int apply_parameters)
 {
-    if ((state_flags & STATE_CLOSING_WINDOW) != 0) {
-        return;
-    }
-    if (device.info.max_texture_stages <= stage) {
-        return;
-    }
-    Texture* found;
-    if (texture == 0) {
-        if (texture_slots[stage] == texture_default) {
-            return;
-        }
+    if ((state_flags & STATE_CLOSING_WINDOW) || stage >= SDLGPUDevice::max_texture_stages) return;
+    texture = texture ? texture->resolve() : nullptr;
+    Texture* cached = texture_default;
+    if (texture) {
+        const auto entry = texture_lookup.find(texture);
+        cached = entry != texture_lookup.end() ? entry->second.get() : createNewTexture(texture);
     } else {
-        w8_ulong id = texture->getTextureFrameHandle();
-        if (id != 0) {
-            const auto entry = texture_lookup.find(id);
-            if (entry != texture_lookup.end()) {
-                found = entry->second;
-                if (found != 0) {
-                    goto bound;
-                }
-            }
-            found = createNewTexture(texture);
-            if (found != 0) {
-                goto bound;
-            }
-        }
+        texture = srCore.getTexture();
     }
-    found = texture_default;
-    texture = srCore.getTexture();
-bound:
-    ++texture_sequence;
-    found->device.last_use = texture_sequence;
-    if (apply_parms == 0) {
-        return;
-    }
-    Texture* previous = texture_slots[stage];
-    texture_slots[stage] = found;
-    if (previous != found) {
-        if (found->device.gpu.handle == 0) {
-            uploadTexture(*found);
-        }
-        getDD()->bindTexture(stage, found->device.gpu);
-        if (found != texture_default && found->device.resident == 0 &&
-            !found->surface_data.empty() &&
-            (device.info.flags & srDD::Info::RELEASE_SURFACE_AFTER_BIND) != 0) {
-            releaseTextureSurfaceData(*found);
-        }
+    cached->device.last_use = ++texture_sequence;
+    if (!apply_parameters) return;
+    if (texture_slots[stage] != cached) {
+        if (!cached->device.gpu.handle) uploadTexture(*cached);
+        texture_slots[stage] = cached;
+        device.gpu.bindTexture(stage, cached->device.gpu);
         ++statistics.texture_binds;
     }
     setTextureParameters(stage, texture->getParameters());
@@ -1991,13 +1763,6 @@ w8_ulong nextTextureDimension(w8_ulong value)
 } // namespace
 
 // FUNCTION: SURRENDER 0x10019080
-void srGERD::initDDInfo()
-{
-    device.info = getDD()->getInfo();
-    if (device.info.max_texture_stages > 2) {
-        device.info.max_texture_stages = 2;
-    }
-}
 
 // FUNCTION: SURRENDER 0x1001C3E0
 void srGERD::initLights()
@@ -2025,11 +1790,10 @@ srGERD::e_error srGERD::createContext(SDL_Window* window)
     if (window == nullptr) {
         return ERROR_INVALID_WHANDLE;
     }
-    if (!getDD()->createContext(window)) {
+    if (!device.gpu.createContext(window)) {
         return ERROR_CONTEXT_CREATION_FAILED;
     }
     device.window = window;
-    initDDInfo();
     resetStatistics();
     state_flags |= STATE_CONTEXT_CREATED;
     return ERROR_NONE;
@@ -2041,7 +1805,7 @@ void srGERD::deleteContext()
     if ((state_flags & STATE_CONTEXT_CREATED) != 0) {
         closeWindow(static_cast<e_closeHint>(0));
         closeTexCache();
-        getDD()->deleteContext();
+        device.gpu.deleteContext();
         state_flags &= ~STATE_CONTEXT_CREATED;
         device.window = 0;
     }
@@ -2067,7 +1831,7 @@ SDL_Surface* srGERD::lockBuffer()
     }
     flush();
     checkViewStateChanges();
-    auto* surface = getDD()->lockBuffer();
+    auto* surface = device.gpu.lockBuffer();
     const SDL_Rect clip{int(state.scissor.left), int(state.scissor.top),
                         int(state.scissor.right - state.scissor.left),
                         int(state.scissor.bottom - state.scissor.top)};
@@ -2077,7 +1841,7 @@ SDL_Surface* srGERD::lockBuffer()
 
 void srGERD::unlockBuffer(bool modified)
 {
-    getDD()->unlockBuffer(modified);
+    device.gpu.unlockBuffer(modified);
 }
 
 // FUNCTION: SURRENDER 0x1001A5F0
@@ -2090,7 +1854,7 @@ void srGERD::closeWindow(e_closeHint hint)
         deleteRenderers();
         invalidateResidentTextures();
         closeTexCache();
-        getDD()->closeWindow();
+        device.gpu.closeWindow();
         resetStatistics();
         device.open_info = {};
         state_flags &= ~STATE_WINDOW_OPEN;
@@ -2153,12 +1917,12 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
         if (device.window == nullptr) {
             return ERROR_INVALID_WHANDLE;
         }
-        if (device.info.max_back_buffer_width < (w8_ulong)info.width ||
-            device.info.max_back_buffer_height < (w8_ulong)info.height) {
+        if (SDLGPUDevice::max_back_buffer_width < (w8_ulong)info.width ||
+            SDLGPUDevice::max_back_buffer_height < (w8_ulong)info.height) {
             return ERROR_INVALID_VALUE;
         }
         device.open_info = {};
-        if (getDD()->openWindow(info.width, info.height)) {
+        if (device.gpu.openWindow(info.width, info.height)) {
             device.open_info = info;
             device.back_buffer_type = BACKBUFFER_ONE;
             w8_ulong flags = state_flags & ~4UL;
@@ -2172,9 +1936,9 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
             texture_iface[0] = 0;
             texture_iface[1] = 0;
             shader = srShader();
-            for (w8_ulong stage = 0; stage < device.info.max_texture_stages; ++stage) {
+            for (w8_ulong stage = 0; stage < SDLGPUDevice::max_texture_stages; ++stage) {
                 texture_parms[stage].mipmap_bias = 0.0f;
-                texture_parms[stage].packed = 0x1a1;
+                texture_parms[stage].max_lod = -1;
                 texture_parms[stage].mipmap_bias = -1234567.0f;
                 setTexture(0, stage);
             }
@@ -2198,7 +1962,8 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
                     count = 1;
                 }
                 for (; count != 0; count--) {
-                    clear(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH | srDD::BUFFER_STENCIL);
+                    clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH |
+                          SDLGPUDevice::BUFFER_STENCIL);
                     flipFrame();
                 }
                 flush();
@@ -2212,66 +1977,51 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
 // FUNCTION: SURRENDER 0x10028460
 void srGERD::closeTexCache()
 {
-    if (texture_hash_enabled != 0) {
-        invalidateTextureCache();
-        removeDeletedTextures();
-        markTextureAsDeleted(*texture_default);
-        deleteTexture(*texture_default);
-        texture_default = 0;
-        texture_lookup.clear();
-        texture_deleted = 0;
-        texture_head = 0;
-        texture_cache_used = 0;
-        texture_hash_enabled = 0;
-    }
+    if (!texture_hash_enabled) return;
+    invalidateTextureCache();
+    if (texture_default) markTextureAsDeleted(*texture_default);
+    removeDeletedTextures();
+    texture_default = nullptr;
+    texture_cache_used = 0;
+    texture_hash_enabled = false;
 }
 
 // FUNCTION: SURRENDER 0x10028200
 void srGERD::initTexCache()
 {
-    if (texture_hash_enabled == 0) {
-        texture_lookup.clear();
-        texture_head = 0;
-        texture_deleted = 0;
-        texture_cache_used = 0;
-        resetCurrentTexPointers();
-        texture_default = createNewTexture(srCore.getTexture());
-        texture_default->device.priority = 1.1f;
-        texture_hash_enabled = 1;
-        invalidateTextureCache();
-    }
+    if (texture_hash_enabled) return;
+    resetCurrentTexPointers();
+    texture_default = createNewTexture(srCore.getTexture());
+    texture_hash_enabled = true;
 }
 
 // FUNCTION: SURRENDER 0x10028B80
 void srGERD::evaluateTextureDimensions(TextureCacheData& device,
-                                       const srTextureIFace::Dimensions& dimensions)
+                                       const srTexture::Dimensions& dimensions)
 {
-    w8_ulong min_dim = this->device.info.texture_min_dim;
-    unsigned char reduction = 0;
-    if ((dimensions.hints & (1UL << srTextureIFace::HINT_NO_REDUCTION)) == 0) {
-        reduction = (unsigned char)texture_reduction;
-    }
+    w8_ulong min_dim = SDLGPUDevice::texture_min_dim;
+    const auto reduction = texture_reduction;
     w8_ulong width = nextTextureDimension(dimensions.width) >> (reduction & 0x1f);
     w8_ulong height = nextTextureDimension(dimensions.height) >> (reduction & 0x1f);
     w8_ulong device_width = min_dim;
-    if (min_dim <= width && width <= this->device.info.texture_max_dim) {
+    if (min_dim <= width && width <= SDLGPUDevice::texture_max_dim) {
         device_width = width;
     }
     w8_ulong device_height = min_dim;
-    if (min_dim <= height && height <= this->device.info.texture_max_dim) {
+    if (min_dim <= height && height <= SDLGPUDevice::texture_max_dim) {
         device_height = height;
     }
     int unbalanced = 0;
     if (device_height < device_width) {
-        while (this->device.info.texture_max_aspect < device_width / device_height &&
-               device_height < this->device.info.texture_max_dim) {
+        while (SDLGPUDevice::texture_max_aspect < device_width / device_height &&
+               device_height < SDLGPUDevice::texture_max_dim) {
             device_height *= 2;
         }
         unbalanced = device_height < device_width;
     }
     if (unbalanced == 0 && device_height != device_width) {
-        while (this->device.info.texture_max_aspect < device_height / device_width &&
-               device_width < this->device.info.texture_max_dim) {
+        while (SDLGPUDevice::texture_max_aspect < device_height / device_width &&
+               device_width < SDLGPUDevice::texture_max_dim) {
             device_width *= 2;
         }
     }
@@ -2279,33 +2029,31 @@ void srGERD::evaluateTextureDimensions(TextureCacheData& device,
     device.height = device_height;
     device.first_level = 0;
     device.last_level = 0;
-    if (((dimensions.hints & (1UL << srTextureIFace::HINT_NO_MIPMAPS)) == 0 ||
-         (this->device.info.flags & 0x40) != 0) &&
-        this->device.info.texture_min_dim < device_width) {
+    if (dimensions.generate_mipmaps && SDLGPUDevice::texture_min_dim < device_width) {
         do {
-            if (device_height <= this->device.info.texture_min_dim) {
+            if (device_height <= SDLGPUDevice::texture_min_dim) {
                 return;
             }
             ++device.last_level;
             device_width >>= 1;
             device_height >>= 1;
-        } while (this->device.info.texture_min_dim < device_width);
+        } while (SDLGPUDevice::texture_min_dim < device_width);
     }
 }
 
 // FUNCTION: SURRENDER 0x10028E60
-void srGERD::releaseTextureMemory(w8_long bytes)
+void srGERD::releaseTextureMemory(w8_long bytes, const Texture* keep)
 {
     if (0 < bytes) {
-        Texture* texture = findLowestPriority();
+        Texture* texture = findEvictionCandidate(keep);
         while (texture != 0) {
             bytes -= (w8_long)texture->device.size;
             markTextureAsDeleted(*texture);
-            deleteTexture(*texture);
+            removeDeletedTextures();
             if (bytes < 1) {
                 return;
             }
-            texture = findLowestPriority();
+            texture = findEvictionCandidate(keep);
         }
     }
 }
@@ -2333,10 +2081,7 @@ void srGERD::allocTextureData(Texture& texture)
 {
     w8_ulong size = getTextureBytesNeeded(texture);
     if (texture_cache_size != 0 && texture_cache_size < size + texture_cache_used) {
-        float priority = texture.device.priority;
-        texture.device.priority = 1.2f;
-        releaseTextureMemory((w8_long)(size - texture_cache_size + texture_cache_used));
-        texture.device.priority = priority;
+        releaseTextureMemory(size - texture_cache_size + texture_cache_used, &texture);
     }
     texture.surface_data.resize(size);
     texture.device.size = size;
@@ -2356,49 +2101,47 @@ std::span<unsigned char> srGERD::Texture::mipPixels(w8_ulong level)
 void srGERD::uploadTexture(Texture& texture)
 {
     texture.device.gpu =
-        getDD()->createTexture(texture.device.width, texture.device.height,
-                               texture.device.last_level - texture.device.first_level + 1);
+        device.gpu.createTexture(texture.device.width, texture.device.height,
+                                 texture.device.last_level - texture.device.first_level + 1);
     for (w8_ulong level = texture.device.first_level; level <= texture.device.last_level; ++level) {
         const auto width = texture.device.width >> level;
         const auto height = texture.device.height >> level;
-        getDD()->uploadTexture(texture.device.gpu, level - texture.device.first_level,
-                               {0, 0, width, height}, texture.mipPixels(level), width * 4);
+        device.gpu.uploadTexture(texture.device.gpu, level - texture.device.first_level,
+                                 {0, 0, width, height}, texture.mipPixels(level), width * 4);
     }
 }
 
 // FUNCTION: SURRENDER 0x10029090
-srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
+srGERD::Texture* srGERD::createNewTexture(srTexture* texture)
 {
-    Texture* result = allocTexture(texture->getTextureFrameHandle());
+    Texture* result = allocTexture(texture);
     result->name = texture->getName();
     const auto dimensions = texture->getDimensions();
     evaluateTextureDimensions(result->device, dimensions);
-    result->device.resident = (dimensions.hints >> srTextureIFace::HINT_RESIDENT) & 1;
     allocTextureData(*result);
-    std::array<SDL_Surface*, 12> destinations{};
-    std::vector<SDLSurfaceOwner> surfaces;
-    surfaces.reserve(12);
-
-    w8_ulong width = result->device.width;
-    w8_ulong height = result->device.height;
-    for (w8_ulong level = result->device.first_level; level <= result->device.last_level; ++level) {
-        surfaces.push_back(CreateCpuStorage(width, height, result->pixel_format,
-                                            result->mipPixels(level).data(),
-                                            SDL_BYTESPERPIXEL(result->pixel_format) * width));
-        auto* surface = surfaces.back().get();
-        destinations[level] = surface;
-        width >>= 1;
-        height >>= 1;
+    SDL_Surface* source = texture->getSurfacePtr();
+    SDLSurfaceOwner region{nullptr, SDL_DestroySurface};
+    if (source && texture->source_region.w > 0 && texture->source_region.h > 0) {
+        const auto& rect = texture->source_region;
+        region = CreateCpuStorage(rect.w, rect.h, source->format);
+        if (!SDL_BlitSurface(source, &rect, region.get(), nullptr))
+            throw std::runtime_error(SDL_GetError());
+        source = region.get();
     }
-    const srTextureIFace::MultiRequest request{
-        result->device.first_level,
-        std::span<SDL_Surface* const>(destinations)
-            .subspan(result->device.first_level,
-                     result->device.last_level - result->device.first_level + 1)};
-    texture->getMipmapData(request);
+    SDLSurfaceOwner previous{nullptr, SDL_DestroySurface};
+    for (w8_ulong level = result->device.first_level; source && level <= result->device.last_level;
+         ++level) {
+        const auto width = result->device.width >> level;
+        const auto height = result->device.height >> level;
+        auto destination =
+            CreateCpuStorage(width, height, result->pixel_format, result->mipPixels(level).data(),
+                             SDL_BYTESPERPIXEL(result->pixel_format) * width);
+        StretchCpuSurface(*source, *destination, SDL_SCALEMODE_LINEAR);
+        previous = std::move(destination);
+        source = previous.get();
+    }
 
     result->device.gpu.handle = 0;
-    result->device.priority = texture->getPriority();
     ++statistics.textures_created;
     return result;
 }
@@ -2406,19 +2149,19 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
 // FUNCTION: SURRENDER 0x10017930
 w8_long srGERD::getMaxTextureWidth() const
 {
-    return device.info.texture_max_dim;
+    return SDLGPUDevice::texture_max_dim;
 }
 
 // FUNCTION: SURRENDER 0x10017940
 w8_long srGERD::getMaxTextureHeight() const
 {
-    return device.info.texture_max_dim;
+    return SDLGPUDevice::texture_max_dim;
 }
 
 // FUNCTION: SURRENDER 0x10017950
 w8_long srGERD::getMaxTextureAspectRatio() const
 {
-    return device.info.texture_max_aspect;
+    return SDLGPUDevice::texture_max_aspect;
 }
 
 // FUNCTION: SURRENDER 0x10017960
@@ -2430,24 +2173,24 @@ w8_long srGERD::getTextureReduction() const
 }
 
 // FUNCTION: SURRENDER 0x10017D00
-int srGERD::isTextureCached(srTextureIFace* texture) const
+int srGERD::isTextureCached(srTexture* texture) const
 {
     std::lock_guard access(state_section);
     if (texture != 0) {
-        w8_ulong handle = texture->getTextureFrameHandle();
+        auto* handle = texture->resolve();
         return texture_lookup.contains(handle);
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x10017DD0
-int srGERD::isTextureResident(srTextureIFace* texture) const
+int srGERD::isTextureResident(srTexture* texture) const
 {
     std::lock_guard access(state_section);
     if (texture != 0 && isWindowOpen() != 0) {
-        w8_ulong handle = texture->getTextureFrameHandle();
+        auto* handle = texture->resolve();
         const auto entry = texture_lookup.find(handle);
-        Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
+        Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second.get();
         if (resident != 0 && resident->device.gpu.handle != 0 && resident->device.gpu.size != 0) {
             return 1;
         }
@@ -2487,20 +2230,8 @@ const char* srGERD::errStrings[9] = {"ERROR_NONE",
 // FUNCTION: SURRENDER 0x10020DD0
 
 // FUNCTION: SURRENDER 0x1001C870
-void srGERD::setPolygonMode(e_polygonMode mode)
-{
-    if (mode != polygon_mode) {
-        flushImmediateRenderers();
-        polygon_mode = mode;
-        dirty |= DIRTY_POLYGON_MODE;
-    }
-}
 
 // FUNCTION: SURRENDER 0x1001C8E0
-srGERD::e_polygonMode srGERD::getPolygonMode() const
-{
-    return polygon_mode;
-}
 
 // FUNCTION: SURRENDER 0x1001CBE0
 void srGERD::setClearStencil(w8_ulong stencil)
@@ -2606,6 +2337,9 @@ void srGERD::drawTriangle(const glm::ivec3& triangle)
 void srGERD::setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
                         srRendererDefs::e_type type, w8_ulong stride, const void* values)
 {
+    if (index == srRendererDefs::VERTEX_ARRAY_TEXCOORD0 ||
+        index == srRendererDefs::VERTEX_ARRAY_TEXCOORD1)
+        vertex_arrays.texture_weights[index - srRendererDefs::VERTEX_ARRAY_TEXCOORD0] = nullptr;
     vertex_arrays.components[index] = components;
     vertex_arrays.types[index] = type;
     vertex_arrays.strides[index] = stride;
@@ -2663,41 +2397,6 @@ void srGERD::initView()
 }
 
 // FUNCTION: SURRENDER 0x10027F60
-void srGERD::initTextureParameterMatrix()
-{
-    texture_state.correction_map[0] = 0;
-    texture_state.correction_map[1] = 1;
-    texture_state.correction_map[2] = 2;
-    texture_state.correction_map[3] = 1;
-    texture_state.mag_filter_map[0] = 0;
-    texture_state.mag_filter_map[1] = 1;
-    texture_state.mag_filter_map[2] = 2;
-    texture_state.mag_filter_map[3] = 3;
-    texture_state.mag_filter_map[4] = 2;
-    texture_state.min_filter_map[0] = 0;
-    texture_state.min_filter_map[1] = 1;
-    texture_state.min_filter_map[2] = 2;
-    texture_state.min_filter_map[3] = 3;
-    texture_state.min_filter_map[4] = 2;
-    texture_state.mipmap_map[0] = 0;
-    texture_state.mipmap_map[1] = 1;
-    texture_state.mipmap_map[2] = 2;
-    texture_state.mipmap_map[3] = 1;
-    texture_state.wrap_s_map[0] = 0;
-    texture_state.wrap_s_map[1] = 1;
-    texture_state.wrap_t_map[0] = 0;
-    texture_state.wrap_t_map[1] = 1;
-    texture_state.default_correction = static_cast<srTextureIFace::e_correction>(1);
-    texture_state.default_mag_filter = static_cast<srTextureIFace::e_filter>(2);
-    texture_state.default_min_filter = static_cast<srTextureIFace::e_filter>(2);
-    texture_state.default_mipmap = static_cast<srTextureIFace::e_mipmap>(1);
-    texture_state.default_texture_params[0] = 0;
-    texture_state.default_texture_params[1] = 1;
-    texture_state.default_texture_params[2] = 2;
-    texture_state.default_texture_params[3] = 3;
-    texture_state.default_texture_params[4] = 0;
-    texture_state.default_compression = static_cast<srTextureIFace::e_compression>(0);
-}
 
 // FUNCTION: SURRENDER 0x10068700
 bool srRender::testBoundingBox(const glm::mat4& matrix, const glm::vec3& minimum,

@@ -1,63 +1,76 @@
 #pragma once
 
+#include <memory>
+
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
 
-#include "srTextureIFace.h"
+#include "srClass.h"
+struct SDL_Surface;
 
-class srTexture : public srTextureIFace {
+class srTexture : public srClass {
 public:
-    virtual ~srTexture() override;
+    struct Dimensions {
+        w8_ulong width;
+        w8_ulong height;
+        SDL_PixelFormat format;
+        bool generate_mipmaps = true;
+    };
+    /* Texture filtering quality.
+       setTextureDefaultMagFilter remaps DEFAULT (4) to GOOD. */
+    enum e_filter {
+        FILTER_NONE = 0,
+        FILTER_FASTEST = 1,
+        FILTER_GOOD = 2,
+        FILTER_BEST = 3,
+        FILTER_DEFAULT = 4
+    };
+    /* Dump: NONE / FASTEST / BEST, else DEFAULT. GOOD is not a mipmap
+       enumerator. setTextureDefaultMipmap remaps DEFAULT (3) to FASTEST. */
+    enum e_mipmap { MIPMAP_NONE = 0, MIPMAP_FASTEST = 1, MIPMAP_BEST = 2, MIPMAP_DEFAULT = 3 };
+    enum e_wrap { WRAP_REPEAT = 0, WRAP_CLAMP = 1 };
+    struct Parameters {
+        e_filter mag = FILTER_DEFAULT;
+        e_filter min = FILTER_DEFAULT;
+        e_mipmap mipmap = MIPMAP_DEFAULT;
+        e_wrap wrap_s = WRAP_REPEAT;
+        e_wrap wrap_t = WRAP_REPEAT;
+        float mipmap_bias = 0;
+    };
+
+    explicit srTexture(std::shared_ptr<SDL_Surface> pixels = {});
+    ~srTexture() override;
+    srTexture(const srTexture&) = default;
 
     srTexture& operator=(const srTexture& other);
-    virtual w8_ulong getTextureFrameHandle() override;
-    virtual float getPriority() override;
-    Dimensions getDimensions() override;
+    virtual srTexture* resolve();
+    Dimensions getDimensions();
     void setDimensions(const Dimensions& dimensions);
-    virtual void getMipmapData(const MultiRequest& request) override;
-    virtual void getMipmapLevelPartial(PartialRequest& request) override;
-    Parameters getParameters() override;
+    Parameters getParameters();
     void setMipmap(e_mipmap mipmap);
     void setMipmapBias(float bias);
-    float getMipmapBias() const;
-    void setPriority(float priority);
-    void setDimensionsDirty();
-    e_compression getCompression() const;
-    void setCompression(e_compression compression);
-    void enableHint(e_hint hint);
-    void disableHint(e_hint hint);
-    int isHintEnabled(e_hint hint) const;
-    void setCorrection(e_correction correction);
     void setMagFilter(e_filter filter);
     void setMinFilter(e_filter filter);
     void setWrapS(e_wrap wrap);
     void setWrapT(e_wrap wrap);
-    e_correction getCorrection() const;
-    e_filter getMagFilter() const;
-    e_filter getMinFilter() const;
-    e_mipmap getMipmap() const;
-    e_wrap getWrapS() const;
-    e_wrap getWrapT() const;
+
+    virtual void invalidate();
+    void setSurfacePtr(std::shared_ptr<SDL_Surface> pixels);
+    SDL_Surface* getSurfacePtr() const { return surface.get(); }
+    SDL_Rect source_region{};
+    std::shared_ptr<SDL_Surface> surface;
 
 protected:
-    static void copyMipmapChain(SDL_Surface& source, const MultiRequest& request);
+    virtual void setupDefaultValues();
 
 public:
     /* Bit indices into texture_flags_. */
     enum e_flag { FLAG_GENERATESURFACE_FAILURE = 0, FLAG_DIRTY_DEFAULTS = 1 };
 
-protected:
     friend class stSurface2D;
-    srTexture();
-    static w8_ulong getNewFrameHandle();
-    /* Allocates count consecutive frame handles and returns the first. */
-    static w8_ulong getNewFrameHandles(w8_ulong count);
-    static w8_ulong _frameHandle;
-    void invalidateFrameHandle(w8_ulong handle);
     void setupDefaultValuesFromSurface(SDL_Surface* surface);
 
-    w8_ulong packed_state;     /* 0x18: correction/mag/min/mipmap/wrap bits */
-    float mipmap_bias;              /* 0x1c */
-    Dimensions texture_dimensions_; /* 0x20 */
-    float texture_priority;         /* 0x4c: getPriority; the ctor seeds 0.5f */
-    w8_ulong texture_flags_;   /* 0x50 */
+    Parameters parameters;
+    Dimensions texture_dimensions_;
+    w8_ulong texture_flags_;
 };

@@ -17,7 +17,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/srClass.h"
-#include "surrender/srMaterialIFace.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "wiz8/binary_reader.h"
@@ -27,7 +27,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/sr_api.h"
 
-class srTextureIFace;
+class srTexture;
 
 /* Engine Code\OctSubMesh.cpp. Read at 0x0049E9A0 asserts this unit
    (lines 0x1ad and 0x1d2); the constructor and destructor immediately before
@@ -221,7 +221,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     int selected_material = m_material_index;
     int index;
     if (m_material_index < 0) {
-        std::shared_ptr<srMaterialIFace>* vertex_materials =
+        std::shared_ptr<srMaterial>* vertex_materials =
             model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex material array.\n");
@@ -252,7 +252,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
                   "OctMeshModel::Read -- Could not get poly-vertex array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyVertex.\n");
 
-    std::shared_ptr<srTextureIFace>* polygon_textures = model->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTexture>* polygon_textures = model->getPolyTexture(0, 0, 1);
     if (polygon_textures == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get poly texture array.\n");
     }

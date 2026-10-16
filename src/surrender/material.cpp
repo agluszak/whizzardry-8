@@ -2,9 +2,9 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
+#include "surrender/srClass.h"
 #include "surrender/srCore.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMaterialIFace.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 
@@ -31,7 +31,7 @@ void srMaterial::updateParms()
 srMaterial& srMaterial::operator=(const srMaterial& other)
 {
     if (&other != this) {
-        srMaterialIFace::operator=(other);
+        srClass::operator=(other);
         parms = other.parms;
         operations = other.operations;
         mapper = other.mapper;

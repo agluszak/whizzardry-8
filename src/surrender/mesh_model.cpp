@@ -17,11 +17,11 @@
 #include "glm/geometric.hpp"
 #include "surrender/bounding_radius.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMaterialIFace.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srModel.h"
 #include "surrender/srShader.h"
 #include "surrender/srStatisticsManager.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "surrender/srVertexProcessor.h"
 
 /* D:\srsdk1x\sources\corelib\srMeshModel.cpp */
@@ -32,7 +32,6 @@
 #include "surrender/mesh_submission.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -96,7 +95,7 @@ srShader srMeshModel::getShader(w8_long pass) const
 }
 
 // FUNCTION: SURRENDER 0x10040330
-srMaterialIFace* srMeshModel::getMaterial(w8_long pass, e_side side) const
+srMaterial* srMeshModel::getMaterial(w8_long pass, e_side side) const
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
         return materials[pass][side].get();
@@ -105,7 +104,7 @@ srMaterialIFace* srMeshModel::getMaterial(w8_long pass, e_side side) const
 }
 
 // FUNCTION: SURRENDER 0x100402E0
-void srMeshModel::setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, e_side side)
+void srMeshModel::setMaterial(std::shared_ptr<srMaterial> material, w8_long pass, e_side side)
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
         materials[pass][side] = std::move(material);
@@ -114,7 +113,7 @@ void srMeshModel::setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long
 }
 
 // FUNCTION: SURRENDER 0x100403B0
-srTextureIFace* srMeshModel::getTexture(w8_long pass, w8_long layer) const
+srTexture* srMeshModel::getTexture(w8_long pass, w8_long layer) const
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
         return textures[pass][layer].get();
@@ -123,7 +122,7 @@ srTextureIFace* srMeshModel::getTexture(w8_long pass, w8_long layer) const
 }
 
 // FUNCTION: SURRENDER 0x10040360
-void srMeshModel::setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer)
+void srMeshModel::setTexture(std::shared_ptr<srTexture> texture, w8_long pass, w8_long layer)
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
         textures[pass][layer] = std::move(texture);
@@ -256,8 +255,7 @@ static T* GetLazyMeshTable(srMeshModel& mesh, std::vector<T>& slot, w8_long coun
 }
 
 // FUNCTION: SURRENDER 0x10040430
-std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side,
-                                                                 int table)
+std::shared_ptr<srMaterial>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
 {
     if (vertex < 0 || vertex > 3 || (int)side < 0 || (int)side > 1) {
         return 0;
@@ -266,8 +264,7 @@ std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex,
 }
 
 // FUNCTION: SURRENDER 0x10040560
-std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer,
-                                                             int table)
+std::shared_ptr<srTexture>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer, int table)
 {
     if (polygon < 0 || polygon > 3 || layer < 0 || layer > 1) {
         return 0;
@@ -1100,7 +1097,7 @@ void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long
 
     for (w8_long layer = 0; layer < 2; ++layer) {
         if (mesh.poly_textures[pass][layer] == 0) {
-            srTextureIFace* texture = mesh.textures[pass][layer].get();
+            srTexture* texture = mesh.textures[pass][layer].get();
             (layer == 0 ? texture0 : texture1) = texture;
             current_pass->textures[layer] = texture;
         } else {

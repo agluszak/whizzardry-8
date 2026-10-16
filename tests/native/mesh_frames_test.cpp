@@ -18,7 +18,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTextureIFace.h"
 #include "surrender_test_fixture.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/materials.h"
@@ -304,8 +303,8 @@ static bool skins_and_automap()
 {
     const int destroyed = TestTexture::destroyed;
     {
-        std::shared_ptr<srTextureIFace> blank = std::make_shared<TestTexture>();
-        std::shared_ptr<srTextureIFace> visible = std::make_shared<TestTexture>();
+        std::shared_ptr<srTexture> blank = std::make_shared<TestTexture>();
+        std::shared_ptr<srTexture> visible = std::make_shared<TestTexture>();
         blank->setName("bLaNk-body");
         visible->setName(std::string(600, 'V')); // No fixed-size texture-name copies.
 

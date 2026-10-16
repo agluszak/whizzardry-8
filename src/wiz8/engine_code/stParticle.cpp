@@ -32,7 +32,7 @@
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 #include "wiz8/engine_code/GameData.h"
@@ -720,7 +720,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 }
 
 // FUNCTION: WIZ8 0x0049AB00
-void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
+void stParticle::SetTexture(std::shared_ptr<srTexture> texture)
 {
     texture_frames.clear();
     if (auto* animation = dynamic_cast<stTextureAnim*>(texture.get())) {
@@ -745,7 +745,7 @@ void stParticle::SetActive(unsigned char active)
 
 // FUNCTION: WIZ8 0x0049ac30
 unsigned char stParticle::ReplaceTexture(const char* old_name,
-                                         std::shared_ptr<srTextureIFace> replacement)
+                                         std::shared_ptr<srTexture> replacement)
 {
     if ((dynamic_cast<stTextureFile*>(texture.get()) ||
          dynamic_cast<stTextureAnim*>(texture.get())) &&
@@ -757,7 +757,7 @@ unsigned char stParticle::ReplaceTexture(const char* old_name,
 }
 
 // FUNCTION: WIZ8 0x0049ACA0
-void stParticle::SetMaterial(std::shared_ptr<srMaterialIFace> new_material)
+void stParticle::SetMaterial(std::shared_ptr<srMaterial> new_material)
 {
     material = std::move(new_material);
 }

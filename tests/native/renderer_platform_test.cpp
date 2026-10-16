@@ -1,6 +1,5 @@
 #include <chrono>
 #include <cstdio>
-#include <string_view>
 #include <thread>
 
 #include <catch2/catch_test_macros.hpp>
@@ -9,8 +8,6 @@
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srClock.h"
 #include "surrender/srCore.h"
-#include "surrender/srDD.h"
-#include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 
 TEST_CASE("renderer platform")
@@ -25,8 +22,7 @@ TEST_CASE("renderer platform")
     for (int cycle = 0; cycle < 3; ++cycle) {
         REQUIRE((srInit() && srCore.isInitialized()));
         {
-            auto* device = srCreateSDLGPUDevice();
-            srGERD gerd(device);
+            srGERD gerd;
             gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
             gerd.loadIdentity();
             const auto sphere = gerd.eyeSpaceBounds(srBoundingSphere{{1, 2, 3}, 2});
@@ -41,19 +37,6 @@ TEST_CASE("renderer platform")
             REQUIRE(sphere.center == glm::vec3(1, 2, 3));
             REQUIRE(sphere.radius == 2);
             gerd.loadIdentity();
-            const auto info = device->getInfo();
-            REQUIRE(info.max_back_buffer_width == 8192);
-            REQUIRE(info.max_back_buffer_height == 8192);
-            REQUIRE(info.renderer_batch_limit == 0x100);
-            REQUIRE(info.flags == 0);
-            REQUIRE(info.texture_ram == 0);
-            REQUIRE(info.max_texture_stages == 2);
-            REQUIRE(info.texture_min_dim == 1);
-            REQUIRE(info.texture_max_dim == 4096);
-            REQUIRE(info.texture_max_aspect == 4096);
-            const auto driver = device->getDriverInfo();
-            REQUIRE(driver.driver_id == 0);
-            REQUIRE(std::string_view(driver.name) == "SDLGPU");
             REQUIRE(gerd.lockBuffer() == nullptr);
             REQUIRE(gerd.getError() == srGERD::ERROR_WINDOW_NOT_OPEN);
             auto* renderer = gerd.lockRenderer();

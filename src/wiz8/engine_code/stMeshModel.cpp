@@ -31,7 +31,7 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/triangle_selection.h"
@@ -40,7 +40,7 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 
-class srMaterialIFace;
+class srMaterial;
 
 extern float g_monster_light_scale;
 
@@ -169,7 +169,7 @@ void stMeshModel::updateBakedLighting()
     const auto environment = g_environment_offset;
     const bool add_environment = vertex_light_table != 1 && environment != glm::vec3(0);
     const float light_scale = g_monster_light_scale;
-    const srMaterialIFace* previous_material = nullptr;
+    const srMaterial* previous_material = nullptr;
     glm::vec3 material_ambient(0);
 
     for (int vertex = 0; vertex < vertex_location_count; ++vertex) {
@@ -497,7 +497,7 @@ int stMeshModel::FindSkinTable(std::string_view name)
 }
 
 // FUNCTION: WIZ8 0x00473720
-std::shared_ptr<srTextureIFace>* stMeshModel::GetTextureTable(int table)
+std::shared_ptr<srTexture>* stMeshModel::GetTextureTable(int table)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                              [table](const auto& skin) { return skin.id == table; });

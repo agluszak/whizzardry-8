@@ -45,7 +45,7 @@ public:
     };
     /* drawElements passes 2 for the renderer's 32-bit index triples. */
     enum e_indexType { INDEX_ULONG = 2 };
-    /* Vertex-stream state handed to srDD::setVertexArrayInfo before each draw. */
+    /* Vertex-stream state handed to SDLGPUDevice::setVertexArrayInfo before each draw. */
     struct VertexArrayInfo {
         std::uint32_t mask = 0;
         w8_ulong count;
@@ -54,5 +54,6 @@ public:
         e_type types[6];
         w8_ulong strides[6];
         const void* arrays[6];
+        const float* texture_weights[2]{};
     };
 };

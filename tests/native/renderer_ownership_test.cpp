@@ -12,8 +12,6 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "catch2/catch_message.hpp"
@@ -25,25 +23,19 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
-#include "surface_pixels.h"
 #include "surrender/srCore.h"
-#include "surrender/srDD_SDLGPU.h"
 #include "surrender/srFog.h"
 #include "surrender/srGERD.h"
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMaterialIFace.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srStatisticsManager.h"
-#include "surrender/srTextureIFace.h"
-#include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 #include "surrender_test_fixture.h"
-#include "wiz8/surface_storage.h"
 
 namespace {
 class TestNode : public srNode {
@@ -105,7 +97,7 @@ bool recursiveSceneGraph()
     return true;
 }
 
-class TestMaterial : public srMaterialIFace {
+class TestMaterial : public srMaterial {
 public:
     srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
@@ -185,7 +177,7 @@ bool processorOwnership()
     inactive.enabled = false;
     std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
-    std::array<std::shared_ptr<srMaterialIFace>, 65> materials;
+    std::array<std::shared_ptr<srMaterial>, 65> materials;
     std::array<glm::vec4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
@@ -654,7 +646,7 @@ bool materialChannelOperations()
 bool rendererOwnership()
 {
     {
-        srGERD growing(srCreateSDLGPUDevice());
+        srGERD growing;
         std::array<srGERD::Renderer*, 32> borrowed{};
         for (std::size_t index = 0; index < borrowed.size(); ++index) {
             borrowed[index] = growing.lockRenderer();
@@ -668,7 +660,7 @@ bool rendererOwnership()
     }
     // No context or window is opened: these checks only exercise CPU ownership
     // and the renderer's owner-thread submission bookkeeping.
-    srGERD gerd(srCreateSDLGPUDevice());
+    srGERD gerd;
     struct TransformInstance : srModelInstance {
         using srModelInstance::scopedRenderTransform;
     };
@@ -775,7 +767,7 @@ bool rendererOwnership()
 
 bool rendererTextureStages()
 {
-    srGERD gerd(srCreateSDLGPUDevice());
+    srGERD gerd;
     for (unsigned stages : {1u, 2u}) {
         srGERD::Renderer renderer({&gerd, 0, 256, stages});
         auto arrays = renderer.allocVertexArray(8);
@@ -787,7 +779,6 @@ bool rendererTextureStages()
         for (unsigned count : {1u, 3u, 4u, 5u, 8u}) {
             for (unsigned lane = 0; lane < count; ++lane) {
                 for (unsigned attributes = 0; attributes < 128; ++attributes) {
-                    for (auto& stream : renderer.stq) stream.clear();
                     std::fill(renderer.vertices.attributes.begin(),
                               renderer.vertices.attributes.end(), 0);
                     renderer.vertices.attributes[lane] = attributes;
@@ -798,15 +789,6 @@ bool rendererTextureStages()
                                              (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
                         REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 +
                                                     stage))) == enabled);
-                        const bool combined =
-                            enabled && (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
-                        REQUIRE(renderer.stq[stage].size() == (combined ? count : 0u));
-                        if (combined)
-                            for (unsigned i = 0; i < count; ++i) {
-                                REQUIRE(renderer.stq[stage][i].st ==
-                                        renderer.vertices.st[stage][i]);
-                                REQUIRE(renderer.stq[stage][i].q == renderer.vertices.q[stage][i]);
-                            }
                     }
                 }
             }
@@ -885,7 +867,7 @@ bool pipelineRecordTexcoords()
 {
     // Consume the producer's actual records, including a second record and
     // both UV channels. A layout/stride mismatch used to crash menu rendering.
-    srGERD renderer(srCreateSDLGPUDevice());
+    srGERD renderer;
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
     std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
     std::array<w8_ulong, 3> indices{2, 0, 1};
@@ -1063,37 +1045,10 @@ TEST_CASE("renderer_ownership_test")
     }
 }
 
-TEST_CASE("Counted mipmap chains copy adjacent levels and stop at missing destinations")
-{
-    SurRenderTestFixture runtime;
-    constexpr w8_ulong color = 0xff102030;
-    const auto source = [] {
-        auto pixels = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_BGRA32);
-        SDL_FillSurfaceRect(pixels.get(), nullptr, color);
-        return pixels;
-    };
-    auto first = CreateCpuStorage(4, 4, SDL_PIXELFORMAT_BGRA32);
-    auto second = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_BGRA32);
-    auto third = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_BGRA32);
-    std::array<SDL_Surface*, 3> destinations{first.get(), second.get(), third.get()};
-    const srTextureIFace::MultiRequest request{3, destinations};
-    srTextureMap map{std::shared_ptr<SDL_Surface>(source())};
-    map.getMipmapData(request);
-    REQUIRE(ReadARGB(*first, 0, 0) == color);
-    REQUIRE(ReadARGB(*second, 1, 1) == color);
-    REQUIRE(ReadARGB(*third, 0, 0) == color);
-
-    SDL_FillSurfaceRect(third.get(), nullptr, 0xffabcdef);
-    destinations[1] = nullptr;
-    map.getMipmapData(request);
-    REQUIRE(ReadARGB(*first, 0, 0) == color);
-    REQUIRE(ReadARGB(*third, 0, 0) == 0xffabcdef);
-}
-
 TEST_CASE("Picking honors counted selections, direct indices, nearest depth and atomic validation")
 {
     SurRenderTestFixture runtime;
-    srGERD renderer(srCreateSDLGPUDevice());
+    srGERD renderer;
     srModelInstance selected;
     renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));
     REQUIRE_FALSE(renderer.popPick());

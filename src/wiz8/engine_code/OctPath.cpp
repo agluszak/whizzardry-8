@@ -91,8 +91,8 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 
-class srMaterialIFace;
-class srTextureIFace;
+class srMaterial;
+class srTexture;
 
 // GLOBAL: WIZ8 0x005ebc30
 const double g_double_one = 1.0;
@@ -4781,9 +4781,9 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
     model->setName("WayPoint Mesh");
 
     glm::ivec3* polygons = model->getPolyVertex();
-    std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTexture>* textures = model->getPolyTexture(0, 0, 1);
     glm::vec2* texture_coordinates = model->getVertexTexCoords(0, 0, 1);
-    std::shared_ptr<srMaterialIFace>* materials =
+    std::shared_ptr<srMaterial>* materials =
         model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = model->getVertexShadeIndex(1);
 

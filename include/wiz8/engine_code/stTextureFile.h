@@ -12,29 +12,22 @@ struct SDL_Surface;
 class File;
 }
 
-/* Wizardry's virtual-file-backed texture. Priority, dimensions, parameters and
-   name are inherited; has_alpha records the loaded surface's alpha channel. */
+// Lazily decodes a retail texture and retains its SDL pixels for this resource's lifetime.
 class stTextureFile : public srTexture {
 public:
     virtual ~stTextureFile() override;          /* 0x0047C8E0 */
 
-    stTextureFile(const char* file_name, int cached); /* 0x0047C630 */
+    stTextureFile(const char* file_name, int preload); /* 0x0047C630 */
     stTextureFile& operator=(const stTextureFile& other);
 
     void setFileName(std::string file_name); /* 0x0047C830 */
-    void setCached(int cached) { this->cached = cached; }
     int isSurfaceLoaded() const { return surface != 0; }
     SDL_Surface* getSurface() const { return surface.get(); }
     unsigned char hasAlpha() const { return has_alpha; }
     void loadSurface(); /* 0x0047BBF0 */
-    /* Emitted at 0x47BBD0 for the materials.cpp probe caller and inlined at
-       the invalidate/getMipmapData sites; the pending-defaults flag is part
-       of the release sequence itself. */
     void releaseSurface(); /* 0x0047BBD0 */
 
-    virtual w8_ulong getTextureFrameHandle() override;     /* 0x0047C5F0 */
-    virtual void getMipmapData(const MultiRequest& request) override; /* 0x0047CA50 */
-    virtual void getMipmapLevelPartial(PartialRequest& request) override;
+    srTexture* resolve() override;     /* 0x0047C5F0 */
     virtual void invalidate() override; /* 0x0047C8B0 */
 
 protected:
@@ -47,9 +40,6 @@ private:
         DEFAULTS_PENDING = 1UL << FLAG_DIRTY_DEFAULTS
     };
 
-    int cached;
     std::string file_name;
-    std::shared_ptr<SDL_Surface> surface;
-    w8_ulong frame_handle;
     bool has_alpha;
 };

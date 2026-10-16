@@ -545,16 +545,10 @@ void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count
         const auto array = static_cast<srRendererDefs::e_vertexArray>(
             srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage);
         mask |= 1u << array;
-        if ((attributes & q_bit) == 0) {
-            gerd->setDataPtr(array, 2, srRendererDefs::TYPE_FLOAT, sizeof(glm::vec2),
-                             coordinates[stage]);
-        } else {
-            stq[stage].resize(count);
-            auto* combined = stq[stage].data();
-            for (w8_ulong i = 0; i < count; ++i)
-                combined[i] = {coordinates[stage][i], weights[stage][i]};
-            gerd->setDataPtr(array, 3, srRendererDefs::TYPE_FLOAT, sizeof(TexCoordQ), combined);
-        }
+        gerd->setDataPtr(array, 2, srRendererDefs::TYPE_FLOAT, sizeof(glm::vec2),
+                         coordinates[stage]);
+        gerd->vertex_arrays.texture_weights[stage] =
+            (attributes & q_bit) != 0 ? weights[stage] : nullptr;
     }
     gerd->setVertexArrayMask(mask);
 }
@@ -599,8 +593,6 @@ void srGERD::Renderer::reset(int release_buffers)
         decltype(bytes){}.swap(bytes);
         decltype(dwords){}.swap(dwords);
         decltype(remap){}.swap(remap);
-        std::vector<TexCoordQ>{}.swap(stq[0]);
-        std::vector<TexCoordQ>{}.swap(stq[1]);
     }
 }
 

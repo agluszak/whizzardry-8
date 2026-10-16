@@ -28,8 +28,7 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
-#include "surrender/srTextureMap.h"
+#include "surrender/srTexture.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Octree.h"
@@ -151,9 +150,9 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
                         SDL_MapSurfaceRGBA(surface.get(), (pixel >> 16) & 255, (pixel >> 8) & 255,
                                            pixel & 255, pixel >> 24));
 
-    auto texture = std::make_shared<srTextureMap>();
+    auto texture = std::make_shared<srTexture>();
     texture->setSurfacePtr(surface);
-    texture->setMipmap(srTextureIFace::MIPMAP_NONE);
+    texture->setMipmap(srTexture::MIPMAP_NONE);
 
     model->setTexture(std::move(texture), 0, 0);
 
@@ -236,7 +235,7 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
         if (mesh == 0) {
             srAssertFail("pstMeshModel", ST_CUBE_CPP, 0x127, 0);
         }
-        srTextureMap* texture = static_cast<srTextureMap*>(mesh->getTexture(0, 0));
+        srTexture* texture = static_cast<srTexture*>(mesh->getTexture(0, 0));
         if (texture == 0) {
             srAssertFail("psrTexture", ST_CUBE_CPP, 0x12a, 0);
         }

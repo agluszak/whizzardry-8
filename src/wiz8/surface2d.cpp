@@ -1,80 +1,17 @@
 #include "wiz8/surface2d.h"
 
 #include <memory>
-#include <stdexcept>
 
-#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTextureIFace.h"
 #include "wiz8/float_constants.h"
-
-stTexture2D::stTexture2D()
-    : srTexture(), left(0), top(0), right(128), bottom(128), frame_handle(getNewFrameHandle()),
-      surface(0)
-{
-    setMipmap(MIPMAP_NONE);
-    enableHint(HINT_NO_MIPMAPS);
-    enableHint(HINT_POSITIONAL_6);
-    enableHint(HINT_NO_ALPHA);
-    texture_dimensions_.width = 128;
-    texture_dimensions_.height = 128;
-}
-
-// FUNCTION: WIZ8 0x0047E600
-stTexture2D::~stTexture2D()
-{
-    invalidateFrameHandle(frame_handle);
-}
-
-// FUNCTION: WIZ8 0x0047DE50
-w8_ulong stTexture2D::getTextureFrameHandle()
-{
-    return frame_handle;
-}
-
-// FUNCTION: WIZ8 0x0047E710
-void stTexture2D::getMipmapData(const MultiRequest& request)
-{
-    if (request.destinations.empty() || !request.destinations.front()) return;
-    SDL_Rect source{left, top, right - left, bottom - top};
-    if (!SDL_BlitSurface(surface.get(), &source, request.destinations.front(), nullptr))
-        throw std::runtime_error(SDL_GetError());
-}
-
-// FUNCTION: WIZ8 0x0047E740
-void stTexture2D::getMipmapLevelPartial(PartialRequest& request)
-{
-    SDL_Rect source{left + request.destination_x, top + request.destination_y,
-                    request.source_right - request.destination_x,
-                    request.source_bottom - request.destination_y};
-    SDL_Rect destination{request.destination_x, request.destination_y, source.w, source.h};
-    if (!SDL_BlitSurface(surface.get(), &source, request.destination, &destination))
-        throw std::runtime_error(SDL_GetError());
-}
-
-// FUNCTION: WIZ8 0x0047DE40
-void stTexture2D::invalidate()
-{
-    invalidateFrameHandle(frame_handle);
-}
-
-// FUNCTION: WIZ8 0x0047E790
-void stTexture2D::setupDefaultValues()
-{
-    if (surface) {
-        texture_dimensions_.format = surface->format;
-    }
-    texture_flags_ &= ~(1UL << FLAG_DIRTY_DEFAULTS);
-}
 
 // FUNCTION: WIZ8 0x0047DAE0
 stSurface2D::stSurface2D(std::shared_ptr<SDL_Surface> source, int source_width, int source_height,
@@ -91,16 +28,17 @@ stSurface2D::stSurface2D(std::shared_ptr<SDL_Surface> source, int source_width, 
     tiles.reserve(columns * rows);
     for (int row = 0; row != rows; ++row) {
         for (int column = 0; column != columns; ++column) {
-            auto& texture = tiles.emplace_back(std::make_unique<stTexture2D>());
-            texture->surface = source;
-            texture->texture_dimensions_.width = tile_extent;
-            texture->texture_dimensions_.height = tile_extent;
-            texture->left = column * tile_extent;
-            texture->top = row * tile_extent;
-            texture->right = texture->left + tile_extent;
-            texture->bottom = texture->top + tile_extent;
-            texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-            texture->setWrapT(srTextureIFace::WRAP_CLAMP);
+            auto& texture = tiles.emplace_back(std::make_unique<srTexture>(source));
+            texture->source_region = {column * tile_extent, row * tile_extent, tile_extent,
+                                      tile_extent};
+            auto dimensions = texture->getDimensions();
+            dimensions.width = tile_extent;
+            dimensions.height = tile_extent;
+            texture->setDimensions(dimensions);
+            texture->setMipmap(srTexture::MIPMAP_NONE);
+
+            texture->setWrapS(srTexture::WRAP_CLAMP);
+            texture->setWrapT(srTexture::WRAP_CLAMP);
         }
     }
     texture_coordinates[0][0] = 0.0f;
@@ -214,21 +152,10 @@ void stSurface2D::invalidateTiles()
 // FUNCTION: WIZ8 0x0047E370
 void stSurface2D::setAlphaTestEnabled(bool enabled)
 {
-    if (!enabled) {
-        shader_bits &= ~srShader::MASK_ALPHATEST;
-        for (auto& tile : tiles) {
-            tile->disableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
-            tile->enableHint(srTextureIFace::HINT_NO_ALPHA);
-            tile->invalidate();
-        }
-    } else {
+    if (enabled)
         shader_bits |= srShader::MASK_ALPHATEST;
-        for (auto& tile : tiles) {
-            tile->disableHint(srTextureIFace::HINT_NO_ALPHA);
-            tile->enableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
-            tile->invalidate();
-        }
-    }
+    else
+        shader_bits &= ~srShader::MASK_ALPHATEST;
 }
 
 /* Dirty rectangles update only the intersecting GPU tiles. */
@@ -239,11 +166,13 @@ void stSurface2D::updateRectangle(srGERD* renderer, int left, int top, int right
     int y = top;
 
     while (y < bottom) {
-        stTexture2D* texture = 0;
+        srTexture* texture = 0;
         for (auto& tile : tiles) {
-            stTexture2D* candidate = tile.get();
-            if (candidate->left <= x && x < candidate->right && candidate->top <= y &&
-                y < candidate->bottom) {
+            srTexture* candidate = tile.get();
+            if (candidate->source_region.x <= x &&
+                x < (candidate->source_region.x + candidate->source_region.w) &&
+                candidate->source_region.y <= y &&
+                y < (candidate->source_region.y + candidate->source_region.h)) {
                 texture = candidate;
                 break;
             }
@@ -252,15 +181,15 @@ void stSurface2D::updateRectangle(srGERD* renderer, int left, int top, int right
             return;
         }
 
-        int destination_x = x - texture->left;
-        int destination_y = y - texture->top;
+        int destination_x = x - texture->source_region.x;
+        int destination_y = y - texture->source_region.y;
         int update_width = right - x;
         int update_height = bottom - y;
-        if (texture->right - x < update_width) {
-            update_width = texture->right - x;
+        if ((texture->source_region.x + texture->source_region.w) - x < update_width) {
+            update_width = (texture->source_region.x + texture->source_region.w) - x;
         }
-        if (texture->bottom - y < update_height) {
-            update_height = texture->bottom - y;
+        if ((texture->source_region.y + texture->source_region.h) - y < update_height) {
+            update_height = (texture->source_region.y + texture->source_region.h) - y;
         }
         if (texture_update_flags & UPDATE_FULL_TILE) {
             destination_x = 0;

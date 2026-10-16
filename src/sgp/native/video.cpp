@@ -10,7 +10,6 @@
 #include <wiz8/filesystem.h>
 
 #include "input.h"
-#include "surrender/srDD_SDLGPU.h"
 
 SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
 {
@@ -36,10 +35,6 @@ bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int h
 {
     return window && width >= 640 && height >= 480 && SDL_SetWindowSize(window, width, height) &&
            SDL_SetWindowFullscreen(window, fullscreen) && SDL_SyncWindow(window);
-}
-srDD* W8CreateNativeRenderDevice()
-{
-    return srCreateSDLGPUDevice();
 }
 bool W8HasEnoughSaveSpace()
 {

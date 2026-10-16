@@ -23,7 +23,6 @@ set(SURRENDER_SOURCES
     scene.cpp
     renderer.cpp
     texture.cpp
-    texture_map.cpp
     statistics.cpp
 )
 

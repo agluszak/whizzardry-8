@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-#include "srMaterialIFace.h"
+#include "srClass.h"
 #include "srMath.h"
 #include "srVertexPipe.h"
 
 // VTABLE: SURRENDER 0x10075538 srMaterial
-class srMaterial : public srMaterialIFace {
+class srMaterial : public srClass {
 public:
     /* Bit indices, not masks. */
     enum e_oper {
@@ -22,13 +22,13 @@ public:
     // RECOMP: ??0srMaterial@@QAE@XZ
     inline srMaterial() { reset(); }
 
-    virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
-    virtual void preProcess(srVertexPipe& pipe) override;
-    virtual void postProcess(srVertexPipe& pipe) override;
+    virtual srVertexProcessor::MaterialInfo getMaterialInfo();
+    virtual void preProcess(srVertexPipe& pipe);
+    virtual void postProcess(srVertexPipe& pipe);
 
 protected:
-    virtual void updateParms();
-    virtual void reset();
+    void updateParms();
+    void reset();
 
 public:
     srMaterial(const srMaterial&) = default;

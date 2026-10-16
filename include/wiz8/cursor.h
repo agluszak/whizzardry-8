@@ -15,7 +15,7 @@ extern srModelInstance* g_cursor_node;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene(void);
 
-class srTextureIFace;
+class srTexture;
 
 bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
                                    std::int16_t offset_x, std::int16_t offset_y);
@@ -24,7 +24,7 @@ void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::ui
 void RefreshMouseCursorTexture(void);
 bool ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
-void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture);          /* 0x00429170 */
+void SetMouseCursorTexture(std::shared_ptr<srTexture> texture);          /* 0x00429170 */
 void SyncSystemCursor(void);                                  /* 0x00428340 */
 
 /* Indices into the 17-slot main-game cursor table that SetTargetCursor takes.

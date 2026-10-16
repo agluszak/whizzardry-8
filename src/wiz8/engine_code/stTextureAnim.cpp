@@ -7,10 +7,8 @@
 
 #include <SDL3/SDL_pixels.h>
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTextureIFace.h"
 #include "texture_animation.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/stTextureFile.h"
@@ -38,7 +36,7 @@ void stTextureAnim::SetFrame(int frame)
 }
 
 // FUNCTION: WIZ8 0x00485420
-void stTextureAnim::AddTexture(std::shared_ptr<srTextureIFace> texture)
+void stTextureAnim::AddTexture(std::shared_ptr<srTexture> texture)
 {
     textures.push_back(std::move(texture));
 }
@@ -114,57 +112,30 @@ int stTextureAnim::IsFinished() const
 }
 
 // FUNCTION: WIZ8 0x004856F0
-w8_ulong stTextureAnim::getTextureFrameHandle()
+srTexture* stTextureAnim::resolve()
 {
     UpdateFrame();
-    if ((texture_flags_ & (1UL << FLAG_DIRTY_DEFAULTS)) != 0) {
-        setupDefaultValues();
-    }
-    return current().getTextureFrameHandle();
+    return textures.empty() ? nullptr : current().resolve();
 }
 
 // FUNCTION: WIZ8 0x00484D60
-float stTextureAnim::getPriority()
-{
-    return current().getPriority();
-}
 
 // FUNCTION: WIZ8 0x00484D80
-srTextureIFace::Dimensions stTextureAnim::getDimensions()
-{
-    return current().getDimensions();
-}
 
 // FUNCTION: WIZ8 0x00484DB0
-void stTextureAnim::getMipmapData(const MultiRequest& request)
-{
-    current().getMipmapData(request);
-}
 
 // FUNCTION: WIZ8 0x00484DE0
-void stTextureAnim::getMipmapLevelPartial(PartialRequest& request)
-{
-    current().getMipmapLevelPartial(request);
-}
 
 // FUNCTION: WIZ8 0x00484E10
-srTextureIFace::Parameters stTextureAnim::getParameters()
-{
-    return current().getParameters();
-}
 
 // FUNCTION: WIZ8 0x00484E40
-const char* stTextureAnim::getTextureName()
-{
-    return current().getTextureName();
-}
 
 void stTextureAnim::invalidate() {}
 
 // FUNCTION: WIZ8 0x00485760
 void stTextureAnim::setupDefaultValues()
 {
-    srTextureIFace* texture = textures.empty() ? nullptr : textures[0].get();
+    srTexture* texture = textures.empty() ? nullptr : textures[0].get();
 
     if (texture != 0) {
         texture_dimensions_ = texture->getDimensions();
@@ -180,7 +151,7 @@ unsigned char stTextureAnim::Prepare()
 {
     auto* file = textures.empty() ? nullptr : dynamic_cast<stTextureFile*>(textures[0].get());
     if (file != 0) {
-        file->getTextureFrameHandle();
+        file->resolve();
         return file->hasAlpha();
     }
     return SDL_ISPIXELFORMAT_ALPHA(texture_dimensions_.format);

@@ -24,7 +24,7 @@
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
@@ -52,7 +52,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     while (mesh != nullptr) {
-        std::shared_ptr<srTextureIFace>* textures =
+        std::shared_ptr<srTexture>* textures =
             damage_stage == -1 ? mesh->getPolyTexture(0, 0, 0)
                                : mesh->GetTextureTable(damage_stage_tables[damage_stage]);
         if (textures != nullptr) {
@@ -140,7 +140,7 @@ int stModelInstance::AddExistingDamageStage(const char* name)
 // FUNCTION: WIZ8 0x004807b0
 unsigned char
 stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
-                                           const std::shared_ptr<srTextureIFace>& replacement)
+                                           const std::shared_ptr<srTexture>& replacement)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     bool replaced = false;
@@ -150,14 +150,13 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
     }
 
     for (; mesh != 0; mesh = mesh->Next()) {
-        std::shared_ptr<srTextureIFace>* textures =
-            mesh->GetTextureTable(damage_stage_tables[stage]);
+        std::shared_ptr<srTexture>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
         }
 
         for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-            srTextureIFace* texture = textures[polygon].get();
+            srTexture* texture = textures[polygon].get();
             if (!dynamic_cast<stTextureFile*>(texture) && !dynamic_cast<stTextureAnim*>(texture)) {
                 continue;
             }

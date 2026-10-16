@@ -40,17 +40,16 @@ SDLSurfaceOwner loadJpeg(SDL_IOStream* io)
     SDLSurfaceOwner decoded(IMG_LoadJPG_IO(source.get()), SDL_DestroySurface);
     if (!decoded || decoded->w != int(header.width) || decoded->h != int(header.height))
         return {nullptr, SDL_DestroySurface};
-    const bool four_channels = header.components == 4;
-    SDLSurfaceOwner bgr(SDL_ConvertSurface(decoded.get(), four_channels ? SDL_PIXELFORMAT_BGRA32
-                                                                        : SDL_PIXELFORMAT_BGR24),
-                        SDL_DestroySurface);
-    if (!bgr) return {nullptr, SDL_DestroySurface};
-    if (header.components != 1) return bgr;
+    if (header.components != 1) {
+        const auto format = header.components == 4 ? SDL_PIXELFORMAT_BGRA32 : SDL_PIXELFORMAT_BGR24;
+        if (decoded->format == format) return decoded;
+        return {SDL_ConvertSurface(decoded.get(), format), SDL_DestroySurface};
+    }
     auto result = CreateCpuStorage(header.width, header.height, SDL_PIXELFORMAT_INDEX8);
     std::array<SDL_Color, 256> gray;
     for (unsigned i = 0; i < gray.size(); ++i) gray[i] = {Uint8(i), Uint8(i), Uint8(i), 255};
     if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(result.get()), gray.data(), 0, gray.size()) ||
-        !SDL_BlitSurface(bgr.get(), nullptr, result.get(), nullptr))
+        !SDL_BlitSurface(decoded.get(), nullptr, result.get(), nullptr))
         return {nullptr, SDL_DestroySurface};
     return result;
 }
@@ -92,19 +91,22 @@ void saveImage(OutputFormat output, SDL_IOStream* io, SDL_Surface& source, int q
         Uint64(source.w) * source.h > 64 * 1024 * 1024)
         throw std::runtime_error("Image output dimensions are invalid");
     const bool jpeg = output == OutputFormat::jpeg;
-    SDLSurfaceOwner view(
-        SDL_ConvertSurface(&source, jpeg ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_BGRA32),
-        SDL_DestroySurface);
-    if (!view || !io || SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
+    const auto target_format = jpeg ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_BGRA32;
+    SDLSurfaceOwner converted{nullptr, SDL_DestroySurface};
+    SDL_Surface* pixels = &source;
+    if (source.format != target_format) {
+        converted.reset(SDL_ConvertSurface(&source, target_format));
+        pixels = converted.get();
+    }
+    if (!pixels || !io || SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
         throw std::runtime_error("Image output stream is corrupt");
     // SDL_image's JPEG/PNG writers can ignore short backend writes. Encode
     // into SDL-owned memory, then transfer explicitly to the borrowed stream.
     auto encoded = srIO::own(SDL_IOFromDynamicMem());
-    const bool saved =
-        output == OutputFormat::jpeg
-            ? IMG_SaveJPG_IO(view.get(), encoded.get(), false, std::clamp(quality, 0, 100))
-        : output == OutputFormat::png ? IMG_SavePNG_IO(view.get(), encoded.get(), false)
-                                      : IMG_SaveBMP_IO(view.get(), encoded.get(), false);
+    const bool saved = output == OutputFormat::jpeg  ? IMG_SaveJPG_IO(pixels, encoded.get(), false,
+                                                                      std::clamp(quality, 0, 100))
+                       : output == OutputFormat::png ? IMG_SavePNG_IO(pixels, encoded.get(), false)
+                                                     : IMG_SaveBMP_IO(pixels, encoded.get(), false);
     const auto size = SDL_GetIOSize(encoded.get());
     if (!saved || size <= 0 || SDL_GetIOStatus(encoded.get()) != SDL_IO_STATUS_READY)
         throw std::runtime_error("Image encoding failed");
@@ -133,6 +135,7 @@ SDLSurfaceOwner loadImage(const char* path, SDL_IOStream* io)
         if (!decoded || SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR || decoded->w <= 0 ||
             decoded->h <= 0 || Uint64(decoded->w) * decoded->h > 64 * 1024 * 1024)
             return {nullptr, SDL_DestroySurface};
+        if (decoded->format == SDL_PIXELFORMAT_BGRA32) return decoded;
         SDLSurfaceOwner converted(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32),
                                   SDL_DestroySurface);
         if (!converted) return {nullptr, SDL_DestroySurface};

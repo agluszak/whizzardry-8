@@ -1,7 +1,9 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
@@ -10,14 +12,17 @@
 /* Real SLF/STI -> immutable sprites and SDL surfaces -> stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include <wiz8/asset_paths.h>
@@ -27,15 +32,19 @@
 #include "input.h"
 #include "scoped_asset_roots.h"
 #include "sprite.h"
-#include "surrender/srDD.h"
+#include "surrender/SDLGPUDevice.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "temporary_directory.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/surface2d.h"
+#include "wiz8/surface_storage.h"
 
 class srScene;
 
@@ -111,7 +120,7 @@ TEST_CASE("game graphics")
                     g_gerd->isWindowOpen());
         REQUIRE(error == srGERD::ERROR_NONE);
         g_gerd->setClearColor(0, 0, 0, 1);
-        g_gerd->clear(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH);
+        g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
         g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
         g_surface_node->DrawTiles(g_gerd.get());
@@ -219,6 +228,46 @@ TEST_CASE("game graphics")
     auto screenshot = srImage::load("screenshot.jpg", *screenshot_file);
     REQUIRE((screenshot && screenshot->w == 640 && screenshot->h == 480));
     puts("retail Targa import and game JPEG screenshot round-trip");
+
+    // Reusing a resource's address must not find its retired cache entry. Deferred
+    // GPU destruction must also leave the replacement alive when the old entry is drained.
+    {
+        auto red = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_BGRA32);
+        auto green = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_BGRA32);
+        REQUIRE(SDL_FillSurfaceRect(red.get(), nullptr, 0xffff0000));
+        REQUIRE(SDL_FillSurfaceRect(green.get(), nullptr, 0xff00ff00));
+        std::optional<srTexture> texture{std::shared_ptr<SDL_Surface>(std::move(red))};
+        const std::array<float, 12> triangle{-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
+        g_gerd->matrixMode(srGERD::MATRIX_PROJECTION);
+        g_gerd->loadIdentity();
+        g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
+        g_gerd->loadIdentity();
+        g_gerd->setVertexPointer(4, srRendererDefs::TYPE_FLOAT, 16, triangle.data(), 3);
+        g_gerd->setVertexArrayMask(1 << srRendererDefs::VERTEX_ARRAY_POSITIONS);
+        g_gerd->setCullMode(srGERD::CULL_NONE);
+        srShader shader;
+        shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
+                       srShader::MASK_TEXTURING |
+                       (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+        g_gerd->setShader(shader);
+        const auto draw = [&] {
+            g_gerd->setTexture(&*texture, 0);
+            g_gerd->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
+            REQUIRE(g_gerd->isTextureCached(&*texture));
+        };
+        draw();
+        texture.reset();
+        texture.emplace(std::shared_ptr<SDL_Surface>(std::move(green)));
+        REQUIRE_FALSE(g_gerd->isTextureCached(&*texture));
+        draw();
+        g_gerd->invalidateTextureCache();
+        REQUIRE_FALSE(g_gerd->isTextureCached(&*texture));
+        draw();
+        buffer = g_gerd->lockBuffer();
+        REQUIRE(buffer);
+        REQUIRE((ReadARGB(*buffer, 320, 240) & 0xffffff) == 0x00ff00);
+        g_gerd->unlockBuffer();
+    }
 
     ShutdownVideoManager();
     REQUIRE(g_gerd == nullptr);

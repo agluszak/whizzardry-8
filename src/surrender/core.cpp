@@ -17,7 +17,6 @@
 #include "surrender/srScene.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/surface_storage.h"
 
@@ -68,7 +67,7 @@ int srInit()
             std::memcpy(static_cast<unsigned char*>(srCore.surface->pixels) +
                             y * srCore.surface->pitch,
                         srLogo + y * 64, 64);
-        srCore.texture = std::make_unique<srTextureMap>(srCore.surface);
+        srCore.texture = std::make_unique<srTexture>(srCore.surface);
         srCore.texture->setName("SurRender default texture");
         srCore.initialized = 1;
     }

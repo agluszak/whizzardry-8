@@ -102,13 +102,13 @@ extern const float g_viewport_y_scale;
 struct SDL_Surface;
 class srModelInstance;
 class srNode;
-class srTextureIFace;
+class srTexture;
 class stModelInstance2D;
 
-srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
+srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float height,
                        bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
-stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width,
+stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, double width,
                                            double height, bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
