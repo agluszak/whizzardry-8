@@ -5,8 +5,10 @@
 #include <memory>
 #include <stdexcept>
 
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_records.h"
 #include "wiz8/unicode.h"
 
@@ -59,6 +61,63 @@ void nested(Runtime& runtime, Bytes bytes, Value value, Text text)
     Record<std::remove_const_t<Runtime>>::fields(runtime, bytes, value, text);
 }
 
+template<> struct Record<glm::vec3> {
+    using Disk = Vec3f;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
+    {
+        value(&runtime.x, bytes.subspan(0, 4));
+        value(&runtime.y, bytes.subspan(4, 4));
+        value(&runtime.z, bytes.subspan(8, 4));
+    }
+};
+
+template<> struct Record<W8WorldCameraState> {
+    using Disk = CameraState;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
+    {
+        nested(runtime.position, bytes.subspan(offsetof(Disk, position), sizeof(Disk::position)),
+               value, text);
+        value(&runtime.pitch, bytes.subspan(offsetof(Disk, pitch), sizeof(Disk::pitch)));
+        value(&runtime.yaw, bytes.subspan(offsetof(Disk, yaw), sizeof(Disk::yaw)));
+    }
+};
+template<> struct Record<W8TargetSource> {
+    using Disk = TargetSource;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
+    {
+        value(&runtime.iType, bytes.subspan(offsetof(Disk, iType), sizeof(Disk::iType)));
+        value(&runtime.iChar, bytes.subspan(offsetof(Disk, iChar), sizeof(Disk::iChar)));
+        value(&runtime.iMonsterID,
+              bytes.subspan(offsetof(Disk, iMonsterID), sizeof(Disk::iMonsterID)));
+        nested(runtime.point, bytes.subspan(offsetof(Disk, point), sizeof(Disk::point)), value,
+               text);
+        value(&runtime.auto_cast,
+              bytes.subspan(offsetof(Disk, auto_cast), sizeof(Disk::auto_cast)));
+        value(&runtime.name_known,
+              bytes.subspan(offsetof(Disk, name_known), sizeof(Disk::name_known)));
+        value(&runtime.aim_resolved,
+              bytes.subspan(offsetof(Disk, aim_resolved), sizeof(Disk::aim_resolved)));
+        value(&runtime.fReflection,
+              bytes.subspan(offsetof(Disk, fReflection), sizeof(Disk::fReflection)));
+        value(&runtime.fBackfire,
+              bytes.subspan(offsetof(Disk, fBackfire), sizeof(Disk::fBackfire)));
+        value(&runtime.point_source,
+              bytes.subspan(offsetof(Disk, point_source), sizeof(Disk::point_source)));
+        value(&runtime.target_diverted,
+              bytes.subspan(offsetof(Disk, target_diverted), sizeof(Disk::target_diverted)));
+        value(&runtime.spell_difficulty,
+              bytes.subspan(offsetof(Disk, spell_difficulty), sizeof(Disk::spell_difficulty)));
+        value(&runtime.unknown_20,
+              bytes.subspan(offsetof(Disk, unknown_20), sizeof(Disk::unknown_20)));
+        value(&runtime.item_cast,
+              bytes.subspan(offsetof(Disk, item_cast), sizeof(Disk::item_cast)));
+        value(&runtime.unknown_22,
+              bytes.subspan(offsetof(Disk, unknown_22), sizeof(Disk::unknown_22)));
+    }
+};
 template<> struct Record<W8CombatSlot> {
     using Disk = CombatTarget;
     template<class Runtime, class Bytes, class Value, class Text>
@@ -68,7 +127,8 @@ template<> struct Record<W8CombatSlot> {
         value(&runtime.iChar, bytes.subspan(offsetof(Disk, iChar), 4));
         value(&runtime.iMonsterID, bytes.subspan(offsetof(Disk, iMonsterID), 4));
         value(&runtime.iGroupID, bytes.subspan(offsetof(Disk, iGroupID), 4));
-        value(&runtime.point, bytes.subspan(offsetof(Disk, point), sizeof(Disk::point)));
+        nested(runtime.point, bytes.subspan(offsetof(Disk, point), sizeof(Disk::point)), value,
+               nullptr);
         // The item marker is a saved address; loaders rebuild the item.
         if constexpr (std::is_const_v<Runtime>)
             std::fill_n(bytes.begin() + offsetof(Disk, item_marker), 4, std::byte{});
@@ -739,8 +799,9 @@ template<> struct Record<W8Character> {
         value(&runtime.equipment_bonus,
               bytes.subspan(offsetof(Disk, equipment_bonus), sizeof(Disk::equipment_bonus)));
         value(&runtime.bonus, bytes.subspan(offsetof(Disk, bonus), sizeof(Disk::bonus)));
-        value(&runtime.saved_location,
-              bytes.subspan(offsetof(Disk, saved_location), sizeof(Disk::saved_location)));
+        nested(runtime.saved_location,
+               bytes.subspan(offsetof(Disk, saved_location), sizeof(Disk::saved_location)), value,
+               nullptr);
         value(&runtime.saved_level,
               bytes.subspan(offsetof(Disk, saved_level), sizeof(Disk::saved_level)));
         value(&runtime.conditions,

@@ -2,10 +2,12 @@
 
 #include <vector>
 
+#include <glm/geometric.hpp>
+
 #include "Navigator.h"
+#include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
 #include "random.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -27,12 +29,12 @@ int NoiseHearingMargin(int radius, int range, int hops)
 }
 
 // FUNCTION: WIZ8 0x004F0E80
-void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, int flag)
+void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
 {
     if (g_status.world_suspended) {
         return;
     }
-    srVector3T<float> noise_position = *position;
+    glm::vec3 noise_position = *position;
     for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
          ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
@@ -48,8 +50,8 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
             continue;
         }
         W8MonsterRecord* record = GetMonsterDataForInfo(info);
-        srVector3T<float> monster_position = info->p3D->GetPosition();
-        int remaining = radius - static_cast<int>((monster_position - noise_position).Length());
+        glm::vec3 monster_position = info->p3D->GetPosition();
+        int remaining = radius - static_cast<int>(glm::length((monster_position - noise_position)));
         if (remaining <= 0) {
             continue;
         }
@@ -91,7 +93,7 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
 // FUNCTION: WIZ8 0x004F1100
 void AlertWorldNoise(void)
 {
-    srVector3T<float> position = g_startup_world->GetPosition();
+    glm::vec3 position = g_startup_world->GetPosition();
     AlertMonsterGroupsToNoise(&position, 50000, 1);
 }
 
@@ -101,6 +103,6 @@ void AlertCombatNoise(bool large_radius)
     if (g_status.world_suspended) {
         return;
     }
-    srVector3T<float> position = g_startup_world->GetPosition();
+    glm::vec3 position = g_startup_world->GetPosition();
     AlertMonsterGroupsToNoise(&position, large_radius ? 0x927c : 25000, 0);
 }

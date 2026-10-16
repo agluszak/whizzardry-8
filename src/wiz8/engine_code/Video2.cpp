@@ -734,7 +734,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
     data.renderer_size[1] = g_gerd->getHeight();
     const auto statistics = g_gerd->getStatistics();
     data.draw_calls = statistics.draw_calls;
-    srVector3T<float> camera = cameraLocation();
+    glm::vec3 camera = cameraLocation();
     data.camera[0] = camera.x;
     data.camera[1] = camera.y;
     data.camera[2] = camera.z;
@@ -753,8 +753,8 @@ void RenderFrame(void)
         return;
     }
     glm::vec3 clear_color(0);
-    srVector3T<float> saved_world_position;
-    srVector3T<float> shifted_world_position;
+    glm::vec3 saved_world_position;
+    glm::vec3 shifted_world_position;
     unsigned int next_page;
     w8_ulong now;
     float elapsed;
@@ -1552,7 +1552,7 @@ void PrintScreen(void)
 // FUNCTION: WIZ8 0x00427460
 void DrawVideoInspector(int left, unsigned int top)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     unsigned int bottom;
     unsigned char* row;
     int rows;

@@ -11,7 +11,6 @@ struct W8OctPreTreeGeometry;
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srMath.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/camera_motion.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -107,8 +106,7 @@ struct W8LevelDataRecord {
     /* 0x0041FE20: when the camera sits outside the game-data AABB, push
        motion_displacement toward the box, clear environ vector, and optionally start
        party movement; returns non-zero when a clamp fired. */
-    unsigned char ClampCameraToBounds(const srVector3T<float>* minimum,
-                                      const srVector3T<float>* maximum);
+    unsigned char ClampCameraToBounds(const glm::vec3* minimum, const glm::vec3* maximum);
     /* 0x0041FF00: toggle setting-6e props referenced by
      * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
@@ -243,20 +241,19 @@ struct W8GameData {
        props/octree/geometry and applying crossed surfaces. */
     unsigned char AdvanceEnvironmentMotion();
     /* 0x0041BD60: push the motion delta away from nearby active monsters. */
-    unsigned char ProbeMonstersAlongMotion(srVector3T<float>* direction,
-                                           srVector3T<float>* position, int mode);
+    unsigned char ProbeMonstersAlongMotion(glm::vec3* direction, glm::vec3* position, int mode);
     /* 0x0041B770: probe active collidable props along the motion segment;
        returns the nearest hit surface and may adjust `direction`. */
-    W8GDSurface* ProbePropsAlongMotion(srVector3T<float>* direction, srVector3T<float>* position,
-                                       srVector3T<float>* scratch, float* nearest_distance);
+    W8GDSurface* ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* position,
+                                       glm::vec3* scratch, float* nearest_distance);
 
     std::unique_ptr<W8OctBuildTree> geometry_index;
     /* +0x04: the loading octree's back-pointer, stored by W8Octree's file-load
        finish path (retail writes [ESI+4], not +0) and tested by trigger
        integration. geometry_index above is untouched by that store. */
     W8Octree* octree;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
+    glm::vec3 minimum;
+    glm::vec3 maximum;
     // Contiguous owned banks; counts are derived from container sizes.
     std::vector<glm::vec3> m_pVertices;
     int trigger_surface_base;
@@ -291,10 +288,10 @@ struct W8GameData {
     /* Descriptive name for appending a plane's classified trigger triangle. */
     void AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2);
     void IntegrateTriggers();
-    void AddTriggerPlane(const srVector3T<float>* vertices, Trigger* trigger);
+    void AddTriggerPlane(const glm::vec3* vertices, Trigger* trigger);
     /* Registers a linked record's twelve generated surfaces; the `face`-indexed
        surface also spawns an environment record scaled by `value`. */
-    void AddTriggerPlane(const srVector3T<float>* vertices, float value, float scalar,
+    void AddTriggerPlane(const glm::vec3* vertices, float value, float scalar,
                          const signed char* face); /* 0x00448C60 */
     /* Grows the environment bank by tens and appends a record whose motion
        derives from the linked surface's scaled plane. */
@@ -311,7 +308,7 @@ struct W8GameData {
        forwards to the 0x00448C60 helper. Retail call sites pass record + 1
        (the payload), the +0x1b3 float, the +0x1b7 scalar and a pointer to the
        +0x1b1 face byte. */
-    void AddLinkedRecord(const srVector3T<float>* vertices, float value, float scalar,
+    void AddLinkedRecord(const glm::vec3* vertices, float value, float scalar,
                          const signed char* face); /* 0x00448BF0 */
     /* Compiles the read game data into the shared build arrays. */
     W8OctPreTreeGeometry CompileGameData(); /* 0x00449D10 */
@@ -386,8 +383,8 @@ float GetCameraPitchRadians();
 void GetCameraOrientation(void* angle, void* pitch);
 void BeginManualCameraControl();
 void LevelCamera();
-void CameraLookAt(const srVector3T<float>* position);     /* 0x00420F90 */
-void CameraSnapToTarget(const srVector3T<float>* target); /* 0x00420FB0 */
+void CameraLookAt(const glm::vec3* position);     /* 0x00420F90 */
+void CameraSnapToTarget(const glm::vec3* target); /* 0x00420FB0 */
 void TurnCameraToDegrees(float degrees);
 void SetCameraYawDegrees(float degrees);
 void ApplyCameraRotation(glm::mat3* rotation);
@@ -406,8 +403,8 @@ glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no
    world, true for a loaded world without an octree. */
-bool HasCameraLineOfSight(const srVector3T<float>* position);
-void PlacePartyAtPoint(const srVector3T<float>* point);
+bool HasCameraLineOfSight(const glm::vec3* position);
+void PlacePartyAtPoint(const glm::vec3* point);
 /* 0x00420E20: start/stop the sustained movement footstep loop. */
 void UpdateLevelMovementAudio(void);
 /* 0x004EF9A0: fall-impact override handler owned by GameplayCode.cpp;
@@ -424,4 +421,4 @@ extern const double g_motion_vector_epsilon;
 extern const float g_footstep_fall_threshold;
 extern unsigned char g_environment_motion_active;
 extern bool g_environ_ground_latch;
-extern srVector3T<float> g_world_origin;
+extern glm::vec3 g_world_origin;

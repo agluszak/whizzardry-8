@@ -1,7 +1,7 @@
 #include "wiz8/level_specific_code/SeaCaves.h"
 
+#include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -21,7 +21,7 @@ struct W8NpcState;
 /* Spawns one hostile spirit at the named entity, if it exists. */
 static bool spawnSpiritAt(const char* entity)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName(entity, &position, 0, 0)) {
         SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);

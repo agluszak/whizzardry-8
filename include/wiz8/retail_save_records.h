@@ -9,15 +9,31 @@
 #include <span>
 #include <type_traits>
 
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 
 namespace wiz8::retail {
 
 #pragma pack(push, 1)
+
+struct Visibility {
+    int about_location_id;
+    W8SightState sight_state;
+    bool los_flags[4];
+    unsigned char unknown_09[2];
+    bool can_see;
+    int last_seen_clock;
+    Vec3f subject_position;
+    Vec3f target_position;
+    bool line_of_sight;
+    unsigned char unknown_29[8];
+};
+static_assert(sizeof(Visibility) == 0x31);
 
 /* The on-disk W8MonsterInfo; field meanings are documented there. */
 struct MonsterInfo {
@@ -29,13 +45,13 @@ struct MonsterInfo {
     bool fActive;
     bool fInCombat;
     W8Disposition ubDisposition;
-    srVector3T<float> position;
+    wiz8::retail::Vec3f position;
     float derived;
     int uiHPMax;
     unsigned int hp_current;
     int stamina_max;
     int stamina;
-    srVector3T<float> heard_noise_position;
+    wiz8::retail::Vec3f heard_noise_position;
     int heard_noise_radius;
     float hp_regen_rate;
     float hp_regen_accumulator;
@@ -76,10 +92,10 @@ struct MonsterInfo {
     bool saved_mirror_x;
     unsigned char look_time;
     unsigned char pause_time;
-    W8TargetSource condition_target;
-    srVector3T<float> movement_watch_position;
+    TargetSource condition_target;
+    wiz8::retail::Vec3f movement_watch_position;
     int elemental_summon;
-    W8VisibilityRecord player_visibility;
+    Visibility player_visibility;
     unsigned char unknown_379;
     bool has_projectile_origin;
     unsigned char unknown_37b;
@@ -96,7 +112,7 @@ struct MonsterGroup {
     int selectable_member_count;
     int active_member_count;
     int monster_id;
-    srVector3T<float> centre;
+    wiz8::retail::Vec3f centre;
     bool members_active;
     bool fInCombat;
     W8Disposition ubDisposition;
@@ -107,7 +123,7 @@ struct MonsterGroup {
     int leader_location_id;
     int leader_group_id;
     int allied_group_ids[4];
-    srVector3T<float> formation;
+    wiz8::retail::Vec3f formation;
     bool encounter_registered;
     unsigned int version;
     bool engagement;
@@ -125,7 +141,7 @@ struct WorldItem {
     std::uint32_t p3D;
     bool fActive;
     W8ItemInstance item;
-    srVector3T<float> position;
+    wiz8::retail::Vec3f position;
     unsigned char unknown_21[4];
     int entity_flags;
     unsigned int flags;
@@ -206,6 +222,35 @@ static_assert(std::is_trivially_copyable_v<MonsterInfo> &&
               std::is_trivially_copyable_v<MonsterGroup> &&
               std::is_trivially_copyable_v<WorldItem> && std::is_trivially_copyable_v<NpcState>);
 
+template<> struct Record<W8VisibilityRecord> {
+    using Disk = Visibility;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
+    {
+        value(&runtime.about_location_id,
+              bytes.subspan(offsetof(Disk, about_location_id), sizeof(Disk::about_location_id)));
+        value(&runtime.sight_state,
+              bytes.subspan(offsetof(Disk, sight_state), sizeof(Disk::sight_state)));
+        value(&runtime.los_flags,
+              bytes.subspan(offsetof(Disk, los_flags), sizeof(Disk::los_flags)));
+        value(&runtime.unknown_09,
+              bytes.subspan(offsetof(Disk, unknown_09), sizeof(Disk::unknown_09)));
+        value(&runtime.can_see, bytes.subspan(offsetof(Disk, can_see), sizeof(Disk::can_see)));
+        value(&runtime.last_seen_clock,
+              bytes.subspan(offsetof(Disk, last_seen_clock), sizeof(Disk::last_seen_clock)));
+        nested(runtime.subject_position,
+               bytes.subspan(offsetof(Disk, subject_position), sizeof(Disk::subject_position)),
+               value, text);
+        nested(runtime.target_position,
+               bytes.subspan(offsetof(Disk, target_position), sizeof(Disk::target_position)), value,
+               text);
+        value(&runtime.line_of_sight,
+              bytes.subspan(offsetof(Disk, line_of_sight), sizeof(Disk::line_of_sight)));
+        value(&runtime.unknown_29,
+              bytes.subspan(offsetof(Disk, unknown_29), sizeof(Disk::unknown_29)));
+    }
+};
+
 template<> struct Record<W8MonsterInfo> {
     using Disk = MonsterInfo;
     template<class Runtime, class Bytes, class Value, class Text>
@@ -225,14 +270,16 @@ template<> struct Record<W8MonsterInfo> {
         value(&runtime.fInCombat, field(offsetof(Disk, fInCombat), sizeof(Disk::fInCombat)));
         value(&runtime.ubDisposition,
               field(offsetof(Disk, ubDisposition), sizeof(Disk::ubDisposition)));
-        value(&runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)));
+        nested(runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)), value,
+               text);
         value(&runtime.derived, field(offsetof(Disk, derived), sizeof(Disk::derived)));
         value(&runtime.uiHPMax, field(offsetof(Disk, uiHPMax), sizeof(Disk::uiHPMax)));
         value(&runtime.hp_current, field(offsetof(Disk, hp_current), sizeof(Disk::hp_current)));
         value(&runtime.stamina_max, field(offsetof(Disk, stamina_max), sizeof(Disk::stamina_max)));
         value(&runtime.stamina, field(offsetof(Disk, stamina), sizeof(Disk::stamina)));
-        value(&runtime.heard_noise_position,
-              field(offsetof(Disk, heard_noise_position), sizeof(Disk::heard_noise_position)));
+        nested(runtime.heard_noise_position,
+               field(offsetof(Disk, heard_noise_position), sizeof(Disk::heard_noise_position)),
+               value, text);
         value(&runtime.heard_noise_radius,
               field(offsetof(Disk, heard_noise_radius), sizeof(Disk::heard_noise_radius)));
         value(&runtime.hp_regen_rate,
@@ -300,14 +347,18 @@ template<> struct Record<W8MonsterInfo> {
               field(offsetof(Disk, saved_mirror_x), sizeof(Disk::saved_mirror_x)));
         value(&runtime.look_time, field(offsetof(Disk, look_time), sizeof(Disk::look_time)));
         value(&runtime.pause_time, field(offsetof(Disk, pause_time), sizeof(Disk::pause_time)));
-        value(&runtime.condition_target,
-              field(offsetof(Disk, condition_target), sizeof(Disk::condition_target)));
-        value(&runtime.movement_watch_position, field(offsetof(Disk, movement_watch_position),
-                                                      sizeof(Disk::movement_watch_position)));
+        nested(runtime.condition_target,
+               field(offsetof(Disk, condition_target), sizeof(Disk::condition_target)), value,
+               text);
+        nested(
+            runtime.movement_watch_position,
+            field(offsetof(Disk, movement_watch_position), sizeof(Disk::movement_watch_position)),
+            value, text);
         value(&runtime.elemental_summon,
               field(offsetof(Disk, elemental_summon), sizeof(Disk::elemental_summon)));
-        value(&runtime.player_visibility,
-              field(offsetof(Disk, player_visibility), sizeof(Disk::player_visibility)));
+        nested(runtime.player_visibility,
+               field(offsetof(Disk, player_visibility), sizeof(Disk::player_visibility)), value,
+               text);
         value(&runtime.unknown_379, field(offsetof(Disk, unknown_379), sizeof(Disk::unknown_379)));
         value(&runtime.has_projectile_origin,
               field(offsetof(Disk, has_projectile_origin), sizeof(Disk::has_projectile_origin)));
@@ -337,7 +388,7 @@ template<> struct Record<W8MonsterGroup> {
         value(&runtime.active_member_count,
               field(offsetof(Disk, active_member_count), sizeof(Disk::active_member_count)));
         value(&runtime.monster_id, field(offsetof(Disk, monster_id), sizeof(Disk::monster_id)));
-        value(&runtime.centre, field(offsetof(Disk, centre), sizeof(Disk::centre)));
+        nested(runtime.centre, field(offsetof(Disk, centre), sizeof(Disk::centre)), value, text);
         value(&runtime.members_active,
               field(offsetof(Disk, members_active), sizeof(Disk::members_active)));
         value(&runtime.fInCombat, field(offsetof(Disk, fInCombat), sizeof(Disk::fInCombat)));
@@ -355,7 +406,8 @@ template<> struct Record<W8MonsterGroup> {
               field(offsetof(Disk, leader_group_id), sizeof(Disk::leader_group_id)));
         value(&runtime.allied_group_ids,
               field(offsetof(Disk, allied_group_ids), sizeof(Disk::allied_group_ids)));
-        value(&runtime.formation, field(offsetof(Disk, formation), sizeof(Disk::formation)));
+        nested(runtime.formation, field(offsetof(Disk, formation), sizeof(Disk::formation)), value,
+               text);
         value(&runtime.encounter_registered,
               field(offsetof(Disk, encounter_registered), sizeof(Disk::encounter_registered)));
         value(&runtime.version, field(offsetof(Disk, version), sizeof(Disk::version)));
@@ -385,7 +437,8 @@ template<> struct Record<W8WorldItem> {
         pointer_slot(runtime.p3D, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
         value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
         value(&runtime.item, field(offsetof(Disk, item), sizeof(Disk::item)));
-        value(&runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)));
+        nested(runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)), value,
+               text);
         value(&runtime.unknown_21, field(offsetof(Disk, unknown_21), sizeof(Disk::unknown_21)));
         value(&runtime.entity_flags,
               field(offsetof(Disk, entity_flags), sizeof(Disk::entity_flags)));

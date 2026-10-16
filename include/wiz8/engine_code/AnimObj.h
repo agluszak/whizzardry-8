@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 
 struct W8AniMesh;
 struct W8PathAI;
@@ -17,8 +17,8 @@ class srModelInstance;
 
 struct W8FrameBounds {
     bool known = false;
-    srVector3T<float> minimum{0, 0, 0};
-    srVector3T<float> maximum{0, 0, 0};
+    glm::vec3 minimum{0, 0, 0};
+    glm::vec3 maximum{0, 0, 0};
 };
 
 struct W8AnimObj {
@@ -48,9 +48,8 @@ struct W8AnimObj {
     std::vector<W8FrameBounds> frame_bounds;
 };
 
-void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation,
-                     const srVector3T<float>* scale, srVector3T<float>* minimum,
-                     srVector3T<float>* maximum);
+void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
+                     const glm::vec3* scale, glm::vec3* minimum, glm::vec3* maximum);
 unsigned int AnimObjValue(W8AnimObj* animation, signed char index);
 unsigned int AnimObjListCount(W8AnimObj* animation, signed char index);
 W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index);

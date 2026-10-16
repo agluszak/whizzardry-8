@@ -5,7 +5,7 @@
 
 #include "Item.h"
 #include "conditions.h"
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
@@ -79,8 +79,8 @@ bool Trynnie2GiveZulu(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004D9E00
 bool Trynnie2MeatMaker(Trigger* pTrigger)
 {
-    srVector3T<float> entity_position;
-    srVector3T<float> position;
+    glm::vec3 entity_position;
+    glm::vec3 position;
     W8WorldItem* item;
 
     if (FindEntityByName("Meat_Position", &entity_position, 0, 0)) {
@@ -143,7 +143,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004D9F60
 bool Trynnie2UseItem(W8ItemInstance* item)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8ItemInstance destination;
 
     if (item->iItemNo != 0x1b3 && item->iItemNo != 0x1c3) {

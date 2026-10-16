@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "monster_actions.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/IntervalGate.h"
@@ -217,7 +217,7 @@ static void RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBin
 // FUNCTION: WIZ8 0x004E06D0
 void ArnikaLevelSetup(void)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     Trigger* pTrigger;
@@ -335,7 +335,7 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0AC0
 void ArnikaWarningSound(int command)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     g_remove_current_master_function = false;
     if (command != 0) {
@@ -395,7 +395,7 @@ void ArnikaWarningSound(int command)
 // FUNCTION: WIZ8 0x004E0DC0
 bool ArnikaMookholo(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
@@ -475,7 +475,7 @@ bool ArnikaMookFrontDoor(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E10A0
 bool ArnikaYellowButton(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
 
@@ -552,7 +552,7 @@ void ArnikaTeleportWatch(int command)
 // FUNCTION: WIZ8 0x004E1340
 bool ArnikaGenVaultDoor(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("Golem", &position, 0, 0)) {
         if (GetLocationVarIDByName("GolemSpawned") != -1) {
@@ -887,7 +887,7 @@ int ArnikaPedestalItem(int* previous_item)
 {
     W8NpcState* npc;
     W8MonsterInfo* info;
-    srVector3T<float> position;
+    glm::vec3 position;
     int item = -1;
     int previous;
 

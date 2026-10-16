@@ -1,7 +1,7 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srClock.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/sr_api.h"
@@ -24,9 +24,9 @@ float g_lod_range_default1 = 8500.0f;
 // FUNCTION: WIZ8 0x004b86e0
 W8AnimRepBase::W8AnimRepBase()
 {
-    location.SetZero();
-    local_location.SetZero();
-    parent_location.SetZero();
+    location = glm::vec3(0);
+    local_location = glm::vec3(0);
+    parent_location = glm::vec3(0);
     rotation = glm::mat3(1);
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     instance_scale = 1.0f;
@@ -60,20 +60,20 @@ W8AnimRepBase::W8AnimRepBase(const W8AnimRepBase& other)
    from its parent location.  The three floating-point additions establish
    these as vectors rather than opaque twelve-byte values. */
 // FUNCTION: WIZ8 0x004b8850
-void W8AnimRepBase::SetLocation(const srVector3T<float>* location)
+void W8AnimRepBase::SetLocation(const glm::vec3* location)
 {
     local_location = *location;
     this->location = parent_location + local_location;
 }
 
 // FUNCTION: WIZ8 0x004b8890
-srVector3T<float> W8AnimRepBase::GetLocation() const
+glm::vec3 W8AnimRepBase::GetLocation() const
 {
     return location;
 }
 
 // FUNCTION: WIZ8 0x004b88b0
-srVector3T<float> W8AnimRepBase::GetLocalLocation() const
+glm::vec3 W8AnimRepBase::GetLocalLocation() const
 {
     return local_location;
 }

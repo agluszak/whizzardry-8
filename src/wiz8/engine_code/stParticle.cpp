@@ -442,14 +442,14 @@ void stParticle::Update()
 
             if (los_check_enabled == 1) {
                 // The octree trace still accepts packed endpoint records.
-                const srVector3 from(particle_positions[index]);
-                srVector3 to(candidate);
+                const glm::vec3 from(particle_positions[index]);
+                glm::vec3 to(candidate);
                 if (g_world->octree == nullptr ||
                     !g_world->octree->HasLineOfSight(&from, &to, true)) {
                     DeactivateParticle(index);
                     continue;
                 }
-                candidate = to.glmValue();
+                candidate = to;
             }
 
             particle_positions[index] = candidate;

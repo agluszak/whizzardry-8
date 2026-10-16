@@ -218,7 +218,6 @@ inline int srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel
 }
 
 // FUNCTION: SURRENDER 0x1002C5C0 SYMBOL
-// RECOMP: ?getEyeSpaceNormal@srVertexPipe@@QAEPBV?$srVector3T@M@@XZ
 inline std::span<const glm::vec3> srVertexPipe::getEyeSpaceNormal()
 {
     return scratchChannel(scratch.normals, Scratch::READY_EYE_NORMALS,

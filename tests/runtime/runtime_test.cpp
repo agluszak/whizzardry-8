@@ -33,6 +33,7 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_get_random_seed.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/vector_float3.hpp>
 
 #include "wiz8/ui_layer.h"
 
@@ -64,7 +65,6 @@
 #include "scoped_asset_roots.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srGERD.h"
-#include "surrender/srMath.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "temporary_directory.h"
@@ -651,14 +651,14 @@ void StartGame(Game& game)
 
 /* --- Main-game helpers ---------------------------------------------------- */
 
-srVector3T<float> PartyPosition()
+glm::vec3 PartyPosition()
 {
     W8WorldCameraState state{};
     state = cameraState(*GetWorld());
     return state.position;
 }
 
-float HorizontalDistance(const srVector3T<float>& a, const srVector3T<float>& b)
+float HorizontalDistance(const glm::vec3& a, const glm::vec3& b)
 {
     const float dx = a.x - b.x, dz = a.z - b.z;
     return std::sqrt(dx * dx + dz * dz);
@@ -672,12 +672,12 @@ void WaitMainGame(Game& game, const char* step)
 }
 
 /* Steps until the party stops moving (gravity and settling after loads). */
-srVector3T<float> Settle(Game& game, const char* step)
+glm::vec3 Settle(Game& game, const char* step)
 {
-    srVector3T<float> last = PartyPosition();
+    glm::vec3 last = PartyPosition();
     for (int frame = 0, still = 0; frame < 600; ++frame) {
         game.frame();
-        const srVector3T<float> now = PartyPosition();
+        const glm::vec3 now = PartyPosition();
         const float dy = now.y - last.y;
         still = HorizontalDistance(now, last) < 0.01f && std::abs(dy) < 0.01f ? still + 1 : 0;
         last = now;
@@ -687,9 +687,9 @@ srVector3T<float> Settle(Game& game, const char* step)
 }
 
 /* Holds the forward key until the party is `distance` from where it started. */
-srVector3T<float> Walk(Game& game, const char* step, float distance)
+glm::vec3 Walk(Game& game, const char* step, float distance)
 {
-    const srVector3T<float> start = PartyPosition();
+    const glm::vec3 start = PartyPosition();
     game.hold_key(SDLK_UP, true);
     game.wait(step, [&] { return HorizontalDistance(PartyPosition(), start) > distance; }, 20);
     game.hold_key(SDLK_UP, false);
@@ -831,9 +831,9 @@ fs::path QuickSave(Game& game)
     return saves[0];
 }
 
-void ExpectAt(const char* step, const srVector3T<float>& expected)
+void ExpectAt(const char* step, const glm::vec3& expected)
 {
-    const srVector3T<float> now = PartyPosition();
+    const glm::vec3 now = PartyPosition();
     const float distance = HorizontalDistance(now, expected);
     std::printf("%s: at (%g %g %g), expected (%g %g %g)\n", step, now.x, now.y, now.z, expected.x,
                 expected.y, expected.z);
@@ -1312,7 +1312,7 @@ void ResourceLifecycleScenario()
 
 /* The UI load test consumes the save written by the quick-save regression.
    Reusing that real saved game avoids another full runtime startup. */
-void WriteSaveFixture(const fs::path& output, const fs::path& save, const srVector3T<float>& anchor)
+void WriteSaveFixture(const fs::path& output, const fs::path& save, const glm::vec3& anchor)
 {
     fs::create_directories(output);
     fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
@@ -1350,7 +1350,7 @@ void QuickSaveScenario()
 {
     Game game(false);
     StartPremadeGame(game);
-    const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
+    const glm::vec3 anchor = Walk(game, "walk", 2.0f);
     const int level = g_status.current_level;
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
     const auto health = g_status.buffers.Char[PremadeSlot()].hp_current;
@@ -1389,7 +1389,7 @@ void LoadGameScenario(const fs::path& fixture)
     /* Construct Game first so a missing WIZ8_ASSET_ROOT skips rather than
        failing on the absent fixture when save-fixture itself skipped. */
     Game game(false);
-    srVector3T<float> anchor{};
+    glm::vec3 anchor{0.0f};
     int level = -1;
     unsigned experience = 0;
     unsigned health = 0;

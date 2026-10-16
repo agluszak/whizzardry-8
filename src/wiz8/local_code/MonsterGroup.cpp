@@ -64,7 +64,7 @@ enum { W8_MONSTER_GROUP_SINGULAR = 1, W8_MONSTER_NAME_STRIDE = 24 };
 enum { W8_MONSTER_GROUP_ALLY_COUNT = 4 };
 
 // FUNCTION: WIZ8 0x00510cc0
-bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* position, float yaw,
+bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position, float yaw,
                                 bool proximity_check, bool include_allies, bool flatten_y,
                                 bool alternate_radius)
 {
@@ -101,15 +101,15 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* 
             g_octree->UnregisterLocationObjects(static_cast<short>(location_ids[index]));
         }
     }
-    srVector3T<float> target = *position;
+    glm::vec3 target = *position;
     if (alternate_radius) {
         positions = g_octree
-                        ->navigatorPositions(target.glmValue(), yaw, radius + radius, count,
-                                             proximity_check, flatten_y, false, 5, true)
+                        ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
+                                             flatten_y, false, 5, true)
                         .positions;
     } else {
-        positions = g_octree->scatterPositions(target.glmValue(), yaw, radius + radius, count,
-                                               proximity_check, flatten_y);
+        positions = g_octree->scatterPositions(target, yaw, radius + radius, count, proximity_check,
+                                               flatten_y);
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -134,10 +134,10 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* 
             if (position_index < found - 1) {
                 ++position_index;
             }
-            const srVector3T<float> member_position = positions[position_index];
+            const glm::vec3 member_position = positions[position_index];
             member->p3D->SetPositionInternal(&member_position);
         }
-        srVector3T<float> placed = member->p3D->GetPosition();
+        glm::vec3 placed = member->p3D->GetPosition();
         g_octree->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &placed);
     }
     return true;
@@ -565,8 +565,8 @@ W8MonsterGroup* GetLiveMonsterGroupAtIndex(int index)
    group - stops the walk and reports success anyway, as does a null group,
    which is why every path returns one. */
 // FUNCTION: WIZ8 0x0050fba0
-unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
-                                        const srVector3T<float>* position, bool follow_leader)
+unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
+                                        bool follow_leader)
 {
     if (monster_group != 0) {
         while (follow_leader && monster_group->leader_group_id != 0) {
@@ -603,7 +603,7 @@ void ReapplyMonsterGroupFormations(void)
 /* Sets a group's formation and pushes it straight onto every member's live
    Monster, so the group record and the members never disagree. */
 // FUNCTION: WIZ8 0x0050ff40
-void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const srVector3T<float>* formation)
+void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation)
 {
     unsigned int count;
     int index;
@@ -835,18 +835,18 @@ bool MonsterGroupHasIncapacitatedMember(int group_id)
    it, which is what makes a member added during the walk skew the average
    rather than divide by the wrong count. Preserved as found. */
 // FUNCTION: WIZ8 0x0050ffd0
-void GetMonsterGroupCentre(W8MonsterGroup* monster_group, srVector3T<float>* centre)
+void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre)
 {
     unsigned int count;
     unsigned int index;
-    srVector3T<float> position;
+    glm::vec3 position;
     float divisor;
 
     if (monster_group == 0) {
         return;
     }
     if (monster_group->members_active) {
-        monster_group->centre.SetZero();
+        monster_group->centre = glm::vec3(0);
         count = monster_group->MemberIds().size();
         for (index = 0; index < count; ++index) {
             position = MonsterGetLocation(FindMonster(monster_group->MemberLocationId(index))->p3D);
@@ -952,9 +952,8 @@ unsigned char LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* m
 /* Allocate one live monster group, create its members, activate them, and
    register it on the species or encounter list. */
 // FUNCTION: WIZ8 0x0050F1A0
-W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
-                            const srVector3T<float>* position, bool use_alternate_name,
-                            bool announce_spawn, bool place_on_ground)
+W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
+                            bool use_alternate_name, bool announce_spawn, bool place_on_ground)
 {
     W8MonsterGroup* group;
     W8MonsterRecord* record;
@@ -1009,7 +1008,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     list->push_back(group);
 
     for (created = 0; created < count; ++created) {
-        if (CreateMonsterInfo(group, record, const_cast<srVector3T<float>*>(position)) == 0) {
+        if (CreateMonsterInfo(group, record, const_cast<glm::vec3*>(position)) == 0) {
             // A previous iteration may already have registered monsters and octree locations.
             auto& roster = gXStatus.monster_roster;
             const auto& monsters = record->unborn ? roster.unborn() : roster.live();
@@ -1448,8 +1447,8 @@ const float g_monster_scatter_heading_bias = 0.8f;
 // FUNCTION: WIZ8 0x00511050
 bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float yaw, bool flag)
 {
-    srVector3T<float> camera;
-    srVector3T<float> target;
+    glm::vec3 camera;
+    glm::vec3 target;
     W8MonsterInfo* member_info;
     W8MonsterGroup* ally;
     float radius;
@@ -1570,8 +1569,8 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
     W8MonsterGroup* new_group;
     W8MonsterInfo* new_member;
     W8MonsterInfo* old_member;
-    srVector3T<float> position;
-    srVector3T<float> spawn;
+    glm::vec3 position;
+    glm::vec3 spawn;
     unsigned int index;
 
     new_group = CreateGroup(monster_id, group->member_count, &spawn, false, false, false);

@@ -53,7 +53,7 @@
 /* Copy the node's world location out; the searchable position resolver treats
    a missing node chain as unresolvable. */
 // FUNCTION: WIZ8 0x0048d050
-unsigned char W8WorldCursorNode::GetLocation(srVector3T<float>* position)
+unsigned char W8WorldCursorNode::GetLocation(glm::vec3* position)
 {
     if (node != 0) {
         *position = glm::vec3(node->getLocation());
@@ -200,7 +200,7 @@ void DestroyWorldCursorCube(W8WorldCursorNode* entry)
 }
 
 // FUNCTION: WIZ8 0x0048dbf0
-void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position)
+void MoveWorldCursorNode(W8WorldCursorNode* entry, glm::vec3* position)
 {
     if (position == 0) {
         srAssertFail("vPos", ST_CUBE_CPP, 0x101, 0);
@@ -208,7 +208,7 @@ void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position)
     if (entry == 0) {
         srAssertFail("pCube", ST_CUBE_CPP, 0x102, 0);
     }
-    srVector3T<float> location = *position;
+    glm::vec3 location = *position;
     if (entry == 0) {
         srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
     }
@@ -301,22 +301,21 @@ void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale)
    box through the world camera, bail if any corner is off-screen, then paint
    the twelve edges into the primary GERD's back buffer. */
 // FUNCTION: WIZ8 0x0048DF30
-void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum,
-                  w8_ulong color)
+void DrawWorldBox(W8World* world, glm::vec3 minimum, glm::vec3 maximum, w8_ulong color)
 {
     if (world == 0) {
         return;
     }
 
-    srVector3T<float> corners[8];
-    corners[0].Set(minimum.x, minimum.y, minimum.z);
-    corners[1].Set(minimum.x, minimum.y, maximum.z);
-    corners[2].Set(maximum.x, minimum.y, maximum.z);
-    corners[3].Set(maximum.x, minimum.y, minimum.z);
-    corners[4].Set(minimum.x, maximum.y, minimum.z);
-    corners[5].Set(minimum.x, maximum.y, maximum.z);
-    corners[6].Set(maximum.x, maximum.y, maximum.z);
-    corners[7].Set(maximum.x, maximum.y, minimum.z);
+    glm::vec3 corners[8];
+    corners[0] = glm::vec3(minimum.x, minimum.y, minimum.z);
+    corners[1] = glm::vec3(minimum.x, minimum.y, maximum.z);
+    corners[2] = glm::vec3(maximum.x, minimum.y, maximum.z);
+    corners[3] = glm::vec3(maximum.x, minimum.y, minimum.z);
+    corners[4] = glm::vec3(minimum.x, maximum.y, minimum.z);
+    corners[5] = glm::vec3(minimum.x, maximum.y, maximum.z);
+    corners[6] = glm::vec3(maximum.x, maximum.y, maximum.z);
+    corners[7] = glm::vec3(maximum.x, maximum.y, minimum.z);
 
     const auto viewport = GetScaledViewportBounds();
     float viewport_width = viewport.maximum.x - viewport.minimum.x;
@@ -324,7 +323,7 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
 
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
-        const auto projection = world->camera->project(glm::dvec3(corners[index].glmValue()));
+        const auto projection = world->camera->project(glm::dvec3(corners[index]));
         if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) return;
         const auto projected = projection.position;
         screen[index][0] =
@@ -551,9 +550,9 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
 
     for (index = 0; index < count; ++index) {
         W8WorldCursorNode* cube = CreateWorldCursorCube();
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
-        srVector3T<float> location;
+        glm::vec3 minimum;
+        glm::vec3 maximum;
+        glm::vec3 location;
         int component;
 
         if (version >= 2) {
@@ -575,7 +574,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
         }
         for (component = 0; component < 3; ++component) {
             if (success &&
-                (handle.read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+                (handle.read(&minimum[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -583,7 +582,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
         }
         for (component = 0; component < 3; ++component) {
             if (success &&
-                (handle.read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+                (handle.read(&maximum[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -605,7 +604,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
 
         for (component = 0; component < 3; ++component) {
             if (success &&
-                (handle.read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+                (handle.read(&location[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -638,7 +637,7 @@ unsigned char SaveWorldCursorNodes(wiz8::File& handle)
     unsigned int count;
     unsigned int index;
     int component;
-    srVector3T<float> location;
+    glm::vec3 location;
     W8WorldCursorNode* node;
 
     if (!(handle.write(&version, 4), true)) {
@@ -728,7 +727,7 @@ void SetWorldCursorNodesVisible(bool visible)
    `point`; a null `after` starts the walk at the head of the table. When
    `after` is the last entry the walk answers null immediately. */
 // FUNCTION: WIZ8 0x0048EDD0
-W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector3T<float>* point)
+W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec3* point)
 {
     unsigned int index = 0;
     unsigned int count = static_cast<int>(g_world_cursor_nodes.size());
@@ -749,7 +748,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
             const auto bounds = entry->node->getLocalBounds();
             const auto location = glm::vec3(entry->node->getLocation());
             const srBoundingBox box{bounds.minimum + location, bounds.maximum + location};
-            if (box.contains(point->glmValue())) {
+            if (box.contains((*point))) {
                 return entry;
             }
         }

@@ -16,6 +16,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "GrCycle.h"
@@ -28,7 +29,6 @@
 #include "retail_records.h"
 #include "soundman.h"
 #include "spell_ids.h"
-#include "surrender/srMath.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "wiz8/containers.h"
@@ -230,8 +230,8 @@ void W8SpellVisual::SetCycle(signed char cycle)
 void W8SpellVisual::UpdateRepresentation(W8World* world)
 {
     glm::mat3 rotation;
-    srVector3T<float> camera_position;
-    srVector3T<float> position;
+    glm::vec3 camera_position;
+    glm::vec3 position;
     bool apply_rotation = false;
 
     if (mode == W8_SPELL_VISUAL_FLASH) {
@@ -299,7 +299,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 
     if (host->billboard) {
         glm::mat3 billboard;
-        srVector3T<float> visual_position = GetPosition();
+        glm::vec3 visual_position = GetPosition();
         float angle;
 
         billboard = glm::mat3(1);
@@ -664,7 +664,7 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
    The visual joins the world's list, is positioned, and carries the caller's
    two extra arguments. The power level picks the EXPLOSION row. */
 // FUNCTION: WIZ8 0x004ad430
-W8SpellVisual* SpawnSpellEffect(const srVector3T<float>* position, std::string_view resource_name,
+W8SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view resource_name,
                                 int power_level, int value, int flags)
 {
     if (resource_name.empty()) {
@@ -694,7 +694,7 @@ W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, in
     W8SpellVisual* visual =
         CreateSpellVisual(name, W8_SPELL_VISUAL_FLASH, power_level, value, flags);
     if (visual != 0) {
-        srVector3T<float> position;
+        glm::vec3 position;
         glm::mat3 rotation;
         float angle;
         float pitch;
@@ -732,7 +732,7 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
         CreateSpellVisual(mls_name, W8_SPELL_VISUAL_TARGET, power_level, value, flags);
     if (visual != 0) {
         const auto& [minimum, maximum] = *bounds;
-        srVector3T<float> position;
+        glm::vec3 position;
         float height;
         float width;
 
@@ -769,7 +769,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
     W8SpellVisual* visual =
         CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
     if (visual != 0) {
-        srVector3T<float> position;
+        glm::vec3 position;
 
         if (parent != 0) {
             const auto& [minimum, maximum] = *bounds;
@@ -805,7 +805,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
    the monster or camera. */
 // FUNCTION: WIZ8 0x004adb20
 W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level,
-                                      srVector3T<float>* position, glm::mat3* rotation, int value,
+                                      glm::vec3* position, glm::mat3* rotation, int value,
                                       int flags)
 {
     if (mls_name.empty()) {
@@ -1063,17 +1063,17 @@ unsigned char stSound3D::Play(bool loop, bool release_when_done)
 }
 
 // FUNCTION: WIZ8 0x004AECC0
-wiz8::sound::PlayOptions stSound3D::BuildSoundOptions(const srVector3T<float>& listener)
+wiz8::sound::PlayOptions stSound3D::BuildSoundOptions(const glm::vec3& listener)
 {
     const float angle = -GetCameraYawRadians();
     const unsigned int scaled_volume = (volume * g_settings.sound_effects_volume) / 0x7f;
     const glm::mat3 rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
-    const srVector3T<float> node_position = glm::vec3(getLocation());
-    const srVector3T<float> offset = node_position - listener;
-    const srVector3T<float> listener_offset = listener - node_position;
-    return {.volume = static_cast<unsigned int>((g_float_one - listener_offset.Length() / falloff) *
-                                                scaled_volume),
-            .position = rotation * offset.glmValue()};
+    const glm::vec3 node_position = glm::vec3(getLocation());
+    const glm::vec3 offset = node_position - listener;
+    const glm::vec3 listener_offset = listener - node_position;
+    return {.volume = static_cast<unsigned int>(
+                (g_float_one - glm::length(listener_offset) / falloff) * scaled_volume),
+            .position = rotation * offset};
 }
 
 // FUNCTION: WIZ8 0x004AEC70
@@ -1102,7 +1102,7 @@ void stSound3D::Stop()
 // FUNCTION: WIZ8 0x004aefd0
 void Update3DSounds()
 {
-    srVector3T<float> listener = cameraLocation();
+    glm::vec3 listener = cameraLocation();
     int index = 0;
     int count = static_cast<int>(g_sound3d_instances.size());
     if (count > 0) {
@@ -1119,18 +1119,18 @@ void Update3DSounds()
                         --index;
                     }
                 } else {
-                    srVector3T<float> to_listener;
-                    srVector3T<float> offset;
-                    srVector3T<float> transformed;
+                    glm::vec3 to_listener;
+                    glm::vec3 offset;
+                    glm::vec3 transformed;
                     glm::mat3 rotation;
                     float distance;
                     float angle;
                     unsigned int volume;
 
-                    to_listener.Set(listener.x - static_cast<float>(world.x),
-                                    listener.y - static_cast<float>(world.y),
-                                    listener.z - static_cast<float>(world.z));
-                    distance = static_cast<float>(sqrt(to_listener.LengthSquared()));
+                    to_listener = glm::vec3(listener.x - static_cast<float>(world.x),
+                                            listener.y - static_cast<float>(world.y),
+                                            listener.z - static_cast<float>(world.z));
+                    distance = static_cast<float>(sqrt(glm::dot(to_listener, to_listener)));
                     if (sound->falloff <= distance) {
                         wiz8::sound::set_volume(sound->sound_handle, 0);
                     } else {
@@ -1138,11 +1138,11 @@ void Update3DSounds()
                         rotation = glm::mat3(1);
                         rotation *=
                             glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-                        offset.Set(static_cast<float>(world.x) - listener.x,
-                                   static_cast<float>(world.y) - listener.y,
-                                   static_cast<float>(world.z) - listener.z);
-                        transformed = rotation * offset.glmValue();
-                        wiz8::sound::set_position(sound->sound_handle, transformed.glmValue());
+                        offset = glm::vec3(static_cast<float>(world.x) - listener.x,
+                                           static_cast<float>(world.y) - listener.y,
+                                           static_cast<float>(world.z) - listener.z);
+                        transformed = rotation * offset;
+                        wiz8::sound::set_position(sound->sound_handle, transformed);
                         volume = (sound->volume * g_settings.sound_effects_volume) / 0x7f;
                         wiz8::sound::set_volume(
                             sound->sound_handle,

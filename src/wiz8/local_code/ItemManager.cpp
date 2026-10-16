@@ -11,6 +11,7 @@
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
+#include <glm/geometric.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "AnimRep.hpp"
@@ -29,7 +30,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -205,7 +205,7 @@ int FindItemTableByName(const char* name)
     return -1;
 }
 
-static std::unique_ptr<W8WorldItem> CreateTableItem(int item_id, const srVector3T<float>* position)
+static std::unique_ptr<W8WorldItem> CreateTableItem(int item_id, const glm::vec3* position)
 {
     W8ItemInstance item;
     W8ItemInstance* item_pointer;
@@ -230,7 +230,7 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
                            unsigned int table_id, unsigned int maximum_items)
 {
     unsigned int party_level = GetAveragePartyLevel();
-    srVector3T<float> position;
+    glm::vec3 position;
     std::vector<int> candidates;
     W8ItemTableRecord* table;
     W8ItemTableEntry* entry;
@@ -563,8 +563,8 @@ static char g_item_model_fallback_names[145][0x1e] = {"Dagger",
 // FUNCTION: WIZ8 0x004f6cf0
 void ActivateItem(W8WorldItem* item)
 {
-    srVector3T<float> position;
-    srVector3T<float> sun_position;
+    glm::vec3 position;
+    glm::vec3 sun_position;
     W8ReadLevelInfo info;
     std::string zItemName;
     std::string zItemFullPath;
@@ -652,7 +652,7 @@ void ActivateItem(W8WorldItem* item)
 // FUNCTION: WIZ8 0x004f70d0
 void DeactivateWorldItem(W8WorldItem* item)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (item == 0) {
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 554, 0);
@@ -741,7 +741,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 // FUNCTION: WIZ8 0x004f7480
 void UpdateNearbyWorldItems(void)
 {
-    srVector3T<float> camera;
+    glm::vec3 camera;
     unsigned int index;
     unsigned int count;
 
@@ -758,7 +758,7 @@ void UpdateNearbyWorldItems(void)
             AdvanceFallingWorldItem(item);
         }
         if (!item->fActive) {
-            if (DistanceBetweenPoints(&item->position, &camera) < g_item_camera_cull_distance) {
+            if (glm::distance(item->position, camera) < g_item_camera_cull_distance) {
                 if (g_hide_invisible_items) {
                     if (item == 0) {
                         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x3e6, 0);
@@ -770,10 +770,10 @@ void UpdateNearbyWorldItems(void)
                 ActivateItem(item);
             }
         } else {
-            srVector3T<float> location;
+            glm::vec3 location;
 
             location = item->p3D->m_pRep->GetLocation();
-            if (DistanceBetweenPoints(&location, &camera) > g_float_twenty_five_thousand) {
+            if (glm::distance(location, camera) > g_float_twenty_five_thousand) {
                 DeactivateWorldItem(item);
             }
         }
@@ -801,18 +801,22 @@ void DropHeldItem(int)
 {
     glm::mat3 rotation;
     rotation = cameraRotation(*g_world);
-    srVector3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
+    glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
-    srVector3T<float> camera = cameraLocation();
+    glm::vec3 camera = cameraLocation();
     direction += camera;
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
-    srVector3T<float> delta = direction - camera;
-    delta.SetLength(glm::max(delta.Length() - g_float_one_hundred_twenty_five, g_float_zero));
+    glm::vec3 delta = direction - camera;
+    delta = glm::dot(delta, delta) == 0
+                ? delta
+                : glm::normalize(delta) *
+                      static_cast<float>(glm::max(
+                          glm::length(delta) - g_float_one_hundred_twenty_five, g_float_zero));
 
-    srVector3T<float> position = camera + delta;
-    position.y = g_octree->settleToGround(position.glmValue(), true, 250).position.y +
-                 g_float_one_hundred_twenty_five;
+    glm::vec3 position = camera + delta;
+    position.y =
+        g_octree->settleToGround(position, true, 250).position.y + g_float_one_hundred_twenty_five;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = AddWorldItem(CreateWorldItem(
             &g_status.item_in_hand, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
@@ -919,20 +923,20 @@ unsigned char ReleaseItemLists(void)
    sight of the party's eye. The distance is compared before the trace, so a
    far item is never traced to. */
 // FUNCTION: WIZ8 0x004f8560
-bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float radius)
+bool IsWorldItemWithinReach(W8Item* owner, const glm::vec3* from, float radius)
 {
-    srVector3T<float> position;
-    srVector3T<float> eye;
+    glm::vec3 position;
+    glm::vec3 eye;
 
     position = owner->m_pRep->GetLocation();
     eye = cameraLocation();
 
-    srVector3T<float> delta = position - *from;
-    if (delta.Length() < radius) {
+    glm::vec3 delta = position - *from;
+    if (glm::length(delta) < radius) {
         auto bounds = owner->GetCachedLocalBounds();
-        bounds.minimum += position.glmValue();
-        bounds.maximum += position.glmValue();
-        if (targetMarkerVisible(eye.glmValue(), bounds)) {
+        bounds.minimum += position;
+        bounds.maximum += position;
+        if (targetMarkerVisible(eye, bounds)) {
             return true;
         }
     }
@@ -943,19 +947,19 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
 // GLOBAL: WIZ8 0x00618E70
 static int g_last_visible_world_item = -1;
 
-static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>& camera)
+static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
 {
     if (item->p3D != 0) {
-        srVector3T<float> position;
-        srVector3T<float> eye;
+        glm::vec3 position;
+        glm::vec3 eye;
         position = item->p3D->m_pRep->GetLocation();
         eye = cameraLocation();
-        srVector3T<float> delta = position - camera;
-        if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
+        glm::vec3 delta = position - camera;
+        if (glm::length(delta) < static_cast<float>(g_double_twenty_five_hundred)) {
             auto bounds = item->p3D->GetCachedLocalBounds();
-            bounds.minimum += position.glmValue();
-            bounds.maximum += position.glmValue();
-            return targetMarkerVisible(eye.glmValue(), bounds) != 0;
+            bounds.minimum += position;
+            bounds.maximum += position;
+            return targetMarkerVisible(eye, bounds) != 0;
         }
     }
     return false;
@@ -966,7 +970,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
 // FUNCTION: WIZ8 0x004f8650
 bool AnyWorldItemVisible(void)
 {
-    srVector3T<float> camera;
+    glm::vec3 camera;
     int count;
     int index;
 
@@ -997,7 +1001,7 @@ bool AnyWorldItemVisible(void)
 // FUNCTION: WIZ8 0x004f9240
 unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
 {
-    srVector3T<float> probe;
+    glm::vec3 probe;
     bool hit;
     float ground;
     float previous_y;
@@ -1009,13 +1013,13 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
     }
 
     previous_y = item->position.y;
-    probe.Set(item->position.x, previous_y + g_world_scale, item->position.z);
+    probe = glm::vec3(item->position.x, previous_y + g_world_scale, item->position.z);
     dt = g_game_time_accumulator->GetFrameDelta();
     if (g_camera_snap_epsilon < item->vertical_velocity) {
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
-    const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(probe, 1, 250.0f);
     probe = ground_probe.position;
     hit = ground_probe.hit;
     ground = ground_probe.position.y;
@@ -1060,16 +1064,16 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
 // FUNCTION: WIZ8 0x004f93d0
 unsigned char SettleWorldItem(W8WorldItem* item)
 {
-    srVector3T<float> start;
+    glm::vec3 start;
     bool hit;
     int sector;
 
-    start.Set(item->position.x, item->position.y + g_world_scale, item->position.z);
+    start = glm::vec3(item->position.x, item->position.y + g_world_scale, item->position.z);
 
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    const auto ground_probe = g_octree->settleToGround(start.glmValue(), 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(start, 1, 250.0f);
     start = ground_probe.position;
     hit = ground_probe.hit;
     if (!hit) {
@@ -1108,8 +1112,8 @@ void RebuildAllWorldItemInstances(void)
 }
 
 // FUNCTION: WIZ8 0x004f6b90
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item,
-                                             const srVector3T<float>* position, int entity_flags)
+std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
+                                             int entity_flags)
 {
     auto result = std::make_unique<W8WorldItem>();
     EmptyItemRecord(&result->item, 0, true);
@@ -1130,8 +1134,7 @@ W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item)
 }
 
 // FUNCTION: WIZ8 0x004f6c50
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const srVector3T<float>* position,
-                                       int entity_flags)
+std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags)
 {
     W8ItemInstance local_item;
     W8ItemInstance* item;
@@ -1167,7 +1170,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
     std::vector<std::unique_ptr<W8WorldItem>> items;
     if (monster_info != 0) {
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-        srVector3T<float> position = monster_info->p3D->GetPosition();
+        glm::vec3 position = monster_info->p3D->GetPosition();
         std::unique_ptr<W8WorldItem> item;
         int gold = 0;
         int slot;

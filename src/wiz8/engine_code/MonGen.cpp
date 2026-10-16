@@ -12,12 +12,14 @@
 
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
+#include <glm/geometric.hpp>
 
 #include "IntervalGate.h"
 #include "Monster.h"
 #include "Octree.h"
 #include "dice.h"
 #include "difficulty.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/encounter_tables.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/levels.h"
@@ -25,7 +27,6 @@
 #include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "random.h"
-#include "surrender/srMath.h"
 #include "wiz8/application.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
@@ -290,11 +291,11 @@ int MonGen::RollEncounterGroupSize(W8MonsterRecord* record)
    group as a live random encounter. The bit-5 form is only valid for hostile
    factions while one of the three story facts is set. */
 // FUNCTION: WIZ8 0x0048AD20
-unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
+unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
 {
     W8EncounterCompanionRecord companion_records[2];
     bool companion_active[2] = {false, false};
-    srVector3T<float> spawn_position;
+    glm::vec3 spawn_position;
     W8EncounterTableRuntime* table;
     W8MonsterRecord* record;
     W8MonsterGroup* group;
@@ -419,7 +420,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x0048B200
 bool MonGen::CanGenerateEncounter(bool force)
 {
-    srVector3T<float> camera;
+    glm::vec3 camera;
     float distance;
 
     if (g_generator_save_flag != 0 || gXStatus.world_update_blocked || gXStatus.fCombatMode ||
@@ -428,8 +429,8 @@ bool MonGen::CanGenerateEncounter(bool force)
     }
 
     camera = cameraLocation();
-    srVector3T<float> delta = spawn_position - camera;
-    distance = delta.Length();
+    glm::vec3 delta = spawn_position - camera;
+    distance = glm::length(delta);
 
     if (!force && !g_status.world_suspended) {
         if (distance > 200000.0f || distance < 35000.0f) {
@@ -452,11 +453,11 @@ bool MonGen::CanGenerateEncounter(bool force)
     }
 
     if (g_encounter_culling_scale_fast == 1.0f) {
-        srVector3T<float> lower(spawn_position.x - 5000.0f, spawn_position.y - 5000.0f,
-                                spawn_position.z - 5000.0f);
-        srVector3T<float> upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
-                                spawn_position.z + 5000.0f);
-        const auto locations = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, 0);
+        glm::vec3 lower(spawn_position.x - 5000.0f, spawn_position.y - 5000.0f,
+                        spawn_position.z - 5000.0f);
+        glm::vec3 upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
+                        spawn_position.z + 5000.0f);
+        const auto locations = g_octree->locationsInBox({lower, upper}, 0);
         if (!locations.empty()) {
             return false;
         }
@@ -563,8 +564,8 @@ const double g_encounter_culling_distance = 50000.0;
 // FUNCTION: WIZ8 0x0048c8e0
 void CullExpiredEncounters(void)
 {
-    srVector3T<float> party;
-    srVector3T<float> position;
+    glm::vec3 party;
+    glm::vec3 position;
     float span;
     int index;
 
@@ -582,9 +583,9 @@ void CullExpiredEncounters(void)
             W8Monster* monster = GetMonsterByLocationID(group->leader_location_id);
 
             position = monster->GetPosition();
-            srVector3T<float> delta = position - party;
+            glm::vec3 delta = position - party;
 
-            if (g_encounter_culling_distance < delta.Length() || g_status.world_suspended) {
+            if (g_encounter_culling_distance < glm::length(delta) || g_status.world_suspended) {
                 DespawnMonsterGroup(group);
             }
         }
@@ -1057,7 +1058,7 @@ MonGen::~MonGen()
 
 /* Moves the generator. The scene is only told when the generator has a marker. */
 // FUNCTION: WIZ8 0x0048b730
-void MonGen::SetState(const srVector3T<float>* state)
+void MonGen::SetState(const glm::vec3* state)
 {
     spawn_position = *state;
     if (marker_item != 0) {

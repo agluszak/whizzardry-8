@@ -76,6 +76,8 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/retail_geometry_types.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/sr_api.h"
@@ -106,7 +108,7 @@ static std::vector<W8TriggerEvent*> g_timed_events;
 // GLOBAL: WIZ8 0x006599C8
 bool g_trigger_action_active;
 // GLOBAL: WIZ8 0x006599AC
-srVector3T<float> g_trigger_action_scene_offset;
+glm::vec3 g_trigger_action_scene_offset;
 // GLOBAL: WIZ8 0x00659908
 static char g_trigger_parse_buffer[0x88];
 // GLOBAL: WIZ8 0x006598E0
@@ -788,7 +790,7 @@ public:
 W8TriggerShakeEvent::W8TriggerShakeEvent() : intensity(1), reverse(0) {}
 
 // GLOBAL: WIZ8 0x006599a0
-srVector3T<float> g_trigger_camera;
+glm::vec3 g_trigger_camera;
 
 /* Advance every world trigger: raise the item picker when a prop-bearing
    activation asks for one, then run proximity activations for kind-two
@@ -796,7 +798,7 @@ srVector3T<float> g_trigger_camera;
 // FUNCTION: WIZ8 0x00443ae0
 void UpdateWorldTriggers(W8World* world)
 {
-    srVector3T<float> camera;
+    glm::vec3 camera;
     bool activated = false;
     bool running = false;
 
@@ -822,9 +824,9 @@ void UpdateWorldTriggers(W8World* world)
             (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
             (trigger->flags & W8_TRIGGER_POSITIONED) != 0 &&
             (trigger->flags & W8_TRIGGER_PLANE) == 0) {
-            srVector3T<float> trigger_position(trigger->position.x, trigger->position.y,
-                                               trigger->position.z);
-            float distance = (trigger_position - camera).Length();
+            glm::vec3 trigger_position(trigger->position.x, trigger->position.y,
+                                       trigger->position.z);
+            float distance = glm::length((trigger_position - camera));
             if (trigger->range_maximum <= distance) {
                 if ((trigger->flags & W8_TRIGGER_RUNNING) != 0) {
                     trigger->FinishAction();
@@ -959,27 +961,26 @@ void Trigger::Activate()
 // FUNCTION: WIZ8 0x00444810
 bool Trigger::HasActorWithinRadius(float radius, bool include_party)
 {
-    srVector3T<float> center;
+    glm::vec3 center;
 
     if ((flags & W8_TRIGGER_POSITIONED) != 0 || m_pProp != 0) {
         if (m_pProp == 0) {
-            center.Set(position.x, position.y, position.z);
+            center = glm::vec3(position.x, position.y, position.z);
         } else {
             const auto prop_center = m_pProp->GetCenterPosition();
             if (!prop_center) return false;
             center = *prop_center;
         }
 
-        srVector3T<float> lower;
-        srVector3T<float> upper;
-        srVector3T<float> extent;
+        glm::vec3 lower;
+        glm::vec3 upper;
+        glm::vec3 extent;
         std::vector<w8_ulong> locations;
-        extent.Set(radius, radius, radius);
+        extent = glm::vec3(radius, radius, radius);
         lower = center - extent;
         upper = center + extent;
 
-        locations = g_octree->queryObjects({lower.glmValue(), upper.glmValue()},
-                                           W8_OCTREE_KIND_LOCATION, -1);
+        locations = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
         unsigned int count = locations.size();
         for (unsigned int index = 0; index < count; ++index) {
             int location_id = locations[index];
@@ -988,8 +989,8 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
             }
             W8MonsterInfo* monster_info = FindMonster(location_id);
             if (monster_info != 0 && monster_info->p3D != 0) {
-                srVector3T<float> monster_position = monster_info->p3D->GetPosition();
-                if ((monster_position - center).Length() <= radius) {
+                glm::vec3 monster_position = monster_info->p3D->GetPosition();
+                if (glm::length((monster_position - center)) <= radius) {
                     return true;
                 }
             }
@@ -997,8 +998,8 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
     }
 
     if (include_party) {
-        srVector3T<float> party_position = g_startup_world->GetPosition();
-        if ((party_position - center).Length() <= radius) {
+        glm::vec3 party_position = g_startup_world->GetPosition();
+        if (glm::length((party_position - center)) <= radius) {
             return true;
         }
     }
@@ -1008,7 +1009,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
 // FUNCTION: WIZ8 0x004457c0
 bool Trigger::PlayActionSound(const char* sound_name, int volume)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (volume == 0) {
         volume = 100;
@@ -1023,13 +1024,13 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
         if (!center) return false;
         position = *center;
     } else {
-        position.Set(this->position.x, this->position.y, this->position.z);
+        position = glm::vec3(this->position.x, this->position.y, this->position.z);
     }
 
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
         glm::dvec3 sound_position;
-        sound_position = glm::dvec3(position.glmValue());
+        sound_position = glm::dvec3(position);
         sound->volume = volume;
         sound->setLocation(sound_position);
         if (sound->Play(false, true) != 0) {
@@ -1090,29 +1091,29 @@ void W8TriggerEvent::Update()
 
     case 0x0c: {
         if (trigger != 0) {
-            srVector3T<float> source;
-            srVector3T<float> target;
-            srVector3T<float> transformed;
-            srVector3T<float> axis;
+            glm::vec3 source;
+            glm::vec3 target;
+            glm::vec3 transformed;
+            glm::vec3 axis;
             glm::mat3 rotation;
 
             source = trigger->position;
             target = source;
             target.z += 100.0f;
 
-            axis.Set(0.0, 0.0, 1.0);
+            axis = glm::vec3(0.0, 0.0, 1.0);
             rotation = glm::transpose(
-                glm::mat3(trigger->direction.glmValue(), glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
+                glm::mat3(trigger->direction, glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
 
             if (trigger->angle != 0.0f) {
                 rotation *= glm::mat3_cast(
                     glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
-                                   normalizedOrZero(glm::vec3(axis.glmValue()))));
+                                   normalizedOrZero(glm::vec3(axis))));
             }
 
-            transformed.x = glm::dot(glm::row(rotation, 1), target.glmValue());
-            transformed.y = glm::dot(glm::row(rotation, 2), target.glmValue());
-            transformed.z = glm::dot(axis.glmValue(), target.glmValue());
+            transformed.x = glm::dot(glm::row(rotation, 1), target);
+            transformed.y = glm::dot(glm::row(rotation, 2), target);
+            transformed.z = glm::dot(axis, target);
             FireMissile(static_cast<unsigned int>(trigger->m_lData1), &source, &transformed, 0, 1,
                         1, 50000.0f);
         }
@@ -1263,7 +1264,7 @@ void Trigger::RunLinkedTriggers()
 /* Store the trigger position and flag the representation dirty; an item
    representation is moved and re-transformed in place. */
 // FUNCTION: WIZ8 0x004416f0
-void Trigger::SetPosition(srVector3T<float>* position)
+void Trigger::SetPosition(glm::vec3* position)
 {
     flags |= W8_TRIGGER_POSITIONED;
     this->position = *position;
@@ -1281,7 +1282,7 @@ W8TriggerActionData* ReadDoorTriggerActionData(wiz8::File* handle)
     unsigned char version;
     unsigned short item;
     unsigned char has_position;
-    srVector3T<float> position;
+    glm::vec3 position;
     char linked_trigger[0x80];
     handle->read_exact(&version, 1);
     data->open = readDoorFlag(*handle);
@@ -1295,7 +1296,7 @@ W8TriggerActionData* ReadDoorTriggerActionData(wiz8::File* handle)
     data->jammed = readDoorFlag(*handle);
     handle->read_exact(&item, 2);
     handle->read_exact(&has_position, 1);
-    handle->read_exact(&position, sizeof(position));
+    wiz8::retail::read_exact(*handle, position);
     position *= 500.0f;
     handle->read_exact(linked_trigger, sizeof(linked_trigger));
 
@@ -1458,8 +1459,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         SDL_strupr(recipients);
         if (version > 1) {
             handle->read_exact(&plane, 1);
-            handle->read_exact(trigger->representation_vectors,
-                               sizeof(trigger->representation_vectors));
+            for (auto& point : trigger->representation_vectors)
+                wiz8::retail::read_exact(*handle, point);
             for (int vector = 0; vector < 4; ++vector) {
                 trigger->representation_vectors[vector] *= 500.0f;
             }
@@ -1495,12 +1496,11 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 handle->read_exact(&geometry_kind, 1);
                 if (geometry_kind == 2) {
                     unsigned char count;
-                    srVector3T<float> legacy_vertices[36];
+                    wiz8::retail::Vec3f legacy_vertices[36];
                     unsigned char legacy_flags[2];
                     handle->read_exact(&count, 1);
                     for (int index = 0; index < 36; ++index) {
                         handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
-                        legacy_vertices[index] *= 500.0f;
                     }
                     handle->read_exact(&legacy_flags[0], 1);
                     handle->read_exact(&legacy_flags[1], 1);
@@ -1509,7 +1509,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         }
 
         trigger->trigger_kind = 2;
-        trigger->position.Set(x * 500.0f, y * 500.0f, z * 500.0f);
+        trigger->position = glm::vec3(x * 500.0f, y * 500.0f, z * 500.0f);
         trigger->range_maximum = range * 500.0f;
         trigger->m_bRepType = W8_TRIGGER_REP_POSITION;
         trigger->action_value = value_ac;
@@ -1543,11 +1543,11 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         int volume_min, volume_max, speed_min, speed_max, time_min, time_max;
         int unbounded;
         float radius;
-        srVector3T<float> position, region_u, region_v;
-        srVector3T<float> region_center;
+        glm::vec3 position, region_u, region_v;
+        glm::vec3 region_center;
         float region_angle = 0.0f;
-        srVector3T<float> region_min;
-        srVector3T<float> region_max;
+        glm::vec3 region_min;
+        glm::vec3 region_max;
         char wave[0x80];
         char name[0x80];
         const char* optional_name = 0;
@@ -1567,7 +1567,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         handle->read_exact(&time_max, 4);
         handle->read_exact(&unbounded, 4);
         handle->read_exact(&radius, 4);
-        handle->read_exact(&position, sizeof(position));
+        wiz8::retail::read_exact(*handle, position);
         handle->read_exact(&region_u, sizeof(region_u));
         handle->read_exact(&region_v, sizeof(region_v));
         handle->read_exact(wave, sizeof(wave));
@@ -1757,14 +1757,14 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if ((packed_flags & 1) == 0) {
             handle->read_exact(&representation_kind, 1);
             if (representation_kind == 1) {
-                handle->read_exact(&trigger->position, sizeof(srVector3T<float>));
+                wiz8::retail::read_exact(*handle, trigger->position);
                 handle->read_exact(&trigger->angle, 4);
-                handle->read_exact(&trigger->direction, sizeof(srVector3T<float>));
+                wiz8::retail::read_exact(*handle, trigger->direction);
                 trigger->position *= 500.0f;
                 trigger->flags |= W8_TRIGGER_POSITIONED;
             } else if (representation_kind == 2) {
-                handle->read_exact(trigger->representation_vectors,
-                                   sizeof(trigger->representation_vectors));
+                for (auto& point : trigger->representation_vectors)
+                    wiz8::retail::read_exact(*handle, point);
                 for (int vector = 0; vector < 4; ++vector) {
                     trigger->representation_vectors[vector] *= 500.0f;
                 }
@@ -1791,12 +1791,11 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                     static_cast<W8DoorTriggerActionData*>(trigger->m_pActionData)->open;
             } else if (action_data_kind == 2) {
                 unsigned char count;
-                srVector3T<float> legacy_vertices[36];
+                wiz8::retail::Vec3f legacy_vertices[36];
                 unsigned char legacy_flags[2];
                 handle->read_exact(&count, 1);
                 for (int index = 0; index < 36; ++index) {
                     handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
-                    legacy_vertices[index] *= 500.0f;
                 }
                 handle->read_exact(&legacy_flags[0], 1);
                 handle->read_exact(&legacy_flags[1], 1);
@@ -1860,7 +1859,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
 // VTABLE: WIZ8 0x005ec0e4
 // class Trigger
 // FUNCTION: WIZ8 0x00441750
-void Trigger::GetPosition(srVector3T<float>* position) const
+void Trigger::GetPosition(glm::vec3* position) const
 {
     *position = this->position;
 }
@@ -1934,7 +1933,7 @@ Trigger::Trigger()
 
     flags |= W8_TRIGGER_ON;
     name[0] = 0;
-    position.SetZero();
+    position = glm::vec3(0);
     action_data[0] = 0;
     item_group_seed = static_cast<unsigned int>(w8_get_ticks() + Random(30000));
     gold = 0;
@@ -2196,9 +2195,9 @@ action_complete:
 // FUNCTION: WIZ8 0x00440dd0
 void Trigger::RunDestination(const char* destination)
 {
-    srVector3T<float> destination_position;
-    srVector3T<float> destination_direction;
-    srVector3T<float> source_position;
+    glm::vec3 destination_position;
+    glm::vec3 destination_direction;
+    glm::vec3 source_position;
     glm::mat3 rotation;
     /* Retail's named-entity path reads saved storage for these integers;
        natively a named entity stays in the current level. */
@@ -2247,15 +2246,15 @@ void Trigger::RunDestination(const char* destination)
         destination_direction = target->direction;
     }
 
-    source_position.Set(position.x, position.y, position.z);
+    source_position = glm::vec3(position.x, position.y, position.z);
     g_octree->AdjustPortalDestination(&destination_position, &source_position);
     SetWorldScenePosition(GetWorld(), &destination_position);
 
     rotation = glm::mat3(1);
     if (angle != 0.0f) {
-        rotation *= glm::mat3_cast(
-            glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                           normalizedOrZero(glm::vec3(destination_direction.glmValue()))));
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                          normalizedOrZero(glm::vec3(destination_direction))));
     }
     ApplyCameraRotation(&rotation);
     SpawnCameraSpellEffect("set_portal", 1, 0, 0);
@@ -2268,7 +2267,7 @@ void Trigger::RunDestination(const char* destination)
 void Trigger::GenerateItemGroup()
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
-    srVector3T<float> position;
+    glm::vec3 position;
     unsigned int table_id;
     unsigned int maximum_items;
     int index;
@@ -2301,7 +2300,7 @@ void Trigger::GenerateItemGroup()
 // FUNCTION: WIZ8 0x00445670
 W8WorldItem* Trigger::GetOrCreateItemGroup(bool create)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (create && world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0);
@@ -2731,13 +2730,13 @@ void Trigger::Run(int source)
 
         if (inline_action_data[0] != '\0') {
             if (g_status.item_in_cursor) {
-                srVector3T<float> item_position;
+                glm::vec3 item_position;
                 auto item = CreateWorldItem(&g_status.item_in_hand, &item_position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
                     if (world_item_group == 0) {
-                        srVector3T<float> group_position;
+                        glm::vec3 group_position;
                         world_item_group = SpawnItem(0x23c, &group_position, 0);
                     }
                     ItemInfoAddToGroup(world_item_group.get(), std::move(item));
@@ -2925,7 +2924,7 @@ void Trigger::Run(int source)
     }
 
     case 0x39: {
-        srVector3T<float> party_position;
+        glm::vec3 party_position;
         W8TriggerShakeEvent* event;
 
         party_position = cameraLocation();
@@ -3035,9 +3034,9 @@ void Trigger::Run(int source)
                 } else {
                     spell_id = W8_SPELL_HEAL_ALL;
                 }
-                PointCastSpell(srVector3T<float>(static_cast<float>(position.x),
-                                                 static_cast<float>(position.y),
-                                                 static_cast<float>(position.z)),
+                PointCastSpell(glm::vec3(static_cast<float>(position.x),
+                                         static_cast<float>(position.y),
+                                         static_cast<float>(position.z)),
                                spell_id, static_cast<unsigned int>(m_lData3));
                 if (action == 0x2b) {
                     RemoveAllConditionsFromParty();
@@ -3076,23 +3075,22 @@ void Trigger::Run(int source)
             return;
         }
         if (m_lData2 == 0) {
-            srVector3T<float> source_position;
-            srVector3T<float> target_position;
-            srVector3T<float> transformed;
+            glm::vec3 source_position;
+            glm::vec3 target_position;
+            glm::vec3 transformed;
             glm::mat3 rotation;
 
-            source_position.Set(this->position.x, this->position.y, this->position.z);
+            source_position = glm::vec3(this->position.x, this->position.y, this->position.z);
             target_position = source_position;
             target_position.z += 100.0f;
             rotation = glm::mat3(1);
             /* Retail rotates the identity matrix around the trigger's direction
                field (ebp+0x100), not around identity Z. */
             if (angle != 0.0f) {
-                rotation *= glm::mat3_cast(
-                    glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                   normalizedOrZero(glm::vec3(direction.glmValue()))));
+                rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                          normalizedOrZero(glm::vec3(direction))));
             }
-            transformed = rotation * target_position.glmValue();
+            transformed = rotation * target_position;
             FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
                         1, 50000.0f);
         } else if (m_pEvent == 0) {
@@ -3764,7 +3762,7 @@ static int s_last_prop_index = -1;
 // FUNCTION: WIZ8 0x00445140
 bool AnyPropTriggerInView(W8World* world)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     unsigned int prop_count;
     int index;
 

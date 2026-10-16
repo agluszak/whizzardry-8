@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "AnimRep.hpp"
@@ -22,7 +23,6 @@
 #include "resource_cache.h"
 #include "surrender/srCamera.h"
 #include "surrender/srFog.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srVertexPipe.h"
@@ -169,8 +169,8 @@ void AdvanceEnvironmentTime(int elapsed)
         angle = (g_status.game_time_ms - 79200000) * arc * 3.9682539682539686e-08;
     }
 
-    srVector3T<float> direction;
-    direction.Set(0.0, g_celestial_orbit_radius, 0.0);
+    glm::vec3 direction;
+    direction = glm::vec3(0.0, g_celestial_orbit_radius, 0.0);
 
     glm::mat3 rotation;
     rotation = glm::mat3(1);
@@ -178,7 +178,7 @@ void AdvanceEnvironmentTime(int elapsed)
     angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
     rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
 
-    srVector3T<float> position = rotation * direction.glmValue() + g_celestial_origin.glmValue();
+    glm::vec3 position = rotation * direction + g_celestial_origin;
 
     W8Prop* moving = day ? g_sun_prop : g_moon_prop;
     W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
@@ -867,14 +867,14 @@ void InitializeLevelEnvironment(void)
             g_sun_prop = 0;
             g_moon_prop = 0;
         } else {
-            srVector3T<float> sun;
-            srVector3T<float> moon;
+            glm::vec3 sun;
+            glm::vec3 moon;
 
             sun = g_sun_prop->m_pRep->GetLocation();
             moon = g_moon_prop->m_pRep->GetLocation();
-            srVector3T<float> delta = sun - moon;
-            srVector3T<float> midpoint = (sun + moon) * 0.5;
-            g_celestial_orbit_radius = delta.Length() * 0.5f;
+            glm::vec3 delta = sun - moon;
+            glm::vec3 midpoint = (sun + moon) * 0.5f;
+            g_celestial_orbit_radius = glm::length(delta) * 0.5f;
             g_celestial_origin = midpoint;
             for (int index = 0; index < 3; ++index) {
                 const char* name = g_sky_gradient_names[index];

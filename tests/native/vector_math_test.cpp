@@ -72,44 +72,15 @@ static void ClippingAndLighting()
     for (int i = 0; i < 4; ++i) CheckFloats(power[i], clamped[i]);
 }
 
-static void PackedStorage()
+static void GuardedNormalization()
 {
-    struct PackedPoint {
-        unsigned char tag;
-        srVector3 point;
-    };
-    static_assert(offsetof(PackedPoint, point) == 1);
-    PackedPoint stored{0x5a, {2, -3, 4}};
-    const glm::vec3 value = stored.point.glmValue();
-    REQUIRE((value.x == 2 && value.y == -3 && value.z == 4));
-    stored.point = value + glm::vec3(1, 2, 3);
-    REQUIRE(
-        (stored.tag == 0x5a && stored.point.x == 3 && stored.point.y == -1 && stored.point.z == 7));
-
-    stored.point.Normalize();
-    REQUIRE((stored.tag == 0x5a && std::abs(stored.point.Length() - 1) < 1e-6f));
-}
-
-static void VectorMethods()
-{
-    srVector3 point(3, 4, 0);
-    REQUIRE((point.Length() == 5 && point.LengthSquared() == 25));
-    REQUIRE(point.SetLength(10) == &point);
-    REQUIRE(point == srVector3(6, 8, 0));
-    REQUIRE(point.Normalize() == &point);
-    REQUIRE(std::abs(point.Length() - 1) < 1e-6f);
-    point.SetLength(-5);
-    REQUIRE((std::abs(point.x + 3) < 1e-6f && std::abs(point.y + 4) < 1e-6f));
-
-    srVector3 zero(-0.0f, 0, -0.0f);
-    zero.Normalize()->SetLength(5);
-    CheckFloats(zero.x, -0.0f);
-    CheckFloats(zero.y, 0.0f);
-    CheckFloats(zero.z, -0.0f);
-    srVector3 tiny(std::numeric_limits<float>::denorm_min(), 0, 0);
-    const auto before = tiny.x;
-    tiny.Normalize();
-    CheckFloats(tiny.x, before);
+    const glm::vec3 zero(-0.0f, 0, -0.0f);
+    const auto normalized = normalizedOrZero(zero);
+    CheckFloats(normalized.x, -0.0f);
+    CheckFloats(normalized.y, 0.0f);
+    CheckFloats(normalized.z, -0.0f);
+    const glm::vec3 tiny(std::numeric_limits<float>::denorm_min(), 0, 0);
+    REQUIRE(normalizedOrZero(tiny) == tiny);
 
     const auto horizontal = normalizedOrZero(glm::dvec2(3, 4));
     REQUIRE(std::abs(glm::length(horizontal) - 1) < 1e-14);
@@ -119,10 +90,9 @@ static void VectorMethods()
 TEST_CASE("vector_math_test")
 {
 
-    PackedStorage();
-    VectorMethods();
+    GuardedNormalization();
     ClippingAndLighting();
-    std::puts("ok: packed storage, guarded vector methods, clipping and lighting");
+    std::puts("ok: guarded normalization, clipping and lighting");
 }
 
 TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp policies",

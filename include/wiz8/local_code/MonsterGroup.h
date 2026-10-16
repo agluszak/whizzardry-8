@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
 
@@ -39,7 +39,7 @@ struct W8MonsterGroup {
     int active_member_count; /* recomputed from member conditions */
     int monster_id;
     /* The mean of the live members' positions, recomputed on demand. */
-    srVector3T<float> centre;
+    glm::vec3 centre;
     /* Set once the group's members are activated and positioned in the
        world; targeting and the AI walk skip groups without it. Cleared at
        load/init. */
@@ -80,7 +80,7 @@ struct W8MonsterGroup {
     /* Copied verbatim onto every member's live Monster when the formation
        is re-applied. Unaligned inside this packed record, which is why the copy
        comes out as twelve byte moves rather than three dword ones. */
-    srVector3T<float> formation;
+    glm::vec3 formation;
     /* Set by MonGen when the group is spawned as an active encounter;
        cleared by UnregisterActiveEncounterGroup, which also raises
        encounter_ended. */
@@ -114,8 +114,8 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());
 bool GetMonsterGroupEngagementState(int group_id);
-unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
-                                        const srVector3T<float>* position, bool follow_leader);
+unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
+                                        bool follow_leader);
 /* Whether the group is loaded, in combat, and still has members; hostile
    groups are live on that alone, others also need CombatAllowsLiveGroups. */
 bool IsMonsterGroupLive(W8MonsterGroup* monster_group);
@@ -130,7 +130,7 @@ bool MonsterGroupHasRenderableMember(W8MonsterGroup* monster_group, bool require
    allied groups; while the byte is set, each call ticks the counter beside
    it. The record kinds the special encounter ids carry ignore a set. */
 void SetMonsterGroupEngagementState(int group_id, bool state);
-bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* position, float yaw,
+bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position, float yaw,
                                 bool proximity_check, bool include_allies, bool flatten_y,
                                 bool alternate_radius);
 /* Place a monster group relative to the party camera: with flag clear the
@@ -142,13 +142,12 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
 void RecountActiveMonsterGroupMembers(W8MonsterGroup* monster_group);
 /* Refresh the group's cached centre; a null centre out-pointer
    keeps only the cache update, which is how SpawnMonsters uses it. */
-void GetMonsterGroupCentre(W8MonsterGroup* monster_group, srVector3T<float>* centre);
+void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre);
 W8MonsterGroup* FindFirstMonsterByID(int monster_id);
 W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous);
 unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group);
-W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
-                            const srVector3T<float>* position, bool use_alternate_name,
-                            bool announce_spawn, bool place_on_ground);
+W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
+                            bool use_alternate_name, bool announce_spawn, bool place_on_ground);
 
 void ResetMonsterGroupTurnState(void);
 void RebindMonsterGroupScripts(void);
@@ -197,7 +196,7 @@ void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 
 void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group);
 
-void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const srVector3T<float>* formation);
+void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation);
 void ReapplyMonsterGroupFormations(void);
 void RepairMonsterGroupLeaderLinks(void);
 void ApplyDefaultMonsterGroupSounds(void);

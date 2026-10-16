@@ -14,7 +14,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/mesh_links.h"
 #include "wiz8/geometry.h"
@@ -206,11 +205,11 @@ public:
        negative offset checkpoints the shared index into the base. */
     bool TestPropSunBit(int offset);
     void AddCollidablePropBounds(int index, const srBoundingBox& bounds);
-    void VisitPointCopy(unsigned short location_id, srVector3T<float>* position);
+    void VisitPointCopy(unsigned short location_id, glm::vec3* position);
     /* Quantize relative to the spatial minimum, truncating toward zero. */
     glm::ivec3 cellAt(const glm::vec3& position) const; /* 0x00431440 */
     w8_ulong FindLeaf(const glm::ivec3& point);
-    void UpdateMonsterLocation(unsigned short location_id, const srVector3T<float>* position);
+    void UpdateMonsterLocation(unsigned short location_id, const glm::vec3* position);
     /* Object-kind values the query machinery dispatches on: 3 = GD triangle,
        8 = collidable-prop polygon reference, 9 = path waypoint, 12 = location entry,
        13 = secondary location entry. Registry values pack kind into the high
@@ -226,8 +225,7 @@ public:
                                          unsigned short exclusion); /* 0x0042EF00 */
     /* AABB occupancy test: GD triangles, kind-12 location objects (with each
        monster's navigator radius) and collidable-prop surfaces. */
-    unsigned char TestBoxOccupied(const srVector3T<float>* lower,
-                                  const srVector3T<float>* upper); /* 0x0042EF30 */
+    unsigned char TestBoxOccupied(const glm::vec3* lower, const glm::vec3* upper); /* 0x0042EF30 */
     /* Append the objects of `kind` inside one cell to the shared query
        buffer; the registry path deduplicates through m_visited_object_bits. */
     unsigned int CollectObjectsInCell(const glm::ivec3& cell, unsigned short kind); /* 0x0042F400 */
@@ -238,16 +236,16 @@ public:
        the current level bit set, choosing the octant from the three
        coordinate words. */
     int DescendByMask(const unsigned int* masked_cell); /* 0x004336D0 */
-    unsigned int GetSectorForPosition(const srVector3T<float>* position);
-    bool HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* to, bool allow_fallback);
+    unsigned int GetSectorForPosition(const glm::vec3* position);
+    bool HasLineOfSight(const glm::vec3* from, glm::vec3* to, bool allow_fallback);
     /* Paths `from` toward `to`; on success `range` returns the path cost and
        `hops` the reached-waypoint count. */
-    unsigned char TestNoiseLineOfSight(const srVector3T<float>* from, srVector3T<float>* to,
-                                       float* range, int* hops); /* 0x00434220 */
-    short TraceLineOfSight(const srVector3T<float>* from, srVector3T<float>* to, bool trace_world,
+    unsigned char TestNoiseLineOfSight(const glm::vec3* from, glm::vec3* to, float* range,
+                                       int* hops); /* 0x00434220 */
+    short TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trace_world,
                            int from_location_id, int to_location_id, bool visit_octree,
                            int trace_mode);
-    void AdjustPortalDestination(srVector3T<float>* destination, const srVector3T<float>* source);
+    void AdjustPortalDestination(glm::vec3* destination, const glm::vec3* source);
     W8OctreeWalk cellWalk(const glm::vec3& from, const glm::vec3& to) const;
     /* Reset the shared buffer and collect one cell's leaf object ids. */
     int ProbeCellForTrace(const glm::ivec3& cell); /* 0x00435B00 */
@@ -297,16 +295,16 @@ public:
                                          float separation);
     unsigned char PrepareNavigatorPatrol(W8NavigatorMovementState* movement, float minimum,
                                          float maximum);
-    unsigned char LinkNavigatorTarget(W8NavigatorMovementState* movement,
-                                      const srVector3T<float>* target, float separation);
-    void GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal);
+    unsigned char LinkNavigatorTarget(W8NavigatorMovementState* movement, const glm::vec3* target,
+                                      float separation);
+    void GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal);
     GroundProbe settleToGround(const glm::vec3& position, bool test_props,
                                float limit); /* 0x00433820 */
     /* Clamp `position` to the clipped ceiling, probe the ground one
        world-scale unit lower and keep the settled height on a hit. */
     /* Returns the ground-hit flag in AL; pathing callers test it. */
-    bool SnapToGround(srVector3T<float>* position, char mode); /* 0x00431D20 */
-    void RegisterNavigatorCell(int id, const srVector3T<float>* position);
+    bool SnapToGround(glm::vec3* position, char mode); /* 0x00431D20 */
+    void RegisterNavigatorCell(int id, const glm::vec3* position);
     /* Owned query results remain valid across subsequent octree queries.
        IDs retain cell traversal order and the existing 10,000-entry limit. */
     std::vector<w8_ulong> queryObjects(const srBoundingBox& bounds, unsigned short kind,
@@ -361,7 +359,7 @@ public:
     void MarkVisibleRegions(); /* 0x004301C0 */
     /* Build the six frustum planes from the camera basis and far clip. */
     void BuildFrustumPlanes(); /* 0x004302E0 */
-    short ProjectLinkedRegionsForLocation(srVector3T<float>* location,
+    short ProjectLinkedRegionsForLocation(glm::vec3* location,
                                           unsigned short* region_list); /* 0x00431050 */
 
     bool HasLoadError() const { return (m_spatial.flags & 0x80000000) != 0; }
@@ -520,7 +518,7 @@ public:
     void VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBuild* records);
     unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile& level,
                                  unsigned int min_component_percent);
-    char PathNodeObstructed(const srVector3T<float>* node_position);
+    char PathNodeObstructed(const glm::vec3* node_position);
     unsigned char
     InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
                            unsigned int cell, unsigned int node,

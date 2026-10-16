@@ -7,13 +7,13 @@
 #include <fmt/format.h>
 
 #include "compat/native.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -334,7 +334,7 @@ void BeginSedexusCapture(void)
 static void ResolveSedexusCapture(void)
 {
     W8MonsterGroup* group;
-    srVector3T<float> position;
+    glm::vec3 position;
     int location_id;
     W8MonsterInfo* info;
 
@@ -364,8 +364,8 @@ static void ResolveSedexusCapture(void)
 // FUNCTION: WIZ8 0x0052A080
 static void NpcScriptHenchmanArrives(W8Monster* monster)
 {
-    srVector3T<float> position;
-    srVector3T<float> origin;
+    glm::vec3 position;
+    glm::vec3 origin;
 
     if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
         PointCameraAtTarget(&position, false, true);
@@ -381,7 +381,7 @@ static void NpcScriptHenchmanArrives(W8Monster* monster)
             }
         }
     }
-    origin.SetZero();
+    origin = glm::vec3(0);
     monster->SetPosition(&origin);
     monster->runtime_flags |= W8_MONSTER_PARKED;
 }
@@ -391,10 +391,10 @@ static void NpcScriptHenchmanArrives(W8Monster* monster)
 // FUNCTION: WIZ8 0x0052A150
 static void NpcScriptHenchmanDeparted(W8Monster* monster)
 {
-    srVector3T<float> origin;
+    glm::vec3 origin;
 
     monster->runtime_flags |= W8_MONSTER_PARKED;
-    origin.SetZero();
+    origin = glm::vec3(0);
     monster->SetPosition(&origin);
 }
 
@@ -552,7 +552,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
     }
     case W8NpcStoryAction::balbrak_home: {
         W8MonsterInfo* monster_info = FindNpcKindMonster(0xc);
-        srVector3T<float> position;
+        glm::vec3 position;
         if (monster_info != 0 && FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
             monster_info->p3D->SetPosition(&position);
         }
@@ -595,7 +595,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::savant_appears: {
-        srVector3T<float> position;
+        glm::vec3 position;
         if (FindEntityByName("NP_DS1", &position, 0, 0)) {
             W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false, false);
             int location_id = group->MemberLocationId(0);
@@ -615,7 +615,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         if (monster_info != 0) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPECIAL, W8_ANIMATION_PLAY_ONCE);
         }
-        srVector3T<float> position;
+        glm::vec3 position;
         if (FindEntityByName("NP_PHOONZANGLEE", &position, 0, 0) &&
             (monster_info = FindMonsterGroupLeader(0x197)) != 0) {
             monster_info->p3D->SetPosition(&position);
@@ -635,7 +635,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
             if (npc != 0) {
                 DismissNpcFromParty(npc->group_index, 0, true, false);
             }
-            srVector3T<float> position;
+            glm::vec3 position;
             if (FindEntityByName("NP_VI1", &position, 0, 0)) {
                 W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false, false);
                 int location_id = group->MemberLocationId(0);
@@ -672,7 +672,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         EndNpcDialogueSession(false);
         ResetLevelDataVectors();
         SetMonsterGroupScript(0x18c, "MoveBela.msf");
-        srVector3T<float> position;
+        glm::vec3 position;
         if (FindEntityByName("NP_DSExit", &position, 0, 0)) {
             PointCameraAtTarget(&position, false, true);
         }

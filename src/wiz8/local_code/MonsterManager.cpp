@@ -13,12 +13,14 @@
 
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <glm/geometric.hpp>
 
 #include "GrCycle.h"
 #include "Navigator.h"
 #include "conditions.h"
 #include "dice.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/character.h"
 #include "layouts/levels.h"
 #include "layouts/main_game_screen.h"
@@ -98,7 +100,7 @@ static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monste
 
 // FUNCTION: WIZ8 0x004e3930
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
-                                 srVector3T<float>* position)
+                                 glm::vec3* position)
 {
     std::unique_ptr<W8MonsterInfo> owner(new (std::nothrow) W8MonsterInfo{});
     W8MonsterInfo* monster_info = owner.get();
@@ -141,7 +143,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     monster_info->ai_mode = W8_RT_AI_IDLE;
     monster_info->summoned = W8_MONSTER_SUMMON_NONE;
     monster_info->elemental_summon = -1;
-    monster_info->movement_watch_position.SetZero();
+    monster_info->movement_watch_position = glm::vec3(0);
 
     group->monsters.reserve(group->monsters.size() + 1);
     gXStatus.monster_roster.add(std::move(owner), record->unborn);
@@ -164,7 +166,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 {
     W8MonsterRecord* record;
-    srVector3T<float> camera_position;
+    glm::vec3 camera_position;
 
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x174, 0);
@@ -899,14 +901,13 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
     monster_info->p3D->inactive = false;
 }
 
-static double DistanceBetweenPositions(const srVector3T<float>* first,
-                                       const srVector3T<float>& second)
+static double DistanceBetweenPositions(const glm::vec3* first, const glm::vec3& second)
 {
-    return (*first - second).Length();
+    return glm::length((*first - second));
 }
 
 // FUNCTION: WIZ8 0x004e61e0
-W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double maximum_distance)
+W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_distance)
 {
     W8MonsterInfo* nearest = nullptr;
     double nearest_distance = 1.0e11;
@@ -1157,7 +1158,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster)
 // FUNCTION: WIZ8 0x004e4280
 void DeactivateMonster(W8MonsterInfo* monster_info)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x240, 0);

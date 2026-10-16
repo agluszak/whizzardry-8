@@ -9,10 +9,9 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_float4.hpp"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/materials.h"
+#include "wiz8/retail_geometry_types.h"
 
 class OctMeshModel;
 namespace wiz8 {
@@ -62,8 +61,8 @@ struct W8LevelFileCompressedFace { /* 0x21 */
 struct W8LevelFileLightExtra { /* 0x3c */
     unsigned int flags;
     float flicker_chance;
-    srVector3T<float> color;
-    srVector3T<float> color_to;
+    wiz8::retail::Vec3f color;
+    wiz8::retail::Vec3f color_to;
     float intensity;
     float intensity_to;
     float period;
@@ -77,7 +76,7 @@ struct W8LevelFileLightExtra { /* 0x3c */
    an optional inline trigger behind has_trigger. */
 struct W8LevelFileItemRecord { /* 0x44 */
     char item_name[0x14];       /* item script name */
-    srVector3T<float> position; /* scaled by world_scale on load */
+    wiz8::retail::Vec3f position; /* scaled by world_scale on load */
     int positional5;
     int positional7;
     int positional8;
@@ -93,7 +92,9 @@ struct W8LevelFileItemRecord { /* 0x44 */
 /* A clipping plane: a 64-byte name and a four-float position. */
 struct W8LevelFileClippingPlaneRecord { /* 0x50 */
     char name0[0x40];
-    glm::vec4 serialized_position;
+    struct {
+        float x, y, z, w;
+    } serialized_position;
 };
 
 /* The fixed head of a monster placement; its path nodes follow. */
@@ -107,9 +108,9 @@ struct W8LevelFileMonsterHeader { /* 0x22 */
 };
 
 struct W8LevelFileTriggerPosition { /* 0x1c */
-    srVector3T<float> position;
+    wiz8::retail::Vec3f position;
     float angle;
-    srVector3T<float> direction;
+    wiz8::retail::Vec3f direction;
 };
 
 struct W8LevelFileTriggerHotSpot { /* 0x85 */
@@ -123,40 +124,40 @@ struct W8LevelFileDoor { /* 0x99 */
     unsigned char flags[9];
     unsigned short item;
     unsigned char has_position;
-    srVector3T<float> position;
+    wiz8::retail::Vec3f position;
     char linked_trigger[0x80];
 };
 
 /* A trigger plane's four corners. */
 struct W8LevelFilePlane { /* 0x30 */
-    srVector3T<float> vertices[4];
+    wiz8::retail::Vec3f vertices[4];
 };
 
 /* One bounds pair: minimum then maximum corner. */
 struct W8LevelFileBounds { /* 0x18 */
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
+    wiz8::retail::Vec3f minimum;
+    wiz8::retail::Vec3f maximum;
 };
 
 /* The 0x225-byte particle body shared by the level file's particle systems
    and the world file's particle records. */
 struct W8LevelParticleRecord {
     char name[64];                   /* 0x000 */
-    srVector3T<float> location;      /* 0x040 */
+    wiz8::retail::Vec3f location;      /* 0x040 */
     float rotation_angle;            /* 0x04c */
-    srVector3T<float> rotation_axis; /* 0x050 */
+    wiz8::retail::Vec3f rotation_axis; /* 0x050 */
     unsigned char positional[0x0c];  /* 0x05c */
     unsigned int particle_count;     /* 0x068 */
     /* Emission spread extents; x/y bound both emission_minimum and
        emission_maximum symmetrically, z only the maximum. */
-    srVector3T<float> spread;        /* 0x06c */
+    wiz8::retail::Vec3f spread;        /* 0x06c */
     int has_acceleration;            /* 0x078 */
-    srVector3T<float> acceleration;  /* 0x07c */
+    wiz8::retail::Vec3f acceleration;  /* 0x07c */
     int expiry_mode;                 /* 0x088: nonzero selects texture-frame expiry */
     int bounds_mode;                 /* 0x08c */
-    srVector3T<float> bounds_origin; /* 0x090 */
+    wiz8::retail::Vec3f bounds_origin; /* 0x090 */
     float bounds_radius;             /* 0x09c */
-    srVector3T<float> bounds_extent; /* 0x0a0 */
+    wiz8::retail::Vec3f bounds_extent; /* 0x0a0 */
     unsigned int lifetime;           /* 0x0ac */
     int emission_mode;               /* 0x0b0 */
     unsigned int emission_interval;  /* 0x0b4 */
@@ -190,9 +191,9 @@ struct W8LevelFileParticleSystem { /* 0x226 */
 struct W8LevelFileNamedPosition { /* 0x9d */
     unsigned char version;
     char name[0x80];
-    srVector3T<float> position;
+    wiz8::retail::Vec3f position;
     float angle;
-    srVector3T<float> direction;
+    wiz8::retail::Vec3f direction;
 };
 
 #pragma pack(pop)
@@ -273,8 +274,8 @@ struct W8LevelFileLight {
     unsigned char visible = 0; /* bake requires != 0 to emit the light */
     unsigned short flags = 0;  /* W8LevelLightFlag */
     unsigned char unknown_06[2]{};
-    srVector3T<float> position{}; /* consumed by the vertex-lighting pass */
-    srVector3T<float> colour{};
+    glm::vec3 position{0.0f}; /* consumed by the vertex-lighting pass */
+    glm::vec3 colour{0.0f};
     float intensity = 0;
     float range = 0;
     char name[0x14]{}; /* version >= 2; sun/moon/lightning classify it */
@@ -284,8 +285,8 @@ struct W8LevelFileLight {
 
 struct W8LevelFileAnimLight {
     char version = 0;
-    srVector3T<float> position{};
-    srVector3T<float> color{};
+    glm::vec3 position{0.0f};
+    glm::vec3 color{0.0f};
     float intensity = 0;
     float range = 0;
     std::optional<W8LevelFileLightExtra> extra; /* version >= 2 */
@@ -317,7 +318,7 @@ struct W8LevelFileDoorRef {
    scales come from the owning trigger. */
 struct W8LevelFileLinkedRecord {
     unsigned char kind = 0;
-    srVector3T<float> vertices[36]{};
+    glm::vec3 vertices[36]{};
     signed char linked_face = 0;
     unsigned char flag = 0;
     float normal_scale = 0;
@@ -351,7 +352,7 @@ struct W8LevelFileSwitch {
 struct W8LevelFileInvisible {
     char version = 0;
     float range = 0;
-    srVector3T<float> position{};
+    glm::vec3 position{0.0f};
     int action = 0;
     int searchable = 0;
     unsigned char fire_linked = 0;
@@ -361,7 +362,7 @@ struct W8LevelFileInvisible {
     unsigned char plane_flag = 0;             /* version >= 2: == 1 registers a trigger plane */
     std::optional<W8LevelFilePlane> plane;    /* version >= 2 */
     float angle = 0;                          /* version >= 3 */
-    srVector3T<float> direction{};            /* version >= 3 */
+    glm::vec3 direction{0.0f};            /* version >= 3 */
     unsigned char unused = 0;                 /* version >= 3 */
     char action_string[0x80]{};               /* version >= 3: action-17 payload */
     unsigned char flag = 0;                   /* version >= 4 -> flags bit3 */
@@ -381,16 +382,16 @@ struct W8LevelFileSound {
     int time_max = 0;
     int unbounded = 0; /* == 0 gates the bounded radius */
     float radius = 0;
-    srVector3T<float> position{};
-    srVector3T<float> region_u{};
-    srVector3T<float> region_v{};
+    glm::vec3 position{0.0f};
+    glm::vec3 region_u{0.0f};
+    glm::vec3 region_v{0.0f};
     char wave[0x80]{};
     unsigned char has_position = 0;     /* version >= 2 */
     unsigned char looping = 0;          /* version >= 2 */
-    srVector3T<float> region_center{};  /* version >= 3 */
+    glm::vec3 region_center{0.0f};  /* version >= 3 */
     float region_angle = 0;             /* version >= 3 */
-    srVector3T<float> region_min{};     /* version >= 3 */
-    srVector3T<float> region_max{};     /* version >= 3 */
+    glm::vec3 region_min{0.0f};     /* version >= 3 */
+    glm::vec3 region_max{0.0f};     /* version >= 3 */
     char name[0x80]{};                  /* version >= 4 */
     unsigned char shared = 0;           /* version >= 5 */
 };
@@ -512,7 +513,7 @@ struct W8LevelFileProp {
     char version = 0;
     unsigned char frame_count = 0;  /* upper bound for segment frames */
     unsigned char option = 0;       /* version >= 5 */
-    srVector3T<float> position{};   /* version >= 5 */
+    glm::vec3 position{0.0f};   /* version >= 5 */
     unsigned int flags = 0;         /* version >= 6; W8_PROP_COLLIDABLE etc. */
     char name[0x40]{};              /* version >= 7 */
     std::vector<W8LevelFileFramePosition> frame_positions; /* version >= 8 */
@@ -534,9 +535,9 @@ struct W8LevelFileBlock {
     float view_distance = 0;
     /* >= 1 -> camera_position; >= 2 -> camera_angle and camera_axis too. */
     unsigned char camera_mode = 0;
-    srVector3T<float> camera_position{};
+    glm::vec3 camera_position{0.0f};
     float camera_angle = 0;
-    srVector3T<float> camera_axis{};
+    glm::vec3 camera_axis{0.0f};
     unsigned char has_light_colours = 0;
     unsigned char light_colours[0x300]{};
     unsigned char has_environment_colours = 0;
@@ -560,7 +561,7 @@ struct W8LevelFile {
     int camera_mode = 0; /* SetCameraSwayMode */
     unsigned char clipping_plane_version = 0;
     std::vector<W8LevelFileClippingPlaneRecord> clipping_planes;
-    srVector3T<float> environment_offset{};
+    glm::vec3 environment_offset{0.0f};
     std::vector<W8LevelFileParticleSystem> particle_systems;
     std::vector<W8LevelFileNamedPosition> named_positions;
     /* PrePathing::CreateAutomapNodes fills these with the sorted automap cell keys. */

@@ -4,6 +4,8 @@
 #include <memory>
 #include <utility>
 #include <vector>
+
+#include "glm/ext/vector_float3.hpp"
 struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct W8WorldItem;
@@ -85,7 +87,7 @@ struct W8XStatus {
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
     std::vector<int> target_markers;
-    srVector3T<float> target_position;
+    glm::vec3 target_position;
     W8CombatSlot shared_target;
     W8ActionDetailBlock shared_action_detail;
     int picked_monster;

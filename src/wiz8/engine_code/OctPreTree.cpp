@@ -30,7 +30,6 @@
 #include "packed_bits.h"
 #include "surrender/mesh_math.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GameData.h"
@@ -205,12 +204,22 @@ try {
     header.m_cell_size = m_spatial.m_cell_size;
     header.m_node_extent = m_spatial.m_node_extent;
     header.version = W8OctFileHeader::VERSION;
-    header.m_bounds[0] = m_spatial.m_bounds.minimum;
-    header.m_bounds[1] = m_spatial.m_bounds.maximum;
-    header.m_bounds[2] = m_spatial.m_clipped_bounds.minimum;
-    header.m_bounds[3] = m_spatial.m_clipped_bounds.maximum;
-    header.m_bounds[4] = m_spatial.m_working_bounds.minimum;
-    header.m_bounds[5] = m_spatial.m_working_bounds.maximum;
+    header.m_bounds[0] = {m_spatial.m_bounds.minimum.x, m_spatial.m_bounds.minimum.y,
+                          m_spatial.m_bounds.minimum.z};
+    header.m_bounds[1] = {m_spatial.m_bounds.maximum.x, m_spatial.m_bounds.maximum.y,
+                          m_spatial.m_bounds.maximum.z};
+    header.m_bounds[2] = {m_spatial.m_clipped_bounds.minimum.x,
+                          m_spatial.m_clipped_bounds.minimum.y,
+                          m_spatial.m_clipped_bounds.minimum.z};
+    header.m_bounds[3] = {m_spatial.m_clipped_bounds.maximum.x,
+                          m_spatial.m_clipped_bounds.maximum.y,
+                          m_spatial.m_clipped_bounds.maximum.z};
+    header.m_bounds[4] = {m_spatial.m_working_bounds.minimum.x,
+                          m_spatial.m_working_bounds.minimum.y,
+                          m_spatial.m_working_bounds.minimum.z};
+    header.m_bounds[5] = {m_spatial.m_working_bounds.maximum.x,
+                          m_spatial.m_working_bounds.maximum.y,
+                          m_spatial.m_working_bounds.maximum.z};
     header.m_grid_dims = {m_leaf_grid_dimensions.x, m_leaf_grid_dimensions.y,
                           m_leaf_grid_dimensions.z};
     header.m_depth = m_spatial.m_depth;
@@ -936,7 +945,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
     std::unordered_multimap<unsigned int, CondPathNode*> cond_map;
     char message[0x400];
     W8PreProp* preprops = 0;
-    srVector3T<float> node;
+    glm::vec3 node;
 
     object_registry = new W8OctreeObjectRegistry;
     SetOctreeGameData(game_data);
@@ -1053,10 +1062,10 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
    support a node are deduplicated into m_lSupports (result 6); a prop-blocked
    or floating node yields 1. */
 // FUNCTION: WIZ8 0x0046b700
-char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
+char OctPreTree::PathNodeObstructed(const glm::vec3* node)
 {
-    srVector3T<float> bounds_min, bounds_max;
-    srVector3T<float> corner;
+    glm::vec3 bounds_min, bounds_max;
+    glm::vec3 corner;
     char result;
     bool probe;
 
@@ -1069,7 +1078,7 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
     bounds_min.z = node->z - half;
     bounds_max.z = bounds_min.z + half + half;
 
-    result = TestPathPropBounds({bounds_min.glmValue(), bounds_max.glmValue()});
+    result = TestPathPropBounds({bounds_min, bounds_max});
     if (result != 1) {
         for (int i = 0; i < 4; ++i) {
             char out = 1;

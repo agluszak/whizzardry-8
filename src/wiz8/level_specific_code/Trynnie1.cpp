@@ -3,10 +3,10 @@
 #include <vector>
 
 #include "conditions.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/gameplay_databases.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/combat_state.h"
@@ -49,8 +49,8 @@ bool IsSpecialItemId(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x004DA670
 void EnsureTrynnie1KilledVar(void)
 {
-    srVector3T<float> vPos;
-    srVector3T<float> vPos2;
+    glm::vec3 vPos;
+    glm::vec3 vPos2;
     W8MonsterGroup* group;
 
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {

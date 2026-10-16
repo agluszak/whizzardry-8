@@ -10,8 +10,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/World.h"
 
-template<class T> class srVector3T;
-
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
 extern const float g_camera_angle_lower;
@@ -48,10 +46,10 @@ public:
 
     srCamera* CreateOrAttachCamera(srNode* parent, srCamera* camera); /* 0x00476440 */
     void ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context); /* 0x00476610 */
-    void SnapToTarget(const srVector3T<float>* target); /* 0x00476950 */
+    void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle); /* 0x00476C30 */
-    unsigned char LookAt(const srVector3T<float>* target, bool preserve_pitch); /* 0x00476F90 */
-    unsigned char ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
+    unsigned char LookAt(const glm::vec3* target, bool preserve_pitch); /* 0x00476F90 */
+    unsigned char ComputeTrackingOrientation(const glm::vec3* target, float* angle,
                                              float* pitch); /* 0x00477180 */
     unsigned char BeginOrientationTransition(float target_pitch, float target_angle,
                                              bool force); /* 0x00477440 */
@@ -76,7 +74,7 @@ public:
     void SetOrientation(float angle, float pitch); /* 0x004788E0 */
     glm::mat3 rotationMatrix(); /* 0x00478BD0 */
     void BeginLeveling(); /* 0x00478CC0 */
-    void GetForwardPoint(float distance, srVector3T<float>* output); /* 0x00478CE0 */
+    void GetForwardPoint(float distance, glm::vec3* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled); /* 0x00478E00 */
 
     w8_ulong m_orientation_flags;
@@ -109,11 +107,11 @@ private:
 extern GDCamera* g_gd_camera;
 extern srCamera* g_game_camera;
 
-void GetCameraForwardPointCopy(float distance, srVector3T<float>* output);
-void GetCameraForwardPoint(float distance, srVector3T<float>* output);
+void GetCameraForwardPointCopy(float distance, glm::vec3* output);
+void GetCameraForwardPoint(float distance, glm::vec3* output);
 /* 0x00421170: accumulate `distance` along +Z, rotated by yaw and pitch, into
    `position`. */
-void OffsetPositionByYawPitch(float distance, srVector3T<float>* position, float yaw, float pitch);
+void OffsetPositionByYawPitch(float distance, glm::vec3* position, float yaw, float pitch);
 /* Elevation/heading of the direction from `position` to the camera, in
    radians; the homing missile tick faces its representation with them. */
 /* ElevationToTargetCPP and HeadingToTargetCPP are declared in

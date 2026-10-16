@@ -8,6 +8,7 @@
 #include <string>
 
 #include "conditions.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
 
@@ -19,7 +20,6 @@ struct W8MonsterRecord;
 #include <unordered_map>
 #include <vector>
 
-#include "surrender/srMath.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/gameplay_modifiers.h"
@@ -124,7 +124,7 @@ struct W8MonsterManagerEntry {
 
 W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
-                                 srVector3T<float>* position);
+                                 glm::vec3* position);
 
 /* One queued monster action, 0x30 bytes: the kind/detail pair, the attack
    index the plain attack alone carries, an inline combat slot whose type and
@@ -240,9 +240,9 @@ struct W8PartyThreatRecord {
        the radar places a recently-seen blip from it (retail 0x005A2B8D
        reads +0x0c). Sight's store at 0x0050531E fills it from the
        monster's own position. */
-    srVector3T<float> own_position;
+    glm::vec3 own_position;
     /* The camera position at that sighting (stored at 0x00505304). */
-    srVector3T<float> camera_position;
+    glm::vec3 camera_position;
     /* The use-bounds mode the last UpdateMonsterSight pass handed to
        IsVisibleToPlayer. */
     bool use_bounds;
@@ -252,11 +252,7 @@ struct W8PartyThreatRecord {
     unsigned char unknown_26[0x0a];
 };
 
-#pragma pack(push, 1)
-/* One 0x31-byte visibility record. W8MonsterInfo embeds the party-facing one
-   at 0x348 and the mon-to-mon list allocates one per other monster; both store
-   the observer's position at 0x10 and the observed entity's at 0x1c as
-   ordinary floats. The reset zeroes exactly its 0x31 bytes. */
+/* Live sight-cache state; its save representation is retail::Visibility. */
 struct W8VisibilityRecord {
     int about_location_id;    /* 0x00; always zero in the party record */
     W8SightState sight_state; /* W8SightState */
@@ -268,15 +264,13 @@ struct W8VisibilityRecord {
        party-facing record stores its visible_to_player result here. */
     bool can_see;
     int last_seen_clock;
-    srVector3T<float> subject_position; /* the observer */
-    srVector3T<float> target_position;  /* the observed */
+    glm::vec3 subject_position; /* the observer */
+    glm::vec3 target_position;  /* the observed */
     bool line_of_sight;
     unsigned char unknown_29[8];
 };
 
 using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
-
-#pragma pack(pop)
 
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
@@ -291,7 +285,7 @@ struct W8MonsterInfo {
     /* Copied from the group's ubDisposition when the entry is created. */
     W8Disposition ubDisposition;
     /* The spawn position; the facing yaw toward the camera follows. */
-    srVector3T<float> position;
+    glm::vec3 position;
     float derived; /* camera-facing yaw over position */
     int uiHPMax;
     unsigned int hp_current; /* unsigned conversion at 0053164B */
@@ -299,7 +293,7 @@ struct W8MonsterInfo {
     int stamina;             /* initialized to the same roll */
     /* The position and radius of the last noise this monster heard;
        Noise.cpp writes the heard position and the radius that carried. */
-    srVector3T<float> heard_noise_position;
+    glm::vec3 heard_noise_position;
     int heard_noise_radius;
     /* The hit-point regeneration rate and its fractional accumulator. */
     float hp_regen_rate;
@@ -385,7 +379,7 @@ struct W8MonsterInfo {
     /* The condition's own target source, copied in whole by the
        condition setter. */
     W8TargetSource condition_target;
-    srVector3T<float> movement_watch_position;
+    glm::vec3 movement_watch_position;
     /* Location id of the elemental Summon Elemental bound to
        this monster, -1 while none is bound; a bound monster cannot be picked
        again. */
@@ -425,7 +419,7 @@ void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
-W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double maximum_distance);
+W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_distance);
 void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
 void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state);

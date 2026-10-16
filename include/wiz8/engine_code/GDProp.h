@@ -8,7 +8,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/OctPath.h"
 
 class srModelInstance;
@@ -112,8 +111,8 @@ private:
     W8PathVerticalRange m_path_range;     /* 0x28 */
     /* Vertex AABB cached by computeBounds and tested by
        boundsOverlap. */
-    srVector3T<float> m_bound_min;  /* 0x34 */
-    srVector3T<float> m_bound_max;  /* 0x40 */
+    glm::vec3 m_bound_min;  /* 0x34 */
+    glm::vec3 m_bound_max;  /* 0x40 */
     W8PathGridBounds m_path_bounds; /* 0x4c */
     /* Owns the list buffer; item records belong to the world item list. */
     std::vector<W8WorldItem*> m_supported_items; /* 0x54 */

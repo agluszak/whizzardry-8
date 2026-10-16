@@ -33,6 +33,7 @@
 #include "difficulty.h"
 #include "equipment_slots.h"
 #include "game_timer.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "himage.h"
 #include "image.h"
@@ -54,7 +55,6 @@
 #include "sprite.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
 #include "surrender/srPixelConvert.h"
@@ -5538,19 +5538,21 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (gpSCSV && GetActionSpellLikeId(g_status.selected_character,
                                            W8_TARGETING_CONTEXT_CURRENT) == 0x3c) {
             signed char extent_index;
-            srVector3T<float> minimum;
-            srVector3T<float> maximum;
+            glm::vec3 minimum;
+            glm::vec3 maximum;
             if (gpSCSV->iSpellPower == -1) {
                 extent_index = 2;
             } else {
                 extent_index = g_spell_power_extent_index[gpSCSV->iSpellPower];
             }
-            minimum.Set(static_cast<float>(g_world_cursor_extent_table[extent_index * 6]),
-                        static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 1]),
-                        static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 2]));
-            maximum.Set(static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 3]),
-                        static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 4]),
-                        static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 5]));
+            minimum =
+                glm::vec3(static_cast<float>(g_world_cursor_extent_table[extent_index * 6]),
+                          static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 1]),
+                          static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 2]));
+            maximum =
+                glm::vec3(static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 3]),
+                          static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 4]),
+                          static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 5]));
             SetWorldCursorExtents(&minimum, &maximum);
         }
     } else if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
@@ -5969,13 +5971,13 @@ void SetCombatSelection(int value)
     if (value == -1) {
         g_level_block->highlighted_item = -1;
     } else {
-        srVector3T<float> camera;
+        glm::vec3 camera;
         W8Monster* monster;
 
         camera = cameraLocation();
         monster = GetMonsterByLocationID(value);
         const auto bounds = MonsterGetWorldAnimationBounds(monster);
-        if (bounds && traceLineOfSightToBounds(camera.glmValue(), *bounds) != 0) {
+        if (bounds && traceLineOfSightToBounds(camera, *bounds) != 0) {
             g_level_block->highlighted_item = value;
             g_level_block->target_highlight_ok[0] =
                 HighlightMonsterAsTarget(value, g_status.selected_character, 1);
@@ -6018,8 +6020,8 @@ void SetCombatTarget(int value)
             W8WorldItem* item = ItemInfo(ItemIndex(value));
             if (item != 0) {
                 if (const auto bounds = GetItemWorldBounds(item->p3D)) {
-                    const srVector3T<float> camera(cameraLocation());
-                    if (traceLineOfSightToBounds(camera.glmValue(), *bounds) != 0) {
+                    const glm::vec3 camera(cameraLocation());
+                    if (traceLineOfSightToBounds(camera, *bounds) != 0) {
                         g_level_block->selected_item = value;
                         SetWorldItemHighlight(value, true);
                     }

@@ -11,7 +11,6 @@
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "retail_records.h"
-#include "surrender/srMath.h"
 #include "unicode.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -986,7 +985,7 @@ static void global_status_record()
     }
     status.party_gold = 0x12345678;
     status.uiTurnsElapsed = 0x87654321;
-    status.pending_move_location.position.Set(1, 2, 3);
+    status.pending_move_location.position = glm::vec3(1, 2, 3);
     char path[] = "C:\\gsta.bin";
     W8Chunk chunks;
     REQUIRE(chunks.OpenWrite(path));
@@ -1045,34 +1044,39 @@ static void global_status_record()
     chunks.Close();
 }
 
-static void packed_camera_angles()
+static void camera_angles()
 {
     GDCamera camera;
-    auto* previous = g_gd_camera;
+    const struct RestoreCamera {
+        GDCamera& camera;
+        GDCamera* previous;
+        ~RestoreCamera()
+        {
+            g_gd_camera = previous;
+            delete camera.m_manual_input_timer;
+        }
+    } restore{camera, g_gd_camera};
     g_gd_camera = &camera;
-    alignas(float) struct PackedCamera {
-        char padding;
-        W8WorldCameraState state;
-    } packed{};
-    REQUIRE(reinterpret_cast<uintptr_t>(&packed.state) % alignof(float) != 0);
-    GetCameraOrientation(packed.state.yaw, packed.state.pitch);
-    W8CameraAngleRecord yaw, pitch;
-    memcpy(yaw, packed.state.yaw, sizeof(yaw));
-    memcpy(pitch, packed.state.pitch, sizeof(pitch));
-    for (unsigned i = 0; i < 6; ++i) REQUIRE((yaw[i] == 0 && pitch[i] == 0));
-    yaw[0] = 0.5f;
-    pitch[0] = 0.25f;
-    yaw[5] = 123.0f;
-    pitch[5] = 456.0f;
-    memcpy(packed.state.yaw, yaw, sizeof(yaw));
-    memcpy(packed.state.pitch, pitch, sizeof(pitch));
-    SetCameraOrientation(packed.state.yaw, packed.state.pitch, nullptr);
+    W8WorldCameraState state{};
+    GetCameraOrientation(state.yaw, state.pitch);
+    for (unsigned i = 0; i < 6; ++i) REQUIRE((state.yaw[i] == 0 && state.pitch[i] == 0));
+    state.position = {1, 2, 3};
+    state.yaw[0] = 0.5f;
+    state.pitch[0] = 0.25f;
+    state.yaw[5] = 123.0f;
+    state.pitch[5] = 456.0f;
+    SetCameraOrientation(state.yaw, state.pitch, nullptr);
     REQUIRE((camera.m_yaw == 0.5f && camera.m_pitch == 0.25f));
-    memcpy(yaw, packed.state.yaw, sizeof(yaw));
-    memcpy(pitch, packed.state.pitch, sizeof(pitch));
-    REQUIRE((yaw[0] == 0.5f && pitch[0] == 0.25f && yaw[5] == 123.0f && pitch[5] == 456.0f));
-    g_gd_camera = previous;
-    delete camera.m_manual_input_timer;
+    REQUIRE((state.yaw[0] == 0.5f && state.pitch[0] == 0.25f && state.yaw[5] == 123.0f &&
+             state.pitch[5] == 456.0f));
+    const auto encoded = wiz8::retail::encode(state);
+    const std::array<float, 15> expected{1, 2, 3, .25f, 0, 0, 0, 0, 456, .5f, 0, 0, 0, 0, 123};
+    REQUIRE(std::ranges::equal(encoded, std::as_bytes(std::span(expected))));
+    W8WorldCameraState decoded{};
+    wiz8::retail::decode(encoded, decoded);
+    REQUIRE(decoded.position == state.position);
+    REQUIRE(std::ranges::equal(decoded.yaw, state.yaw));
+    REQUIRE(std::ranges::equal(decoded.pitch, state.pitch));
 }
 
 #include <catch2/generators/catch_generators.hpp>
@@ -1119,9 +1123,9 @@ struct SaveFixture {
     ~SaveFixture() { wiz8::clear_asset_archives(); }
 };
 
-TEST_CASE("Packed camera angles", "[save][records]")
+TEST_CASE("Camera angles retain their explicit save representation", "[save][records]")
 {
-    packed_camera_angles();
+    camera_angles();
 }
 
 TEST_CASE("Global status record", "[save][records]")

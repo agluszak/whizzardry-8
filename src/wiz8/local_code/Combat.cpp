@@ -9,6 +9,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "attack_modes.h"
@@ -31,7 +32,6 @@
 #include "random.h"
 #include "sight_state.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -1589,7 +1589,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 {
     W8MonsterInfo* target;
     int location_id;
-    srVector3T<float> point;
+    glm::vec3 point;
 
     switch (monster_info->Target.iType) {
     case W8_TARGET_KIND_NONE:
@@ -2421,7 +2421,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     W8RangeCategory range;
     float approach_distance;
     float engage_distance;
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterInfo* target_info;
     W8TargetSource source;
     W8TargetSource monster_source;
@@ -2703,7 +2703,7 @@ bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 // FUNCTION: WIZ8 0x004ECB40
 void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     int location_id;
     W8Monster* target_monster;
     bool no_target;
@@ -2813,11 +2813,11 @@ bool CreateCharacterBreathEffect(int party_slot)
 {
     W8TargetSource source;
     glm::mat3 rotation;
-    srVector3T<float> camera;
-    srVector3T<float> direction;
+    glm::vec3 camera;
+    glm::vec3 direction;
     std::vector<int> char_targets;
     std::vector<int> monster_targets;
-    srVector3T<float> aim;
+    glm::vec3 aim;
     W8CombatSlot* target;
     double yaw;
     double pitch;
@@ -2836,11 +2836,11 @@ bool CreateCharacterBreathEffect(int party_slot)
     camera = cameraLocation();
     aim = target->point - camera;
     direction = aim;
-    aim.SetLength(1.0);
+    aim = glm::dot(aim, aim) == 0 ? aim : glm::normalize(aim) * static_cast<float>(1.0);
     rotation = glm::mat3(1);
     yaw = atan2(aim.x, aim.z);
     rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
-    aim = rotation * direction.glmValue();
+    aim = rotation * direction;
     pitch = -atan2(aim.y, aim.z);
     rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
     g_combat_state->breath_visual = CreateAimedSpellEffect(
@@ -3085,7 +3085,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
     int location_id;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED) {
         return;

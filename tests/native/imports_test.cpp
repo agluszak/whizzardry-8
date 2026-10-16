@@ -18,6 +18,7 @@
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
@@ -283,23 +284,23 @@ TEST_CASE("imports_test")
         delete parent_node;
         delete other_parent;
 
-        struct alignas(16) PackedVectors {
+        struct AlignedVectors {
             char padding;
-            srVector3 values[2];
-            srVector3 minimum;
-            srVector3 maximum;
+            glm::vec3 values[2];
+            glm::vec3 minimum;
+            glm::vec3 maximum;
         } vectors;
-        vectors.values[0].Set(5, -2, 7);
-        vectors.values[1].Set(-3, 9, 1);
-        REQUIRE(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
+        vectors.values[0] = glm::vec3(5, -2, 7);
+        vectors.values[1] = glm::vec3(-3, 9, 1);
+        REQUIRE(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(glm::vec3) == 0);
         {
             assert(std::size(vectors.values) != 0);
-            auto lower = vectors.values[0].glmValue();
+            auto lower = vectors.values[0];
             auto upper = lower;
             for (std::size_t point_index = 1; point_index < std::size(vectors.values);
                  ++point_index) {
                 const auto& point = vectors.values[point_index];
-                const auto v = point.glmValue();
+                const auto v = point;
                 // Keep the comparison order for NaNs in recovered bounds.
                 for (int c = 0; c < 3; ++c) {
                     if (v[c] >= lower[c]) {

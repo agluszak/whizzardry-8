@@ -80,6 +80,10 @@ struct LevelReader {
         field(value.y);
         field(value.z);
     }
+    template<std::size_t N> void field(glm::vec3 (&values)[N])
+    {
+        for (auto& value : values) field(value);
+    }
     void array(std::vector<glm::vec3>& values, std::int64_t count)
     {
         ValidateRecordCount(count, 3 * sizeof(float), file);
@@ -126,6 +130,10 @@ struct LevelWriter {
         field(value.x);
         field(value.y);
         field(value.z);
+    }
+    template<std::size_t N> void field(const glm::vec3 (&values)[N])
+    {
+        for (const auto& value : values) field(value);
     }
     void array(const std::vector<glm::vec3>& values, std::int64_t count)
     {

@@ -7,8 +7,8 @@
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
 
+#include "glm/ext/vector_float3.hpp"
 #include "input.h"
-#include "surrender/srMath.h"
 
 class Trigger;
 class W8Monster;
@@ -51,7 +51,7 @@ struct W8MipeState {
     int selected_group_id; /* group id of the last group pick; W8_MIPE_NO_GROUP = none */
     unsigned char selecting;
     unsigned char unknown_11[0x13];
-    srVector3T<float> drag_anchor;
+    glm::vec3 drag_anchor;
     unsigned char creation_method; /* 0 exact, 1 placeholder, 2 selection */
     bool dragging;
     unsigned char padding_32[2];

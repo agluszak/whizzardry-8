@@ -290,15 +290,6 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
     }
 }
 
-// FUNCTION: WIZ8 0x0046ffa0
-int IsZeroVector(const srVector3T<float>* vector)
-{
-    if (vector->x == g_float_zero && vector->y == g_float_zero && vector->z == g_float_zero) {
-        return 1;
-    }
-    return 0;
-}
-
 /* Copy or translate `count` vertices: a zero offset is a plain copy and a
    nonzero one goes through the vp constant-vector add. */
 

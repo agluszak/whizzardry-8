@@ -7,13 +7,14 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <glm/geometric.hpp>
 
 #include "compat/native.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "random.h"
-#include "surrender/srMath.h"
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -99,21 +100,21 @@ void W8Searchable::Reveal()
 W8SearchableView* CollectSearchablesInView(void)
 {
     int total = static_cast<int>(g_searchables.size());
-    srVector3T<float> camera = cameraLocation();
+    glm::vec3 camera = cameraLocation();
     g_search_view.items.clear();
     g_search_view.cursor = -1;
     for (int index = 0; index < total; ++index) {
         W8Searchable* searchable = g_searchables[index];
-        srVector3T<float> position;
+        glm::vec3 position;
         searchable->GetPosition(&position);
-        srVector3T<float> delta = camera - position;
-        if (delta.Length() < g_search_radius) {
+        glm::vec3 delta = camera - position;
+        if (glm::length(delta) < g_search_radius) {
             if (searchable->world_item == 0 && searchable->trigger != 0) {
                 g_search_view.items.push_back(searchable);
             } else {
                 float half_cone = g_search_cone_angle * g_float_half;
-                srVector3T<float> from = camera;
-                srVector3T<float> to = position;
+                glm::vec3 from = camera;
+                glm::vec3 to = position;
                 float yaw = GetCameraYawRadians();
                 float heading = GetHeadingAngle(&from, &to);
                 float ahead = NormalizeAngle(yaw - heading);
@@ -171,21 +172,22 @@ void UnregisterSearchableTrigger(Trigger* trigger)
    has a live owner, the recorded position otherwise; cursor-node and prop
    searchables resolve through their own objects. */
 // FUNCTION: WIZ8 0x00517080
-void W8Searchable::GetPosition(srVector3T<float>* position)
+void W8Searchable::GetPosition(glm::vec3* position)
 {
-    position->SetZero();
+    (*position) = glm::vec3(0);
     if (world_item != 0) {
         if (world_item->p3D != 0) {
             *position = world_item->p3D->GetSearchPosition();
             return;
         }
-        position->Set(world_item->position.x, world_item->position.y + g_octree_cell_scale,
+        (*position) =
+            glm::vec3(world_item->position.x, world_item->position.y + g_octree_cell_scale,
                       world_item->position.z);
         return;
     }
     if (cursor_node != 0) {
         if (cursor_node->GetLocation(position) == 0) {
-            *position = 3.4028235e+38f;
+            *position = glm::vec3(3.4028235e+38f);
         }
         return;
     }
@@ -276,7 +278,7 @@ void RunSearchPulse(void)
                             }
                             gXStatus.character_event_queue->QueueEntry(std::move(event));
                         }
-                        srVector3T<float> position;
+                        glm::vec3 position;
                         searchable->GetPosition(&position);
                         ResetInactiveLevelDataVectors();
                         PointCameraAtTarget(&position, true, true);
@@ -367,11 +369,11 @@ int W8Searchable::PickBestSearcher()
         }
     }
     float range = best_score * g_search_radius * g_movement_speed_step;
-    srVector3T<float> camera = cameraLocation();
-    srVector3T<float> position;
+    glm::vec3 camera = cameraLocation();
+    glm::vec3 position;
     GetPosition(&position);
-    srVector3T<float> delta = camera - position;
-    if (delta.Length() < range) {
+    glm::vec3 delta = camera - position;
+    if (glm::length(delta) < range) {
         if (earned) {
             PracticeCharacterSkill(&g_status.buffers.Char[best_slot], W8_SKILL_SCOUTING, 5, false);
         }

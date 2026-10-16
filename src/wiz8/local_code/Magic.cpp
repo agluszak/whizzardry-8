@@ -12,6 +12,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "Monster.h"
@@ -31,7 +32,6 @@
 #include "monster_actions.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "timer.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
@@ -665,7 +665,7 @@ void UpdateSpellEffects(void)
                     effect->missiles.erase(effect->missiles.begin() + missile_index);
                 }
                 if (missile != 0) {
-                    srVector3T<float> position = missile->GetPosition();
+                    glm::vec3 position = missile->GetPosition();
                     position.y -= g_float_one_thousand;
                     W8SpellVisual* visual =
                         SpawnSpellEffect(&position, g_spell_records[effect->kind].resource_name,
@@ -825,7 +825,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info = 0;
     W8CombatSlot target;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
         monster_info = FindMonster(effect->target.iMonsterID);
@@ -838,7 +838,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             W8NavigatorMovementState* movement = &monster_info->p3D->movement;
             position = movement->position;
             position.y += movement->height_offset;
-            position.y = probeGround(position.glmValue()).position.y;
+            position.y = probeGround(position).position.y;
             PostMonsterNotice(monster_info, g_localized_strings[0x195]);
         } else {
             position = cameraLocation();
@@ -1454,7 +1454,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
    A power level outside one through seven is silently taken as one, which is
    what makes a caller passing zero cast nothing at all rather than cast weakly. */
 // FUNCTION: WIZ8 0x004fb220
-int PointCastSpell(srVector3T<float> position, int spell_id, unsigned int power_level)
+int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
 {
     W8TargetSource source;
     W8CombatSlot target;
@@ -2033,7 +2033,7 @@ void W8SpellEffectEntry::AddVisual(W8SpellVisual* visual)
 // FUNCTION: WIZ8 0x004fb360
 void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8SpellVisual* effect;
 
     target->point.y -= 1000.0f;
@@ -2733,7 +2733,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         bool recast, int* out_power, int cast_kind, std::vector<int>* party_targets,
                         std::vector<int>* monster_targets)
 {
-    srVector3T<float> point;
+    glm::vec3 point;
     bool fizzled;
     bool quiet;
     bool forced;
@@ -2756,11 +2756,10 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     std::vector<int> party_markers;
     W8SpellEffectDefinition block;
     W8CombatSlot point_target;
-    srVector3T<float> ground_point;
-    srVector3T<float> forward_point;
-    srVector3T<float> origin;
-    srVector3T<float> direction;
-    srVector3T<float> axis;
+    glm::vec3 ground_point;
+    glm::vec3 forward_point;
+    glm::vec3 origin;
+    glm::vec3 direction;
     glm::mat3 local_90;
     double yaw;
     double pitch;
@@ -2852,7 +2851,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     }
                     heading = HeadingTowardNearestMonster(ground_point, disposition, 0);
                     const auto placement = g_octree->navigatorPositions(
-                        ground_point.glmValue(), heading,
+                        ground_point, heading,
                         static_cast<float>(
                             g_world_cursor_extent_table
                                 [g_spell_power_extent_index[power_level - 1] * 6 + 3]) +
@@ -2941,9 +2940,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             missile_index = g_spell_records[spell_id].missile_index;
             if (GetSpellTargetType(spell_id, false) == 6) {
                 ResetCombatSlot(&point_target);
-                point_target.point.Set(target->point.x,
-                                       g_default_world_height * g_float_half + target->point.y,
-                                       target->point.z);
+                point_target.point = glm::vec3(
+                    target->point.x, g_default_world_height * g_float_half + target->point.y,
+                    target->point.z);
                 point_target.iType = W8_TARGET_KIND_PLACE;
                 missile = FireMissileSourceToTarget(missile_index, source, &point_target, &block,
                                                     true, W8_RANGE_NONE, 9999);
@@ -3032,11 +3031,13 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     } else {
                         origin = source->point;
                         direction = target->point - origin;
-                        direction.SetLength(1.0);
+                        direction = glm::dot(direction, direction) == 0
+                                        ? direction
+                                        : glm::normalize(direction) * static_cast<float>(1.0);
                         local_90 = glm::mat3(1);
                         yaw = atan2(direction.x, direction.z);
                         local_90 *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
-                        direction = glm::transpose(local_90) * direction.glmValue();
+                        direction = glm::transpose(local_90) * direction;
                         pitch = -atan2(direction.y, direction.z);
                         local_90 *=
                             glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
@@ -3327,9 +3328,9 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
 // FUNCTION: WIZ8 0x004FEA50
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
-    srVector3T<float> from;
-    srVector3T<float> trace;
-    srVector3T<float> saved;
+    glm::vec3 from;
+    glm::vec3 trace;
+    glm::vec3 saved;
     W8MonsterInfo* monster_info;
     W8Navigator* navigator;
     W8SpellTargetType target_type;
@@ -3491,9 +3492,9 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
 // FUNCTION: WIZ8 0x004FEF90
 void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
-    srVector3T<float> origin;
-    srVector3T<float> point;
-    srVector3T<float> delta;
+    glm::vec3 origin;
+    glm::vec3 point;
+    glm::vec3 delta;
     W8MonsterInfo* monster_info;
     W8Navigator* navigator;
     double range;
@@ -3518,14 +3519,15 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
                                      origin.z);
         point.y = Random(0x3e9) * range * g_double_one_thousandth + origin.y;
         g_octree->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
-        point.y = probeGround(point.glmValue()).position.y;
+        point.y = probeGround(point).position.y;
         if (point.y != g_ground_settle_fail) {
             break;
         }
     }
     delta = origin - point;
-    if (range < delta.Length()) {
-        delta.SetLength(range);
+    if (range < glm::length(delta)) {
+        delta =
+            glm::dot(delta, delta) == 0 ? delta : glm::normalize(delta) * static_cast<float>(range);
         point = delta + origin;
     }
     target->point = point;
@@ -3621,12 +3623,12 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                                 W8CombatSlot* target, std::vector<int>& monster_markers,
                                 std::vector<int>& party_markers, int highlighting)
 {
-    srVector3T<float> player_pos;
-    srVector3T<float> camera;
-    srVector3T<float> centre;
-    srVector3T<float> eye;
-    srVector3T<float> target_point;
-    srVector3T<float> trace;
+    glm::vec3 player_pos;
+    glm::vec3 camera;
+    glm::vec3 centre;
+    glm::vec3 eye;
+    glm::vec3 target_point;
+    glm::vec3 trace;
     W8MonsterInfo* monster_info;
     W8MonsterInfo* member;
     W8MonsterGroup* group;
@@ -3819,7 +3821,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         break;
     case W8_TARGET_TYPE_RADIUS:
-        trace.Set(target_point.x, target_point.y - g_float_one_thousand, target_point.z);
+        trace = glm::vec3(target_point.x, target_point.y - g_float_one_thousand, target_point.z);
         radius = (g_spell_records[spell_id].radius_per_level * power_level +
                   g_spell_records[spell_id].effect_radius) *
                  g_world_scale;

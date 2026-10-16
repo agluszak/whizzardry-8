@@ -25,7 +25,6 @@
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "scoped_asset_roots.h"
-#include "surrender/srMath.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
@@ -161,8 +160,8 @@ static void level_records()
     append(bytes, 1); // Uncompressed, no transform.
     append(bytes, 3);
     append(bytes, 1);
-    const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
-                                            srVector3(0, 1, 0)};
+    const std::array<glm::vec3, 3> vertices{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
+                                            glm::vec3(0, 1, 0)};
     append(bytes, vertices);
     W8SerializedMeshFace face{};
     face.vertices[0] = 0;
@@ -215,10 +214,10 @@ static void level_records()
     append(bytes, 3);
     append(bytes, 1);
     append(bytes, static_cast<unsigned char>(7)); // Short LOD vertices, compressed faces.
-    append(bytes, srVector3(0, 0, 0));
+    append(bytes, glm::vec3(0, 0, 0));
     append(bytes, 0.0f);
-    append(bytes, srVector3(0, 0, 1));
-    append(bytes, srVector3(1, 1, 1));
+    append(bytes, glm::vec3(0, 0, 1));
+    append(bytes, glm::vec3(1, 1, 1));
     append(bytes, static_cast<unsigned char>(2));
     const auto lod_offset = bytes.size();
     append(bytes, static_cast<short>(1));
@@ -309,10 +308,10 @@ static void wgd_banks()
         std::string bytes;
         append(bytes, 3);
         append(bytes, 1);
-        append(bytes, std::array<srVector3, 3>{srVector3(2, 2, 2), srVector3(3, 2, 2),
-                                               srVector3(2, 2, 3)});
+        append(bytes, std::array<glm::vec3, 3>{glm::vec3(2, 2, 2), glm::vec3(3, 2, 2),
+                                               glm::vec3(2, 2, 3)});
         append(bytes, std::array<int, 3>{0, 1, 2});
-        append(bytes, srVector3(0, 1, 0));
+        append(bytes, glm::vec3(0, 1, 0));
         append(bytes, 2);
         append(bytes, 1);
         append(bytes, 0.5f);
@@ -326,8 +325,8 @@ static void wgd_banks()
             strcpy(name.data(), "Door");
             append(bytes, name);
         }
-        append(bytes, srVector3(2, 2, 2));
-        append(bytes, srVector3(3, 3, 3));
+        append(bytes, glm::vec3(2, 2, 2));
+        append(bytes, glm::vec3(3, 3, 3));
         return bytes;
     };
     store("primary.wgd", bank(false));
@@ -440,8 +439,8 @@ static void geometry()
     word(0x38, 1);
     std::string bytes;
     append(bytes, header);
-    const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
-                                            srVector3(0, 1, 0)};
+    const std::array<glm::vec3, 3> vertices{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
+                                            glm::vec3(0, 1, 0)};
     append(bytes, vertices);
     wiz8::retail::GDSurface surface{};
     surface.vertex_indices[0] = 0;
@@ -462,14 +461,13 @@ static void geometry()
         operations = trace.operations;
     }
     auto query = [&] {
-        srVector3 start(0.25f, 0.25f, 2), end(0.25f, 0.25f, -2);
+        glm::vec3 start(0.25f, 0.25f, 2), end(0.25f, 0.25f, -2);
         if (!data.geometry_index) REQUIRE((InitializeGameData(&data)));
         auto delta = end - start;
-        const auto hits =
-            data.geometry_index->queryAlongSegment(start.glmValue(), delta.glmValue(), 0, 3);
+        const auto hits = data.geometry_index->queryAlongSegment(start, delta, 0, 3);
         REQUIRE(hits.size() == 1);
         REQUIRE((hits[0] == data.m_pSurfaces.data()));
-        W8OctreeTrace trace(start.glmValue(), end.glmValue());
+        W8OctreeTrace trace(start, end);
         REQUIRE((data.TestTraceResult(1, nullptr, &trace, 0, 0)));
         REQUIRE((trace.end.z == 0 && data.last_hit_surface == 0));
         W8OctreeTrace skin_trace({0.25f, 0.25f, 0.5f}, {0.25f, 0.25f, -2});
@@ -1139,7 +1137,7 @@ TEST_CASE_METHOD(LoaderFixture,
     path.grid_scale = 1;
     path.span = 1;
     for (unsigned i = 1; i <= 150; ++i) {
-        const srVector3 position(i, 1, 1);
+        const glm::vec3 position(i, 1, 1);
         path.AddWaypoint(&position);
         path.m_waypoints[i].flags |= W8_WAYPOINT_CONDITIONAL;
         const auto node = path.AllocateSearchNode();
@@ -1154,7 +1152,7 @@ TEST_CASE_METHOD(LoaderFixture,
     REQUIRE(path.m_pEdges.size() == 150);
     for (unsigned i = 1; i <= 150; ++i) {
         REQUIRE(path.m_waypoints[i].index == i);
-        REQUIRE(path.m_waypoints[i].position == srVector3(i, 1, 1));
+        REQUIRE(path.m_waypoints[i].position == glm::vec3(i, 1, 1));
         REQUIRE(path.m_search_nodes[i].parent_node == i - 1);
         REQUIRE(path.m_search_nodes[i].position == path.m_waypoints[i].position);
     }
@@ -1180,14 +1178,16 @@ TEST_CASE_METHOD(LoaderFixture,
     for (std::size_t i = 0; i < snapshot.size(); ++i) {
         snapshot[i].flags = path.m_waypoints[i].flags;
         snapshot[i].first_edge = path.m_waypoints[i].first_edge;
-        snapshot[i].position = path.m_waypoints[i].position;
+        snapshot[i].position = {path.m_waypoints[i].position.x, path.m_waypoints[i].position.y,
+                                path.m_waypoints[i].position.z};
     }
     REQUIRE(path.WriteWaypointFile(snapshot));
     REQUIRE(path.ReadWaypointFile());
     REQUIRE(path.m_waypoints.size() == snapshot.size());
     REQUIRE(path.m_pEdges.size() == 150);
     for (std::size_t i = 1; i < snapshot.size(); ++i) {
-        REQUIRE(path.m_waypoints[i].position == snapshot[i].position);
+        REQUIRE(path.m_waypoints[i].position ==
+                glm::vec3(snapshot[i].position.x, snapshot[i].position.y, snapshot[i].position.z));
         REQUIRE(path.m_waypoints[i].first_edge == snapshot[i].first_edge);
     }
 }

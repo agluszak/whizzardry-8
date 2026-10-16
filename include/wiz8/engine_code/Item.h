@@ -17,7 +17,6 @@ class Trigger;
 class srModelInstance;
 class stModelInstance;
 class srNode;
-template<class T> class srVector3T;
 
 /* Bit masks in W8ItemRep::flags and the saved W8WorldItem::entity_flags.
    The world item's own flags are a separate domain. */
@@ -62,7 +61,7 @@ struct W8Item : public W8GrObject {
     void ApplyRepTransform();
     void AttachMesh(W8World* world);
     void UpdateAnimation();
-    void SetLocation(const srVector3T<float>* location);
+    void SetLocation(const glm::vec3* location);
     srNode* GetMesh();
     /* Model-local cached bounds. GetItemWorldBounds translates them by the
        representation's location without rotating them. */
@@ -70,7 +69,7 @@ struct W8Item : public W8GrObject {
     float GetBoundsRadius() const;
     /* Live search/interaction point: representation location raised by 0.66 of
        the cached local Y extent. */
-    srVector3T<float> GetSearchPosition() const;
+    glm::vec3 GetSearchPosition() const;
     void SetYaw(float angle);
     void SetHighlight(bool enabled);
     bool IsSelected();

@@ -6,7 +6,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 
@@ -14,8 +13,8 @@
 static float g_quad_cell_size = 5500.0f;
 
 // FUNCTION: WIZ8 0x004BE200
-std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const srVector3T<float>& minimum,
-                                       const srVector3T<float>& maximum)
+std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const glm::vec3& minimum,
+                                       const glm::vec3& maximum)
 {
     auto quad = std::make_unique<W8Quad>();
     quad->row_count = static_cast<unsigned int>((maximum.x - minimum.x) / g_quad_cell_size) + 1;
@@ -29,7 +28,7 @@ std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const srVector
     glm::vec3* vertices = model->getVertexLoc();
     for (int polygon = 0; polygon < model->polygon_count; ++polygon) {
         const glm::ivec3& corners = polygon_vertices[polygon];
-        srVector3T<float> center = vertices[corners.x] + vertices[corners.y] + vertices[corners.z];
+        glm::vec3 center = vertices[corners.x] + vertices[corners.y] + vertices[corners.z];
         unsigned int row = static_cast<unsigned int>(
             fabs((center.x * 0.33333334f - minimum.x) / g_quad_cell_size));
         unsigned int column = static_cast<unsigned int>(

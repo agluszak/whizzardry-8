@@ -4,9 +4,9 @@
 #include <vector>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
 
@@ -119,13 +119,13 @@ public:
     int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */
-    srVector3T<float> GetDelta(); /* 0x0044E130 */
+    glm::vec3 GetDelta(); /* 0x0044E130 */
     /* The prop's position for external queries: animation_position while its
        animation runs, else the rep node's location. */
-    srVector3T<float> GetPosition() const; /* 0x0044E2C0 */
+    glm::vec3 GetPosition() const; /* 0x0044E2C0 */
     /* Mirror of GetPosition: stores `position` in animation_position while the
        animation runs, else moves the rep node through SetLocation. */
-    void SetPosition(srVector3T<float>* position); /* 0x0044E310 */
+    void SetPosition(glm::vec3* position); /* 0x0044E310 */
     bool TriggerHasActionMessage();                /* 0x0044E360 */
     /* Whether trigger exists and takes an item (required_item_id >= 0 or a
        type-10 action payload naming item). */
@@ -148,9 +148,9 @@ public:
     bool IsAnimationPingPong();
     void ReverseAnimationDirection();
     Trigger* GetTrigger();
-    bool IsTriggerInView(srVector3T<float>* position);
+    bool IsTriggerInView(glm::vec3* position);
     Trigger* GetGDPropOwnerTrigger();
-    std::optional<srVector3T<float>> GetCenterPosition();
+    std::optional<glm::vec3> GetCenterPosition();
     /* Whether the renderer's currently selected model instance is dispatched
        by this prop's animation - the prop half of ResolvePickedProp's test.
        `world` is accepted but never read. */
@@ -168,9 +168,9 @@ public:
        reduces it by the whole-frame count - the fractional remainder. */
     float anim_frame_fraction;
     W8GameTimer* m_pTimer;                         /* 0x28 */
-    srVector3T<float> animation_position;          /* 0x2c: written by ApplyAnimationFrame */
+    glm::vec3 animation_position;          /* 0x2c: written by ApplyAnimationFrame */
     GDProp* m_gd_prop;                             /* 0x38 */
-    srVector3T<float> previous_animation_position; /* 0x3c */
+    glm::vec3 previous_animation_position; /* 0x3c */
     /* Prop::Prop writes two identity bases here as nine floats each. */
     glm::mat3 previous_animation_rotation; /* 0x48 */
     glm::mat3 animation_rotation;          /* 0x6c */

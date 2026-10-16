@@ -9,7 +9,6 @@
 #include "layouts/world.h"
 #include "monster_actions.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
@@ -63,7 +62,7 @@ static void SwampGasFireItemDrop(int command);    /* 0x004DACD0 */
    that, spawns the gas fire. */
 static bool CastSwampPlaneSpell(Trigger* pTrigger, int spell_id)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (GetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) == 0) {
         SwampGasFireSpawn(pTrigger);
@@ -101,10 +100,10 @@ bool SwampFirePlane(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DAA70
 static bool SwampGasFireSpawn(Trigger* pTrigger)
 {
-    srVector3T<float> center;
-    srVector3T<float> position;
-    srVector3T<float> mapped;
-    srVector3T<float> look_target;
+    glm::vec3 center;
+    glm::vec3 position;
+    glm::vec3 mapped;
+    glm::vec3 look_target;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
     W8NpcState* npc;
@@ -115,15 +114,16 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
     }
     SetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1, false);
     ResetInactiveLevelDataVectors();
-    center.Set((pTrigger->representation_vectors[0].x + pTrigger->representation_vectors[1].x +
-                pTrigger->representation_vectors[2].x + pTrigger->representation_vectors[3].x) *
-                   g_double_quarter,
-               (pTrigger->representation_vectors[0].y + pTrigger->representation_vectors[1].y +
-                pTrigger->representation_vectors[2].y + pTrigger->representation_vectors[3].y) *
-                   g_double_quarter,
-               (pTrigger->representation_vectors[0].z + pTrigger->representation_vectors[1].z +
-                pTrigger->representation_vectors[2].z + pTrigger->representation_vectors[3].z) *
-                   g_double_quarter);
+    center =
+        glm::vec3((pTrigger->representation_vectors[0].x + pTrigger->representation_vectors[1].x +
+                   pTrigger->representation_vectors[2].x + pTrigger->representation_vectors[3].x) *
+                      g_double_quarter,
+                  (pTrigger->representation_vectors[0].y + pTrigger->representation_vectors[1].y +
+                   pTrigger->representation_vectors[2].y + pTrigger->representation_vectors[3].y) *
+                      g_double_quarter,
+                  (pTrigger->representation_vectors[0].z + pTrigger->representation_vectors[1].z +
+                   pTrigger->representation_vectors[2].z + pTrigger->representation_vectors[3].z) *
+                      g_double_quarter);
     position = center;
     group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
     index = group->MemberLocationId(0);
@@ -154,8 +154,8 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DACD0
 static void SwampGasFireItemDrop(int command)
 {
-    srVector3T<float> position;
-    srVector3T<float> drop_position;
+    glm::vec3 position;
+    glm::vec3 drop_position;
     W8WorldItem* item;
 
     if (command != 0) {

@@ -44,7 +44,6 @@
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
@@ -115,8 +114,8 @@ static void bounds()
 {
     const auto empty = boundingBox(std::span<const glm::vec3>{});
     REQUIRE((empty.minimum == glm::vec3(0) && empty.maximum == glm::vec3(0)));
-    const std::array<srVector3, 3> points{{{-4, 2, -3}, {-1, 8, -7}, {-2, 5, -1}}};
-    const auto box = boundingBox(std::span<const srVector3>(points));
+    const std::array<glm::vec3, 3> points{{{-4, 2, -3}, {-1, 8, -7}, {-2, 5, -1}}};
+    const auto box = boundingBox(std::span<const glm::vec3>(points));
     REQUIRE((box.minimum == glm::vec3(-4, 2, -7)));
     REQUIRE((box.maximum == glm::vec3(-1, 8, -1)));
     REQUIRE((box.center() == glm::vec3(-2.5f, 5, -4)));
@@ -140,30 +139,30 @@ static void bounds()
     quarter_turn[0] = glm::vec3(0, 1, 0);
     quarter_turn[1] = glm::vec3(-1, 0, 0);
     quarter_turn[2] = glm::vec3(0, 0, 1);
-    const srVector3 translation(10, 20, 30), scale(-2, 3, .5f);
-    srVector3 minimum(-1, -2, -3), maximum(4, 5, 6);
+    const glm::vec3 translation(10, 20, 30), scale(-2, 3, .5f);
+    glm::vec3 minimum(-1, -2, -3), maximum(4, 5, 6);
     TransformBounds(&quarter_turn, &translation, &scale, &minimum, &maximum);
-    REQUIRE(minimum == srVector3(-24, 57, 13.5f));
-    REQUIRE(maximum == srVector3(-10, 72, 18));
-    minimum = srVector3(0, 0, 0);
-    maximum = srVector3(0, 0, 0);
+    REQUIRE(minimum == glm::vec3(-24, 57, 13.5f));
+    REQUIRE(maximum == glm::vec3(-10, 72, 18));
+    minimum = glm::vec3(0, 0, 0);
+    maximum = glm::vec3(0, 0, 0);
     TransformBounds(&quarter_turn, &translation, &scale, &minimum, &maximum);
-    REQUIRE((minimum == srVector3(-20, 60, 15) && maximum == minimum));
+    REQUIRE((minimum == glm::vec3(-20, 60, 15) && maximum == minimum));
 }
 
 static void planes_and_segments()
 {
-    const srVector3 a(0, 2, 0), b(0, 2, 3), c(4, 2, 0);
-    const auto ground = probeGround(a.glmValue());
-    REQUIRE((ground.position == a.glmValue() && !ground.hit));
-    const auto surface = groundSurfaceInfo(a.glmValue());
+    const glm::vec3 a(0, 2, 0), b(0, 2, 3), c(4, 2, 0);
+    const auto ground = probeGround(a);
+    REQUIRE((ground.position == a && !ground.hit));
+    const auto surface = groundSurfaceInfo(a);
     REQUIRE(surface.height == 2);
     REQUIRE((surface.surface == 0 && surface.material == 0));
     W8Plane plane{};
-    plane = trianglePlane(a.glmValue(), b.glmValue(), c.glmValue());
+    plane = trianglePlane(a, b, c);
     REQUIRE(close(plane.normal, {0, 1, 0}));
     REQUIRE(std::abs(SignedPlaneDistance(plane, {5, 4, 7}) - 2) < 1e-5f);
-    plane = trianglePlane(a.glmValue(), a.glmValue(), a.glmValue());
+    plane = trianglePlane(a, a, a);
     REQUIRE((plane.normal == glm::vec3(0) && plane.w == 0));
 
     const glm::vec3 start(0, 0, 0), end(2, 0, 2);
@@ -222,11 +221,11 @@ static void camera_and_throw()
     REQUIRE((up.yaw == 0 && std::abs(up.pitch + glm::half_pi<float>()) < 1e-6f));
     const auto zero = directionAngles({0, 0, 0});
     REQUIRE((zero.yaw == 0 && zero.pitch == 0));
-    srVector3 position(1, 2, 3);
+    glm::vec3 position(1, 2, 3);
     OffsetPositionByYawPitch(10, &position, glm::half_pi<float>(), 0);
-    REQUIRE(close(position.glmValue(), {11, 2, 3}));
+    REQUIRE(close(position, {11, 2, 3}));
     OffsetPositionByYawPitch(5, &position, 0, glm::half_pi<float>());
-    REQUIRE(close(position.glmValue(), {11, -3, 3}));
+    REQUIRE(close(position, {11, -3, 3}));
 
     GDCamera camera;
     camera.m_position = glm::vec3(3, 4, 5);
@@ -246,18 +245,18 @@ static void camera_and_throw()
     const auto rotation = cameraRotation(world);
     g_gd_camera = previous_camera;
     REQUIRE(empty_location == glm::vec3(0));
-    REQUIRE(empty_state.position == srVector3(0, 0, 0));
+    REQUIRE(empty_state.position == glm::vec3(0, 0, 0));
     REQUIRE(live_location == glm::vec3(3, 4, 5));
     REQUIRE(node_location == glm::vec3(1.25f, -2.5f, 3.75f));
-    REQUIRE(state.position.glmValue() == node_location);
+    REQUIRE(state.position == node_location);
     REQUIRE((state.yaw[0] == .25f && state.pitch[0] == -.5f));
     for (int index = 1; index < 6; ++index)
         REQUIRE((state.yaw[index] == 0 && state.pitch[index] == 0));
     REQUIRE(rotation == glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
-    srVector3 forward;
+    glm::vec3 forward;
     camera.GetForwardPoint(10, &forward);
-    REQUIRE(close(forward.glmValue() - camera.m_position, {10, 0, 0}));
+    REQUIRE(close(forward - camera.m_position, {10, 0, 0}));
     glm::mat3 vertical(glm::eulerAngleX(glm::half_pi<float>()));
     camera.ApplyRotationMatrix(&vertical, nullptr);
     REQUIRE((std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch)));
@@ -694,38 +693,38 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Baked lighting", "[geometry]")
 
 TEST_CASE("navigator route growth, copying and movement")
 {
-    const srVector3 origin(0, 0, 0), end(3, 0, 4);
+    const glm::vec3 origin(0, 0, 0), end(3, 0, 4);
     W8NavigatorAttachment route(&origin, &end);
     REQUIRE((route.MeasurePathLength() == 5));
     route.InitializeSegment(&origin, &end);
     route.path_position_index = 1;
     for (unsigned short i = 1; i <= 35; ++i) {
-        const srVector3 position(i, 0, 0);
+        const glm::vec3 position(i, 0, 0);
         route.AppendPathPosition(&position, i);
     }
     REQUIRE((route.path_position_index == 36 && route.path.size() > 36));
     for (unsigned short i = 1; i <= 35; ++i) {
-        REQUIRE((route.path[i].position == srVector3(i, 0, 0)));
+        REQUIRE((route.path[i].position == glm::vec3(i, 0, 0)));
         REQUIRE((route.path[i].value == i));
     }
-    route.path[36] = {srVector3(36, 0, 0), 0};
+    route.path[36] = {glm::vec3(36, 0, 0), 0};
     W8NavigatorAttachment copied;
-    copied.path[0].position = srVector3(-1, 0, 0);
+    copied.path[0].position = glm::vec3(-1, 0, 0);
     copied.CopyPathFrom(&route);
-    REQUIRE((copied.path[0].position == srVector3(-1, 0, 0)));
+    REQUIRE((copied.path[0].position == glm::vec3(-1, 0, 0)));
     REQUIRE((copied.path_position_index == route.path_position_index));
     for (unsigned i = 1; i <= 36; ++i) {
         REQUIRE((copied.path[i].position == route.path[i].position));
         REQUIRE((copied.path[i].value == route.path[i].value));
     }
-    route.path[1].position = srVector3(99, 0, 0);
-    REQUIRE((copied.path[1].position == srVector3(1, 0, 0)));
+    route.path[1].position = glm::vec3(99, 0, 0);
+    REQUIRE((copied.path[1].position == glm::vec3(1, 0, 0)));
     copied.InitializeSegment(&origin, &end);
     for (const auto& entry : copied.path) REQUIRE((entry.value == 0));
     REQUIRE((copied.MeasurePathLength() == 5));
-    srVector3 current = origin, direction;
+    glm::vec3 current = origin, direction;
     REQUIRE((!copied.AdvancePositionWithDirection(&current, 2, &direction)));
-    REQUIRE((close(current.glmValue(), {1.2f, 0, 1.6f})));
+    REQUIRE((close(current, {1.2f, 0, 1.6f})));
     REQUIRE((copied.AdvancePositionWithDirection(&current, 4, &direction)));
     REQUIRE((current == end));
 
@@ -1034,14 +1033,14 @@ TEST_CASE("Spatial bounds are independent snapshots of working and clipped exten
           "[geometry][octree]")
 {
     W8OctSpatialState state;
-    const srVector3 minimum(-30, -20, -10), maximum(10, 20, 30);
-    state.setWorkingBounds({minimum.glmValue(), maximum.glmValue()});
+    const glm::vec3 minimum(-30, -20, -10), maximum(10, 20, 30);
+    state.setWorkingBounds({minimum, maximum});
     state.m_clipped_bounds.minimum = {-3, -2, -1};
     state.m_clipped_bounds.maximum = {1, 2, 3};
     const auto working = state.GetWorkingBounds();
     auto clipped = state.GetClippedBounds();
-    REQUIRE(working.minimum == minimum.glmValue());
-    REQUIRE(working.maximum == maximum.glmValue());
+    REQUIRE(working.minimum == minimum);
+    REQUIRE(working.maximum == maximum);
     REQUIRE(clipped.minimum == glm::vec3(-3, -2, -1));
     REQUIRE(clipped.maximum == glm::vec3(1, 2, 3));
     clipped.minimum = glm::vec3(0);
@@ -1049,7 +1048,7 @@ TEST_CASE("Spatial bounds are independent snapshots of working and clipped exten
     state.Reset();
     REQUIRE(state.GetWorkingBounds().minimum == glm::vec3(0));
     REQUIRE(state.GetClippedBounds().maximum == glm::vec3(0));
-    REQUIRE(working.minimum == minimum.glmValue());
+    REQUIRE(working.minimum == minimum);
 }
 
 TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
@@ -1076,7 +1075,7 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
     REQUIRE(GetItemWorldBounds(&item)->minimum == glm::vec3(95, 197, 299));
 
     const auto search = item.GetSearchPosition();
-    REQUIRE(close(search.glmValue(), {100, 207.92f, 300}));
+    REQUIRE(close(search, {100, 207.92f, 300}));
     rep->bounds_minimum = glm::vec3(0);
     rep->bounds_radius = 0;
     REQUIRE(item.GetCachedLocalBounds().minimum == glm::vec3(0));
@@ -1117,22 +1116,22 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
 {
     W8AnimRepBase rep;
     rep.parent_location = {10, 20, 30};
-    const srVector3 local(1, 2, 3);
+    const glm::vec3 local(1, 2, 3);
     rep.SetLocation(&local);
     const auto world = rep.GetLocation();
     const auto local_copy = rep.GetLocalLocation();
     auto rotation = rep.GetRotation();
-    REQUIRE(world == srVector3(11, 22, 33));
+    REQUIRE(world == glm::vec3(11, 22, 33));
     REQUIRE(local_copy == local);
     REQUIRE(rotation == glm::mat3(1));
     rotation[0][0] = 2;
     REQUIRE(rep.GetRotation() == glm::mat3(1));
     rep.SetRotation(&rotation);
     REQUIRE(rep.GetRotation() == rotation);
-    const srVector3 next(-1, -2, -3);
+    const glm::vec3 next(-1, -2, -3);
     rep.SetLocation(&next);
-    REQUIRE(rep.GetLocation() == srVector3(9, 18, 27));
-    REQUIRE(world == srVector3(11, 22, 33));
+    REQUIRE(rep.GetLocation() == glm::vec3(9, 18, 27));
+    REQUIRE(world == glm::vec3(11, 22, 33));
     REQUIRE(local_copy == local);
 }
 
@@ -1178,8 +1177,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and way
     navigator.movement.velocity = {1, 2, 3};
     const auto velocity = navigator.GetVelocity();
     navigator.movement.velocity = {4, 5, 6};
-    REQUIRE(navigator.GetVelocity() == srVector3(4, 5, 6));
-    REQUIRE(velocity == srVector3(1, 2, 3));
+    REQUIRE(navigator.GetVelocity() == glm::vec3(4, 5, 6));
+    REQUIRE(velocity == glm::vec3(1, 2, 3));
 
     W8NavigatorAttachment route;
     route.start_waypoint = {1, 2, 3};
@@ -1192,12 +1191,12 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and way
     route.path_position_index = 1;
     route.path[0].position = {4, 5, 6};
     const auto waypoint = route.GetNextPosition();
-    REQUIRE(waypoint == srVector3(4, 5, 6));
+    REQUIRE(waypoint == glm::vec3(4, 5, 6));
     route.path[0].position = {10, 11, 12};
-    REQUIRE(waypoint == srVector3(4, 5, 6));
+    REQUIRE(waypoint == glm::vec3(4, 5, 6));
     route.path_cursor = route.path_position_index;
     REQUIRE(route.GetNextPosition() == route.path_destination);
-    REQUIRE(start == srVector3(1, 2, 3));
+    REQUIRE(start == glm::vec3(1, 2, 3));
 }
 
 namespace {
@@ -1220,23 +1219,23 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     prop.animation_position = {3, 5, 7};
     prop.previous_animation_position = {1, 2, 3};
     const auto static_position = prop.GetPosition();
-    REQUIRE(static_position == srVector3(10, 20, 30));
+    REQUIRE(static_position == glm::vec3(10, 20, 30));
     animation.path_lists = true;
     REQUIRE(prop.GetPosition() == prop.animation_position);
-    REQUIRE(static_position == srVector3(10, 20, 30));
+    REQUIRE(static_position == glm::vec3(10, 20, 30));
     prop.Rep()->animation_behaviour = W8_ANIMATION_PLAY_ONCE;
     prop.Rep()->frame_direction = W8_ANIMATION_FORWARD;
     prop.Rep()->first_frame = 0;
     prop.Rep()->last_frame = 3;
     prop.Rep()->subcycle = 1;
     const auto delta = prop.GetDelta();
-    REQUIRE(delta == srVector3(2, 3, 4));
+    REQUIRE(delta == glm::vec3(2, 3, 4));
     REQUIRE(prop.Rep()->subcycle == 1);
     prop.Rep()->subcycle = 3;
-    REQUIRE(prop.GetDelta() == srVector3(0, 0, 0));
+    REQUIRE(prop.GetDelta() == glm::vec3(0, 0, 0));
     prop.Rep()->animation_behaviour = W8_ANIMATION_REPEAT;
     prop.Rep()->frame_method = W8_ANIMATION_WRAP;
-    REQUIRE(prop.GetDelta() == srVector3(0, 0, 0));
+    REQUIRE(prop.GetDelta() == glm::vec3(0, 0, 0));
     prop.Rep()->frame_method = W8_ANIMATION_PING_PONG;
     REQUIRE(prop.GetDelta() == delta);
     prop.Rep()->frame_direction = W8_ANIMATION_REVERSE;
@@ -1307,7 +1306,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     prop.Rep()->subcycle = 1;
     const auto center = prop.GetCenterPosition();
     REQUIRE(center);
-    REQUIRE(*center == srVector3(5.5f, -3.5f, 1));
+    REQUIRE(*center == glm::vec3(5.5f, -3.5f, 1));
     const auto bounds = prop.GetBounds();
     REQUIRE(bounds);
     REQUIRE(bounds->minimum == glm::vec3(-4, -9, -8));
@@ -1348,8 +1347,8 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(bounds->maximum == glm::vec3(8, 10, 12));
     const auto world = MonsterGetWorldAnimationBounds(&monster);
     REQUIRE(world);
-    REQUIRE(world->minimum == bounds->minimum + monster.GetPosition().glmValue());
-    REQUIRE(world->maximum == bounds->maximum + monster.GetPosition().glmValue());
+    REQUIRE(world->minimum == bounds->minimum + monster.GetPosition());
+    REQUIRE(world->maximum == bounds->maximum + monster.GetPosition());
     const auto center = monster.GetAnimationCenter();
     REQUIRE(center);
     REQUIRE(std::abs(center->y - monster.GetPosition().y - 14 * 0.66f) < 0.0001f);
@@ -1364,7 +1363,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE_FALSE(MonsterGetWorldAnimationBounds(&monster));
     REQUIRE_FALSE(MonsterGetWorldAnimationBounds(nullptr));
     REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
-    REQUIRE(animation.frame_bounds[0].minimum == srVector3(-1, -2, -3));
+    REQUIRE(animation.frame_bounds[0].minimum == glm::vec3(-1, -2, -3));
 }
 
 TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geometry]")

@@ -1,7 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srMath.h"
 
 class W8Monster;
 struct W8MonsterInfo;
@@ -25,15 +25,15 @@ struct W8WorldCursorState {
     glm::ivec3 input_delta;
     /* 0x18: camera-relative offset the placement update derives from
        position. */
-    srVector3T<float> cam_rel_offset;
+    glm::vec3 cam_rel_offset;
     /* 0x24: the light node the complete teardown removes from the world. */
     stLight* light;
     /* 0x28: read back by the path-visualization update as a world point. */
-    srVector3T<float> position;
+    glm::vec3 position;
     /* 0x34: the last position published to the cursor's nodes and monster;
        the update compares it against position to detect a move. Seeded
        to the -1e7 sentinel by the placement update. */
-    srVector3T<float> last_published;
+    glm::vec3 last_published;
     /* 0x40: authored name fEnabled - the cursor update asserts it. */
     bool enabled;
     /* 0x41: ground tracking. Set by the initializer and the placement
@@ -64,20 +64,20 @@ struct W8WorldCursorState {
     unsigned char padding_52[2];
     /* 0x54: midpoint of the probe box; the target march traces its sight fan
        from this offset. */
-    srVector3T<float> probe_center;
+    glm::vec3 probe_center;
     /* 0x60: eight probe offsets forming a box around the cursor point. The
        target march sight-traces all eight and ground-settles the last four;
        the target resolver ground-probes the same last four. */
-    srVector3T<float> probe_offsets[8];
+    glm::vec3 probe_offsets[8];
     /* 0xc0: footprint-placement mode - the target resolver uses the two
        fixed probe offsets and the click path requires the occupied-box
        test before placing. */
     bool footprint_mode;
     unsigned char padding_c1[3];
     /* 0xc4: first fixed probe offset used when footprint_mode is set. */
-    srVector3T<float> extent_min;
+    glm::vec3 extent_min;
     /* 0xd0: second fixed probe offset used when footprint_mode is set. */
-    srVector3T<float> extent_max;
+    glm::vec3 extent_max;
     /* 0xdc: the monster info latched by the shift-drag; the update drags
        it to the cursor position and releases it when shift lifts. */
     W8MonsterInfo* dragged_info;
@@ -88,7 +88,7 @@ extern W8WorldCursorState* gp3DCursor;
 /* Build the 3D cursor, light, particle and initial camera-relative bounds. */
 void InitializeWorldCursor(void);
 bool IsWorldCursorVisible(void);
-void GetWorldCursorPosition(srVector3T<float>* position);
+void GetWorldCursorPosition(glm::vec3* position);
 void SetWorldCursorNodesVisible(bool visible);
 bool SelectWorldCursorNode(void);
 int GetWorldCursorNodeCount(void);
@@ -100,10 +100,9 @@ void SetWorldCursorRange(float distance); /* 0x00491650 */
 void SetWorldCursorGroupId(int group_id); /* 0x004916A0 */
 /* Arm footprint placement: the target resolver ground-probes the two fixed
    offsets instead of the probe box. */
-void SetWorldCursorExtents(const srVector3T<float>* minimum,
-                           const srVector3T<float>* maximum); /* 0x00492190 */
+void SetWorldCursorExtents(const glm::vec3* minimum, const glm::vec3* maximum); /* 0x00492190 */
 /* 0x00490C20: copies the cursor state vector at +0x28, or zero when there is
    no cursor. */
-void GetWorldCursorAnchor(srVector3T<float>* position);
+void GetWorldCursorAnchor(glm::vec3* position);
 void ReleaseWorldCursor(void);
 void ReleaseWorldCursorNodes(void);

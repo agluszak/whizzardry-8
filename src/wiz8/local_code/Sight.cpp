@@ -5,8 +5,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include <glm/geometric.hpp>
+
 #include "conditions.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/levels.h"
 #include "local_code/Factions.h"
 #include "random.h"
@@ -128,9 +131,9 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
 {
     W8MonsterRecord* target_record;
     W8Monster* source_monster;
-    srVector3T<float> observer_position;
+    glm::vec3 observer_position;
     W8Monster* target_monster;
-    srVector3T<float> target_position;
+    glm::vec3 target_position;
     float observer_yaw;
     int penalty_modifier;
     float distance;
@@ -180,7 +183,7 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
 
 /* Maximum distance at which the observer can perceive the target. */
 // FUNCTION: WIZ8 0x00505a40
-float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<float> target_position,
+float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_position,
                             float observer_yaw, unsigned int perception_attribute,
                             unsigned char ranged_bonus, bool blinded, bool extended_sight_active,
                             int penalty_source, int penalty_modifier, int skip_field_of_view,
@@ -391,11 +394,11 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 {
     W8MonsterRecord* record;
     W8Monster* monster;
-    srVector3T<float> own_position;
+    glm::vec3 own_position;
     float viewing_distance;
-    srVector3T<float> camera_position;
-    srVector3T<float> other_position;
-    srVector3T<float> trace_position;
+    glm::vec3 camera_position;
+    glm::vec3 other_position;
+    glm::vec3 trace_position;
 
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME || !monster_info->fActive ||
         monster_info->hp_current == 0) {
@@ -555,8 +558,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 } else {
                     fade_flag = 0;
                 }
-                srVector3T<float> observer_position;
-                srVector3T<float> target_position;
+                glm::vec3 observer_position;
+                glm::vec3 target_position;
 
                 observer_position = own_position;
                 target_position = camera_position;
@@ -651,8 +654,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 
                     if (row->fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
-                        srVector3T<float> observer_position;
-                        srVector3T<float> target_position;
+                        glm::vec3 observer_position;
+                        glm::vec3 target_position;
 
                         observer_position = camera_position;
                         target_position = own_position;
@@ -716,9 +719,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("pNPC != NULL", SIGHT_CPP, 0xe9, 0);
                             } else if (!npc->party_noticed && npc->record->monster_bound == 0 &&
                                        ShowMonsterTargetMarker(monster_info) != 0) {
-                                srVector3T<float> delta;
+                                glm::vec3 delta;
                                 delta = own_position - g_startup_world->GetPosition();
-                                if (delta.Length() < 25000.0f &&
+                                if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
                                     g_status.current_level != 4) {
                                     int party_slot = GetRandomCharacter(0, 0, -1, -1);

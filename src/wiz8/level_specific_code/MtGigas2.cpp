@@ -6,7 +6,6 @@
 #include "layouts/world.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/dice.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
@@ -74,7 +73,7 @@ void MtGigas2Setup(void)
         GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
         W8NpcState* npc;
         W8MonsterInfo* info;
-        srVector3T<float> position;
+        glm::vec3 position;
 
         SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
         RunNamedTrigger("door08", -1);
@@ -317,7 +316,7 @@ bool MtGigas2LaserAlarm(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB860
 static void MtGigas2UmpaniAlarm(int command)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (PrepareUmpaniAlarmCommand(command, "UmpaniAlarm", g_mt_gigas_alarm_gate)) {
         return;

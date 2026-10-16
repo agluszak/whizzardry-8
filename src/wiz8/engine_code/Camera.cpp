@@ -6,11 +6,11 @@
 
 #include "Navigator.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "message_box.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -67,8 +67,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     W8NpcState* npc;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
-    srVector3T<float> target;
-    srVector3T<float> position;
+    glm::vec3 target;
+    glm::vec3 position;
     glm::mat3 rotation;
     float angle;
     float pitch;
@@ -88,7 +88,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     }
     g_camera_path_active = false;
     rotation = glm::mat3(1);
-    target.Set(0.0f, 0.0f, 1.0f);
+    target = glm::vec3(0.0f, 0.0f, 1.0f);
     rotation = world->camera->getRotation<glm::mat3>();
     ApplyCameraRotation(&rotation);
     path->active = false;
@@ -161,7 +161,7 @@ const float g_float_two_thousand = 2000.0f;
 // FUNCTION: WIZ8 0x0048F650
 void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     float pitch;
     float angle;
     W8Monster* monster;
@@ -218,7 +218,7 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
    configured rotation style; with it the orientation is always updated -
    snapped unless animate asks for the transition. */
 // FUNCTION: WIZ8 0x0048F800
-void PointCameraAtTarget(srVector3T<float>* position, bool force, bool animate)
+void PointCameraAtTarget(glm::vec3* position, bool force, bool animate)
 {
     float angle;
     float pitch;

@@ -10,10 +10,10 @@
 
 #include "glm/common.hpp"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
 #include "layouts/main_game_screen.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/IntervalGate.h"
@@ -104,20 +104,20 @@ GDCamera* g_gd_camera;
    GameData.cpp ownership was never evidence-backed.  The copy-through variant
    remains a distinct recovered identity even though both expose the same operation. */
 // FUNCTION: WIZ8 0x00421100
-void GetCameraForwardPointCopy(float distance, srVector3T<float>* output)
+void GetCameraForwardPointCopy(float distance, glm::vec3* output)
 {
     GetCameraForwardPoint(distance, output);
 }
 
 // FUNCTION: WIZ8 0x00421150
-void GetCameraForwardPoint(float distance, srVector3T<float>* output)
+void GetCameraForwardPoint(float distance, glm::vec3* output)
 {
     g_gd_camera->GetForwardPoint(distance, output);
 }
 
 /* Accumulate a forward offset rotated by yaw and pitch. */
 // FUNCTION: WIZ8 0x00421170
-void OffsetPositionByYawPitch(float distance, srVector3T<float>* position, float yaw, float pitch)
+void OffsetPositionByYawPitch(float distance, glm::vec3* position, float yaw, float pitch)
 {
     *position += glm::rotateY(glm::rotateX(glm::vec3(0, 0, distance), pitch), yaw);
 }
@@ -223,11 +223,11 @@ static std::optional<DirectionAngles> aimAngles(const glm::vec3& target, const g
 }
 
 // FUNCTION: WIZ8 0x00476950
-void GDCamera::SnapToTarget(const srVector3T<float>* target)
+void GDCamera::SnapToTarget(const glm::vec3* target)
 {
     if (!CanTrackTarget()) return;
 
-    const auto aim = aimAngles(target->glmValue(), m_position);
+    const auto aim = aimAngles((*target), m_position);
     if (!aim) return;
     m_target_pitch = aim->pitch;
     m_target_yaw = aim->yaw;
@@ -250,17 +250,17 @@ void GDCamera::SetOrientationImmediate(float pitch, float angle)
 }
 
 // FUNCTION: WIZ8 0x00476F90
-unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pitch)
+unsigned char GDCamera::LookAt(const glm::vec3* target, bool preserve_pitch)
 {
     if (!CanTrackTarget()) return 0;
 
-    const auto aim = aimAngles(target->glmValue(), m_position);
+    const auto aim = aimAngles((*target), m_position);
     if (!aim) return 0;
     return BeginOrientationTransition(preserve_pitch ? m_pitch : aim->pitch, aim->yaw, false);
 }
 
 // FUNCTION: WIZ8 0x00477180
-unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
+unsigned char GDCamera::ComputeTrackingOrientation(const glm::vec3* target, float* angle,
                                                    float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
@@ -268,7 +268,7 @@ unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* targ
         lower_margin = -g_camera_vertical_margin * g_float_half;
     }
 
-    const auto desired = directionAngles(target->glmValue() - m_position);
+    const auto desired = directionAngles((*target) - m_position);
     float angle_delta = std::remainder(desired.yaw - m_yaw, g_camera_angle_period);
     float pitch_delta = std::remainder(desired.pitch - m_pitch, g_camera_angle_period);
 
@@ -569,7 +569,7 @@ void GDCamera::BeginLeveling()
 }
 
 // FUNCTION: WIZ8 0x00478CE0
-void GDCamera::GetForwardPoint(float distance, srVector3T<float>* output)
+void GDCamera::GetForwardPoint(float distance, glm::vec3* output)
 {
     m_rotation = m_yaw_rotation * m_pitch_rotation;
     m_direction = m_rotation[2];

@@ -27,6 +27,7 @@
 #include "Font.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
+#include "glm/ext/vector_float3.hpp"
 #include "image.h"
 #include "input.h"
 #include "layouts/main_game_screen.h"
@@ -39,7 +40,6 @@
 #include "npc_trade_price.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
@@ -627,7 +627,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     W8Character* characters;
     int slot;
     int condition;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     g_pending_notice_queued = false;
     g_npc_interaction_state->transcript_open_count = 0;
@@ -747,7 +747,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     unsigned char band;
     bool greet;
     std::string space;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     UpdateScreenOverlays(0);
     gXStatus.fNpcDialogueMode = true;
@@ -4032,7 +4032,7 @@ void LookAtDialogueNpc(void)
 {
     W8MonsterInfo* info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
     if (info != 0) {
-        srVector3T<float> position = info->p3D->movement.position;
+        glm::vec3 position = info->p3D->movement.position;
         position.y += info->p3D->movement.height_offset;
         g_gd_camera->LookAt(&position, false);
     }

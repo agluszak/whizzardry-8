@@ -19,7 +19,6 @@
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -35,6 +34,7 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface_geometry.h"
@@ -113,7 +113,7 @@ W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary)
    and a version tag checked before the rest of the record is read. */
 struct W8GDFaceHeader { /* 0x1c */
     int vertex_indices[3];
-    srVector3T<float> plane;
+    glm::vec3 plane;
     int version;
 };
 
@@ -248,8 +248,7 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         surface.flags = data.type == 1 ? W8_GD_SURFACE_WALKABLE | W8_GD_SURFACE_PATHFINDING : 0;
         unsigned axis = 0;
         for (unsigned candidate = 1; candidate < 3; ++candidate)
-            if (fabs((&header.plane.x)[candidate]) > fabs((&header.plane.x)[axis]))
-                axis = candidate;
+            if (fabs(header.plane[candidate]) > fabs(header.plane[axis])) axis = candidate;
         surface.flags |= axis;
         for (int corner = 0; corner < 3; ++corner) {
             surface.vertex_indices[corner] = header.vertex_indices[corner] + VerticesCount();
@@ -272,17 +271,17 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         }
         surfaces.push_back(surface);
     }
-    const auto lower = reader.record<srVector3T<float>>();
-    const auto upper = reader.record<srVector3T<float>>();
+    const auto lower = reader.record<glm::vec3>();
+    const auto upper = reader.record<glm::vec3>();
     for (int axis = 0; axis < 3; ++axis) {
-        if (!std::isfinite((&lower.x)[axis] * g_world_scale) ||
-            !std::isfinite((&upper.x)[axis] * g_world_scale) || (&lower.x)[axis] > (&upper.x)[axis])
+        if (!std::isfinite(lower[axis] * g_world_scale) ||
+            !std::isfinite(upper[axis] * g_world_scale) || lower[axis] > upper[axis])
             throw std::runtime_error("nonfinite WGD bounds");
-        bank_min[axis] = std::min(bank_min[axis], (&lower.x)[axis] * g_world_scale);
-        bank_max[axis] = std::max(bank_max[axis], (&upper.x)[axis] * g_world_scale);
+        bank_min[axis] = std::min(bank_min[axis], lower[axis] * g_world_scale);
+        bank_max[axis] = std::max(bank_max[axis], upper[axis] * g_world_scale);
         if (VerticesCount()) {
-            bank_min[axis] = std::min(bank_min[axis], (&minimum.x)[axis]);
-            bank_max[axis] = std::max(bank_max[axis], (&maximum.x)[axis]);
+            bank_min[axis] = std::min(bank_min[axis], minimum[axis]);
+            bank_max[axis] = std::max(bank_max[axis], maximum[axis]);
         }
     }
     auto interfaces = BuildInterfaces(names.empty() ? 0 : names.size() + 1, conditional);
@@ -331,7 +330,7 @@ void W8GameData::AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_
 }
 
 // FUNCTION: WIZ8 0x00448310
-void W8GameData::AddTriggerPlane(const srVector3T<float>* trigger_vertices, Trigger* trigger)
+void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* trigger)
 {
     int trigger_index = 0;
     int index;
@@ -364,7 +363,7 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* trigger_vertices, Trig
         m_ppTriggers.push_back(trigger);
     }
     for (index = 0; index < 4; ++index) {
-        m_pTrigVertices.push_back(trigger_vertices[index].glmValue());
+        m_pTrigVertices.push_back(trigger_vertices[index]);
     }
 
     AddTriggerTriangle(trigger_index, TrigVerticesCount() - 4, TrigVerticesCount() - 3,
@@ -380,7 +379,7 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* trigger_vertices, Trig
 void W8GameData::AddLevelPlane(const W8LevelFilePlane& plane)
 {
     int index;
-    const srVector3T<float>* vertices = plane.vertices;
+    const auto* vertices = plane.vertices;
 
     if (TrigSurfacesCount() >= 500) {
         srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)",
@@ -441,7 +440,7 @@ void W8GameData::IntegrateTriggerGeometry()
 
 /* Registers the linked record's vertices as twelve trigger surfaces. */
 // FUNCTION: WIZ8 0x00448BF0
-void W8GameData::AddLinkedRecord(const srVector3T<float>* vertices, float value, float scalar,
+void W8GameData::AddLinkedRecord(const glm::vec3* vertices, float value, float scalar,
                                  const signed char* face)
 {
     AddTriggerPlane(vertices, value, scalar, face);
@@ -452,7 +451,7 @@ void W8GameData::AddLinkedRecord(const srVector3T<float>* vertices, float value,
    current environment index. The surface numbered `*face` also grows an
    environment record scaled by `value`/`scalar`. */
 // FUNCTION: WIZ8 0x00448C60
-void W8GameData::AddTriggerPlane(const srVector3T<float>* vertices, float value, float scalar,
+void W8GameData::AddTriggerPlane(const glm::vec3* vertices, float value, float scalar,
                                  const signed char* face)
 {
     const int environment_id = EnvironsCount();
@@ -510,8 +509,8 @@ void W8GameData::CreateGDEnviron(const W8GDSurface* surface, float scale)
 
 struct W8ProcessedGameDataHeader {
     unsigned int version;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
+    glm::vec3 minimum;
+    glm::vec3 maximum;
     int vertex_count;
     int surface_count;
     int trigger_surface_base;
@@ -575,7 +574,7 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
         }
         bytes += static_cast<std::uint64_t>(count) * stride;
     };
-    count_bytes(header.vertex_count, sizeof(srVector3T<float>));
+    count_bytes(header.vertex_count, sizeof(wiz8::retail::Vec3f));
     count_bytes(header.surface_count, sizeof(wiz8::retail::GDSurface));
     count_bytes(header.interface_count, sizeof(W8GDInterface));
     count_bytes(header.state_count, sizeof(W8GDInterfaceState));
@@ -694,8 +693,8 @@ W8GameData::W8GameData(wiz8::File* handle, bool secondary)
     last_hit_surface = 0;
 
     trace_flag4_gate = false;
-    minimum = 1.0e8f;
-    maximum = -1.0e8f;
+    minimum = glm::vec3(1.0e8f);
+    maximum = glm::vec3(-1.0e8f);
     if (!secondary) {
         MoveTimer(4);
         if (g_game_time_accumulator == 0) {
@@ -730,11 +729,11 @@ unsigned char InitializeGameData(W8GameData* game_data)
         return 0;
     }
 
-    srVector3T<float> minimum = game_data->minimum;
-    srVector3T<float> maximum = game_data->maximum;
+    glm::vec3 minimum = game_data->minimum;
+    glm::vec3 maximum = game_data->maximum;
     if (game_data->geometry_index == 0) {
-        game_data->geometry_index = std::make_unique<W8OctBuildTree>(
-            2000.0f, srBoundingBox{minimum.glmValue(), maximum.glmValue()}, 0x40, 0);
+        game_data->geometry_index =
+            std::make_unique<W8OctBuildTree>(2000.0f, srBoundingBox{minimum, maximum}, 0x40, 0);
     }
 
     for (int index = 0; index < game_data->SurfacesCount(); ++index) {

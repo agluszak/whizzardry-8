@@ -7,7 +7,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srLight.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/float_constants.h"
@@ -23,8 +22,7 @@ const double g_motion_full_turn_radians = 6.2831852;
    shared engine time used later by both colour cycling and fade-out. */
 // FUNCTION: WIZ8 0x0049D500
 MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range,
-                           const srVector3T<float>* first_color,
-                           const srVector3T<float>* second_color)
+                           const glm::vec3* first_color, const glm::vec3* second_color)
     : srLight(parent, srLight::PRESET_POINT), m_vertical_offset(0.0f), m_color_first(*first_color),
       m_color_second(*second_color), m_start_time(0.0f), m_cycle_color(cycle_color), m_fade_out(0)
 {
@@ -39,7 +37,7 @@ MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range,
     safe_range = 5000.0f;
     setLinearAttenuation(range, 0.0019569471f);
     specular = glm::vec3(0);
-    diffuse = first_color->glmValue();
+    diffuse = (*first_color);
     setFlag(srNode::FLAG_DISABLE);
     m_start_time = g_game_time_accumulator->GetElapsed();
 }
@@ -78,7 +76,7 @@ void MonsterLight::SetVisible(bool visible)
 }
 
 // FUNCTION: WIZ8 0x0049D990
-void MonsterLight::Update(const srVector3T<float>* position)
+void MonsterLight::Update(const glm::vec3* position)
 {
     float elapsed = g_game_time_accumulator->GetElapsed() - m_start_time;
 
@@ -94,7 +92,7 @@ void MonsterLight::Update(const srVector3T<float>* position)
         float first_weight =
             static_cast<float>(sin((cycle - whole) * g_motion_full_turn_radians) + g_float_one) *
             g_float_half;
-        diffuse = glm::mix(m_color_second.glmValue(), m_color_first.glmValue(), first_weight);
+        diffuse = glm::mix(m_color_second, m_color_first, first_weight);
     }
 
     glm::dvec3 location;

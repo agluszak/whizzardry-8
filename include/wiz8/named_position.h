@@ -1,18 +1,18 @@
 #pragma once
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 
 struct W8NamedPosition {
     W8NamedPosition()
     {
         name[0] = '\0';
-        position.SetZero();
+        position = glm::vec3(0);
         angle = 0.0f;
-        direction.SetZero();
+        direction = glm::vec3(0);
     }
 
     char name[0x80];
-    srVector3T<float> position;
+    glm::vec3 position;
     float angle;
-    srVector3T<float> direction;
+    glm::vec3 direction;
 };

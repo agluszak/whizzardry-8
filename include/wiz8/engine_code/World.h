@@ -4,6 +4,7 @@
 #include <initializer_list>
 #include <string_view>
 
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srScene.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/world.h"
@@ -36,13 +37,12 @@ void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCamer
 glm::mat3 cameraRotation(const W8World& world);
 glm::vec3 cameraLocation(const W8World& world);
 glm::vec3 cameraLocationOrZero(const W8World& world);
-void SetWorldScenePosition(W8World* world, const srVector3T<float>* position);
+void SetWorldScenePosition(W8World* world, const glm::vec3* position);
 stParticle* FindParticleByName(W8World* world, const char* name);
-bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,
-                      srVector3T<float>* direction);
-unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
-                                           bool check_items, bool check_monsters);
-unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
+bool FindEntityByName(const char* name, glm::vec3* position, float* angle, glm::vec3* direction);
+unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
+                                           bool check_monsters);
+unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
                                      bool check_monsters);
 
 void SetSecondaryWorld(W8World* world);

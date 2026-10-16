@@ -19,13 +19,13 @@
 #include "file_faults.h"
 #include "filesystem.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "layouts/world.h"
 #include "materials.h"
 #include "quad.h"
 #include "surrender/srCore.h"
-#include "surrender/srMath.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -293,8 +293,8 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                 if (transform) Write(*file, char{1}); // Transform count.
                 Write(*file, char{0}); // Channel.
                 Write(*file, char{2}); // Frame count, including frames inside the LOD mesh.
-                const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
-                                                        srVector3(0, 1, 0)};
+                const std::array<glm::vec3, 3> vertices{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
+                                                        glm::vec3(0, 1, 0)};
                 const int serialized_frames = !transform && lod ? 1 : 2;
                 for (int frame = 0; frame < serialized_frames; ++frame) {
                     Write(*file, static_cast<unsigned char>(frame));

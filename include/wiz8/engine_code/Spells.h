@@ -3,6 +3,7 @@
 #include <string_view>
 
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/monster_spell_icons.h"
@@ -10,7 +11,6 @@
 class W8Monster;
 struct W8GrCycleLoadContext;
 struct W8World;
-template<class T> class srVector3T;
 
 /* Walks every registered stSound3D each audio update: releases finished
    auto-release nodes and re-aims/re-volumes playing voices relative to the
@@ -21,7 +21,7 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
 W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_level,
                                          W8Monster* parent, int value, int flags); /* 0x004AD8A0 */
 W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level,
-                                      srVector3T<float>* position, glm::mat3* rotation, int value,
+                                      glm::vec3* position, glm::mat3* rotation, int value,
                                       int flags); /* 0x004ADB20 */
 void SetTargetConeEnabled(bool enabled);
 W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, int value,
@@ -32,7 +32,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
                              W8SpellVisualMode group, W8SpellVisual** visual, int);
 /* Create one spell visual from the spell's own record resource. Engine
    Code\Spells.cpp's factory, whose result the queued effect owns. */
-W8SpellVisual* SpawnSpellEffect(const srVector3T<float>* position, std::string_view resource_name,
+W8SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view resource_name,
                                 int power_level, int value, int flags); /* 0x004AD430 */
 
 void ReleaseSpellDatabase(void);

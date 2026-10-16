@@ -112,7 +112,7 @@ void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
     if (path == 0 || representation == 0) {
         srAssertFail("pPathAI&&pRep", PATH_AI_CPP, 0x595, 0);
     }
-    auto position = representation->parent_location.glmValue();
+    auto position = representation->parent_location;
     PathAIPosition(path, &position);
     representation->parent_location = position;
     representation->location = representation->parent_location;

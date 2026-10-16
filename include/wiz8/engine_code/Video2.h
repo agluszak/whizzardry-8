@@ -105,7 +105,6 @@ class srModelInstance;
 class srNode;
 class srTextureIFace;
 class stModelInstance2D;
-template<class T> class srVector3T;
 
 srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
                        bool additive);

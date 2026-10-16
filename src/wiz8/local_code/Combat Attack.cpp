@@ -7,12 +7,14 @@
 
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <glm/geometric.hpp>
 
 #include "Navigator.h"
 #include "attack_modes.h"
 #include "dice.h"
 #include "equipment_slots.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "layouts/targeting.h"
@@ -22,7 +24,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "spell_ids.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
@@ -830,7 +831,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
     W8CombatSlot struck;
     unsigned int magnitude;
     W8MonsterInfo* monster_info;
-    srVector3T<float> location;
+    glm::vec3 location;
     bool announce;
     bool verbose;
     unsigned int index;
@@ -848,15 +849,15 @@ void ResolveSpellMissileHit(W8Missile* missile)
                                    &definition->magnitude, source, &missile->result);
             announce = g_settings.verbose_combat_messages != 0;
             verbose = g_settings.verbose_combat_messages != 0;
-            srVector3T<float> center = monster_info->p3D->GetPosition();
+            glm::vec3 center = monster_info->p3D->GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
             for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
                 monster_info = MonsterGetScriptPartByLocationIndex(index);
                 if (monster_info->fActive) {
                     location = MonsterGetLocation(monster_info->p3D);
-                    srVector3T<float> offset = center - location;
-                    if (offset.Length() <= definition->radius) {
+                    glm::vec3 offset = center - location;
+                    if (glm::length(offset) <= definition->radius) {
                         struck.iMonsterID = monster_info->location_id;
                         ApplyEffectConditions(source, &struck, definition, announce, verbose, 0);
                     }
@@ -3168,8 +3169,8 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     bool primary = false;
     bool secondary = false;
     unsigned char position_ok;
-    srVector3T<float> source_position;
-    srVector3T<float> target_position;
+    glm::vec3 source_position;
+    glm::vec3 target_position;
     W8MonsterInfo* monster_info;
     W8Monster* monster;
     W8Missile* missile;
@@ -3241,9 +3242,10 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
             position_ok = missile_type;
         }
         if (position_ok == 0) {
-            source_position.Set(monster->movement.position.x,
-                                monster->movement.position.y + monster->movement.height_offset,
-                                monster->movement.position.z);
+            source_position =
+                glm::vec3(monster->movement.position.x,
+                          monster->movement.position.y + monster->movement.height_offset,
+                          monster->movement.position.z);
             MonsterGetAnimationRadius(monster, &radius);
             pitch = GetElevationAngle(&source_position, &target_position);
             yaw = GetHeadingAngle(&source_position, &target_position);
@@ -3357,8 +3359,7 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
    randomized cone scatter. `accuracy` shrinks the cone; `blind` swaps the
    flat 8% profile for the coarse distance-scaled one. */
 // FUNCTION: WIZ8 0x005454c0
-void ScatterMissileAimPoint(const srVector3T<float>* from, srVector3T<float>* to, int accuracy,
-                            bool blind)
+void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, bool blind)
 {
     float dx = to->x - from->x;
     float dy = to->y - from->y;
@@ -3441,7 +3442,7 @@ void ScatterMissileAimPoint(const srVector3T<float>* from, srVector3T<float>* to
         sy = sy * static_cast<float>(magnitude);
         sz = sz * static_cast<float>(magnitude);
     }
-    to->Set(dx + sx + from->x, dy + sy + from->y, sz + dz + from->z);
+    (*to) = glm::vec3(dx + sx + from->x, dy + sy + from->y, sz + dz + from->z);
 }
 
 /* Starts a party member's attack action: validates the hand's attack count and

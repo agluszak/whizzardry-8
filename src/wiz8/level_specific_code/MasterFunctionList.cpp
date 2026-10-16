@@ -10,9 +10,9 @@
 
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
 #include "layouts/gameplay_databases.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -111,14 +111,14 @@ void SaveMasterFunctions(void)
    ground when asked, create the group, apply hostility, refresh its centre
    cache and re-run outward sight for the new arrivals. */
 // FUNCTION: WIZ8 0x004D8F00
-W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* position, int hostility,
+W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
                               bool settle, bool a, bool b)
 {
     W8MonsterGroup* group;
-    srVector3T<float> position_copy;
+    glm::vec3 position_copy;
 
     if (settle) {
-        position->y = probeGround(position->glmValue()).position.y;
+        position->y = probeGround((*position)).position.y;
     }
     position_copy = *position;
     group = CreateGroup(monster_id, count, &position_copy, a, b, settle);
@@ -134,7 +134,7 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* posi
    loudness fraction, clamp anything above one, then create the node at the
    requested spot, scale its base volume and falloff and start playback. */
 // FUNCTION: WIZ8 0x004D8F80
-stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> position, float volume,
+stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
                                   float scale, bool play_flag)
 {
     if (volume > g_float_one) {
@@ -146,7 +146,7 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> posi
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
         glm::dvec3 sound_position;
-        sound_position = glm::dvec3(position.glmValue());
+        sound_position = glm::dvec3(position);
         sound->setLocation(sound_position);
         sound->volume = static_cast<int>(volume * g_sound_node_full_volume);
         sound->falloff = scale * g_world_scale;
@@ -209,7 +209,7 @@ static W8WorldCursorNodeHandler g_world_cursor_node_handlers[10] = {
 // FUNCTION: WIZ8 0x004D9080
 unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, ...)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8WorldCursorNode* node;
     W8WorldCursorNode* previous;
     int context;
@@ -234,7 +234,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
     } else {
         position = info->p3D->GetPosition();
     }
-    position.y = probeGround(position.glmValue()).position.y + g_float_one_hundred_twenty_five;
+    position.y = probeGround(position).position.y + g_float_one_hundred_twenty_five;
     node = FindWorldCursorNodeAtPoint(0, &position);
     if (command == 4) {
         context = va_arg(arguments, int);

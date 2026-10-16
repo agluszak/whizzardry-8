@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
 #include "soundman.h"
 #include "surrender/srNode.h"
 #include "wiz8/audio_resources.h"
@@ -31,7 +32,7 @@ public:
     /* loop repeats the playback until stopped; auto_release
        makes the update pass release the node once playback ends. */
     unsigned char Play(bool loop, bool auto_release); /* 0x004AEBF0 */
-    wiz8::sound::PlayOptions BuildSoundOptions(const srVector3T<float>& listener); /* 0x004AECC0 */
+    wiz8::sound::PlayOptions BuildSoundOptions(const glm::vec3& listener); /* 0x004AECC0 */
 
     int unknown_138; /* 0x138: ctor zeroes it; no retail reader found */
     wiz8::sound::Playback sound_handle; // Current playback; empty when silent.

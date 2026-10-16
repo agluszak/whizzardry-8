@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "glm/ext/vector_float3.hpp"
+
 extern float g_automap_grid_cell_size;
 
 #include <array>
@@ -17,7 +19,6 @@ extern float g_automap_grid_cell_size;
 namespace wiz8 {
 class File;
 }
-template<class T> class srVector3T;
 
 /* One map note with owned UTF-8 text. */
 struct W8AutomapNote {
@@ -49,12 +50,12 @@ void UpdateAutomapBounds(void);
 void RefreshDirtyAutomap(void);
 /* Pack `position` into a cell key, mark it visited if known, and
    return 1 only when that mark was newly set (retry one cell higher on miss). */
-bool AutomapHasCellAt(const srVector3T<float>* position);
+bool AutomapHasCellAt(const glm::vec3* position);
 
 void ResetAutomapView(void);
 bool SaveAutomapNotes(wiz8::File& handle);
 bool LoadAutomapNotes(wiz8::File& handle);
-unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position);
+unsigned char GetAutomapPositionUnderCursor(glm::vec3* position);
 void SetAutomapToolCursor(int tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);
 void CreateAutomapMarkerSprites(void);
@@ -70,5 +71,5 @@ unsigned char AutomapScreenFinalize(void);
 float GetAutomapGridCellSize(void);
 void SetAutomapGridCellSize(float value);
 /* Packs a world position into an automap cell key. */
-unsigned int AutomapNodeKey(const srVector3T<float>* position);
+unsigned int AutomapNodeKey(const glm::vec3* position);
 bool AutomapLevelIsLarge(void);

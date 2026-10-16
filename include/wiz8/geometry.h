@@ -10,7 +10,6 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
 #include "surrender/plane_math.h"
-#include "surrender/srMath.h"
 #include "wiz8/float_constants.h"
 
 /* Physical-surface masks recovered from retail collision/build consumers.
@@ -75,8 +74,8 @@ struct W8GDSurface {
                                           float limit) const;
     /* 0x0041DC10: collision response for a hit surface; `origin` is advanced
        to `hit_point` and `direction` is bent along the contact plane. */
-    bool ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point,
-                          srVector3T<float>* direction, int collision_index);
+    bool ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point, glm::vec3* direction,
+                          int collision_index);
     /* 0x0041E8E0: whether moving `from` to `to` pushes this surface's
        centroid away from surface `surface_index`'s centroid. */
     bool CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to);
