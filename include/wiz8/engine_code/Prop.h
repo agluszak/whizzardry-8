@@ -50,7 +50,7 @@ public:
     }
     W8PropRepresentation(const W8PropRepresentation& other);
     virtual ~W8PropRepresentation() override;
-    W8PropRepresentation& operator=(const W8PropRepresentation&) = default;
+    W8PropRepresentation& operator=(const W8PropRepresentation&) = delete;
     virtual W8AnimRepBase* Clone() override;
 
     srModelInstance* ToggleAnimation(int argument); /* 0x0044BA00 */
