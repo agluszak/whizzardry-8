@@ -965,10 +965,10 @@ W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle)
 
 // FUNCTION: WIZ8 0x004bea20
 W8MonsterRep::W8MonsterRep()
-    : highlight_mask(0), name(0), spell_icons(0), standing_height(0), scale(1.0f),
-      minimum_scale(0.0f), maximum_scale(0.0f), death_scale(1.0f), random_idle(0),
-      special_movement(0), idle_playback_scale(10.0f), random_idle_fps_min(0),
-      random_idle_fps_max(0), left_handed(0), monster_light(0)
+    : highlight_mask(0), name(0), standing_height(0), scale(1.0f), minimum_scale(0.0f),
+      maximum_scale(0.0f), death_scale(1.0f), random_idle(0), special_movement(0),
+      idle_playback_scale(10.0f), random_idle_fps_min(0), random_idle_fps_max(0), left_handed(0),
+      monster_light(0)
 {
     for (int index = 0; index < 8; ++index) {
         objects[index] = 0;
@@ -1158,7 +1158,6 @@ W8Monster::W8Monster()
     kind = 1;
 
     m_pRep = new W8MonsterRep;
-    m_pRep->spell_icons = new std::vector<W8MonsterSpellIcon*>;
 
     trace_mask = 2;
     direction_x = 0;
@@ -1203,7 +1202,6 @@ W8Monster::W8Monster(const W8Monster& rhs)
         srAssertFail("rhs.m_pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 1099, 0);
     }
     m_pRep = static_cast<W8MonsterRep*>(rhs.m_pRep->Clone());
-    m_pRep->spell_icons = new std::vector<W8MonsterSpellIcon*>;
 
     defining_orders = false;
     orders_finished = false;
@@ -1234,10 +1232,7 @@ W8Monster::W8Monster(const W8Monster& rhs)
 W8Monster::~W8Monster()
 {
     SetLights(0);
-    if (m_pRep->spell_icons != 0) {
-        ClearMonsterSpellIcons(this);
-        delete m_pRep->spell_icons;
-    }
+    ClearMonsterSpellIcons(this);
     if (IsSoleRegisteredCycleForName()) {
         g_monster_cycle_registry_weight -= registry_weight;
         RemoveCycleSkinTables();
@@ -3464,8 +3459,7 @@ void W8Monster::UpdateAttachedObjects()
 {
     W8MonsterRep* representation = m_pRep;
     int attachment_layout = representation->icon_count;
-    unsigned int linked_count =
-        (representation->spell_icons ? representation->spell_icons->size() : 0);
+    unsigned int linked_count = representation->spell_icons.size();
     int poster_count = static_cast<int>(representation->linked_runtime_objects.size());
     glm::mat3 camera_rotation;
     glm::vec3 base_position;
@@ -3547,7 +3541,7 @@ void W8Monster::UpdateAttachedObjects()
             group_height = static_cast<float>(group * g_monster_attachment_group_spacing);
 
             for (chunk_index = 0; chunk_index < chunk_count; ++chunk_index, ++index) {
-                W8MonsterSpellIcon* entry = (*representation->spell_icons)[index];
+                const auto* entry = &representation->spell_icons[index];
                 W8Item* item = entry->psrBMO;
                 const W8AttachmentOffset& raw =
                     g_monster_attachment_offsets[chunk_count - 1][chunk_index];

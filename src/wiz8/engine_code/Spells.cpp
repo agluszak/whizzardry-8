@@ -3,7 +3,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <limits>
@@ -948,81 +947,33 @@ const char* g_monster_spell_icon_names[40] = {
     "Element_Shield",  "Soul_Shield",  "Ring_Of_Fire",   "Charmed",        "Summoned",
 };
 
-/* Attach or remove a spell/condition icon on a monster's representation. The
-   add path builds the billboard's texture path, creates the icon item and
-   adopts the link record; the remove path finds the record by icon id, pulls
-   the item out of the world list, deletes it and frees the record. */
 // FUNCTION: WIZ8 0x004acd80
-void SetMonsterSpellIcon(W8Monster* pMonster, W8MonsterSpellIconId iIcon, bool add)
+void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add)
 {
-    W8MonsterRep* pMonRep;
-    W8MonsterSpellIcon* pSpellMI;
-    std::vector<W8MonsterSpellIcon*>* ppl;
-    char path[260];
-    int count;
-    int index;
-
-    if (pMonster == 0) {
-        srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x829, 0);
-    }
-    pMonRep = pMonster->m_pRep;
-    if (pMonRep == 0) {
-        srAssertFail("pMonRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x82b, 0);
-    }
-    if (pMonRep->GetSpellIcons() == 0) {
-        srAssertFail("pMonRep->GetSpellIcons()",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x82c, 0);
-    }
-    ppl = pMonRep->GetSpellIcons();
-    if (iIcon == SPELL_ICON_NONE) {
-        srAssertFail("iIcon != SPELL_ICON_NONE",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x82f, 0);
-    }
-    if (!add) {
-        if (ppl == 0) {
-            return;
-        }
-        count = (ppl ? ppl->size() : 0);
-        for (index = 0; index < count; ++index) {
-            pSpellMI = (*ppl)[index];
-            if (pSpellMI->icon == iIcon) {
-                wiz8::erase_first(*ppl, pSpellMI);
-                if (pSpellMI == 0) {
-                    srAssertFail("pSpellMI", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                                 0x81b, 0);
-                }
-                if (pSpellMI->psrBMO != 0) {
-                    pSpellMI->psrBMO->DetachMesh(g_world);
-                    wiz8::erase_first(g_world->plsItems, pSpellMI->psrBMO);
-                    if (pSpellMI->psrBMO != 0) {
-                        delete pSpellMI->psrBMO;
-                    }
-                }
-                free(pSpellMI);
-                index = 0;
-                --count;
+    if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
+        srAssertFail("monster spell icon", __FILE__, __LINE__, nullptr);
+    auto& icons = monster->m_pRep->spell_icons;
+    if (add) {
+        icons.reserve(icons.size() + 1);
+        const auto path =
+            fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
+        auto* item = CreateMonsterIconItem(g_world, path.c_str(), 1);
+        if (!item) srAssertFail("monster spell icon item", __FILE__, __LINE__, nullptr);
+        icons.push_back({icon, item});
+    } else {
+        for (auto entry = icons.begin(); entry != icons.end();) {
+            if (entry->icon != icon) {
+                ++entry;
+                continue;
+            }
+            auto* item = entry->psrBMO;
+            entry = icons.erase(entry);
+            if (item) {
+                item->DetachMesh(g_world);
+                wiz8::erase_first(g_world->plsItems, item);
+                delete item;
             }
         }
-    } else {
-        if (iIcon >= SPELL_NUM_ICONS) {
-            srAssertFail("uiIcon < SPELL_NUM_ICONS",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x80a, 0);
-        }
-        pSpellMI = static_cast<W8MonsterSpellIcon*>(malloc(sizeof(*pSpellMI)));
-        pSpellMI->icon = SPELL_ICON_DRAINED;
-        pSpellMI->psrBMO = 0;
-        snprintf(path, sizeof(path), "%s\\%s_A.TGA", "Data\\Icons\\MonsterSpells",
-                 g_monster_spell_icon_names[iIcon]);
-        pSpellMI->icon = iIcon;
-        pSpellMI->psrBMO = CreateMonsterIconItem(g_world, path, 1);
-        if (pSpellMI->psrBMO == 0) {
-            srAssertFail("pSpellMI->psrBMO", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                         0x814, 0);
-        }
-        if (pSpellMI == 0) {
-            srAssertFail("pSpellMI", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x84a, 0);
-        }
-        ppl->push_back(pSpellMI);
     }
 }
 
@@ -1157,38 +1108,19 @@ void Update3DSounds()
     std::erase_if(g_service_sounds, [](const auto& sound) { return !sound->IsPlaying(); });
 }
 
-/* Detach every spell icon the monster's representation owns before the
-   cycle goes away. Each icon entry carries the item at +4; the item is
-   detached from the world, unlinked from the world's item list, and
-   deleted, and the entry storage is freed. */
 // FUNCTION: WIZ8 0x004ACF90
 void ClearMonsterSpellIcons(W8Monster* monster)
 {
-    if (monster == 0) {
-        srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x852, 0);
-    }
-    W8MonsterRep* rep = monster->m_pRep;
-    if (rep == 0) {
-        srAssertFail("pMonRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x854, 0);
-    }
-    std::vector<W8MonsterSpellIcon*>* list = rep->spell_icons;
-    if (list != 0) {
-        unsigned int count = (list ? list->size() : 0);
-        for (int index = 0; index < static_cast<int>(count); ++index) {
-            W8MonsterSpellIcon* entry = (*list)[index];
-            if (entry == 0) {
-                srAssertFail("pSpellMI", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x81b,
-                             0);
-            }
-            if (entry->psrBMO != 0) {
-                entry->psrBMO->DetachMesh(g_world);
-                wiz8::erase_first(g_world->plsItems, entry->psrBMO);
-                delete entry->psrBMO;
-            }
-            free(entry);
+    if (!monster || !monster->m_pRep)
+        srAssertFail("monster representation", __FILE__, __LINE__, nullptr);
+    for (const auto& entry : monster->m_pRep->spell_icons) {
+        if (entry.psrBMO) {
+            entry.psrBMO->DetachMesh(g_world);
+            wiz8::erase_first(g_world->plsItems, entry.psrBMO);
+            delete entry.psrBMO;
         }
-        list->clear();
     }
+    monster->m_pRep->spell_icons.clear();
 }
 
 // FUNCTION: WIZ8 0x004aca60
