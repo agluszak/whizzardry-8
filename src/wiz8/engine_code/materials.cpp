@@ -1215,12 +1215,7 @@ static int BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometr
                 }
                 vertex_index[corner] = index;
                 polygon->vertices[corner] = vertices + index;
-                polygon->position.x =
-                    vertices[index].position.x * g_float_one_third + polygon->position.x;
-                polygon->position.y =
-                    vertices[index].position.y * g_float_one_third + polygon->position.y;
-                polygon->position.z =
-                    vertices[index].position.z * g_float_one_third + polygon->position.z;
+                polygon->position += vertices[index].position * g_float_one_third;
             }
             polygon->degenerate = 0;
             if (vertex_index[0] == vertex_index[1] || vertex_index[0] == vertex_index[2] ||
@@ -1232,7 +1227,7 @@ static int BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometr
                 normal = trianglePlane(vertices[vertex_index[0]].m_original_position,
                                        vertices[vertex_index[1]].m_original_position,
                                        vertices[vertex_index[2]].m_original_position)
-                             .normal.glmValue();
+                             .normal;
                 offset = 0.0f;
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];

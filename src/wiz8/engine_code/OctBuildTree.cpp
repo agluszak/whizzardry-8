@@ -15,7 +15,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "surrender/swept_bounds.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
@@ -148,7 +147,7 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
     if (static_cast<short>(mode) != 3) return 0;
     const auto triangle = surfaceTriangle(surface->vertex_indices);
     if (!triangle) return 0;
-    const auto normal = surface->plane.normal.glmValue();
+    const auto normal = surface->plane.normal;
     if (!triangleIntersectsBox(spatial.bounds(), *triangle, normal)) return 0;
 
     if (spatial.m_root == 0) {

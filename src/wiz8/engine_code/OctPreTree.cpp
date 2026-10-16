@@ -175,7 +175,7 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
         W8OctRegionPolygon* polygon = &game_data->m_polygons[m_aulGDObjs[index]];
         const W8Plane* plane = &polygon->plane;
         const auto contact =
-            planeContact(glm::vec4(plane->normal.glmValue(), plane->w),
+            planeContact(glm::vec4(plane->normal, plane->w),
                          {trace->start, trace->end, trace->step, trace->length, limit},
                          PlaneContactMode::Occlusion);
         if (contact) {
@@ -1534,7 +1534,7 @@ bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const glm::vec3>
                           const srBoundingBox& box)
 {
     return triangleIntersectsBox(box, indexedTriangle(vertices, surface.vertex_indices),
-                                 surface.plane.normal.glmValue());
+                                 surface.plane.normal);
 }
 
 // FUNCTION: WIZ8 0x0046ce60
