@@ -13,7 +13,6 @@
 #include "surrender/model_view_scope.h"
 #include "surrender/srClass.h"
 #include "surrender/srCore.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
@@ -59,33 +58,33 @@ int srNode::isSceneGraphLocked()
 // FUNCTION: SURRENDER 0x10050390
 void srNode::notifyDependent()
 {
-    const srFlags<e_notify> notifications(0xffffffff);
+    constexpr std::uint32_t notifications = 0xffffffffu;
     notifyParents(notifications);
     notifyChildren(notifications);
 }
 
 // FUNCTION: SURRENDER 0x100503C0
-void srNode::notifyChildren(const srFlags<e_notify>& notifications)
+void srNode::notifyChildren(std::uint32_t notifications)
 {
     /* Only the bits this node has not seen yet propagate; the new set is
        re-masked at every recursion level. */
-    w8_ulong pending = ~this->notifications.value & notifications.value;
+    w8_ulong pending = ~this->notifications & notifications;
     if (pending != 0) {
-        this->notifications.value |= pending;
+        this->notifications |= pending;
         for (srNode* child = first_child_; child != 0; child = child->next_sibling_) {
-            child->notifyChildren(srFlags<e_notify>(pending));
+            child->notifyChildren(pending);
         }
     }
 }
 
 // FUNCTION: SURRENDER 0x10050410
-void srNode::notifyParents(const srFlags<e_notify>& notifications)
+void srNode::notifyParents(std::uint32_t notifications)
 {
-    w8_ulong pending = ~this->notifications.value & notifications.value;
+    w8_ulong pending = ~this->notifications & notifications;
     if (pending != 0) {
-        this->notifications.value |= pending;
+        this->notifications |= pending;
         if (parent_ != 0) {
-            parent_->notifyParents(srFlags<e_notify>(pending));
+            parent_->notifyParents(pending);
         }
     }
 }
@@ -93,19 +92,19 @@ void srNode::notifyParents(const srFlags<e_notify>& notifications)
 // FUNCTION: SURRENDER 0x10050450
 void srNode::setNotify(e_notify notification)
 {
-    notifications.value |= 1 << notification;
+    notifications |= 1 << notification;
 }
 
 // FUNCTION: SURRENDER 0x10050470
 void srNode::clearNotify(e_notify notification)
 {
-    notifications.value &= ~(1 << notification);
+    notifications &= ~(1 << notification);
 }
 
 // FUNCTION: SURRENDER 0x10050490
 int srNode::testNotify(e_notify notification) const
 {
-    return (notifications.value & (1 << notification)) != 0;
+    return (notifications & (1 << notification)) != 0;
 }
 
 // FUNCTION: SURRENDER 0x100504B0
@@ -114,7 +113,7 @@ void srNode::traverse(TraverseInfo& info)
     if (next_sibling_ != 0) {
         next_sibling_->traverse(info);
     }
-    if ((flags.value & (1 << FLAG_TERMINATE)) == 0 && first_child_ != 0) {
+    if ((flags & (1 << FLAG_TERMINATE)) == 0 && first_child_ != 0) {
         first_child_->traverse(info);
     }
 }
@@ -145,7 +144,7 @@ srNode& srNode::operator=(const srNode& other)
     if (this != &other) {
         std::lock_guard access(sceneGraphCSect);
         srClass::operator=(other);
-        flags.value = other.flags.value;
+        flags = other.flags;
         location = other.location;
         scale = other.scale;
         rotation = other.rotation;
@@ -199,7 +198,7 @@ srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == 
     location = glm::dvec3(0);
     rotation = glm::dmat3(1);
     scale = glm::dvec3(1);
-    notifications.value = 0;
+    notifications = 0;
     if (parent || parent_owns_) setParent(parent, 0);
 }
 
@@ -358,7 +357,7 @@ void srNode::checkTransformation() const
 // FUNCTION: SURRENDER 0x10051C50
 void srNode::setFlag(e_flag flag)
 {
-    flags.value |= 1 << flag;
+    flags |= 1 << flag;
     if (flag == FLAG_IGNORE_TRANSFORM) {
         setWSDirty();
     }
@@ -367,7 +366,7 @@ void srNode::setFlag(e_flag flag)
 // FUNCTION: SURRENDER 0x10051C80
 void srNode::clearFlag(e_flag flag)
 {
-    flags.value &= ~(1 << flag);
+    flags &= ~(1 << flag);
     if (flag == FLAG_IGNORE_TRANSFORM) {
         setWSDirty();
     }
@@ -376,7 +375,7 @@ void srNode::clearFlag(e_flag flag)
 // FUNCTION: SURRENDER 0x10051CB0
 int srNode::testFlag(e_flag flag) const
 {
-    return (flags.value & (1 << flag)) != 0;
+    return (flags & (1 << flag)) != 0;
 }
 
 // FUNCTION: SURRENDER 0x10051D40
@@ -384,10 +383,10 @@ void srNode::setWSDirty()
 {
     /* The dirty fan-out to parents and children can rewrite the notification word, so the
        positional bit is saved first and restored after. */
-    int bounds_dirty = notifications.value & (1 << NOTIFY_BOUNDS_DIRTY);
-    notifyParents(srFlags<e_notify>(1u << NOTIFY_BOUNDS_DIRTY));
-    notifyChildren(srFlags<e_notify>(1u << NOTIFY_TRANSFORM_DIRTY));
-    notifications.set(NOTIFY_BOUNDS_DIRTY, bounds_dirty);
+    const auto bounds_dirty = notifications & (1u << NOTIFY_BOUNDS_DIRTY);
+    notifyParents(1u << NOTIFY_BOUNDS_DIRTY);
+    notifyChildren(1u << NOTIFY_TRANSFORM_DIRTY);
+    notifications = (notifications & ~(1u << NOTIFY_BOUNDS_DIRTY)) | bounds_dirty;
 }
 
 // FUNCTION: SURRENDER 0x10051DB0
@@ -565,7 +564,7 @@ glm::dvec3 srNode::getWorldSpaceScale() const
 // FUNCTION: SURRENDER 0x10054920
 void srNode::updateTransformation() const
 {
-    notifications.value &= ~(1u << NOTIFY_TRANSFORM_DIRTY);
+    notifications &= ~(1u << NOTIFY_TRANSFORM_DIRTY);
     glm::dmat4 world(1);
     if (!testFlag(FLAG_IGNORE_TRANSFORM)) {
         world = glm::scale(glm::dmat4(rotation), scale);

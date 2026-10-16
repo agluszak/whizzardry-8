@@ -7,7 +7,6 @@
 #include "surrender/srCamera.h"
 #include "surrender/srClock.h"
 #include "surrender/srCore.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -18,7 +17,7 @@ srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
     ambient_light = glm::vec3(0.2f);
     fog_color = glm::vec3(0.1f, 0.2f, 0.4f);
     traversal.renderer = 0;
-    enabled.value = 0;
+    enabled = 0;
     if (parent != 0) {
         setParent(parent, 0);
     }
@@ -74,7 +73,7 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     }
     for (w8_long index = 0; index < entry_count; ++index) {
         const auto entry = traversal.entries[index];
-        if ((enabled.value & 1) != 0) {
+        if ((enabled & 1) != 0) {
             // reinterpret-ok: the pick key is the node pointer itself.
             renderer->setPickKey(reinterpret_cast<w8_ulong_ptr>(entry.node));
         }
@@ -132,19 +131,19 @@ void srScene::resetStatistics()
 // FUNCTION: SURRENDER 0x10056B50
 void srScene::disable(e_enable option)
 {
-    enabled.value &= ~(1ul << option);
+    enabled &= ~(1ul << option);
 }
 
 // FUNCTION: SURRENDER 0x10056B70
 void srScene::enable(e_enable option)
 {
-    enabled.value |= 1ul << option;
+    enabled |= 1ul << option;
 }
 
 // FUNCTION: SURRENDER 0x10056B90
 int srScene::isEnabled(e_enable option) const
 {
-    return (enabled.value & (1ul << option)) != 0;
+    return (enabled & (1ul << option)) != 0;
 }
 
 // FUNCTION: SURRENDER 0x10056C40

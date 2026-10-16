@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <vector>
@@ -7,7 +8,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "srBoundingSphere.h"
 #include "srCore.h"
-#include "srFlags.h"
 #include "srMath.h"
 #include "srVertexProcessor.h"
 
@@ -69,7 +69,6 @@ public:
     }
     SR_DLL_IMPORT std::span<const w8_ulong> getAVT() const;
     SR_DLL_IMPORT std::span<float> getAlpha();
-    SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel> getChannelMask() const;
     SR_DLL_IMPORT std::span<const float> getDepthCue();
     SR_DLL_IMPORT std::span<glm::vec4> getDiffuse();
     SR_DLL_IMPORT w8_ulong getExclusionMask() const;
@@ -83,9 +82,8 @@ public:
     SR_DLL_IMPORT const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
     SR_DLL_IMPORT float* getQ(w8_ulong index, int create);
     glm::vec2* getST(w8_ulong index, int create);
-    static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
-    getShaderDisableMask(const srShader& shader);
-    static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
+    static SR_DLL_IMPORT std::uint32_t getShaderDisableMask(const srShader& shader);
+    static SR_DLL_IMPORT std::uint32_t
     getShaderDisableMask(const srShader* shader, const w8_ulong* channels, w8_ulong channel_count);
     SR_DLL_IMPORT std::span<glm::vec4> getSpecular();
     SR_DLL_IMPORT void* getUserArray(w8_ulong index);

@@ -19,7 +19,6 @@
 #include "surrender/srARGB.h"
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srCore.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
@@ -56,7 +55,7 @@ static void TransformGeometry(const srVertexPipe::Input& input, std::span<const 
 }
 
 // FUNCTION: SURRENDER 0x1002AA50
-srFlags<srVertexProcessor::e_channel> srVertexPipe::getShaderDisableMask(const srShader& shader)
+std::uint32_t srVertexPipe::getShaderDisableMask(const srShader& shader)
 {
     w8_ulong disable = 0;
     if ((shader.value & srShader::MASK_FOG) == 0) {
@@ -78,26 +77,24 @@ srFlags<srVertexProcessor::e_channel> srVertexPipe::getShaderDisableMask(const s
         disable |= 1 << srVertexProcessor::CHANNEL_SPECULAR;
     }
     if ((shader.value & srShader::MASK_TEXTURING) == 0) {
-        return srFlags<srVertexProcessor::e_channel>(
-            disable | (1 << srVertexProcessor::CHANNEL_ST0) |
-            (1 << srVertexProcessor::CHANNEL_ST1) | (1 << srVertexProcessor::CHANNEL_Q0) |
-            (1 << srVertexProcessor::CHANNEL_Q1));
+        return disable | (1 << srVertexProcessor::CHANNEL_ST0) |
+               (1 << srVertexProcessor::CHANNEL_ST1) | (1 << srVertexProcessor::CHANNEL_Q0) |
+               (1 << srVertexProcessor::CHANNEL_Q1);
     }
     if ((shader.value & (srShader::MASK_DETAILCOLOR0 | srShader::MASK_DETAILALPHA0 |
                          srShader::MASK_DETAILCOLOR1 | srShader::MASK_DETAILALPHA1)) == 0) {
         disable |= (1 << srVertexProcessor::CHANNEL_ST1) | (1 << srVertexProcessor::CHANNEL_Q1);
     }
-    return srFlags<srVertexProcessor::e_channel>(disable);
+    return disable;
 }
 
 // FUNCTION: SURRENDER 0x1002AAD0
-srFlags<srVertexProcessor::e_channel> srVertexPipe::getShaderDisableMask(const srShader* shaders,
-                                                                         const w8_ulong* channels,
-                                                                         w8_ulong channel_count)
+std::uint32_t srVertexPipe::getShaderDisableMask(const srShader* shaders, const w8_ulong* channels,
+                                                 w8_ulong channel_count)
 {
     srShader shader;
     shader.value = shaders[channels[0]].value;
-    w8_ulong available = ~getShaderDisableMask(shader).value;
+    w8_ulong available = ~getShaderDisableMask(shader);
     w8_ulong index = 0;
     if (channel_count != 0) {
         while (true) {
@@ -112,13 +109,13 @@ srFlags<srVertexProcessor::e_channel> srVertexPipe::getShaderDisableMask(const s
                 break;
             }
             shader.value = shaders[channels[index]].value;
-            available |= ~getShaderDisableMask(shader).value;
+            available |= ~getShaderDisableMask(shader);
             if (available == 0xffffffff) {
-                return srFlags<srVertexProcessor::e_channel>(0);
+                return 0;
             }
         }
     }
-    return srFlags<srVertexProcessor::e_channel>(~available);
+    return ~available;
 }
 
 // FUNCTION: SURRENDER 0x1002AB80
@@ -669,12 +666,6 @@ srBoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 const srVertexProcessor::MaterialInfo& srVertexPipe::getMaterialInfo() const
 {
     return material_info;
-}
-
-// FUNCTION: SURRENDER 0x1002C4D0
-srFlags<srVertexProcessor::e_channel> srVertexPipe::getChannelMask() const
-{
-    return srFlags<srVertexProcessor::e_channel>(channel_mask);
 }
 
 // FUNCTION: SURRENDER 0x1002C500

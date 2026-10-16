@@ -1,6 +1,6 @@
 #pragma once
 
-#include "srFlags.h"
+#include <cstdint>
 
 class srRendererDefs {
 public:
@@ -47,9 +47,9 @@ public:
     enum e_indexType { INDEX_ULONG = 2 };
     /* Vertex-stream state handed to srDD::setVertexArrayInfo before each draw. */
     struct VertexArrayInfo {
-        srFlags<e_vertexArray> mask;
+        std::uint32_t mask = 0;
         w8_ulong count;
-        srFlags<e_clip> clip;
+        std::uint32_t clip = 0;
         w8_long components[6];
         e_type types[6];
         w8_ulong strides[6];

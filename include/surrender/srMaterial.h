@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srVertexPipe.h"
@@ -73,7 +75,7 @@ protected:
 
 public:
     srVertexProcessor::MaterialInfo parms; /* 0x18 */
-    srFlags<e_oper> operations;            /* 0x6c */
+    std::uint32_t operations = 0;            /* 0x6c */
     srVertexProcessor* mapper;             /* 0x70 */
     int dirty;                             /* 0x74 */
 };

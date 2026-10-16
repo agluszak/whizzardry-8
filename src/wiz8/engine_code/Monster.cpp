@@ -49,7 +49,6 @@
 #include "surrender/srCamera.h"
 #include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
@@ -4838,7 +4837,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         scale = (distance * 0.0002f + g_float_one) * 375.0f;
         poster = static_cast<stModelInstance*>(VideoMakePoster(surface, scale, scale, true));
         if (poster != 0) {
-            poster->alignment_flags.set(0, 1);
+            poster->alignment_flags |= 1u;
             location = glm::dvec3(position.glmValue());
             poster->setLocation(location);
             poster->setParent(g_world->dynamic_scene, 1);

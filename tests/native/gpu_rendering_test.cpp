@@ -8,7 +8,6 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include "surrender/srDD.h"
 #include "surrender/srDD_SDLGPU.h"
-#include "surrender/srFlags.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 
@@ -24,7 +23,7 @@ struct Fixture {
         REQUIRE(device->openWindow(64, 64));
         device->setProjectionMatrix(glm::mat4(1));
         device->setClearValues({{0, 0, 0, 1}, 1, 0});
-        device->clearBuffers(srFlags<srDD::e_buffer>(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH));
+        device->clearBuffers(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH);
     }
     ~Fixture()
     {
@@ -37,9 +36,9 @@ struct Fixture {
         const float uv[]{u, v, 1, u, v, 1, u, v, 1};
         const std::array colors{color, color, color};
         srRendererDefs::VertexArrayInfo arrays{};
-        arrays.mask.value = (1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
-                            (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE) |
-                            (1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0);
+        arrays.mask = (1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
+                      (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE) |
+                      (1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0);
         arrays.components[0] = arrays.components[1] = 4;
         arrays.components[4] = 3;
         arrays.arrays[0] = positions;

@@ -17,7 +17,6 @@
 #include "glm/geometric.hpp"
 #include "surrender/bounding_radius.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srModel.h"
 #include "surrender/srShader.h"
@@ -195,7 +194,7 @@ glm::vec3* srMeshModel::getVertexNormal()
         vertex_normals.resize(vertex_location_count, glm::vec3(0.0f, 0.0f, 0.0f));
         setDirty(DIRTY_TRI_MESH);
     }
-    if ((dirty_flags.value & (1UL << DIRTY_VERTEX_NORMALS)) != 0) {
+    if ((dirty_flags & (1UL << DIRTY_VERTEX_NORMALS)) != 0) {
         calculateVertexNormals();
     }
     return vertex_normals.data();
@@ -213,7 +212,7 @@ glm::vec4* srMeshModel::getPolyEq()
         poly_equations.resize(polygon_count, zero);
         setDirty(DIRTY_TRI_MESH);
     }
-    if ((dirty_flags.value & (1UL << DIRTY_POLYGON_NORMALS)) != 0) {
+    if ((dirty_flags & (1UL << DIRTY_POLYGON_NORMALS)) != 0) {
         calculatePolygonNormals();
     }
     return poly_equations.data();
@@ -378,9 +377,9 @@ void srMeshModel::reset(w8_long polygons, w8_long vertices)
     polygon_count = polygons;
     active_polygon_count = polygons;
     pass_count = 1;
-    render_control.value = 0;
-    render_control.value |= 1UL << CONTROL_FRONT;
-    render_control.value |= 1UL << CONTROL_SKIP_AUTO_BOX;
+    render_control = 0;
+    render_control |= 1UL << CONTROL_FRONT;
+    render_control |= 1UL << CONTROL_SKIP_AUTO_BOX;
     setDirtyAll();
 }
 
@@ -399,14 +398,14 @@ void srMeshModel::calculateBounds()
         const auto center = box.center();
         bounds_center = center;
         bounds_radius = boundingRadius(vertices, center) * 1.00001f;
-        dirty_flags.value &= ~(1UL << DIRTY_BOUNDS);
+        dirty_flags &= ~(1UL << DIRTY_BOUNDS);
     }
 }
 
 // FUNCTION: SURRENDER 0x1003E280
 void srMeshModel::calculatePolygonNormals()
 {
-    dirty_flags.value &= ~(1UL << DIRTY_POLYGON_NORMALS);
+    dirty_flags &= ~(1UL << DIRTY_POLYGON_NORMALS);
     glm::vec4* equations = getPolyEq();
     glm::ivec3* polygons = getPolyVertex();
     glm::vec3* vertices = getVertexLoc();
@@ -422,8 +421,8 @@ void srMeshModel::calculatePolygonNormals()
 void srMeshModel::calculateVertexNormals()
 {
     if (polygon_count == 0 || vertex_location_count == 0) return;
-    if (dirty_flags.value & (1UL << DIRTY_POLYGON_NORMALS)) calculatePolygonNormals();
-    dirty_flags.value &= ~(1UL << DIRTY_VERTEX_NORMALS);
+    if (dirty_flags & (1UL << DIRTY_POLYGON_NORMALS)) calculatePolygonNormals();
+    dirty_flags &= ~(1UL << DIRTY_VERTEX_NORMALS);
     const auto* equations = getPolyEq();
     const auto* polygons = getPolyVertex();
     const auto* shade_indices = getVertexShadeIndex(0);
@@ -544,7 +543,7 @@ w8_long srMeshModel::findClosestVertex(const glm::vec3& position)
 // FUNCTION: SURRENDER 0x1003DC70
 srMeshModel::TriMesh srMeshModel::getTriMesh()
 {
-    if ((dirty_flags.value & (1UL << DIRTY_TRI_MESH)) != 0) {
+    if ((dirty_flags & (1UL << DIRTY_TRI_MESH)) != 0) {
         updateTriMesh();
     }
     return tri_mesh;
@@ -557,7 +556,7 @@ void srMeshModel::updateTriMesh()
     tri_mesh.vertex_count = vertex_location_count;
     tri_mesh.polygon_count = polygon_count;
     tri_mesh.pass_count = pass_count;
-    tri_mesh.control_flags = render_control.value;
+    tri_mesh.control_flags = render_control;
     tri_mesh.sort_bias = sort_bias;
     tri_mesh.poly_vertices = getPolyVertex();
     tri_mesh.poly_equations = getPolyEq();
@@ -599,7 +598,7 @@ void srMeshModel::updateTriMesh()
     if (const auto* active = getActivePolygonTable(0)) {
         tri_mesh.active_polygons = std::span<const w8_ulong>(active, active_polygon_count);
     }
-    dirty_flags.value &= ~(1UL << DIRTY_TRI_MESH);
+    dirty_flags &= ~(1UL << DIRTY_TRI_MESH);
 }
 
 // FUNCTION: SURRENDER 0x1003FDA0
@@ -616,7 +615,7 @@ void srMeshModel::setBounds(const glm::vec3& minimum, const glm::vec3& maximum,
 
 srModel::Bounds srMeshModel::getBounds()
 {
-    if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
+    if ((dirty_flags & (1UL << DIRTY_BOUNDS)) != 0) {
         calculateBounds();
     }
     return {{bounds_minimum, bounds_maximum}, {bounds_center, bounds_radius}};
@@ -647,9 +646,9 @@ glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
 
 bool srMeshModel::isVisible(srGERD& renderer)
 {
-    const bool test_sphere = (render_control.value & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0;
+    const bool test_sphere = (render_control & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0;
     const bool test_box =
-        (render_control.value & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 && vertex_location_count >= 8;
+        (render_control & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 && vertex_location_count >= 8;
     if (!test_sphere && !test_box) return true;
     const auto bounds = getBounds();
     if (test_sphere && renderer.testBoundingSphere(bounds.sphere.center, bounds.sphere.radius) ==
@@ -964,15 +963,12 @@ void srTriMeshPipeline::FlushSlots()
 
                     w8_ulong disable_mask;
                     if (passes[pass_index].shaders != 0) {
-                        srFlags<srVertexProcessor::e_channel> flags =
-                            srVertexPipe::getShaderDisableMask(passes[pass_index].shaders,
-                                                               culler_output.indices.data(),
-                                                               culler_output.triangleCount());
-                        disable_mask = flags.value;
+                        disable_mask = srVertexPipe::getShaderDisableMask(
+                            passes[pass_index].shaders, culler_output.indices.data(),
+                            culler_output.triangleCount());
                     } else {
-                        srFlags<srVertexProcessor::e_channel> flags =
+                        disable_mask =
                             srVertexPipe::getShaderDisableMask(passes[pass_index].shader);
-                        disable_mask = flags.value;
                     }
                     records[pass_index].channels = disable_mask | renderer_disable_mask;
                 }
@@ -1154,14 +1150,14 @@ float srMeshModel::getSortBias() const
 // FUNCTION: SURRENDER 0x100417E0
 void srMeshModel::disable(e_control control)
 {
-    render_control.set(control, 0);
+    render_control &= ~(1u << control);
     setDirty(DIRTY_TRI_MESH);
 }
 
 // FUNCTION: SURRENDER 0x10041870
 int srMeshModel::isEnabled(e_control control) const
 {
-    return (render_control.value & (1 << control)) != 0;
+    return (render_control & (1 << control)) != 0;
 }
 
 // FUNCTION: SURRENDER 0x10041890

@@ -786,7 +786,7 @@ bool rendererTextureStages()
             for (auto& stream : renderer.stq) stream.clear();
             renderer.vertices.attributes[0] = attributes;
             renderer.programVertexArrays(&arrays, 3);
-            const auto mask = gerd.getVertexArrayMask().value;
+            const auto mask = gerd.getVertexArrayMask();
             for (unsigned stage = 0; stage < 2; ++stage) {
                 const bool enabled =
                     stage < stages && (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
