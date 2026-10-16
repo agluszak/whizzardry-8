@@ -232,12 +232,12 @@ TEST_CASE("Surface copies and blits respect virtual pixels across dynamic types"
     VirtualPixels packed_source(srPixelConvert::SURFACE_RGB565);
     VirtualPixels converted;
     converted.copy(packed_source);
-    REQUIRE(converted.getPixel(1, 1) == 0xff123456);
+    REQUIRE(converted.getPixelRaw(1, 1) == 0xff123456);
     VirtualPixels converted_back(srPixelConvert::SURFACE_RGB565);
     converted_back.copy(source);
     srColorSurface expected(srPixelConvert::SURFACE_RGB565, 2, 2);
     expected.fill(0xff123456);
-    REQUIRE(converted_back.getPixel(1, 1) == expected.getPixel(1, 1));
+    REQUIRE(converted_back.getPixelRaw(1, 1) == expected.getPixelRaw(1, 1));
 }
 
 TEST_CASE("generic rounded RGB conversion remains exact")
