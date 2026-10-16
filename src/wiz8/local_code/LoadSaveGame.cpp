@@ -43,7 +43,6 @@
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
-#include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/engine_code/AmbientSound.h"
