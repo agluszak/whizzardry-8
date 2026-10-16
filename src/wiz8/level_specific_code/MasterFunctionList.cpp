@@ -2,7 +2,9 @@
 
 #include <cstdarg>
 #include <cstdlib>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -514,7 +516,7 @@ bool g_sea_caves_slope_override_enabled;
 // FUNCTION: WIZ8 0x004D9740
 void LoadAwayCampChest(void)
 {
-    std::vector<W8WorldItem*> items;
+    std::vector<std::unique_ptr<W8WorldItem>> items;
     W8Prop* pChest;
     Trigger* pTrigger;
     W8WorldItem* pContainer;
@@ -534,19 +536,15 @@ void LoadAwayCampChest(void)
     }
     LoadSavedLevelItems(0x26, items);
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
-        W8WorldItem* item = items[index];
-
-        if (ItemInfoIsWorldPersistent(item)) {
-            if (ItemInfoGetNumInGroup(item) != 0) {
-                W8WorldItem* next = ItemInfoGroupGetNext(item);
-
-                if (next != 0) {
-                    ItemInfoMakeGroupList(next, items);
-                }
+        auto item = std::move(items[index]);
+        if (ItemInfoIsWorldPersistent(item.get())) {
+            while (item->next) {
+                auto next = std::move(item->next);
+                item->next = std::move(next->next);
+                items.push_back(std::move(next));
             }
-            free(item);
         } else {
-            ItemInfoAddToGroup(pContainer, item);
+            ItemInfoAddToGroup(pContainer, std::move(item));
         }
     }
 }

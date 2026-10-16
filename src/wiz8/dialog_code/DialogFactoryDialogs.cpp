@@ -802,7 +802,6 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
                                            true, false);
             }
             if (added) {
-                FreeWorldItemGroup(entries[index].item);
                 entries.erase(entries.begin() + index);
 
                 --index;
@@ -843,7 +842,7 @@ void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
     if (index < 0 || index >= static_cast<int>(entries.size())) {
         return;
     }
-    OpenAssayDialog(CopyWorldItemInstance(entries[index].item), -1);
+    OpenAssayDialog(CopyWorldItemInstance(entries[index].item.get()), -1);
 }
 
 /* Thumb drag callback: while the left button is held, map the live cursor
@@ -929,15 +928,8 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 // FUNCTION: WIZ8 0x005cf0c0
 void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 {
-    W8WorldItem* item;
-
     m_item_group = group;
-    item = ItemInfoGroupGetNext(group);
-    while (item != 0) {
-        ItemInfoRemoveFromGroup(group, item);
-        AddItem(item);
-        item = ItemInfoGroupGetNext(group);
-    }
+    while (group->next) AddItem(ItemInfoRemoveFromGroup(group, group->next.get()));
     UpdateLayout();
 }
 
@@ -946,7 +938,7 @@ void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 // FUNCTION: WIZ8 0x005cf110
 W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
 {
-    for (const auto& entry : entries) ItemInfoAddToGroup(m_item_group, entry.item);
+    for (auto& entry : entries) ItemInfoAddToGroup(m_item_group, std::move(entry.item));
     entries.clear();
     return m_item_group;
 }
@@ -956,7 +948,7 @@ W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
    those, the same unidentified name, keeping each name run ordered by item id.
    The existing world-item lifetime is unchanged. */
 // FUNCTION: WIZ8 0x005ce210
-int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
+int W8TriggerItemPickerDialog::AddItem(std::unique_ptr<W8WorldItem> item)
 {
     W8ItemInstance* instance = &item->item;
 
@@ -965,32 +957,32 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 
         PartyAttemptsToIdentifyItem(instance, 0);
         for (index = 0; index < static_cast<int>(entries.size()); ++index) {
-            W8WorldItem* other = entries[index].item;
+            W8WorldItem* other = entries[index].item.get();
             if (ItemsShareEquipClass(instance, &other->item)) {
                 break;
             }
         }
         if (index < static_cast<int>(entries.size())) {
-            W8WorldItem* other = entries[index].item;
+            W8WorldItem* other = entries[index].item.get();
             while (index < static_cast<int>(entries.size()) &&
                    !ItemsShareUnidentifiedName(instance, &other->item)) {
-                other = entries[index].item;
+                other = entries[index].item.get();
                 ++index;
             }
             if (index < static_cast<int>(entries.size())) {
                 while (index < static_cast<int>(entries.size()) &&
                        other->item.iItemNo != instance->iItemNo) {
-                    other = entries[index].item;
+                    other = entries[index].item.get();
                     ++index;
                 }
                 if (index < static_cast<int>(entries.size())) {
-                    entries.insert(entries.begin() + index, PickerEntry{item});
+                    entries.insert(entries.begin() + index, PickerEntry{std::move(item)});
 
                     return -1;
                 }
             }
         }
-        entries.push_back({item});
+        entries.push_back({std::move(item)});
     }
     return -1;
 }
@@ -1048,7 +1040,7 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         if (item_index >= static_cast<int>(entries.size())) {
             continue;
         }
-        W8WorldItem* world_item = entries[item_index].item;
+        W8WorldItem* world_item = entries[item_index].item.get();
         W8ItemInstance* item = &world_item->item;
         DrawSprite(target, *ItemSprites(item->iItemNo), 0, button->Bounds().x + 2,
                    button->Bounds().y + 2);

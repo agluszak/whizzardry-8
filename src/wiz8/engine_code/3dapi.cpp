@@ -894,8 +894,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
     } while (angle < g_camera_pi);
 
     if (check_items) {
-        W8WorldItem* item = GetNextWorldItem(true);
-        while (item != 0) {
+        for (const auto& item : gXStatus.world_items) {
             W8Item* owner = item->p3D;
             if (owner != 0) {
                 srVector3T<float> center;
@@ -906,7 +905,6 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                     return 0;
                 }
             }
-            item = GetNextWorldItem(false);
         }
     }
 

@@ -288,8 +288,7 @@ void UpdateRadarBlips(void)
     camera = cameraLocation();
     detect_all = PartyHasCondition(0x40);
 
-    W8WorldItem* world_item = GetNextWorldItem(true);
-    while (world_item != 0) {
+    for (const auto& world_item : gXStatus.world_items) {
         W8Item* item = world_item->p3D;
 
         if (item != 0) {
@@ -310,7 +309,6 @@ void UpdateRadarBlips(void)
                 }
             }
         }
-        world_item = GetNextWorldItem(false);
     }
 
     W8MonsterInfo* info = GetNextMonsterInfo(true);

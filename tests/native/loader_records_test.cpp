@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <string>
@@ -39,13 +40,17 @@
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/item_spawning.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/Search.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/save_game.h"
 #include "wiz8/xstatus.h"
 
 static std::filesystem::path fixture_root;
@@ -1292,4 +1297,54 @@ TEST_CASE_METHOD(LoaderFixture,
     tree.m_sample_points.clear();
     REQUIRE(tree.LoadPointFiles("sample-fixture.lvl"));
     REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
+}
+
+TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preserve save records",
+                 "[loader][items]")
+{
+    const auto registered = g_searchables.size();
+    const struct RestoreSearchables {
+        std::size_t count;
+        ~RestoreSearchables()
+        {
+            while (g_searchables.size() > count) {
+                delete g_searchables.back();
+                g_searchables.pop_back();
+            }
+        }
+    } restore{registered};
+    wiz8::retail::WorldItem first{}, second{};
+    first.runtime_id = 17;
+    first.position = {1, -2, 3};
+    first.flags = W8_WORLD_ITEM_HIDDEN;
+    first.saved_marker = second.saved_marker = 1;
+    first.next = 1;
+    first.sector_id = second.sector_id = -2;
+    first.unknown_3d[15] = 0xa5;
+    second.runtime_id = 29;
+    second.position = {4, 5, -6};
+    std::string bytes;
+    append(bytes, first);
+    append(bytes, second);
+    store("items.bin", bytes.substr(0, bytes.size() - 1));
+    auto file = wiz8::open_file("items.bin");
+    REQUIRE_FALSE(LoadItem(*file));
+    REQUIRE(g_searchables.size() == registered);
+    file.reset();
+    store("items.bin", bytes);
+    file = wiz8::open_file("items.bin");
+    auto group = LoadItem(*file);
+    REQUIRE(group);
+    REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
+    REQUIRE(g_searchables.size() == registered + 1);
+    REQUIRE(g_searchables.back()->world_item == group.get());
+    auto detached = ItemInfoRemoveFromGroup(group.get(), group->next.get());
+    REQUIRE(detached->runtime_id == 29);
+    REQUIRE_FALSE(group->next);
+    ItemInfoAddToGroup(group.get(), std::move(detached));
+    auto output = wiz8::open_file("items-roundtrip.bin", wiz8::OpenMode::replace);
+    REQUIRE(SaveItemFile(*output, group.get()));
+    output.reset();
+    std::ifstream encoded(fixture_root / "items-roundtrip.bin", std::ios::binary);
+    REQUIRE(std::string(std::istreambuf_iterator<char>(encoded), {}) == bytes);
 }

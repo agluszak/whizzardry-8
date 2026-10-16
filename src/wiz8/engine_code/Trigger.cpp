@@ -474,7 +474,7 @@ bool Trigger::Save(wiz8::File& hFile)
     has_world_item = world_item_group != 0;
     hFile.write(&has_world_item, sizeof(has_world_item));
     if (has_world_item != 0) {
-        SaveItemFile(hFile, world_item_group);
+        SaveItemFile(hFile, world_item_group.get());
     }
     hFile.write(&items_generated, sizeof(items_generated));
     hFile.write(&item_group_seed, sizeof(item_group_seed));
@@ -590,7 +590,7 @@ try {
 
         hFile.read_exact(&has_world_item, sizeof(has_world_item));
         if (has_world_item != 0) {
-            world_item_group = LoadItem(hFile, false);
+            world_item_group = LoadItem(hFile);
         }
         hFile.read_exact(&items_generated, sizeof(items_generated));
         hFile.read_exact(&item_group_seed, sizeof(item_group_seed));
@@ -810,7 +810,7 @@ void UpdateWorldTriggers(W8World* world)
             trigger->GenerateItemGroup();
             if (g_modal_owner == 0 && trigger->world_item_group != 0) {
                 auto dialog = std::make_unique<W8TriggerItemPickerDialog>();
-                dialog->SetItemGroup(trigger->world_item_group);
+                dialog->SetItemGroup(trigger->world_item_group.get());
                 dialog->on_complete = [trigger](W8WorldItem*) {
                     trigger->flags &= ~W8_TRIGGER_ITEM_PICKER;
                 };
@@ -2267,7 +2267,7 @@ void Trigger::RunDestination(const char* destination)
 // FUNCTION: WIZ8 0x00445500
 void Trigger::GenerateItemGroup()
 {
-    std::vector<W8WorldItem*> items;
+    std::vector<std::unique_ptr<W8WorldItem>> items;
     srVector3T<float> position;
     unsigned int table_id;
     unsigned int maximum_items;
@@ -2286,10 +2286,10 @@ void Trigger::GenerateItemGroup()
     maximum_items = RollDice(&g_item_tables[table_id].item_count_dice);
     GenerateItemsFromTable(items, table_id, maximum_items);
     if (world_item_group == 0) {
-        world_item_group = SpawnItem(0x23c, &position, 0, false);
+        world_item_group = SpawnItem(0x23c, &position, 0);
     }
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
-        ItemInfoAddToGroup(world_item_group, items[index]);
+        ItemInfoAddToGroup(world_item_group.get(), std::move(items[index]));
     }
     gold = RollDice(&g_item_tables[table_id].gold_dice);
     items_generated = 1;
@@ -2304,9 +2304,9 @@ W8WorldItem* Trigger::GetOrCreateItemGroup(bool create)
     srVector3T<float> position;
 
     if (create && world_item_group == 0) {
-        world_item_group = SpawnItem(0x23c, &position, 0, false);
+        world_item_group = SpawnItem(0x23c, &position, 0);
     }
-    return world_item_group;
+    return world_item_group.get();
 }
 
 /* After a selected-prop Run: while g_trigger_feedback is clear, post either the
@@ -2732,16 +2732,15 @@ void Trigger::Run(int source)
         if (inline_action_data[0] != '\0') {
             if (g_status.item_in_cursor) {
                 srVector3T<float> item_position;
-                W8WorldItem* item =
-                    CreateWorldItem(&g_status.item_in_hand, &item_position,
-                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
+                auto item = CreateWorldItem(&g_status.item_in_hand, &item_position,
+                                            W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
                     if (world_item_group == 0) {
                         srVector3T<float> group_position;
-                        world_item_group = SpawnItem(0x23c, &group_position, 0, false);
+                        world_item_group = SpawnItem(0x23c, &group_position, 0);
                     }
-                    ItemInfoAddToGroup(world_item_group, item);
+                    ItemInfoAddToGroup(world_item_group.get(), std::move(item));
                 }
                 g_trigger_feedback = true;
                 return;
@@ -2755,7 +2754,7 @@ void Trigger::Run(int source)
                 GenerateItemGroup();
             }
             if (world_item_group != 0) {
-                int item_count = ItemInfoGetNumInGroup(world_item_group) - 1;
+                int item_count = ItemInfoGetNumInGroup(world_item_group.get()) - 1;
                 W8WorldItem* item;
                 int contained_items = 0;
 
@@ -2763,13 +2762,13 @@ void Trigger::Run(int source)
                     action_succeeded = false;
                 }
 
-                item = world_item_group->next;
+                item = world_item_group->next.get();
                 while (item != 0) {
                     ++contained_items;
                     if (!item->item.identified) {
                         PartyAttemptsToIdentifyItem(&item->item, 0);
                     }
-                    item = item->next;
+                    item = item->next.get();
                 }
                 if (contained_items > 1) {
                     gXStatus.item_pick_pending = true;
@@ -2787,9 +2786,9 @@ void Trigger::Run(int source)
                                                          -1, 0, g_character_event_no_flags);
                     }
                 } else if (item_count == 1 && !g_status.item_in_cursor) {
-                    item = world_item_group->next;
+                    item = world_item_group->next.get();
                     CopyItemInstance(&g_status.item_in_hand, &item->item, 0, true);
-                    ItemInfoRemoveFromGroup(world_item_group, item);
+                    ItemInfoRemoveFromGroup(world_item_group.get(), item);
                     if (m_pProp->Rep()->subcycle != 0) {
                         goto toggle_item_prop;
                     }
@@ -3574,10 +3573,6 @@ Trigger::~Trigger()
 
     if (m_pWorld != 0) {
         wiz8::erase_first(m_pWorld->triggers, this);
-    }
-
-    if (world_item_group != 0) {
-        FreeWorldItemGroup(world_item_group);
     }
 }
 
