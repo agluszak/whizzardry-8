@@ -116,8 +116,7 @@ void initialize_test_framebuffer()
 
 void screen_stack()
 {
-    W8CharacterEventQueue queue;
-    gXStatus.character_event_queue = &queue;
+    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
     const auto saved_intro = g_screen_handlers[W8_SCREEN_INTRO];
     const auto saved_options = g_screen_handlers[W8_SCREEN_OPTIONS];
     for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS})
@@ -1929,23 +1928,24 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     auto old_secondary = std::move(g_wiz_text_font_secondary);
     REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
+        W8Character character{};
         struct RestoreParty {
             W8StatusBuffers buffers = g_status.buffers;
-            W8CharacterEventQueue* queue = gXStatus.character_event_queue;
+            std::unique_ptr<W8CharacterEventQueue> queue =
+                std::move(gXStatus.character_event_queue);
             ~RestoreParty()
             {
                 g_status.buffers = buffers;
-                gXStatus.character_event_queue = queue;
+                gXStatus.character_event_queue = std::move(queue);
             }
         } restore_party;
-        W8Character character{};
         character.fInParty = true; // Quote access must still use the previewed character directly.
-        W8CharacterEventQueue queue;
+        gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
+        auto& queue = *gXStatus.character_event_queue;
         queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
         g_status.buffers.Char = nullptr;
         g_status.buffers.XChar = nullptr;
-        gXStatus.character_event_queue = &queue;
         {
             W8CharacterSummaryDialog summary(&character);
             REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.
