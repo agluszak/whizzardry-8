@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <glm/ext/vector_float3.hpp>
-
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srGERD.h"
