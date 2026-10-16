@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -41,6 +42,7 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_text_records.h"
@@ -590,14 +592,14 @@ static void path_tables()
     store("nodes.bin", bytes);
     auto file = wiz8::open_file("nodes.bin");
     REQUIRE((path.ReadPathNodes(file.get())));
-    auto* values = path.m_pPathValues;
-    auto* paths = path.m_pCondPaths;
-    REQUIRE((path.m_ulNumCondPaths == 1 && path.navigation_filter == 9));
+    auto* values = path.m_pPathValues.get();
+    auto* paths = path.m_pCondPaths.data();
+    REQUIRE((path.m_pCondPaths.size() == 1 && path.navigation_filter == 9));
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("nodes.bin", bytes.substr(0, end));
         file = wiz8::open_file("nodes.bin");
         REQUIRE((!path.ReadPathNodes(file.get())));
-        REQUIRE((path.m_pPathValues == values && path.m_pCondPaths == paths &&
+        REQUIRE((path.m_pPathValues.get() == values && path.m_pCondPaths.data() == paths &&
                  path.navigation_filter == 9));
     }
     auto bad = bytes;
@@ -605,9 +607,9 @@ static void path_tables()
                 sizeof(conditional.name));
     store("nodes.bin", bad);
     file = wiz8::open_file("nodes.bin");
-    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pCondPaths == paths));
+    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pCondPaths.data() == paths));
     path.path_node_count = -1;
-    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pPathValues == values));
+    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pPathValues.get() == values));
 }
 
 struct LoaderFixture {
@@ -1113,6 +1115,77 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
     auto file = wiz8::open_file("items.bin");
     W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
+}
+
+TEST_CASE_METHOD(LoaderFixture,
+                 "Waypoint graph growth retains indices and conditional edge updates",
+                 "[loader][pathing]")
+{
+    W8Octree tree(nullptr, nullptr);
+    const struct RestoreOctree {
+        W8Octree* previous;
+        ~RestoreOctree() { g_octree = previous; }
+    } restore{g_octree};
+    g_octree = &tree;
+    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(0);
+    tree.m_spatial.m_node_extent = 1;
+    W8PathingService path;
+    path.m_pPathValues = std::make_unique<std::unordered_multimap<unsigned, unsigned>>();
+    path.grid_scale = 1;
+    path.span = 1;
+    for (unsigned i = 1; i <= 150; ++i) {
+        const srVector3 position(i, 1, 1);
+        path.AddWaypoint(&position);
+        path.m_waypoints[i].flags |= W8_WAYPOINT_CONDITIONAL;
+        const auto node = path.AllocateSearchNode();
+        REQUIRE(node == i);
+        REQUIRE(path.m_search_nodes[node].flags == 0);
+        REQUIRE(path.m_search_nodes[node].parent_node == 0);
+        path.m_search_nodes[node].parent_node = node - 1;
+        path.m_search_nodes[node].position = position;
+        if (i > 1) path.AddWaypointLink(1, i, W8_PATH_EDGE_TELEPORTAL);
+    }
+    REQUIRE(path.m_waypoints.size() == 151);
+    REQUIRE(path.m_pEdges.size() == 150);
+    for (unsigned i = 1; i <= 150; ++i) {
+        REQUIRE(path.m_waypoints[i].index == i);
+        REQUIRE(path.m_waypoints[i].position == srVector3(i, 1, 1));
+        REQUIRE(path.m_search_nodes[i].parent_node == i - 1);
+        REQUIRE(path.m_search_nodes[i].position == path.m_waypoints[i].position);
+    }
+    unsigned edge = path.m_waypoints[1].first_edge;
+    for (unsigned destination = 2; destination <= 150; ++destination) {
+        REQUIRE(edge != 0);
+        REQUIRE(path.m_pEdges[edge].source == 1);
+        REQUIRE(path.m_pEdges[edge].destination == destination);
+        edge = path.m_pEdges[edge].next;
+    }
+    REQUIRE(edge == 0);
+    const auto first_edge = path.m_waypoints[1].first_edge;
+    path.m_pEdges[first_edge].flags = 0;
+    REQUIRE(path.UpdateWaypointLink(1, 2, W8_PATH_EDGE_TELEPORTAL));
+    REQUIRE(path.m_pEdges.size() == 150);
+    REQUIRE(path.m_pEdges[first_edge].flags ==
+            (W8_PATH_EDGE_TELEPORTAL | W8_PATH_EDGE_CONDITIONAL));
+
+    path.level_name = "graph";
+    path.path_node_count = 1;
+    path.edge_node_count = 1;
+    std::vector<W8FileWaypoint> snapshot(path.m_waypoints.size());
+    for (std::size_t i = 0; i < snapshot.size(); ++i) {
+        snapshot[i].flags = path.m_waypoints[i].flags;
+        snapshot[i].first_edge = path.m_waypoints[i].first_edge;
+        snapshot[i].position = path.m_waypoints[i].position;
+    }
+    REQUIRE(path.WriteWaypointFile(snapshot));
+    REQUIRE(path.ReadWaypointFile());
+    REQUIRE(path.m_waypoints.size() == snapshot.size());
+    REQUIRE(path.m_pEdges.size() == 150);
+    for (std::size_t i = 1; i < snapshot.size(); ++i) {
+        REQUIRE(path.m_waypoints[i].position == snapshot[i].position);
+        REQUIRE(path.m_waypoints[i].first_edge == snapshot[i].first_edge);
+    }
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",

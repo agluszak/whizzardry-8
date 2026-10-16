@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <utility>
@@ -483,12 +485,7 @@ int PrePathing::CreatePathNodeArray()
     char message[0x400];
 
     edge_node_count = 1;
-    file_path_nodes =
-        static_cast<W8FilePathNode*>(malloc(path_node_count * sizeof(W8FilePathNode)));
-    if (file_path_nodes == 0) {
-        sprintf(message, "CreatePathNodeArray: Could not allocate m_pulNodeHashArray.\n");
-        ReportBuildStatus(7, message);
-    }
+    file_path_nodes.resize(path_node_count);
     if (1 < static_cast<unsigned int>(path_node_count)) {
         do {
             W8PrePathNode* node = path_node_list[i];
@@ -508,8 +505,7 @@ int PrePathing::CreatePathNodeArray()
     sprintf(message, "Total memory taken by Path Nodes: %dk.\n",
             (static_cast<unsigned int>(path_node_count) & 0x1fffffff) >> 7);
     ReportBuildStatus(6, message);
-    m_ulNumWayPoints = 0;
-    m_pFileWayPoints = 0;
+    m_waypoints.clear();
     return 1;
 }
 
@@ -575,21 +571,20 @@ void W8PathingService::LinkCollideableProps(
     unsigned int aulValues[10000];
     int i;
 
-    m_ulNumCondPaths = 1;
-    m_ulNumCondNodes = 1;
-    m_ulNumCondFrames = 1;
-    m_pPathValues = new std::unordered_multimap<unsigned int, unsigned int>;
+    m_pCondPaths.clear();
+    m_pulCondLookup.clear();
+    m_pusCondNodeFrames.clear();
+    m_pulCondNodeKeys.clear();
+    m_pulCondNodeValues.clear();
+    int m_ulNumCondPaths = 1;
+    int m_ulNumCondNodes = 1;
+    int m_ulNumCondFrames = 1;
+    m_pPathValues = std::make_unique<std::unordered_multimap<unsigned int, unsigned int>>();
     for (i = 0; i < path_node_count; ++i) {
         InsertIndexValue(*m_pPathValues, file_path_nodes[i].cell, file_path_nodes[i].level_flags);
     }
 
-    GDPropCondPaths** ppCondPaths =
-        static_cast<GDPropCondPaths**>(malloc((lNumProps + 2) * sizeof(*ppCondPaths)));
-    if (ppCondPaths == 0) {
-        srAssertFail("ppCondPaths", OCTPREPATH_CPP, 1037,
-                     "LinkCollideableProps: Couldn't allocate GDPropCondPaths objects.");
-    }
-    memset(ppCondPaths, 0, (lNumProps + 2) * sizeof(*ppCondPaths));
+    std::vector<std::optional<GDPropCondPaths>> ppCondPaths(lNumProps + 2);
 
     int ulOriginalCount = 0;
     for (i = 0; i < lNumProps; ++i) {
@@ -607,7 +602,7 @@ void W8PathingService::LinkCollideableProps(
                         CondPathNode* puValue = slot->second;
                         if ((puValue != 0) &&
                             (FindConditionalPathValue(puValue->cell, puValue->value) != 0)) {
-                            if (ppCondPaths[i] == 0) {
+                            if (!ppCondPaths[i]) {
                                 if (static_cast<unsigned int>(lNumProps) <
                                     static_cast<unsigned int>(ulOriginalCount)) {
                                     srAssertFail("ulOriginalCount <= (UINT32)lNumProps",
@@ -615,10 +610,7 @@ void W8PathingService::LinkCollideableProps(
                                                  "LinkCollideableProps: Invalid count for "
                                                  "collideable props.");
                                 }
-                                GDPropCondPaths* pPath =
-                                    static_cast<GDPropCondPaths*>(malloc(sizeof(GDPropCondPaths)));
-                                ppCondPaths[i] = pPath;
-                                memset(pPath, 0, sizeof(GDPropCondPaths));
+                                auto* pPath = &ppCondPaths[i].emplace();
                                 strcpy(pPath->name, pProp->name);
                                 pPath->lookup_index = m_ulNumCondFrames;
                                 ++m_ulNumCondPaths;
@@ -654,7 +646,7 @@ void W8PathingService::LinkCollideableProps(
                 }
             }
         }
-        if (ppCondPaths[i] != 0) {
+        if (ppCondPaths[i].has_value()) {
             if ((pProp->num_stop_meshes == 1) &&
                 (pProp->pStopMeshes[0].m_flags.always_blocks_path)) {
                 aiLookup[m_ulNumCondFrames + 1] = aiLookup[m_ulNumCondFrames];
@@ -669,54 +661,17 @@ void W8PathingService::LinkCollideableProps(
 
     if ((static_cast<unsigned int>(m_ulNumCondFrames) < 2) ||
         (static_cast<unsigned int>(m_ulNumCondNodes) < 2)) {
-        m_ulNumCondNodes = 0;
-        m_ulNumCondFrames = 0;
         return;
     }
 
-    m_pCondPaths =
-        static_cast<GDPropCondPaths*>(malloc(m_ulNumCondPaths * sizeof(GDPropCondPaths)));
-    if (m_pCondPaths == 0) {
-        srAssertFail("m_pCondPaths", OCTPREPATH_CPP, 1116,
-                     "LinkCollideableProps: Couldn't allocate m_pCondPaths array.");
-    }
-    memset(m_pCondPaths, 0, m_ulNumCondPaths * sizeof(GDPropCondPaths));
-    m_ulNumCondPaths = 0;
+    m_pCondPaths.clear();
+    m_pCondPaths.reserve(m_ulNumCondPaths);
     if (ulOriginalCount > 1) {
-        for (i = 1; i < ulOriginalCount; ++i) {
-            if (ppCondPaths[i] != 0) {
-                int index = m_ulNumCondPaths;
-                ++m_ulNumCondPaths;
-                m_pCondPaths[index] = *ppCondPaths[i];
-            }
-        }
+        for (i = 1; i < ulOriginalCount; ++i)
+            if (ppCondPaths[i]) m_pCondPaths.push_back(*ppCondPaths[i]);
     }
-
-    m_pulCondLookup =
-        static_cast<unsigned int*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
-    if (m_pulCondLookup == 0) {
-        srAssertFail("m_pulCondLookup", OCTPREPATH_CPP, 1127, 0);
-    }
-    memcpy(m_pulCondLookup, aiLookup + 1, m_ulNumCondFrames * sizeof(*m_pulCondLookup));
-
-    m_pusCondNodeFrames =
-        static_cast<unsigned short*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
-    if (m_pusCondNodeFrames == 0) {
-        srAssertFail("m_pusCondNodeFrames", OCTPREPATH_CPP, 1130, 0);
-    }
-    memcpy(m_pusCondNodeFrames, ausFrames, m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames));
-
-    m_pulCondNodeKeys =
-        static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
-    if (m_pulCondNodeKeys == 0) {
-        srAssertFail("m_pulCondNodeKeys", OCTPREPATH_CPP, 1134, 0);
-    }
-    memcpy(m_pulCondNodeKeys, aulKeys, m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys));
-
-    m_pulCondNodeValues =
-        static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
-    if (m_pulCondNodeValues == 0) {
-        srAssertFail("m_pulCondNodeValues", OCTPREPATH_CPP, 1137, 0);
-    }
-    memcpy(m_pulCondNodeValues, aulValues, m_ulNumCondNodes * sizeof(*m_pulCondNodeValues));
+    m_pulCondLookup.assign(aiLookup + 1, aiLookup + 1 + m_ulNumCondFrames);
+    m_pusCondNodeFrames.assign(ausFrames, ausFrames + m_ulNumCondFrames);
+    m_pulCondNodeKeys.assign(aulKeys, aulKeys + m_ulNumCondNodes);
+    m_pulCondNodeValues.assign(aulValues, aulValues + m_ulNumCondNodes);
 }
