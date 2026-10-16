@@ -76,9 +76,4 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
 void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
                            TextOptions options = {});
 
-void ConfigureFontRendering(const std::vector<std::uint16_t>& translation);
-void ResetFontRendering();
-
-std::vector<std::uint16_t> CreateEnglishTransTable();
-
 std::int16_t GetIndex(char32_t siChar);

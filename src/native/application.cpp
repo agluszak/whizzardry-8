@@ -83,7 +83,6 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         if (options.inspector) VideoInspectorEnable();
         if (options.windowed) VideoFullScreen(false);
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
-        ConfigureFontRendering(CreateEnglishTransTable());
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
         InitializeRandom();
@@ -139,7 +138,6 @@ void wiz8::Application::shutdown() noexcept
     ReleaseCatalogArtwork();
     ShutdownButtonImageManager();
     ReleaseMenuFonts();
-    ResetFontRendering();
     ShutdownVideoManager();
     SDL_ShowCursor();
     VideoDumpMemoryLeaks();
