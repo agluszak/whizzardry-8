@@ -22,6 +22,7 @@
 #include "file_faults.h"
 #include "float_constants.h"
 #include "geometry.h"
+#include "glm/ext/vector_float3.hpp"
 #include "scoped_asset_roots.h"
 #include "surrender/srMath.h"
 #include "temporary_directory.h"

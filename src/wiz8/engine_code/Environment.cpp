@@ -1,5 +1,6 @@
 #include "wiz8/engine_code/Environment.h"
 
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -14,6 +15,7 @@
 #include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
