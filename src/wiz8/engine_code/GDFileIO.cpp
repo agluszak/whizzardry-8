@@ -65,10 +65,8 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
 static W8GameData* ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary)
 {
     auto game_data = std::make_unique<W8GameData>(nullptr, secondary);
-    const auto got_polygons = game_data->ReadWGDList(*file, 0);
-    const auto got_vertices = game_data->ReadWGDList(*file, 1);
-    if (got_vertices == 0 && got_polygons == 0) {
-    }
+    game_data->ReadWGDList(*file, 0);
+    game_data->ReadWGDList(*file, 1);
     return game_data.release();
 }
 
@@ -83,7 +81,7 @@ W8GameData* ReadGameData(const char* path, bool secondary)
     }
     try {
         return ReadGeometry(std::move(file), secondary);
-    } catch (const std::exception& error) {
+    } catch (const std::exception&) {
         return 0;
     }
 }
@@ -352,10 +350,6 @@ void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* tri
     AddTriggerTriangle(trigger_index, TrigVerticesCount() - 2, TrigVerticesCount() - 1,
                        TrigVerticesCount() - 4);
 }
-
-/* Registers a level-file plane's two triangles (vertices 0,1,2 and 2,3,0) as
-   a trigger-surface pair under the auto-numbered trigger index. */
-// FUNCTION: WIZ8 0x004485F0
 
 // FUNCTION: WIZ8 0x00448840
 void W8GameData::IntegrateTriggers()
