@@ -29,7 +29,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
