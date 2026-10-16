@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_video.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
@@ -50,7 +51,6 @@
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srWindow.h"
 
 class srModelInstance;
 class srVertexProcessor;
@@ -921,7 +921,7 @@ srGERD::e_error srGERD::beginFrame()
     if (isWindowOpen() == 0) {
         return ERROR_WINDOW_NOT_OPEN;
     }
-    if (srWindow::isWindow(device.window) == 0) {
+    if (device.window == nullptr) {
         return ERROR_INVALID_WHANDLE;
     }
     if ((state_flags & STATE_FRAME_STARTED) == 0) {
@@ -1001,12 +1001,6 @@ w8_long srGERD::getWidth() const
 w8_long srGERD::getHeight() const
 {
     return device.open_info.height;
-}
-
-// FUNCTION: SURRENDER 0x1001D0B0
-w8_ulong_ptr srGERD::getWindowHandle() const
-{
-    return device.window;
 }
 
 // FUNCTION: SURRENDER 0x1001D0D0
@@ -2219,13 +2213,13 @@ void srGERD::initMatrices()
 }
 
 // FUNCTION: SURRENDER 0x100191E0
-srGERD::e_error srGERD::createContext(w8_ulong_ptr window)
+srGERD::e_error srGERD::createContext(SDL_Window* window)
 {
     deleteContext();
-    if (srWindow::isWindow(window) == 0) {
+    if (window == nullptr) {
         return ERROR_INVALID_WHANDLE;
     }
-    if (!getDD()->createContext(reinterpret_cast<SDL_Window*>(window))) {
+    if (!getDD()->createContext(window)) {
         return ERROR_CONTEXT_CREATION_FAILED;
     }
     device.window = window;
@@ -2332,7 +2326,9 @@ srGERD::e_error srGERD::openWindow()
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
         return ERROR_NO_CONTEXT;
     }
-    return openWindow(srWindow::getWidth(device.window), srWindow::getHeight(device.window));
+    int width = 0, height = 0;
+    if (device.window) SDL_GetWindowSizeInPixels(device.window, &width, &height);
+    return openWindow(width, height);
 }
 
 // FUNCTION: SURRENDER 0x1001A160
@@ -2341,12 +2337,11 @@ srGERD::e_error srGERD::openWindow(w8_long width, w8_long height)
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
         return ERROR_NO_CONTEXT;
     }
-    if (srWindow::isWindow(device.window) == 0) {
+    if (device.window == nullptr) {
         return ERROR_INVALID_WHANDLE;
     }
-    OpenInfo info;
-    info.window_width = srWindow::getWidth(device.window);
-    info.window_height = srWindow::getHeight(device.window);
+    OpenInfo info{};
+    SDL_GetWindowSizeInPixels(device.window, &info.window_width, &info.window_height);
     info.width = width;
     info.height = height;
     return openWindowInternal(info);
@@ -2365,7 +2360,7 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
     }
     closeWindow(static_cast<e_closeHint>(1));
     if (info.width != 0 && info.height != 0 && info.window_width != 0 && info.window_height != 0) {
-        if (srWindow::isWindow(device.window) == 0) {
+        if (device.window == nullptr) {
             return ERROR_INVALID_WHANDLE;
         }
         if (device.info.max_back_buffer_width < (w8_ulong)info.width ||

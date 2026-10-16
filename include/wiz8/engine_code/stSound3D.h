@@ -1,10 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <string>
 #include <vector>
-
-#include <stdlib.h>
-#include <string.h>
 
 #include "soundman.h"
 #include "surrender/srNode.h"
@@ -23,6 +21,10 @@ extern std::vector<stSound3D*> g_sound3d_instances;
 class stSound3D : public srNode {
 public:
     stSound3D(const char* sound_name, srNode* parent); /* 0x004AE6D0 */
+    stSound3D(const stSound3D& other) : stSound3D(other.wave_name.c_str(), nullptr)
+    {
+        *this = other;
+    }
     virtual ~stSound3D() override;
     bool IsPlaying(); /* 0x004AEC70 */
     void Stop();      /* 0x004AEC90 */
@@ -35,29 +37,19 @@ public:
     wiz8::sound::Playback sound_handle; // Current playback; empty when silent.
     int volume; /* 0x140: base volume before distance/effects scale */
     float falloff; /* 0x144: audible range in world units */
-    char* wave_name; /* 0x148: owned copy of the wave filename */
+    std::string wave_name;
     bool auto_release; /* 0x14c: release the node when playback ends */
 
     /* Copy the wave filename, but leave a live playback handle unshared. */
     stSound3D& operator=(const stSound3D& other)
     {
+        if (this == &other) return *this;
+        Stop();
         srNode::operator=(other);
-
-        const char* source_name = other.wave_name;
-        if (wave_name != 0) {
-            free(wave_name);
-            wave_name = 0;
-        }
-        if (source_name != 0) {
-            wave_name = static_cast<char*>(malloc(strlen(source_name) + 1));
-            strcpy(wave_name, source_name);
-        }
-
-        sound_handle = nullptr;
+        wave_name = other.wave_name;
         falloff = other.falloff;
         volume = other.volume;
         auto_release = other.auto_release;
-        g_sound3d_instances.push_back(this);
         return *this;
     }
 };

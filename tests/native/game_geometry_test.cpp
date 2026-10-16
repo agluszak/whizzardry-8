@@ -96,6 +96,7 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stParticle.h"
+#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
@@ -2996,4 +2997,20 @@ TEST_CASE_METHOD(SurRenderTestFixture,
             REQUIRE(uv == glm::vec2(corner, model.m_packed_header));
         }
     }
+}
+
+TEST_CASE("Positional sound copies register each live node once", "[scene][sound]")
+{
+    const auto initial = g_sound3d_instances.size();
+    {
+        stSound3D source("source.wav", nullptr);
+        stSound3D assigned("assigned.wav", nullptr);
+        assigned = source;
+        assigned = source;
+        stSound3D copied(source);
+        REQUIRE(g_sound3d_instances.size() == initial + 3);
+        for (auto* node : {&source, &assigned, &copied})
+            REQUIRE(std::ranges::count(g_sound3d_instances, node) == 1);
+    }
+    REQUIRE(g_sound3d_instances.size() == initial);
 }

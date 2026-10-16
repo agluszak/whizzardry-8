@@ -12,6 +12,7 @@ struct W8WorldItem;
 
 #include <stddef.h>
 
+#include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/party_formation.h"
@@ -57,7 +58,7 @@ struct W8XStatus {
     /* Live and unborn monster lists plus their owning storage. */
     W8MonsterRoster monster_roster;
     std::vector<W8MonsterGroup*> monster_groups;
-    std::vector<W8WorldItem*> world_items;
+    std::vector<std::unique_ptr<W8WorldItem>> world_items;
     std::vector<W8MonsterGroup*> encounter_groups;
     bool fSurprisePossible;
     /* Set when surprise starts with no character engaged; phase 1 waits
@@ -161,7 +162,7 @@ inline W8WorldItem* GetWorldItemListEntry(int index)
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.world_items.size())) {
         return nullptr;
     }
-    return gXStatus.world_items[index];
+    return gXStatus.world_items[index].get();
 }
 
 inline W8MonsterGroup* GetMonsterGroupEncounter(int index)

@@ -1029,11 +1029,7 @@ stSound3D::stSound3D(const char* name, srNode* parent) : srNode(static_cast<srNo
     if (parent != 0) {
         setParent(parent, 0);
     }
-    wave_name = 0;
-    if (name != nullptr) {
-        wave_name = static_cast<char*>(malloc(strlen(name) + 1));
-        strcpy(wave_name, name);
-    }
+    wave_name = name ? name : "";
     unknown_138 = 0;
     sound_handle = nullptr;
     volume = 0x7f;
@@ -1045,9 +1041,6 @@ stSound3D::stSound3D(const char* name, srNode* parent) : srNode(static_cast<srNo
 // FUNCTION: WIZ8 0x004AEAA0
 stSound3D::~stSound3D()
 {
-    if (wave_name != nullptr) {
-        free(wave_name);
-    }
     if (sound_handle != nullptr) {
         wiz8::sound::stop(sound_handle);
     }
@@ -1057,7 +1050,7 @@ stSound3D::~stSound3D()
 // FUNCTION: WIZ8 0x004AEBF0
 unsigned char stSound3D::Play(bool loop, bool release_when_done)
 {
-    if (wave_name == 0) {
+    if (wave_name.empty()) {
         return 0;
     }
     auto options = BuildSoundOptions(cameraLocation());

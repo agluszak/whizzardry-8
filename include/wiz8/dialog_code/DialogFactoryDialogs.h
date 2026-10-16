@@ -170,7 +170,7 @@ public:
 
     virtual bool ProcessInput() override;
 
-    int AddItem(W8WorldItem* item);
+    int AddItem(std::unique_ptr<W8WorldItem> item);
     W8WorldItem* ReturnItemsToGroup();
     void SetItemGroup(W8WorldItem* group);
 
@@ -199,7 +199,7 @@ private:
 
 public:
     struct PickerEntry {
-        W8WorldItem* item;
+        std::unique_ptr<W8WorldItem> item;
         bool selected = false;
     };
     std::vector<PickerEntry> entries;

@@ -30,7 +30,6 @@ set(SURRENDER_SOURCES
     texture.cpp
     texture_map.cpp
     statistics.cpp
-    window.cpp
 )
 
 find_package(JPEG CONFIG REQUIRED)

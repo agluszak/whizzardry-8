@@ -183,7 +183,6 @@ public:
 
     Trigger();
     virtual ~Trigger() override;
-    Trigger& operator=(const Trigger&) = default;
 
     static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world);
 
@@ -272,7 +271,7 @@ public:
     char* m_pacStateToMod;
     W8TriggerEvent* m_pEvent;
     char inline_action_data[0x100];
-    W8WorldItem* world_item_group;
+    std::unique_ptr<W8WorldItem> world_item_group;
     unsigned char items_generated;
     unsigned char unknown_351[3];
     /* Sampled during construction, persisted in saves and used to reseed
