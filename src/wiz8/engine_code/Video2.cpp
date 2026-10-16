@@ -924,7 +924,7 @@ unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rec
                                    bool render_secondary)
 {
     srGERD* gerd = g_gerd.get();
-    glm::vec3 clear_color{0};
+    glm::vec3 clear_color{1.0f};
     gerd->beginFrame();
     gerd->setTextureReduction(g_resident_texture_policy);
     gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
