@@ -1,6 +1,7 @@
 #include "wiz8/engine_code/stLight.hpp"
 
 #include <cmath>
+#include <memory>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -55,27 +56,15 @@ stLight::stLight(srNode* parent) : srLight(static_cast<srNode*>(nullptr), srLigh
         setParent(parent, 0);
     }
     attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
-    path_ai = 0;
     m_direction = 1;
     m_path_index = 0;
     m_path_direction = 1;
     m_position = glm::vec3(0);
     m_level = 0;
-    m_definition = 0;
     m_level_time = m_path_time = w8_get_ticks() * 0.001f;
 }
 
-/* Exactly two owned members. The definition is released through its own
-   virtual destructor, so ownership of every stLightDefinition form is
-   stLight's; the path is released through the kind-guarded PathAI helper
-   rather than the general one. Nothing else here is owned: the prop at +0x254
-   and the parent link are both left to their owners. */
-// FUNCTION: WIZ8 0x0049C430
-stLight::~stLight()
-{
-    delete m_definition;
-    delete path_ai;
-}
+stLight::~stLight() = default;
 
 /* Assignment deep-copies both owned members - the definition through its
    virtual Clone slot and the path through the PathAI clone - so a copied light
@@ -85,20 +74,21 @@ stLight::~stLight()
 // FUNCTION: WIZ8 0x0049C690
 stLight& stLight::operator=(const stLight& other)
 {
+    if (this == &other) return *this;
     srLight::operator=(other);
     setParent(other.parent_, 0);
     m_position = other.m_position;
     if (other.m_definition != 0) {
         m_definition = other.m_definition->Clone();
     } else {
-        m_definition = 0;
+        m_definition.reset();
     }
     m_direction = other.m_direction;
     if (other.path_ai != 0) {
-        path_ai = new W8PathAI(*other.path_ai);
+        path_ai = std::make_unique<W8PathAI>(*other.path_ai);
         path_ai->timed = false;
     } else {
-        path_ai = 0;
+        path_ai.reset();
     }
     m_path_index = other.m_path_index;
     m_path_direction = other.m_path_direction;
@@ -136,7 +126,7 @@ void stLight::process(const srNode::ProcessInfo& info, srNode::e_processType typ
 void stLight::SetDefinitionTime(float time)
 {
     if (m_definition != 0 && m_definition->kind == W8_LIGHT_DEFINITION_KEYFRAMED) {
-        static_cast<stKeyframedLightDefinition*>(m_definition)->time = time;
+        static_cast<stKeyframedLightDefinition*>(m_definition.get())->time = time;
     }
 }
 
@@ -159,7 +149,7 @@ void stLight::Update()
 {
     if (m_definition != 0 && m_definition->kind == W8_LIGHT_DEFINITION_KEYFRAMED) {
         stKeyframedLightDefinition* definition =
-            static_cast<stKeyframedLightDefinition*>(m_definition);
+            static_cast<stKeyframedLightDefinition*>(m_definition.get());
         float time = definition->time;
         int count = static_cast<int>(definition->key_frames.size());
         if (time <= definition->key_frames.back()) {
@@ -205,10 +195,10 @@ void stLight::Update()
     }
 
     w8_ulong ticks = w8_get_ticks();
-    W8PathAI* path = path_ai;
+    W8PathAI* path = path_ai.get();
     float seconds = ticks * 0.001f;
     stParametricLightDefinition* definition =
-        static_cast<stParametricLightDefinition*>(m_definition);
+        static_cast<stParametricLightDefinition*>(m_definition.get());
     if (definition->period < 0.0001f) {
         definition->period = 1.0f;
     }
@@ -332,14 +322,14 @@ void stLight::Reset()
     if (m_definition != 0) {
         if (m_definition->kind == W8_LIGHT_DEFINITION_KEYFRAMED) {
             stKeyframedLightDefinition* definition =
-                static_cast<stKeyframedLightDefinition*>(m_definition);
+                static_cast<stKeyframedLightDefinition*>(m_definition.get());
             definition->time = 0.0f;
             definition->keyframe_index = 0;
             m_path_index = 0;
             m_path_direction = 1;
         } else {
             stParametricLightDefinition* definition =
-                static_cast<stParametricLightDefinition*>(m_definition);
+                static_cast<stParametricLightDefinition*>(m_definition.get());
             intensity = definition->intensity;
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
                 diffuse = definition->color;

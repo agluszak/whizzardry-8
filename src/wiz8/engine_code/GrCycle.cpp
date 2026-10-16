@@ -302,15 +302,7 @@ try {
 
     info->hFile->read(&has_path, 1);
     if (has_path != 0) {
-        /* LoadPathAI stores its result only on success; the base-typed AI
-           slot takes the loaded path from there. */
-        W8PathAI* path;
-        if (!LoadPathAI(&path, info->hFile)) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1e6,
-                         0);
-        } else {
-            (*cycle)->m_pAI.reset(path);
-        }
+        (*cycle)->m_pAI = LoadPathAI(*info->hFile);
     }
 
     info->hFile->read(&has_particles, 1);

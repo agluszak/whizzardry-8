@@ -4,8 +4,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <memory>
+#include <stdexcept>
 
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
@@ -47,30 +47,28 @@ bool PathAIUpdate(W8AIRecord* record, signed char direction)
 }
 
 // FUNCTION: WIZ8 0x004a92a0
-bool LoadPathAI(W8PathAI** output, wiz8::File* handle)
-try {
-    if (!output) return false;
+std::unique_ptr<W8PathAI> LoadPathAI(wiz8::File& file)
+{
     unsigned char version;
-    handle->read_exact(&version, sizeof(version));
-    if (version != 0) return false;
+    file.read_exact(&version, sizeof(version));
+    if (version != 0) throw std::runtime_error("Unknown AI path record kind");
     auto path = std::make_unique<W8PathAI>();
     int point_count;
-    handle->read_exact(&path->version, 1);
-    handle->read_exact(&path->position, 4);
-    handle->read_exact(&path->unknown_08, 4);
-    handle->read_exact(&point_count, 4);
-    if (point_count < 0) return false;
-    if (point_count == 0) {
-        *output = nullptr;
-        return true;
-    }
+    file.read_exact(&path->version, 1);
+    file.read_exact(&path->position, 4);
+    file.read_exact(&path->unknown_08, 4);
+    file.read_exact(&point_count, 4);
+    const std::int64_t point_bytes = path->version == 2 ? 40 : 28;
+    if (point_count < 0 || point_count > (file.size() - file.tell()) / point_bytes)
+        throw std::runtime_error("Invalid AI path point count");
+    if (point_count == 0) return nullptr;
     path->rotations.resize(point_count);
     if (path->version == 2) path->scales.resize(point_count);
     const auto read_vector = [&] {
         glm::vec3 value(0);
-        handle->read_exact(&value.x, sizeof(float));
-        handle->read_exact(&value.y, sizeof(float));
-        handle->read_exact(&value.z, sizeof(float));
+        file.read_exact(&value.x, sizeof(float));
+        file.read_exact(&value.y, sizeof(float));
+        file.read_exact(&value.z, sizeof(float));
         return value;
     };
     for (int index = 0; index < point_count; ++index) {
@@ -78,7 +76,7 @@ try {
         float angle;
         point *= 500.0f;
         PathAIAddPoint(*path, point);
-        handle->read_exact(&angle, 4);
+        file.read_exact(&angle, 4);
         const auto axis = read_vector();
         auto& rotation = path->rotations[index];
         rotation = glm::mat3(1);
@@ -88,10 +86,7 @@ try {
         }
         if (path->version == 2) path->scales[index] = read_vector();
     }
-    *output = path.release();
-    return true;
-} catch (const std::exception&) {
-    return false;
+    return path;
 }
 
 // FUNCTION: WIZ8 0x004a9720

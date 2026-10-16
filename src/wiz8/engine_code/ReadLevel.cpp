@@ -1,5 +1,8 @@
 #include "wiz8/engine_code/ReadLevel.h"
 
+#include <algorithm>
+#include <array>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -8,6 +11,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -210,7 +214,7 @@ void AssociateWorldLights(W8World* world)
     for (light_index = 0; light_index < static_cast<int>(world->lights_to_update.size());
          ++light_index) {
         stLight* light = world->lights_to_update[light_index];
-        stLightDefinition* definition = light->m_definition;
+        stLightDefinition* definition = light->m_definition.get();
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
@@ -246,8 +250,8 @@ try {
 
     for (index = 0; index < light_count; ++index) {
         W8LevelLightRecord record;
-        stParametricLightDefinition* definition = 0;
-        W8PathAI* path = 0;
+        std::unique_ptr<stParametricLightDefinition> definition;
+        std::unique_ptr<W8PathAI> path;
         stLight* light = 0;
         char name[20];
 
@@ -257,7 +261,7 @@ try {
             SDL_strupr(name);
 
             if ((record.flags & W8_LEVEL_LIGHT_HAS_DEFINITION) != 0) {
-                definition = new stParametricLightDefinition;
+                definition = std::make_unique<stParametricLightDefinition>();
                 record.create = 1;
 
                 hFile->read_exact(&definition->flags, 4);
@@ -277,10 +281,8 @@ try {
                 hFile->read_exact(&definition->subcycle_max, 4);
 
                 if ((definition->flags & W8_PARAM_LIGHT_HAS_PATH) != 0) {
-                    success = LoadPathAI(&path, hFile);
-                    if (!success) {
-                        srAssertFail("fSuccess", READ_LEVEL_CPP, 532, 0);
-                    }
+                    path = LoadPathAI(*hFile);
+                    if (!path) return false;
                     path->discrete_mode = 1;
                     path->animated = false;
                     path->speed = definition->path_speed;
@@ -293,10 +295,9 @@ try {
                 light = CreateRangedWorldLight(world, name);
             } else {
                 light = CreateWorldLight(world, name);
-                light->m_definition = definition;
                 world->lights_to_update.push_back(light);
                 if (path != 0) {
-                    light->path_ai = path;
+                    light->path_ai = std::move(path);
                 }
                 record.intensity = definition->intensity;
                 if (definition->intensity_to < definition->intensity) {
@@ -304,6 +305,7 @@ try {
                     definition->intensity = definition->intensity_to;
                     definition->intensity_to = swap;
                 }
+                light->m_definition = std::move(definition);
             }
             if (!record.visible) {
                 light->setFlag(srNode::FLAG_DISABLE);
@@ -319,8 +321,6 @@ try {
                 srAssertFail("pstLight", READ_LEVEL_CPP, 593, 0);
             }
             light->setGroupMask(1);
-        } else {
-            delete definition;
         }
 
         if (light != 0) {
@@ -666,98 +666,53 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004BC140
-unsigned char ReadMonsterPaths(W8ReadLevelInfo* pInfo, W8World* pWorld)
+unsigned char ReadMonsterPaths(W8ReadLevelInfo* info, W8World* world)
 try {
+    if (!info || !info->hFile || !world) return false;
+    auto& file = *info->hFile;
     int count;
-    int index;
-    unsigned char success = 1;
-    bool has_options;
-    bool update_representation;
-    bool active;
-    char monster_name[20];
-    char options[12];
-    char* separator;
-    glm::vec3 origin;
-    glm::vec3 camera_position;
-    W8MonsterGroup* group;
-    int monster_id;
-    int location_id;
-    W8MonsterInfo* monster_info;
-    W8Monster* monster;
-    W8PathAI* path;
-
-    /* Canonical 0x004BC140 initializes this once, not once per record. A
-       colon-free record after an option-bearing one therefore reuses options. */
-    has_options = false;
-    if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
-        return 0;
-    }
-    if (!ReadRecordCount(*pInfo->hFile, count)) {
-        return 0;
-    }
-    if (count == 0) {
-        return 1;
-    }
-
-    origin = glm::vec3(0);
-    for (index = 0; index < count; ++index) {
-        update_representation = true;
-        active = true;
-        success = success && (pInfo->hFile->read(monster_name, sizeof(monster_name)).bytes ==
-                              static_cast<std::size_t>(sizeof(monster_name)));
-        separator = strchr(monster_name, ':');
-        if (separator != 0) {
+    if (!ReadRecordCount(file, count)) return false;
+    // Retail options persist when the next record omits the colon.
+    std::array<char, 12> options{};
+    bool has_options = false;
+    for (int index = 0; index < count; ++index) {
+        std::array<char, 20> name;
+        file.read_exact(name.data(), name.size());
+        if (std::find(name.begin(), name.end(), '\0') == name.end()) return false;
+        if (auto* separator = std::strchr(name.data(), ':')) {
             has_options = true;
-            strncpy(options, separator + 1, sizeof(options));
+            SDL_strlcpy(options.data(), separator + 1, options.size());
             *separator = '\0';
         }
-
-        monster_id = atoi(monster_name);
-        group = CreateGroup(monster_id, 1, &origin, true, false, true);
-        if (group == 0) {
-            continue;
+        int monster_id;
+        const auto end = name.data() + std::strlen(name.data());
+        const auto parsed = std::from_chars(name.data(), end, monster_id);
+        if (parsed.ec != std::errc{} || parsed.ptr != end) return false;
+        auto path = LoadPathAI(file);
+        if (has_options && (options[2] == '1' || options[3] == '1')) {
+            if (!path) return false;
+            path->animated = options[2] == '1';
+            path->looping = options[3] == '1';
         }
-        location_id = group->MemberLocationId(0);
-        monster_info = FindMonster(location_id);
+        const glm::vec3 origin(0);
+        auto* group = CreateGroup(monster_id, 1, &origin, true, false, true);
+        if (!group) return false;
+        auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
-        monster = monster_info->p3D;
-
-        {
-            glm::dvec3 camera_location = pWorld->camera->getLocation();
-            camera_position = glm::vec3(camera_location);
-        }
+        auto* monster = monster_info->p3D;
+        const glm::vec3 camera_position(world->camera->getLocation());
         monster->SelectLOD(&camera_position);
-
-        if (LoadPathAI(&path, pInfo->hFile)) {
-            monster->SetPathAI(path);
-        }
-        /* The image also leaves the option-controlled path calls outside the
-           successful-load branch. Preserve that behavior rather than adding
-           a speculative null guard. */
+        monster->SetPathAI(std::move(path));
         if (has_options) {
-            if (options[0] == '0' || options[0] == '\0') {
-                update_representation = false;
-            }
             if (options[1] == '0' || options[1] == '\0') {
-                active = false;
-            }
-            if (options[2] == '1') {
-                path->animated = true;
-            }
-            if (options[3] == '1') {
-                path->looping = true;
-            }
-            if (!active) {
                 group->members_active = false;
                 monster->m_pRep->active = 0;
             }
-            if (!update_representation) {
-                continue;
-            }
+            if (options[0] == '0' || options[0] == '\0') continue;
         }
-        monster->UpdateRepresentation(pWorld);
+        monster->UpdateRepresentation(world);
     }
-    return success;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -791,13 +746,7 @@ try {
             file->read_exact(&scale, sizeof(scale));
         }
 
-        // LoadPathAI publishes only on success. Adopt its result immediately;
-        // empty paths are invalid for cameras, which always use a live path.
-        W8PathAI* path = nullptr;
-        if (!LoadPathAI(&path, file)) {
-            return false;
-        }
-        entry->path.reset(path);
+        entry->path = LoadPathAI(*file);
         if (!entry->path) {
             return false;
         }

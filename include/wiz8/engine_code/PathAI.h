@@ -75,7 +75,7 @@ void PathAISetValue(W8PathAI* path, float value);
 void PathAIAdvanceNormalized(W8PathAI* path, float amount);
 bool PathAITick(W8PathAI* path, signed char direction);
 void PathAIPosition(W8PathAI* path, glm::vec3* value);
-bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
+std::unique_ptr<W8PathAI> LoadPathAI(wiz8::File& file);
 void PathAIAddPoint(W8PathAI& path, const glm::vec3& point);
 
 void PathAIAdvanceByDistance(W8PathAI* path, float value);

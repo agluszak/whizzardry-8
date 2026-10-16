@@ -1,3 +1,5 @@
+#include <limits>
+
 #include <SDL3/SDL_filesystem.h>
 #include <catch2/catch_test_macros.hpp>
 
@@ -433,9 +435,8 @@ static void path_record_contracts()
             }
         }
         auto file = wiz8::open_file(wiz8::user_path(filename));
-        W8PathAI* loaded = nullptr;
-        REQUIRE((LoadPathAI(&loaded, file.get()) && loaded));
-        std::unique_ptr<W8PathAI> path(loaded);
+        auto path = LoadPathAI(*file);
+        REQUIRE(path);
         REQUIRE((path->nodes.size() == 2 && path->rotations.size() == 2));
         REQUIRE((path->nodes[1].x == 500 && path->total_length == 500));
         REQUIRE((path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1)));
@@ -468,16 +469,16 @@ static void path_record_contracts()
         PathAIPosition(path.get(), &point);
         REQUIRE((point.x == 125));
     }
-    for (int count : {-1, 0, 1}) {
+    for (int count : {-1, 0, 1, std::numeric_limits<int>::max()}) {
         {
             auto file = wiz8::open_file(wiz8::user_path(filename), wiz8::OpenMode::replace);
             write_header(*file, 2, count); // No point payload: count 1 is truncated.
         }
         auto file = wiz8::open_file(wiz8::user_path(filename));
-        W8PathAI existing{};
-        auto* output = &existing;
-        REQUIRE((LoadPathAI(&output, file.get()) == (count == 0)));
-        REQUIRE((output == (count == 0 ? nullptr : &existing)));
+        if (count == 0)
+            REQUIRE_FALSE(LoadPathAI(*file));
+        else
+            REQUIRE_THROWS(LoadPathAI(*file));
     }
     REQUIRE((wiz8::remove_file(wiz8::user_path(filename))));
 }

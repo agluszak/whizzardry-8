@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <exception>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -143,7 +144,6 @@ W8Navigator::W8Navigator() : reactivated(0)
     unknown_060 = 0;
     unknown_064 = 0;
     target_navigator = 0;
-    path_ai = 0;
     minimum = glm::vec3(-500.0f);
     maximum = glm::vec3(500.0f);
     movement.vertical_offset = 0.0f;
@@ -203,7 +203,7 @@ void SetNavigatorLinkMode(unsigned char mode)
         for (auto navigator : g_registered_navigators) {
             navigator->halted = false;
             if (navigator->path_ai != 0) {
-                PathAIResetTick(navigator->path_ai);
+                PathAIResetTick(navigator->path_ai.get());
             }
             if (navigator->group_linked) {
                 W8MonsterInfo* monster_info = FindMonster(navigator->movement.location_id);
@@ -258,10 +258,10 @@ void ResumeAllNavigators(void)
         W8Navigator* navigator = g_registered_navigators[index];
         navigator->halted = false;
         if (navigator->path_ai != 0) {
-            PathAIResetTick(navigator->path_ai);
+            PathAIResetTick(navigator->path_ai.get());
         }
         if (navigator->path_ai != 0) {
-            PathAIResetTick(navigator->path_ai);
+            PathAIResetTick(navigator->path_ai.get());
         }
     }
 }
@@ -412,10 +412,11 @@ W8Navigator::W8Navigator(const W8Navigator& other)
       minimum_height(other.minimum_height), maximum_height(other.maximum_height),
       patrol_home(other.patrol_home), unknown_048(0), target_navigator(0),
       target_last_position(0.0f, 0.0f, 0.0f), linked_navigator(0), unknown_060(0), unknown_064(0),
-      path_ai(0), radius(other.radius), active(true), movement_callback(other.movement_callback),
-      trace_mask(other.trace_mask), unknown_094(other.unknown_094), unknown_098(0),
-      reactivated(other.reactivated), owned_object(nullptr),
-      tracked_distance(other.tracked_distance), group_linked(other.group_linked)
+      path_ai(nullptr), radius(other.radius), active(true),
+      movement_callback(other.movement_callback), trace_mask(other.trace_mask),
+      unknown_094(other.unknown_094), unknown_098(0), reactivated(other.reactivated),
+      owned_object(nullptr), tracked_distance(other.tracked_distance),
+      group_linked(other.group_linked)
 {
     movement.collision_radius = other.movement.collision_radius;
     movement.alternate_radius = other.movement.alternate_radius;
@@ -449,7 +450,6 @@ W8Navigator::W8Navigator(const W8Navigator& other)
 // FUNCTION: WIZ8 0x00452120
 W8Navigator::~W8Navigator()
 {
-    delete path_ai;
     wiz8::erase_first(g_registered_navigators, this);
     owned_object.reset();
     if (movement.location_id != 0 && g_octree != 0) {
@@ -480,14 +480,14 @@ bool W8Navigator::IsLinkedToNavigator(W8Navigator* other)
 // FUNCTION: WIZ8 0x00452e50
 void W8Navigator::SetNavigationMode(int mode)
 {
-    W8PathAI* path;
+    std::unique_ptr<W8PathAI> path;
 
     navigation_mode = mode;
     switch (mode) {
     case 1:
-        path = new W8PathAI;
+        path = std::make_unique<W8PathAI>();
         path->animated = true;
-        SetPathAI(path);
+        SetPathAI(std::move(path));
         /* Falls into mode four's body: the retail block ends where mode four's
            jump-table entry lands. */
         [[fallthrough]];
@@ -497,15 +497,15 @@ void W8Navigator::SetNavigationMode(int mode)
     case 2:
     case 3:
     case 5:
-        path = new W8PathAI;
+        path = std::make_unique<W8PathAI>();
         path->animated = true;
-        SetPathAI(path);
+        SetPathAI(std::move(path));
         SetPitchRollEnabled(true, false);
         break;
     case 6:
-        path = new W8PathAI;
+        path = std::make_unique<W8PathAI>();
         path->animated = true;
-        SetPathAI(path);
+        SetPathAI(std::move(path));
         SetPitchRollEnabled(true, true);
         break;
     default:
@@ -740,19 +740,15 @@ void W8Navigator::SetHeightRange(float minimum, float maximum)
 }
 
 // FUNCTION: WIZ8 0x004538b0
-void W8Navigator::SetPathAI(W8PathAI* path_ai)
+void W8Navigator::SetPathAI(std::unique_ptr<W8PathAI> path)
 {
-    if (this->path_ai == path_ai) {
-        return;
-    }
-    delete this->path_ai;
-    this->path_ai = path_ai;
+    path_ai = std::move(path);
 }
 
 // FUNCTION: WIZ8 0x004538c0
 W8PathAI* W8Navigator::GetPathAI()
 {
-    return path_ai;
+    return path_ai.get();
 }
 
 // FUNCTION: WIZ8 0x00454930
@@ -761,7 +757,7 @@ void W8Navigator::ResetPathAI()
     if (path_ai != 0) {
         path_ai->position = 0.0f;
         path_ai->interpolation_fraction = 0.0f;
-        PathAIResetTick(path_ai);
+        PathAIResetTick(path_ai.get());
     }
 }
 
@@ -786,7 +782,7 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
     } else {
         movement.target_location_id = -1;
     }
-    PathAIClearOwned(path_ai);
+    PathAIClearOwned(path_ai.get());
     if (g_combat_inactive == 0) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
     }
@@ -1399,7 +1395,7 @@ unsigned char W8Navigator::ConfigureMovementToPosition(const glm::vec3* position
     collision_margin = 0.0;
     target_navigator = 0;
     if (movement_stopped) {
-        PathAIClearOwned(path_ai);
+        PathAIClearOwned(path_ai.get());
     }
     glm::vec3 target = *position;
     flags = 6;
@@ -1417,7 +1413,7 @@ void W8Navigator::SetHalted(bool value)
     halted = value;
     if (!value) {
         if (path_ai != 0) {
-            PathAIResetTick(path_ai);
+            PathAIResetTick(path_ai.get());
         }
     } else {
         movement.velocity = glm::vec3(0);
@@ -1446,7 +1442,7 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
     flags = 0;
     target_navigator = target;
     movement.target_location_id = target->movement.location_id;
-    PathAIClearOwned(path_ai);
+    PathAIClearOwned(path_ai.get());
     movement.attachment->InitializeSegment(&movement.position, &target->movement.position);
     if (g_combat_inactive == 0) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
@@ -1488,7 +1484,7 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
     target_navigator = target;
     movement.target_location_id = target->movement.location_id;
     movement.target_position = target->movement.position;
-    PathAIClearOwned(path_ai);
+    PathAIClearOwned(path_ai.get());
     radius = movement.alternate_radius;
     unsigned short result = g_pathing->ConfigureMovementSearch(
         &movement, target->movement.location_id, radius, separation, maximum_distance, position,
@@ -1632,7 +1628,7 @@ unsigned char W8Navigator::SetMovementTarget(const glm::vec3* target, bool propa
 void W8Navigator::AddPathPoint(const glm::vec3* position)
 {
     if (path_ai == 0) {
-        path_ai = new W8PathAI;
+        path_ai = std::make_unique<W8PathAI>();
     }
     flags &= 0x00ffffff;
     if (flags == 0) {
@@ -1730,7 +1726,7 @@ void W8Navigator::ClearMovement()
 {
     SetMovementStopped();
 
-    PathAIClearOwned(path_ai);
+    PathAIClearOwned(path_ai.get());
     movement.velocity = glm::vec3(0);
     if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
         flags &= 0xff000000;
@@ -1929,7 +1925,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     if (movement.attachment != 0 &&
         movement.attachment->path_cursor >= movement.attachment->path_position_index &&
         (movement.attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) == 0 &&
-        PathAIIsComplete(path_ai)) {
+        PathAIIsComplete(path_ai.get())) {
         radius = movement.alternate_radius;
     }
     if ((flags & 0x100000) != 0) {
@@ -1952,7 +1948,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
 
         movement_result = g_octree->AdvanceNavigator(&movement, radius, 0.0f);
         if (movement_result == 1) {
-            if (PathAINextPoint(path_ai, &next) != 0) {
+            if (PathAINextPoint(path_ai.get(), &next) != 0) {
                 glm::vec3 target;
                 target = next;
                 SetMovementTarget(&target, false);
@@ -2147,7 +2143,7 @@ int W8Navigator::ResolveMovement()
             }
 
             SetMovementStopped();
-            PathAIClearOwned(path_ai);
+            PathAIClearOwned(path_ai.get());
             movement.velocity = glm::vec3(0);
             if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
                 flags &= 0xff000000;

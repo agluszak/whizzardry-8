@@ -196,7 +196,7 @@ try {
                 light->intensity = intensity;
                 light->setLocation(position.x, position.y, position.z);
                 light->m_position = position;
-                light->m_definition = definition.release();
+                light->m_definition = std::move(definition);
                 light->setGroupMask(2);
                 light_list->push_back(std::move(light));
             }
@@ -207,16 +207,13 @@ try {
         unsigned char has_path;
         handle->read_exact(&has_path, 1);
         if (has_path != 0) {
-            W8PathAI* path = 0;
-            success = LoadPathAI(&path, handle);
-            if (!success) {
-                srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x1c5, 0);
-            }
+            auto path = LoadPathAI(*handle);
+            if (!path) return false;
             path->discrete_mode = true;
             path->animated = false;
             path->speed = animation->playback_scale;
-            animation->path.reset(path);
             animation->frame_count = static_cast<unsigned char>(path->nodes.size());
+            animation->path = std::move(path);
         }
     }
     if (version > 9) {
@@ -254,7 +251,6 @@ try {
             }
             for (entry = 0; entry < entry_count; ++entry) {
                 auto mesh = std::make_unique<W8AniMesh>();
-                W8PathAI* path = 0;
                 signed char channel;
                 const char* saved_filename;
 
@@ -274,16 +270,14 @@ try {
                 }
                 animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
                                                   std::move(mesh));
-                success = LoadPathAI(&path, handle);
-                if (!success) {
-                    srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x217, 0);
-                }
-                animation->paths[channel].insert(animation->paths[channel].begin() + entry,
-                                                 std::unique_ptr<W8PathAI>(path));
+                auto path = LoadPathAI(*handle);
+                if (!path) return false;
                 path->discrete_mode = true;
                 path->animated = false;
                 path->speed = animation->playback_scale;
                 animation->frame_count = static_cast<unsigned char>(path->nodes.size());
+                animation->paths[channel].insert(animation->paths[channel].begin() + entry,
+                                                 std::move(path));
             }
         }
     }
@@ -514,25 +508,9 @@ stLightDefinition::~stLightDefinition() = default;
    clone iterates the second vector's count, which is the retail authority for
    the shared extent, then copies the four scalar playback  */
 // FUNCTION: WIZ8 0x004a2230
-stLightDefinition* stKeyframedLightDefinition::Clone() const
+std::unique_ptr<stLightDefinition> stKeyframedLightDefinition::Clone() const
 {
-    stKeyframedLightDefinition* copy = new stKeyframedLightDefinition;
-    int index;
-
-    if (copy == 0) {
-        srAssertFail("pNew", "..\\Engine Code\\Include\\stLight.hpp", 0x93, 0);
-    }
-    for (index = 0; index < static_cast<int>(key_frames.size()); ++index) {
-        copy->frame_sums.push_back(frame_sums[index]);
-        copy->key_frames.push_back(key_frames[index]);
-        copy->key_intensities.push_back(key_intensities[index]);
-        copy->key_colors.push_back(key_colors[index]);
-    }
-    copy->keyframe_index = keyframe_index;
-    copy->time = time;
-    copy->start_frame = start_frame;
-    copy->end_frame = end_frame;
-    return copy;
+    return std::make_unique<stKeyframedLightDefinition>(*this);
 }
 
 // FUNCTION: WIZ8 0x004a2580

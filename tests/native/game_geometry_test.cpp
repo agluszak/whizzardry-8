@@ -1102,25 +1102,60 @@ TEST_CASE("Navigator releases replaced and cleared paths", "[geometry][navigatio
     int releases = 0;
     {
         W8Navigator navigator;
-        auto* first = new TrackedPath(releases);
-        navigator.SetPathAI(first);
-        navigator.SetPathAI(first);
+        auto first = std::make_unique<TrackedPath>(releases);
+        const auto* borrowed = first.get();
+        navigator.SetPathAI(std::move(first));
         REQUIRE(releases == 0);
-        REQUIRE(navigator.GetPathAI() == first);
+        REQUIRE(navigator.GetPathAI() == borrowed);
 
-        navigator.SetPathAI(new TrackedPath(releases));
+        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
         REQUIRE(releases == 1);
         navigator.SetNavigationMode(1);
         REQUIRE(releases == 2);
         REQUIRE(navigator.GetPathAI()->animated);
-        navigator.SetPathAI(new TrackedPath(releases));
+        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
         navigator.SetPathAI(nullptr);
         REQUIRE(releases == 3);
         REQUIRE(navigator.GetPathAI() == nullptr);
         navigator.SetPathAI(nullptr);
         REQUIRE(releases == 3);
 
-        navigator.SetPathAI(new TrackedPath(releases));
+        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
+    }
+    REQUIRE(releases == 4);
+}
+
+TEST_CASE("Light assignment replaces owned definitions and copies paths independently",
+          "[geometry][ownership]")
+{
+    struct Definition final : stLightDefinition {
+        int& releases;
+        explicit Definition(int& releases) : releases(releases) {}
+        ~Definition() override { ++releases; }
+        std::unique_ptr<stLightDefinition> Clone() const override
+        {
+            return std::make_unique<Definition>(releases);
+        }
+        bool IsEnabledForSubcycle(unsigned char) override { return false; }
+    };
+    int releases = 0;
+    {
+        stLight source;
+        source.m_definition = std::make_unique<Definition>(releases);
+        source.path_ai = std::make_unique<W8PathAI>();
+        source.path_ai->nodes.emplace_back(1, 2, 3);
+        source.path_ai->timed = true;
+        stLight destination;
+        destination.m_definition = std::make_unique<Definition>(releases);
+        destination = source;
+        REQUIRE(releases == 1);
+        REQUIRE(destination.definition() != source.definition());
+        REQUIRE(destination.path_ai->nodes == source.path_ai->nodes);
+        REQUIRE_FALSE(destination.path_ai->timed);
+        destination.path_ai->nodes.front().x = 99;
+        REQUIRE(source.path_ai->nodes.front().x == 1);
+        destination = source;
+        REQUIRE(releases == 2);
     }
     REQUIRE(releases == 4);
 }
@@ -1814,7 +1849,7 @@ TEST_CASE("Wizardry light inactivity and missing definitions have distinct trave
     light.traverse(info);
     REQUIRE(info.entries.size() == 1);
     g_light_update_flags = 1;
-    light.m_definition = new stParametricLightDefinition;
+    light.m_definition = std::make_unique<stParametricLightDefinition>();
     info = {};
     light.traverse(info);
     REQUIRE(info.entries.size() == 3);
