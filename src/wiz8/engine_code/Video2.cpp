@@ -86,7 +86,6 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/ui_input.h"
@@ -327,7 +326,6 @@ void ShutdownVideoManager(void)
         g_flush_pending = false;
         g_gerd.reset();
     }
-    srExit();
     W8DestroyGameWindow(native_window);
 }
 
@@ -458,7 +456,6 @@ try {
         }
     }
 
-    srInit();
     g_gerd = std::make_unique<srGERD>(W8CreateNativeRenderDevice());
 
     if (g_gerd->createContext(ghWindow) != srGERD::ERROR_NONE || !OpenRendererWindow()) {
@@ -2575,45 +2572,6 @@ void EndRenderProbe(void)
     }
     g_gerd->flipFrame();
 }
-
-// VTABLE: WIZ8 0x005EBE98
-// class srClientSupport<srMeshModel,8208>
-
-/* 0x00424A50 calls the imported ~srMeshModel: it is the local
-   ??_GsrMeshModel thunk, not the support-class deleting destructor. */
-
-/* CVDUMP includes the class tag on the repeated self-type argument in each
-   vftable symbol below. These remain ordinary self-support instantiations. */
-// VTABLE: WIZ8 0x005EBEEC
-// class srClientSupport<srTextureMap,8465>
-
-/* 0x00424B70 calls the imported ~srTextureMap: it is the local
-   ??_GsrTextureMap thunk, not the support-class deleting destructor. */
-
-// VTABLE: WIZ8 0x005EBDE0
-// class srClientSupport<srMaterial,8720>
-
-/* 0x00423E50 calls the imported ~srMaterial: it is the local ??_GsrMaterial
-   thunk, not the support-class deleting destructor. */
-
-/* CVDUMP includes the class tag on the repeated self-type argument in the
-   vftable symbol.  It is still the ordinary srCamera self-support template. */
-// VTABLE: WIZ8 0x005EBE14
-// class srClientSupport<srCamera,5120>
-
-/* 0x00423E80 calls the imported ~srCamera: it is the local ??_GsrCamera
-   thunk, not the support-class deleting destructor. */
-
-/* CVDUMP includes the class tag on the repeated self-type argument in the
-   vftable symbol.  It is still the ordinary srScene self-support template. */
-// VTABLE: WIZ8 0x005EBE48
-// class srClientSupport<srScene,4112>
-
-/* 0x00423EB0 calls the imported ~srScene: it is the local ??_GsrScene
-   thunk, not the support-class deleting destructor. */
-
-/* 0x004229C0 is a bare JMP to RenderFrame: a tail-jump thunk with no
-   distinct source entity. */
 
 // FUNCTION: WIZ8 0x00424BA0
 srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,

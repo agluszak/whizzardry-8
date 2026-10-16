@@ -33,6 +33,7 @@
 #include "surrender/mesh_submission.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
@@ -68,7 +69,6 @@
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 
 class srTextureIFace;
 
@@ -1231,8 +1231,5 @@ try {
 } catch (const std::exception&) {
     return false;
 }
-
-// VTABLE: WIZ8 0x005ED180
-// class srClientSupport<srClipPlane,5376>
 
 #undef CHECK_PVL_OFFSET

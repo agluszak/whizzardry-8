@@ -37,7 +37,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureMap.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 
 class srModel;
@@ -137,7 +136,6 @@ TEST_CASE("imports_test")
     }
     REQUIRE(fesetround(FE_TONEAREST) == 0);
     REQUIRE(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
-    REQUIRE(srInit());
     REQUIRE(shared_surface_lifetimes() == 0);
     REQUIRE(shared_model_lifetimes() == 0);
     {
@@ -297,6 +295,5 @@ TEST_CASE("imports_test")
     REQUIRE_THROWS_WITH(srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7),
                         "Debug assertion in module imports_test.cpp line 42 failed:\n\n"
                         "Expression [ native probe ] evaluates to false.\n\nvalue 7\n");
-    srExit();
     puts("ok: native renderer consumer imports, generated special members and variadic assertion");
 }

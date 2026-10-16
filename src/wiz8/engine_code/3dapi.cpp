@@ -25,6 +25,7 @@
 #include "layouts/world.h"
 #include "named_position.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "wiz8/containers.h"
@@ -67,7 +68,6 @@
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
@@ -293,8 +293,6 @@ void UpdateWorld(W8World* world)
     nodes.clear();
 }
 
-// VTABLE: WIZ8 0x005EC208
-// class srClientSupport<srNode,4096>
 /* Detach the item meshes in every registered world before the renderer-side
    resource transition. */
 // FUNCTION: WIZ8 0x0044f5b0

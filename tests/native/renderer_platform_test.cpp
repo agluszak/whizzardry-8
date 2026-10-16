@@ -5,7 +5,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingSphere.h"
-#include "surrender/srCore.h"
 #include "surrender/srDD.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
@@ -13,7 +12,6 @@
 TEST_CASE("renderer platform")
 {
     for (int cycle = 0; cycle < 3; ++cycle) {
-        REQUIRE((srInit() && srCore.isInitialized()));
         {
             auto* device = srCreateSDLGPUDevice();
             srGERD gerd(device);
@@ -81,9 +79,7 @@ TEST_CASE("renderer platform")
             REQUIRE(combined.input_triangles == 7);
         }
         REQUIRE(srGERD::getActive() == nullptr);
-        REQUIRE((srExit() && !srCore.isInitialized()));
-        REQUIRE(srExit());
     }
 
-    puts("ok: renderer owner-thread submission and core reinitialization");
+    puts("ok: renderer submission and independent resource lifetimes");
 }

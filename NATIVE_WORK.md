@@ -9,7 +9,7 @@ do not need the original compiler layout.
 - Save and game-data records that hold live objects now have fixed-width
   disk images and `wiz8::retail::Record` codecs (`retail_save_records.h`,
   `retail_geometry_records.h`); runtime types use ordinary pointers. Next:
-  give those runtime types owning members (NPC stock lists and characters,
+  give those runtime types owning members (characters,
   monster group member lists, world item chains) instead of raw pointers
   managed by hand.
 - Continue separating the remaining numeric save records and engine resource
@@ -19,6 +19,10 @@ do not need the original compiler layout.
   supported, while font coverage still depends on the installed retail fonts.
 - Remove `-fwrapv` and `-fno-strict-aliasing` after correcting the arithmetic
   and aliasing assumptions they currently protect.
+- Rendering now runs on the main thread with renderer-owned batches, mesh
+  scratch, fallback resources and GPU texture records. Indexed TGA decoding
+  owns its palette; no SurRender core initialization or CPU texture-cache
+  budget remains.
 - Modernize remaining SurRender/SGP allocator, string, array and threading
   abstractions; remove unused layout assertions, packing and ABI annotations
   once runtime and serialized records are separate.

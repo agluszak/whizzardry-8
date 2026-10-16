@@ -13,6 +13,7 @@
 #include "conditions.h"
 #include "dice.h"
 #include "random.h"
+#include "surrender/srDebug.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/character.h"
@@ -20,7 +21,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

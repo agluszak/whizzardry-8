@@ -20,6 +20,7 @@
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -37,7 +38,6 @@
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface_geometry.h"
 
 class Trigger;

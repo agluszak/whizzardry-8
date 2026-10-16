@@ -19,10 +19,8 @@
 
 #include "surface_pixels.h"
 #include "surrender/srIO.h"
-#include "surrender_test_fixture.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
-#include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/surface_storage.h"
 
@@ -416,24 +414,24 @@ static void streamTests()
         REQUIRE(rejected);
     }
 }
-TEST_CASE_METHOD(SurRenderTestFixture, "JPEG decoding and transfer", "[image][transfer]")
+TEST_CASE("JPEG decoding and transfer", "[image][transfer]")
 {
     jpegTests();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "JPEG validation", "[image][transfer]")
+TEST_CASE("JPEG validation", "[image][transfer]")
 {
     jpegValidationTests();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Pixel transfer pitch", "[image][transfer]") {}
+TEST_CASE("Pixel transfer pitch", "[image][transfer]") {}
 
-TEST_CASE_METHOD(SurRenderTestFixture, "TGA orientation and RLE", "[image][transfer]")
+TEST_CASE("TGA orientation and RLE", "[image][transfer]")
 {
     tgaTests();
 }
 
-TEST_CASE_METHOD(SurRenderTestFixture, "Image stream boundaries", "[image][transfer]")
+TEST_CASE("Image stream boundaries", "[image][transfer]")
 {
     streamTests();
 }

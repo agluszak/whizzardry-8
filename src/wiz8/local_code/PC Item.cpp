@@ -21,6 +21,7 @@
 #include "retail_item_payloads.h"
 #include "soundman.h"
 #include "spell_ids.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
@@ -63,7 +64,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/notices.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "xstatus.h"
 

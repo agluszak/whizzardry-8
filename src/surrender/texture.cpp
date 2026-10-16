@@ -6,7 +6,6 @@
 
 #include "compat/compiler.h"
 #include "surrender/srClass.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"

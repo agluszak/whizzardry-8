@@ -1,7 +1,6 @@
 set(SURRENDER_SOURCES
     camera.cpp
     clipplane.cpp
-    core.cpp
     debug.cpp
     fog.cpp
     vertex_pipe.cpp

@@ -25,7 +25,6 @@
 #include "layouts/world.h"
 #include "materials.h"
 #include "quad.h"
-#include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -187,7 +186,6 @@ bool LoadCycles(const std::filesystem::path& path)
 
 TEST_CASE("serialized_mesh_test")
 {
-    REQUIRE(srInit());
     ScopedTemporaryDirectory temporary{"wiz8-mesh-fixture"};
     const auto& directory = temporary.path;
     const auto good = directory / "linked.pvl", bad = directory / "duplicate.pvl";
@@ -273,7 +271,6 @@ TEST_CASE("serialized_mesh_test")
     }
     ReleaseReadMeshScratch();
     ReleaseOctMeshDefaults();
-    srExit();
     REQUIRE(ok);
     std::puts(
         "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");

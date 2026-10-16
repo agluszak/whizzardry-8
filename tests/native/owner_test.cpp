@@ -40,7 +40,6 @@
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srCamera.h"
-#include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -2293,7 +2292,6 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
 
 TEST_CASE("Video scene shutdown releases owned roots and preserves independent children")
 {
-    REQUIRE(srInit());
     int destroyed = 0;
     struct OverlayChild : srNode {
         int& destroyed;
@@ -2330,5 +2328,4 @@ TEST_CASE("Video scene shutdown releases owned roots and preserves independent c
     ShutdownVideoScenes();
     REQUIRE(destroyed == 8);
     independent.reset();
-    REQUIRE(srExit());
 }

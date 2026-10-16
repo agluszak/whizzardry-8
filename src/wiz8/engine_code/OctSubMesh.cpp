@@ -17,6 +17,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/srClass.h"
+#include "surrender/srDebug.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
@@ -25,7 +26,6 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/sr_api.h"
 
 class srTextureIFace;
 

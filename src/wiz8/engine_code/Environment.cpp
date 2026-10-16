@@ -22,6 +22,7 @@
 #include "layouts/world.h"
 #include "resource_cache.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srFog.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -41,7 +42,6 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/sr_api.h"
 
 #define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
 
@@ -336,8 +336,6 @@ void UpdateEnvironmentLight(void)
     }
 }
 
-// VTABLE: WIZ8 0x005EC94C
-// class srClientSupport<srFog,4624>
 // FUNCTION: WIZ8 0x00483750
 void SetSkyEnabled(bool enabled)
 {

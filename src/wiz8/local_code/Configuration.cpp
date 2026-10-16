@@ -6,13 +6,13 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
+#include "surrender/srDebug.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/sr_api.h"
 
 // GLOBAL: WIZ8 0x006850c8
 W8GameSettings g_settings;

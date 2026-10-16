@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <utility>
@@ -12,7 +13,6 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
 
-#include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/surface_storage.h"
@@ -109,7 +109,6 @@ inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels, unsi
 
 SDLSurfaceOwner loadTga(SDL_IOStream* source)
 {
-    if (!srCore.isInitialized()) return {nullptr, SDL_DestroySurface};
     try {
         const auto size = SDL_GetIOSize(source);
         if (size < 18 || size > 256 * 1024 * 1024 || SDL_SeekIO(source, 0, SDL_IO_SEEK_SET) < 0)
@@ -140,13 +139,30 @@ SDLSurfaceOwner loadTga(SDL_IOStream* source)
             (has_palette &&
              SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size()))
             return {nullptr, SDL_DestroySurface};
-        std::shared_ptr<SDL_Palette> core_palette;
+        std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> default_palette{
+            nullptr, SDL_DestroyPalette};
         if (indexed && !has_palette) {
-            core_palette = srCore.getPalette();
-            if (!core_palette) return {nullptr, SDL_DestroySurface};
+            default_palette.reset(SDL_CreatePalette(256));
+            if (default_palette) {
+                std::array<SDL_Color, 256> colors;
+                unsigned index = 0;
+                for (unsigned red = 0; red < 6; ++red)
+                    for (unsigned green = 0; green < 6; ++green)
+                        for (unsigned blue = 0; blue < 6; ++blue)
+                            if (red != green || red != blue)
+                                colors[index++] = {Uint8(red * 51), Uint8(green * 51),
+                                                   Uint8(blue * 51), 255};
+                for (unsigned gray = 0; gray < 46; ++gray) {
+                    const auto value = Uint8(std::lround(gray * 255.0 / 45));
+                    colors[index++] = {value, value, value, 255};
+                }
+                if (!SDL_SetPaletteColors(default_palette.get(), colors.data(), 0, colors.size()))
+                    return {nullptr, SDL_DestroySurface};
+            }
+            if (!default_palette) return {nullptr, SDL_DestroySurface};
             palette_data.resize(256 * 3);
             for (unsigned i = 0; i < 256; ++i) {
-                const SDL_Color color = core_palette->colors[i];
+                const SDL_Color color = default_palette->colors[i];
                 palette_data[i * 3] = color.b;
                 palette_data[i * 3 + 1] = color.g;
                 palette_data[i * 3 + 2] = color.r;
@@ -202,8 +218,8 @@ SDLSurfaceOwner loadTga(SDL_IOStream* source)
                 return {nullptr, SDL_DestroySurface};
         }
         if (indexed) {
-            if (core_palette) {
-                if (!SDL_SetSurfacePalette(surface.get(), core_palette.get()))
+            if (default_palette) {
+                if (!SDL_SetSurfacePalette(surface.get(), default_palette.get()))
                     return {nullptr, SDL_DestroySurface};
             } else {
                 const auto* palette = SDL_GetSurfacePalette(decoded.get());

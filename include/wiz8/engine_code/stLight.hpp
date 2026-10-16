@@ -4,9 +4,9 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srDebug.h"
 #include "surrender/srLight.h"
 #include "surrender/srNode.h"
-#include "wiz8/sr_api.h"
 
 class W8Prop;
 struct W8PathAI;

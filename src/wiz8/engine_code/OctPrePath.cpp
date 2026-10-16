@@ -14,6 +14,7 @@
 #include "navigation_flags.h"
 #include "packed_bits.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctPath.h"
@@ -21,7 +22,6 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/sr_api.h"
 
 #define OCTPREPATH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPrePath.cpp"
 

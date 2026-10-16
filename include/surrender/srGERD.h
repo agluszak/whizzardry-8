@@ -22,6 +22,7 @@
 #include "srRendererDefs.h"
 #include "srShader.h"
 #include "srTexture.h"
+#include "srTextureMap.h"
 #include "srTriMeshPipeline.h"
 #include "srVertexPipe.h"
 struct SDL_Surface;
@@ -816,6 +817,7 @@ private:
        a texture clears its bindings when destroyed. */
     srTextureIFace* texture_iface[2];
     /* Live textures keyed by the texture interface's frame handle. */
+    srTextureMap fallback_texture;
     std::unordered_map<w8_ulong, Texture> textures;
     Texture* texture_default;
     w8_long texture_reduction;

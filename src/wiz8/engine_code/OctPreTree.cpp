@@ -31,6 +31,7 @@
 #include "packed_bits.h"
 #include "surrender/mesh_math.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GameData.h"
@@ -46,7 +47,6 @@
 #include "wiz8/octree_walk.h"
 #include "wiz8/retail_geometry_records.h" // IWYU pragma: keep - W8OctRegionVolume codec specialization.
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 
 #define OCTPRETREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPreTree.cpp"
 
