@@ -2521,7 +2521,7 @@ unsigned char MainGameScreenEnter(void)
         SetEnvironmentTimeEnabled(true);
     }
     {
-        W8GameTimer* timer = gXStatus.gameplay_timer;
+        W8GameTimer* timer = gXStatus.gameplay_timer.get();
         if (timer->m_flags.paused || (g_shared_timer_paused && !timer->m_flags.raw_time) ||
             g_shared_timer_flag0) {
             timer->m_flags.paused = false;

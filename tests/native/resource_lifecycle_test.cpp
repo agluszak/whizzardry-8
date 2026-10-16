@@ -46,6 +46,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
@@ -181,6 +182,27 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
         REQUIRE((events->size() == 1 && events->front()->character == &party[1]));
     // Completion releases the portrait's borrowed pointer to the active event.
     REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
+}
+
+TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resources][lifecycle]")
+{
+    W8Character character{};
+    const struct Cleanup {
+        ~Cleanup() { DestroyGameplayObjects(); }
+    } cleanup;
+    InitializeGameplayRuntimeObjects();
+    gXStatus.character_event_queue->pending_events.push_back(
+        std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 0));
+    gXStatus.gameplay_timer->SetDuration(1.0f);
+
+    // Replacing the status must destroy the old owners, including their nested events.
+    InitializeGameplayRuntimeObjects();
+    REQUIRE(gXStatus.character_event_queue->IsMainQueueEmpty());
+    REQUIRE(gXStatus.gameplay_timer->m_duration_seconds == 300.0f);
+    DestroyGameplayObjects();
+    DestroyGameplayObjects();
+    REQUIRE_FALSE(gXStatus.character_event_queue);
+    REQUIRE_FALSE(gXStatus.gameplay_timer);
 }
 
 struct SpellVisualFixture {

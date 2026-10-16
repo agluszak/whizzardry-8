@@ -14,6 +14,8 @@ struct W8WorldItem;
 
 #include <stddef.h>
 
+#include "wiz8/character_event_queue.h"
+#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
@@ -25,9 +27,6 @@ struct W8WorldItem;
 
 struct W8MonsterGroup;
 struct W8WorldItem;
-
-struct W8CharacterEventQueue;
-class W8GameTimer;
 
 // Live gameplay state, not a disk record.
 struct W8XStatus {
@@ -76,8 +75,7 @@ struct W8XStatus {
     /* Accumulated party movement distance; the combat movement update
        converts it into the remaining percentage displayed by the panel. */
     float party_move_distance;
-    /* Stored by InitializeGameplayRuntimeObjects. */
-    W8CharacterEventQueue* character_event_queue;
+    std::unique_ptr<W8CharacterEventQueue> character_event_queue;
     int iCurrentCursor;
     int current_cursor_frame;
     uint64_t current_cursor_time;
@@ -104,7 +102,7 @@ struct W8XStatus {
     unsigned char held_item_origin;
     unsigned short held_item_slot;
     W8MonsterRecord* monster_record_cache[1000];
-    W8GameTimer* gameplay_timer;
+    std::unique_ptr<W8GameTimer> gameplay_timer;
     bool save_notice_shown;
     bool npc_combat_notice_pending;
     bool deferred_skill_notices;
