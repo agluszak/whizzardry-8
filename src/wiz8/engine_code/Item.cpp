@@ -394,9 +394,9 @@ bool W8Item::IsSelected()
 float W8Item::DistanceToCamera(W8World* world)
 {
     const auto bounds = GetCachedLocalBounds();
-    srVector3T<double> camera = world->camera->getLocation();
+    glm::dvec3 camera = world->camera->getLocation();
     srVector3T<float> camera_location;
-    camera_location = glm::vec3(camera.glmValue());
+    camera_location = glm::vec3(camera);
     srVector3T<float> center = m_pRep->location;
     /* Unlike the selection-point helper, retail offsets Z by half the Z
        extent here, not Y by 0.66 of the Y extent. */

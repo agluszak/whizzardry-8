@@ -35,6 +35,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_int3_sized.hpp"
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "index_algorithms.h"
@@ -720,10 +721,10 @@ void W8Octree::CollectVisibleCells()
     MarkVisibleRegions();
     short radius =
         static_cast<short>((static_cast<int>((view.far_clip / m_spatial.m_region_grid_cell)) + 1));
-    srVector3T<short> center;
+    glm::i16vec3 center(0);
 
     for (int axis = 0; axis < 3; ++axis) {
-        (&center.x)[axis] = static_cast<short>(
+        center[axis] = static_cast<short>(
             static_cast<int>(((view.camera_location[axis] - m_spatial.m_bounds.minimum[axis]) /
                               m_spatial.m_region_grid_cell)));
     }
@@ -2834,7 +2835,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_spatial.m_clipped_bounds.maximum = header->m_bounds[3].glmValue();
         m_spatial.m_working_bounds.minimum = header->m_bounds[4].glmValue();
         m_spatial.m_working_bounds.maximum = header->m_bounds[5].glmValue();
-        m_leaf_grid_dimensions = header->m_grid_dims;
+        m_leaf_grid_dimensions = {header->m_grid_dims.x, header->m_grid_dims.y,
+                                  header->m_grid_dims.z};
 
         m_spatial.m_leaf_grid_stride_x = m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.z;
         m_spatial.m_leaf_grid_stride_y = m_leaf_grid_dimensions.z;
@@ -3046,7 +3048,7 @@ std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin, const
     g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
-    visitClippedOctreeCellBox(lower, upper, glm::ivec3(m_leaf_grid_dimensions.glmValue()),
+    visitClippedOctreeCellBox(lower, upper, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
     g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};
@@ -3125,7 +3127,7 @@ std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds, unsign
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     if (excluded >= 0) SetBit(m_visited_object_bits, excluded);
-    visitClippedOctreeCellBox(start, end, glm::ivec3(m_leaf_grid_dimensions.glmValue()),
+    visitClippedOctreeCellBox(start, end, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
     g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};

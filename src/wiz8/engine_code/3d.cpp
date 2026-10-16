@@ -15,6 +15,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
@@ -62,9 +63,9 @@ void UpdateWorldMonsters(W8World* world)
         srAssertFail("pWorld", THREE_D_CPP, 0x10d, 0);
     }
 
-    srVector3T<double> camera_location = world->camera->getLocation();
+    glm::dvec3 camera_location = world->camera->getLocation();
     srVector3T<float> position;
-    position = camera_location;
+    position = glm::vec3(camera_location);
 
     unsigned int count = world->plsMonsters.size();
     UpdateNearestMonsterGroupMembers();

@@ -1556,7 +1556,7 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     }
 
     for (int grid_axis = 0; grid_axis != 3; ++grid_axis) {
-        (&tree->m_leaf_grid_dimensions.x)[grid_axis] =
+        tree->m_leaf_grid_dimensions[grid_axis] =
             static_cast<int>((tree->m_spatial.m_clipped_bounds.maximum[grid_axis] -
                               tree->m_spatial.m_clipped_bounds.minimum[grid_axis]) /
                              tree->m_spatial.m_node_extent) +

@@ -1328,11 +1328,11 @@ void W8Monster::Update()
             srNode* sun = FindWorldNode<srNode>("SUN");
             if (sun != 0) {
                 srVector3T<float> mapped_position;
-                srVector3T<double> sun_location = sun->getLocation();
+                glm::dvec3 sun_location = sun->getLocation();
                 srVector3T<float> sun_position;
 
                 GetMappedPosition(&mapped_position);
-                sun_position = sun_location;
+                sun_position = glm::vec3(sun_location);
                 if (g_octree->HasLineOfSight(&mapped_position, &sun_position, true)) {
                     if (sunlit_state == W8_MONSTER_SUNLIGHT_SHADOWED) {
                         target_scale = 0.75f;
@@ -3350,9 +3350,9 @@ void W8Monster::SetCycle(signed char cycle)
     m_pRep->frame_method = animation->frame_method;
 
     {
-        srVector3T<double> camera_location = g_world->camera->getLocation();
+        glm::dvec3 camera_location = g_world->camera->getLocation();
         srVector3T<float> listener;
-        listener = camera_location;
+        listener = glm::vec3(camera_location);
         SelectLOD(&listener);
     }
 
