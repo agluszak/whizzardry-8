@@ -360,7 +360,6 @@ void stLight::Reset()
 void SaveLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
-    memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version = 1;
 
     handle.write(&version, sizeof(version));
@@ -389,7 +388,6 @@ void SaveLightStates(wiz8::File& handle)
 void LoadLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
-    memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version;
     int count = 0;
 

@@ -7,6 +7,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -37,7 +38,6 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/text_line.h"
 #include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x005ec5a8
@@ -720,64 +720,41 @@ void ToggleAmbientSoundByName(W8World* /* unused */, const char* name)
     }
 }
 
-// GLOBAL: WIZ8 0x0065A110
-unsigned short g_empty_ambient_name;
-
 // FUNCTION: WIZ8 0x0047ab40
 unsigned char ReadAmbientSoundListFile(const char* filename)
-{
-    std::unique_ptr<wiz8::File> handle;
-    bool more = true;
-    char directory[260];
-    char name[260];
-    char path[260];
-    char line[260];
-    int configured[10];
+try {
+    auto file = wiz8::open_file(wiz8::asset_path(filename));
+    std::istringstream input(file->read_text());
+    std::string directory, line;
+    if (!std::getline(input, directory)) return false;
+    if (directory.ends_with('\r')) directory.pop_back();
     int direct_selector = 0;
-
-    handle = [&]() {
-        try {
-            return wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::read);
-        } catch (const std::exception&) {
-            return std::unique_ptr<wiz8::File>{};
-        }
-    }();
-    if (handle == 0) {
-        return 0;
-    }
-    ReadTextLine(handle.get(), directory, 100, more);
-    while (more) {
-        int index;
-        for (index = 0; index < 10; ++index) {
-            configured[index] = -1;
-        }
-        memset(line, 0, sizeof(line));
-        ReadTextLine(handle.get(), line, sizeof(line), more);
-        if (strlen(line) != 0) {
-            sscanf(line, "%s %d %d %d %d %d %d %d", name, &configured[2], &configured[3],
-                   &configured[4], &configured[5], &configured[0], &configured[1],
-                   &direct_selector);
-            sprintf(path, "%s\\%s", directory, name);
-            if (direct_selector == -1) {
-                const auto volume = [](int value) {
-                    return value == -1 ? std::uint32_t(g_settings.sound_effects_volume)
-                                       : std::uint32_t(value);
-                };
-                RegisterRandomAmbient(path, configured[0], configured[1], configured[2],
-                                      configured[3], volume(configured[4]), volume(configured[5]),
-                                      true);
-            } else {
-                wiz8::sound::play(path,
-                                  {.volume = std::uint32_t(
-                                       (g_settings.sound_effects_volume * configured[5]) / 0x7f),
-                                   .loops = std::uint32_t(direct_selector),
-                                   .group = wiz8::sound::Group::ambient});
-            }
+    while (std::getline(input, line)) {
+        std::istringstream fields(line);
+        std::string name;
+        if (!(fields >> name) || name.starts_with('#')) continue;
+        int configured[6]{-1, -1, -1, -1, -1, -1};
+        fields >> configured[2] >> configured[3] >> configured[4] >> configured[5] >>
+            configured[0] >> configured[1] >> direct_selector;
+        const auto path = fmt::format("{}\\{}", directory, name);
+        if (direct_selector == -1) {
+            const auto volume = [](int value) {
+                return value == -1 ? std::uint32_t(g_settings.sound_effects_volume)
+                                   : std::uint32_t(value);
+            };
+            RegisterRandomAmbient(path.c_str(), configured[0], configured[1], configured[2],
+                                  configured[3], volume(configured[4]), volume(configured[5]),
+                                  true);
+        } else {
+            wiz8::sound::play(path, {.volume = std::uint32_t(
+                                         (g_settings.sound_effects_volume * configured[5]) / 0x7f),
+                                     .loops = std::uint32_t(direct_selector),
+                                     .group = wiz8::sound::Group::ambient});
         }
     }
-    if (handle) handle->close();
-    handle.reset();
-    return 1;
+    return true;
+} catch (const std::exception&) {
+    return false;
 }
 
 /* The volume/mute helpers operate on the whole sound-effects bus, not just the
@@ -857,11 +834,9 @@ void SaveAmbientSoundList(wiz8::File& handle)
     unsigned char version = 1;
     unsigned int count;
     unsigned char ok;
-    char empty_name[0x80];
+    char empty_name[0x80]{};
     int index;
 
-    memcpy(empty_name, &g_empty_ambient_name, 2);
-    memset(empty_name + 2, 0, sizeof(empty_name) - 2);
     ok = (handle.write(&version, 1), true);
     count = g_world->plsAmbientSounds.size();
     ok = ok && (handle.write(&count, 4), true);
