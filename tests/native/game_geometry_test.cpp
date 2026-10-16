@@ -945,18 +945,11 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
     tree.spatial.m_bounds.minimum = {0, 0, 0};
     tree.spatial.m_bounds.maximum = {100, 100, 100};
     tree.spatial.m_extent = 100;
-    tree.spatial.m_root = new W8OctBuildNode;
+    tree.root = std::make_unique<W8OctBuildNode>();
+    tree.spatial.m_root = tree.root.get();
     tree.spatial.m_root->leaf_kind = 1;
     std::vector<W8GDSurface> surfaces(10050);
-    W8OctBuildLink* tail = nullptr;
-    for (auto& surface : surfaces) {
-        auto& link = tree.links.emplace_back(W8OctBuildLink{&surface, nullptr});
-        if (tail)
-            tail->next = &link;
-        else
-            tree.spatial.m_root->links[3] = &link;
-        tail = &link;
-    }
+    for (auto& surface : surfaces) tree.root->surfaces[1].push_back(&surface);
     const auto hits = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
     REQUIRE(hits.size() == surfaces.size());
     for (std::size_t index = 0; index < hits.size(); ++index) {
@@ -968,7 +961,8 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
     other.spatial.m_bounds.minimum = {0, 0, 0};
     other.spatial.m_bounds.maximum = {100, 100, 100};
     other.spatial.m_extent = 100;
-    other.spatial.m_root = new W8OctBuildNode;
+    other.root = std::make_unique<W8OctBuildNode>();
+    other.spatial.m_root = other.root.get();
     W8GDSurface separate{};
     other.AppendLink(other.spatial.m_root, &separate, 3);
     const auto other_hits = other.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
@@ -977,16 +971,13 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
     REQUIRE(other.queryAlongSegment({500, 500, 500}, {0, 0, 0}, 1, 3).empty());
     REQUIRE(hits.front() == &surfaces.front());
 
-    // Kind 9 preserves list-3 order, then appends unseen list-4 surfaces.
-    tree.AppendLink(tree.spatial.m_root, &surfaces[0], 4);
-    tree.AppendLink(tree.spatial.m_root, &separate, 4);
+    // Kind 9 uses the physical-surface bank and retains its visited-flag policy.
     surfaces[0].flags |= W8_GD_SURFACE_QUERY_VISITED;
     const auto mixed = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 9);
-    REQUIRE(mixed.size() == surfaces.size() + 1);
+    REQUIRE(mixed.size() == surfaces.size() - 1);
     REQUIRE(mixed.front() == &surfaces[1]);
-    REQUIRE(mixed[mixed.size() - 2] == &surfaces[0]);
-    REQUIRE(mixed.back() == &separate);
-    REQUIRE((surfaces[0].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
+    REQUIRE(mixed.back() == &surfaces.back());
+    surfaces[0].flags &= ~W8_GD_SURFACE_QUERY_VISITED;
 }
 
 TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets",
@@ -1814,11 +1805,12 @@ TEST_CASE("Region geometry preserves octant order and point versus box boundarie
     tree.spatial.m_bounds.minimum = glm::vec3(0);
     tree.spatial.m_bounds.maximum = glm::vec3(2);
     tree.spatial.m_depth = 1;
-    tree.spatial.m_root = new W8OctBuildNode;
+    tree.root = std::make_unique<W8OctBuildNode>();
+    tree.spatial.m_root = tree.root.get();
     for (unsigned octant = 0; octant < 8; ++octant) {
-        auto* node = new W8OctBuildNode;
+        auto node = std::make_unique<W8OctBuildNode>();
         node->region = octant + 1;
-        tree.spatial.m_root->children[octant] = node;
+        tree.spatial.m_root->children[octant] = std::move(node);
     }
     REQUIRE(tree.updateRegionForGeometry(glm::vec3(1), 10));
     REQUIRE(points.count(8) == 1);
@@ -2055,43 +2047,32 @@ TEST_CASE("Build surface collections own results preserve order and exceed old s
     std::array<int, 3> surfaces{1, 2, 3};
     W8OctBuildNode leaf;
     leaf.leaf_kind = 1;
-    std::array<W8OctBuildLink, 6> links{{{&surfaces[0], nullptr},
-                                         {&surfaces[0], nullptr},
-                                         {&surfaces[1], nullptr},
-                                         {&surfaces[0], nullptr},
-                                         {&surfaces[2], nullptr},
-                                         {&surfaces[1], nullptr}}};
-    for (unsigned i = 1; i < links.size(); ++i) links[i - 1].next = &links[i];
-    leaf.links[2] = links.data();
+    const std::vector<void*> ordered{&surfaces[0], &surfaces[0], &surfaces[1],
+                                     &surfaces[0], &surfaces[2], &surfaces[1]};
+    leaf.surfaces[0] = ordered;
     const auto collected = leaf.linkedSurfaces(2, 2, 2);
     REQUIRE(collected == std::vector<void*>{&surfaces[0], &surfaces[1], &surfaces[2]});
     REQUIRE(leaf.linkedSurfaces(3, 2, 2).empty());
     REQUIRE(leaf.linkedSurfaces(2, 2, 1).empty());
-    std::array<void*, 5> stored{&surfaces[2], &surfaces[1], &surfaces[2], &surfaces[0], nullptr};
-    leaf.surface_arrays[2] = stored.data();
+    leaf.surfaces[0] = {&surfaces[2], &surfaces[1], &surfaces[2], &surfaces[0]};
     REQUIRE(leaf.storedSurfaces(2) == std::vector<void*>{&surfaces[2], &surfaces[1], &surfaces[0]});
-    REQUIRE(collected[0] ==
-            &surfaces[0]); // Subsequent collection does not overwrite a prior result.
-    leaf.surface_arrays[2] = nullptr;
+    REQUIRE(collected[0] == &surfaces[0]);
     std::vector<int> many(11000);
-    std::vector<W8OctBuildLink> many_links(many.size());
-    for (unsigned i = 0; i < many.size(); ++i)
-        many_links[i] = {&many[i], i + 1 == many.size() ? nullptr : &many_links[i + 1]};
-    leaf.links[2] = many_links.data();
+    leaf.surfaces[0].clear();
+    for (auto& surface : many) leaf.surfaces[0].push_back(&surface);
     const auto large = leaf.linkedSurfaces(0, 0, 2);
     REQUIRE(large.size() == many.size());
     REQUIRE(large.front() == &many.front());
     REQUIRE(large.back() == &many.back());
-    leaf.links[2] = nullptr;
 
     W8OctBuildNode root;
-    root.children[0] = new W8OctBuildNode;
-    root.children[7] = new W8OctBuildNode;
+    root.children[0] = std::make_unique<W8OctBuildNode>();
+    root.children[7] = std::make_unique<W8OctBuildNode>();
     root.children[0]->leaf_kind = root.children[7]->leaf_kind = 1;
-    root.children[0]->links[2] = &links[0];
-    root.children[7]->links[2] = &links[4];
+    root.children[0]->surfaces[0] = ordered;
+    root.children[7]->surfaces[0] = {&surfaces[2], &surfaces[1]};
     REQUIRE(root.linkedSurfaces(0, 1, 2) == collected);
-    root.children[0]->links[2] = root.children[7]->links[2] = nullptr;
+    REQUIRE(root.nodeCount() == 3);
 }
 
 TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independent offsets",
@@ -2111,14 +2092,11 @@ TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independ
     terrain.index = 23;
     W8OctBuildNode leaf;
     leaf.leaf_kind = 1;
-    const auto makeRun = [](void* surface) {
-        auto** run = static_cast<void**>(std::malloc(3 * sizeof(void*)));
-        run[0] = run[1] = surface;
-        run[2] = nullptr;
-        return run;
-    };
-    leaf.surface_arrays[2] = makeRun(&polygon);
-    leaf.surface_arrays[3] = makeRun(&terrain);
+    leaf.surfaces[0] = {&polygon, &polygon};
+    leaf.surfaces[1] = {&terrain, &terrain};
+    leaf.regions = {2, 7};
+    tree.m_region_index_stream.resize(8);
+    tree.m_region_list_len = 1;
     REQUIRE(leaf.ConvertToOctPreTree(0, &tree) == 1);
     REQUIRE(tree.m_leaves[1].polygon_offset == 1);
     REQUIRE(tree.m_leaves[1].gd_polygon_offset == 2);
@@ -2128,8 +2106,14 @@ TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independ
     REQUIRE(tree.m_polygon_index_stream[2] == 17);
     REQUIRE(tree.m_gd_surface_index_stream[2] == 1);
     REQUIRE(tree.m_gd_surface_index_stream[3] == 23);
-    REQUIRE(leaf.surface_arrays[2] == nullptr);
-    REQUIRE(leaf.surface_arrays[3] == nullptr);
+    REQUIRE(leaf.surfaces[0].empty());
+    REQUIRE(leaf.surfaces[1].empty());
+    REQUIRE(leaf.regions.empty());
+    REQUIRE(tree.m_leaves[1].region_offset == 1);
+    REQUIRE(tree.m_region_list_len == 4);
+    REQUIRE(tree.m_region_index_stream[1] == 2);
+    REQUIRE(tree.m_region_index_stream[2] == 7);
+    REQUIRE(tree.m_region_index_stream[3] == 0);
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture,
@@ -2176,27 +2160,24 @@ TEST_CASE("Conditional path prop links share matching while retaining blocker fl
           "[geometry][octree]")
 {
     OctPreTree tree;
-    std::array<GDPreProp, 2> meshes;
-    W8LevelFileAnimObj empty{};
-    meshes[0].ApplyAnimFrame(7, empty);
-    meshes[1].ApplyAnimFrame(8, empty);
     std::array<W8PreProp, 2> props{};
     props[1].first_prop_number = 20;
-    props[1].num_stop_meshes = meshes.size();
-    props[1].pStopMeshes = meshes.data();
+    props[1].stop_meshes.resize(2);
+    W8LevelFileAnimObj empty{};
+    props[1].stop_meshes[0].ApplyAnimFrame(7, empty);
+    props[1].stop_meshes[1].ApplyAnimFrame(8, empty);
     tree.m_lNumSupports = tree.m_lNumBlocks = 1;
     tree.m_lSupports[0] = 20;
     tree.m_lBlocks[0] = 21;
-    std::unordered_multimap<unsigned, CondPathNode*> links;
+    std::unordered_multimap<unsigned, CondPathNode> links;
     REQUIRE(tree.InsertConditionalNodes(links, 123, 5, props));
     REQUIRE(links.size() == 2);
-    const auto* support = links.find((7u << 16) | 2u)->second;
-    const auto* blocker = links.find((8u << 16) | 2u)->second;
-    REQUIRE(support->cell == 123);
-    REQUIRE(support->value == 5);
-    REQUIRE(blocker->cell == 123);
-    REQUIRE(blocker->value == (5 | W8_PATH_CELL_BLOCKING_FRAME));
-    for (const auto& [key, value] : links) std::free(value);
+    const auto& support = links.find((7u << 16) | 2u)->second;
+    const auto& blocker = links.find((8u << 16) | 2u)->second;
+    REQUIRE(support.cell == 123);
+    REQUIRE(support.value == 5);
+    REQUIRE(blocker.cell == 123);
+    REQUIRE(blocker.value == (5 | W8_PATH_CELL_BLOCKING_FRAME));
     links.clear();
     tree.m_lNumSupports = tree.m_lNumBlocks = 0;
     REQUIRE_FALSE(tree.InsertConditionalNodes(links, 123, 5, props));
@@ -2239,10 +2220,11 @@ TEST_CASE("Region merging rekeys every member and weights GLM centers by cell po
           "[geometry][octree]")
 {
     OctBuildPreTree tree(1, std::nullopt, 16, 8, 0);
-    tree.spatial.m_root = new W8OctBuildNode;
-    auto* first = tree.spatial.m_root->children[0] = new W8OctBuildNode;
-    auto* second = tree.spatial.m_root->children[1] = new W8OctBuildNode;
-    auto* neighbor = tree.spatial.m_root->children[4] = new W8OctBuildNode;
+    tree.root = std::make_unique<W8OctBuildNode>();
+    tree.spatial.m_root = tree.root.get();
+    auto* first = (tree.spatial.m_root->children[0] = std::make_unique<W8OctBuildNode>()).get();
+    auto* second = (tree.spatial.m_root->children[1] = std::make_unique<W8OctBuildNode>()).get();
+    auto* neighbor = (tree.spatial.m_root->children[4] = std::make_unique<W8OctBuildNode>()).get();
     first->region = second->region = 1;
     neighbor->region = 2;
     first->leaf_kind = second->leaf_kind = 2;
@@ -2702,6 +2684,12 @@ TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bo
     const auto bounds = prop.computeBounds();
     REQUIRE(glm::length(bounds.minimum - glm::vec3(500, -1000, -500)) < 0.01f);
     REQUIRE(glm::length(bounds.maximum - glm::vec3(4500, -1000, 1500)) < 0.01f);
+    prop.ApplyAnimFrame(0, W8LevelFileAnimObj{});
+    REQUIRE(prop.computeBounds().minimum == glm::vec3(0));
+    REQUIRE(prop.computeBounds().maximum == glm::vec3(0));
+    prop.ApplyAnimFrame(0, animation);
+    REQUIRE(prop.computeBounds().minimum == bounds.minimum);
+    REQUIRE(prop.computeBounds().maximum == bounds.maximum);
 }
 
 TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep slope", "[geometry]")

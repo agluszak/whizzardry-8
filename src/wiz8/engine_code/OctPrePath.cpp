@@ -7,7 +7,6 @@
 #include <optional>
 #include <span>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -562,9 +561,10 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
 
 // FUNCTION: WIZ8 0x004CE510
 void W8PathingService::LinkCollideableProps(
-    int lNumProps, W8PreProp* pPreProps,
-    std::unordered_multimap<unsigned int, CondPathNode*>* pCondValues)
+    std::span<const W8PreProp> preprops,
+    const std::unordered_multimap<unsigned int, CondPathNode>& values)
 {
+    const int lNumProps = static_cast<int>(preprops.size());
     int aiLookup[10000];
     unsigned int aulKeys[10000];
     unsigned short ausFrames[10000];
@@ -589,55 +589,50 @@ void W8PathingService::LinkCollideableProps(
     int ulOriginalCount = 0;
     for (i = 0; i < lNumProps; ++i) {
         ++ulOriginalCount;
-        W8PreProp* pProp = pPreProps + i;
-        if (pProp->num_stop_meshes != 0) {
-            for (unsigned short j = 0; j < pProp->num_stop_meshes; ++j) {
+        const W8PreProp* pProp = &preprops[i];
+        if (!pProp->stop_meshes.empty()) {
+            for (unsigned short j = 0; j < pProp->stop_meshes.size(); ++j) {
                 bool bWroteFrame = false;
                 unsigned int key =
-                    (static_cast<unsigned int>(pProp->pStopMeshes[j].m_prop_number) << 16) |
+                    (static_cast<unsigned int>(pProp->stop_meshes[j].m_prop_number) << 16) |
                     (i + 1);
-                auto slot = pCondValues->equal_range(key).first;
-                if (slot != pCondValues->end()) {
-                    do {
-                        CondPathNode* puValue = slot->second;
-                        if ((puValue != 0) &&
-                            (FindConditionalPathValue(puValue->cell, puValue->value) != 0)) {
-                            if (!ppCondPaths[i]) {
-                                if (static_cast<unsigned int>(lNumProps) <
-                                    static_cast<unsigned int>(ulOriginalCount)) {
-                                    srAssertFail("ulOriginalCount <= (UINT32)lNumProps",
-                                                 OCTPREPATH_CPP, 1065,
-                                                 "LinkCollideableProps: Invalid count for "
-                                                 "collideable props.");
-                                }
-                                auto* pPath = &ppCondPaths[i].emplace();
-                                strcpy(pPath->name, pProp->name);
-                                pPath->lookup_index = m_ulNumCondFrames;
-                                ++m_ulNumCondPaths;
+                const auto [first, last] = values.equal_range(key);
+                for (auto slot = first; slot != last; ++slot) {
+                    const auto& value = slot->second;
+                    if (FindConditionalPathValue(value.cell, value.value) != 0) {
+                        if (!ppCondPaths[i]) {
+                            if (static_cast<unsigned int>(lNumProps) <
+                                static_cast<unsigned int>(ulOriginalCount)) {
+                                srAssertFail("ulOriginalCount <= (UINT32)lNumProps", OCTPREPATH_CPP,
+                                             1065,
+                                             "LinkCollideableProps: Invalid count for "
+                                             "collideable props.");
                             }
-                            if (!bWroteFrame) {
-                                aiLookup[m_ulNumCondFrames + 1] = m_ulNumCondNodes;
-                                ausFrames[m_ulNumCondFrames] = pProp->pStopMeshes[j].m_prop_number;
-                                ++m_ulNumCondFrames;
-                                if (m_ulNumCondFrames >= 10000) {
-                                    srAssertFail("m_ulNumCondFrames < 10000", OCTPREPATH_CPP, 1077,
-                                                 "LinkCollideableProps: Too many conditional "
-                                                 "frames.");
-                                }
-                                bWroteFrame = true;
-                            }
-                            aulKeys[m_ulNumCondNodes] = puValue->cell;
-                            aulValues[m_ulNumCondNodes] = puValue->value;
-                            ++m_ulNumCondNodes;
-                            if (m_ulNumCondNodes >= 10000) {
-                                srAssertFail("m_ulNumCondNodes < 10000", OCTPREPATH_CPP, 1082,
-                                             "LinkCollideableProps: Too many conditional "
-                                             "nodes.");
-                            }
-                            free(puValue);
+                            auto* pPath = &ppCondPaths[i].emplace();
+                            strcpy(pPath->name, pProp->name);
+                            pPath->lookup_index = m_ulNumCondFrames;
+                            ++m_ulNumCondPaths;
                         }
-                        slot = NextIndexValue(*pCondValues, key, slot);
-                    } while (slot != pCondValues->end());
+                        if (!bWroteFrame) {
+                            aiLookup[m_ulNumCondFrames + 1] = m_ulNumCondNodes;
+                            ausFrames[m_ulNumCondFrames] = pProp->stop_meshes[j].m_prop_number;
+                            ++m_ulNumCondFrames;
+                            if (m_ulNumCondFrames >= 10000) {
+                                srAssertFail("m_ulNumCondFrames < 10000", OCTPREPATH_CPP, 1077,
+                                             "LinkCollideableProps: Too many conditional "
+                                             "frames.");
+                            }
+                            bWroteFrame = true;
+                        }
+                        aulKeys[m_ulNumCondNodes] = value.cell;
+                        aulValues[m_ulNumCondNodes] = value.value;
+                        ++m_ulNumCondNodes;
+                        if (m_ulNumCondNodes >= 10000) {
+                            srAssertFail("m_ulNumCondNodes < 10000", OCTPREPATH_CPP, 1082,
+                                         "LinkCollideableProps: Too many conditional "
+                                         "nodes.");
+                        }
+                    }
                 }
                 if (bWroteFrame) {
                     aulKeys[m_ulNumCondNodes] = 0;
@@ -647,10 +642,10 @@ void W8PathingService::LinkCollideableProps(
             }
         }
         if (ppCondPaths[i].has_value()) {
-            if ((pProp->num_stop_meshes == 1) &&
-                (pProp->pStopMeshes[0].m_flags.always_blocks_path)) {
+            if ((pProp->stop_meshes.size() == 1) &&
+                (pProp->stop_meshes[0].m_flags.always_blocks_path)) {
                 aiLookup[m_ulNumCondFrames + 1] = aiLookup[m_ulNumCondFrames];
-                ausFrames[m_ulNumCondFrames] = pProp->pStopMeshes[0].last_frame;
+                ausFrames[m_ulNumCondFrames] = pProp->stop_meshes[0].last_frame;
                 ++m_ulNumCondFrames;
             }
             aiLookup[m_ulNumCondFrames + 1] = 0;

@@ -3102,12 +3102,10 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
         W8Prop* prop = g_world->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop;
-            for (int surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {
-                W8GDSurface* surface = gd_prop->m_pGDSurfaces + surface_index;
-                if (SurfaceIntersectsBox(
-                        *surface,
-                        {gd_prop->m_pVertices, static_cast<std::size_t>(gd_prop->m_vertex_count)},
-                        {(*lower), (*upper)})) {
+            for (int surface_index = 0;
+                 surface_index < static_cast<int>(gd_prop->m_pGDSurfaces.size()); ++surface_index) {
+                W8GDSurface* surface = gd_prop->m_pGDSurfaces.data() + surface_index;
+                if (SurfaceIntersectsBox(*surface, gd_prop->m_pVertices, {(*lower), (*upper)})) {
                     return 1;
                 }
             }

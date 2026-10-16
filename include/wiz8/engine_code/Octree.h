@@ -519,14 +519,13 @@ public:
     unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile& level,
                                  unsigned int min_component_percent);
     char PathNodeObstructed(const glm::vec3* node_position);
-    unsigned char
-    InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
-                           unsigned int cell, unsigned int node,
-                           std::span<const W8PreProp> preprops);
+    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode>& nodes,
+                                         unsigned int cell, unsigned int node,
+                                         std::span<const W8PreProp> preprops);
     /* Tests the bounds box against static surfaces and registered props;
        0 clear, 1 blocked, 3 clear but prop ids were recorded in m_lBlocks. */
     char TestPathPropBounds(const srBoundingBox& bounds);
-    int CreatePathProps(const W8LevelFile& level, W8PreProp** preprops);
+    std::vector<W8PreProp> CreatePathProps(const W8LevelFile& level);
     char PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first,
                           unsigned short last);
 };

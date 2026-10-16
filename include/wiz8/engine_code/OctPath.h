@@ -47,17 +47,7 @@ struct W8ConditionalPathHeader {
     unsigned int flags;
 };
 
-/* One pre-path prop record handed to LinkCollideableProps: the prop's path
-   name plus the GDPreProp array OctPreTree.cpp builds for it (stride 0x48). */
-struct W8PreProp {
-    char name[0x40];
-    unsigned short num_stop_meshes;
-    /* The running base prop number this record's pStopMeshes indices are
-       relative to; InsertConditionalNodes matches a GDProp m_prop_number
-       into [first_prop_number, first_prop_number + num_stop_meshes). */
-    unsigned short first_prop_number;
-    GDPreProp* pStopMeshes;
-};
+struct W8PreProp;
 
 struct W8NavigatorMovementState;
 
@@ -308,8 +298,8 @@ public:
     void SetConditionalPathFrame(unsigned int path_handle, unsigned short frame);
     unsigned int FindConditionalPathValue(unsigned int key, unsigned int value);
     void LinkCollideableProps(
-        int lNumProps, W8PreProp* pPreProps,
-        std::unordered_multimap<unsigned int, CondPathNode*>* pCondValues); /* 0x004CE510 */
+        std::span<const W8PreProp> preprops,
+        const std::unordered_multimap<unsigned int, CondPathNode>& values); /* 0x004CE510 */
     unsigned char HandlePathEdgeTransition(W8NavigatorMovementState* movement);
     void ReduceWaypointCosts(unsigned int waypoint, float amount);
     bool AdvanceAttachmentWaypoint(const glm::vec3* source,
@@ -535,7 +525,7 @@ public:
    (frame << 16 | preprop index + 1) key: the node's serialized flag word
    (height level + 1 in the low half, |0x02000000 when it came from the
    blocker run) and its packed cell.  LinkCollideableProps drains the map into
-   the serialized key/value tables and frees each record.  The name is the
+   the serialized key/value tables.  The name is the
    original spelling from the allocation-failure assertion text. */
 struct CondPathNode {
     unsigned int value; /* 0x00 */
