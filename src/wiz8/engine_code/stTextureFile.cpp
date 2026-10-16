@@ -5,6 +5,8 @@
 #include <string>
 #include <utility>
 
+#include <SDL3/SDL_pixels.h>
+
 #include "asset_paths.h"
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"

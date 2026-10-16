@@ -17,10 +17,12 @@
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 
 #include "compat/compiler.h"
 #include "surrender/raster_math.h"
+#include "surrender/srARGB.h"
 #include "surrender/srClass.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"

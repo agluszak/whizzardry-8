@@ -1,18 +1,13 @@
 #include <array>
-#include <cstdio>
-#include <cstring>
 #include <limits>
 #include <vector>
 
 #include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_int2.hpp"
-#include "surrender/srARGB.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srPalette.h"
 #include "surrender_test_fixture.h"
 #include "wiz8/sr_api.h"
 
