@@ -76,6 +76,6 @@ TEST_CASE("application_test")
     } catch (const std::runtime_error& failure) {
         reported = std::string_view(failure.what()) == "native initialization failure";
     }
-    REQUIRE((reported && gfIgnoreMessages));
+    REQUIRE(reported);
     CheckStopped();
 }

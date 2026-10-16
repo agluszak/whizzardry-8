@@ -3,7 +3,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,7 +21,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "surrender/srDebug.h"
-#include "utf8/checked.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dice.h"
@@ -59,6 +57,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
@@ -270,12 +269,11 @@ void RefreshLevelUpReadyNotices(void)
                 if (*ready_flag == 0) {
                     if (row->portrait_advance == 0) {
                         std::string text = " ";
-                        utf8::append(0xb4, std::back_inserter(text));
-                        utf8::append(GetPartyOrderTextColor(
-                                         static_cast<signed char>(row->party_order_index)),
-                                     std::back_inserter(text));
+                        wiz8::text::append(text, 0xb4);
+                        wiz8::text::append(text, GetPartyOrderTextColor(static_cast<signed char>(
+                                                     row->party_order_index)));
                         text += " " + character->name + " ";
-                        utf8::append(0xb5, std::back_inserter(text));
+                        wiz8::text::append(text, 0xb5);
                         text += " ";
                         text = fmt::sprintf(g_localized_strings[0x773], text);
                         *ready_flag = 1;

@@ -38,7 +38,6 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Quality.h"

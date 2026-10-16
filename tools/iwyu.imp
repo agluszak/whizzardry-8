@@ -1,7 +1,6 @@
-# Public entry points for the pinned GLM, utf8cpp and fmt dependencies.
+# Public entry points for the pinned GLM and fmt dependencies.
 [
   {"include": ["@[\"<]glm/detail/.*[\">]", "private", "<glm/glm.hpp>", "public"]},
-  {"include": ["@[\"<]utf8/.*[\">]", "private", "<utf8.h>", "public"]},
   {"include": ["@[\"<]fmt/base\\.h[\">]", "private", "<fmt/format.h>", "public"]},
   {"include": ["@[\"<]glm/ext/matrix_clip_space\\.inl[\">]", "private", "<glm/ext/matrix_clip_space.hpp>", "public"]},
   {"include": ["@[\"<]glm/ext/matrix_transform\\.inl[\">]", "private", "<glm/ext/matrix_transform.hpp>", "public"]},

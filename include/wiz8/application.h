@@ -11,8 +11,6 @@ extern std::string gzStringDataOverride;
 extern bool gfCapturingVideo;
 extern bool gfApplicationActive;
 extern bool gfGameInitialized;
-extern bool gfIgnoreMessages;
-extern std::string gzErrorMsg;
 
 union SDL_Event;
 void HandleGameEvent(const SDL_Event& event);

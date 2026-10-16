@@ -95,9 +95,6 @@ W8MeshMaterial CreateDefaultMaterial();
 std::shared_ptr<srTexture> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
                                                bool required);
 
-struct W8OctPreTreeVertex;
 struct W8OctRegionPolygon;
 
-void ReportBuildStatus(short channel, std::string_view message);
-void ReportStartupMessage(std::string_view message);
 char* TrimAndLowercaseString(char* text);

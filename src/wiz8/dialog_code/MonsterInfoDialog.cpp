@@ -24,7 +24,6 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/float_constants.h"

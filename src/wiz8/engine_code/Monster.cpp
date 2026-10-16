@@ -73,7 +73,6 @@
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/MonsterLight.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/PolyPick.h"

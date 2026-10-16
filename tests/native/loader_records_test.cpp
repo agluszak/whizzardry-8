@@ -33,11 +33,11 @@
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -294,14 +294,21 @@ static void level_records()
     }
 }
 
-static std::string geometry_snapshot(W8GameData& data)
+static std::string geometry_snapshot(const W8GameData& data)
 {
-    auto output = wiz8::open_file(wiz8::asset_path("snapshot.bin"), wiz8::OpenMode::replace);
-    REQUIRE((data.WriteGameData(output.get())));
-    output->close();
-    auto input = wiz8::open_file(wiz8::asset_path("snapshot.bin"));
-    std::string bytes(input->size(), '\0');
-    input->read_exact(bytes.data(), bytes.size());
+    // A rollback snapshot, not a file encoder: compare the live banks and
+    // existing retail codecs without retaining the removed OCT writer.
+    std::string bytes;
+    for (const auto& value : data.m_pVertices) append(bytes, value);
+    for (const auto& value : data.m_pSurfaces) append(bytes, wiz8::retail::encode(value));
+    for (const auto& value : data.m_pInterfaces) append(bytes, value);
+    for (const auto& value : data.m_pStates) append(bytes, value);
+    for (const auto& value : data.m_piCondPolys) append(bytes, value);
+    for (const auto& value : data.interface_names) {
+        bytes += value;
+        bytes += '\0';
+    }
+    for (const auto& value : data.m_ppEnvirons) append(bytes, wiz8::retail::encode(*value));
     return bytes;
 }
 
@@ -420,14 +427,6 @@ static void wgd_banks()
         REQUIRE((rejected));
         unchanged();
     }
-    // Processed serialization preserves the semantic geometry and interface state.
-    auto file = wiz8::open_file(wiz8::asset_path("snapshot.bin"));
-    data.ReadProcessedGameData(file.get());
-    // Environment motion factors are normalized by the processed loader.
-    const auto roundtrip = geometry_snapshot(data);
-    const auto geometry_bytes =
-        snapshot.size() - data.EnvironsCount() * sizeof(wiz8::retail::Environ);
-    REQUIRE((roundtrip.substr(0, geometry_bytes) == snapshot.substr(0, geometry_bytes)));
 }
 
 static void geometry()
@@ -1169,80 +1168,6 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
 }
 
-TEST_CASE_METHOD(LoaderFixture,
-                 "Waypoint graph growth retains indices and conditional edge updates",
-                 "[loader][pathing]")
-{
-    W8Octree tree(nullptr, nullptr);
-    const struct RestoreOctree {
-        W8Octree* previous;
-        ~RestoreOctree() { g_octree = previous; }
-    } restore{g_octree};
-    g_octree = &tree;
-    tree.object_registry = new W8OctreeObjectRegistry;
-    tree.m_spatial.m_bounds.minimum = glm::vec3(0);
-    tree.m_spatial.m_node_extent = 1;
-    W8PathingService path;
-    path.m_pPathValues = std::make_unique<std::unordered_multimap<unsigned, unsigned>>();
-    path.grid_scale = 1;
-    path.span = 1;
-    for (unsigned i = 1; i <= 150; ++i) {
-        const glm::vec3 position(i, 1, 1);
-        path.AddWaypoint(&position);
-        path.m_waypoints[i].flags |= W8_WAYPOINT_CONDITIONAL;
-        const auto node = path.AllocateSearchNode();
-        REQUIRE(node == i);
-        REQUIRE(path.m_search_nodes[node].flags == 0);
-        REQUIRE(path.m_search_nodes[node].parent_node == 0);
-        path.m_search_nodes[node].parent_node = node - 1;
-        path.m_search_nodes[node].position = position;
-        if (i > 1) path.AddWaypointLink(1, i, W8_PATH_EDGE_TELEPORTAL);
-    }
-    REQUIRE(path.m_waypoints.size() == 151);
-    REQUIRE(path.m_pEdges.size() == 150);
-    for (unsigned i = 1; i <= 150; ++i) {
-        REQUIRE(path.m_waypoints[i].index == i);
-        REQUIRE(path.m_waypoints[i].position == glm::vec3(i, 1, 1));
-        REQUIRE(path.m_search_nodes[i].parent_node == i - 1);
-        REQUIRE(path.m_search_nodes[i].position == path.m_waypoints[i].position);
-    }
-    unsigned edge = path.m_waypoints[1].first_edge;
-    for (unsigned destination = 2; destination <= 150; ++destination) {
-        REQUIRE(edge != 0);
-        REQUIRE(path.m_pEdges[edge].source == 1);
-        REQUIRE(path.m_pEdges[edge].destination == destination);
-        edge = path.m_pEdges[edge].next;
-    }
-    REQUIRE(edge == 0);
-    const auto first_edge = path.m_waypoints[1].first_edge;
-    path.m_pEdges[first_edge].flags = 0;
-    REQUIRE(path.UpdateWaypointLink(1, 2, W8_PATH_EDGE_TELEPORTAL));
-    REQUIRE(path.m_pEdges.size() == 150);
-    REQUIRE(path.m_pEdges[first_edge].flags ==
-            (W8_PATH_EDGE_TELEPORTAL | W8_PATH_EDGE_CONDITIONAL));
-
-    path.level_name = "graph";
-    path.path_node_count = 1;
-    path.edge_node_count = 1;
-    std::vector<W8FileWaypoint> snapshot(path.m_waypoints.size());
-    for (std::size_t i = 0; i < snapshot.size(); ++i) {
-        snapshot[i].flags = path.m_waypoints[i].flags;
-        snapshot[i].first_edge = path.m_waypoints[i].first_edge;
-        snapshot[i].position = {path.m_waypoints[i].position.x, path.m_waypoints[i].position.y,
-                                path.m_waypoints[i].position.z};
-    }
-    REQUIRE(path.WriteWaypointFile(snapshot));
-    std::filesystem::copy_file(wiz8::user_path("graph.WPT"), wiz8::asset_path("graph.wpt"));
-    REQUIRE(path.ReadWaypointFile());
-    REQUIRE(path.m_waypoints.size() == snapshot.size());
-    REQUIRE(path.m_pEdges.size() == 150);
-    for (std::size_t i = 1; i < snapshot.size(); ++i) {
-        REQUIRE(path.m_waypoints[i].position ==
-                glm::vec3(snapshot[i].position.x, snapshot[i].position.y, snapshot[i].position.z));
-        REQUIRE(path.m_waypoints[i].first_edge == snapshot[i].first_edge);
-    }
-}
-
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
                  "[loader][records]")
 {
@@ -1403,4 +1328,60 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     encoded->read_exact(roundtrip.data(), roundtrip.size());
     REQUIRE(roundtrip.size() == bytes.size());
     REQUIRE(std::equal(roundtrip.begin(), roundtrip.end(), bytes.begin()));
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",
+                 "[loader][pathing]")
+{
+    W8Octree tree(nullptr, nullptr);
+    const struct RestoreOctree {
+        W8Octree* previous;
+        ~RestoreOctree() { g_octree = previous; }
+    } restore{g_octree};
+    g_octree = &tree;
+    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(0);
+    tree.m_spatial.m_node_extent = 1;
+    W8PathingService path;
+    path.level_name = "waypoints";
+    path.path_node_count = 1;
+    path.grid_scale = path.span = 1;
+    path.level_bounds.minimum = glm::vec3(0);
+    path.m_pPathValues = std::make_unique<std::unordered_multimap<unsigned, unsigned>>();
+    for (const auto version : {1u, 2u}) {
+        std::string bytes;
+        for (const auto value : {version, 1u, 3u, 2u}) append(bytes, value);
+        append(bytes, W8FileWaypoint{});
+        append(bytes, W8FileWaypoint{W8_WAYPOINT_CONDITIONAL, 1, {1, 2, 3}});
+        append(bytes, W8FileWaypoint{W8_WAYPOINT_CONDITIONAL, 0, {4, 5, 6}});
+        for (unsigned index = 0; index < 2; ++index) {
+            const W8PathEdge edge{0, static_cast<unsigned short>(index),
+                                  static_cast<unsigned short>(index ? 2 : 0), 5.0f, 0};
+            if (version == 1) {
+                append(bytes, edge.flags);
+                append(bytes, edge.destination);
+                append(bytes, edge.distance);
+                append(bytes, edge.next);
+            } else {
+                append(bytes, edge);
+            }
+        }
+        store("waypoints.WPT", bytes);
+        REQUIRE(path.ReadWaypointFile());
+        REQUIRE(path.m_waypoints.size() == 3);
+        REQUIRE(path.m_waypoints[1].position == glm::vec3(1, 2, 3));
+        REQUIRE(path.m_waypoints[2].position == glm::vec3(4, 5, 6));
+        REQUIRE(path.m_waypoints[1].first_edge == 1);
+        REQUIRE(path.m_pEdges[1].source == 1);
+        REQUIRE(path.m_pEdges[1].destination == 2);
+        REQUIRE(path.m_pEdges[1].distance == 5.0f);
+        auto* waypoints = path.m_waypoints.data();
+        auto* edges = path.m_pEdges.data();
+        for (std::size_t end = 0; end < bytes.size(); ++end) {
+            store("waypoints.WPT", bytes.substr(0, end));
+            REQUIRE_FALSE(path.ReadWaypointFile());
+            REQUIRE(path.m_waypoints.data() == waypoints);
+            REQUIRE(path.m_pEdges.data() == edges);
+        }
+    }
 }

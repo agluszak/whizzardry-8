@@ -1,7 +1,6 @@
 #include "wiz8/character_skills.h"
 
 #include <cstring>
-#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,7 +13,6 @@
 #include "layouts/item_instance.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "random.h"
-#include "utf8/checked.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -34,6 +32,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
@@ -66,12 +65,11 @@ std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8
 {
     auto* character = &g_status.buffers.Char[party_slot];
     std::string text = continue_line ? " \n  " : " ";
-    utf8::append(0xb4, std::back_inserter(text));
-    utf8::append(GetPartyOrderTextColor(static_cast<signed char>(
-                     g_status.buffers.XChar[party_slot].party_order_index)),
-                 std::back_inserter(text));
+    wiz8::text::append(text, 0xb4);
+    wiz8::text::append(text, GetPartyOrderTextColor(static_cast<signed char>(
+                                 g_status.buffers.XChar[party_slot].party_order_index)));
     text += " " + fmt::format("{}'s", character->name) + " ";
-    utf8::append(0xb5, std::back_inserter(text));
+    wiz8::text::append(text, 0xb5);
     text += " " + fmt::sprintf(g_localized_strings[0x1db],
                                g_localized_strings[g_character_skill_name_ids[skill_id]],
                                GetCharacterSkillNoticeValue(character, skill_id));

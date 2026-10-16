@@ -2190,7 +2190,6 @@ void Trigger::RunDestination(const char* destination)
 {
     glm::vec3 destination_position;
     glm::vec3 destination_direction;
-    glm::vec3 source_position;
     glm::mat3 rotation;
     /* Retail's named-entity path reads saved storage for these integers;
        natively a named entity stays in the current level. */
@@ -2239,8 +2238,6 @@ void Trigger::RunDestination(const char* destination)
         destination_direction = target->direction;
     }
 
-    source_position = glm::vec3(position.x, position.y, position.z);
-    g_octree->AdjustPortalDestination(&destination_position, &source_position);
     SetWorldScenePosition(GetWorld(), &destination_position);
 
     rotation = glm::mat3(1);

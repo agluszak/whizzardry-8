@@ -1,18 +1,17 @@
+#ifndef WIZ8_ENGINE_CODE_OCTREE_SPATIAL_H
+#define WIZ8_ENGINE_CODE_OCTREE_SPATIAL_H
+
 #include <cstdint>
-
-#include "glm/ext/vector_int3.hpp"
-#include "wiz8/retail_geometry_types.h"
-#ifndef WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
-#define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
-
 #include <span>
 #include <vector>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/geometry.h"
+#include "wiz8/retail_geometry_types.h"
 
 struct W8OctBuildNode;
 struct W8GDSurface;
@@ -41,13 +40,7 @@ struct W8OctRegionVolume {
     bool ContainsPoint(const glm::vec3& point) const;
 };
 
-/* Native spatial state derived from the retail 0x9c record. Octree.cpp constructs one
-   at the start of its 0x29c owner, while OctBuildTree.cpp constructs the same
-   value at the start of its 0xbc build tree and uses standalone copies while
-   inserting surfaces.  Same-address construction proves the common value
-   boundary, but not whether either owner used inheritance or a first member.
-   Copies borrow the region/root/triangle pointers; the destructor only clears
-   them. W8Octree releases its region allocation separately. */
+// Shared runtime spatial values for loaded octrees and the collision index.
 struct W8OctSpatialState {
     explicit W8OctSpatialState(const W8OctSpatialState* source = 0);
 
@@ -69,8 +62,6 @@ struct W8OctSpatialState {
 
     void Reset();
     srBoundingBox GetClippedBounds() const;
-    srBoundingBox GetWorkingBounds() const;
-    void setWorkingBounds(const srBoundingBox& bounds);
 
     w8_ulong flags;
     float m_extent;
@@ -123,89 +114,6 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
 bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const glm::vec3> vertices,
                           const srBoundingBox& box);
 
-struct W8OctRegionPolygon;
-
-/* The 0x60-byte build vertex the 0x00493120 driver collects into the shared
-   geometry context.  CreateSubMeshes reads the position at +0x0c, material
-   at +0x1c, normal at +0x24, light at +0x30 and the per-sun light array
-   pointer at +0x3c; the driver also clears flag bytes at +0x0a and +0x6a. */
-struct W8OctPreTreeVertex {
-    enum { EXCLUDED = 1u, NORMAL_SPLIT = 2u, MULTIPLE_REGIONS = 4u };
-    /* bit0: excluded from compaction (welded or unused); for welded vertices
-       m_vertex_index holds the redirect; bit1: split normal copy; bit2: sits inside more than one
-       region volume (m_region zeroed). */
-    w8_ulong flags;
-    /* Ordinal into the geometry vertex array; on welded vertices the merge
-       helper stores the surviving vertex's index here. */
-    w8_ulong m_vertex_index;
-    /* Owning auto-region id written by the region assignment pass. */
-    unsigned short m_region;
-    /* Per-vertex traversal latch the shared-polygon split raises so each
-       vertex's face run is walked once per pass. */
-    bool m_visited;
-    glm::vec3 position{0};
-    /* Number of polygons referencing this vertex; SortGeometry counts and
-       the region pass tracks the run bound. */
-    short m_normal_count;
-    int m_material;
-    /* The polygon automesh kind SplitVertices copies onto material-split
-       duplicates. */
-    w8_ulong m_kind;
-    glm::vec3 m_normal{0};
-    glm::vec3 m_light{0};
-    float* m_sun_lights;
-    std::vector<int> face_indices;
-    /* Corner texture coordinate written when a polygon vertex is split. */
-    glm::vec2 m_uv{0};
-    /* Unscaled level-file position kept beside the engine-scaled
-       position. */
-    glm::vec3 m_original_position{0};
-};
-
-/* The shared geometry context the 0x00493120 driver builds and hands to
-   CreateSubMeshes, SplitMeshes and WriteOctFile: the deduplicated build
-   vertices plus the 0x74-byte region polygons.  The material sort appends
-   the canonical material/texture group counts; +0x10/+0x14 hold an owned
-   buffer the cleanup releases. */
-struct W8OctPreTreeGeometry {
-    bool splitVerticesByMaterial();
-    bool compact();
-    std::vector<W8OctPreTreeVertex> m_vertices;
-    std::vector<W8OctRegionPolygon> m_polygons;
-    w8_ulong m_material_count;
-    w8_ulong m_texture_count;
-};
-
-/* The 0x34-byte per-submesh build record SplitMeshes partitions polygons and
-   vertices into.  Records chain through +0x0c/+0x10 (the OctMeshModel
-   m_link_index/next_link link fields are emitted as these indices minus
-   one) and +0x08 carries the 1..3 mesh kind that becomes m_packed_header. */
-struct W8OctSubmeshBuild {
-    w8_ulong flags;
-    w8_ulong index;
-    w8_ulong m_kind;
-    w8_ulong m_prev_link;
-    w8_ulong m_next_link;
-    w8_ulong vertex_count;
-    w8_ulong m_map_count;
-    w8_ulong m_polygon_count;
-    std::vector<int> m_vertex_ids;
-    std::vector<int> m_polygon_ids;
-    /* Per-corner vertex indices (three per polygon); becomes the model's
-       m_psrPolyVertex. */
-    std::vector<glm::ivec3> m_poly_vertices;
-    /* Per-corner deduplicated uv indices; becomes the model's
-       m_psrPolyUVIndex. */
-    std::vector<glm::ivec3> m_poly_uv_index;
-    /* The deduplicated uv pairs SplitUVMaps emits; becomes m_psrMap. */
-    std::vector<glm::vec2> m_uv_map;
-};
-
-/* The 0xf5-byte NewLevel.oct file header shared by WriteOctFile and
-   ReadOctFile. The offsetof assertions pin the authoritative byte offsets. The
-   seven consecutive vectors hold the spatial state's minimum, maximum,
-   clipped and working bounds plus the octree's +0xa4 vector.  +0xb4 is left
-   unwritten by retail; ReadOctFile still loads it into +0x17c. */
 #pragma pack(push, 1)
 struct W8OctFileHeader {
     enum { VERSION = 0x22 };

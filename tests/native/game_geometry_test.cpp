@@ -65,13 +65,10 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Prop.h"
@@ -84,7 +81,7 @@
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/mesh_links.h"
-#include "wiz8/engine_code/oct_build_traversal.h"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/particle_modes.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -96,7 +93,6 @@
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "wiz8/navigation_flags.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/surface_geometry.h"
@@ -938,7 +934,6 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
     tree.spatial.m_extent = 100;
     tree.root = std::make_unique<W8OctBuildNode>();
     tree.spatial.m_root = tree.root.get();
-    tree.spatial.m_root->leaf_kind = 1;
     std::vector<W8GDSurface> surfaces(10050);
     for (auto& surface : surfaces) tree.root->surfaces[1].push_back(&surface);
     const auto hits = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
@@ -1009,28 +1004,6 @@ TEST_CASE("Build bounds expand locally and region cells share typed boxes", "[ge
     W8OctSpatialState child(&tree.spatial);
     REQUIRE(child.bounds().minimum == tree.spatial.bounds().minimum);
     REQUIRE(child.GetClippedBounds().maximum == tree.spatial.GetClippedBounds().maximum);
-}
-
-TEST_CASE("Spatial bounds are independent snapshots of working and clipped extents",
-          "[geometry][octree]")
-{
-    W8OctSpatialState state;
-    const glm::vec3 minimum(-30, -20, -10), maximum(10, 20, 30);
-    state.setWorkingBounds({minimum, maximum});
-    state.m_clipped_bounds.minimum = {-3, -2, -1};
-    state.m_clipped_bounds.maximum = {1, 2, 3};
-    const auto working = state.GetWorkingBounds();
-    auto clipped = state.GetClippedBounds();
-    REQUIRE(working.minimum == minimum);
-    REQUIRE(working.maximum == maximum);
-    REQUIRE(clipped.minimum == glm::vec3(-3, -2, -1));
-    REQUIRE(clipped.maximum == glm::vec3(1, 2, 3));
-    clipped.minimum = glm::vec3(0);
-    REQUIRE(state.GetClippedBounds().minimum == glm::vec3(-3, -2, -1));
-    state.Reset();
-    REQUIRE(state.GetWorkingBounds().minimum == glm::vec3(0));
-    REQUIRE(state.GetClippedBounds().maximum == glm::vec3(0));
-    REQUIRE(working.minimum == minimum);
 }
 
 TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
@@ -1751,68 +1724,6 @@ TEST_CASE("Static and frame normals share area weighting across shade seams", "[
     REQUIRE(short_destination[0] == glm::vec3(99));
 }
 
-TEST_CASE("Region geometry preserves octant order and point versus box boundaries",
-          "[geometry][octree]")
-{
-    OctBuildPreTree tree(1, std::nullopt, 16, 0, 0);
-    auto& points = tree.particle_regions.regions;
-    auto& boxes = tree.prop_regions.regions;
-    tree.spatial.m_extent = 2;
-    tree.spatial.m_bounds.minimum = glm::vec3(0);
-    tree.spatial.m_bounds.maximum = glm::vec3(2);
-    tree.spatial.m_depth = 1;
-    tree.root = std::make_unique<W8OctBuildNode>();
-    tree.spatial.m_root = tree.root.get();
-    for (unsigned octant = 0; octant < 8; ++octant) {
-        auto node = std::make_unique<W8OctBuildNode>();
-        node->region = octant + 1;
-        tree.spatial.m_root->children[octant] = std::move(node);
-    }
-    REQUIRE(tree.updateRegionForGeometry(glm::vec3(1), 10));
-    REQUIRE(points.count(8) == 1);
-    REQUIRE(points.size() == 1);
-    REQUIRE_FALSE(tree.updateRegionForGeometry(glm::vec3(2, 1, 1), 20));
-    REQUIRE(tree.updateRegionForGeometry(glm::vec3(0), 30));
-    REQUIRE(points.count(1) == 1);
-    REQUIRE(boxes.empty());
-    REQUIRE(tree.updateRegionForGeometry(srBoundingBox{{1, 0, 0}, {2, 1, 1}}, 40));
-    REQUIRE(boxes.count(5) == 1);
-    REQUIRE(boxes.size() == 1);
-    REQUIRE_FALSE(tree.updateRegionForGeometry(srBoundingBox{{2, 0, 0}, {3, 1, 1}}, 50));
-    REQUIRE(tree.updateRegionForGeometry(srBoundingBox{glm::vec3(0.5f), glm::vec3(1.5f)}, 60));
-    REQUIRE(tree.updateRegionForGeometry(srBoundingBox{glm::vec3(0.5f), glm::vec3(1.5f)}, 60));
-    REQUIRE(boxes.size() == 9); // Repeated updates refresh existing entries.
-
-    tree.spatial.m_level_kind = 1;
-    W8OctSpatialState child(&tree.spatial);
-    std::vector<unsigned> order;
-    visitBuildChildren(tree.spatial, child,
-                       [&](const W8OctSpatialState& candidate, unsigned octant) {
-                           order.push_back(octant);
-                           REQUIRE(candidate.m_root->region == octant + 1);
-                           const glm::vec3 minimum(octant >> 2, (octant >> 1) & 1, octant & 1);
-                           REQUIRE(candidate.bounds().minimum == minimum);
-                           REQUIRE(candidate.bounds().maximum == minimum + 1.0f);
-                       });
-    REQUIRE(order == std::vector<unsigned>{0, 1, 2, 3, 4, 5, 6, 7});
-    std::array<W8OctRegionVolume, 3> volumes{};
-    volumes[1].m_region = 11;
-    volumes[2].m_region = 12;
-    tree.spatial.m_region_volumes = volumes.data();
-    tree.spatial.m_region_count = volumes.size();
-    tree.particle_regions.clear();
-    REQUIRE(tree.assignPointToVolumes(glm::vec3(0), 5, tree.particle_regions));
-    REQUIRE(tree.assignPointToVolumes(glm::vec3(1), 5, tree.particle_regions));
-    REQUIRE(points.count(11) == 1);
-    REQUIRE(points.count(12) == 1);
-    REQUIRE(points.size() == 2);
-    REQUIRE(boxes.size() == 9);
-    tree.spatial.m_region_count = 1;
-    REQUIRE_FALSE(tree.assignPointToVolumes(glm::vec3(0), 6, tree.particle_regions));
-    tree.spatial.m_region_volumes = nullptr;
-    tree.spatial.m_region_count = 0;
-}
-
 namespace {
 class TraversalMarker : public srNode {
 public:
@@ -1965,143 +1876,6 @@ TEST_CASE("Octree mesh links own bounded runs and mark one-based object ids", "[
     REQUIRE_FALSE(visible[0]);
 }
 
-TEST_CASE("Region link builders return independent packed runs and enforce disk limits",
-          "[geometry][octree]")
-{
-    OctRegionObjectLinks particles, props;
-    particles.always_visible = {2};
-    particles.regions.emplace(1, 1);
-    particles.regions.emplace(1, 3);
-    props.always_visible.assign(6000, 4); // Beyond the former fixed scratch capacity.
-    const auto packed = particles.packedLinks(3);
-    REQUIRE(packed.lookup.size() == 3);
-    REQUIRE(packed.lookup[0] == 0);
-    REQUIRE(packed.lookup[2] == 0);
-    REQUIRE(packed.alwaysVisible().size() == 1);
-    REQUIRE(packed.alwaysVisible()[0] == 2);
-    REQUIRE(packed.forMesh(1).size() == 2);
-    const auto [first, last] = particles.regions.equal_range(1);
-    auto run = packed.forMesh(1);
-    unsigned index = 0;
-    for (auto entry = first; entry != last; ++entry) REQUIRE(run[index++] == entry->second);
-    particles.clear();
-    REQUIRE(particles.regions.empty());
-    REQUIRE(particles.always_visible.empty());
-    REQUIRE(packed.forMesh(1).size() == 2);
-    REQUIRE(props.packedLinks(3).alwaysVisible().size() == 6000);
-    props.always_visible.assign(65535, 4);
-    REQUIRE_THROWS_AS(props.packedLinks(3), std::length_error);
-    REQUIRE_THROWS_AS(particles.packedLinks(65536), std::length_error);
-    REQUIRE(particles.packedLinks(3).records == std::vector<unsigned short>{0});
-}
-
-TEST_CASE("Build surface collections own results preserve order and exceed old scratch limits",
-          "[geometry][octree]")
-{
-    std::array<int, 3> surfaces{1, 2, 3};
-    W8OctBuildNode leaf;
-    leaf.leaf_kind = 1;
-    const std::vector<void*> ordered{&surfaces[0], &surfaces[0], &surfaces[1],
-                                     &surfaces[0], &surfaces[2], &surfaces[1]};
-    leaf.surfaces[0] = ordered;
-    const auto collected = leaf.linkedSurfaces(2, 2, 2);
-    REQUIRE(collected == std::vector<void*>{&surfaces[0], &surfaces[1], &surfaces[2]});
-    REQUIRE(leaf.linkedSurfaces(3, 2, 2).empty());
-    REQUIRE(leaf.linkedSurfaces(2, 2, 1).empty());
-    leaf.surfaces[0] = {&surfaces[2], &surfaces[1], &surfaces[2], &surfaces[0]};
-    REQUIRE(leaf.storedSurfaces(2) == std::vector<void*>{&surfaces[2], &surfaces[1], &surfaces[0]});
-    REQUIRE(collected[0] == &surfaces[0]);
-    std::vector<int> many(11000);
-    leaf.surfaces[0].clear();
-    for (auto& surface : many) leaf.surfaces[0].push_back(&surface);
-    const auto large = leaf.linkedSurfaces(0, 0, 2);
-    REQUIRE(large.size() == many.size());
-    REQUIRE(large.front() == &many.front());
-    REQUIRE(large.back() == &many.back());
-
-    W8OctBuildNode root;
-    root.children[0] = std::make_unique<W8OctBuildNode>();
-    root.children[7] = std::make_unique<W8OctBuildNode>();
-    root.children[0]->leaf_kind = root.children[7]->leaf_kind = 1;
-    root.children[0]->surfaces[0] = ordered;
-    root.children[7]->surfaces[0] = {&surfaces[2], &surfaces[1]};
-    REQUIRE(root.linkedSurfaces(0, 1, 2) == collected);
-    REQUIRE(root.nodeCount() == 3);
-}
-
-TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independent offsets",
-          "[geometry][octree]")
-{
-    OctPreTree tree;
-    tree.m_spatial.m_depth = 0;
-    tree.m_leaf_count = 1;
-    tree.m_leaves.resize(2);
-    tree.m_polygon_index_stream.resize(8);
-    tree.m_gd_surface_index_stream.resize(8);
-    tree.polygon_cursor = 1;
-    tree.m_gd_surface_stream_len = 2;
-    W8OctRegionPolygon polygon{};
-    polygon.ordinal = 17;
-    W8GDSurface terrain{};
-    terrain.index = 23;
-    W8OctBuildNode leaf;
-    leaf.leaf_kind = 1;
-    leaf.surfaces[0] = {&polygon, &polygon};
-    leaf.surfaces[1] = {&terrain, &terrain};
-    leaf.regions = {2, 7};
-    tree.m_region_index_stream.resize(8);
-    tree.m_region_list_len = 1;
-    REQUIRE(leaf.ConvertToOctPreTree(0, &tree) == 1);
-    REQUIRE(tree.m_leaves[1].polygon_offset == 1);
-    REQUIRE(tree.m_leaves[1].gd_polygon_offset == 2);
-    REQUIRE(tree.polygon_cursor == 3);
-    REQUIRE(tree.m_gd_surface_stream_len == 4);
-    REQUIRE(tree.m_polygon_index_stream[1] == 1);
-    REQUIRE(tree.m_polygon_index_stream[2] == 17);
-    REQUIRE(tree.m_gd_surface_index_stream[2] == 1);
-    REQUIRE(tree.m_gd_surface_index_stream[3] == 23);
-    REQUIRE(leaf.surfaces[0].empty());
-    REQUIRE(leaf.surfaces[1].empty());
-    REQUIRE(leaf.regions.empty());
-    REQUIRE(tree.m_leaves[1].region_offset == 1);
-    REQUIRE(tree.m_region_list_len == 4);
-    REQUIRE(tree.m_region_index_stream[1] == 2);
-    REQUIRE(tree.m_region_index_stream[2] == 7);
-    REQUIRE(tree.m_region_index_stream[3] == 0);
-}
-
-TEST_CASE("Build-node consumption preserves octant order and compact indices", "[geometry][octree]")
-{
-    OctPreTree tree;
-    tree.m_spatial.m_depth = 1;
-    tree.m_branches.resize(2);
-    tree.m_leaves.resize(3);
-    tree.m_polygon_index_stream.resize(5);
-    tree.m_gd_surface_index_stream.resize(1);
-    tree.m_branch_count = tree.m_leaf_count = tree.polygon_cursor = tree.m_gd_surface_stream_len =
-        1;
-    std::array<W8OctRegionPolygon, 2> polygons{};
-    polygons[0].ordinal = 17;
-    polygons[1].ordinal = 23;
-    W8OctBuildNode root;
-    for (unsigned i = 0; i < 2; ++i) {
-        auto& leaf = root.children[i == 0 ? 1 : 7];
-        leaf = std::make_unique<W8OctBuildNode>();
-        leaf->leaf_kind = 1;
-        leaf->surfaces[0].push_back(&polygons[i]);
-    }
-    REQUIRE(root.nodeCount() == 3);
-    REQUIRE(root.ConvertToOctPreTree(0, &tree) == 1);
-    REQUIRE(tree.m_branch_count == 2);
-    REQUIRE(tree.m_leaf_count == 3);
-    REQUIRE(tree.m_branches[1].children[1] == 1);
-    REQUIRE(tree.m_branches[1].children[7] == 2);
-    REQUIRE(tree.m_leaves[1].polygon_offset == 1);
-    REQUIRE(tree.m_leaves[2].polygon_offset == 3);
-    REQUIRE(tree.m_polygon_index_stream == std::vector<w8_ulong>{0, 1, 17, 1, 23});
-    REQUIRE(root.nodeCount() == 1);
-}
-
 TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells",
           "[geometry][octree]")
 {
@@ -2141,34 +1915,6 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
     REQUIRE(endpoints.maximum.z == 20);
 }
 
-TEST_CASE("Conditional path prop links share matching while retaining blocker flags",
-          "[geometry][octree]")
-{
-    OctPreTree tree;
-    std::array<W8PreProp, 2> props{};
-    props[1].first_prop_number = 20;
-    props[1].stop_meshes.resize(2);
-    W8LevelFileAnimObj empty{};
-    props[1].stop_meshes[0].ApplyAnimFrame(7, empty);
-    props[1].stop_meshes[1].ApplyAnimFrame(8, empty);
-    tree.m_lNumSupports = tree.m_lNumBlocks = 1;
-    tree.m_lSupports[0] = 20;
-    tree.m_lBlocks[0] = 21;
-    std::unordered_multimap<unsigned, CondPathNode> links;
-    REQUIRE(tree.InsertConditionalNodes(links, 123, 5, props));
-    REQUIRE(links.size() == 2);
-    const auto& support = links.find((7u << 16) | 2u)->second;
-    const auto& blocker = links.find((8u << 16) | 2u)->second;
-    REQUIRE(support.cell == 123);
-    REQUIRE(support.value == 5);
-    REQUIRE(blocker.cell == 123);
-    REQUIRE(blocker.value == (5 | W8_PATH_CELL_BLOCKING_FRAME));
-    links.clear();
-    tree.m_lNumSupports = tree.m_lNumBlocks = 0;
-    REQUIRE_FALSE(tree.InsertConditionalNodes(links, 123, 5, props));
-    REQUIRE(links.empty());
-}
-
 TEST_CASE(
     "Conditional prop channels grow independently and path cells return coordinates with keys",
     "[geometry][octree]")
@@ -2199,40 +1945,6 @@ TEST_CASE(
     const auto negative = pathing.pathCell({6, 0, 8});
     REQUIRE(negative.coordinates == glm::ivec2(-2, -1));
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
-}
-
-TEST_CASE("Region merging rekeys every member and weights GLM centers by cell population",
-          "[geometry][octree]")
-{
-    OctBuildPreTree tree(1, std::nullopt, 16, 8, 0);
-    tree.root = std::make_unique<W8OctBuildNode>();
-    tree.spatial.m_root = tree.root.get();
-    auto* first = (tree.spatial.m_root->children[0] = std::make_unique<W8OctBuildNode>()).get();
-    auto* second = (tree.spatial.m_root->children[1] = std::make_unique<W8OctBuildNode>()).get();
-    auto* neighbor = (tree.spatial.m_root->children[4] = std::make_unique<W8OctBuildNode>()).get();
-    first->region = second->region = 1;
-    neighbor->region = 2;
-    first->leaf_kind = second->leaf_kind = 2;
-    neighbor->leaf_kind = 3;
-    tree.spatial.m_region_grid_cell = 10;
-    tree.region_centers = {{0, 0, 0}, {0, 3, -6}, {6, 9, 0}};
-    tree.region_path_map.emplace(1, 0x01000000u);
-    tree.region_path_map.emplace(1, 0x01000001u);
-    tree.region_path_map.emplace(2, 0x01010000u);
-    const int cell[] = {0x01000000, 1, 0, 0};
-    REQUIRE(tree.MergeRegion(first, cell));
-    REQUIRE(first->region == 2);
-    REQUIRE(second->region == 2);
-    REQUIRE(first->leaf_kind == 5);
-    REQUIRE(second->leaf_kind == 5);
-    REQUIRE(neighbor->leaf_kind == 5);
-    REQUIRE(tree.region_path_map.count(1) == 0);
-    REQUIRE(tree.region_path_map.count(2) == 3);
-    REQUIRE(tree.region_centers[2] == glm::vec3(2, 5, -4));
-    REQUIRE_FALSE(tree.MergeRegion(first, cell));
-    OctBuildPreTree independent(1, std::nullopt, 16, 8, 0);
-    REQUIRE(independent.region_path_map.empty());
-    REQUIRE(independent.region_centers.empty());
 }
 
 TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygons aligned",
@@ -2449,51 +2161,6 @@ TEST_CASE("Model render scopes restore GLM transforms and exclusions after a fai
     }
 }
 
-TEST_CASE("Material vertex splits preserve first-face attributes without a fixed scratch limit",
-          "[geometry][rendering]")
-{
-    constexpr unsigned materials = 80;
-    constexpr unsigned faces_count = 120;
-    W8OctPreTreeGeometry geometry{};
-    geometry.m_vertices.resize(5); // Three used vertices and one unused vertex after the sentinel.
-    geometry.m_polygons.resize(faces_count + 1);
-    auto& polygons = geometry.m_polygons;
-    for (unsigned source = 1; source < 5; ++source) {
-        auto& vertex = geometry.m_vertices[source];
-        vertex.m_vertex_index = source;
-        vertex.position = glm::vec3(float(source), 2, 3);
-        if (source < 4) {
-            for (unsigned face = 1; face <= faces_count; ++face)
-                vertex.face_indices.push_back(face);
-        }
-    }
-    for (unsigned face = 1; face <= faces_count; ++face) {
-        auto& polygon = polygons[face];
-        polygon.material = (face - 1) % materials;
-        polygon.kind = face % 3;
-        for (unsigned corner = 0; corner < 3; ++corner) {
-            polygon.vertices[corner] = &geometry.m_vertices[corner + 1];
-            polygon.face.texture_coordinates[corner] = glm::vec2(face, corner);
-        }
-    }
-    REQUIRE(geometry.splitVerticesByMaterial());
-    REQUIRE(geometry.m_vertices.size() == 3 * materials + 1);
-    REQUIRE(geometry.m_vertices.size() > 4 * 5); // Exceeds the former four-times allocation.
-    for (unsigned face = 1; face <= faces_count; ++face) {
-        const auto& polygon = polygons[face];
-        for (unsigned corner = 0; corner < 3; ++corner) {
-            const auto index = corner * materials + polygon.material + 1;
-            const auto* vertex = polygon.vertices[corner];
-            REQUIRE(vertex == &geometry.m_vertices[index]);
-            REQUIRE(vertex->m_vertex_index == index);
-            REQUIRE(vertex->m_material == static_cast<int>(polygon.material));
-            REQUIRE(vertex->m_kind == (polygon.material + 1) % 3);
-            REQUIRE(vertex->m_uv == glm::vec2(polygon.material + 1, corner));
-            REQUIRE(vertex->position.x == float(corner + 1));
-        }
-    }
-}
-
 TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit state",
           "[geometry][octree]")
 {
@@ -2515,61 +2182,6 @@ TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit 
     REQUIRE(trace.state == 0);
 }
 
-TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalized attributes",
-          "[geometry][octree]")
-{
-    W8OctPreTreeGeometry geometry{};
-    geometry.m_vertices.resize(7);
-    geometry.m_polygons.resize(4);
-    for (w8_ulong vertex = 1; vertex < 7; ++vertex) {
-        auto& record = geometry.m_vertices[vertex];
-        record.m_vertex_index = vertex;
-        record.position.x = static_cast<float>(vertex);
-        record.m_normal_count = 30;
-        record.m_normal = {0, 3, 4};
-    }
-    geometry.m_vertices[2].m_normal = {-0.0f, 0, 0};
-    geometry.m_vertices[3].flags = W8OctPreTreeVertex::EXCLUDED;
-    geometry.m_vertices[3].m_vertex_index = 1;
-    geometry.m_vertices[5].flags = W8OctPreTreeVertex::EXCLUDED;
-    geometry.m_vertices[5].m_vertex_index = 3;
-    constexpr std::array<std::array<unsigned, 3>, 3> source_corners{
-        {{1, 3, 2}, {2, 4, 2}, {5, 6, 2}}};
-    for (unsigned face = 1; face < 4; ++face) {
-        auto& polygon = geometry.m_polygons[face];
-        polygon.ordinal = face + 10;
-        polygon.material = face * 10;
-        for (unsigned corner = 0; corner < 3; ++corner) {
-            polygon.vertices[corner] =
-                geometry.m_vertices.data() + source_corners[face - 1][corner];
-            polygon.face.texture_coordinates[corner] = glm::vec2(face, corner);
-        }
-    }
-    geometry.m_polygons[2].degenerate = true;
-    REQUIRE(geometry.compact());
-    REQUIRE(geometry.m_vertices.size() == 4);
-    REQUIRE(geometry.m_polygons.size() == 3);
-    REQUIRE(geometry.m_vertices[1].position.x == 1);
-    REQUIRE(geometry.m_vertices[2].position.x == 2);
-    REQUIRE(geometry.m_vertices[3].position.x == 6);
-    REQUIRE(geometry.m_vertices[1].m_normal == glm::vec3(0, 0.6f, 0.8f));
-    REQUIRE(std::signbit(geometry.m_vertices[2].m_normal.x));
-    REQUIRE(geometry.m_vertices[2].m_normal_count == 2);
-    constexpr std::array<std::array<unsigned, 3>, 2> expected{{{1, 1, 2}, {1, 3, 2}}};
-    for (unsigned face = 1; face < 3; ++face) {
-        const auto& polygon = geometry.m_polygons[face];
-        const unsigned original = face == 1 ? 1 : 3;
-        REQUIRE(polygon.ordinal == face);
-        REQUIRE(polygon.material == original * 10);
-        for (unsigned corner = 0; corner < 3; ++corner) {
-            REQUIRE(polygon.vertices[corner] ==
-                    geometry.m_vertices.data() + expected[face - 1][corner]);
-            REQUIRE(polygon.face.vertices[corner] == static_cast<int>(expected[face - 1][corner]));
-            REQUIRE(polygon.face.texture_coordinates[corner] == glm::vec2(original, corner));
-        }
-    }
-}
-
 TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",
           "[geometry]")
 {
@@ -2589,41 +2201,6 @@ TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degen
     const auto empty = surfaceGeometry::compilationOrder({});
     REQUIRE(empty.indices.empty());
     REQUIRE(empty.walkable_count == 0);
-}
-
-TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bounds", "[geometry]")
-{
-    W8SerializedMeshFace face{};
-    for (int corner = 0; corner < 3; ++corner) face.vertices[corner] = corner;
-    W8LevelFileFrame frame{};
-    frame.mesh.num_vertices = 3;
-    frame.mesh.num_faces = 1;
-    frame.mesh.vertices = {{0, 0, 0}, {0, 0, 2}, {2, 0, 0}};
-    frame.mesh.faces = {face};
-    W8LevelFileScaledPathNode node{};
-    node.path.position = {1, -2, 3};
-    node.path.axis = {0, 2, 0};
-    node.path.angle = 1.5707963267948966f;
-    node.scale = {2, 3, 4};
-    W8LevelFileTransform transform{};
-    transform.num_frames = 1;
-    transform.frames.push_back(std::move(frame));
-    transform.pathAI.scaled = 2;
-    transform.pathAI.scaled_paths = {node};
-    W8LevelFileAnimObj animation{};
-    animation.path_lists = 1;
-    animation.transforms.push_back(std::move(transform));
-    GDProp prop;
-    prop.ApplyAnimFrame(0, animation);
-    const auto bounds = prop.computeBounds();
-    REQUIRE(glm::length(bounds.minimum - glm::vec3(500, -1000, -500)) < 0.01f);
-    REQUIRE(glm::length(bounds.maximum - glm::vec3(4500, -1000, 1500)) < 0.01f);
-    prop.ApplyAnimFrame(0, W8LevelFileAnimObj{});
-    REQUIRE(prop.computeBounds().minimum == glm::vec3(0));
-    REQUIRE(prop.computeBounds().maximum == glm::vec3(0));
-    prop.ApplyAnimFrame(0, animation);
-    REQUIRE(prop.computeBounds().minimum == bounds.minimum);
-    REQUIRE(prop.computeBounds().maximum == bounds.maximum);
 }
 
 TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep slope", "[geometry]")
@@ -2873,46 +2450,6 @@ TEST_CASE("Environment ambient scales scenes and lights while retaining the sour
     glm::vec3 ambient(1);
     GetWorldLightValue(&world, &ambient);
     REQUIRE(ambient == glm::vec3(0));
-}
-
-TEST_CASE("Submesh splitting owns all buffers beyond the old six-region capacity",
-          "[geometry][octree]")
-{
-    W8OctPreTreeGeometry geometry{};
-    geometry.m_vertices.resize(4);
-    for (int corner = 0; corner < 3; ++corner) {
-        auto& vertex = geometry.m_vertices[corner + 1];
-        vertex.m_vertex_index = corner + 1;
-        vertex.position = {corner == 1 ? 1.f : 0.f, corner == 2 ? 1.f : 0.f, 0};
-    }
-    geometry.m_polygons.resize(22);
-    for (unsigned region = 1; region <= 7; ++region) {
-        for (unsigned kind = 1; kind <= 3; ++kind) {
-            auto& polygon = geometry.m_polygons[(region - 1) * 3 + kind];
-            polygon.region = region;
-            polygon.kind = kind;
-            for (int corner = 0; corner < 3; ++corner) {
-                polygon.vertices[corner] = &geometry.m_vertices[corner + 1];
-                polygon.face.texture_coordinates[corner] = {float(corner), float(kind)};
-            }
-        }
-    }
-    OctPreTree tree;
-    tree.game_data = &geometry;
-    tree.m_spatial.submesh_count = tree.m_spatial.m_region_count = 8;
-    tree.m_spatial.m_polygon_count = geometry.m_polygons.size();
-    tree.m_sun_count = 0;
-    auto models = tree.CreateSubMeshes(&geometry);
-    REQUIRE(models.size() == 21);
-    for (const auto& model : models) {
-        REQUIRE(model.m_vertex_locations.size() == 3);
-        REQUIRE(model.m_poly_vertices.size() == 1);
-        REQUIRE(model.m_poly_uv_index.size() == 1);
-        for (int corner = 0; corner < 3; ++corner) {
-            const auto uv = model.m_vertex_map[model.m_poly_uv_index[0][corner]];
-            REQUIRE(uv == glm::vec2(corner, model.m_packed_header));
-        }
-    }
 }
 
 TEST_CASE("Positional sound copies register each live node once", "[scene][sound]")

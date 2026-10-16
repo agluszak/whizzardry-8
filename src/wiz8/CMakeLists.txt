@@ -86,7 +86,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/GDFileIO.cpp
     engine_code/Octree.cpp
     engine_code/OctPath.cpp
-    engine_code/OctPreTree.cpp
     engine_code/Levels.cpp
     engine_code/ReadLevel.cpp
     engine_code/ReadMesh.cpp
@@ -109,7 +108,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/Missile.cpp
     engine_code/PathAI.cpp
     engine_code/Spells.cpp
-    engine_code/OctBuildPreTree.cpp
     engine_code/SoundEvent.cpp
     engine_code/AnimRep.cpp
     engine_code/GDProp.cpp
@@ -134,7 +132,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/materials.cpp
     engine_code/PolyPick.cpp
     engine_code/Monster.cpp
-    engine_code/OctPrePath.cpp
     engine_code/stScript.cpp
     engine_code/LevelFile.cpp
     local_code/Targeting.cpp
@@ -179,7 +176,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/Camera.cpp
     engine_code/Cursor3d.cpp
     engine_code/stLight.cpp
-    engine_code/OctRegionPolygon.cpp
     version.cpp
     local_code/party_encumbrance.cpp
     local_code/Search.cpp
@@ -244,10 +240,6 @@ if(WIZ8_PRECOMPILE_HEADERS)
         "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/src/wiz8/pch.h>")
 endif()
 if(WIZ8_UNITY_BUILD)
-    # These files define identical file-local navigator constants; combining them
-    # in a unity source would introduce a duplicate definition.
-    set_source_files_properties(engine_code/OctPreTree.cpp
-        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
     set_target_properties(WIZ8_GAME_CORE PROPERTIES
         UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
 endif()

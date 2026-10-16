@@ -12,11 +12,11 @@ class srGERD;
 // class srModel
 class srModel : public srClass {
 public:
-    srModel();
+    srModel() = default;
 
-    srModel& operator=(const srModel& other);
+    srModel& operator=(const srModel& other) = default;
 
-    virtual ~srModel() override;
+    ~srModel() override = default;
 
 public:
     struct Bounds {

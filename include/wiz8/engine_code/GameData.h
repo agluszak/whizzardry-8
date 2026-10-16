@@ -1,7 +1,5 @@
 #pragma once
 
-struct W8OctPreTreeGeometry;
-
 #include <memory>
 #include <optional>
 #include <span>
@@ -61,46 +59,42 @@ void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x
    the record's destructor at 0x00421890 exists only to tear that member down.
    The bare `add ecx,0xc4` body is member teardown, not an adjustor thunk. */
 struct W8LevelDataRecord {
-    unsigned int flags; /* 0x00 */
-    /* 0x04/0x08: prop ids filled by the motion collision path; ToggleBoundProps
+    unsigned int flags; /* 0x04/0x08: prop ids filled by the motion collision path; ToggleBoundProps
        flips setting-6e props referenced here. */
-    int primary_contact_prop_id;   /* 0x04 */
+    int primary_contact_prop_id; /* 0x04 */
     int secondary_contact_prop_id; /* 0x08 */
     signed char sound_environment;
     signed char sound_environment_alt;
     float footstep_accumulator; /* 0x10 */
-    float camera_scale;         /* 0x14 */
-    /* 0x18/0x1c: residual segment length and facing metric from the nearest
+    float camera_scale; /* 0x18/0x1c: residual segment length and facing metric from the nearest
        contact during UpdateWorldCameraAndPaths. */
     float residual_contact_length; /* 0x18 */
-    float contact_facing;          /* 0x1c */
-    float speed;                   /* 0x20 */
-    /* 0x24/0x28: pending elapsed times ConsumeLevelElapsedTime hands
+    float contact_facing; /* 0x1c */
+    float speed; /* 0x24/0x28: pending elapsed times ConsumeLevelElapsedTime hands
        to the movement/fatigue pass, then clears. */
     float real_elapsed;
     float frame_elapsed;
     float movement_limit;
     float movement_progress;
-    glm::vec3 camera_position{0};            /* 0x34 */
-    glm::vec3 motion_input{0};               /* 0x40 */
-    glm::vec3 camera_motion_velocity{0};     /* 0x4c */
-    glm::vec3 contact_velocity{0};           /* 0x58 */
-    glm::vec3 motion_velocity{0};            /* 0x64 */
-    glm::vec3 integrated_motion{0};          /* 0x70 */
+    glm::vec3 camera_position{0}; /* 0x34 */
+    glm::vec3 motion_input{0}; /* 0x40 */
+    glm::vec3 camera_motion_velocity{0}; /* 0x4c */
+    glm::vec3 contact_velocity{0}; /* 0x58 */
+    glm::vec3 motion_velocity{0}; /* 0x64 */
+    glm::vec3 integrated_motion{0}; /* 0x70 */
     glm::vec3 camera_motion_displacement{0}; /* 0x7c */
-    glm::vec3 contact_motion{0};             /* 0x88 */
-    glm::vec3 contact_displacement{0};       /* 0x94 */
-    glm::vec3 motion_displacement{0};        /* 0xa0 */
-    /* Contact surface normal and scale used by camera collision. */
+    glm::vec3 contact_motion{0}; /* 0x88 */
+    glm::vec3 contact_displacement{0}; /* 0x94 */
+    glm::vec3 motion_displacement{
+        0}; /* Contact surface normal and scale used by camera collision. */
     glm::vec3 contact_normal{0}; /* 0xac */
-    float contact_normal_scale;       /* 0xb8 */
-    W8IntervalGate interval_gate;     /* 0xc4 */
-    bool flag5;                       /* 0xec */
-    bool flag6;                       /* 0xed */
+    float contact_normal_scale; /* 0xb8 */
+    W8IntervalGate interval_gate; /* 0xc4 */
+    bool flag5; /* 0xec */
+    bool flag6; /* 0xed */
     float vertical_motion; /* 0xf0 */
 
-    W8LevelDataRecord(); /* 0x0041FD10 */
-    /* 0x0041FE20: when the camera sits outside the game-data AABB, push
+    W8LevelDataRecord(); /* 0x0041FE20: when the camera sits outside the game-data AABB, push
        motion_displacement toward the box, clear environ vector, and optionally start
        party movement; returns non-zero when a clamp fired. */
     unsigned char ClampCameraToBounds(const glm::vec3* minimum, const glm::vec3* maximum);
@@ -205,31 +199,28 @@ struct W8GDInterfaceState {
    flag. Only straightforward storage is claimed past the prefix. */
 struct W8GameData {
     W8GameData(wiz8::File* handle, bool secondary); /* 0x00449010 */
-    ~W8GameData();                          /* 0x00449BB0 */
-    void ReadProcessedGameData(wiz8::File* handle); /* 0x00449240 */
-    /* Writes the game-data block WriteOctFile appends after the terminator. */
-    unsigned char WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
-    /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
+    ~W8GameData(); /* 0x00449BB0 */
+    void ReadProcessedGameData(
+        wiz8::File*
+            handle); /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
     unsigned char ReadWGDList(wiz8::File& file, int poly_type);
-    /* Builds m_pInterfaces/m_pStates/m_piCondPolys from the {interface id,
-       surface index, group} triples collected by ReadWGDList. */
-
     /* Release the level-data record, game-time accumulator and companion
        level-data globals; runs first in ~W8GameData. */
     void ReleaseLevelData();
     /* Selects a switch interface's state: the matching state group's
        conditional polygons clear surface flag 0x10 while every other state's
        polygons set it. */
-    char SetInterfaceState(int interface_id, int state); /* 0x0041C680 */
-    /* Apply one surface the mover's trace crossed, nearest first: an
+    char
+    SetInterfaceState(int interface_id,
+                      int state); /* Apply one surface the mover's trace crossed, nearest first: an
        environment boundary (flag 0x1000) swaps the active environment record,
        carrying the live blend fields across; a trigger surface runs its
        trigger in the crossing direction unless the bit sets already hold
        it. */
-    void ProcessCrossedSurface(W8GDSurface* surface); /* 0x0041C770 */
-    /* Builds the octree trace mesh and answers its model instance. */
+    void ProcessCrossedSurface(
+        W8GDSurface* surface); /* Builds the octree trace mesh and answers its model instance. */
     std::unique_ptr<stModelInstance> CreateTraceModel(); /* 0x0041c930 */
     CameraRotation cameraRotation(unsigned int flags, const glm::mat3& rotation);
     CameraMotion cameraMotion(unsigned int flags, const glm::vec3& position,
@@ -285,41 +276,20 @@ struct W8GameData {
     void AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2);
     void IntegrateTriggers();
     void AddTriggerPlane(const glm::vec3* vertices, Trigger* trigger);
-    /* Registers a linked record's twelve generated surfaces; the `face`-indexed
-       surface also spawns an environment record scaled by `value`. */
-    void AddTriggerPlane(const glm::vec3* vertices, float value, float scalar,
-                         const signed char* face); /* 0x00448C60 */
-    /* Grows the environment bank by tens and appends a record whose motion
-       derives from the linked surface's scaled plane. */
-    void CreateGDEnviron(const W8GDSurface* surface, float scale);
-    /* Folds the trigger vertex/surface banks into the main arrays without
-       rebuilding the spatial index; the CompileGameData path. */
-    void IntegrateTriggerGeometry();
     /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
-    int FindPointerByName(const char* name); /* 0x004482A0 */
-    /* Registers one invisible-plane record; the OctBuild driver feeds it the
-       level file's plane table. */
-    void AddLevelPlane(const W8LevelFilePlane& plane); /* 0x004485F0 */
-    /* Copies the linked record's 0x1b0-byte payload into a scratch entry and
-       forwards to the 0x00448C60 helper. Retail call sites pass record + 1
-       (the payload), the +0x1b3 float, the +0x1b7 scalar and a pointer to the
-       +0x1b1 face byte. */
-    void AddLinkedRecord(const glm::vec3* vertices, float value, float scalar,
-                         const signed char* face); /* 0x00448BF0 */
-    /* Compiles the read game data into the shared build arrays. */
-    W8OctPreTreeGeometry CompileGameData(); /* 0x00449D10 */
-
-    /* Loop the buffered prop ids through TestProp and return the id of the
+    int FindPointerByName(
+        const char* name); /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */
-    int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
-                         char gate); /* 0x0041C0D0 */
-    /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
+    int TestPropSurfaces(
+        int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
+        char gate); /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
        into this context, traces in prop-local space through the prop's
        position delta when no pre-tree exists (reseeding the caller's record
        to the world-space hit), and restores the arrays. `gate` skips flag-4
        props when set. */
-    bool TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate); /* 0x0041C140 */
-    /* Ray-test `count` surfaces - all of m_pSurfaces when `surface_ids` is
+    bool
+    TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag,
+             char gate); /* Ray-test `count` surfaces - all of m_pSurfaces when `surface_ids` is
        null, else the listed surface indexes - against the trace record.
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
@@ -350,11 +320,11 @@ void ClearLevelMovementStopped(void);
 void ResetLevelDataVectors(void);
 bool CanInterruptLevelMovement(void);
 bool HasLevelWalkableContact(void); /* 0x0041F070 */
-bool IsLevelFastMovement(void);     /* 0x0041EFB0 */
-void ClearLevelFastMovement(void);  /* 0x0041EFD0 */
-void SetLevelFastMovement(void);    /* 0x0041EFE0 */
-bool LevelMovedThisUpdate(void);    /* 0x0041EFF0 */
-bool HasLevelDataVector(void);      /* 0x0041F010 */
+bool IsLevelFastMovement(void); /* 0x0041EFB0 */
+void ClearLevelFastMovement(void); /* 0x0041EFD0 */
+void SetLevelFastMovement(void); /* 0x0041EFE0 */
+bool LevelMovedThisUpdate(void); /* 0x0041EFF0 */
+bool HasLevelDataVector(void); /* 0x0041F010 */
 void ResetCurrentEnvironment(void);
 unsigned char SetEnvironmentLoadFlag(unsigned char flag); /* 0x0041AAE0 */
 void BeginCameraSway(void);
@@ -379,7 +349,7 @@ float GetCameraPitchRadians();
 void GetCameraOrientation(void* angle, void* pitch);
 void BeginManualCameraControl();
 void LevelCamera();
-void CameraLookAt(const glm::vec3* position);     /* 0x00420F90 */
+void CameraLookAt(const glm::vec3* position); /* 0x00420F90 */
 void CameraSnapToTarget(const glm::vec3* target); /* 0x00420FB0 */
 void TurnCameraToDegrees(float degrees);
 void SetCameraYawDegrees(float degrees);

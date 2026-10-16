@@ -72,7 +72,6 @@ srGERD::srGERD()
     fallback_texture.setSurfacePtr(std::shared_ptr<SDL_Surface>(std::move(missing)));
     fallback_texture.setName("Missing texture");
     this->device.window = 0;
-    this->device.back_buffer_type = static_cast<e_backBuffer>(0);
     vertex_arrays_dirty = 0xffffffff;
     vertex_arrays.clip = srRendererDefs::FRUSTUM_CLIP_MASK;
     vertex_arrays.count = 0;
@@ -100,7 +99,6 @@ srGERD::srGERD()
     shader = srShader();
     texture_iface[0] = 0;
     texture_iface[1] = 0;
-    this->device.hints[0] = static_cast<e_hintMode>(0);
     initClearColors();
     initLights();
     initMatrices();
@@ -1618,7 +1616,6 @@ void srGERD::closeWindow(e_closeHint hint)
         resetStatistics();
         device.open_info = {};
         state_flags &= ~STATE_WINDOW_OPEN;
-        device.back_buffer_type = static_cast<e_backBuffer>(0);
         active = nullptr;
         state_flags &= ~STATE_CLOSING_WINDOW;
         shader = srShader();
@@ -1629,10 +1626,6 @@ void srGERD::closeWindow(e_closeHint hint)
 }
 
 // FUNCTION: SURRENDER 0x1001CD10
-srGERD::e_backBuffer srGERD::getBackBufferType() const
-{
-    return device.back_buffer_type;
-}
 
 // FUNCTION: SURRENDER 0x1001A120
 srGERD::e_error srGERD::openWindow()
@@ -1683,7 +1676,6 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
         device.open_info = {};
         if (device.gpu.openWindow(info.width, info.height)) {
             device.open_info = info;
-            device.back_buffer_type = BACKBUFFER_ONE;
             w8_ulong flags = state_flags & ~4UL;
             active = this;
             state_flags |= STATE_WINDOW_OPEN;
@@ -1708,20 +1700,9 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
             state.view_right = getWidth();
             state.view_bottom = getHeight();
             if ((enable_flags & (1UL << ENABLE_CLEAR_ON_OPEN)) != 0) {
-                w8_long count;
-                e_backBuffer back_buffer = getBackBufferType();
-                if (back_buffer == static_cast<e_backBuffer>(2)) {
-                    count = 2;
-                } else if (back_buffer == static_cast<e_backBuffer>(3)) {
-                    count = 3;
-                } else {
-                    count = 1;
-                }
-                for (; count != 0; count--) {
-                    clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH |
-                          SDLGPUDevice::BUFFER_STENCIL);
-                    flipFrame();
-                }
+                clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH |
+                      SDLGPUDevice::BUFFER_STENCIL);
+                flipFrame();
                 flush();
             }
             return ERROR_NONE;
@@ -1863,32 +1844,10 @@ w8_long srGERD::getTextureReduction() const
 
 // FUNCTION: SURRENDER 0x10029600
 // FUNCTION: SURRENDER 0x1001AFD0
-void srGERD::setHint(e_hint hint, e_hintMode mode)
-{
-    if (device.hints[hint] != mode) {
-        device.hints[hint] = mode;
-    }
-}
 
 // FUNCTION: SURRENDER 0x1001AFF0
-const char* srGERD::getErrorString(e_error error)
-{
-    if (0 <= error && error <= ERROR_NO_CONTEXT) {
-        return errStrings[error];
-    }
-    return "UNKNOWN ERROR";
-}
 
 // GLOBAL: SURRENDER 0x100993A4
-const char* srGERD::errStrings[9] = {"ERROR_NONE",
-                                     "ERROR_INVALID_ENUM",
-                                     "ERROR_INVALID_VALUE",
-                                     "ERROR_WINDOW_OPEN_FAILED",
-                                     "ERROR_WINDOW_NOT_OPEN",
-                                     "ERROR_BUFFER_LOCK_FAILED",
-                                     "ERROR_INVALID_WHANDLE",
-                                     "ERROR_CONTEXT_CREATION_FAILED",
-                                     "ERROR_NO_CONTEXT"};
 
 // FUNCTION: SURRENDER 0x10020DD0
 
@@ -1915,10 +1874,6 @@ w8_ulong srGERD::getClearStencil() const
 }
 
 // FUNCTION: SURRENDER 0x1001CFD0
-srGERD::e_hintMode srGERD::getHint(e_hint hint) const
-{
-    return device.hints[hint];
-}
 
 // FUNCTION: SURRENDER 0x1001D010
 srGERD::e_error srGERD::getError()
@@ -1929,16 +1884,8 @@ srGERD::e_error srGERD::getError()
 }
 
 // FUNCTION: SURRENDER 0x1001D0C0
-int srGERD::isFlipped() const
-{
-    return (state_flags >> 3) & 1;
-}
 
 // FUNCTION: SURRENDER 0x1001D1E0
-w8_ulong srGERD::getSwapInterval() const
-{
-    return display.swap_interval;
-}
 
 // FUNCTION: SURRENDER 0x1001D360
 void srGERD::setDepthRange(double minimum, double maximum)

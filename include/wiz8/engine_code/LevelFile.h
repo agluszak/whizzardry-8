@@ -13,7 +13,6 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/retail_geometry_types.h"
 
-class OctMeshModel;
 namespace wiz8 {
 class File;
 }
@@ -584,8 +583,6 @@ W8LevelFileTriggerParts CollectTriggerParts(W8LevelFile& level);
 std::unique_ptr<W8LevelFile> ReadLevelFile(wiz8::File& file);
 /* The .pvl header: the built submesh models (written and consumed) and the
    root mesh count replace the source mesh. */
-bool WriteLevelFile(wiz8::File& file, wiz8::File& remainder, const W8LevelFile& level,
-                    std::span<OctMeshModel> models, int mesh_count);
 bool ReadMeshFile(wiz8::File& file, W8LevelFileMesh& mesh);
 bool WriteMeshFile(wiz8::File& file, const W8LevelFileMesh& mesh);
 bool ReadLightFile(wiz8::File& file, W8LevelFileLight& light);

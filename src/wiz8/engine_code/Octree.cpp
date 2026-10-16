@@ -29,7 +29,6 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/vector_relational.hpp> // NOLINT(misc-include-cleaner)
 
-#include "OctPreTree.h"
 #include "asset_paths.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -75,6 +74,7 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/mesh_links.h"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -108,20 +108,6 @@ void W8Octree::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal
 }
 
 // FUNCTION: WIZ8 0x00434170
-void W8Octree::UpdatePathVisualization()
-{
-    if (pathing != 0) {
-        glm::vec3 cursor;
-        GetWorldCursorPosition(&cursor);
-        /* Retail reads the y component twice (proven in disassembly: both
-           fcomp loads use the y slot) and never tests x. */
-        if (cursor.y != g_float_zero || cursor.y != g_float_zero || cursor.z != g_float_zero) {
-            pathing->UpdatePathVisualization(cursor, view.camera_dof);
-            return;
-        }
-        pathing->UpdatePathVisualization(view.camera_location, view.camera_dof);
-    }
-}
 
 // GLOBAL: WIZ8 0x00659760
 static W8OctreeIndex::iterator g_octree_query_slot;
@@ -306,7 +292,6 @@ void W8Octree::UpdateVisibility()
     m_projected_regions_valid = false;
     view.visible_cells = projectRegionsAt(view.camera_location).cell;
     CollectVisibleCells();
-    UpdatePathVisualization();
     for (std::size_t region = 0; region < m_current_regions.size(); ++region) {
         if (m_projected_regions_valid && !m_projected_regions[region]) {
             m_current_regions[region] = false;
@@ -3174,15 +3159,6 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
    settled height is only taken when the drop actually hit something. The pair
    is then handed on together, which is why one body carries both. */
 // FUNCTION: WIZ8 0x00434a30
-void W8Octree::AdjustPortalDestination(glm::vec3* destination, const glm::vec3* source)
-{
-    if (!pathing || (!pathing->m_waypoint_editing && !pathing->m_waypoints.empty())) return;
-    const auto source_point = (*source);
-    const auto local_destination = settleToGround((*destination), true, 500).position;
-    const auto local_source = settleToGround(source_point, true, 500).position;
-    const glm::vec3 destination_record(local_destination), source_record(local_source);
-    pathing->EditTeleportalLink(&destination_record, &source_record);
-}
 
 /* Release the location-variable names and empty their parallel value and
    level vectors. Trigger.cpp creates the names as copied character arrays. */
@@ -3452,4 +3428,155 @@ void OctreeMeshLinks::write(wiz8::File& file, std::size_t mesh_count) const
 {
     file.write(lookup.data(), (mesh_count + 1) * sizeof(unsigned short));
     file.write(records.data(), records.size() * sizeof(unsigned short));
+}
+
+// GLOBAL: WIZ8 0x005ebc28
+const float g_float_five = 5.0f;
+// GLOBAL: WIZ8 0x005ebc70
+const double g_double_one_ten_thousandth = 0.0001;
+// GLOBAL: WIZ8 0x005ebc90
+const float g_float_one_ten_thousandth = 9.999999747378752e-05f;
+// GLOBAL: WIZ8 0x005ec410
+const float g_float_one_third = 0.3333333432674408f;
+// GLOBAL: WIZ8 0x005ec414
+const float g_region_axis_alignment_threshold = 0.9998999834060669f;
+
+W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)
+{
+    Reset();
+    m_level_kind = 1;
+    if (source != 0) {
+        m_bounds = source->m_bounds;
+        m_clipped_bounds = source->m_clipped_bounds;
+        if (source->m_level_kind == 1) {
+            m_extent = source->m_extent * g_float_half;
+            m_depth = source->m_depth + 1;
+        } else {
+            m_extent = source->m_extent;
+            m_depth = source->m_depth;
+        }
+        m_cell_size = source->m_cell_size;
+        m_polygon_count = source->m_polygon_count;
+        m_region_id_bound = source->m_region_id_bound;
+        m_leaf_grid_stride_x = source->m_leaf_grid_stride_x;
+        m_leaf_grid_stride_y = source->m_leaf_grid_stride_y;
+        m_node_extent = source->m_node_extent;
+        m_root = source->m_root;
+        m_node_index = source->m_node_index;
+        m_triangle_vertices = source->m_triangle_vertices;
+        flags = source->flags;
+        m_item_count = source->m_item_count;
+        submesh_count = source->submesh_count;
+        m_region_count = source->m_region_count;
+        m_leaf_level = source->m_leaf_level;
+        m_region_volumes = source->m_region_volumes;
+        m_node_extent = source->m_node_extent;
+        m_max_region_radius = source->m_max_region_radius;
+    }
+}
+
+void W8OctSpatialState::Reset()
+{
+    memset(this, 0, sizeof(*this));
+}
+
+srBoundingBox W8OctSpatialState::GetClippedBounds() const
+{
+    return m_clipped_bounds;
+}
+
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const glm::vec3> vertices,
+                          const srBoundingBox& box)
+{
+    return triangleIntersectsBox(box, indexedTriangle(vertices, surface.vertex_indices),
+                                 surface.plane.normal);
+}
+
+bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
+                           const glm::vec3& normal)
+{
+    const auto& minimum = box.minimum;
+    const auto& maximum = box.maximum;
+
+    for (const auto& vertex : vertices) {
+        if (box.contains(vertex)) return true;
+    }
+
+    const auto triangleMinimum = glm::min(glm::min(vertices[0], vertices[1]), vertices[2]);
+    const auto triangleMaximum = glm::max(glm::max(vertices[0], vertices[1]), vertices[2]);
+    if (glm::any(glm::lessThan(triangleMaximum, minimum)) ||
+        glm::any(glm::greaterThan(triangleMinimum, maximum)))
+        return false;
+
+    const bool nearAxis = glm::any(
+        glm::greaterThan(glm::abs(normal), glm::vec3(g_region_axis_alignment_threshold)) &&
+        glm::greaterThanEqual(vertices[0], minimum) && glm::lessThanEqual(vertices[0], maximum));
+    if (!nearAxis) {
+        const auto centroid = (vertices[0] + vertices[1] + vertices[2]) * g_float_one_third;
+        // The two support corners give the extrema formerly found by scanning eight corners.
+        const auto positive = glm::greaterThanEqual(normal, glm::vec3(0));
+        const auto nearest = glm::mix(maximum, minimum, positive);
+        const auto farthest = glm::mix(minimum, maximum, positive);
+        if (glm::dot(nearest - centroid, normal) > 0 || glm::dot(farthest - centroid, normal) < 0)
+            return false;
+    }
+
+    RuntimeTriangle edge_delta;
+    for (unsigned edge = 0; edge < vertices.size(); ++edge)
+        edge_delta[edge] = vertices[(edge + 1) % vertices.size()] - vertices[edge];
+
+    for (short face_axis = 0; face_axis < 3; ++face_axis) {
+        short first_axis = face_axis == 2 ? 0 : face_axis + 1;
+        short second_axis = face_axis == 0 ? 2 : face_axis - 1;
+        for (short side = 0; side < 2; ++side) {
+            glm::vec2 intersection[2];
+            short intersection_count = 0;
+            float face = side == 0 ? minimum[face_axis] : maximum[face_axis];
+
+            for (short edge = 0; edge < 3; ++edge) {
+                if (static_cast<float>(g_double_one_ten_thousandth) <
+                    static_cast<float>(fabs(edge_delta[edge][face_axis]))) {
+                    float amount = (face - vertices[edge][face_axis]) / edge_delta[edge][face_axis];
+                    if (g_float_zero <= amount && amount <= g_float_one) {
+                        const auto crossing = vertices[edge] + amount * edge_delta[edge];
+                        const float first = crossing[first_axis];
+                        const float second = crossing[second_axis];
+                        if (minimum[first_axis] <= first && first <= maximum[first_axis] &&
+                            minimum[second_axis] <= second && second <= maximum[second_axis]) {
+                            return true;
+                        }
+                        if (intersection_count < 2) {
+                            intersection[intersection_count].x = first;
+                            intersection[intersection_count].y = second;
+                        }
+                        ++intersection_count;
+                    }
+                }
+            }
+
+            if (intersection_count == 2) {
+                const auto delta = intersection[1] - intersection[0];
+                short rectangle_axes[2] = {first_axis, second_axis};
+                for (short coordinate = 0; coordinate < 2; ++coordinate) {
+                    if (g_float_one_ten_thousandth < static_cast<float>(fabs(delta[coordinate]))) {
+                        short other = coordinate == 0 ? 1 : 0;
+                        for (short edge_side = 0; edge_side < 2; ++edge_side) {
+                            float boundary = edge_side == 0 ? minimum[rectangle_axes[coordinate]]
+                                                            : maximum[rectangle_axes[coordinate]];
+                            float amount =
+                                (boundary - intersection[0][coordinate]) / delta[coordinate];
+                            if (g_float_zero <= amount && amount <= g_float_one) {
+                                float crossing = intersection[0][other] + amount * delta[other];
+                                if (minimum[rectangle_axes[other]] <= crossing &&
+                                    crossing <= maximum[rectangle_axes[other]]) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }

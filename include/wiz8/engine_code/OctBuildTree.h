@@ -2,7 +2,6 @@
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
 #include <array>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -10,32 +9,14 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "wiz8/engine_code/OctPreTree.h"
+#include "wiz8/engine_code/octree_spatial.h"
 
 struct W8GDSurface;
 
-class OctPreTree;
-
 struct W8OctBuildNode {
-    std::vector<void*> linkedSurfaces(short current_depth, short target_depth, short mode) const;
-    std::vector<void*> storedSurfaces(short mode) const;
-    w8_ulong ConvertToOctPreTree(unsigned short depth, OctPreTree* tree);
 
     std::array<std::unique_ptr<W8OctBuildNode>, 8> children;
     std::array<std::vector<void*>, 2> surfaces;
-    std::vector<unsigned short> regions;
-    unsigned short region{};
-    unsigned short leaf_kind{};
-    unsigned short provisional_region{};
-    unsigned short positional{};
-
-    std::size_t nodeCount() const
-    {
-        std::size_t count = 1;
-        for (const auto& child : children)
-            if (child) count += child->nodeCount();
-        return count;
-    }
 };
 
 /* Original owner: Engine Code\OctBuildTree.cpp. The original class spelling
@@ -57,14 +38,6 @@ struct W8OctBuildTree {
     void AppendLink(W8OctBuildNode* node, void* payload, short kind);
     W8OctSpatialState spatial;
     std::unique_ptr<W8OctBuildNode> root;
-    w8_ulong leaf_polygon_count;
-    w8_ulong gd_surface_count;
-    w8_ulong leaf_count;
-    unsigned short max_leaf_regions;
-    unsigned short unknown_ae;
-    w8_ulong region_assignments;
-    unsigned char unknown_b5[3];
-    w8_ulong deepest_link_list;
 
 private:
     struct SurfaceCollector;

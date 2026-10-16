@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -20,7 +19,6 @@
 #include "himage.h"
 #include "image.h"
 #include "input.h"
-#include "utf8/checked.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -383,7 +381,7 @@ void TextFieldGroup::InsertCharacter(char32_t character)
 {
     auto& field = *focused_;
     std::string bytes;
-    utf8::append(character, std::back_inserter(bytes));
+    wiz8::text::append(bytes, character);
     if (wiz8::text::to_utf16(field.text).size() + wiz8::text::to_utf16(bytes).size() >
         field.capacity)
         return;
