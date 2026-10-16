@@ -42,12 +42,10 @@ class File;
 typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 
 class W8PathingService;
-class PrePathing;
 class OctMeshModel;
 struct CondPathNode;
 struct W8LevelFile;
 struct W8LevelFileAnimObj;
-struct W8PreProp;
 struct W8World;
 struct W8GameData;
 struct W8NavigatorMovementState;

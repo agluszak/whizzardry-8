@@ -57,7 +57,7 @@ records, and level/sky path selection without installed assets.
 ## Unicode and compiled-level boundary
 
 utf8proc now supplies UTF-8 decoding/encoding as well as categories and grapheme
-boundaries; utf8cpp is no longer fetched or linked. Retail UTF-16LE field codecs
+boundaries, leaving one Unicode dependency. Retail UTF-16LE field codecs
 remain explicit, including malformed-input replacement and fixed-field limits.
 
 The native application only reads compiled OCT/WPT/PVL geometry. The unreachable

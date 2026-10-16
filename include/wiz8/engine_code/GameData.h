@@ -286,7 +286,7 @@ struct W8GameData {
                          char gate); /* 0x0041C0D0 */
     /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
        into this context, traces in prop-local space through the prop's
-       position delta when no pre-tree exists (reseeding the caller's record
+       position delta (reseeding the caller's record
        to the world-space hit), and restores the arrays. `gate` skips flag-4
        props when set. */
     bool TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate); /* 0x0041C140 */

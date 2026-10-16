@@ -1009,49 +1009,31 @@ int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
 }
 
 /* Point the shared surface/vertex arrays at one collidable prop's GDProp
-   tables, ray-test them and put the arrays back. Without a pre-tree the prop
-   comes out of the world's collidable list, its pathing representation is
-   built on demand, and the ray is moved into prop space through the prop's
+   tables and ray-test them. The prop comes from the world's collidable list,
+   its pathing representation is built on demand, and the ray is moved into
+   prop space through the prop's
    position delta; on a hit the caller's record is reseeded from the start to
    the world-space contact. `gate` skips flag-4 props when set. */
 // FUNCTION: WIZ8 0x0041c140
 bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
 {
-    bool hit = false;
-    GDProp* gd_prop;
-    W8Prop* prop;
+    auto* prop = g_world->collidable_props[prop_id];
+    prop->flags |= 0x10;
+    if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation();
+    auto* gd_prop = prop->m_gd_prop;
+    if (gate != 0 && gd_prop->m_flags.unattached) return false;
 
-    if (g_oct_pre_tree == 0) {
-        prop = g_world->collidable_props[prop_id];
-        gd_prop = prop->m_gd_prop;
-        prop->flags |= 0x10;
-        if (gd_prop == 0) {
-            prop->BuildOrRefreshPathingRepresentation();
-            gd_prop = prop->m_gd_prop;
-        }
-    } else {
-        gd_prop = g_oct_pre_tree->props[prop_id];
-    }
-    const std::span surfaces(gd_prop->m_pGDSurfaces);
-    const std::span vertices(gd_prop->m_pVertices);
-    if (g_oct_pre_tree == 0) {
-        if (gate == 0 || !gd_prop->m_flags.unattached) {
-            const auto start = trace->start;
-            auto end = trace->end;
-            const auto delta = prop->GetDelta();
-            end -= delta;
-            W8OctreeTrace prop_trace(start, end);
-            hit = TestGeometryTrace(surfaces, vertices,
-                                    static_cast<int>(gd_prop->m_pGDSurfaces.size()), 0, &prop_trace,
-                                    skip_flag, 0);
-            if (hit) {
-                end = prop_trace.end + delta;
-                trace->reset(start, end);
-            }
-        }
-    } else {
-        hit = TestGeometryTrace(surfaces, vertices, static_cast<int>(gd_prop->m_pGDSurfaces.size()),
-                                0, trace, skip_flag, 0);
+    const auto start = trace->start;
+    auto end = trace->end;
+    const auto delta = prop->GetDelta();
+    end -= delta;
+    W8OctreeTrace prop_trace(start, end);
+    const bool hit = TestGeometryTrace(gd_prop->m_pGDSurfaces, gd_prop->m_pVertices,
+                                       static_cast<int>(gd_prop->m_pGDSurfaces.size()), 0,
+                                       &prop_trace, skip_flag, 0);
+    if (hit) {
+        end = prop_trace.end + delta;
+        trace->reset(start, end);
     }
     return hit;
 }
