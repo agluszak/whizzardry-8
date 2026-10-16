@@ -389,7 +389,7 @@ void ResetGameplaySettings(void)
     g_settings.muted_voice_volume = 0xff;
     g_settings.field_035 = 0xff;
     g_settings.monster_movement_speed = 2.5f;
-    g_settings.gamma = 1.0f;
+    g_settings.legacy_gamma = 1.0f;
     g_settings.pc_confirmations = 1;
     g_settings.pc_subtitles = 1;
     g_settings.mouselook_toggle = 0;

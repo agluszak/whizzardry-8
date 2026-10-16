@@ -13,6 +13,7 @@
 #include "layouts/world.h"
 #include "retail_records.h"
 #include "unicode.h"
+#include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Strings.h"
@@ -1135,6 +1136,32 @@ struct SaveFixture {
 TEST_CASE("Camera angles retain their explicit save representation", "[save][records]")
 {
     camera_angles();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Quality files retain reserved slots and live option positions",
+                 "[save][configuration]")
+{
+    InitializeRenderQuality();
+    const struct Cleanup {
+        ~Cleanup() { InitializeRenderQuality(); }
+    } cleanup;
+    SetRenderOption(W8_RENDER_OPTION_RESERVED_5, 1);
+    EnableRenderOption(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS);
+    EnableRenderOption(W8_RENDER_OPTION_FOOTSTEP_SOUND);
+    const auto path = wiz8::user_path("quality.bin");
+    auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+    REQUIRE(SaveRenderOptions(*file));
+    file->close();
+    file = wiz8::open_file(path);
+    REQUIRE(file->size() == 21);
+    int version;
+    std::array<unsigned char, 17> options;
+    file->read_exact(&version, sizeof(version));
+    file->read_exact(options.data(), options.size());
+    REQUIRE(version == 1);
+    REQUIRE(options[5] == 0);
+    REQUIRE(options[14] == 1);
+    REQUIRE(options[15] == 1);
 }
 
 TEST_CASE("Global status record", "[save][records]")

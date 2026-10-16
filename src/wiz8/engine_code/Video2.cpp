@@ -137,8 +137,6 @@ int g_screen_width = 640;
 int g_screen_height = 480;
 // GLOBAL: WIZ8 0x603c48
 int g_pixel_format = 9;
-// GLOBAL: WIZ8 0x603d74
-int g_renderer_mode = 1;
 // GLOBAL: WIZ8 0x65962c
 srModelInstance* g_current_model_instance;
 // GLOBAL: WIZ8 0x6596fc
@@ -1689,7 +1687,6 @@ unsigned char InitializeRendererSceneObjects(void)
 {
     std::shared_ptr<srMaterial> material;
     glm::vec4 material_value;
-    char renderer_name[128];
 
     InitializeMouseSurface();
     g_overlay_scenes.user = createOverlayScene("2D User Overlay Scene");
@@ -1727,14 +1724,6 @@ unsigned char InitializeRendererSceneObjects(void)
         std::make_unique<stSurface2D>(g_primary_color_surface, 640, 480, nullptr, 128));
     if (!g_surface_node) return 0;
 
-    strncpy(renderer_name, g_gerd->getName().c_str(), 127);
-    renderer_name[127] = 0;
-    SDL_strupr(renderer_name);
-    if (strstr(renderer_name, "GLIDE")) {
-        g_surface_node->enableTextureUpdateFlags(stSurface2D::UPDATE_FULL_TILE);
-    }
-    g_renderer_mode = strstr(renderer_name, "DIRECT3D") || strstr(renderer_name, "GLIDE") ||
-                      strstr(renderer_name, "SOFTWARE2");
     return 1;
 }
 
@@ -1867,12 +1856,6 @@ void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture)
     }
     g_cursor_model->setTexture(std::move(texture), 0, 0);
     g_cursor_model->setDirty(srMeshModel::DIRTY_TRI_MESH);
-}
-
-// FUNCTION: WIZ8 0x004291C0
-unsigned char GetRendererModeByte(void)
-{
-    return static_cast<unsigned char>(g_renderer_mode);
 }
 
 // FUNCTION: WIZ8 0x004297D0
@@ -2540,12 +2523,6 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
         ++frame;
     }
     return animation;
-}
-
-// FUNCTION: WIZ8 0x004291d0
-void SetDisplayGamma(float value)
-{
-    g_gerd->setGamma(glm::vec3(value));
 }
 
 /* The option-4-suppressed variant of the render probe: with the positional
