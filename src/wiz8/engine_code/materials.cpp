@@ -117,6 +117,11 @@ srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
     return info;
 }
 
+ResourceCache<stMaterial> g_materials;
+ResourceCache<stTextureFile> g_texture_files;
+ResourceCache<stTextureAnim> g_texture_animations;
+
+/* Load and share the material state used by the runtime renderer. */
 W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& record)
 {
     const W8MaterialRecord* source = &record;
