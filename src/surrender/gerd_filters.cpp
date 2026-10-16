@@ -1,5 +1,4 @@
 #include <cstddef>
-#include <mutex>
 
 #include "compat/compiler.h"
 #include "surrender/srGERD.h"
@@ -17,7 +16,6 @@ static void resolveDefault(w8_ulong (&map)[N], Enum requested, Enum fallback, En
 // FUNCTION: SURRENDER 0x10018650
 void srGERD::setTextureDefaultMagFilter(srTextureIFace::e_filter filter)
 {
-    std::lock_guard access(state_section);
     resolveDefault(texture_state.mag_filter_map, filter, srTextureIFace::FILTER_GOOD,
                    srTextureIFace::FILTER_DEFAULT);
     resetTexture();
@@ -26,7 +24,6 @@ void srGERD::setTextureDefaultMagFilter(srTextureIFace::e_filter filter)
 // FUNCTION: SURRENDER 0x100186D0
 void srGERD::setTextureDefaultMinFilter(srTextureIFace::e_filter filter)
 {
-    std::lock_guard access(state_section);
     resolveDefault(texture_state.min_filter_map, filter, srTextureIFace::FILTER_GOOD,
                    srTextureIFace::FILTER_DEFAULT);
     resetTexture();
@@ -35,7 +32,6 @@ void srGERD::setTextureDefaultMinFilter(srTextureIFace::e_filter filter)
 // FUNCTION: SURRENDER 0x10018750
 void srGERD::setTextureDefaultMipmap(srTextureIFace::e_mipmap mipmap)
 {
-    std::lock_guard access(state_section);
     resolveDefault(texture_state.mipmap_map, mipmap, srTextureIFace::MIPMAP_FASTEST,
                    srTextureIFace::MIPMAP_DEFAULT);
     resetTexture();

@@ -889,9 +889,9 @@ void srTriMeshPipeline::FlushSlots()
         auto culler_output = srTriangleCuller::cull(culler_input);
         if (!culler_output.indices.empty()) {
 
-            srGERD::Renderer* renderer = this->renderer->lockRenderer();
+            auto* renderer = &this->renderer->batchRenderer();
 
-            try {
+            {
                 this->vertex_arrays.resize(slot_count);
                 srVertexArray* vertex_arrays = this->vertex_arrays.data();
                 vertex_arrays[0] =
@@ -969,11 +969,8 @@ void srTriMeshPipeline::FlushSlots()
                 render_input.project_clip_near = &project_clip_near;
                 render_input.sort_bias = sort_bias;
                 renderer->render(render_input);
-            } catch (...) {
-                this->renderer->unlockRenderer(renderer, 0);
-                throw;
             }
-            this->renderer->unlockRenderer(renderer, 0);
+            if (renderer->isBatchFull()) renderer->submit();
         }
 
         processed += batch_limit;

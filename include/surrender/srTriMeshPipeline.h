@@ -24,7 +24,7 @@ public:
         srTextureIFace* textures[2]{};
         srShader shader;
         /* Borrowed per-polygon texture tables. FlushSlots consumes them synchronously in
-           Renderer::render before unlockRenderer queues owned render data. */
+           Renderer::render, which copies them into owned batch data. */
         const std::shared_ptr<srTextureIFace>* texture_tables[2]{};
         const srShader* shaders = nullptr;
         const glm::vec2* texcoords = nullptr;

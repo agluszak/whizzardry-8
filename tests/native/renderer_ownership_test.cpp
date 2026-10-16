@@ -1,14 +1,10 @@
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
-#include <future>
 #include <memory>
 #include <span>
 #include <stdexcept>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -630,21 +626,7 @@ bool materialChannelOperations()
 
 bool rendererOwnership()
 {
-    {
-        srGERD growing(srCreateSDLGPUDevice());
-        std::array<srGERD::Renderer*, 32> borrowed{};
-        for (std::size_t index = 0; index < borrowed.size(); ++index) {
-            borrowed[index] = growing.lockRenderer();
-            for (std::size_t previous = 0; previous < index; ++previous) {
-                REQUIRE(borrowed[index] != borrowed[previous]);
-            }
-        }
-        for (auto* renderer : borrowed) growing.unlockRenderer(renderer, 0);
-        REQUIRE(growing.lockRenderer() == borrowed.back());
-        growing.unlockRenderer(borrowed.back(), 0);
-    }
-    // No context or window is opened: these checks only exercise CPU ownership
-    // and the renderer's owner-thread submission bookkeeping.
+    // These checks exercise CPU ownership without a window or GPU context.
     srGERD gerd(srCreateSDLGPUDevice());
     struct TransformInstance : srModelInstance {
         using srModelInstance::scopedRenderTransform;
@@ -680,61 +662,19 @@ bool rendererOwnership()
             REQUIRE(gerd.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
         }
     }
-    auto* renderer = gerd.lockRenderer(); // nested flush/create locks
-    gerd.unlockRenderer(renderer, 1);
-    auto statistics = renderer->getStatistics();
-    REQUIRE(statistics.device_calls == 1);
-
-    for (int mode = 0; mode < 4; ++mode) {
-        std::promise<srGERD::Renderer*> acquired;
-        std::promise<void> release;
-        auto permission = release.get_future();
-        std::jthread worker([&] {
-            auto* borrowed = gerd.lockRenderer();
-            acquired.set_value(borrowed);
-            permission.wait();
-            // Give the owner time to enter the waiting path while still busy.
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            gerd.unlockRenderer(borrowed, 1);
-            gerd.flushImmediateRenderers(); // workers must not submit to the DD
-            gerd.flushRenderers();
-        });
-        auto* borrowed = acquired.get_future().get();
-        release.set_value();
-        if (mode == 0) {
-            gerd.flushImmediateRenderers();
-        } else if (mode == 2) {
-            gerd.resetStatistics();
-        } else {
-            gerd.flushRenderers();
-        }
-        worker.join();
-        REQUIRE(borrowed == renderer);
-        statistics = renderer->getStatistics();
-        REQUIRE(statistics.device_calls == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
-        if (mode == 2) {
-            // Reuse the CPU renderer as a sorted renderer without opening a
-            // window, to exercise flushSort's worker-release wait as well.
-            renderer->sorted = 1;
-            gerd.toggle(srGERD::ENABLE_SORTED_RENDERING);
-        }
-    }
-
-    // Sorted acquisition must wait without monopolizing the mutex or handing out a busy batch.
-    REQUIRE(gerd.lockRenderer() == renderer);
-    std::promise<srGERD::Renderer*> acquired;
-    auto ready = acquired.get_future();
-    std::jthread contender([&] {
-        auto* borrowed = gerd.lockRenderer();
-        acquired.set_value(borrowed);
-        gerd.unlockRenderer(borrowed, 0);
-    });
-    const bool waited =
-        ready.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
-    gerd.unlockRenderer(renderer, 0);
-    auto* resumed = ready.get();
-    contender.join();
-    REQUIRE((waited && resumed == renderer));
+    auto* immediate = &gerd.batchRenderer();
+    immediate->submit();
+    REQUIRE(immediate->getStatistics().device_calls == 1);
+    gerd.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    auto* renderer = &gerd.batchRenderer();
+    REQUIRE(renderer != immediate);
+    renderer->submit();
+    REQUIRE(renderer->getStatistics().device_calls == 1);
+    gerd.resetStatistics();
+    REQUIRE(immediate->getStatistics().device_calls == 0);
+    REQUIRE(renderer->getStatistics().device_calls == 0);
+    gerd.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    REQUIRE(&gerd.batchRenderer() == immediate);
 
     renderer->indices.alloc(2);
     renderer->vertices.alloc(3);
