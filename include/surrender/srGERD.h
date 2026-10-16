@@ -186,7 +186,7 @@ public:
         /* the accumulated batch count passed the limit. Only
            immediate (non-sorted) renderers report full. */
         int isBatchFull() const;
-        /* submit the accumulated batch through the DD. */
+        /* Submit the accumulated batch to SDL GPU. */
         void submit();
         /* the immediate (sorted == 0) and
            sorted draw paths over the accumulated index batch. */
@@ -197,7 +197,7 @@ public:
         void bindTextureSet(w8_ulong index, bool force = false);
         void drawTriangleRuns(std::span<const w8_ulong> order);
         /* Borrow the per-stage texture coordinate and Q streams and program
-           the DD vertex arrays for the bound batch. */
+           the GPU vertex arrays for the bound batch. */
         void programVertexArrays(srVertexArray* arrays, w8_ulong count);
         /* discard accumulated state; nonzero also releases
            the backing arrays. */
@@ -775,22 +775,21 @@ private:
     unsigned char unknown_19f4_[4];
     /* Snapshot getStatistics refreshes on every flipFrame. */
     Statistics frame_statistics;
-    /* getDD counts each device access, so the live counters are mutable. */
-    mutable Statistics statistics;
+    Statistics statistics;
 
     ClearState clear_state;
     /* Bound Texture per stage, swapped by changeTexture. */
     Texture* texture_slots[2];
-    /* Per-stage packed device parameters written by setTextureParameters. */
+    /* Per-stage SDL sampler parameters written by setTextureParameters. */
     SDLGPUDevice::TexParms texture_parms[2];
     TextureState texture_state;
     w8_long polygon_offset;
     glm::vec4 fog_color;
     srShader shader;
-    /* Borrowed texture interfaces requested through setTexture for stages 0/1;
+    /* Borrowed texture resources requested through setTexture for stages 0/1;
        a texture clears its bindings when destroyed. */
     srTexture* texture_iface[2];
-    /* Live textures keyed by the texture interface's frame handle. */
+    /* GPU texture records keyed by the source resource's identity. */
     srTexture fallback_texture;
     std::unordered_map<srTexture*, Texture> textures;
     Texture* texture_default;

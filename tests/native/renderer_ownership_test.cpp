@@ -8,8 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "catch2/catch_message.hpp"
@@ -22,7 +20,6 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
-#include "surface_pixels.h"
 #include "surrender/srFog.h"
 #include "surrender/srGERD.h"
 #include "surrender/srLight.h"
@@ -30,11 +27,9 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
-#include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
-#include "wiz8/surface_storage.h"
 
 namespace {
 class TestNode : public srNode {

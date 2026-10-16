@@ -61,7 +61,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
-#include "wiz8/application.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
