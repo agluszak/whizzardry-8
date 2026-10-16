@@ -32,7 +32,6 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
