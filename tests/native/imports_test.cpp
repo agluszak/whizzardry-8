@@ -23,7 +23,6 @@
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
 #include "compat/compiler.h"
-#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srARGB.h"
 #include "surrender/srCamera.h"
