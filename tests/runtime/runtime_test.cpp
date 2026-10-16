@@ -1003,6 +1003,14 @@ void InventoryChestScenario()
     REQUIRE(gXStatus.world_update_blocked);
     auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner.get());
     REQUIRE_FALSE(picker->entries.empty());
+    const auto& item_button = *picker->m_buttons[5];
+    game.right_click_at(item_button.Bounds().x + item_button.Bounds().w / 2,
+                        item_button.Bounds().y + item_button.Bounds().h / 2);
+    REQUIRE(game.within_frames(
+        4, [] { return dynamic_cast<W8AssayDialog*>(g_modal_owner.get()) != nullptr; }));
+    game.key(SDLK_ESCAPE);
+    REQUIRE(game.within_frames(4, [&] { return g_modal_owner.get() == picker; }));
+    REQUIRE_FALSE(picker->entries.empty());
     const auto click_button = [&](int index) {
         auto& button = *picker->m_buttons[index];
         game.click_at(button.Bounds().x + button.Bounds().w / 2,

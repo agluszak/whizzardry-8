@@ -667,7 +667,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
 {
     W8AssayDialog* dialog;
 
-    dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_use_item_owner_index],
+    dialog = new W8AssayDialog(*item, &g_status.buffers.Char[g_use_item_owner_index],
                                {kInfoDialogX, 0x48});
     dialog->SetText("");
 

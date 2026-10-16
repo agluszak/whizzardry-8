@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <exception>
 #include <iterator>
 #include <memory>
@@ -150,14 +150,6 @@ void DestroyItemDatabase(void)
     item_records.reset();
     g_item_records = nullptr;
     gXStatus.uiItemsInDatabase = 0;
-}
-
-/* A generic free, called from three unrelated subsystems, so it is named
-   for what it does rather than for any one database. */
-// FUNCTION: WIZ8 0x0054a880
-void FreeIfNotNull(void* block)
-{
-    free(block);
 }
 
 // FUNCTION: WIZ8 0x0054a6e0

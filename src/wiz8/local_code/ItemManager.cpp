@@ -1,7 +1,6 @@
 #include "wiz8/local_code/ItemManager.h"
 
 #include <cmath>
-#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <string>
@@ -311,18 +310,6 @@ bool ItemInfoIsWorldPersistent(const W8WorldItem* item)
         return false;
     }
     return (g_item_records[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) != 0;
-}
-
-// FUNCTION: WIZ8 0x004f9210
-W8ItemInstance* CopyWorldItemInstance(const W8WorldItem* item)
-{
-    W8ItemInstance* copy = static_cast<W8ItemInstance*>(malloc(sizeof(W8ItemInstance)));
-
-    if (copy == 0) {
-        return 0;
-    }
-    *copy = item->item;
-    return copy;
 }
 
 // FUNCTION: WIZ8 0x004f94a0

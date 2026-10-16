@@ -322,7 +322,7 @@ extern std::unique_ptr<ModalContent> g_pending_main_game_dialog;
    slot's character; -1 means no character. The current modal owner, if any,
    moves to the pending slot. */
 void OpenMonsterInfoDialog(int location_id);
-void OpenAssayDialog(W8ItemInstance* item, int character_slot);
+void OpenAssayDialog(const W8ItemInstance& item, int character_slot);
 
 void OnQuitGameDialogClosed(bool accepted);
 void OnLeaveGameConfirmClosed(bool accepted);
