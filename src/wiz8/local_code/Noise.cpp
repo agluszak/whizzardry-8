@@ -55,8 +55,8 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         if (remaining <= 0) {
             continue;
         }
-        if (Random(100) >= remaining * g_float_one_thousandth +
-                               record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
+        if (Random(100) >=
+            remaining * 0.001f + record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
             continue;
         }
         if (group->leader_group_id != 0) {

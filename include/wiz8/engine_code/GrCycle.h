@@ -85,7 +85,6 @@ private:
 };
 
 ShakeSystem& CameraShakes();
-extern const float g_float_two_hundred_fifty;
 void UpdateShakeEffects();
 
 class W8GrCycleParticleAttachment {
@@ -175,12 +174,6 @@ public:
        Monster interpolation and light definition time use the same fraction. */
     float frame_fraction;
 }; /* 0x1d8 */
-
-/* Secondary vftable 0x005eceb8 places the W8Navigator subobject at +0x18. */
-
-/* 0x005EC128: hundredth-second scale shared by the monster and trigger
-   durations. */
-extern const float g_float_one_thousandth;
 
 W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);

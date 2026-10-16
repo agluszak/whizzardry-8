@@ -37,7 +37,6 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -237,7 +236,7 @@ void SetEnvironmentTimeEnabled(bool enabled)
 // FUNCTION: WIZ8 0x00482770
 void UpdateEnvironment(void)
 {
-    if (g_environment_transition_rate != g_float_zero) {
+    if (g_environment_transition_rate != 0.0f) {
         UpdateEnvironmentLighting();
         return;
     }
@@ -449,12 +448,12 @@ void SetWorldEnvironmentIntensity(W8World* world, float value)
     if (world == 0) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
     }
-    if (g_double_one <= value || g_double_zero < value) {
-        if (g_double_one <= value) {
-            value = static_cast<float>(g_double_one);
+    if (1.0 <= value || 0.0 < value) {
+        if (1.0 <= value) {
+            value = static_cast<float>(1.0);
         }
     } else {
-        value = static_cast<float>(g_double_zero);
+        value = static_cast<float>(0.0);
     }
     if (world->static_scene == 0) {
         colour = glm::vec3(0);
@@ -467,12 +466,12 @@ void SetWorldEnvironmentIntensity(W8World* world, float value)
 static float ApplyWorldLightingIntensity(W8World* world, float intensity)
 {
     glm::vec3 colour{1.0f};
-    if (g_double_one <= intensity || g_double_zero < intensity) {
-        if (g_double_one <= intensity) {
-            intensity = static_cast<float>(g_double_one);
+    if (1.0 <= intensity || 0.0 < intensity) {
+        if (1.0 <= intensity) {
+            intensity = static_cast<float>(1.0);
         }
     } else {
-        intensity = static_cast<float>(g_double_zero);
+        intensity = static_cast<float>(0.0);
     }
     if (world->static_scene == 0) {
         colour = glm::vec3(0);
@@ -494,7 +493,7 @@ void BeginWorldLightingFade(float duration)
     float intensity;
     glm::vec3 direction{1.0f};
 
-    if (duration == g_float_zero) {
+    if (duration == 0.0f) {
         g_environment_lighting_mode = 2;
         g_environment_transition_rate = 0.0f;
         g_world_render_enabled = 1;
@@ -521,10 +520,10 @@ void BeginWorldLightingFade(float duration)
         return;
     }
 
-    g_environment_transition_rate = g_float_one / duration;
+    g_environment_transition_rate = 1.0f / duration;
     g_environment_transition_tick = w8_get_ticks();
     g_environment_lighting_mode = 1;
-    if (duration < g_float_zero) {
+    if (duration < 0.0f) {
         g_world->environment_base_intensity = g_world->environment_intensity;
         if (g_secondary_world != 0) {
             g_secondary_world->environment_base_intensity =
@@ -553,9 +552,9 @@ void UpdateEnvironmentLighting(void)
     }
 
     scale = elapsed * g_environment_transition_rate + g_monster_light_scale;
-    if (g_float_one < scale) {
+    if (1.0f < scale) {
         scale = 1.0f;
-    } else if (scale < g_float_zero) {
+    } else if (scale < 0.0f) {
         scale = 0.0f;
     }
     g_monster_light_scale = scale;
@@ -578,7 +577,7 @@ void UpdateEnvironmentLighting(void)
     direction = glm::clamp(direction, 0.0f, 1.0f);
     PublishLightDirection(&direction);
 
-    if (intensity == g_float_zero) {
+    if (intensity == 0.0f) {
         g_environment_lighting_mode = 0;
         g_world_render_enabled = 0;
         g_monster_shadow_updates_enabled = 0;
@@ -587,7 +586,7 @@ void UpdateEnvironmentLighting(void)
         g_environment_transition_tick = now;
         return;
     }
-    if (scale == g_float_one) {
+    if (scale == 1.0f) {
         g_environment_lighting_mode = 2;
         g_world_render_enabled = 1;
         g_monster_shadow_updates_enabled = 1;
@@ -720,8 +719,6 @@ void SetWorldEnvironmentColour(W8World* world, glm::vec3 colour)
     ApplyEnvironmentColour(world, GetWorldEnvironmentIntensity(world), &colour);
 }
 
-// GLOBAL: WIZ8 0x005ec980
-const double g_double_quarter = 0.25;
 // GLOBAL: WIZ8 0x005ec988
 const double g_inverse_half_day_ms = 2.3148148148148148e-08;
 // GLOBAL: WIZ8 0x005ec990
@@ -748,14 +745,13 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* co
     {
         if (auto material = g_materials.find("AnimatedCloudMaterial")) {
             double brightness =
-                g_double_one - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
+                1.0 - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
 
             material->parms.ambient.x = static_cast<float>(brightness);
             material->parms.ambient.y = static_cast<float>(brightness);
             material->parms.ambient.z = static_cast<float>(brightness);
             material->parms.ambient.w = static_cast<float>(brightness);
-            material->parms.diffuse.w =
-                static_cast<float>(brightness * g_double_three_quarters + g_double_quarter);
+            material->parms.diffuse.w = static_cast<float>(brightness * 0.75 + 0.25);
 
             material->dirty = 1;
         }
@@ -804,11 +800,11 @@ void SetCameraLightMode(int mode)
         case 0:
             camera_light->clearFlag(srNode::FLAG_DISABLE);
             camera_light = g_world->camera_light;
-            intensity = g_float_zero;
+            intensity = 0.0f;
             if (camera_light != 0) {
                 intensity = camera_light->intensity;
             }
-            intensity += g_float_half;
+            intensity += 0.5f;
             if (CAMERA_LIGHT_MAXIMUM_INTENSITY < intensity) {
                 intensity = CAMERA_LIGHT_MAXIMUM_INTENSITY;
             }
@@ -817,8 +813,8 @@ void SetCameraLightMode(int mode)
             }
             return;
         case 1:
-            intensity = camera_light->intensity - g_float_half;
-            if (g_float_zero < intensity) {
+            intensity = camera_light->intensity - 0.5f;
+            if (0.0f < intensity) {
                 camera_light->intensity = intensity;
                 return;
             }
@@ -860,7 +856,7 @@ void InitializeLevelEnvironment(void)
         g_sun_prop = FindPropByName(g_secondary_world, "Sun");
         g_moon_prop = FindPropByName(g_secondary_world, "Moon");
     }
-    if (g_celestial_orbit_radius < g_float_zero) {
+    if (g_celestial_orbit_radius < 0.0f) {
         if (g_sun_prop == 0 || g_moon_prop == 0) {
             g_sun_prop = 0;
             g_moon_prop = 0;

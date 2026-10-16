@@ -21,7 +21,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -39,6 +38,8 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
+constexpr float kMovementFatigueTickScale = 0.0004f;
+
 #define PARTY_MOVEMENT_CPP __FILE__
 
 namespace {
@@ -53,9 +54,6 @@ struct PartyMovementPanel {
 };
 std::unique_ptr<PartyMovementPanel> movement;
 }
-
-// GLOBAL: WIZ8 0x005EECD0
-const float g_movement_fatigue_tick_scale = 0.0004f;
 
 void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption);
 
@@ -272,7 +270,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
         }
         amount = *frame_elapsed;
         if (g_status.search_mode != 0 || gXStatus.fCombatMode) {
-            amount = *real_elapsed * g_float_half + amount;
+            amount = *real_elapsed * 0.5f + amount;
         }
         switch (character->load_category) {
         case 0:
@@ -298,12 +296,11 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
             multiplier += multiplier;
         }
         if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {
-            multiplier *= g_float_one_and_a_half;
+            multiplier *= 1.5f;
         }
         row->movement_fatigue = multiplier * amount + row->movement_fatigue;
         if (row->movement_fatigue > g_position_height_epsilon) {
-            ticks =
-                static_cast<unsigned int>(row->movement_fatigue * g_movement_fatigue_tick_scale);
+            ticks = static_cast<unsigned int>(row->movement_fatigue * kMovementFatigueTickScale);
             FatigueCharacter(party_slot, ticks, false, 0);
             row->movement_fatigue = row->movement_fatigue - (ticks * 0x9c4);
         }

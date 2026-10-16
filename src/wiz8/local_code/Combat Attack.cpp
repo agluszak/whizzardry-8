@@ -39,9 +39,8 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -842,7 +841,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
         wiz8::sound::play(fmt::format("Data\\Missiles\\Sounds\\{}.wav", spell->sound_name));
     }
 
-    if (definition->radius > g_float_zero) {
+    if (definition->radius > 0.0f) {
         if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster_info = FindMonster(target->iMonsterID);
             DamageMonstersInRadius(monster_info->p3D->GetPosition(), definition->radius,
@@ -1836,8 +1835,8 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                     event_ids[1] = g_special_event15;
                     event_ids[2] = g_special_event20;
                     QueueCharacterEvent(&g_status.buffers.Char[g_combat_state->TargetHit.iChar],
-                                        event_ids[Random(3)], 0, g_character_event_no_flags,
-                                        g_character_event_full_volume);
+                                        event_ids[Random(3)], 0, kCharacterEventNoFlags,
+                                        kCharacterEventFullVolume);
                 }
                 if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
                     target_info->p3D->IsFacingMonster(monster_info->p3D) != 0 &&
@@ -2305,8 +2304,7 @@ static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode atta
         if (surprise < 0) {
             surprise = 0;
         }
-        penalty =
-            static_cast<int>(50.0 - pow(static_cast<double>(surprise), g_double_three_quarters));
+        penalty = static_cast<int>(50.0 - pow(static_cast<double>(surprise), 0.75));
         if (penalty < 0) {
             penalty = 0;
         }
@@ -2497,13 +2495,13 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     }
 
     int rolled = RollDice(&dice, dice_count);
-    *out_hit = (dice.count != 0 && rolled >= (g_float_one - dice.count * g_facing_tolerance0) *
-                                                 dice.Maximum() * dice_count)
+    *out_hit = (dice.count != 0 &&
+                rolled >= (1.0f - dice.count * g_facing_tolerance0) * dice.Maximum() * dice_count)
                    ? 1
                    : 0;
     if (dice_count > 1 && Random(100) < dice_count * 20 - 20) {
-        QueueCharacterEvent(pPC, g_learn_sound, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(pPC, g_learn_sound, 0, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
     }
 
     int damage = (pPC->bonus.damage_percent + 100 + pPC->Hand[hand].damage_percent) * rolled + 50;
@@ -2557,8 +2555,7 @@ int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
         if (surprise < 0) {
             surprise = 0;
         }
-        int penalty_roll =
-            static_cast<int>(50.0 - pow(static_cast<double>(surprise), g_double_three_quarters));
+        int penalty_roll = static_cast<int>(50.0 - pow(static_cast<double>(surprise), 0.75));
         if (penalty_roll < 0) {
             penalty_roll = 0;
         }
@@ -2801,13 +2798,13 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                             ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x17f]);
                             if (Random(100) < 0x32) {
                                 QueueCharacterEvent(&g_status.buffers.Char[source->iChar],
-                                                    g_learn_sound, 0, g_character_event_no_flags,
-                                                    g_character_event_full_volume);
+                                                    g_learn_sound, 0, kCharacterEventNoFlags,
+                                                    kCharacterEventFullVolume);
                             } else if (gXStatus.hostile_monster_count > 1 &&
                                        (event = QueueCharacterEvent(
-                                            &g_status.buffers.Char[source->iChar], g_item_message7,
-                                            0, g_character_event_no_flags,
-                                            g_character_event_full_volume)) != nullptr) {
+                                            &g_status.buffers.Char[source->iChar], 56, 0,
+                                            kCharacterEventNoFlags, kCharacterEventFullVolume)) !=
+                                           nullptr) {
                                 event->DelayDispatch(800);
                             }
                         } else {
@@ -3135,8 +3132,8 @@ void QueueFumbleReaction(int party_slot)
 {
     int slot;
     if (Random(2) != 0) {
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_item_message0, 0,
-                            g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 16, 0, 1,
+                            kCharacterEventFullVolume);
         return;
     }
     if (g_combat_state->TargetHit.iType != W8_TARGET_KIND_CHARACTER ||
@@ -3149,8 +3146,7 @@ void QueueFumbleReaction(int party_slot)
     if (slot == -1) {
         return;
     }
-    QueueCharacterEvent(&g_status.buffers.Char[slot], g_item_message1, 0, g_effect_argument0,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(&g_status.buffers.Char[slot], 17, 0, 1, kCharacterEventFullVolume);
 }
 
 /* When GetMonsterByLocationID returns NULL the sight-flag call is skipped and
@@ -3274,7 +3270,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         if (base_speed <= speed) {
             base_speed = speed;
         }
-        speed = base_speed * g_monster_motion_push;
+        speed = base_speed * kMonsterMotionPush;
     }
     if (accuracy != 9999) {
         ScatterMissileAimPoint(&source_position, &target_position, accuracy, blind);
@@ -3371,7 +3367,7 @@ void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, 
     float sy = pz * dx - dz * px;
     float sz = px * dy - py * dx;
     double angle = static_cast<double>(Random(0x168));
-    float radians = static_cast<float>(3.141592653589793 * g_camera_view_factor0 * angle);
+    float radians = static_cast<float>(3.141592653589793 * kCameraViewFactor0 * angle);
     float mag = sx * sx + sz * sz + sy * sy;
     if (mag != 0.0f) {
         float scale = static_cast<float>(sin(radians));
@@ -3392,7 +3388,7 @@ void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, 
     sy = py + sy;
     sz = pz + sz;
     float distance = static_cast<float>(sqrt(dy * dy + dx * dx + dz * dz));
-    if (distance < static_cast<float>(g_double_one)) {
+    if (distance < static_cast<float>(1.0)) {
         return;
     }
     double probability;
@@ -3401,7 +3397,7 @@ void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, 
         factor = 0.08;
         probability = 0.2;
     } else {
-        factor = g_double_five_hundred / distance;
+        factor = 500.0 / distance;
         probability = 1.75;
         if (1.75 < factor) {
             factor = 1.75;
@@ -3667,8 +3663,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         event_ids[0] = g_event_range_min;
         event_ids[1] = g_special_event18;
         event_ids[2] = g_event_range_max;
-        QueueCharacterEvent(character, event_ids[Random(3)], 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, event_ids[Random(3)], 0, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
     }
     return true;
 }
@@ -3856,16 +3852,14 @@ int ResolveCharacterAttack(int party_slot)
                         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x209]);
                     }
                     if (character->hp_current / static_cast<float>(character->uiHPMax) <
-                        g_navigator_mode3_scale) {
+                        kNavigatorMode3Scale) {
                         if (Random(100) < 0x1e) {
                             QueueCharacterEvent(character, g_special_event13, 0,
-                                                g_character_event_no_flags,
-                                                g_character_event_full_volume);
+                                                kCharacterEventNoFlags, kCharacterEventFullVolume);
                         }
                     } else if (Random(100) < 0x19) {
-                        QueueCharacterEvent(character, g_special_event13, 0,
-                                            g_character_event_no_flags,
-                                            g_character_event_full_volume);
+                        QueueCharacterEvent(character, g_special_event13, 0, kCharacterEventNoFlags,
+                                            kCharacterEventFullVolume);
                     }
                     if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
                         monster_info->p3D->IsFacingPlayer() != 0 && !monster_info->fMotionless) {
@@ -3920,9 +3914,9 @@ int ResolveCharacterAttack(int party_slot)
                                                      verbose, verbose ? nullptr : report, false);
                             if (monster_info->hp_current == 0 && hit_flag != 0 && Random(2) == 0 &&
                                 gXStatus.hostile_monster_count > 1) {
-                                W8CharacterEvent* event = QueueCharacterEvent(
-                                    character, g_item_message7, 0, g_character_event_no_flags,
-                                    g_character_event_full_volume);
+                                W8CharacterEvent* event =
+                                    QueueCharacterEvent(character, 56, 0, kCharacterEventNoFlags,
+                                                        kCharacterEventFullVolume);
                                 if (event != nullptr) {
                                     event->DelayDispatch(800);
                                 }

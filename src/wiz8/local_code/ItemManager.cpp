@@ -47,7 +47,7 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
@@ -63,36 +63,18 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
+constexpr float kDropItemPitchScale = 71.0f;
+constexpr float kDropItemYawScale = 85.0f;
+
 class W8DialogBase;
 
 /* The level runtime block, which also carries the interface
    selection the item manager resets. */
 #define ITEM_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp"
 
-/* 1/360, the half-degree step random item angles are built
-   from. */
-// GLOBAL: WIZ8 0x005ed7b0
-extern const double g_inverse_full_turn_degrees = 1.0 / 360.0;
-
 /* Camera distance inside which inactive world items are activated. */
 // GLOBAL: WIZ8 0x005ed7b8
 const float g_item_camera_cull_distance = 20000.0f;
-
-/* Pi, the amplitude cursor-driven throw angles are scaled from. */
-// GLOBAL: WIZ8 0x005ed7a8
-extern const double g_throw_angle_amplitude = 3.141592653589793;
-
-/* The screen-y coefficient in the drop-item yaw. */
-// GLOBAL: WIZ8 0x005ebf48
-extern const float g_drop_item_yaw_scale = 85.0f;
-
-/* The screen-z coefficient in the drop-item pitch. */
-// GLOBAL: WIZ8 0x005ebf4c
-extern const float g_drop_item_pitch_scale = 71.0f;
-
-/* The vertical scale of the drop-item direction. */
-// GLOBAL: WIZ8 0x005ed7c0
-extern const double g_drop_item_vertical_scale = -2500.0;
 
 /* When set, skip activating world items that already carry flag
    bit 0. */
@@ -627,7 +609,7 @@ void ActivateItem(W8WorldItem* item)
     position = item->position;
     item->p3D->SetLocation(&position);
     item->p3D->SetYaw(
-        static_cast<float>(Random(0x168) * 2 * g_camera_pi * g_inverse_full_turn_degrees));
+        static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
     static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags |= item->entity_flags;
     item->p3D->AttachMesh(GetWorld());
     AddItemToWorld(GetWorld(), item->p3D);
@@ -775,7 +757,7 @@ void UpdateNearbyWorldItems(void)
             glm::vec3 location;
 
             location = item->p3D->m_pRep->GetLocation();
-            if (glm::distance(location, camera) > g_float_twenty_five_thousand) {
+            if (glm::distance(location, camera) > 2.5e+04f) {
                 DeactivateWorldItem(item);
             }
         }
@@ -786,10 +768,10 @@ void UpdateNearbyWorldItems(void)
 
 glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation)
 {
-    const auto offset = (cursor - g_float_half) * g_float_nine_tenths;
-    const float yaw = glm::radians(offset.x * g_drop_item_yaw_scale);
-    const float pitch = glm::radians(g_float_five + offset.y * g_drop_item_pitch_scale);
-    const auto forward = glm::vec3(0, 0, g_double_twenty_five_hundred);
+    const auto offset = (cursor - 0.5f) * 0.9f;
+    const float yaw = glm::radians(offset.x * kDropItemYawScale);
+    const float pitch = glm::radians(5.0f + offset.y * kDropItemPitchScale);
+    const auto forward = glm::vec3(0, 0, 2500.0);
     return camera_rotation * glm::rotateY(glm::rotateX(forward, pitch), yaw);
 }
 
@@ -813,12 +795,10 @@ void DropHeldItem(int)
     delta = glm::dot(delta, delta) == 0
                 ? delta
                 : glm::normalize(delta) *
-                      static_cast<float>(glm::max(
-                          glm::length(delta) - g_float_one_hundred_twenty_five, g_float_zero));
+                      static_cast<float>(glm::max(glm::length(delta) - 125.0f, 0.0f));
 
     glm::vec3 position = camera + delta;
-    position.y =
-        g_octree->settleToGround(position, true, 250).position.y + g_float_one_hundred_twenty_five;
+    position.y = g_octree->settleToGround(position, true, 250).position.y + 125.0f;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = AddWorldItem(CreateWorldItem(
             &g_status.item_in_hand, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
@@ -957,7 +937,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
         position = item->p3D->m_pRep->GetLocation();
         eye = cameraLocation();
         glm::vec3 delta = position - camera;
-        if (glm::length(delta) < static_cast<float>(g_double_twenty_five_hundred)) {
+        if (glm::length(delta) < static_cast<float>(2500.0)) {
             auto bounds = item->p3D->GetCachedLocalBounds();
             bounds.minimum += position;
             bounds.maximum += position;
@@ -967,7 +947,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
     return false;
 }
 
-/* Any live world item visible to the camera within g_double_twenty_five_hundred, resuming
+/* Any live world item visible to the camera within 2500.0, resuming
    the scan at the last match. */
 // FUNCTION: WIZ8 0x004f8650
 bool AnyWorldItemVisible(void)
@@ -1015,9 +995,9 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
     }
 
     previous_y = item->position.y;
-    probe = glm::vec3(item->position.x, previous_y + g_world_scale, item->position.z);
+    probe = glm::vec3(item->position.x, previous_y + kWorldScale, item->position.z);
     dt = g_game_time_accumulator->GetFrameDelta();
-    if (g_camera_snap_epsilon < item->vertical_velocity) {
+    if (kCameraSnapEpsilon < item->vertical_velocity) {
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
@@ -1025,7 +1005,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
     probe = ground_probe.position;
     hit = ground_probe.hit;
     ground = ground_probe.position.y;
-    if (!hit || fabs(ground - previous_y) < g_camera_snap_epsilon) {
+    if (!hit || fabs(ground - previous_y) < kCameraSnapEpsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
         return 0;
@@ -1046,7 +1026,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         item->vertical_velocity = (ground - previous_y) / dt;
         probe.y = ground;
     } else {
-        item->vertical_velocity = dt * g_navigator_gravity * g_float_half + item->vertical_velocity;
+        item->vertical_velocity = dt * g_navigator_gravity * 0.5f + item->vertical_velocity;
         probe.y = probe.y - dt * item->vertical_velocity;
         if (probe.y < ground) {
             probe.y = ground;
@@ -1070,7 +1050,7 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     bool hit;
     int sector;
 
-    start = glm::vec3(item->position.x, item->position.y + g_world_scale, item->position.z);
+    start = glm::vec3(item->position.x, item->position.y + kWorldScale, item->position.z);
 
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;

@@ -78,8 +78,8 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stTextureAnim.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -88,6 +88,9 @@
 #include "wiz8/surface2d.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
+
+constexpr double kInverseScreenHeight = 0.0020833333333333333;
+constexpr double kInverseScreenWidth = 0.0015625;
 
 srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                             srNode* parent, unsigned char overlay);
@@ -1011,9 +1014,9 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, d
     auto model = std::make_shared<srMeshModel>(0L, 0L);
     model->setName("Video2DMakePolygonBrush");
 
-    float step = g_surface_scale * (g_float_one / w);
+    float step = g_surface_scale * (1.0f / w);
     SetSpriteQuad(*model, static_cast<float>(width), static_cast<float>(height),
-                  glm::vec2(g_float_one - (step + step)), glm::vec2(step));
+                  glm::vec2(1.0f - (step + step)), glm::vec2(step));
 
     shader.value = keep_aspect ? g_surface_alpha_blend_shader_bits : g_surface_opaque_shader_bits;
     if (!texture) {
@@ -1139,8 +1142,8 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
     }
     g_cursor_image_width = properties.width;
     g_cursor_image_height = properties.height;
-    g_cursor_image_u_extent = g_cursor_image_width * g_inverse_screen_width;
-    g_cursor_image_v_extent = g_cursor_image_height * g_inverse_screen_height;
+    g_cursor_image_u_extent = g_cursor_image_width * kInverseScreenWidth;
+    g_cursor_image_v_extent = g_cursor_image_height * kInverseScreenHeight;
     ClearMouseSurface();
     return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
 }
@@ -1396,15 +1399,14 @@ void SetViewport(const DesignRect& bounds)
     fractional_bottom = g_viewport.bottom * g_viewport_y_scale;
 
     if (g_world != 0 && g_world->camera != 0) {
-        g_world->camera->setViewPlane(
-            3.14159265358979323846 * g_float_inverse_half_turn_degrees * 85.0f,
-            3.14159265358979323846 * g_float_inverse_half_turn_degrees * 71.0f);
+        g_world->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
+                                      3.14159265358979323846 * 0.0055555557f * 71.0f);
         const auto view = g_world->camera->getViewPlane().rectangle;
 
         plane.left = fractional_left * (view.right - view.left) + view.left;
         plane.right = fractional_right * (view.right - view.left) + view.left;
-        plane.bottom = (g_double_one - fractional_bottom) * (view.top - view.bottom) + view.bottom;
-        plane.top = (g_double_one - fractional_top) * (view.top - view.bottom) + view.bottom;
+        plane.bottom = (1.0 - fractional_bottom) * (view.top - view.bottom) + view.bottom;
+        plane.top = (1.0 - fractional_top) * (view.top - view.bottom) + view.bottom;
 
         g_world->camera->setViewPlane(plane, 1.0);
         if (g_secondary_world != 0) {
@@ -1761,7 +1763,7 @@ void ReleaseObject(stModelInstance2D* object)
 // FUNCTION: WIZ8 0x00425840
 void RotateNodeInDegrees(srNode* node, int degrees)
 {
-    node->setRotation(0.0, 0.0, 3.141592653589793 * g_float_inverse_half_turn_degrees * degrees);
+    node->setRotation(0.0, 0.0, 3.141592653589793 * 0.0055555557f * degrees);
     if ((static_cast<stModelInstance2D*>(node)->overlay_scene_flag & 1) != 0) {
         SetOverlayRenderMode();
     } else {
@@ -1874,22 +1876,15 @@ int g_help_box_x;
 // GLOBAL: WIZ8 0x00654abc
 int g_help_box_y;
 
-// GLOBAL: WIZ8 0x005ebe88
-const double g_inverse_screen_height = 0.0020833333333333333;
-// GLOBAL: WIZ8 0x005ebe90
-const double g_inverse_screen_width = 0.0015625;
-// GLOBAL: WIZ8 0x005ebf40
-const double g_double_three_quarters = 0.75;
-
 /* Pack normalized alpha/red/green/blue into the surface's high-to-low
    bytes, using the current x87 rounding mode. */
 // FUNCTION: WIZ8 0x00429700
 void PackColourBytes(unsigned char* colour, double alpha, double red, double green, double blue)
 {
-    colour[3] = static_cast<unsigned char>(srFloatToInt(alpha * g_color_byte_scale));
-    colour[2] = static_cast<unsigned char>(srFloatToInt(red * g_color_byte_scale));
-    colour[1] = static_cast<unsigned char>(srFloatToInt(green * g_color_byte_scale));
-    colour[0] = static_cast<unsigned char>(srFloatToInt(blue * g_color_byte_scale));
+    colour[3] = static_cast<unsigned char>(srFloatToInt(alpha * kColorByteScale));
+    colour[2] = static_cast<unsigned char>(srFloatToInt(red * kColorByteScale));
+    colour[1] = static_cast<unsigned char>(srFloatToInt(green * kColorByteScale));
+    colour[0] = static_cast<unsigned char>(srFloatToInt(blue * kColorByteScale));
 }
 
 /* Places one tooltip node at a screen position in normalized coordinates.
@@ -1899,8 +1894,8 @@ void PackColourBytes(unsigned char* colour, double alpha, double red, double gre
 void PositionToolTipNode(srNode* node, int x, int y, bool positional)
 {
     stModelInstance2D* instance = static_cast<stModelInstance2D*>(node);
-    double position_x = x * g_inverse_screen_width;
-    double position_y = y * g_inverse_screen_height;
+    double position_x = x * kInverseScreenWidth;
+    double position_y = y * kInverseScreenHeight;
 
     if (positional && g_gerd != 0) {
         double whole;
@@ -1913,18 +1908,18 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
     }
 
     int width = instance->GetScaledWidth();
-    double half_width = width * g_inverse_screen_width * g_double_half;
+    double half_width = width * kInverseScreenWidth * 0.5;
     int height = instance->GetScaledHeight();
-    double half_height = height * g_inverse_screen_height * g_double_half;
+    double half_height = height * kInverseScreenHeight * 0.5;
 
     glm::dvec3 location;
     location.x = half_width + position_x;
     location.z = -0.0001;
     if ((instance->overlay_scene_flag & 1U) == 0) {
-        location.y = g_double_one - (half_height + position_y);
+        location.y = 1.0 - (half_height + position_y);
         g_paired_render_mode = 2;
     } else {
-        location.y = g_double_three_quarters - (half_height + position_y) * g_double_three_quarters;
+        location.y = 0.75 - (half_height + position_y) * 0.75;
     }
     node->setLocation(location);
     SetOverlayRenderMode();
@@ -1942,7 +1937,7 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
 {
     int extent = (rect->bottom - rect->top) + 2;
     int width_extent = (rect->right - rect->left) + 2;
-    double width = rect->right * g_inverse_screen_width - rect->left * g_inverse_screen_width;
+    double width = rect->right * kInverseScreenWidth - rect->left * kInverseScreenWidth;
     if (extent < width_extent) {
         extent = width_extent;
     }
@@ -2060,8 +2055,8 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
 stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
                                               bool fullscreen)
 {
-    double scale_x = width * g_inverse_screen_width;
-    double scale_y = height * g_inverse_screen_height;
+    double scale_x = width * kInverseScreenWidth;
+    double scale_y = height * kInverseScreenHeight;
     auto model = std::make_shared<srMeshModel>(0L, 0L);
 
     SetSpriteQuad(*model, static_cast<float>(scale_x), static_cast<float>(scale_y));
@@ -2199,12 +2194,12 @@ unsigned char CopySurfaceWithBorder(SDL_Surface* surface, const W8ControlsRect* 
 srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                       srNode* parent, unsigned char overlay)
 {
-    double left = rect->left * g_inverse_screen_width;
+    double left = rect->left * kInverseScreenWidth;
     int extent = rect->right - rect->left;
-    double top = rect->top * g_inverse_screen_height;
+    double top = rect->top * kInverseScreenHeight;
     int rect_height = rect->bottom - rect->top;
-    double width = rect->right * g_inverse_screen_width - left;
-    double height = rect->bottom * g_inverse_screen_height - top;
+    double width = rect->right * kInverseScreenWidth - left;
+    double height = rect->bottom * kInverseScreenHeight - top;
 
     if (extent <= rect_height) {
         extent = rect_height;
@@ -2255,8 +2250,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
         instance->render_state.position_x = static_cast<short>(rect->left);
         instance->render_state.position_y = static_cast<short>(rect->top);
         glm::dvec3 location;
-        location = glm::dvec3(width * g_double_half + left,
-                              g_double_one - (height * g_double_half + top), -0.0001);
+        location = glm::dvec3(width * 0.5 + left, 1.0 - (height * 0.5 + top), -0.0001);
         node->setLocation(location);
         instance->setName("Video2DRectToPolygon");
     }
@@ -2501,12 +2495,11 @@ srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float he
     dimensions.height = 64;
 
     auto model = std::make_shared<stMeshModel>(0, 0);
-    float extent_w = g_float_one / dimensions.width * g_surface_scale;
-    float extent_h = g_float_one / dimensions.height * g_surface_scale;
+    float extent_w = 1.0f / dimensions.width * g_surface_scale;
+    float extent_h = 1.0f / dimensions.height * g_surface_scale;
     model->setName("VideoMakePoster");
     texture->getDimensions();
-    SetSpriteQuad(*model, width, height, {g_float_one - extent_w, g_float_one - extent_h},
-                  {extent_w, extent_h});
+    SetSpriteQuad(*model, width, height, {1.0f - extent_w, 1.0f - extent_h}, {extent_w, extent_h});
 
     shader.value = 0x100a013;
     if (additive) {

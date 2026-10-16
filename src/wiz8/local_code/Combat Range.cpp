@@ -22,8 +22,7 @@
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -46,7 +45,7 @@
 #include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x0068C518
-int g_event_sight_blocked = g_first_remapped_event + 30;
+int g_event_sight_blocked = kFirstRemappedEvent + 30;
 
 #define COMBAT_RANGE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Range.cpp"
 
@@ -57,9 +56,6 @@ int g_event_sight_blocked = g_first_remapped_event + 30;
 /* Three party positions per formation row, and the row stride of the formation
    table. */
 enum { W8_FORMATION_ROW_WIDTH = 3 };
-
-// GLOBAL: WIZ8 0x005ec35c
-const float g_float_twelve_thousand_five_hundred = 12500.0f;
 
 /* The formation. Three party positions per row at 0x00687511, and each
    position's own row number at 0x00687525 with a twelve-byte stride. -1 marks
@@ -206,7 +202,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         if (target_type == W8_TARGET_TYPE_CONE) {
             trace = false;
-            distance = g_float_twelve_thousand_five_hundred;
+            distance = 1.25e+04f;
         } else {
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_POINT) {
                 srAssertFail("FALSE", COMBAT_RANGE_CPP, 0x101, 0);
@@ -215,12 +211,12 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
 
             trace = true;
             camera.y -= g_default_world_height;
-            point.y -= g_float_one_thousand;
+            point.y -= 1e+03f;
             distance = CalcRangeDistance(g_spell_records[spell_id].range_category);
         }
         float dx = point.x - camera.x;
         float dz = point.z - camera.z;
-        if (distance + g_float_one <
+        if (distance + 1.0f <
             sqrtf(dx * dx + (point.y - camera.y) * (point.y - camera.y) + dz * dz) -
                 g_startup_world->radius) {
             return false;
@@ -316,7 +312,7 @@ bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster
         if (range == W8_RANGE_NONE) {
             if (notify_failure) {
                 QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_target_out_of_range,
-                                    0, g_character_event_no_flags, g_character_event_full_volume);
+                                    0, kCharacterEventNoFlags, kCharacterEventFullVolume);
             }
             return false;
         }
@@ -324,7 +320,7 @@ bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster
     if (!monster_info->party_threat.los_flags[flag]) {
         if (notify_failure) {
             QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_sight_blocked, 0,
-                                g_character_event_no_flags, g_character_event_full_volume);
+                                kCharacterEventNoFlags, kCharacterEventFullVolume);
         }
         return false;
     }
@@ -332,7 +328,7 @@ bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster
         monster_info->p3D->GetDistanceToPlayer()) {
         if (notify_failure) {
             QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_target_out_of_range, 0,
-                                g_character_event_no_flags, g_character_event_full_volume);
+                                kCharacterEventNoFlags, kCharacterEventFullVolume);
         }
         return false;
     }
@@ -409,7 +405,7 @@ bool IsSlotInRangeOfGroup(int party_slot, int group_id, W8TargetingContext conte
     if (!IsTargetSourceInRangeOfGroup(&source, group, context)) {
         if (notify) {
             QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_target_out_of_range, 0,
-                                g_character_event_no_flags, g_character_event_full_volume);
+                                kCharacterEventNoFlags, kCharacterEventFullVolume);
         }
         return false;
     }
@@ -813,7 +809,7 @@ float CalcRangeDistance(W8RangeCategory range_category)
         srAssertFail("FALSE", COMBAT_RANGE_CPP, 1123,
                      "CalcRangeDistance: ERROR - Invalid range category");
     }
-    return steps * g_world_scale;
+    return steps * kWorldScale;
 }
 
 /* Source-relative action range: same band steps as CalcRangeDistance, then add
@@ -1024,13 +1020,13 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
 // FUNCTION: WIZ8 0x0051b300
 float GetMonsterEngagementRange(void)
 {
-    return g_float_twenty_five_thousand;
+    return 2.5e+04f;
 }
 
 // FUNCTION: WIZ8 0x0051b310
 float GetGroundTargetRange(void)
 {
-    return g_float_twelve_thousand_five_hundred;
+    return 1.25e+04f;
 }
 
 /* Cache which origin points this monster can actually provide. Projectile

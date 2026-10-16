@@ -49,7 +49,7 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
@@ -65,6 +65,17 @@
 #include "wiz8/packed_bits.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
+
+constexpr float kCameraRadiansToDegrees = 57.295784f;
+constexpr float kCollisionCeilingNormalThreshold = -0.8f;
+constexpr double kCollisionCentroidScale = 0.33333298563957214;
+constexpr float kCollisionContactNormalThreshold = -0.5f;
+constexpr double kCollisionDirectionEpsilon = 0.0010000000474974513;
+constexpr float kCollisionFractionFloor = -0.1f;
+constexpr float kCollisionHeightLift = 165.0f;
+constexpr float kCollisionOpposedNormalThreshold = -0.999f;
+constexpr float kCollisionParallelNormalThreshold = 0.99999f;
+constexpr float kCollisionSlopeMarginScale = 150.0f;
 
 class srMaterial;
 class srTexture;
@@ -211,12 +222,12 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
     }
     if ((flags & W8_CAMERA_MOTION_SLOW_TURN) != 0) {
         g_camera_max_yaw_velocity = 0.116355285f;
-        yaw_input *= g_float_one_tenth;
+        yaw_input *= 0.1f;
     } else {
         g_camera_max_yaw_velocity = 0.3490658700466156f;
     }
 
-    if ((pitch_input != g_float_zero || yaw_input != g_float_zero) &&
+    if ((pitch_input != 0.0f || yaw_input != 0.0f) &&
         (g_level_data->flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0) {
         g_navigator_position_changed = true;
     }
@@ -320,7 +331,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     level->sound_environment = -1;
     level->sound_environment_alt = -1;
 
-    if (g_level_data->camera_scale == g_float_zero) {
+    if (g_level_data->camera_scale == 0.0f) {
         return result;
     }
 
@@ -452,9 +463,6 @@ unsigned char W8LevelDataRecord::ClampCameraToBounds(const glm::vec3* minimum,
     return clamped;
 }
 
-// GLOBAL: WIZ8 0x005ebc5c
-const float g_monster_motion_push = 1.05f;
-
 /* Probe active collidable props along the motion segment. On a hit, rewrites
    the caller's position into world space, may nudge `direction`, and latches
    plane / level-data contact fields used by the collision response pass. */
@@ -509,8 +517,8 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
             prop_delta = prop->GetDelta();
             adjusted_direction = *direction - prop_delta;
             probe = *position;
-            if (adjusted_direction.x != g_float_zero || adjusted_direction.y != g_float_zero ||
-                adjusted_direction.z != g_float_zero) {
+            if (adjusted_direction.x != 0.0f || adjusted_direction.y != 0.0f ||
+                adjusted_direction.z != 0.0f) {
                 direction_zero = false;
             } else {
                 direction_zero = true;
@@ -549,11 +557,11 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
         along_length = glm::length(along_normal);
         residual = glm::dvec3(residual - along_normal) * static_cast<double>(slope);
         residual_length = glm::length(residual);
-        if (glm::length(projected) <= g_float_one) {
+        if (glm::length(projected) <= 1.0f) {
             facing = 0.0f;
         } else {
             facing = glm::dot(projected, normal) / glm::length(projected);
-            if (facing < g_float_zero) {
+            if (facing < 0.0f) {
                 along_length = -along_length;
             }
         }
@@ -610,7 +618,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
     bool hit;
 
     hit = false;
-    extent = glm::length((*direction)) + g_runtime_world_scale + g_world_scale;
+    extent = glm::length((*direction)) + g_runtime_world_scale + kWorldScale;
     lower = (*position) - extent;
     upper = (*position) + extent;
     objects = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
@@ -637,18 +645,18 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
             planar = sqrtf(delta.z * delta.z + delta.x * delta.x);
             radius = monster->radius;
             if (monster_info->fInCombat) {
-                radius += g_world_scale;
+                radius += kWorldScale;
             }
             const float abs_dy = std::abs(delta.y);
-            if (abs_dy < g_float_one_thousand && planar < radius + g_world_scale) {
-                push = g_monster_motion_push - (planar - radius) * g_float_one_five_hundredth;
-                if (g_monster_motion_push < push) {
-                    push = g_monster_motion_push;
+            if (abs_dy < 1e+03f && planar < radius + kWorldScale) {
+                push = kMonsterMotionPush - (planar - radius) * 0.002f;
+                if (kMonsterMotionPush < push) {
+                    push = kMonsterMotionPush;
                 }
                 length_squared = delta.z * delta.z + delta.x * delta.x;
                 adjustment = delta;
                 adjustment.y = 0.0f;
-                if (length_squared != static_cast<float>(g_double_zero)) {
+                if (length_squared != static_cast<float>(0.0)) {
                     scale = -(push * horizontal) / sqrtf(length_squared);
                     adjustment.x = delta.x * scale;
                     adjustment.z = delta.z * scale;
@@ -742,7 +750,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     }
     level->motion_displacement = environ_record->withScaledMotion(level->motion_displacement);
 
-    if (level->camera_scale == g_float_zero) {
+    if (level->camera_scale == 0.0f) {
         level->motion_velocity = glm::vec3(0);
     } else {
         level->motion_velocity = level->motion_displacement / level->camera_scale;
@@ -750,7 +758,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
 
     environ_delta = level->motion_displacement;
     camera_position = glm::vec3(adjusted_position.x,
-                                (g_world_scale - g_environ->world_height) + adjusted_position.y,
+                                (kWorldScale - g_environ->world_height) + adjusted_position.y,
                                 adjusted_position.z);
     motion_delta = environ_delta;
     adjusted_position.y = camera_position.y;
@@ -931,15 +939,15 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             level = g_level_data;
             g_environment_motion_active = 0;
             motion_length = glm::length(environ_delta);
-            if (motion_length <= g_float_one_tenth ||
-                (fabsf(environ_delta.y + motion_length) / motion_length <= g_camera_snap_epsilon &&
+            if (motion_length <= 0.1f ||
+                (fabsf(environ_delta.y + motion_length) / motion_length <= kCameraSnapEpsilon &&
                  g_negative_one <= environ_delta.y)) {
                 environ_delta = glm::vec3(0);
             } else {
                 g_environment_motion_active = 1;
             }
 
-            scale = static_cast<float>(g_double_one) / g_level_data->camera_scale;
+            scale = static_cast<float>(1.0) / g_level_data->camera_scale;
             level->motion_velocity = environ_delta * scale;
             level->motion_displacement = environ_delta;
             if (g_environment_motion_active == 0) {
@@ -1201,33 +1209,6 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
     }
 }
 
-/* Builds the octree trace model and answers its scene node. Every surface
-   becomes one polygon whose three vertices copy the surface's corner
-   positions; flag-4 surfaces mark their vertices in the bit set. The DIG pass
-   then writes a direction vector per vertex: marked vertices keep the surface
-   normal (flattened to point straight up when it tilts below 0.5), unmarked
-   vertices get a scaled/biased horizontal direction renormalized to 0.3. */
-// FUNCTION: WIZ8 0x0041c930
-
-// GLOBAL: WIZ8 0x005ebc80
-const float g_collision_fraction_floor = -0.1f;
-// GLOBAL: WIZ8 0x005ebc8c
-const float g_collision_slope_margin_scale = 150.0f;
-// GLOBAL: WIZ8 0x005ebc94
-const float g_collision_height_lift = 165.0f;
-// GLOBAL: WIZ8 0x005ebc9c
-const float g_collision_ceiling_normal_threshold = -0.8f;
-// GLOBAL: WIZ8 0x005ebca8
-const double g_collision_direction_epsilon = 0.0010000000474974513;
-// GLOBAL: WIZ8 0x005ebcb0
-const float g_collision_parallel_normal_threshold = 0.99999f;
-// GLOBAL: WIZ8 0x005ebcb4
-const float g_collision_opposed_normal_threshold = -0.999f;
-// GLOBAL: WIZ8 0x005ebcb8
-const float g_collision_contact_normal_threshold = -0.5f;
-// GLOBAL: WIZ8 0x005ebcc0
-const double g_collision_centroid_scale = 0.33333298563957214;
-
 /* Clip the motion segment against this surface's plane and triangle. On a hit
    the returned contact carries the point and travelled length; distance
    takes the surface's updated limit. Ordinary surfaces
@@ -1248,41 +1229,41 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
     if ((flags & W8_GD_SURFACE_CROSSING_MASK) != 0) {
         special = true;
         if ((g_level_data->flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0) {
-            point.y += g_collision_height_lift;
+            point.y += kCollisionHeightLift;
         }
     }
     const auto unit_dir = normalizedOrZero(direction);
     const auto normal = plane.normal;
     const float segment_length = glm::length(direction);
-    if (segment_length < g_float_one_ten_thousandth) {
+    if (segment_length < 0.0001f) {
         if (!special) {
             g_environment_motion_active = special;
             return std::nullopt;
         }
-    } else if (!special && glm::dot(normal, unit_dir) >= g_float_zero) {
+    } else if (!special && glm::dot(normal, unit_dir) >= 0.0f) {
         return std::nullopt;
     }
     const auto end = point + direction;
     float dist_start = SignedPlaneDistance(plane, point);
-    if (!special && dist_start < g_float_zero) {
+    if (!special && dist_start < 0.0f) {
         return std::nullopt;
     }
     float limit = contact_margin;
     if ((flags & W8_GD_SURFACE_WALKABLE) == 0 && !special) {
-        limit = contact_margin - (g_float_one - fabsf(normal.y)) * g_collision_slope_margin_scale;
+        limit = contact_margin - (1.0f - fabsf(normal.y)) * kCollisionSlopeMarginScale;
     }
     float dist_end = SignedPlaneDistance(plane, end);
     if (special) {
-        if (dist_end * dist_start > g_camera_snap_epsilon) {
-            if (contact_margin < g_float_one || dist_end < g_float_zero) {
+        if (dist_end * dist_start > kCameraSnapEpsilon) {
+            if (contact_margin < 1.0f || dist_end < 0.0f) {
                 return std::nullopt;
             }
-            if (dist_end >= limit + g_float_ten && dist_start >= limit + g_float_ten) {
+            if (dist_end >= limit + 1e+01f && dist_start >= limit + 1e+01f) {
                 return std::nullopt;
             }
         }
     } else {
-        if (limit + g_float_ten <= dist_end) {
+        if (limit + 1e+01f <= dist_end) {
             return std::nullopt;
         }
         if (dist_start - dist_end < g_camera_transition_epsilon) {
@@ -1301,15 +1282,15 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
                                                    srTriangleProjection::Boundary::collision);
     float t_span = dist_start - dist_end;
     float fraction;
-    if (t_span < g_float_one) {
-        fraction = g_float_one;
+    if (t_span < 1.0f) {
+        fraction = 1.0f;
     } else {
         fraction = (dist_start - limit) / t_span;
     }
-    if (fraction < g_collision_fraction_floor && !special) {
-        fraction = g_collision_fraction_floor;
+    if (fraction < kCollisionFractionFloor && !special) {
+        fraction = kCollisionFractionFloor;
     }
-    if (fraction > g_float_one) {
+    if (fraction > 1.0f) {
         return std::nullopt;
     }
     float hit;
@@ -1318,7 +1299,7 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
             return std::nullopt;
         }
         glm::vec3 chosen;
-        if (dist_start / t_span <= g_float_one) {
+        if (dist_start / t_span <= 1.0f) {
             chosen = point;
         } else {
             chosen = end;
@@ -1327,11 +1308,11 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
         if (!edge_limit) return std::nullopt;
         limit = *edge_limit;
         fraction = (dist_start - limit) / t_span;
-        if (fraction >= g_float_one) {
+        if (fraction >= 1.0f) {
             return std::nullopt;
         }
-        if (fraction < g_collision_fraction_floor) {
-            fraction = g_collision_fraction_floor;
+        if (fraction < kCollisionFractionFloor) {
+            fraction = kCollisionFractionFloor;
         }
         hit = fraction * segment_length;
         if (segment_length - hit < g_camera_transition_epsilon) {
@@ -1346,7 +1327,7 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
         return PlaneContact{point + unit_dir * hit, hit};
     }
     distance = hit;
-    if (dist_start <= g_float_zero) {
+    if (dist_start <= 0.0f) {
         distance = -fabsf(hit);
     } else {
         distance = fabsf(hit);
@@ -1410,19 +1391,19 @@ std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
         srSegmentMath::project(projected, vertices[nearest_edge], vertices[(nearest_edge + 1) % 3])
             .distance;
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
-        float threshold = limit * g_float_half;
+        float threshold = limit * 0.5f;
         if (threshold < offset) {
             return std::nullopt;
         }
     }
     if ((flags & W8_GD_SURFACE_WALKABLE) == 0) {
-        if (plane.normal.y < g_collision_ceiling_normal_threshold) {
+        if (plane.normal.y < kCollisionCeilingNormalThreshold) {
             edge_dist *= g_navigator_linked_radius_scale;
         }
     } else {
-        float scaled = limit * g_navigator_mode3_scale;
+        float scaled = limit * kNavigatorMode3Scale;
         if (scaled < edge_dist) {
-            edge_dist = (edge_dist - scaled) * g_float_six + scaled;
+            edge_dist = (edge_dist - scaled) * 6.0f + scaled;
         }
     }
     if (edge_dist < limit) {
@@ -1466,7 +1447,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
         g_level_data->sound_environment_alt = footstep_material;
     }
     float direction_length = glm::length((*direction));
-    if (direction_length == g_float_zero) {
+    if (direction_length == 0.0f) {
         return false;
     }
     /* ProbePropsAlongMotion stores the prop's hit plane here; level surfaces
@@ -1476,13 +1457,13 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
     float adjusted_d = contact_plane.w - distance;
     W8LevelDataRecord* level = g_level_data;
     if (level->primary_contact_prop_id > -1 &&
-        glm::dot(normal, level->contact_normal) < g_collision_contact_normal_threshold) {
+        glm::dot(normal, level->contact_normal) < kCollisionContactNormalThreshold) {
         level->flags |= W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH;
     }
     flags |= W8_GD_SURFACE_COLLISION_PROCESSED;
     const float depth = -(glm::dot((*origin + *direction), normal) + adjusted_d);
     distance = depth;
-    if (depth < g_float_zero) {
+    if (depth < 0.0f) {
         return true;
     }
     glm::vec3 unit;
@@ -1497,7 +1478,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
     const auto step = (*hit_point) - (*origin);
     *direction = (*direction) - step;
     *origin = *hit_point;
-    if (glm::dot(normal, s_entry_direction) < g_collision_opposed_normal_threshold) {
+    if (glm::dot(normal, s_entry_direction) < kCollisionOpposedNormalThreshold) {
         (*direction) = glm::vec3(0);
         g_environ->vector = glm::vec3(0);
         return false;
@@ -1508,17 +1489,17 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
     glm::vec3 slide_unit = slide;
     slide_unit = normalizedOrZero(slide_unit);
     float approach = glm::dot(slide_unit, s_entry_direction);
-    if (fabsf(approach) < g_camera_snap_epsilon) {
+    if (fabsf(approach) < kCameraSnapEpsilon) {
         (*direction) = glm::vec3(0);
         return false;
     }
-    if (approach >= g_float_one_ten_thousandth) {
+    if (approach >= 0.0001f) {
         if (s_collision_state != 0) {
             glm::vec3 ortho = s_entry_direction;
             ortho = ProjectVectorOntoVector(ortho, normal);
             glm::vec3 deflect = s_entry_direction - ortho;
             deflect = normalizedOrZero(deflect);
-            if (glm::dot(unit, deflect) < g_float_zero && s_collision_state == 1 &&
+            if (glm::dot(unit, deflect) < 0.0f && s_collision_state == 1 &&
                 CentroidsDiverging(s_first_surface, normal, s_first_normal)) {
                 crossed = true;
             }
@@ -1527,7 +1508,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
         crossed = true;
     }
     if (s_collision_state != 0) {
-        if (g_collision_parallel_normal_threshold < glm::dot(normal, s_first_normal)) {
+        if (kCollisionParallelNormalThreshold < glm::dot(normal, s_first_normal)) {
             if (s_first_limit <= adjusted_d) {
                 return true;
             }
@@ -1538,12 +1519,12 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
         }
         if (crossed) {
             crease_a = glm::cross(normal, s_first_normal);
-            if (glm::dot(crease_a, unit) < g_float_zero) {
+            if (glm::dot(crease_a, unit) < 0.0f) {
                 crease_a = -crease_a;
             }
         } else {
             recomputed = false;
-            if (glm::dot(slide_unit, s_first_normal) > g_float_one_ten_thousandth) {
+            if (glm::dot(slide_unit, s_first_normal) > 0.0001f) {
                 s_first_normal = normal;
                 s_first_surface = index;
                 recomputed = true;
@@ -1551,7 +1532,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
             }
         }
         if (s_collision_state == 2) {
-            if (g_collision_parallel_normal_threshold < glm::dot(normal, s_second_normal)) {
+            if (kCollisionParallelNormalThreshold < glm::dot(normal, s_second_normal)) {
                 if (s_second_limit <= adjusted_d) {
                     return true;
                 }
@@ -1560,7 +1541,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
                 *direction = slide;
                 return true;
             }
-            if (glm::dot((s_second_normal + s_first_normal), normal) < g_camera_snap_epsilon) {
+            if (glm::dot((s_second_normal + s_first_normal), normal) < kCameraSnapEpsilon) {
                 (*direction) = glm::vec3(0);
                 return false;
             }
@@ -1571,7 +1552,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
                 }
                 float ahead_a = glm::dot(crease_a, s_entry_direction);
                 float ahead_b = glm::dot(crease_b, s_entry_direction);
-                if (ahead_a < g_camera_snap_epsilon && ahead_b < g_camera_snap_epsilon) {
+                if (ahead_a < kCameraSnapEpsilon && ahead_b < kCameraSnapEpsilon) {
                     (*direction) = glm::vec3(0);
                     return false;
                 }
@@ -1586,7 +1567,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
 
                     s_second_limit = adjusted_d;
                 }
-            } else if (glm::dot(slide_unit, s_second_normal) >= g_float_zero) {
+            } else if (glm::dot(slide_unit, s_second_normal) >= 0.0f) {
                 if (recomputed) {
                     s_collision_state = 1;
                 } else {
@@ -1596,7 +1577,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
                 }
             }
         } else if (crossed) {
-            if (glm::dot(crease_a, s_entry_direction) < g_camera_snap_epsilon) {
+            if (glm::dot(crease_a, s_entry_direction) < kCameraSnapEpsilon) {
                 (*direction) = glm::vec3(0);
                 return false;
             }
@@ -1613,7 +1594,7 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
         s_first_limit = adjusted_d;
     }
     *direction = slide;
-    if (glm::length((*direction)) >= g_collision_direction_epsilon) {
+    if (glm::length((*direction)) >= kCollisionDirectionEpsilon) {
         return true;
     }
     return false;
@@ -1627,8 +1608,8 @@ bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, c
 {
     const W8GDSurface* other = g_octree_game_data->m_pSurfaces.data() + surface_index;
     const glm::vec3* vertices = g_octree_game_data->m_pVertices.data();
-    glm::vec3 this_centroid(g_float_zero, g_float_zero, g_float_zero);
-    glm::vec3 other_centroid(g_float_zero, g_float_zero, g_float_zero);
+    glm::vec3 this_centroid(0.0f, 0.0f, 0.0f);
+    glm::vec3 other_centroid(0.0f, 0.0f, 0.0f);
     for (int vertex = 0; vertex < 3; ++vertex) {
         const glm::vec3* this_vertex = vertices + vertex_indices[vertex];
         this_centroid += *this_vertex;
@@ -1636,7 +1617,7 @@ bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, c
         other_centroid += *other_vertex;
     }
     const glm::vec3 delta =
-        (this_centroid - other_centroid) * static_cast<float>(g_collision_centroid_scale);
+        (this_centroid - other_centroid) * static_cast<float>(kCollisionCentroidScale);
     const glm::vec3 adjusted = delta + from - to;
     return glm::dot(delta, delta) >= glm::dot(adjusted, adjusted);
 }
@@ -1664,18 +1645,18 @@ bool W8GDSurface::ApplyEnvironContact(glm::vec3& direction)
     glm::vec3 slide = g_environ->vector * g_environ->scale;
     glm::vec3 unit = slide;
     unit = normalizedOrZero(unit);
-    if (glm::dot(unit, normal) >= g_collision_opposed_normal_threshold) {
+    if (glm::dot(unit, normal) >= kCollisionOpposedNormalThreshold) {
         glm::vec3 proj = slide;
         proj = ProjectVectorOntoVector(proj, normal);
-        if (glm::dot(proj, normal) <= g_float_zero) {
+        if (glm::dot(proj, normal) <= 0.0f) {
             float depth = glm::length(proj);
             if (distance < depth) {
                 depth = distance;
             }
             float attenuation = 0.25f;
-            if (slide.y < g_float_zero) {
-                attenuation = fabsf(slide.y) / glm::length(slide) * g_float_three_quarters +
-                              g_navigator_vertical_phase_step;
+            if (slide.y < 0.0f) {
+                attenuation =
+                    fabsf(slide.y) / glm::length(slide) * 0.75f + g_navigator_vertical_phase_step;
             }
             glm::vec3 residual = slide - proj;
             residual *= factor * attenuation;
@@ -1851,9 +1832,8 @@ bool HasLevelDataVector(void)
         return false;
     }
     if ((g_level_data->flags & W8_LEVEL_FLAG_PROP_CONTACT) != 0 &&
-        (g_level_data->contact_motion.x != g_float_zero ||
-         g_level_data->contact_motion.y != g_float_zero ||
-         g_level_data->contact_motion.z != g_float_zero)) {
+        (g_level_data->contact_motion.x != 0.0f || g_level_data->contact_motion.y != 0.0f ||
+         g_level_data->contact_motion.z != 0.0f)) {
         return true;
     }
     return false;
@@ -1976,10 +1956,6 @@ void ResetLevelDataVectors(void)
 
 // GLOBAL: WIZ8 0x005ebc18
 const double g_game_data_pi = 3.141592653589793;
-// GLOBAL: WIZ8 0x005ebcf0
-const float g_camera_radians_to_degrees = 57.295784f;
-// GLOBAL: WIZ8 0x005ebca0
-const float g_float_six = 6.0f;
 
 // FUNCTION: WIZ8 0x0041FCE0
 void GetLevelSoundEnvironment(char* environment, char* secondary)
@@ -2000,7 +1976,7 @@ float MoveTimer(int value)
     if (g_game_time_accumulator == 0) {
         g_game_time_accumulator = new W8GameTimeAccumulator;
         if (g_game_time_accumulator == 0) {
-            return g_float_zero;
+            return 0.0f;
         }
     }
     if (g_shared_timers_paused) {
@@ -2008,7 +1984,7 @@ float MoveTimer(int value)
             ResumeSharedGameTimers();
             g_shared_timers_paused = false;
         } else {
-            return g_float_zero;
+            return 0.0f;
         }
     }
     if (value == 1) {
@@ -2030,7 +2006,7 @@ srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera)
 // FUNCTION: WIZ8 0x00420DC0
 float GetCameraYawInDegrees()
 {
-    return g_gd_camera->m_yaw * g_camera_radians_to_degrees;
+    return g_gd_camera->m_yaw * kCameraRadiansToDegrees;
 }
 
 // FUNCTION: WIZ8 0x00420DD0
@@ -2042,7 +2018,7 @@ float GetCameraYawRadians()
 // FUNCTION: WIZ8 0x00420DE0
 float GetCameraPitchInDegrees()
 {
-    return g_gd_camera->m_pitch * g_camera_radians_to_degrees;
+    return g_gd_camera->m_pitch * kCameraRadiansToDegrees;
 }
 
 // FUNCTION: WIZ8 0x00420DF0
@@ -2063,7 +2039,7 @@ void BeginManualCameraControl()
 // FUNCTION: WIZ8 0x00420F40
 int GetCameraYawAndRotation(glm::mat3* rotation)
 {
-    float degrees = g_gd_camera->m_yaw * g_camera_radians_to_degrees;
+    float degrees = g_gd_camera->m_yaw * kCameraRadiansToDegrees;
     if (rotation != 0) {
         *rotation = g_gd_camera->m_yaw_rotation;
     }
@@ -2092,14 +2068,14 @@ void CameraSnapToTarget(const glm::vec3* target)
 // FUNCTION: WIZ8 0x00420FD0
 void TurnCameraToDegrees(float degrees)
 {
-    double scale = g_game_data_pi * g_float_inverse_half_turn_degrees;
+    double scale = g_game_data_pi * 0.0055555557f;
     g_gd_camera->BeginOrientationTransition(0.0f, static_cast<float>(scale * degrees), false);
 }
 
 // FUNCTION: WIZ8 0x00421000
 void SetCameraYawDegrees(float degrees)
 {
-    double scale = g_game_data_pi * g_float_inverse_half_turn_degrees;
+    double scale = g_game_data_pi * 0.0055555557f;
     g_gd_camera->SetOrientationImmediate(0.0f, static_cast<float>(scale * degrees));
 }
 
@@ -2148,7 +2124,7 @@ void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation)
 glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto)
 {
     const float length_squared = glm::dot(onto, onto);
-    if (!(length_squared > g_vector_length_squared_epsilon)) return vector;
+    if (!(length_squared > kVectorLengthSquaredEpsilon)) return vector;
     return glm::proj(vector, onto);
 }
 
@@ -2258,7 +2234,7 @@ bool W8LevelDataRecord::IntegrateCameraForward()
         delta_length = glm::length(adjustment);
         limit = g_environ->motion_factor * limit;
         if (delta_length <= limit) {
-            if (delta_length < limit * g_camera_snap_epsilon) {
+            if (delta_length < limit * kCameraSnapEpsilon) {
                 adjustment = glm::vec3(0);
             }
         } else {
@@ -2341,7 +2317,7 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
     }
     distance = glm::length(movement) + footstep_accumulator;
     footstep_accumulator = distance;
-    if (g_float_two_thousand < distance) {
+    if (2e+03f < distance) {
         if (g_status.search_mode == 0 && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
             large_radius = false;
         } else {
@@ -2350,8 +2326,8 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
         AlertCombatNoise(large_radius);
         if (sound_environment >= 0 && sound_environment_alt >= 0) {
             PlayFootstep(sound_environment, sound_environment_alt, W8_FOOTSTEP_KIND_STEP);
-            while (g_float_two_thousand < footstep_accumulator) {
-                footstep_accumulator -= g_float_two_thousand;
+            while (2e+03f < footstep_accumulator) {
+                footstep_accumulator -= 2e+03f;
             }
         }
     }
@@ -2399,7 +2375,7 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
     if ((flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
         contact_velocity = glm::vec3(0);
         contact_displacement = glm::vec3(0);
-        if (g_float_zero < motion_velocity.y) {
+        if (0.0f < motion_velocity.y) {
             length = glm::length(motion_velocity);
             const float limit =
                 fast_move ? g_camera_default_forward_scale : g_camera_level_forward_scale;
@@ -2433,7 +2409,7 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
         integrated_motion = glm::vec3(0);
     }
 
-    motion_velocity = motion_displacement * (static_cast<float>(g_double_one) / camera_scale);
+    motion_velocity = motion_displacement * (static_cast<float>(1.0) / camera_scale);
     speed = glm::length(motion_displacement);
     if (speed < g_camera_transition_epsilon) {
         speed = 0;
@@ -2460,10 +2436,10 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
 
     if (!g_camera_sway_active) {
         if (!g_level_override) {
-            if (allow_override && vertical_motion < g_float_one_tenth) {
+            if (allow_override && vertical_motion < 0.1f) {
                 g_level_override = true;
             }
-        } else if (allow_override && g_float_thirty_five_hundredths < vertical_motion) {
+        } else if (allow_override && 0.35f < vertical_motion) {
             HandleLevelOverride(vertical_motion);
         }
         vertical_motion = -(motion_velocity.y / g_camera_motion_divisor);
@@ -2482,9 +2458,8 @@ void UpdateLevelMovementAudio(void)
     }
     if ((g_gd_camera->m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
         (g_level_data->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 ||
-        g_level_data->motion_velocity.x != g_float_zero ||
-        g_level_data->motion_velocity.y != g_float_zero ||
-        g_level_data->motion_velocity.z != g_float_zero) {
+        g_level_data->motion_velocity.x != 0.0f || g_level_data->motion_velocity.y != 0.0f ||
+        g_level_data->motion_velocity.z != 0.0f) {
         if (g_level_footstep_sound != nullptr) {
             wiz8::sound::stop(g_level_footstep_sound, 500);
             g_level_footstep_sound = nullptr;

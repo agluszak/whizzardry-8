@@ -55,9 +55,8 @@
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -107,6 +106,8 @@
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
+
+constexpr unsigned int kFleeChance = 15;
 
 // GLOBAL: WIZ8 0x006836a8
 std::unique_ptr<W8CombatState> g_combat_state;
@@ -495,11 +496,9 @@ void ApplyCombatEndEffects(void)
                 W8Character* character = &g_status.buffers.Char[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
                     if (npc->healer_assist) {
-                        ApplyItemEffectToRandomCharacter(g_effect9, -1, 0,
-                                                         g_character_event_no_flags);
+                        ApplyItemEffectToRandomCharacter(13, -1, 0, kCharacterEventNoFlags);
                     } else if (npc->item_assist) {
-                        ApplyItemEffectToRandomCharacter(g_effect12, -1, 0,
-                                                         g_character_event_no_flags);
+                        ApplyItemEffectToRandomCharacter(20, -1, 0, kCharacterEventNoFlags);
                     }
                 }
             }
@@ -512,7 +511,7 @@ void ApplyCombatEndEffects(void)
             character->uiCondition[W8_CONDITION_MISSING] != 0 &&
             !gXStatus.monster_manager_entries[slot].condition_19_latch &&
             (!g_status.condition13_clock || g_status.pending_condition_party_slot != slot)) {
-            ApplyItemEffectToRandomCharacter(g_effect27, slot, 0, g_character_event_no_flags);
+            ApplyItemEffectToRandomCharacter(40, slot, 0, kCharacterEventNoFlags);
         }
     }
 }
@@ -857,8 +856,6 @@ int PartyAvoidsSurprise(void)
     return 0;
 }
 
-// GLOBAL: WIZ8 0x005ed490
-const float g_movement_speed_step = 0.009999999776482582f;
 /* What one character's whole turn is worth. A character whose turn combat has
    already set up uses the values it saved; anyone else is asked afresh. A
    phase of exactly a hundred is worth one whatever the hands say. */
@@ -906,14 +903,13 @@ bool TryPanicWoundedCharacter(const W8CombatSlot* target)
     }
     character = &g_status.buffers.Char[target->iChar];
     if ((character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax) >=
-        g_flee_hp_fraction) {
+        kFleeHpFraction) {
         return false;
     }
-    if (Random(100) >= g_flee_chance) {
+    if (Random(100) >= kFleeChance) {
         return false;
     }
-    QueueCharacterEvent(character, g_effect22, 0, g_character_event_no_flags,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(character, 34, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
     return true;
 }
 
@@ -980,7 +976,7 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
         }
     }
 
-    monster_info->p3D->SetMonsterTurnSpeed(speed * scale * g_movement_speed_step);
+    monster_info->p3D->SetMonsterTurnSpeed(speed * scale * kMovementSpeedStep);
     /* Four bytes inside cycle eight's block, cleared together. */
     monster_info->p3D->movement.callback_progress = 0.0f;
     monster_info->pCombat->turn_started = true;
@@ -1226,7 +1222,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
         return;
     case W8_ACTION_WALK:
     case W8_ACTION_RUN:
-        ApplyItemEffectToRandomCharacter(g_special_event2, -1, 0, g_character_event_no_flags);
+        ApplyItemEffectToRandomCharacter(g_special_event2, -1, 0, kCharacterEventNoFlags);
         break;
     default:
         break;
@@ -2024,9 +2020,8 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             StartLevelMusic(1, 0);
             if (gXStatus.combat_difficulty != 0 &&
                 GetRandomPartySlots(0, 0, -1, &party_slot, 1, false) != 0 &&
-                (event = QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_effect23,
-                                             g_effect_argument3, g_effect_argument0,
-                                             g_character_event_full_volume),
+                (event = QueueCharacterEvent(&g_status.buffers.Char[party_slot], 35, 2, 1,
+                                             kCharacterEventFullVolume),
                  event != 0)) {
                 event->DelayDispatch(0x5dc);
                 EndCombat(false);
@@ -2504,8 +2499,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                 if (range != W8_RANGE_NONE) {
                     unsigned short move_result;
                     if (range < W8_RANGE_LONG) {
-                        approach_distance =
-                            CalcRangeDistance(W8_RANGE_TOUCH) * g_float_three_quarters;
+                        approach_distance = CalcRangeDistance(W8_RANGE_TOUCH) * 0.75f;
                     } else {
                         approach_distance =
                             CalcRangeDistance(W8_RANGE_SHORT) * g_prepath_link_height;
@@ -2903,14 +2897,14 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
         monster = monster_info->p3D;
         combat = monster_info->pCombat.get();
         if (static_cast<int>(
-                (monster->movement.callback_threshold <= g_float_zero
+                (monster->movement.callback_threshold <= 0.0f
                      ? monster->movement.callback_progress / monster->movement.callback_threshold
-                     : g_float_zero) *
+                     : 0.0f) *
                 g_octree_cell_scale) < 100) {
             progress_pct = static_cast<int>(
-                (monster->movement.callback_threshold <= g_float_zero
+                (monster->movement.callback_threshold <= 0.0f
                      ? monster->movement.callback_progress / monster->movement.callback_threshold
-                     : g_float_zero) *
+                     : 0.0f) *
                 g_octree_cell_scale);
         } else {
             progress_pct = 100;

@@ -13,8 +13,8 @@
 #include "surrender/srDebug.h"
 #include "timer.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
@@ -81,12 +81,11 @@ void UpdateActivePartyMovement(void)
         goto check_completion;
     }
 
-    if (gXStatus.flPartyMoveDistLimit <= g_float_zero) {
+    if (gXStatus.flPartyMoveDistLimit <= 0.0f) {
         srAssertFail("gXStatus.flPartyMoveDistLimit > 0.0f", COMBAT_MOVEMENT_CPP, 359, 0);
     }
     g_level_block->move_percent = static_cast<int>(
-        100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit +
-        g_double_half);
+        100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit + 0.5);
     ClampInteger(&g_level_block->move_percent, 0, 100);
     if (g_level_block->move_percent != g_level_block->move_percent_shown) {
         InvalidatePartyMovementPanel();
@@ -228,9 +227,9 @@ float GetPartyMovementSpeed(void)
         speed = 1.5f;
     }
     if (const auto steps = GetPartyHasteSteps()) {
-        return (*steps * g_movement_speed_step + speed) * g_float_ten_thousand;
+        return (*steps * kMovementSpeedStep + speed) * 1e+04f;
     }
-    return speed * g_float_ten_thousand;
+    return speed * 1e+04f;
 }
 
 /* Reconcile character turns after the party finishes moving. Characters that
@@ -248,7 +247,7 @@ void CompletePartyMovementTurns(void)
 
     unsigned int remaining = 100 - g_level_block->move_percent;
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
-        remaining = static_cast<unsigned int>(remaining * g_float_one_and_a_half);
+        remaining = static_cast<unsigned int>(remaining * 1.5f);
     }
     remaining = remaining < 100 ? 100 - remaining : 0;
 

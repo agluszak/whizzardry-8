@@ -23,9 +23,8 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -154,15 +153,6 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     }
     return amount;
 }
-
-/* Stamina and realm spell-point constants the encodings keep as addressable
-   storage rather than immediates. */
-// GLOBAL: WIZ8 0x005ed8b8
-const float g_item_weight_display_scale = 0.1f;
-// GLOBAL: WIZ8 0x005ec3f8
-const float g_float_one_hundred_twenty_five = 125.0f;
-// GLOBAL: WIZ8 0x005ecbb4
-const float g_float_two_hundredths = 0.02f;
 
 /* The eligibility window the party sweeps use, the same one GetRandomCharacter
    and AnyPartyMemberCanUseItem apply: highest_condition below death. */
@@ -586,17 +576,16 @@ void HealCharacter(int party_slot, int amount, bool announce)
     }
 
     fraction = (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
-    if (fraction >= g_effect_threshold1) {
-        if (gXStatus.character_event_queue->HasEventCharacter(g_effect3, party_slot)) {
-            gXStatus.character_event_queue->SetEventCharacterMask(g_effect3, party_slot, false);
+    if (fraction >= 50u) {
+        if (gXStatus.character_event_queue->HasEventCharacter(3, party_slot)) {
+            gXStatus.character_event_queue->SetEventCharacterMask(3, party_slot, false);
         }
-        if (fraction >= g_effect_threshold0) {
-            if (gXStatus.character_event_queue->HasEventCharacter(g_effect2, party_slot)) {
-                gXStatus.character_event_queue->SetEventCharacterMask(g_effect2, party_slot, false);
+        if (fraction >= 70u) {
+            if (gXStatus.character_event_queue->HasEventCharacter(2, party_slot)) {
+                gXStatus.character_event_queue->SetEventCharacterMask(2, party_slot, false);
             }
-            if (gXStatus.character_event_queue->HasEventCharacter(g_effect17, party_slot)) {
-                gXStatus.character_event_queue->SetEventCharacterMask(g_effect17, party_slot,
-                                                                      false);
+            if (gXStatus.character_event_queue->HasEventCharacter(28, party_slot)) {
+                gXStatus.character_event_queue->SetEventCharacterMask(28, party_slot, false);
             }
         }
     }
@@ -990,8 +979,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
         }
     } else if (band != previous_band && band > W8_FATIGUE_BAND_DEEP) {
         if (!character->deep_fatigue_applied) {
-            QueueCharacterEvent(character, g_effect4, 0, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(character, 4, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
             character->deep_fatigue_applied = true;
         }
         if (static_cast<unsigned int>(character->fatigue_band) < W8_FATIGUE_BAND_RECOVERED) {
@@ -1231,8 +1219,8 @@ void RecalculateCharacterStamina(W8Character* character)
           character->attributes[W8_ATTRIBUTE_PIETY].effective +
           character->attributes[W8_ATTRIBUTE_VITALITY].effective) *
          (1.0f / 3.0f)) *
-            (character->uiExpLevel * g_item_weight_display_scale + g_environment_near_scale) +
-        g_double_half);
+            (character->uiExpLevel * kItemWeightDisplayScale + kEnvironmentNearScale) +
+        0.5);
     character->uiStaminaMax = value;
     if (character->fatigue_penalty < value) {
         character->uiStaminaMax = value - character->fatigue_penalty;
@@ -1317,9 +1305,9 @@ int RebuildRealmSpellPointCeilings(W8Character* character)
         int computed =
             static_cast<int>(((weighted + character->skills[W8_SKILL_FIRE_MAGIC + index].level * 3 +
                                character->attributes[W8_ATTRIBUTE_PIETY].effective) *
-                              g_float_two_hundredths) *
+                              0.02f) *
                                  (learned + character->uiExpLevel + 1) +
-                             g_double_half);
+                             0.5);
         if (best < computed) {
             best = computed;
         }

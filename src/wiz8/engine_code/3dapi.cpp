@@ -59,7 +59,7 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -74,6 +74,8 @@
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
+constexpr double kAutomapRefreshDistanceSquared = 250000.0;
+
 class srModelInstance;
 
 #define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
@@ -83,9 +85,6 @@ bool g_renderer_ready = true;
 
 // GLOBAL: WIZ8 0x00607d80
 static int g_game_data_runtime_pending = 1;
-
-// GLOBAL: WIZ8 0x005ec240
-const double g_automap_refresh_distance_squared = 250000.0;
 
 // GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;
@@ -330,7 +329,7 @@ void SetCameraSwayMode(srCamera* camera, int mode)
                 BeginCameraSway();
             }
         } else {
-            double radians = g_world_camera_pi * g_float_inverse_half_turn_degrees;
+            double radians = g_world_camera_pi * 0.0055555557f;
             camera->setViewPlane(radians * g_camera_base_horizontal_fov,
                                  radians * g_camera_base_vertical_fov);
             EndCameraSway();
@@ -350,7 +349,7 @@ void SetCameraSwayMode(srCamera* camera, int mode)
         g_camera_sway_vertical_phase -= 360.0f;
     }
 
-    double radians = g_world_camera_pi * g_float_inverse_half_turn_degrees;
+    double radians = g_world_camera_pi * 0.0055555557f;
     camera->setViewPlane(
         (sin(radians * g_camera_sway_horizontal_phase) * 0.75 + g_camera_base_horizontal_fov) *
             radians,
@@ -478,7 +477,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 static_cast<srNode*>(world->camera)->setLocation(render_position);
                 g_startup_world->SetPositionInternal(&navigator_position);
                 const auto refresh_offset = camera_position - s_last_automap_refresh_position;
-                if (glm::dot(refresh_offset, refresh_offset) > g_automap_refresh_distance_squared) {
+                if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
                     s_last_automap_refresh_position = camera_position;
                     camera_position.y -= g_default_world_height;
                     const glm::vec3 automap_position = camera_position;
@@ -517,10 +516,10 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 }
                 ApplyCameraRotation(&path_rotation);
                 if (path->discrete_mode != 0) {
-                    if (path->position >= static_cast<int>(path->nodes.size()) - g_float_one) {
+                    if (path->position >= static_cast<int>(path->nodes.size()) - 1.0f) {
                         UpdateCameraPathState(world, camera_path, 0);
                     }
-                } else if (path->position >= g_double_one) {
+                } else if (path->position >= 1.0) {
                     UpdateCameraPathState(world, camera_path, 0);
                 }
             }
@@ -752,7 +751,7 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         WorldSetFarClip(world,
                         static_cast<float>(WorldGetFarClip(world)) + g_position_height_epsilon);
         scale = 2.0f;
-        if (WorldGetFarClip(world) >= g_float_fifty_thousand) {
+        if (WorldGetFarClip(world) >= 5e+04f) {
             scale = 1.5f;
         }
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
@@ -761,17 +760,16 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         WorldSetFarClip(world,
                         static_cast<float>(WorldGetFarClip(world)) - g_position_height_epsilon);
         scale = 2.0f;
-        if (WorldGetFarClip(world) >= g_float_fifty_thousand) {
+        if (WorldGetFarClip(world) >= 5e+04f) {
             scale = 1.5f;
         }
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
     }
-    if ((flags & W8_WORLD_WIDEN_MESH_VIEW) != 0 &&
-        g_mesh_view_half_angle_degrees < g_float_half_turn_degrees) {
-        g_mesh_view_half_angle_degrees += g_float_ten;
+    if ((flags & W8_WORLD_WIDEN_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees < 1.8e+02f) {
+        g_mesh_view_half_angle_degrees += 1e+01f;
     }
-    if ((flags & W8_WORLD_NARROW_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees > g_float_ten) {
-        g_mesh_view_half_angle_degrees -= g_float_ten;
+    if ((flags & W8_WORLD_NARROW_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees > 1e+01f) {
+        g_mesh_view_half_angle_degrees -= 1e+01f;
     }
     if ((flags & 0x10) != 0) {
         g_world_update_requested = true;
@@ -780,12 +778,10 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         world->m_loaded = !world->m_loaded;
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world,
-                                     GetWorldEnvironmentIntensity(g_world) + g_float_one_fiftieth);
+        SetWorldEnvironmentIntensity(g_world, GetWorldEnvironmentIntensity(g_world) + 0.02f);
     }
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world,
-                                     GetWorldEnvironmentIntensity(g_world) - g_float_one_fiftieth);
+        SetWorldEnvironmentIntensity(g_world, GetWorldEnvironmentIntensity(g_world) - 0.02f);
     }
 }
 
@@ -942,7 +938,7 @@ unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool che
             *position = candidate;
             return 1;
         }
-        angle += g_quarter_turn;
+        angle += kQuarterTurn;
     } while (angle < g_camera_pi);
     return 0;
 }

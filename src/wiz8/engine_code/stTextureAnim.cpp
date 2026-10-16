@@ -73,7 +73,7 @@ void stTextureAnim::UpdateFrame()
     }
 
     const int elapsed_frames =
-        static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
+        static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * 0.001f);
     if (animation_mode == W8_TEXTURE_ANIM_LOOP) {
         int next = (direction * elapsed_frames) % count;
         if (next < frame) {

@@ -27,11 +27,7 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/layouts/world.h"
-
-// GLOBAL: WIZ8 0x005ebccc
-const float g_float_three_quarters = 0.75f;
 
 // FUNCTION: WIZ8 0x004b6e00
 GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
@@ -125,8 +121,8 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
                 surface->flags |= W8_GD_SURFACE_SKIP_FILTERED_TRACE;
             }
 
-            if (g_float_half <= surface->plane.normal.y) {
-                if (g_float_three_quarters < surface->plane.normal.y) {
+            if (0.5f <= surface->plane.normal.y) {
+                if (0.75f < surface->plane.normal.y) {
                     surface->slope = 1.0f;
                 } else {
                     surface->slope = surface->plane.normal.y;
@@ -220,7 +216,7 @@ srBoundingBox GDProp::computeBounds()
 
     m_path_range.minimum = m_bound_min.y;
     m_path_range.maximum = m_bound_max.y;
-    m_path_range.sentinel = (m_bound_min.y + m_bound_max.y) * g_float_half;
+    m_path_range.sentinel = (m_bound_min.y + m_bound_max.y) * 0.5f;
 
     return bounds;
 }

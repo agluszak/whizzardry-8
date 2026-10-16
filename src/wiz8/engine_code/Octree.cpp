@@ -81,7 +81,7 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -96,6 +96,13 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
+
+constexpr float kMonsterProximityRadiusScale = 15.0f;
+constexpr float kRegionAxisAlignmentThreshold = 0.9998999834060669f;
+constexpr double kRegionLinkCameraTilt = -0.26179999113082886;
+constexpr float kRegionLinkCircleCoverage = 6.282185077667236f;
+constexpr float kScatterInnerRingJitterScale = 0.00020000000949949026f;
+constexpr float kScatterOuterRingJitterScale = 0.00040000001899898052f;
 
 // FUNCTION: WIZ8 0x00433a70
 void W8Octree::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal)
@@ -169,36 +176,6 @@ bool g_render_untextured;
 
 // GLOBAL: WIZ8 0x005ec02c
 static const float NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE = 50.0f;
-
-/* Noise falloff on the trace resolver's sphere-distance penalty: the farther
-   the probe is along the ray, the more the candidate's effective distance is
-   discounted. */
-// GLOBAL: WIZ8 0x005ebc78
-const float g_float_fifteen_hundredths = 0.15000000596046448f;
-/* Vertical snap ceiling for navigator placement: the source may rise or fall
-   at most this many units before a candidate is rejected outright. */
-// GLOBAL: WIZ8 0x005ec038
-const double g_navigator_vertical_snap_limit = 5000.0;
-/* Fixed camera tilt (15 degrees below horizontal) the region-link projector
-   applies to every sampled direction. */
-// GLOBAL: WIZ8 0x005ec008
-const double g_region_link_camera_tilt = -0.26179999113082886;
-/* Circle-coverage bound just under 2*pi: when samples*fov still falls short,
-   one more direction is added. */
-// GLOBAL: WIZ8 0x005ec010
-const float g_region_link_circle_coverage = 6.282185077667236f;
-/* Jitter scale applied to the Random(1000) roll for scatter-ring candidates
-   past the first; 0.0004 * 1000 spans 0.4 units. */
-// GLOBAL: WIZ8 0x005ec044
-const float g_scatter_outer_ring_jitter_scale = 0.00040000001899898052f;
-/* Multiplier on the placement radius that gives the monster-proximity query
-   box its extent. */
-// GLOBAL: WIZ8 0x005ec048
-const float g_monster_proximity_radius_scale = 15.0f;
-/* Jitter scale applied to the Random(1000) roll for ring candidates past the
-   first; 0.0002 * 1000 spans 0.2 units. */
-// GLOBAL: WIZ8 0x005ec050
-const float g_scatter_inner_ring_jitter_scale = 0.00020000000949949026f;
 
 void W8OctreeView::captureCamera(const srCamera& camera)
 {
@@ -556,7 +533,7 @@ OctreeCellCoordinates W8Octree::cellCoordinates(const glm::vec3& location) const
         if (location[axis] < minimum[axis]) --cell[axis];
     const auto offset = (location - (glm::vec3(cell) * m_spatial.m_node_extent + minimum)) /
                             m_spatial.m_node_extent -
-                        g_float_half;
+                        0.5f;
     const bool inside = !glm::any(glm::lessThan(location, minimum)) &&
                         !glm::any(glm::greaterThan(location, m_spatial.m_bounds.maximum));
     return {cell, offset, inside};
@@ -573,7 +550,7 @@ OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
     glm::vec3 box_max = m_spatial.m_bounds.maximum;
     glm::vec3 location_record(position);
     auto* location = &location_record;
-    float span = m_spatial.m_extent * g_float_half;
+    float span = m_spatial.m_extent * 0.5f;
     int node = 1;
     for (short level = 0; level < m_spatial.m_depth; ++level) {
         unsigned int child_index = 0;
@@ -599,7 +576,7 @@ OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
         if (node != 0) {
             node = static_cast<int>(m_branches[node].children[child_index]);
         }
-        span *= g_float_half;
+        span *= 0.5f;
     }
     if (node != 0) {
         w8_ulong region_offset = m_leaves[node].region_offset;
@@ -648,13 +625,13 @@ void W8Octree::MarkVisibleRegions()
 // FUNCTION: WIZ8 0x004302e0
 void W8Octree::BuildFrustumPlanes()
 {
-    float fov = view.horizontal_fov * g_float_half;
+    float fov = view.horizontal_fov * 0.5f;
     float extent = m_spatial.m_max_region_radius;
     float far_clip = view.far_clip;
     float backoff = extent / sin(fov);
     float ratio = extent / cos(fov);
     double tangent = tan(fov);
-    double tangent_vertical = tan(view.vertical_fov * g_float_half);
+    double tangent_vertical = tan(view.vertical_fov * 0.5f);
     const auto location = view.camera_location;
     const auto dof = view.camera_dof;
     const auto width = glm::vec3((tangent * far_clip + ratio) * glm::dvec3(view.rotation_column0));
@@ -716,7 +693,7 @@ void W8Octree::CollectVisibleCells()
                     continue;
                 }
                 if (abs(x) >= 2 || abs(y) >= 2 || abs(z) >= 2) {
-                    float offset = m_spatial.m_region_grid_cell * g_float_half;
+                    float offset = m_spatial.m_region_grid_cell * 0.5f;
                     glm::vec3 point;
                     point.x = cell_x * m_spatial.m_region_grid_cell + offset +
                               m_spatial.m_bounds.minimum.x;
@@ -980,13 +957,13 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
     }
     m_projected_regions_valid = false;
     short samples = static_cast<short>(
-        static_cast<int>(g_camera_angle_period / view.horizontal_fov + g_camera_snap_epsilon));
-    if (samples * view.horizontal_fov < g_region_link_circle_coverage) {
+        static_cast<int>(kCameraAnglePeriod / view.horizontal_fov + kCameraSnapEpsilon));
+    if (samples * view.horizontal_fov < kRegionLinkCircleCoverage) {
         ++samples;
     }
     if (samples > 0) {
-        double cos_tilt = cos(g_region_link_camera_tilt);
-        double sin_tilt = sin(g_region_link_camera_tilt);
+        double cos_tilt = cos(kRegionLinkCameraTilt);
+        double sin_tilt = sin(kRegionLinkCameraTilt);
         for (int direction = 0; direction < samples; ++direction) {
             float angle = direction * view.horizontal_fov;
             glm::mat3 frame;
@@ -1168,8 +1145,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                 break;
             }
             glm::vec3 point;
-            point.x =
-                m_region_cell * g_float_half + x_index * stride + m_spatial.m_bounds.minimum.x;
+            point.x = m_region_cell * 0.5f + x_index * stride + m_spatial.m_bounds.minimum.x;
             unsigned short z_index = !rebuild_all && (x_index & 1) != 0 ? z_step : 0;
             if (!(m_spatial.m_working_bounds.minimum.x < point.x &&
                   point.x < m_spatial.m_working_bounds.maximum.x)) {
@@ -1179,8 +1155,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                 if (aborted) {
                     break;
                 }
-                point.z =
-                    m_region_cell * g_float_half + z_index * stride + m_spatial.m_bounds.minimum.z;
+                point.z = m_region_cell * 0.5f + z_index * stride + m_spatial.m_bounds.minimum.z;
                 if (!(m_spatial.m_working_bounds.minimum.z < point.z &&
                       point.z < m_spatial.m_working_bounds.maximum.z)) {
                     continue;
@@ -1219,7 +1194,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                         last_key = key;
                     }
                     SampleRegionLinks(point, false, false, key);
-                    point.y -= g_default_world_height + g_startup_near_limit;
+                    point.y -= g_default_world_height + kStartupNearLimit;
                 }
             }
         }
@@ -1357,9 +1332,6 @@ try {
    spatial minimum, and the box spans one cell from there. */
 // FUNCTION: WIZ8 0x00433eb0
 
-// GLOBAL: WIZ8 0x005ebf60
-const double g_color_byte_scale = 255.0;
-
 /* Pack normalized alpha/red/green/blue components using the current x87
    rounding mode, then retain each result's low byte. */
 // FUNCTION: WIZ8 0x00433fb0
@@ -1367,10 +1339,10 @@ w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double gre
 {
     unsigned char* bytes =
         reinterpret_cast<unsigned char*>(color); // reinterpret-ok: packed colour storage
-    bytes[3] = static_cast<unsigned char>(srFloatToInt(alpha * g_color_byte_scale));
-    bytes[2] = static_cast<unsigned char>(srFloatToInt(red * g_color_byte_scale));
-    bytes[1] = static_cast<unsigned char>(srFloatToInt(green * g_color_byte_scale));
-    bytes[0] = static_cast<unsigned char>(srFloatToInt(blue * g_color_byte_scale));
+    bytes[3] = static_cast<unsigned char>(srFloatToInt(alpha * kColorByteScale));
+    bytes[2] = static_cast<unsigned char>(srFloatToInt(red * kColorByteScale));
+    bytes[1] = static_cast<unsigned char>(srFloatToInt(green * kColorByteScale));
+    bytes[0] = static_cast<unsigned char>(srFloatToInt(blue * kColorByteScale));
     return color;
 }
 
@@ -1503,15 +1475,14 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
     delta = movement->target_position - movement->position;
     float length = glm::length(delta);
     float gap = length - separation;
-    if (gap < g_float_zero) {
+    if (gap < 0.0f) {
         movement->attachment->InitializeSegment(&movement->position, &movement->position);
         return 1;
     }
-    if (gap < g_world_scale) {
-        delta =
-            glm::dot(delta, delta) == 0
-                ? delta
-                : glm::normalize(delta) * static_cast<float>(gap * g_float_one_and_one_hundredth);
+    if (gap < kWorldScale) {
+        delta = glm::dot(delta, delta) == 0
+                    ? delta
+                    : glm::normalize(delta) * static_cast<float>(gap * 1.01f);
         delta += movement->position;
         movement->attachment->InitializeSegment(&movement->position, &delta);
         return 1;
@@ -1535,7 +1506,7 @@ bool IsNavigatorAtTarget(W8NavigatorMovementState* movement)
     } else {
         target = movement->target_position;
     }
-    if (movement->movement_scale * g_world_scale < glm::length((target - movement->position))) {
+    if (movement->movement_scale * kWorldScale < glm::length((target - movement->position))) {
         return false;
     }
     return true;
@@ -1554,7 +1525,7 @@ unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movemen
         if (result == 0) {
             return 0;
         }
-        double step = movement->movement_scale * g_world_scale;
+        double step = movement->movement_scale * kWorldScale;
         movement->target_position = movement->attachment->GetNextPosition();
         glm::vec3 delta;
         delta = movement->target_position - movement->position;
@@ -1755,7 +1726,7 @@ bool W8Octree::SnapToGround(glm::vec3* position, char mode)
         position->y = m_spatial.m_clipped_bounds.maximum.y;
     }
     glm::vec3 probe = *position;
-    probe.y = position->y - g_world_scale;
+    probe.y = position->y - kWorldScale;
     const auto ground_probe = settleToGround(probe, mode, 500.0f);
     probe = ground_probe.position;
     hit = ground_probe.hit;
@@ -1872,18 +1843,16 @@ W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int exclude
         const auto projection = srSegmentMath::project(center, from, to);
         float distance = projection.distance;
         if (noise_adjust) {
-            distance -= (glm::distance(projection.point, from) / segment_length *
-                             g_float_fifteen_hundredths +
-                         g_float_one_tenth) *
-                        g_world_scale;
-            if (distance < g_float_zero) distance = g_float_zero;
+            distance -= (glm::distance(projection.point, from) / segment_length * 0.15f + 0.1f) *
+                        kWorldScale;
+            if (distance < 0.0f) distance = 0.0f;
         }
         return distance;
     };
     const auto sphereOffset = [&](float sphere_radius, float distance) {
         const auto direction = to - from;
         const double length2 = glm::dot(direction, direction);
-        if (length2 == g_double_zero) return direction;
+        if (length2 == 0.0) return direction;
         const double length = std::sqrt(length2);
         const double fraction =
             (length - std::sqrt(sphere_radius * sphere_radius - distance * distance)) / length;
@@ -2319,7 +2288,7 @@ std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, flo
         auto& model = *static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
         const auto polygon = key & 0xffff;
         const auto plane = model.getPolyEq()[polygon];
-        if (plane.y < g_float_half) continue;
+        if (plane.y < 0.5f) continue;
         const auto& corners = model.getPolyVertex()[polygon];
         const auto* vertices = model.getVertexLoc();
         const RuntimeTriangle triangle{vertices[corners.x], vertices[corners.y],
@@ -3068,14 +3037,14 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
     distance = glm::length(((glm::vec2(vecDir.x, vecDir.z))));
-    step = g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate *
-           g_world_scale;
+    step =
+        g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate * kWorldScale;
     if (step >= distance) {
         step = distance;
     } else {
         reached = false;
     }
-    if ((vecDir.x * vecDir.x + vecDir.z * vecDir.z) != g_double_zero) {
+    if ((vecDir.x * vecDir.x + vecDir.z * vecDir.z) != 0.0) {
         vecDir = glm::dot(vecDir, vecDir) == 0 ? vecDir
                                                : glm::normalize(vecDir) * static_cast<float>(step);
     }
@@ -3099,7 +3068,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
 
 std::vector<w8_ulong> W8Octree::nearbyLocations(const glm::vec3& position, float spacing)
 {
-    const float expand = spacing * g_monster_proximity_radius_scale;
+    const float expand = spacing * kMonsterProximityRadiusScale;
     return queryObjects({position - expand, position + expand}, W8_OCTREE_KIND_LOCATION, -1);
 }
 
@@ -3165,12 +3134,12 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
                 float jitter_column;
                 if (found == 0) {
                     jitter_ring = 0.0f;
-                    jitter_column = g_float_zero;
+                    jitter_column = 0.0f;
                 } else {
-                    jitter_ring = Random(1000) * g_scatter_outer_ring_jitter_scale -
-                                  g_generator_jitter_fraction;
-                    jitter_column = Random(1000) * g_scatter_outer_ring_jitter_scale -
-                                    g_generator_jitter_fraction;
+                    jitter_ring =
+                        Random(1000) * kScatterOuterRingJitterScale - g_generator_jitter_fraction;
+                    jitter_column =
+                        Random(1000) * kScatterOuterRingJitterScale - g_generator_jitter_fraction;
                 }
                 const auto probe =
                     grid.candidate(source, {ring + jitter_ring, jitter_column + *column_offset});
@@ -3182,7 +3151,7 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
                             goto accept;
                         }
                     } else {
-                        float reach = spacing * g_float_half;
+                        float reach = spacing * 0.5f;
                         if (pathing->TestPathCellClearance(&candidate, reach, false)) {
                             glm::vec3 navigator = g_startup_world->GetPosition();
                             const auto delta = navigator - candidate;
@@ -3235,10 +3204,10 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
     std::vector<w8_ulong> candidates;
     float camera_radius = g_startup_world->movement.alternate_radius;
     bool placed = false;
-    float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * g_float_half + camera_radius;
+    float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * 0.5f + camera_radius;
     float angle = NormalizeAngle(yaw + g_monster_rotation_offset);
     const wiz8::placement::Grid grid(angle, radius);
-    source.y += g_world_scale;
+    source.y += kWorldScale;
     if (const auto settled =
             wiz8::placement::grounded(source, probeGround(source).position.y, settle_any_height))
         source = *settled;
@@ -3273,12 +3242,10 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
                             float jitter_j;
                             if (found == 0) {
                                 jitter_i = 0.0f;
-                                jitter_j = g_float_zero;
+                                jitter_j = 0.0f;
                             } else {
-                                jitter_i = Random(1000) * g_scatter_inner_ring_jitter_scale -
-                                           g_float_one_tenth;
-                                jitter_j = Random(1000) * g_scatter_inner_ring_jitter_scale -
-                                           g_float_one_tenth;
+                                jitter_i = Random(1000) * kScatterInnerRingJitterScale - 0.1f;
+                                jitter_j = Random(1000) * kScatterInnerRingJitterScale - 0.1f;
                             }
                             const auto probe = grid.candidate(source, {i + jitter_i, jitter_j + j});
                             if (const auto settled = wiz8::placement::grounded(
@@ -3288,8 +3255,8 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
                                 if (!first_only) {
                                     clear = pathing->SnapWaypointPosition(&candidate, false);
                                 } else {
-                                    clear = pathing->TestPathCellClearance(
-                                        &candidate, radius * g_float_half, false);
+                                    clear = pathing->TestPathCellClearance(&candidate,
+                                                                           radius * 0.5f, false);
                                 }
                                 if (clear != 0 && (!avoid_triggers ||
                                                    !InsideDestinationTrigger(
@@ -3300,7 +3267,7 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
                                         if (glm::dot(delta, delta) < separation * separation) {
                                             goto next_cell;
                                         }
-                                        if (OverlapsNearbyMonster(candidate, radius * g_float_half,
+                                        if (OverlapsNearbyMonster(candidate, radius * 0.5f,
                                                                   candidates, true))
                                             goto next_cell;
                                     }
@@ -3364,17 +3331,6 @@ void OctreeMeshLinks::write(wiz8::File& file, std::size_t mesh_count) const
     file.write(records.data(), records.size() * sizeof(unsigned short));
 }
 
-// GLOBAL: WIZ8 0x005ebc28
-const float g_float_five = 5.0f;
-// GLOBAL: WIZ8 0x005ebc70
-const double g_double_one_ten_thousandth = 0.0001;
-// GLOBAL: WIZ8 0x005ebc90
-const float g_float_one_ten_thousandth = 9.999999747378752e-05f;
-// GLOBAL: WIZ8 0x005ec410
-const float g_float_one_third = 0.3333333432674408f;
-// GLOBAL: WIZ8 0x005ec414
-const float g_region_axis_alignment_threshold = 0.9998999834060669f;
-
 W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)
 {
     Reset();
@@ -3383,7 +3339,7 @@ W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)
         m_bounds = source->m_bounds;
         m_clipped_bounds = source->m_clipped_bounds;
         if (source->m_level_kind == 1) {
-            m_extent = source->m_extent * g_float_half;
+            m_extent = source->m_extent * 0.5f;
             m_depth = source->m_depth + 1;
         } else {
             m_extent = source->m_extent;
@@ -3443,10 +3399,10 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
         return false;
 
     const bool nearAxis = glm::any(
-        glm::greaterThan(glm::abs(normal), glm::vec3(g_region_axis_alignment_threshold)) &&
+        glm::greaterThan(glm::abs(normal), glm::vec3(kRegionAxisAlignmentThreshold)) &&
         glm::greaterThanEqual(vertices[0], minimum) && glm::lessThanEqual(vertices[0], maximum));
     if (!nearAxis) {
-        const auto centroid = (vertices[0] + vertices[1] + vertices[2]) * g_float_one_third;
+        const auto centroid = (vertices[0] + vertices[1] + vertices[2]) * 0.33333334f;
         // The two support corners give the extrema formerly found by scanning eight corners.
         const auto positive = glm::greaterThanEqual(normal, glm::vec3(0));
         const auto nearest = glm::mix(maximum, minimum, positive);
@@ -3468,10 +3424,10 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
             float face = side == 0 ? minimum[face_axis] : maximum[face_axis];
 
             for (short edge = 0; edge < 3; ++edge) {
-                if (static_cast<float>(g_double_one_ten_thousandth) <
+                if (static_cast<float>(0.0001) <
                     static_cast<float>(fabs(edge_delta[edge][face_axis]))) {
                     float amount = (face - vertices[edge][face_axis]) / edge_delta[edge][face_axis];
-                    if (g_float_zero <= amount && amount <= g_float_one) {
+                    if (0.0f <= amount && amount <= 1.0f) {
                         const auto crossing = vertices[edge] + amount * edge_delta[edge];
                         const float first = crossing[first_axis];
                         const float second = crossing[second_axis];
@@ -3492,14 +3448,14 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
                 const auto delta = intersection[1] - intersection[0];
                 short rectangle_axes[2] = {first_axis, second_axis};
                 for (short coordinate = 0; coordinate < 2; ++coordinate) {
-                    if (g_float_one_ten_thousandth < static_cast<float>(fabs(delta[coordinate]))) {
+                    if (0.0001f < static_cast<float>(fabs(delta[coordinate]))) {
                         short other = coordinate == 0 ? 1 : 0;
                         for (short edge_side = 0; edge_side < 2; ++edge_side) {
                             float boundary = edge_side == 0 ? minimum[rectangle_axes[coordinate]]
                                                             : maximum[rectangle_axes[coordinate]];
                             float amount =
                                 (boundary - intersection[0][coordinate]) / delta[coordinate];
-                            if (g_float_zero <= amount && amount <= g_float_one) {
+                            if (0.0f <= amount && amount <= 1.0f) {
                                 float crossing = intersection[0][other] + amount * delta[other];
                                 if (minimum[rectangle_axes[other]] <= crossing &&
                                     crossing <= maximum[rectangle_axes[other]]) {

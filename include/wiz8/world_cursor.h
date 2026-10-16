@@ -20,7 +20,7 @@ struct W8WorldCursorState {
     bool group_bind_pending;
     unsigned char padding_0a[2];
     /* 0x0c: accumulated cursor input - screen dx, right-drag dy and screen
-       dy - scaled by g_float_ten into the movement vector each update,
+       dy - scaled by 1e+01f into the movement vector each update,
        then cleared. The group-bind paths also bump .z. */
     glm::ivec3 input_delta;
     /* 0x18: camera-relative offset the placement update derives from

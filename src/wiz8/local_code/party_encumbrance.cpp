@@ -6,7 +6,7 @@
 #include "layouts/main_game_screen.h"
 #include "load_category.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -23,6 +23,8 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/xstatus.h"
+
+constexpr int kCampOverloadEventId = 8;
 
 /* Party encumbrance redistribution. Live query: 0x004ED9D0 is a gap between
    Local Code\Combat.cpp (upper 0x004ED390) and Local Code\GameplayCode.cpp
@@ -145,12 +147,12 @@ bool RecalculateCarriedWeight(W8Character* character)
     }
     if (previous < character->carrying_capacity &&
         character->carrying_capacity < character->inventory_weight) {
-        int effect = g_camp_overload_event_id;
+        int effect = kCampOverloadEventId;
         if (g_current_screen_state.id != W8_SCREEN_CAMP) {
             effect = g_special_event13;
         }
-        QueueCharacterEvent(character, effect, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, effect, 0, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
     }
     return previous != character->inventory_weight;
 }

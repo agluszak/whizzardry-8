@@ -16,7 +16,6 @@
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
@@ -61,7 +60,7 @@ void W8CharacterSummaryDialog::CreateQuoteText()
     W8ControlsRect bounds{offset.left + m_x, offset.top + m_y, offset.right + m_x,
                           offset.bottom + m_y};
     m_quote_text = std::make_unique<W8TextBuffer>(
-        &bounds, GetCharacterQuoteText(*m_character, g_effect0), g_wiz_text_font_secondary,
+        &bounds, GetCharacterQuoteText(*m_character, 0), g_wiz_text_font_secondary,
         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 }
 
@@ -114,14 +113,14 @@ bool W8CharacterSummaryDialog::ProcessInput()
     BeginModalInput();
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
-        const auto path = GetCharacterVoicePath(*m_character, g_effect0);
+        const auto path = GetCharacterVoicePath(*m_character, 0);
         m_voice = wiz8::sound::play(path, {.volume = g_settings.voice_volume & 0xffu});
         m_mouth_gap = LoadMouthGapTrack(path);
         m_portrait.voice_remaining_ms =
             wiz8::sound::playback_time(m_voice)
                 .value_or(wiz8::sound::PlaybackTime{
-                    static_cast<unsigned int>(ComputePortraitMessageDuration(
-                        GetCharacterQuoteText(*m_character, g_effect0))),
+                    static_cast<unsigned int>(
+                        ComputePortraitMessageDuration(GetCharacterQuoteText(*m_character, 0))),
                     0})
                 .total_ms;
         m_portrait.frame = 7;

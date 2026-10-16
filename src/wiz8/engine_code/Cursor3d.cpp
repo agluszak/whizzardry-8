@@ -42,7 +42,7 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -51,6 +51,12 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
+
+constexpr float kCursorGroundHeightSentinel = -10000000.0f;
+constexpr float kCursorGroundProbeLift = 25.0f;
+constexpr float kCursorGroundStepThreshold = 83.333335876464844f;
+constexpr double kCursorProbeShrinkScale = 0.97;
+constexpr float kCursorSightProbeHeight = 750.0f;
 
 #define CURSOR3D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Cursor3d.cpp"
 
@@ -79,27 +85,6 @@ static int g_cursor_saved_group_id = -1;
 
 // GLOBAL: WIZ8 0x0060ab48
 static float g_cursor_projection_distance = 4000.0f;
-
-// GLOBAL: WIZ8 0x005ebc88
-const float g_float_ten = 10.0f;
-
-// GLOBAL: WIZ8 0x005ecb08
-const float g_cursor_sight_probe_height = 750.0f;
-
-// GLOBAL: WIZ8 0x005ecb20
-const float g_cursor_ground_height_sentinel = -10000000.0f;
-
-// GLOBAL: WIZ8 0x005ec8d8
-const double g_double_fifteen_and_five_eighths = 15.625;
-
-// GLOBAL: WIZ8 0x005ecb18
-const double g_cursor_probe_shrink_scale = 0.97;
-
-// GLOBAL: WIZ8 0x005ecb10
-const float g_cursor_ground_probe_lift = 25.0f;
-
-// GLOBAL: WIZ8 0x005ecb0c
-const float g_cursor_ground_step_threshold = 83.333335876464844f;
 
 /* Build the world cursor on demand: allocate and clear the state block, load
    the 3DCursor monster cycle into it, create its tracking light and seed the
@@ -349,9 +334,8 @@ void ApplyWorldCursorInput(void)
     if (!gp3DCursor->enabled) {
         srAssertFail("gp3DCursor->fEnabled", CURSOR3D_CPP, 0x189, 0);
     }
-    delta =
-        glm::vec3(gp3DCursor->input_delta.x * g_float_ten, gp3DCursor->input_delta.y * g_float_ten,
-                  gp3DCursor->input_delta.z * g_float_ten);
+    delta = glm::vec3(gp3DCursor->input_delta.x * 1e+01f, gp3DCursor->input_delta.y * 1e+01f,
+                      gp3DCursor->input_delta.z * 1e+01f);
     gp3DCursor->input_delta.x = 0;
     gp3DCursor->input_delta.y = 0;
     gp3DCursor->input_delta.z = 0;
@@ -369,8 +353,8 @@ void ApplyWorldCursorInput(void)
         }
     }
     if (!gp3DCursor->detached) {
-        lifted = glm::vec3(delta.x, delta.y + g_float_one_thousand, delta.z);
-        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < glm::length(lifted)) {
+        lifted = glm::vec3(delta.x, delta.y + 1e+03f, delta.z);
+        if (gp3DCursor->range > 0.0f && gp3DCursor->range < glm::length(lifted)) {
             delta = glm::dot(delta, delta) == 0
                         ? delta
                         : glm::normalize(delta) * static_cast<float>(gp3DCursor->range);
@@ -396,7 +380,7 @@ void ApplyWorldCursorInput(void)
         rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
         delta = rotation * delta;
         delta += gp3DCursor->position;
-        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < glm::length((camera - delta))) {
+        if (gp3DCursor->range > 0.0f && gp3DCursor->range < glm::length((camera - delta))) {
             clamped = delta - camera;
             clamped = glm::dot(clamped, clamped) == 0
                           ? clamped
@@ -509,20 +493,16 @@ void ResetWorldCursorRange(void)
     g_cursor_projection_distance = 4000.0f;
 }
 
-/* 0x005EC260: hard ceiling for SetWorldCursorRange. */
-// GLOBAL: WIZ8 0x005ec260
-const float g_float_fifty_thousand = 50000.0f;
-
 /* Install an action-range distance into the live cursor: subtract
-   g_float_two_thousand / distance * world_scale, clamp to 50000, write range,
+   2e+03f / distance * world_scale, clamp to 50000, write range,
    and force last_published to the -1e8 republish sentinel. */
 // FUNCTION: WIZ8 0x00491650
 void SetWorldCursorRange(float distance)
 {
     if (gp3DCursor != 0) {
-        distance = distance - (g_float_two_thousand / distance) * g_world_scale;
-        if (distance >= g_float_fifty_thousand) {
-            distance = g_float_fifty_thousand;
+        distance = distance - (2e+03f / distance) * kWorldScale;
+        if (distance >= 5e+04f) {
+            distance = 5e+04f;
         }
         gp3DCursor->range = distance;
         gp3DCursor->last_published = glm::vec3(-100000000.0f);
@@ -634,7 +614,7 @@ void UpdateWorldCursor(void)
     }
     if (!(old_position == position)) {
         if (gp3DCursor->detached) {
-            position.y += g_cursor_sight_probe_height;
+            position.y += kCursorSightProbeHeight;
             PointCameraAtTarget(&position, true, false);
         }
         if (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
@@ -666,15 +646,15 @@ char MarchWorldCursorTarget(glm::vec3* target)
     trace_from = *target + gp3DCursor->probe_center;
     origin = gp3DCursor->position;
     dist = glm::length((*target - origin));
-    if (dist == g_double_zero) {
+    if (dist == 0.0) {
         return 0;
     }
     last_valid = gp3DCursor->position;
     step = 0.0;
-    if (g_double_zero < dist) {
+    if (0.0 < dist) {
         do {
             lower_count = 0;
-            step += g_double_fifteen_and_five_eighths;
+            step += 15.625;
             upper_found = false;
             upper_best = -1e+10f;
             lower_best = -1e+10f;
@@ -690,7 +670,7 @@ char MarchWorldCursorTarget(glm::vec3* target)
             end_pos = step_pos;
             for (i = 4; i < 8; i++) {
                 probe = gp3DCursor->probe_offsets[i];
-                probe *= g_cursor_probe_shrink_scale;
+                probe *= kCursorProbeShrinkScale;
                 probe += step_pos;
                 const auto ground_probe = g_octree->settleToGround(probe, 1, 500.0f);
                 probe = ground_probe.position;
@@ -702,18 +682,18 @@ char MarchWorldCursorTarget(glm::vec3* target)
                             lower_best = ground;
                         }
                     }
-                } else if (ground - step_pos.y < g_float_one_thousand && upper_best < ground) {
+                } else if (ground - step_pos.y < 1e+03f && upper_best < ground) {
                     upper_found = true;
                     upper_best = ground;
                 }
             }
             if (gp3DCursor->track_ground) {
                 if (upper_found) {
-                    end_pos.y = upper_best + g_cursor_ground_probe_lift;
+                    end_pos.y = upper_best + kCursorGroundProbeLift;
                     target->y = end_pos.y;
                     origin.y = end_pos.y;
                 } else if (lower_count == 4) {
-                    end_pos.y = lower_best + g_cursor_ground_probe_lift;
+                    end_pos.y = lower_best + kCursorGroundProbeLift;
                     target->y = end_pos.y;
                     origin.y = end_pos.y;
                 }
@@ -730,7 +710,7 @@ char MarchWorldCursorTarget(glm::vec3* target)
         } while (step < dist);
     }
     *target = last_valid;
-    if (target->y - lower_best < g_cursor_ground_step_threshold) {
+    if (target->y - lower_best < kCursorGroundStepThreshold) {
         gp3DCursor->track_ground = true;
     }
     return 0;
@@ -759,7 +739,7 @@ void UpdateWorldCursorPlacement(void)
         if (!cursor->detached) {
             cursor->cam_rel_offset -= camera;
         }
-        target.y += g_cursor_sight_probe_height;
+        target.y += kCursorSightProbeHeight;
         PointCameraAtTarget(&target, true, false);
     } else {
         cursor->position = target;
@@ -788,7 +768,7 @@ void SetWorldCursorExtents(const glm::vec3* minimum, const glm::vec3* maximum)
 int ResolveWorldCursorTarget(glm::vec3* position)
 {
     W8WorldCursorState* cursor = gp3DCursor;
-    float best = g_cursor_ground_height_sentinel;
+    float best = kCursorGroundHeightSentinel;
 
     if (cursor == 0) {
         (*position) = glm::vec3(0);
@@ -823,10 +803,10 @@ int ResolveWorldCursorTarget(glm::vec3* position)
     }
     if (cursor->footprint_mode &&
         static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
-        position->y = best + g_float_one_thousand;
+        position->y = best + 1e+03f;
         return 0;
     }
-    position->y = best + g_float_one_thousand;
+    position->y = best + 1e+03f;
     return 1;
 }
 

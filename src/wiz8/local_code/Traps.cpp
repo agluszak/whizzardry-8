@@ -31,7 +31,7 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/Strings.h"
@@ -269,7 +269,7 @@ void CompleteTrapDisarm(Trigger* trigger)
     trigger->CompleteItemInteraction();
     type = trigger->lock_state.device_id;
     if (Random(100) < 40) {
-        ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0, g_character_event_no_flags);
+        ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0, kCharacterEventNoFlags);
     }
     text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]],
                        g_localized_strings[0x7b2]);

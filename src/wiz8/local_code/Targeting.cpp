@@ -34,7 +34,7 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -961,7 +961,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
         return false;
     }
     if (sight_probe) {
-        point.y += g_float_one_thousand;
+        point.y += 1e+03f;
     }
     target->point = point;
     return true;
@@ -1283,7 +1283,7 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
 {
     unsigned int index;
 
-    if (radius == g_float_zero) {
+    if (radius == 0.0f) {
         return;
     }
 
@@ -1810,8 +1810,8 @@ void RefreshSpellTargetHighlightsAtRange(void)
             glm::vec4 channels;
 
             channels = monster->m_pRep->highlight_colour;
-            if (channels.x != g_float_zero || channels.y != g_float_zero ||
-                channels.z != g_float_zero || channels.w != g_float_zero) {
+            if (channels.x != 0.0f || channels.y != 0.0f || channels.z != 0.0f ||
+                channels.w != 0.0f) {
                 glm::vec4 block;
                 block = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
                 MonsterSetHighlightColour(monster, block);
@@ -2794,7 +2794,7 @@ bool AnyMonsterVisible(void)
     int count;
     int index;
 
-    limit = static_cast<float>(WorldGetFarClip(GetWorld())) * g_float_one_and_a_half;
+    limit = static_cast<float>(WorldGetFarClip(GetWorld())) * 1.5f;
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
@@ -3017,11 +3017,11 @@ bool TargetInRangeAndArcs(const glm::vec3* target, float bonus, const glm::vec3*
         static_cast<float>(floor(sqrt(dx * dx + dy * dy + dz * dz) - bonus - eye_radius));
     if (GetGroundTargetRange() >= excess) {
         float angle = GetHeadingAngle(eye, target);
-        if (NormalizeAngle(heading - angle) < g_targeting_quarter_pi ||
-            NormalizeAngle(angle - heading) < g_targeting_quarter_pi) {
+        if (NormalizeAngle(heading - angle) < kTargetingQuarterPi ||
+            NormalizeAngle(angle - heading) < kTargetingQuarterPi) {
             angle = GetElevationAngle(eye, target);
-            if (NormalizeAngle(elevation - angle) < g_targeting_quarter_pi ||
-                NormalizeAngle(angle - elevation) < g_targeting_quarter_pi) {
+            if (NormalizeAngle(elevation - angle) < kTargetingQuarterPi ||
+                NormalizeAngle(angle - elevation) < kTargetingQuarterPi) {
                 return true;
             }
         }

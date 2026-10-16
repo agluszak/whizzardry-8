@@ -63,7 +63,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -1526,7 +1525,7 @@ void ProcessMainGameAutoSave(void)
 {
     if ((g_settings.auto_save == 0 && !g_status.iron_man) || !CanAutoSaveNow()) return;
     if (!gXStatus.save_notice_shown) {
-        if (gXStatus.gameplay_timer->GetProgress() <= g_float_one) return;
+        if (gXStatus.gameplay_timer->GetProgress() <= 1.0f) return;
         gXStatus.save_notice_shown = true;
         ShowMainGameNotice(W8_STRING_AUTOSAVE_STARTING);
         gXStatus.gameplay_timer->Restart();

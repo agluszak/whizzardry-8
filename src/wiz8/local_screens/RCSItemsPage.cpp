@@ -38,7 +38,7 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -60,6 +60,8 @@
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
+
+constexpr int kInfoDialogY = 0x61;
 
 /* Retail Local Screens\RCSItemsPage.cpp - the items page of the camp
    review screen: page-mode toggling, the item-info/split/stat dialogs,
@@ -165,9 +167,9 @@ void OpenItemInfoDialog(W8ItemInstance* item)
 
     if (!IsItemWornByCharacter(g_review_character, item) &&
         !IsItemCarriedByCharacter(g_review_character, item)) {
-        dialog = new W8AssayDialog(item, 0, {g_info_dialog_x, g_info_dialog_y});
+        dialog = new W8AssayDialog(item, 0, {kInfoDialogX, kInfoDialogY});
     } else {
-        dialog = new W8AssayDialog(item, g_review_character, {g_info_dialog_x, g_info_dialog_y});
+        dialog = new W8AssayDialog(item, g_review_character, {kInfoDialogX, kInfoDialogY});
     }
     dialog->SetText("");
 
@@ -290,8 +292,8 @@ void OpenSplitStackDialog(W8ItemInstance* item)
         (g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
         g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         g_split_item_source = item;
-        dialog = new W8SplitItemDialog(g_item_split_inventory_mode, item, -1,
-                                       {g_split_dialog_x, g_split_dialog_y});
+        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_INVENTORY, item, -1,
+                                       {kSplitDialogX, kSplitDialogY});
         dialog->SetText("");
 
         dialog->on_complete = SplitStackDialogResult;
@@ -393,9 +395,8 @@ void UseHeldItemOnItem(W8ItemInstance* item)
             if (CommitPartySlotSpell(giCasterCharSlot, W8_SPELL_IDENTIFY_ITEM, 8, &target) == 1) {
                 OpenItemInfoDialog(item);
                 if (!item->identified) {
-                    QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot,
-                                        g_character_event_kind2, 0, g_character_event_no_flags,
-                                        g_character_event_full_volume);
+                    QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, 0x35, 0,
+                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
                 }
             }
             RebuildCampItemList();
@@ -404,8 +405,8 @@ void UseHeldItemOnItem(W8ItemInstance* item)
             giCasterCharSlot = -1;
             return;
         }
-        QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, g_character_event_kind2, 0,
-                            g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, 0x35, 0,
+                            kCharacterEventNoFlags, kCharacterEventFullVolume);
     }
 }
 

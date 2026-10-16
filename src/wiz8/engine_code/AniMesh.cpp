@@ -22,20 +22,8 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
-
-/* VC6 places `float x = 0.0f` in .bss; retail keeps this slot in initialized
-   .data next to g_float_one. Const storage lands in .rdata with physical
-   zeros so datacmp agrees. */
-// GLOBAL: WIZ8 0x005ebb34
-const float g_float_zero = 0.0f;
 
 #define ANI_MESH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AniMesh.cpp"
-
-// GLOBAL: WIZ8 0x005ebe80
-const double g_double_half = 0.5;
-// GLOBAL: WIZ8 0x005ebb40
-extern const double g_double_zero = 0.0;
 
 /* AniMesh cache: a generation stamp, the loaded-byte total, the 16 MiB primary
    limit, the unused 1 MiB secondary limit the initializer still writes, and
@@ -127,9 +115,9 @@ bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all)
 float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
 {
     auto* instance = GetAniMeshFrame(mesh, frame);
-    if (!instance || !instance->getModel()) return g_float_zero;
+    if (!instance || !instance->getModel()) return 0.0f;
     const auto bounds = instance->getModel()->getBounds().box;
-    return static_cast<float>(glm::distance(bounds.minimum, bounds.maximum) * g_double_half);
+    return static_cast<float>(glm::distance(bounds.minimum, bounds.maximum) * 0.5);
 }
 
 // FUNCTION: WIZ8 0x004b5d00

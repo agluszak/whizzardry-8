@@ -30,8 +30,8 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -743,11 +743,11 @@ void W8AssayDialog::CreateTextBuffers()
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         item->stack_count > 1) {
         unsigned int unit_weight = GetItemUnitWeight(item);
-        text = fmt::format("{:.1f} ({:.1f} {})",
-                           GetItemStackWeight(m_item) * g_item_weight_display_scale,
-                           unit_weight * g_item_weight_display_scale, g_localized_strings[0x117]);
+        text =
+            fmt::format("{:.1f} ({:.1f} {})", GetItemStackWeight(m_item) * kItemWeightDisplayScale,
+                        unit_weight * kItemWeightDisplayScale, g_localized_strings[0x117]);
     } else {
-        text = fmt::format("{:.1f}", GetItemUnitWeight(item) * g_item_weight_display_scale);
+        text = fmt::format("{:.1f}", GetItemUnitWeight(item) * kItemWeightDisplayScale);
     }
     m_text_buffers[4]->SetText(text, g_wiz_text_font_secondary);
 }

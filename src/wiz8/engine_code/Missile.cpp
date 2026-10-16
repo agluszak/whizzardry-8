@@ -48,7 +48,7 @@
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -65,6 +65,10 @@
 #include "wiz8/text_line.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
+
+constexpr float kCharacterProjectileHeight = 81.25f;
+constexpr float kCharacterProjectileHeightStep = 32.5f;
+constexpr double kMissileGravityAcceleration = 0.009800000000000001;
 
 #define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
 
@@ -203,13 +207,13 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
         float dz;
 
         record->fall_speed =
-            record->fall_speed - steps * static_cast<float>(g_missile_gravity_acceleration);
+            record->fall_speed - steps * static_cast<float>(kMissileGravityAcceleration);
         position = record->missile->GetPosition();
         if (out->y != position.y) {
             dx = representation->location.x - out->x;
             dy = representation->location.y - out->y;
             dz = representation->location.z - out->z;
-            if (sqrtf(dx * dx + dy * dy + dz * dz) != g_float_zero) {
+            if (sqrtf(dx * dx + dy * dy + dz * dz) != 0.0f) {
                 pitch = GetElevationAngle(&representation->location, out);
                 yaw = GetHeadingAngle(&representation->location, out);
                 missile = record->missile;
@@ -224,13 +228,6 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
     }
     return advance;
 }
-
-// GLOBAL: WIZ8 0x005ece50
-const double g_missile_gravity_acceleration = 0.009800000000000001;
-// GLOBAL: WIZ8 0x005ece58
-const float g_character_projectile_height = 81.25f;
-// GLOBAL: WIZ8 0x005ece5c
-const float g_character_projectile_height_step = 32.5f;
 
 // GLOBAL: WIZ8 0x0065bde0
 W8MissileTableRecord* g_missile_table;
@@ -306,10 +303,9 @@ bool W8Missile::BlocksEndingCombat()
 void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position)
 {
     glm::vec3 camera = cameraLocation();
-    const glm::vec3 offset((character_index & 1) ? -75.0f : 75.0f,
-                           g_character_projectile_height -
-                               character_index * g_float_half * g_character_projectile_height_step,
-                           0);
+    const glm::vec3 offset(
+        (character_index & 1) ? -75.0f : 75.0f,
+        kCharacterProjectileHeight - character_index * 0.5f * kCharacterProjectileHeightStep, 0);
     const auto yaw = GetCameraYawRadians() - g_monster_rotation_offset;
     const auto pitch = -GetCameraPitchRadians();
     *position = camera + glm::rotateY(glm::rotateX(offset, pitch), yaw);
@@ -557,7 +553,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                                 }
                                 cycle = missileCycleIndex(pacName);
                                 ShakeDefinition effect(duration, true, intensity,
-                                                       seconds * g_world_scale, 0);
+                                                       seconds * kWorldScale, 0);
                                 effect.cycle = cycle;
                                 effect.frame = frame;
                                 effect.subcycle = 0;
@@ -610,7 +606,7 @@ close_file:
         (*ppMissile)->align_camera = align_camera;
         (*ppMissile)->explode_ground = explode_ground;
         (*ppMissile)->align_explosion = align_explosion;
-        (*ppMissile)->lifetime = velocity * g_world_scale;
+        (*ppMissile)->lifetime = velocity * kWorldScale;
     }
     if (loaded) {
         RegisterGrCycle(name, *ppMissile);
@@ -663,22 +659,22 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
             if (octree->TraceLineOfSight(source, &end, false, -3, -3, true, 0) != 0) {
                 end -= *source;
                 limit = glm::length(end);
-                if (limit < g_float_one) {
+                if (limit < 1.0f) {
                     limit = 1.0f;
                 }
             }
         }
-        if (flight_speed == g_float_zero) {
+        if (flight_speed == 0.0f) {
             flight_speed = missile->lifetime;
         }
         ai = new W8AIMissile{};
-        ai->speed_per_step = flight_speed * g_float_one_thousandth;
+        ai->speed_per_step = flight_speed * 0.001f;
         ai->gravity = missile->gravity;
         ai->limit = limit;
         ai->last_half_tick = GameClockMilliseconds() >> 1;
         ai->missile = missile;
         missile->m_pAI.reset(ai);
-        ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * g_float_one_thousandth);
+        ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * 0.001f);
         ai->limit = limit;
         missile->trace_mask = trace_mask;
         missile->duration = duration;

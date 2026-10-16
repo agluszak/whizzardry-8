@@ -5,7 +5,6 @@
 #include "surrender/srCamera.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -51,9 +50,9 @@ bool OnRoachTriggerActivated(Trigger* trigger)
     if (!FindEntityByName("location_roach03", &positions[2], 0, 0)) {
         return false;
     }
-    positions[0].z += g_float_one_thousand;
-    positions[1].z += g_float_one_thousand;
-    positions[2].z += g_float_one_thousand;
+    positions[0].z += 1e+03f;
+    positions[1].z += 1e+03f;
+    positions[2].z += 1e+03f;
     SpawnMonsters(0x138, 3, &positions[0], 1, false, false, false);
     SpawnMonsters(0x138, 3, &positions[1], 1, false, false, false);
     SpawnMonsters(0x138, 3, &positions[2], 1, false, false, false);

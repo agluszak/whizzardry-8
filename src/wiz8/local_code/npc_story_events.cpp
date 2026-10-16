@@ -27,7 +27,7 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -209,8 +209,8 @@ void EndScriptedPortraitPick(int party_slot)
     character = &g_status.buffers.Char[party_slot];
     if (character->gender == W8_GENDER_FEMALE && other_gender_present) {
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 1, false);
-        QueueCharacterEvent(character, g_effect29, g_character_event_no_npc_defer,
-                            g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
         return;
     }
     if (g_status.buffers.XChar[party_slot].npc_index == -1 &&
@@ -223,8 +223,8 @@ void EndScriptedPortraitPick(int party_slot)
             g_status.sedexus_party_slot = party_slot;
             g_status.rpc_active = true;
             g_status.infatuation_pending = true;
-            QueueCharacterEvent(character, g_special_event2, 0, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(character, g_special_event2, 0, kCharacterEventNoFlags,
+                                kCharacterEventFullVolume);
         } else {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 1, false);
         }
@@ -290,8 +290,8 @@ void UpdateSedexusScene(void)
         }
         W8Character* character = &g_status.buffers.Char[sedexus_party_slot];
         if (character->gender == W8_GENDER_MALE) {
-            QueueCharacterEvent(character, g_effect29, 0, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(character, 43, 0, kCharacterEventNoFlags,
+                                kCharacterEventFullVolume);
         }
         g_sedexus_scene.capture_active = false;
         if (g_sedexus_scene.moaning != nullptr) {
@@ -497,8 +497,8 @@ void RunNpcStoryAction(W8NpcStoryAction action)
                 if (g_status.buffers.XChar[party_slot].fOccupied &&
                     character->iRace == W8_RACE_MOOK &&
                     character->highest_condition < W8_CONDITION_ASLEEP) {
-                    QueueCharacterEvent(character, g_effect31, g_character_event_no_npc_defer,
-                                        g_character_event_no_flags, g_character_event_full_volume);
+                    QueueCharacterEvent(character, 51, kCharacterEventNoNpcDefer,
+                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
                     break;
                 }
             }

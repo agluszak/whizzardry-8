@@ -23,8 +23,7 @@
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -62,6 +61,8 @@
 #include "wiz8/save_game.h"
 #include "wiz8/string_database.h"
 
+constexpr float kSoundNodeFullVolume = 127.0f;
+
 /* The world-cursor node the party is standing in, tracked across the
    command-0 sweep so enter/leave commands fire once per crossing. */
 // GLOBAL: WIZ8 0x006834d4
@@ -71,11 +72,6 @@ static W8WorldCursorNode* g_active_cursor_node;
 std::vector<W8MasterFunction> g_master_functions;
 // GLOBAL: WIZ8 0x006834dc
 bool g_remove_current_master_function;
-
-/* SGP full-volume scale: CreateAndPlaySoundNode multiplies its clamped
-   loudness fraction by this to get the node's base volume. */
-// GLOBAL: WIZ8 0x005EC510
-const float g_sound_node_full_volume = 127.0f;
 
 /* Run every registered master function once with argument zero, dropping the
    ones that set the removal flag while it runs. */
@@ -137,16 +133,16 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
 stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
                                   float scale, bool play_flag)
 {
-    if (volume > g_float_one) {
+    if (volume > 1.0f) {
         volume = 1.0f;
-    } else if (volume < g_float_zero) {
+    } else if (volume < 0.0f) {
         return 0;
     }
 
     auto sound = std::make_unique<stSound3D>(sound_name, nullptr);
     sound->setLocation(glm::dvec3(position));
-    sound->volume = static_cast<int>(volume * g_sound_node_full_volume);
-    sound->falloff = scale * g_world_scale;
+    sound->volume = static_cast<int>(volume * kSoundNodeFullVolume);
+    sound->falloff = scale * kWorldScale;
     sound->Play(play_flag);
     return Retain3DSound(std::move(sound));
 }
@@ -230,7 +226,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
     } else {
         position = info->p3D->GetPosition();
     }
-    position.y = probeGround(position).position.y + g_float_one_hundred_twenty_five;
+    position.y = probeGround(position).position.y + 125.0f;
     node = FindWorldCursorNodeAtPoint(0, &position);
     if (command == 4) {
         context = va_arg(arguments, int);
@@ -405,8 +401,7 @@ static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNo
                                                     int context)
 {
     if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0,
-                                         g_character_event_no_flags);
+        ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0, kCharacterEventNoFlags);
     }
     return 1;
 }
@@ -422,8 +417,8 @@ static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCurso
     if (command == 1 && g_status.rpc_active) {
         character = g_status.buffers.Char + g_status.sedexus_party_slot;
         if (character->gender == W8_GENDER_MALE) {
-            QueueCharacterEvent(character, g_character_event_kind1, 0, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(character, g_character_event_kind1, 0, kCharacterEventNoFlags,
+                                kCharacterEventFullVolume);
         }
     }
     return 1;
@@ -449,7 +444,7 @@ static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* n
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                     ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0,
-                                                     g_character_event_no_flags);
+                                                     kCharacterEventNoFlags);
                     CreateLocationVar("AP_SeenBodies", 1);
                     if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
@@ -471,8 +466,7 @@ static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCur
                                                          int context)
 {
     if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0,
-                                         g_character_event_no_flags);
+        ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0, kCharacterEventNoFlags);
     }
     return 1;
 }
@@ -566,7 +560,7 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
             slot = PickRandomPartySpeaker(event_type, 0xff);
             if (slot != -1) {
                 QueueCharacterEvent(g_status.buffers.Char + slot, event_type, 0,
-                                    g_character_event_no_flags, g_character_event_full_volume);
+                                    kCharacterEventNoFlags, kCharacterEventFullVolume);
             }
         }
     }

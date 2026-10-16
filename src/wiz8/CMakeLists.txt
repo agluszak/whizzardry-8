@@ -201,7 +201,6 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/Traps.cpp
     local_code/Gameloop.cpp
     game_init.cpp
-    integer_constants.cpp
     dialog_code/MonsterInfoDialog.cpp
     dialog_code/AssayDialog.cpp
     dialog_code/DialogTextArea.cpp

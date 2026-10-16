@@ -38,7 +38,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
@@ -91,8 +90,8 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     count = pipe.getVertexCount();
 
     for (index = 0; index < count; ++index) {
-        coordinates[index] = glm::vec2((normals[index].x + g_float_one) * g_float_half,
-                                       (normals[index].y + g_float_one) * g_float_half);
+        coordinates[index] =
+            glm::vec2((normals[index].x + 1.0f) * 0.5f, (normals[index].y + 1.0f) * 0.5f);
     }
 }
 

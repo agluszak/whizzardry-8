@@ -34,7 +34,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stCube.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
@@ -1096,7 +1095,7 @@ void HandleMonsterDebugKey(SDL_Keycode key)
         monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
         if (monster != 0) {
             scale = monster->GetCurrentAnimationScale();
-            monster->SetCurrentAnimationScale(scale * g_float_half);
+            monster->SetCurrentAnimationScale(scale * 0.5f);
             return;
         }
         break;
@@ -1217,7 +1216,7 @@ void AdjustMonsterSpeed(SDL_Keycode key)
         break;
     case SDLK_K:
         g_mipe_state->speed_step = g_mipe_state->speed_step - g_camera_transition_epsilon;
-        if (g_mipe_state->speed_step < static_cast<float>(g_double_one_thousandth)) {
+        if (g_mipe_state->speed_step < static_cast<float>(0.001)) {
             g_mipe_state->speed_step = 0.001f;
         }
         break;
@@ -1226,7 +1225,7 @@ void AdjustMonsterSpeed(SDL_Keycode key)
     }
     ShowMonsterSpeedStatus();
 speed_done:
-    if (path != 0 && path->speed < g_float_one_ten_thousandth) {
+    if (path != 0 && path->speed < 0.0001f) {
         path->speed = 0.0001f;
     }
 }

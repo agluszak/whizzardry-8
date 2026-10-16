@@ -38,7 +38,6 @@
 #include "surrender/triangle_selection.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/float_constants.h"
 
 class srMaterial;
 
@@ -260,8 +259,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 
                 software_polygons = facingPolygons(
                     mesh, arg_poly_equations, glm::vec3(renderer.getInverseModelViewMatrix()[3]),
-                    renderer.getWinding() == srGERD::WINDING_POSITIONAL_0,
-                    static_cast<float>(g_double_zero));
+                    renderer.getWinding() == srGERD::WINDING_POSITIONAL_0, static_cast<float>(0.0));
             } else {
                 renderer.setCullMode(srGERD::CULL_BACK);
             }
@@ -636,12 +634,12 @@ glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load, float 
     if (frame >= frames.size()) {
         return nullptr;
     }
-    if (g_float_zero < interpolation && frame + 1 < frames.size()) {
+    if (0.0f < interpolation && frame + 1 < frames.size()) {
         const auto* current = GetVertexLocations(frame, true, 0.0f);
         const auto* next = GetVertexLocations(frame + 1, true, 0.0f);
         lerp_buffer.resize(vertex_location_count);
         if (vertex_location_count != 0) {
-            if (interpolation == g_float_one) {
+            if (interpolation == 1.0f) {
                 std::copy_n(next, vertex_location_count, lerp_buffer.data());
             } else {
                 for (int i = 0; i < vertex_location_count; ++i)

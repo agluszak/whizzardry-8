@@ -16,7 +16,6 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -117,13 +116,13 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
     center =
         glm::vec3((pTrigger->representation_vectors[0].x + pTrigger->representation_vectors[1].x +
                    pTrigger->representation_vectors[2].x + pTrigger->representation_vectors[3].x) *
-                      g_double_quarter,
+                      0.25,
                   (pTrigger->representation_vectors[0].y + pTrigger->representation_vectors[1].y +
                    pTrigger->representation_vectors[2].y + pTrigger->representation_vectors[3].y) *
-                      g_double_quarter,
+                      0.25,
                   (pTrigger->representation_vectors[0].z + pTrigger->representation_vectors[1].z +
                    pTrigger->representation_vectors[2].z + pTrigger->representation_vectors[3].z) *
-                      g_double_quarter);
+                      0.25);
     position = center;
     group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
     index = group->MemberLocationId(0);

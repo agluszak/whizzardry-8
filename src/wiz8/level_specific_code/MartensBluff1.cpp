@@ -19,7 +19,7 @@
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -84,7 +84,7 @@ void MartensBluff1Setup(void)
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
-        if (glm::length((trigger_position - position)) < g_double_five_hundred) {
+        if (glm::length((trigger_position - position)) < 500.0) {
             FindTriggerByName("Lift2Marten2");
             if (GetLocationVarIDByName("LiftArrived") == -1) {
                 CreateLocationVar("LiftArrived", 1);
@@ -338,7 +338,7 @@ void MartensBluff1Transporter(int command)
             }
             if (GetLocationVarIDByName("TransportSpawn") != -1) {
                 g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") *
-                                              g_movement_speed_step);
+                                              kMovementSpeedStep);
             }
             g_master_functions.push_back(MartensBluff1Transporter);
             return;

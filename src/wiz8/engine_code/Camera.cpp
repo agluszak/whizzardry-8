@@ -17,7 +17,6 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -147,11 +146,6 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     }
 }
 
-/* The far distance at which the camera aims at a monster's lower height
-   offset rather than its head. */
-// GLOBAL: WIZ8 0x005EBCDC
-const float g_float_two_thousand = 2000.0f;
-
 /* Turn the camera to face a monster: when rotation tracking is off the
    monster's own combat target still drives it if that target is the selected
    character. Otherwise the force flag decides whether to orient at all, and
@@ -181,9 +175,8 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
     if (!monster->IsRenderable(true)) {
         return;
     }
-    if (monster->movement.height_offset - monster->movement.secondary_height_offset <
-            g_float_one_thousand ||
-        monster->GetDistanceToPlayer() > g_float_two_thousand) {
+    if (monster->movement.height_offset - monster->movement.secondary_height_offset < 1e+03f ||
+        monster->GetDistanceToPlayer() > 2e+03f) {
         position = monster->movement.position;
         position.y += monster->movement.secondary_height_offset;
     } else {

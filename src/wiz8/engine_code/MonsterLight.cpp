@@ -9,12 +9,10 @@
 #include "surrender/srLight.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 
 // GLOBAL: WIZ8 0x005ecd4c
 const float g_monster_light_cycle_rate = 0.025f;
-// GLOBAL: WIZ8 0x005ec318
-const double g_motion_full_turn_radians = 6.2831852;
 
 /* Monster's fixed light is a regular srLight specialization.  Its two colours
    are retained for the optional cycle, while the first colour is also the
@@ -81,17 +79,16 @@ void MonsterLight::Update(const glm::vec3* position)
     float elapsed = g_game_time_accumulator->GetElapsed() - m_start_time;
 
     if (m_fade_out) {
-        float fade = elapsed * g_float_one_tenth;
-        if (fade > g_float_one) {
-            fade = g_float_one;
+        float fade = elapsed * 0.1f;
+        if (fade > 1.0f) {
+            fade = 1.0f;
         }
-        intensity = g_float_one - fade;
+        intensity = 1.0f - fade;
     } else if (m_cycle_color) {
         float cycle = elapsed * g_monster_light_cycle_rate;
         double whole = floor(cycle);
         float first_weight =
-            static_cast<float>(sin((cycle - whole) * g_motion_full_turn_radians) + g_float_one) *
-            g_float_half;
+            static_cast<float>(sin((cycle - whole) * kMotionFullTurnRadians) + 1.0f) * 0.5f;
         diffuse = glm::mix(m_color_second, m_color_first, first_weight);
     }
 

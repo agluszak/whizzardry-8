@@ -60,7 +60,7 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -73,46 +73,23 @@
 #include "wiz8/text_line.h"
 #include "wiz8/utility.h"
 
+constexpr double kObstacleSlideSideThreshold = 0.2;
+constexpr double kPathBlockingAlignmentLowerBound = -0.9;
+constexpr double kPathBlockingAlignmentUpperBound = 0.9;
+constexpr float kPathGapPenaltyScale = 0.5099999904632568f;
+constexpr float kPathHeuristicScale = 1.2000000476837158f;
+constexpr double kPathOverlapTolerance = 250.0;
+
 class srMaterial;
 class srTexture;
 
-// GLOBAL: WIZ8 0x005ebc30
-const double g_double_one = 1.0;
-// GLOBAL: WIZ8 0x005ec020
-const double g_path_overlap_tolerance = 250.0;
-// GLOBAL: WIZ8 0x005ec368
-const double g_waypoint_edge_offset = 25.00000037252903;
-// GLOBAL: WIZ8 0x005ec378
-const double g_waypoint_marker_scale = 4.0;
-// GLOBAL: WIZ8 0x005ec38c
-const float g_path_direct_alignment_threshold = 0.9847999811172485f;
-// GLOBAL: WIZ8 0x005ec384
-const float g_waypoint_fallback_query_half_extent = 37500.0f;
 // GLOBAL: WIZ8 0x005ec388
-// GLOBAL: WIZ8 0x005ec370
-const float g_waypoint_marker_height = 550.0f;
-// GLOBAL: WIZ8 0x005ec394
-const float g_path_heuristic_scale = 1.2000000476837158f;
 // GLOBAL: WIZ8 0x005ec398
 const float g_path_link_cost_base = 1001.0f;
 // GLOBAL: WIZ8 0x005ec39c
 const float g_patrol_cost_limit = 250000.0f;
-// GLOBAL: WIZ8 0x005ec3b8
-const float g_float_one_and_a_half = 1.5f;
-// GLOBAL: WIZ8 0x005ec3bc
-const float g_path_gap_penalty_scale = 0.5099999904632568f;
-// GLOBAL: WIZ8 0x005ec3c0
-const float g_float_one_million = 1000000.0f;
-// GLOBAL: WIZ8 0x005ec3c8
-const double g_path_blocking_alignment_upper_bound = 0.9;
-// GLOBAL: WIZ8 0x005ec3d0
-const double g_path_blocking_alignment_lower_bound = -0.9;
-// GLOBAL: WIZ8 0x005ed2e0
-const double g_obstacle_slide_side_threshold = 0.2;
 // GLOBAL: WIZ8 0x005ed2e8
 const float g_obstacle_radius_average_scale = 0.3333333f;
-// GLOBAL: WIZ8 0x005ec2e8
-const double g_double_negative_one = -1.0;
 
 // GLOBAL: WIZ8 0x00659c60
 W8PathingService* g_pathing;
@@ -123,8 +100,6 @@ W8PathingService* g_pathing;
 
 // GLOBAL: WIZ8 0x0060827a
 unsigned short g_path_reserve = 2000;
-// GLOBAL: WIZ8 0x005ec340
-const float g_fast_magic_recovery_scale = 1.25f;
 // GLOBAL: WIZ8 0x005ec344
 const float g_path_span_scale = 1.5259254723787308e-05f;
 
@@ -135,8 +110,6 @@ static bool g_path_continue_after_blocker;
 const double g_path_initial_cost_slack = 1.1;
 // GLOBAL: WIZ8 0x005ec3a0
 const double g_path_segment_split_distance = 25000.0;
-// GLOBAL: WIZ8 0x005ec3b0
-const double g_double_one_tenth = 0.1;
 // GLOBAL: WIZ8 0x005ec348
 const float g_path_direction_threshold_0 = -0.9239000082015991f;
 // GLOBAL: WIZ8 0x005ec34c
@@ -148,8 +121,6 @@ const float g_path_direction_threshold_3 = 0.9239000082015991f;
 // GLOBAL: WIZ8 0x005ec358
 const float g_path_cardinal_scale = 1.4149999618530273f;
 
-// GLOBAL: WIZ8 0x005ec360
-const float g_float_twenty_five_thousand = 25000.0f;
 // GLOBAL: WIZ8 0x00659c6c
 // GLOBAL: WIZ8 0x005ec380
 
@@ -177,8 +148,6 @@ static float g_path_party_boundary_radius = 2.0f;
 static float g_path_obstacle_steering_factor = 2.0f;
 // GLOBAL: WIZ8 0x0060fa14
 static float g_path_obstacle_braking_factor = 0.3f;
-
-const float g_float_three = 3.0f;
 
 #define OCTPATH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPath.cpp"
 
@@ -689,7 +658,7 @@ bool W8PathingService::MeasureAttachmentPath(const glm::vec3* from, glm::vec3* t
                                              int* hops)
 {
     W8NavigatorAttachment attachment(from, to);
-    if (*range > g_float_zero) {
+    if (*range > 0.0f) {
         m_path_cost_limit = *range;
     }
     if (!BuildAttachmentPath(&attachment, 0)) {
@@ -886,11 +855,11 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
                                 float dz =
                                     surfaces[end].position.z - surfaces[usNextNode].position.z;
                                 surfaces[usNextNode].heuristic =
-                                    sqrt(dx * dx + dy * dy + dz * dz) * g_path_heuristic_scale;
+                                    sqrt(dx * dx + dy * dy + dz * dz) * kPathHeuristicScale;
                                 surfaces[usNextNode].search_parent = usCurrent;
                                 surfaces = m_waypoints.data();
                                 surfaces[current].estimated_total_cost =
-                                    surfaces[usNextNode].heuristic * g_path_heuristic_scale +
+                                    surfaces[usNextNode].heuristic * kPathHeuristicScale +
                                     surfaces[usNextNode].path_cost;
                                 m_waypoints[usNextNode].flags |= W8_WAYPOINT_IN_HEAP;
                                 W8PathHeapHandle* handle = path_heap.get();
@@ -903,14 +872,14 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
                             }
                         } else {
                             float cost = m_pEdges[link].distance + m_waypoints[current].path_cost;
-                            if ((cost + g_float_ten < m_waypoints[usNextNode].path_cost) &&
+                            if ((cost + 1e+01f < m_waypoints[usNextNode].path_cost) &&
                                 (cost < m_path_cost_limit)) {
                                 float reduction = m_waypoints[usNextNode].path_cost - cost;
                                 m_waypoints[usNextNode].search_parent = usCurrent;
                                 W8PathSurface* surfaces = m_waypoints.data();
                                 settled = false;
                                 surfaces[current].estimated_total_cost =
-                                    surfaces[usNextNode].heuristic * g_path_heuristic_scale +
+                                    surfaces[usNextNode].heuristic * kPathHeuristicScale +
                                     surfaces[usNextNode].path_cost;
                                 if ((m_waypoints[current].flags & W8_WAYPOINT_IN_HEAP) == 0) {
                                     surfaces = m_waypoints.data() + usNextNode;
@@ -1050,7 +1019,7 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
     unsigned short start;
 
     m_patrol_min = separation;
-    m_patrol_distance = separation + g_float_ten_thousand;
+    m_patrol_distance = separation + 1e+04f;
     m_patrol_start = *target;
     navigation_filter = flags;
     start_waypoint = 0;
@@ -1154,10 +1123,9 @@ unsigned short W8PathingService::RecurseTargetLinks(unsigned short waypoint)
                             m_waypoints[destination].position - m_waypoints[waypoint].position;
                         link_direction = normalizedOrZero(link_direction);
                         *slot = edge;
-                        keys[count] =
-                            static_cast<w8_ulong>(g_path_link_cost_base -
-                                                  glm::dot(link_direction, (to_target / distance)) *
-                                                      g_float_one_thousand);
+                        keys[count] = static_cast<w8_ulong>(
+                            g_path_link_cost_base -
+                            glm::dot(link_direction, (to_target / distance)) * 1e+03f);
                         ++count;
                         ++slot;
                     }
@@ -1212,7 +1180,7 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
     }
     float roll = Random(900) + g_octree_cell_scale;
     start_waypoint = 0;
-    m_patrol_distance = roll * maximum * g_float_one_thousandth + maximum;
+    m_patrol_distance = roll * maximum * 0.001f + maximum;
     unsigned short usStartNode = FindWaypoint(attachment->segment_start, true);
     if ((usStartNode == 0) && ((usStartNode = start_waypoint) == 0)) {
         return false;
@@ -1376,7 +1344,7 @@ void W8PathingService::ReduceWaypointCosts(unsigned int waypoint, float amount)
 {
     W8PathSurface* surface = &m_waypoints[waypoint];
     surface->path_cost -= amount;
-    if (surface->path_cost >= g_float_zero) {
+    if (surface->path_cost >= 0.0f) {
         surface->estimated_total_cost -= amount;
 
         unsigned short edge_index = surface->first_edge;
@@ -1573,7 +1541,7 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
     glm::vec3* endpoint = &attachment->path[attachment->path_position_index].position;
     glm::vec3 direction = *endpoint - target_position;
     float excess = glm::length(direction) - (target_radius + radius);
-    if (separation < excess && excess - separation < grid_scale * g_float_half) {
+    if (separation < excess && excess - separation < grid_scale * 0.5f) {
         direction = glm::dot(direction, direction) == 0
                         ? direction
                         : glm::normalize(direction) *
@@ -1635,7 +1603,7 @@ void W8PathingService::UpdateConditionalPathFlags(unsigned int path_handle, unsi
 int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool first_only)
 {
     W8PathSearchNode* node = &m_search_nodes[node_index];
-    float half_cell = grid_scale * g_float_half;
+    float half_cell = grid_scale * 0.5f;
 
     glm::vec3 lower;
     glm::vec3 upper;
@@ -1687,7 +1655,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
     if (player_radius < radius) {
         overlap_radius = player_radius;
     }
-    if (distance < (radius - overlap_radius * g_float_half) + player_radius) {
+    if (distance < (radius - overlap_radius * 0.5f) + player_radius) {
         W8PathProbeVolume* probe = &m_path_probes[m_path_probe_count];
         probe->tag = 0;
         probe->outer_radius = player_radius;
@@ -1710,7 +1678,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
                 if (monster_radius < radius) {
                     overlap_radius = monster_radius;
                 }
-                if (distance < (radius - overlap_radius * g_float_half) + monster_radius) {
+                if (distance < (radius - overlap_radius * 0.5f) + monster_radius) {
                     W8PathProbeVolume* probe = &m_path_probes[m_path_probe_count];
                     probe->tag = location_id;
                     probe->outer_radius = monster_radius;
@@ -1896,7 +1864,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
                 if (height_delta < 0) {
                     height_delta = -height_delta;
                 }
-                base_score += height_delta * span * g_float_one_and_a_half;
+                base_score += height_delta * span * 1.5f;
                 if (existing->base_score <= base_score) {
                     continue;
                 }
@@ -1936,10 +1904,9 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
             node->base_score = vertical;
             node->path_cost = path_cost;
             node->clearance = clearance;
-            node->position =
-                glm::vec3((node->cell_x + g_float_half) * grid_scale + level_bounds.minimum.x,
-                          (node->path_height - 1) * span + level_bounds.minimum.y,
-                          (node->cell_z + g_float_half) * grid_scale + level_bounds.minimum.z);
+            node->position = glm::vec3((node->cell_x + 0.5f) * grid_scale + level_bounds.minimum.x,
+                                       (node->path_height - 1) * span + level_bounds.minimum.y,
+                                       (node->cell_z + 0.5f) * grid_scale + level_bounds.minimum.z);
 
             unsigned short collision =
                 ResolveSearchNodeCollisions(movement, node_index, radius, separation);
@@ -2153,26 +2120,26 @@ float W8PathingService::UpdateSearchNodeScore(unsigned short node_index, const g
     node->distance = distance;
 
     if (!explicit_target) {
-        node->score = distance * g_float_one_and_a_half + node->base_score;
+        node->score = distance * 1.5f + node->base_score;
     } else {
-        node->score = g_float_one_million - distance;
+        node->score = 1e+06f - distance;
     }
 
     float gap = maximum - minimum;
     if (!explicit_target) {
         float adjusted_gap = gap;
         if (distance <= gap) {
-            adjusted_gap = (gap - distance) * g_float_nine_tenths;
+            adjusted_gap = (gap - distance) * 0.9f;
         }
-        if (adjusted_gap > g_float_zero) {
-            node->score += gap * g_path_gap_penalty_scale;
+        if (adjusted_gap > 0.0f) {
+            node->score += gap * kPathGapPenaltyScale;
         }
-    } else if (gap > g_float_zero) {
-        node->score += g_float_one_million;
+    } else if (gap > 0.0f) {
+        node->score += 1e+06f;
     }
 
     if ((node->flags & W8_PATH_SEARCH_PROBE_OVERLAP) != 0) {
-        node->score += g_float_one_million;
+        node->score += 1e+06f;
     }
     return node->score;
 }
@@ -2257,13 +2224,13 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
 
             bool adjust = false;
             if ((node->flags & W8_PATH_SEARCH_DISPLACED) == 0 &&
-                threshold <= distance + g_path_overlap_tolerance) {
+                threshold <= distance + kPathOverlapTolerance) {
                 if (result == 3) {
                     glm::vec3 direction = delta;
                     direction = normalizedOrZero(direction);
                     float dot = glm::dot(direction, blocking_direction);
-                    if (dot <= g_path_blocking_alignment_lower_bound ||
-                        g_path_blocking_alignment_upper_bound <= dot) {
+                    if (dot <= kPathBlockingAlignmentLowerBound ||
+                        kPathBlockingAlignmentUpperBound <= dot) {
                         adjust = true;
                     }
                 } else if (result != 1) {
@@ -2423,14 +2390,14 @@ bool W8PathingService::ResolvePathCell(unsigned int key, bool allow_dynamic, uns
             if (magnitude < 0) {
                 magnitude = -magnitude;
             }
-            *vertical += magnitude * span * g_float_one_and_a_half;
+            *vertical += magnitude * span * 1.5f;
             *height = value & W8_PATH_CELL_HEIGHT_MASK;
             if ((value & W8_PATH_CELL_HAS_DIRECTIONS) == 0) {
                 *direction = static_cast<float>(value >> 16 & 0xff);
             } else {
                 *direction = 0.0f;
             }
-            *direction = (*direction + g_float_half) * g_world_scale;
+            *direction = (*direction + 0.5f) * kWorldScale;
             *dynamic = (value & W8_PATH_CELL_INACTIVE) != 0;
             found = true;
         }
@@ -2508,15 +2475,14 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
             glm::vec3 advanced = *position;
             bool on_path = attachment->AdvanceAlongPathPositions(
                 g_game_time_accumulator->GetFrameDelta() * movement->movement_speed *
-                    movement->movement_scale * g_rate * g_world_scale,
+                    movement->movement_scale * g_rate * kWorldScale,
                 &advanced);
             arrived = !on_path;
             if (arrived) {
                 attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
             }
             glm::vec3 delta = advanced - *position;
-            if (((delta.x != g_float_zero) || (delta.y != g_float_zero)) ||
-                (delta.z != g_float_zero)) {
+            if (((delta.x != 0.0f) || (delta.y != 0.0f)) || (delta.z != 0.0f)) {
                 glm::vec3 target = delta + advanced;
                 *position = advanced;
                 attachment->path[0].position = advanced;
@@ -2562,9 +2528,9 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
             if (cursor == attachment->path_position_index) {
                 bool in_range;
                 if (movement->target_location_id < 0) {
-                    float limit = g_startup_near_limit;
+                    float limit = kStartupNearLimit;
                     if ((attachment->flags & W8_NAV_ATTACHMENT_COLLISION_PREDICTED) != 0) {
-                        limit = g_float_one_thousand;
+                        limit = 1e+03f;
                     }
                     in_range = limit <= distance;
                 } else if (attachment->separation + separation <= distance) {
@@ -2589,7 +2555,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
                                linked_attachment->path_destination.z) *
                                   (attachment->path_destination.z -
                                    linked_attachment->path_destination.z)) <
-                         static_cast<float>(g_double_one))) {
+                         static_cast<float>(1.0))) {
                         arrived = true;
                     } else {
                         PrepareLinkedNavigator(movement);
@@ -2631,9 +2597,9 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
                 }
                 limit = static_cast<float>(g_monster_poster_max_distance);
             } else {
-                limit = g_startup_near_limit;
+                limit = kStartupNearLimit;
                 if ((attachment->flags & W8_NAV_ATTACHMENT_COLLISION_PREDICTED) != 0) {
-                    limit = g_float_one_thousand;
+                    limit = 1e+03f;
                 }
             }
         } else {
@@ -2657,7 +2623,7 @@ transitioned: {
         }
         W8NavigatorAttachment* linked_attachment = m_linked_attachment;
         if ((linked_attachment != 0) &&
-            (static_cast<float>(g_double_one) <=
+            (static_cast<float>(1.0) <=
              sqrt((attachment->path_destination.x - linked_attachment->path_destination.x) *
                       (attachment->path_destination.x - linked_attachment->path_destination.x) +
                   (attachment->path_destination.y - linked_attachment->path_destination.y) *
@@ -2754,11 +2720,11 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
     monster_info->p3D->group_linked = true;
     float remaining = g_rate * g_game_time_accumulator->GetFrameDelta();
     do {
-        if (remaining <= g_float_zero) {
+        if (remaining <= 0.0f) {
             break;
         }
         float step;
-        if (remaining <= g_float_five) {
+        if (remaining <= 5.0f) {
             step = remaining;
         } else {
             step = 5.0f;
@@ -2766,7 +2732,7 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
         unsigned short previous = attachment->path_cursor;
         glm::vec3 direction;
         arrived = attachment->AdvancePositionWithDirection(
-            &movement->position, step * movement->movement_scale * g_world_scale, &direction);
+            &movement->position, step * movement->movement_scale * kWorldScale, &direction);
         unsigned short reached = attachment->path_cursor;
         if (previous < reached) {
             do {
@@ -2947,10 +2913,10 @@ unsigned int W8PathingService::FindPathCell(glm::vec3* position, glm::uvec2* cel
                 if ((value & W8_PATH_CELL_INACTIVE) == 0 && -cell_count < difference &&
                     difference < cell_count) {
                     found = true;
-                    float x = (candidate_x + g_float_half) * grid_scale -
-                              (position->x - level_bounds.minimum.x);
-                    float z = (candidate_z + g_float_half) * grid_scale -
-                              (position->z - level_bounds.minimum.z);
+                    float x =
+                        (candidate_x + 0.5f) * grid_scale - (position->x - level_bounds.minimum.x);
+                    float z =
+                        (candidate_z + 0.5f) * grid_scale - (position->z - level_bounds.minimum.z);
                     float distance = x * x + z * z;
 
                     if (distance < closest_distance) {
@@ -2968,9 +2934,9 @@ unsigned int W8PathingService::FindPathCell(glm::vec3* position, glm::uvec2* cel
     }
 
     if (adjust && found) {
-        (*position) = glm::vec3((selected_x + g_float_half) * grid_scale + level_bounds.minimum.x,
+        (*position) = glm::vec3((selected_x + 0.5f) * grid_scale + level_bounds.minimum.x,
                                 (selected_height - 1) * span + level_bounds.minimum.y,
-                                (selected_z + g_float_half) * grid_scale + level_bounds.minimum.z);
+                                (selected_z + 0.5f) * grid_scale + level_bounds.minimum.z);
     }
     if (cell != 0) {
         cell->x = selected_x;
@@ -3001,10 +2967,9 @@ bool W8PathingService::FindNearbyPathCell(glm::vec3* position, bool snap_to_cell
         if ((!require_active || (packed & W8_PATH_CELL_INACTIVE) == 0) &&
             -vertical_window < delta && delta < vertical_window) {
             if (snap_to_cell) {
-                (*position) =
-                    glm::vec3((cell.x + g_float_half) * grid_scale + level_bounds.minimum.x,
-                              (matched_height - 1) * span + level_bounds.minimum.y,
-                              (cell.y + g_float_half) * grid_scale + level_bounds.minimum.z);
+                (*position) = glm::vec3((cell.x + 0.5f) * grid_scale + level_bounds.minimum.x,
+                                        (matched_height - 1) * span + level_bounds.minimum.y,
+                                        (cell.y + 0.5f) * grid_scale + level_bounds.minimum.z);
             }
             if (packed_out) *packed_out = packed;
             return true;
@@ -3038,10 +3003,10 @@ bool W8PathingService::TestPathCellClearance(glm::vec3* position, float clearanc
     unsigned int packed;
     if (!FindNearbyPathCell(position, snap_to_cell, true, &packed)) return false;
 
-    float direction = g_float_zero;
+    float direction = 0.0f;
     if ((packed & W8_PATH_CELL_HAS_DIRECTIONS) == 0)
         direction = static_cast<float>((packed >> 16) & 0xff);
-    return clearance < direction * g_world_scale + grid_scale * g_float_half;
+    return clearance < direction * kWorldScale + grid_scale * 0.5f;
 }
 
 /* Snap a position to the closest eligible indexed height no higher than its
@@ -3080,9 +3045,9 @@ bool W8PathingService::SnapToLowerPathCell(glm::vec3* position, bool allow_direc
     }
 
     if (found) {
-        (*position) = glm::vec3((cell.x + g_float_half) * grid_scale + level_bounds.minimum.x,
+        (*position) = glm::vec3((cell.x + 0.5f) * grid_scale + level_bounds.minimum.x,
                                 (matched_height - 1) * span + level_bounds.minimum.y,
-                                (cell.y + g_float_half) * grid_scale + level_bounds.minimum.z);
+                                (cell.y + 0.5f) * grid_scale + level_bounds.minimum.z);
     }
     return found;
 }
@@ -3154,12 +3119,12 @@ void W8PathingService::ProbeWaypointArc(const glm::vec3* from, const glm::vec3* 
         arc = glm::dot(arc, arc) == 0 ? arc : glm::normalize(arc) * static_cast<float>(radius);
 
         dot = glm::dot(direction, arc);
-        if (dot > g_float_nine_tenths) {
+        if (dot > 0.9f) {
             passed_forward = true;
         } else if (!passed_forward) {
             continue;
         }
-        if (dot < g_float_zero) {
+        if (dot < 0.0f) {
             return;
         }
     }
@@ -3233,7 +3198,7 @@ void W8PathingService::BuildPathGridWalk(const glm::vec2* from, const glm::vec2*
             delta = -delta;
         } else {
             step[axis] = 1;
-            boundary_offset[axis] = g_float_one - boundary_offset[axis];
+            boundary_offset[axis] = 1.0f - boundary_offset[axis];
         }
         if (largest_delta < delta) {
             largest_delta = delta;
@@ -3348,12 +3313,12 @@ bool W8PathingService::ProbeWaypointSegment(const glm::vec3* from, const glm::ve
                 glm::vec3 position;
                 unsigned int initial_cost;
 
-                position = glm::vec3((cell.x + g_float_half) * grid_scale + level_bounds.minimum.x,
+                position = glm::vec3((cell.x + 0.5f) * grid_scale + level_bounds.minimum.x,
                                      (height - 1) * span + level_bounds.minimum.y,
-                                     (cell.y + g_float_half) * grid_scale + level_bounds.minimum.z);
+                                     (cell.y + 0.5f) * grid_scale + level_bounds.minimum.z);
 
                 initial_cost = static_cast<unsigned int>(
-                    static_cast<int>((glm::length((position - *to)) * g_double_one_tenth)));
+                    static_cast<int>((glm::length((position - *to)) * 0.1)));
 
                 if (m_probe_limit == 0) {
                     int stored_cost = initial_cost;
@@ -3640,10 +3605,8 @@ bool W8PathingService::TestWaypointSpan(const glm::vec3* source, glm::vec3* dest
         *destination = *source;
     } else {
         if (blocked) {
-            destination->x =
-                ((previous_key & 0xffff) + g_float_half) * grid_scale + level_bounds.minimum.x;
-            destination->z =
-                ((previous_key >> 16) + g_float_half) * grid_scale + level_bounds.minimum.z;
+            destination->x = ((previous_key & 0xffff) + 0.5f) * grid_scale + level_bounds.minimum.x;
+            destination->z = ((previous_key >> 16) + 0.5f) * grid_scale + level_bounds.minimum.z;
         }
         destination->y = (height - 1) * span + level_bounds.minimum.y;
     }
@@ -3665,7 +3628,7 @@ float W8PathingService::CompareDirectionalClearance(const glm::vec3* position,
 
     int first_direction;
     int second_direction;
-    if (normalized_x <= g_float_zero) {
+    if (normalized_x <= 0.0f) {
         if (g_path_direction_threshold_3 < normalized_z) {
             first_direction = 7;
             second_direction = 1;
@@ -3827,8 +3790,7 @@ unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool ex
     glm::vec3 lower;
     glm::vec3 upper;
     glm::vec3 half_extent;
-    half_extent = glm::vec3(g_float_twenty_five_thousand, g_float_twelve_thousand_five_hundred,
-                            g_float_twenty_five_thousand);
+    half_extent = glm::vec3(2.5e+04f, 1.25e+04f, 2.5e+04f);
     lower = query - half_extent;
     upper = query + half_extent;
 
@@ -3849,8 +3811,7 @@ unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool ex
             glm::vec3 delta = query - *candidate;
             distances[index] = static_cast<unsigned int>(static_cast<int>(glm::length(delta)));
 
-            if (distances[index] < g_float_one_thousand &&
-                glm::length(((glm::vec2(delta.x, delta.z)))) < g_double_five_hundred) {
+            if (distances[index] < 1e+03f && glm::length(((glm::vec2(delta.x, delta.z)))) < 500.0) {
                 result = static_cast<unsigned short>(candidates[index]);
             }
         }
@@ -4060,7 +4021,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
         selected = trigger;
     } else {
         glm::vec3 midpoint;
-        midpoint = glm::vec3(glm::dvec3(upper - lower) * g_double_half) + lower;
+        midpoint = glm::vec3(glm::dvec3(upper - lower) * 0.5) + lower;
         double nearest_distance = 1e32;
 
         for (int index = 0; index < count; ++index) {
@@ -4191,9 +4152,9 @@ void W8PathParameters::InitializeSteeringContext(W8NavigatorMovementState* movem
     velocity_length = glm::length(movement->velocity);
     linked = monster->linked_navigator;
     if (linked == 0) {
-        speed_limit = movement->movement_scale * g_world_scale;
+        speed_limit = movement->movement_scale * kWorldScale;
     } else {
-        speed_limit = linked->movement.movement_scale * g_world_scale;
+        speed_limit = linked->movement.movement_scale * kWorldScale;
     }
     acceleration = g_path_acceleration_factor * speed_limit;
     if (movement->velocity == glm::vec3(0)) {
@@ -4222,7 +4183,7 @@ bool W8PathParameters::QueryNearbyNavigators()
     if (nearby_queried) {
         return !nearby_locations.empty();
     }
-    extent = radius * g_float_five;
+    extent = radius * 5.0f;
     nearby_queried = true;
     lower = glm::vec3(movement->position.x - extent, movement->position.y - extent,
                       movement->position.z - extent);
@@ -4247,7 +4208,7 @@ void W8PathParameters::IntegrateSteering()
     step = g_rate * g_game_time_accumulator->GetFrameDelta();
     if (!blocked) {
         force.y = 0.0f;
-        if (speed_limit <= g_float_zero) {
+        if (speed_limit <= 0.0f) {
             velocity = glm::vec3(0);
             velocity_length = 0.0f;
             movement->target_yaw = NormalizeAngle(static_cast<float>(atan2(force.x, force.z)));
@@ -4328,7 +4289,7 @@ void W8PathParameters::UpdateYawSteering(float time_step, bool use_turn_rate)
     direction = g_negative_one;
     if (rate < remaining) {
         remaining = rate;
-        direction = g_float_one;
+        direction = 1.0f;
     }
     if (!use_turn_rate) {
         rate = movement->turn_rate;
@@ -4371,11 +4332,11 @@ bool W8PathParameters::PredictNavigatorCollision()
     if (!this->monster->active) {
         return false;
     }
-    if (velocity_length == g_double_zero) {
+    if (velocity_length == 0.0) {
         return false;
     }
     lookahead = g_path_prediction_time * velocity_length + radius;
-    nearest = lookahead + g_camera_snap_epsilon;
+    nearest = lookahead + kCameraSnapEpsilon;
     if (QueryNearbyNavigators()) {
         for (index = 0; index < nearby_locations.size(); ++index) {
             monster = GetMonsterByLocationID(nearby_locations[index]);
@@ -4390,13 +4351,13 @@ bool W8PathParameters::PredictNavigatorCollision()
             navigator = monster;
             position = navigator->GetPosition();
             delta = position - movement->position;
-            if (g_float_zero < glm::dot(delta, direction)) {
+            if (0.0f < glm::dot(delta, direction)) {
                 other_velocity = navigator->GetVelocity();
                 relative = movement->velocity - other_velocity;
                 relative = normalizedOrZero(relative);
                 approach = glm::dot(delta, relative);
                 approach = approach - (monster->radius * approach) / glm::length(delta);
-                if (g_float_zero < approach && approach < nearest) {
+                if (0.0f < approach && approach < nearest) {
                     lateral = relative.z * delta.x + -relative.x * delta.z;
                     combined = monster->radius + radius;
                     if (static_cast<float>(fabs(lateral)) < combined) {
@@ -4411,16 +4372,16 @@ bool W8PathParameters::PredictNavigatorCollision()
     if (movement->boundary_enabled) {
         position = g_startup_world->GetPosition();
         delta = position - movement->position;
-        combined = g_path_party_boundary_radius * g_world_scale;
-        approach = radius * g_float_five + combined;
+        combined = g_path_party_boundary_radius * kWorldScale;
+        approach = radius * 5.0f + combined;
         if (approach * approach > glm::dot(delta, delta)) {
             approach = glm::dot(delta, direction);
-            if (approach > g_float_zero) {
+            if (approach > 0.0f) {
                 relative = movement->velocity - g_level_data->camera_motion_velocity;
                 relative = normalizedOrZero(relative);
                 approach = glm::dot(delta, relative);
                 approach = approach - (combined * approach) / glm::length(delta);
-                if (approach > g_float_zero && approach < nearest) {
+                if (approach > 0.0f && approach < nearest) {
                     lateral = delta.x * relative.z + delta.z * -relative.x;
                     combined += radius;
                     if (static_cast<float>(fabs(lateral)) < combined) {
@@ -4435,12 +4396,12 @@ bool W8PathParameters::PredictNavigatorCollision()
     if (!found) {
         return false;
     }
-    if (scale >= g_float_zero) {
-        steer = scale - g_float_one;
+    if (scale >= 0.0f) {
+        steer = scale - 1.0f;
     } else {
-        steer = scale + g_float_one;
+        steer = scale + 1.0f;
     }
-    steer = (g_float_one - nearest / lookahead) * acceleration * steer;
+    steer = (1.0f - nearest / lookahead) * acceleration * steer;
     brake = g_path_obstacle_braking_factor * steer;
     steer *= g_path_obstacle_steering_factor;
     force += perpendicular * steer;
@@ -4461,7 +4422,7 @@ bool W8PathParameters::HandleObstacleAhead()
     float brake;
     float side;
 
-    if (velocity_length == g_float_zero) {
+    if (velocity_length == 0.0f) {
         if (const auto slide =
                 g_octree->pathing->neighborSlideDirection(movement->position, direction)) {
             escape = *slide;
@@ -4470,7 +4431,7 @@ bool W8PathParameters::HandleObstacleAhead()
             waypoint.y = 0.0f;
             if ((escape.z * waypoint.x + waypoint.z * -escape.x) *
                     (escape.z * direction.x + -escape.x * direction.z) <
-                g_double_zero) {
+                0.0) {
                 speed_limit = 0.0f;
                 waypoint = glm::dot(waypoint, waypoint) == 0
                                ? waypoint
@@ -4492,20 +4453,20 @@ bool W8PathParameters::HandleObstacleAhead()
                 waypoint = glm::dot(waypoint, waypoint) == 0
                                ? waypoint
                                : glm::normalize(waypoint) * static_cast<float>(1.0);
-                if (g_double_zero <= glm::dot(waypoint, direction)) {
-                    steer = (g_float_one - distance / reach) * acceleration;
+                if (0.0 <= glm::dot(waypoint, direction)) {
+                    steer = (1.0f - distance / reach) * acceleration;
                     brake = g_path_obstacle_braking_factor * steer;
                     steer = g_path_obstacle_steering_factor * steer;
                     if (const auto slide = g_octree->pathing->obstacleDirection(direction)) {
                         escape = *slide;
                         side = glm::dot(escape, perpendicular);
-                        if (g_obstacle_slide_side_threshold <= fabs(side)) {
-                            if (side < g_float_zero) {
+                        if (kObstacleSlideSideThreshold <= fabs(side)) {
+                            if (side < 0.0f) {
                                 steer = -steer;
                             }
                         } else {
                             escape = normalizedOrZero(escape);
-                            if (glm::dot(escape, perpendicular) < g_float_zero) {
+                            if (glm::dot(escape, perpendicular) < 0.0f) {
                                 steer = -steer;
                             }
                         }
@@ -4521,10 +4482,10 @@ bool W8PathParameters::HandleObstacleAhead()
                 force += waypoint * steer;
                 return true;
             }
-        } else if (g_world_scale < radius) {
+        } else if (kWorldScale < radius) {
             clearance = g_octree->pathing->CompareDirectionalClearance(&movement->position,
                                                                        &direction, radius);
-            if (g_float_one < static_cast<float>(fabs(clearance))) {
+            if (1.0f < static_cast<float>(fabs(clearance))) {
                 force += perpendicular * clearance;
                 return true;
             }
@@ -4539,11 +4500,11 @@ void W8PathParameters::AccumulateSeekForce()
     glm::vec3 desired;
     glm::vec3 seek;
 
-    if (velocity_length == g_float_zero) {
+    if (velocity_length == 0.0f) {
         desired = target - movement->position;
         desired.y = 0.0f;
         desired = normalizedOrZero(desired);
-        if (glm::dot(desired, direction) < g_double_zero) {
+        if (glm::dot(desired, direction) < 0.0) {
             speed_limit = 0.0f;
             force += desired * acceleration;
             return;
@@ -4571,12 +4532,12 @@ void W8PathParameters::SeekWithApproachSpeed()
 
     distance = glm::length((target - movement->position));
     scale = distance / (g_path_approach_slow_time * speed_limit);
-    if (g_float_one < scale) {
+    if (1.0f < scale) {
         distance /= g_path_approach_run_time * speed_limit;
-        if (g_float_one < distance) {
-            distance = g_float_one;
+        if (1.0f < distance) {
+            distance = 1.0f;
         }
-        scale = (g_path_approach_run_rate - g_float_one) * distance + g_float_one;
+        scale = (g_path_approach_run_rate - 1.0f) * distance + 1.0f;
     }
     speed_limit = scale * speed_limit;
     AccumulateSeekForce();
@@ -4609,13 +4570,13 @@ void W8PathParameters::AccumulateGroupRepulsion()
             delta = position - movement->position;
             distance = glm::length(delta);
             combined = (radius + radius + monster->radius) * g_obstacle_radius_average_scale;
-            if (distance < combined * g_float_three) {
-                falloff = g_float_one;
+            if (distance < combined * 3.0f) {
+                falloff = 1.0f;
                 if (combined < distance) {
                     falloff = combined / distance;
                 }
-                delta = delta * static_cast<float>(g_double_negative_one);
-                if (glm::dot(delta, delta) != g_double_zero) {
+                delta = delta * static_cast<float>(-1.0);
+                if (glm::dot(delta, delta) != 0.0) {
                     delta = glm::dot(delta, delta) == 0
                                 ? delta
                                 : glm::normalize(delta) *
@@ -4654,23 +4615,21 @@ bool W8PathParameters::SteerAroundLeader(bool allow_path_fallback)
         heading = leader->movement.velocity;
         heading = normalizedOrZero(heading);
     }
-    if (leader->movement.velocity.x != g_float_zero ||
-        leader->movement.velocity.y != g_float_zero ||
-        leader->movement.velocity.z != g_float_zero) {
+    if (leader->movement.velocity.x != 0.0f || leader->movement.velocity.y != 0.0f ||
+        leader->movement.velocity.z != 0.0f) {
         delta.x = movement->position.x - leader->movement.position.x;
         delta.z = movement->position.z - leader->movement.position.z;
         ahead = delta.x * heading.x + delta.z * heading.z +
                 (movement->position.y - leader->movement.position.y) * heading.y;
-        if (g_float_zero < ahead &&
+        if (0.0f < ahead &&
             ahead < glm::length(leader->movement.velocity) * g_path_prediction_time) {
             lateral = heading.z * delta.x - heading.x * delta.z;
             if (fabs(lateral) < static_cast<double>(leader_radius) + radius) {
-                side = g_double_one;
-                if (lateral < g_double_zero) {
-                    side = g_double_negative_one;
+                side = 1.0;
+                if (lateral < 0.0) {
+                    side = -1.0;
                 }
-                offset = glm::vec3(heading.z * side * g_double_five_hundred, 0.0,
-                                   -heading.x * side * g_double_five_hundred);
+                offset = glm::vec3(heading.z * side * 500.0, 0.0, -heading.x * side * 500.0);
                 target = movement->position + offset;
                 speed_limit = g_path_approach_run_rate * speed_limit;
                 AccumulateSeekForce();
@@ -4685,15 +4644,14 @@ bool W8PathParameters::SteerAroundLeader(bool allow_path_fallback)
         distance = glm::length(delta) - leader_radius;
         if (g_path_approach_slow_time * speed_limit < distance) {
             distance /= g_path_approach_run_time * speed_limit;
-            if (g_float_one < distance) {
-                distance = g_float_one;
+            if (1.0f < distance) {
+                distance = 1.0f;
             }
-            speed_limit =
-                ((g_path_approach_run_rate - g_float_one) * distance + g_float_one) * speed_limit;
+            speed_limit = ((g_path_approach_run_rate - 1.0f) * distance + 1.0f) * speed_limit;
         }
         return false;
     }
-    offset = heading * (leader_radius * static_cast<float>(g_double_negative_one));
+    offset = heading * (leader_radius * static_cast<float>(-1.0));
     target = leader->movement.position + offset;
     SeekWithApproachSpeed();
     return true;
@@ -4733,7 +4691,7 @@ bool W8PathParameters::SteerAlongPath(W8NavigatorMovementState* movement, bool a
     InitializeSteeringContext(movement);
     movement->attachment->flags &= ~W8_NAV_ATTACHMENT_COLLISION_PREDICTED;
     if (!HandleObstacleAhead()) {
-        if (g_float_zero < velocity_length) {
+        if (0.0f < velocity_length) {
             reach = g_path_prediction_time * velocity_length;
             ahead = this->movement->position + direction * reach;
             if (!movement->attachment->checkPredictedHopHeight(ahead)) {

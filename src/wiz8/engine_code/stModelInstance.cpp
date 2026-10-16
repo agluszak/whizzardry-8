@@ -33,7 +33,9 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
+
+constexpr float kShadowExtrusionPitchScale = 1.0f / 1500.0f;
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 
@@ -262,11 +264,11 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
         float glow_weight = static_cast<float>(
             fabs(sin(((w8_get_ticks() % render_state.render_depth) /
                       static_cast<double>(static_cast<int>(render_state.render_depth))) *
-                     g_camera_angle_period)));
-        float base_weight = g_float_one - glow_weight;
+                     kCameraAnglePeriod)));
+        float base_weight = 1.0f - glow_weight;
         /* Each weighted colour is rounded to float before the sum. */
         glm::vec4 emissive = *glow_color_base * base_weight + *glow_color_peak * glow_weight;
-        emissive.w = g_float_one;
+        emissive.w = 1.0f;
         glow_material->setEmissive(emissive);
         mesh.materials[0][0] = glow_material;
         mesh.shaders[0].value = (mesh.shaders[0].value & ~srShader::MASK_GRADIENT_MODULATE) |
@@ -427,8 +429,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     }
     renderer.setAmbientLight(light);
 
-    if (highlight_colour.x != g_float_zero || highlight_colour.y != g_float_zero ||
-        highlight_colour.z != g_float_zero || highlight_colour.w != g_float_zero) {
+    if (highlight_colour.x != 0.0f || highlight_colour.y != 0.0f || highlight_colour.z != 0.0f ||
+        highlight_colour.w != 0.0f) {
         if (highlight_material == 0) {
             highlight_material = std::make_shared<srMaterial>();
             glm::vec4 zero;
@@ -491,8 +493,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         }
         selectPolygons(*model, mesh, true);
 
-        if (((highlight_colour.x == g_float_zero) && (highlight_colour.y == g_float_zero) &&
-             (highlight_colour.z == g_float_zero) && (highlight_colour.w == g_float_zero)) ||
+        if (((highlight_colour.x == 0.0f) && (highlight_colour.y == 0.0f) &&
+             (highlight_colour.z == 0.0f) && (highlight_colour.w == 0.0f)) ||
             (highlight_pass_mode != 1)) {
             if (diffuse_scale_enabled) {
                 g_material_diffuse_scale = diffuse_scale;
@@ -512,8 +514,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         submit(*model, mesh, poly_normals);
     });
 
-    if (highlight_colour.x != g_float_zero || highlight_colour.y != g_float_zero ||
-        highlight_colour.z != g_float_zero || highlight_colour.w != g_float_zero) {
+    if (highlight_colour.x != 0.0f || highlight_colour.y != 0.0f || highlight_colour.z != 0.0f ||
+        highlight_colour.w != 0.0f) {
         const srMeshSubmission::WindingScope winding(renderer);
         if (highlight_pass_mode == 0) {
             renderer.setWinding(srGERD::WINDING_POSITIONAL_1);
@@ -542,11 +544,9 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                     mesh.vertex_materials[0][1] = 0;
                     mesh.poly_uv[1] = 0;
 
-                    double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
+                    double factor = 1.0 / getScale().y * 15.625;
                     float expand = static_cast<float>(
-                        (bounds.sphere.radius * getScale().y * g_double_one_thousandth +
-                         g_double_one) *
-                        factor);
+                        (bounds.sphere.radius * getScale().y * 0.001 + 1.0) * factor);
                     if (expand == 0) {
                         std::copy_n(mesh.positions, mesh.vertex_count, g_vertex_scratch.begin());
                     } else {
@@ -562,9 +562,6 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         });
     }
 }
-
-// GLOBAL: WIZ8 0x005EC8E0
-const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
 
 /* Shared shadow quad: two upright triangles on a 500-unit ground span, lit by
    a dedicated material so the extruded shadow pass submits through the
@@ -604,10 +601,10 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     const srMeshSubmission::EnableScope enabled(renderer, true);
     renderer.setCullMode(srGERD::CULL_NONE);
     const srModelViewScope transform(renderer);
-    renderer.translate(0.0, height * g_float_half, 0.0);
-    height *= g_shadow_extrusion_pitch_scale;
-    if (height < g_float_half) {
-        height = g_float_half;
+    renderer.translate(0.0, height * 0.5f, 0.0);
+    height *= kShadowExtrusionPitchScale;
+    if (height < 0.5f) {
+        height = 0.5f;
     }
     double scale = height;
     renderer.scale(scale, scale, scale);

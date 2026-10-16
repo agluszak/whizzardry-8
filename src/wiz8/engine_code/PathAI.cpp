@@ -26,7 +26,7 @@
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 
@@ -82,7 +82,7 @@ try {
         const auto axis = read_vector();
         auto& rotation = path->rotations[index];
         rotation = glm::mat3(1);
-        if (angle != g_double_zero) {
+        if (angle != 0.0) {
             rotation *= glm::mat3_cast(
                 glm::angleAxis(float(std::atan2(sin(angle), cos(angle))), normalizedOrZero(axis)));
         }
@@ -155,7 +155,7 @@ void PathAIAddPoint(W8PathAI& path, const glm::vec3& point)
         total_length += glm::length(path.nodes[index] - path.nodes[index + 1]);
     }
     path.total_length = total_length;
-    if (path.position > g_float_zero && total_length > g_float_zero) {
+    if (path.position > 0.0f && total_length > 0.0f) {
         PathAISetValue(&path, path.distance_travelled / total_length);
     }
 }
@@ -177,7 +177,7 @@ void PathAIResetTick(W8PathAI* path)
 float PathAIGetValue(W8PathAI* path)
 {
     if (path == 0) {
-        return g_float_zero;
+        return 0.0f;
     }
     return path->position;
 }
@@ -241,21 +241,21 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
     float remaining;
     float segment;
 
-    if (path->total_length <= g_float_zero) {
+    if (path->total_length <= 0.0f) {
         return;
     }
     path->distance_travelled += distance;
     path->position = path->distance_travelled / path->total_length;
-    if (path->position >= g_float_one) {
+    if (path->position >= 1.0f) {
         if (path->looping) {
-            path->position = g_float_zero;
-            path->interpolation_fraction = g_float_zero;
-            path->distance_travelled = g_float_zero;
+            path->position = 0.0f;
+            path->interpolation_fraction = 0.0f;
+            path->distance_travelled = 0.0f;
             path->point_index = 0;
             return;
         }
-        path->position = g_float_one;
-        path->interpolation_fraction = g_float_one;
+        path->position = 1.0f;
+        path->interpolation_fraction = 1.0f;
         path->distance_travelled = path->total_length;
         path->point_index = static_cast<int>(path->nodes.size()) - 1;
         return;
@@ -270,11 +270,11 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
         }
         path->point_index = index;
         remaining -= segment;
-        path->interpolation_fraction = g_float_zero;
+        path->interpolation_fraction = 0.0f;
         if (static_cast<int>(path->nodes.size()) - 1U <= index) {
             path->point_index = static_cast<int>(path->nodes.size()) - 1;
-            path->position = g_float_one;
-            path->interpolation_fraction = g_float_one;
+            path->position = 1.0f;
+            path->interpolation_fraction = 1.0f;
             return;
         }
     }
@@ -291,7 +291,7 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
 
     position = amount * path->speed / static_cast<int>(path->nodes.size()) + path->position;
     path->position = position;
-    if (position < g_float_one) {
+    if (position < 1.0f) {
         position *= static_cast<int>(path->nodes.size());
         index = static_cast<unsigned int>(position);
         path->point_index = index;
@@ -299,15 +299,15 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
         return;
     }
     if (!path->looping) {
-        path->position = g_float_one;
-        path->interpolation_fraction = g_float_one;
+        path->position = 1.0f;
+        path->interpolation_fraction = 1.0f;
         path->distance_travelled = path->total_length;
         path->point_index = static_cast<int>(path->nodes.size()) - 1;
         return;
     }
-    path->position = g_float_zero;
-    path->interpolation_fraction = g_float_zero;
-    path->distance_travelled = g_float_zero;
+    path->position = 0.0f;
+    path->interpolation_fraction = 0.0f;
+    path->distance_travelled = 0.0f;
     path->point_index = 0;
 }
 
@@ -327,27 +327,26 @@ bool PathAITick(W8PathAI* path, signed char direction)
         elapsed = now - path->last_update_tick;
         if (path->last_update_tick < now) {
             if (path->timed) {
-                PathAIAdvanceNormalized(path, elapsed * g_float_one_thousandth);
+                PathAIAdvanceNormalized(path, elapsed * 0.001f);
             } else {
                 point_count = static_cast<float>(path->nodes.size());
                 PathAIAdvanceByDistance(path, path->total_length / point_count * path->speed *
-                                                  elapsed * g_float_one_thousandth);
+                                                  elapsed * 0.001f);
             }
             path->last_update_tick = now;
             return true;
         }
     } else {
         if (!path->step_by_node) {
-            amount =
-                (now - path->last_update_tick) * g_float_one_thousandth * direction * path->speed;
+            amount = (now - path->last_update_tick) * 0.001f * direction * path->speed;
         } else {
             amount = g_negative_one;
             if (direction > 0) {
-                amount = g_float_one;
+                amount = 1.0f;
             }
         }
         path->position += amount;
-        if (path->position >= g_float_zero) {
+        if (path->position >= 0.0f) {
             point_count = static_cast<float>(path->nodes.size());
             if (path->position < point_count) {
                 path->last_update_tick = now;
@@ -355,15 +354,15 @@ bool PathAITick(W8PathAI* path, signed char direction)
             }
             if (!path->looping) {
                 path->last_update_tick = now;
-                path->position = point_count - g_float_one;
+                path->position = point_count - 1.0f;
                 return true;
             }
         } else if (path->looping) {
             path->last_update_tick = now;
-            path->position = static_cast<int>(path->nodes.size()) - g_float_one;
+            path->position = static_cast<int>(path->nodes.size()) - 1.0f;
             return true;
         }
-        path->position = g_float_zero;
+        path->position = 0.0f;
     }
     path->last_update_tick = now;
     return true;
@@ -375,8 +374,8 @@ void PathAIPosition(W8PathAI* path, glm::vec3* value)
     if (!path || path->nodes.empty()) return;
     if (!path->animated) {
         int index = path->discrete_mode
-                        ? srFloatToInt(path->position + g_double_one_tenth)
-                        : srFloatToInt((path->nodes.size() - 1) * path->position + g_double_half);
+                        ? srFloatToInt(path->position + 0.1)
+                        : srFloatToInt((path->nodes.size() - 1) * path->position + 0.5);
         index = std::min(index, static_cast<int>(path->nodes.size()) - 1);
         if (index >= 0) *value = path->nodes[index];
         return;
@@ -384,20 +383,12 @@ void PathAIPosition(W8PathAI* path, glm::vec3* value)
     const auto index = path->point_index;
     if (index >= path->nodes.size()) return;
     if (index + 1 < path->nodes.size()) {
-        *value = path->nodes[index] * (g_float_one - path->interpolation_fraction) +
+        *value = path->nodes[index] * (1.0f - path->interpolation_fraction) +
                  path->nodes[index + 1] * path->interpolation_fraction;
     } else {
         *value = path->nodes[index];
     }
 }
-
-// GLOBAL: WIZ8 0x005EC1E8
-const double g_quaternion_matrix_normalization = 2.0;
-
-/* FLT_EPSILON: the dot-product closeness bound at which the keyframe slerps
-   fall back to a linear blend. */
-// GLOBAL: WIZ8 0x005EC1F0
-const double g_slerp_epsilon = 1.1920928955078125e-07;
 
 // FUNCTION: WIZ8 0x004aa520
 void PathAIApply(W8PathAI* path, srNode* target)
@@ -431,7 +422,7 @@ void PathAIApply(W8PathAI* path, srNode* target)
             blend = path->interpolation_fraction;
             index = path->point_index;
         } else {
-            index = srFloatToInt(path->position + g_double_one_tenth);
+            index = srFloatToInt(path->position + 0.1);
             blend = -1.0f;
         }
         if (static_cast<int>(path->nodes.size()) - 1 <= index) {
@@ -440,19 +431,19 @@ void PathAIApply(W8PathAI* path, srNode* target)
         }
 
         rotation = path->rotations[index];
-        if (g_float_zero < blend) {
+        if (0.0f < blend) {
             next = path->rotations[index + 1];
             if (!(rotation == next)) {
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));
                 double rotation_dot = glm::dot(first_rotation, next_rotation);
-                if (rotation_dot < g_double_zero) {
+                if (rotation_dot < 0.0) {
                     next_rotation = -next_rotation;
                     rotation_dot = -rotation_dot;
                 }
                 const auto interpolated_rotation =
-                    g_double_one - rotation_dot <= g_slerp_epsilon
-                        ? first_rotation * (g_double_one - blend) + next_rotation * double(blend)
+                    1.0 - rotation_dot <= kSlerpEpsilon
+                        ? first_rotation * (1.0 - blend) + next_rotation * double(blend)
                         : glm::slerp(first_rotation, next_rotation, double(blend));
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }

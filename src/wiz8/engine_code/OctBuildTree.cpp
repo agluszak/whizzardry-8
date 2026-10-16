@@ -19,7 +19,6 @@
 #include "surrender/swept_bounds.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/octree_spatial.h"
-#include "wiz8/float_constants.h"
 
 #define OCT_BUILD_TREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctBuildTree.cpp"
 
@@ -35,7 +34,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
 {
     spatial.Reset();
 
-    if (leaf_size < g_float_one_thousand) {
+    if (leaf_size < 1e+03f) {
         throw std::invalid_argument("Leaf Size too small--try a larger leaf size!\n");
     }
     spatial.flags = 0;
@@ -47,7 +46,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
     spatial.m_depth = 0;
 
     if (bounds) {
-        const float half_leaf = leaf_size * g_float_half;
+        const float half_leaf = leaf_size * 0.5f;
         bounds->minimum -= half_leaf;
         bounds->maximum += half_leaf;
         spatial.m_bounds = *bounds;
@@ -60,7 +59,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
         if (extent_mode == 0) {
             spatial.m_node_extent = spatial.m_extent;
             while (leaf_size + leaf_size <= spatial.m_node_extent && spatial.m_depth < 6) {
-                spatial.m_node_extent *= g_float_half;
+                spatial.m_node_extent *= 0.5f;
                 ++spatial.m_depth;
             }
         } else if (extent_mode == 1) {
@@ -80,7 +79,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
         } else {
             spatial.m_node_extent = spatial.m_extent;
             while (leaf_size + leaf_size <= spatial.m_node_extent && spatial.m_depth < 6) {
-                spatial.m_node_extent *= g_float_half;
+                spatial.m_node_extent *= 0.5f;
                 ++spatial.m_depth;
             }
             if (extent_mode == 2) {
@@ -152,7 +151,7 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
         AppendLink(node, surface, static_cast<short>(mode));
         inserted = true;
     } else {
-        float half_extent = working->m_extent * g_float_half;
+        float half_extent = working->m_extent * 0.5f;
         child.m_cell_size = working->m_cell_size;
         child.m_depth = working->m_depth + 1;
 

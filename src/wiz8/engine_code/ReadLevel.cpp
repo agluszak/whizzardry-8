@@ -63,7 +63,7 @@
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -200,8 +200,6 @@ static_assert(sizeof(W8LevelLightRecord) == 40);
 
 } // namespace
 
-// GLOBAL: WIZ8 0x005ec0b0
-const float g_environment_near_scale = 2.0f;
 // GLOBAL: WIZ8 0x00659cd0
 glm::vec3 g_environment_offset{0};
 
@@ -338,10 +336,10 @@ try {
             }
 
             light->specular = glm::vec3(0);
-            ConfigureWorldLight(light, record.range * g_world_scale);
+            ConfigureWorldLight(light, record.range * kWorldScale);
             light->intensity = record.intensity;
-            light->setLocation(record.location.x * g_world_scale, record.location.y * g_world_scale,
-                               record.location.z * g_world_scale);
+            light->setLocation(record.location.x * kWorldScale, record.location.y * kWorldScale,
+                               record.location.z * kWorldScale);
         }
     }
 
@@ -389,8 +387,7 @@ try {
     if (camera_mode == 1) {
         success = success && (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
                               static_cast<std::size_t>(sizeof(stored_position)));
-        position =
-            glm::vec3(stored_position.x, stored_position.y, stored_position.z) * g_world_scale;
+        position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
         SetWorldScenePosition(pWorld, &position);
     } else if (camera_mode == 2) {
         success = success &&
@@ -404,8 +401,7 @@ try {
                    static_cast<std::size_t>(sizeof(axis.y))) &&
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
-        position =
-            glm::vec3(stored_position.x, stored_position.y, stored_position.z) * g_world_scale;
+        position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
         SetWorldScenePosition(GetWorld(), &position);
 
         rotation = glm::mat3(1);
@@ -435,11 +431,10 @@ try {
     }
 
     g_environment_offset = glm::vec3(0);
-    pWorld->view_distance = view_distance * g_world_scale;
+    pWorld->view_distance = view_distance * kWorldScale;
     ApplyEnvironmentColour(pWorld, intensity, &white);
     WorldSetFarClip(pWorld, pWorld->view_distance);
-    distance_scale =
-        view_distance < g_octree_cell_scale ? g_environment_near_scale : g_float_one_and_a_half;
+    distance_scale = view_distance < g_octree_cell_scale ? kEnvironmentNearScale : 1.5f;
     WorldSetRenderRange(pWorld, distance_scale * pWorld->view_distance);
     pWorld->environment_range_start = environment_range.x;
     pWorld->environment_range_end = environment_range.y;
@@ -508,8 +503,8 @@ try {
         clip_plane->setClipPlane(plane);
 
         position =
-            glm::dvec3(serialized_position.x * g_world_scale, serialized_position.y * g_world_scale,
-                       serialized_position.z * g_world_scale);
+            glm::dvec3(serialized_position.x * kWorldScale, serialized_position.y * kWorldScale,
+                       serialized_position.z * kWorldScale);
         clip_plane->setLocation(position);
         clip_plane->setFlag(srNode::FLAG_GLOBAL);
         clip_plane->setClipType(srClipPlane::CLIP_POSITIONAL_0);
@@ -628,7 +623,7 @@ try {
                    static_cast<std::size_t>(sizeof(record.item_name)));
         if (success) {
             wiz8::retail::read_exact(*pInfo->hFile, record.position);
-            record.position *= g_world_scale;
+            record.position *= kWorldScale;
             pInfo->hFile->read(&record.positional0, sizeof(int));
             pInfo->hFile->read(&record.positional2, sizeof(int));
             pInfo->hFile->read(&record.positional3, sizeof(int));
@@ -866,7 +861,7 @@ try {
         axis = glm::dvec3(record.rotation_axis.x, record.rotation_axis.y, record.rotation_axis.z);
         particle->rotate(record.rotation_angle, axis);
         location = glm::dvec3(record.location.x, record.location.y, record.location.z);
-        location *= g_world_scale;
+        location *= kWorldScale;
         particle->setLocation(location);
         particle->rotateX(1.5707963);
 
@@ -877,7 +872,7 @@ try {
         if (record.bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
             const auto center =
                 glm::vec3(record.bounds_origin.x, record.bounds_origin.y, record.bounds_origin.z) *
-                g_world_scale;
+                kWorldScale;
             const auto extent =
                 glm::vec3(record.bounds_extent.x, record.bounds_extent.y, record.bounds_extent.z) *
                 250.0f;
@@ -888,8 +883,8 @@ try {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
             particle->bounds_origin =
                 glm::vec3(record.bounds_origin.x, record.bounds_origin.y, record.bounds_origin.z) *
-                g_world_scale;
-            particle->bounds_radius = record.bounds_radius * g_world_scale;
+                kWorldScale;
+            particle->bounds_radius = record.bounds_radius * kWorldScale;
         } else {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_NONE;
         }
@@ -910,7 +905,7 @@ try {
             particle->has_acceleration = 1;
             particle->acceleration =
                 glm::vec3(record.acceleration.x, record.acceleration.y, record.acceleration.z) *
-                g_world_scale;
+                kWorldScale;
         }
 
         if (record.emission_mode == W8_PARTICLE_EMISSION_NONE) {
@@ -921,7 +916,7 @@ try {
             particle->emission_mode = W8_PARTICLE_EMISSION_CATCH_UP;
             particle->emission_minimum = {-record.spread.x * 250.0f, -record.spread.y * 250.0f, 0};
             particle->emission_maximum = {record.spread.x * 250.0f, record.spread.y * 250.0f,
-                                          record.spread.z * g_world_scale};
+                                          record.spread.z * kWorldScale};
         }
 
         if (record.direction_mode == W8_PARTICLE_DIRECTION_STATIONARY) {
@@ -955,11 +950,11 @@ try {
             particle->speed_mode = W8_PARTICLE_SPEED_ZERO;
         } else if (record.speed_mode == W8_PARTICLE_SPEED_FIXED) {
             particle->speed_mode = W8_PARTICLE_SPEED_FIXED;
-            particle->initial_speed = record.initial_speed * g_world_scale;
+            particle->initial_speed = record.initial_speed * kWorldScale;
         } else {
             particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;
-            particle->speed_min = record.speed_min * g_world_scale;
-            particle->speed_max = record.speed_max * g_world_scale;
+            particle->speed_min = record.speed_min * kWorldScale;
+            particle->speed_max = record.speed_max * kWorldScale;
         }
 
         if (record.flutter_mode == 0) {

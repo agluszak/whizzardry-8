@@ -24,7 +24,6 @@
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "dice.h"
-#include "float_constants.h"
 #include "game_timer.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -60,7 +59,6 @@
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
@@ -98,6 +96,7 @@ static void assignFlag(unsigned int& flags, unsigned int flag, bool on)
 
 #include "layouts/world.h"
 #include "surrender/srNode.h"
+#include "wiz8/gameplay_constants.h"
 
 class W8DialogBase;
 
@@ -121,10 +120,10 @@ std::vector<int> g_location_variable_values;
 bool g_trigger_feedback = true;
 
 // GLOBAL: WIZ8 0x0068c520
-int g_container_event_alt = g_first_remapped_event + 13;
+int g_container_event_alt = kFirstRemappedEvent + 13;
 
 // GLOBAL: WIZ8 0x0068c548
-int g_container_event = g_first_remapped_event + 14;
+int g_container_event = kFirstRemappedEvent + 14;
 
 // GLOBAL: WIZ8 0x005ec124
 const float g_trigger_progress_limit = 64.0f;
@@ -458,8 +457,8 @@ bool Trigger::Save(wiz8::File& hFile)
             if (m_lData1 != 0 && m_pEvent != 0 && std::ranges::contains(g_timed_events, m_pEvent)) {
                 float progress = m_pEvent->timer.GetProgress();
                 if (progress <= g_trigger_progress_limit) {
-                    progress_delay = static_cast<unsigned int>(
-                        m_pEvent->timer.GetProgress() * g_float_one_thousand + g_float_one);
+                    progress_delay =
+                        static_cast<unsigned int>(m_pEvent->timer.GetProgress() * 1e+03f + 1.0f);
                 } else {
                     progress_delay = 64000;
                 }
@@ -575,7 +574,7 @@ try {
                         m_pEvent->timer.Restart();
                         m_pEvent->repeat = true;
                     }
-                    m_pEvent->timer.SetProgress(progress_delay * g_float_one_thousandth);
+                    m_pEvent->timer.SetProgress(progress_delay * 0.001f);
                     if (!std::ranges::contains(g_timed_events, m_pEvent)) {
                         g_timed_events.push_back(m_pEvent);
                     }
@@ -866,10 +865,10 @@ void UpdateTimedTriggerEvents(void)
 void W8TriggerShakeEvent::Update()
 {
     if (!effect) {
-        float intensity = this->intensity / g_float_two_hundred_fifty;
+        float intensity = this->intensity / 2.5e+02f;
 
-        if (intensity < g_float_one) {
-            intensity = g_float_one;
+        if (intensity < 1.0f) {
+            intensity = 1.0f;
         }
         effect.emplace(m_pCountdown->m_duration_seconds, false, intensity, 0, nullptr);
         if (reverse) {
@@ -911,9 +910,9 @@ bool CreateTriggerShakeEvent(int intensity, float duration, float countdown_dura
         srAssertFail("m_pCountdown", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x12de,
                      0);
     }
-    pEvent->m_pCountdown->SetDuration(countdown_duration * g_float_one_thousandth);
+    pEvent->m_pCountdown->SetDuration(countdown_duration * 0.001f);
     pEvent->m_pCountdown->Restart();
-    pEvent->timer.SetDuration(duration * g_float_one_thousandth);
+    pEvent->timer.SetDuration(duration * 0.001f);
     pEvent->timer.Restart();
     pEvent->reverse = reverse;
     g_timed_events.push_back(pEvent);
@@ -2404,9 +2403,9 @@ void Trigger::Run(int source)
             if (m_pacRecipients == 0 || SDL_strcasecmp(m_pacRecipients, "party") != 0) {
                 break;
             }
-            ApplyItemEffectToRandomCharacter(Random(2) != 0 ? g_condition_reaction
-                                                            : g_condition_reaction_alt,
-                                             -1, 0, g_character_event_no_flags);
+            ApplyItemEffectToRandomCharacter(Random(2) != 0 ? kConditionReaction
+                                                            : kConditionReactionAlt,
+                                             -1, 0, kCharacterEventNoFlags);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -2772,7 +2771,7 @@ void Trigger::Run(int source)
                     if (m_pProp->Rep()->subcycle == 0) {
                         ApplyItemEffectToRandomCharacter(Random(2) != 0 ? g_container_event
                                                                         : g_container_event_alt,
-                                                         -1, 0, g_character_event_no_flags);
+                                                         -1, 0, kCharacterEventNoFlags);
                     }
                 } else if (item_count == 1 && !g_status.item_in_cursor) {
                     item = world_item_group->next.get();

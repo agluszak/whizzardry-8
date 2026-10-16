@@ -15,7 +15,6 @@
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/retail_opaque_records.h"
 
@@ -50,6 +49,10 @@ float MoveTimer(int action);
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x0041EEE0 */
 
 #include "wiz8/geometry.h"
+
+extern float g_navigator_gravity;
+extern float g_default_motion_limit;
+extern float g_default_momentum_scale;
 
 /* The current level-data record at 0x00652DAC — a 0xf4-byte allocation whose
    first 0xac bytes mix flag, counter and camera-vector state. GameData.cpp

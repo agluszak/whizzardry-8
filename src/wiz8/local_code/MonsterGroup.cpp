@@ -23,9 +23,8 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/stScript.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -47,6 +46,9 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
+
+constexpr float kMonsterScatterHeadingBias = 0.8f;
+constexpr float kMonsterScatterHeadingRandomScale = 0.001600000075995922f;
 
 struct W8NpcState;
 
@@ -284,7 +286,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     if (monster_group->ubDisposition != W8_DISPOSITION_HOSTILE &&
         (record->flags & W8_MONSTER_FLAG_NPC) == 0 && record->faction_id == 0 &&
         record->hostility_radius != 0 && record->hostility_radius != -1 &&
-        GetGroupNearestDistance(monster_group) <= record->hostility_radius * g_world_scale &&
+        GetGroupNearestDistance(monster_group) <= record->hostility_radius * kWorldScale &&
         MonsterGroupHasVisibleTarget(monster_group, true, W8_VISIBLE_TARGET_ANY, false)) {
         SetMonsterGroupHostility(monster_group, W8_DISPOSITION_HOSTILE, false);
     }
@@ -1404,7 +1406,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     ++group_list_index;
                 }
                 if (live_groups > 1) {
-                    ApplyItemEffectToRandomCharacter(g_effect21, -1, 0, g_character_event_no_flags);
+                    ApplyItemEffectToRandomCharacter(33, -1, 0, kCharacterEventNoFlags);
                 }
             }
             int* allies = monster_group->allied_group_ids;
@@ -1431,14 +1433,6 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
     }
 }
 
-/* 0x0016 per Random(1000) step of the near-camera scatter angle, and the 0.8
-   radian offset the sum is biased by. Retail keeps both as addressable .data
-   floats; only PositionMonsterGroupNearCamera reads them. */
-// GLOBAL: WIZ8 0x005ed828
-const float g_monster_scatter_heading_random_scale = 0.001600000075995922f;
-// GLOBAL: WIZ8 0x005ebb30
-const float g_monster_scatter_heading_bias = 0.8f;
-
 /* Places a group relative to the camera: flag clear moves it straight onto the
    camera position, flag set scatters it `distance` out on a random heading
    centred just off the camera's back, widened to the largest allied member
@@ -1460,9 +1454,9 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
         return MoveMonsterGroupToPosition(group, &target, 0.0f, true, true, false, true);
     }
     member_info = FindMonster(group->leader_location_id);
-    angle = NormalizeAngle(GetCameraYawRadians() +
-                           Random(1000) * g_monster_scatter_heading_random_scale +
-                           g_monster_rotation_offset - g_monster_scatter_heading_bias);
+    angle =
+        NormalizeAngle(GetCameraYawRadians() + Random(1000) * kMonsterScatterHeadingRandomScale +
+                       g_monster_rotation_offset - kMonsterScatterHeadingBias);
     radius = member_info->p3D->radius;
     for (index = 0; index < W8_MONSTER_GROUP_ALLY_COUNT; ++index) {
         if (group->allied_group_ids[index] != 0) {
@@ -1473,8 +1467,8 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
             }
         }
     }
-    if (distance <= g_float_zero) {
-        distance = g_startup_world->radius + radius + g_float_one;
+    if (distance <= 0.0f) {
+        distance = g_startup_world->radius + radius + 1.0f;
     }
     target.y = camera.y;
     target.x = camera.x + distance * sin(angle);
