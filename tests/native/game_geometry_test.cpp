@@ -50,6 +50,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srModeler.h"
 #include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTriangleCuller.h"
@@ -65,6 +66,7 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Emitter.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GameData.h"
@@ -158,10 +160,10 @@ static void planes_and_segments()
     REQUIRE((surface.surface == 0 && surface.material == 0));
     W8Plane plane{};
     plane = trianglePlane(a.glmValue(), b.glmValue(), c.glmValue());
-    REQUIRE(close(plane.normal.glmValue(), {0, 1, 0}));
+    REQUIRE(close(plane.normal, {0, 1, 0}));
     REQUIRE(std::abs(SignedPlaneDistance(plane, {5, 4, 7}) - 2) < 1e-5f);
     plane = trianglePlane(a.glmValue(), a.glmValue(), a.glmValue());
-    REQUIRE((plane.normal == srVector3(0, 0, 0) && plane.w == 0));
+    REQUIRE((plane.normal == glm::vec3(0) && plane.w == 0));
 
     const glm::vec3 start(0, 0, 0), end(2, 0, 2);
     const glm::vec3 crossing_a(0, 0, 2), crossing_b(2, 0, 0);
@@ -204,7 +206,7 @@ static void planes_and_segments()
     environment.scale = 2;
     environment.airborne = 0;
     environment.SetScaledMotion(glm::vec3(4, 6, 8));
-    REQUIRE((environment.vector == srVector3(2, 3, 4) && environment.airborne == 1));
+    REQUIRE((environment.vector == glm::vec3(2, 3, 4) && environment.airborne == 1));
 
     glm::vec3 vector(3, 4, 5), target(0, 2, 0), zero(0);
     vector = ProjectVectorOntoVector(vector, target);
@@ -1391,8 +1393,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
             std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::make_unique<W8PathAI>();
-        PathAIAddPoint(*path, srVector3(100, 200, 300));
-        PathAIAddPoint(*path, srVector3(400, 500, 600));
+        PathAIAddPoint(*path, glm::vec3(100, 200, 300));
+        PathAIAddPoint(*path, glm::vec3(400, 500, 600));
         path->rotations.resize(path->nodes.size(), glm::mat3(1));
         PathAISetValue(path.get(), 0.75f);
         animation.paths[0].push_back(std::move(path));
@@ -2834,10 +2836,10 @@ TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bo
     frame.mesh.vertices = {{0, 0, 0}, {0, 0, 2}, {2, 0, 0}};
     frame.mesh.faces = {face};
     W8LevelFileScaledPathNode node{};
-    node.path.position.Set(1, -2, 3);
-    node.path.axis.Set(0, 2, 0);
+    node.path.position = {1, -2, 3};
+    node.path.axis = {0, 2, 0};
     node.path.angle = 1.5707963267948966f;
-    node.scale.Set(2, 3, 4);
+    node.scale = {2, 3, 4};
     W8LevelFileTransform transform{};
     transform.num_frames = 1;
     transform.frames.push_back(std::move(frame));
@@ -2855,19 +2857,19 @@ TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bo
 
 TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep slope", "[geometry]")
 {
-    std::array<srVector3, 3> positions{{{0, -2, 0}, {0, -2, 2}, {2, -2, 0}}};
+    std::array<glm::vec3, 3> positions{{{0, -2, 0}, {0, -2, 2}, {2, -2, 0}}};
     W8GDSurface surface{};
     for (int corner = 0; corner < 3; ++corner) surface.vertex_indices[corner] = corner;
     surface.slope = 0.3f;
     surfaceGeometry::initializePropSurface(surface, positions);
-    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, 1, 0));
+    REQUIRE(surface.plane.normal == glm::vec3(0, 1, 0));
     REQUIRE(surface.plane.w == 2);
     REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | W8_GD_SURFACE_WALKABLE | 1));
     REQUIRE(surface.slope == 0.3f);
     REQUIRE(surface.contact_margin == 500);
     std::swap(surface.vertex_indices[1], surface.vertex_indices[2]);
     surfaceGeometry::initializePropSurface(surface, positions);
-    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, -1, 0));
+    REQUIRE(surface.plane.normal == glm::vec3(0, -1, 0));
     REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | 1));
     REQUIRE(surface.slope == 0);
 }
@@ -2927,7 +2929,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     const auto points = sortedFrustumCorners(corners);
     const auto packed = BuildFrustumPlanes(points);
     for (unsigned i = 0; i < packed.size(); ++i)
-        view.frustum_planes[i] = {packed[i].normal.glmValue(), packed[i].w};
+        view.frustum_planes[i] = {packed[i].normal, packed[i].w};
     REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(0), 0));
     REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), 1));
     REQUIRE_FALSE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), .99f));
@@ -3103,4 +3105,33 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initi
     g_game_time_accumulator->m_flags.raw_time = true;
     REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
             glm::vec3(0));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Environment ambient scales scenes and lights while retaining the source colour",
+                 "[geometry]")
+{
+    const struct RestoreLights {
+        std::vector<stLight*> lights = g_environment_lights;
+        ~RestoreLights() { g_environment_lights = lights; }
+    } restore;
+    srScene scene;
+    stLight light(nullptr);
+    g_environment_lights = {&light};
+    W8World world{};
+    world.static_scene = &scene;
+    const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
+    ApplyEnvironmentColour(&world, 0.75f, &colour);
+    REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
+    REQUIRE(light.ambient == scene.getAmbientLight());
+    REQUIRE(world.environment_colour == colour);
+    REQUIRE(world.environment_intensity == 0.75f);
+    SetWorldEnvironmentIntensity(&world, 0.5f);
+    REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.25f, 1));
+    REQUIRE(light.ambient == scene.getAmbientLight());
+    REQUIRE(world.environment_colour == colour);
+    world.static_scene = nullptr;
+    glm::vec3 ambient(1);
+    GetWorldLightValue(&world, &ambient);
+    REQUIRE(ambient == glm::vec3(0));
 }

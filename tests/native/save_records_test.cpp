@@ -14,7 +14,6 @@
 #include "surrender/srMath.h"
 #include "unicode.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
-#include "wiz8/geometry.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -437,7 +436,10 @@ static void path_record_contracts()
         PathAIClearOwned(copy.get());
         PathAIClearOwned(copy.get());
         REQUIRE((copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty()));
-        srVector3T<float> point;
+        glm::vec3 point(7, 8, 9);
+        PathAIPosition(nullptr, &point);
+        PathAIPosition(copy.get(), &point);
+        REQUIRE(point == glm::vec3(7, 8, 9));
         copy->looping = true;
         REQUIRE((!PathAINextPoint(copy.get(), &point)));
         REQUIRE((PathAINextPoint(path.get(), &point) && point.x == 0));
@@ -509,7 +511,7 @@ static void animation_record_contracts()
         REQUIRE(wrapped_bounds->minimum == bounds->minimum);
         REQUIRE(wrapped_bounds->maximum == bounds->maximum);
         animation->path = std::make_unique<W8PathAI>();
-        PathAIAddPoint(*animation->path, srVector3T<float>(1, 2, 3));
+        PathAIAddPoint(*animation->path, glm::vec3(1, 2, 3));
         animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
         animation->entries[0] = std::make_unique<W8AniMesh>();
         animation->entries[0]->filename = std::string(300, 'x');
@@ -608,7 +610,7 @@ static void graphical_object_ownership_contracts()
 {
     W8GrObject original;
     original.m_pAI = std::make_unique<W8PathAI>();
-    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI.get()), srVector3T<float>(1, 2, 3));
+    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI.get()), glm::vec3(1, 2, 3));
     auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     auto* first = event.get();
     original.AddSoundEvent(std::move(event));
@@ -1378,18 +1380,6 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     REQUIRE(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
     g_status.buffers.Char = nullptr;
     g_spell_records = nullptr;
-    struct alignas(16) PackedTriangle {
-        char padding;
-        srVector3T<float> vertices[3];
-        srVector3T<float> point;
-    } triangle;
-    triangle.vertices[0].Set(0, 0, 0);
-    triangle.vertices[1].Set(0, 2, 0);
-    triangle.vertices[2].Set(0, 0, 2);
-    triangle.point.Set(0, 0.25f, 0.25f);
-    REQUIRE(PointInsideTriangle(runtimeTriangle(triangle.vertices), 0, triangle.point.glmValue()));
-    triangle.point.Set(0, 3, 3);
-    REQUIRE(!PointInsideTriangle(runtimeTriangle(triangle.vertices), 0, triangle.point.glmValue()));
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);

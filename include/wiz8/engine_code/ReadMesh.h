@@ -14,7 +14,6 @@ struct W8ReadLevelInfo;
 namespace wiz8 {
 class File;
 }
-template<class T> class srVector3T;
 
 #pragma pack(push, 1)
 struct W8SerializedMeshFace {
@@ -68,5 +67,3 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
 void OptimizeMeshOrder(srMeshModel* model);
 
 void ClearMaterialRecordPadding(W8MaterialRecord* material);
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
-                       srVector3T<float>* scale);

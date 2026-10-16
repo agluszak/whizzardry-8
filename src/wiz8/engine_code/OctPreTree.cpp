@@ -44,6 +44,8 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/octree_walk.h"
+#include "wiz8/retail_geometry_records.h" // IWYU pragma: keep - W8OctRegionVolume codec specialization.
+#include "wiz8/retail_text_records.h"
 #include "wiz8/sr_api.h"
 
 #define OCTPRETREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPreTree.cpp"
@@ -173,7 +175,7 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
         W8OctRegionPolygon* polygon = &game_data->m_polygons[m_aulGDObjs[index]];
         const W8Plane* plane = &polygon->plane;
         const auto contact =
-            planeContact(glm::vec4(plane->normal.glmValue(), plane->w),
+            planeContact(glm::vec4(plane->normal, plane->w),
                          {trace->start, trace->end, trace->step, trace->length, limit},
                          PlaneContactMode::Occlusion);
         if (contact) {
@@ -218,7 +220,8 @@ try {
     header.m_bounds[3] = m_spatial.m_clipped_bounds.maximum;
     header.m_bounds[4] = m_spatial.m_working_bounds.minimum;
     header.m_bounds[5] = m_spatial.m_working_bounds.maximum;
-    header.m_grid_dims = m_leaf_grid_dimensions;
+    header.m_grid_dims = {m_leaf_grid_dimensions.x, m_leaf_grid_dimensions.y,
+                          m_leaf_grid_dimensions.z};
     header.m_depth = m_spatial.m_depth;
     header.m_region_id_bound = m_spatial.m_region_id_bound;
     header.m_root_mesh_count = m_root_mesh_count;
@@ -313,11 +316,9 @@ try {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Trigger list.\n");
         return 0;
     }
-    if (header.m_region_count > 1 &&
-        (file->write(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)),
-         true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Region array.\n");
-        return 0;
+    if (header.m_region_count > 1) {
+        for (unsigned int i = 0; i < header.m_region_count; ++i)
+            wiz8::retail::write(*file, m_spatial.m_region_volumes[i]);
     }
     file->write(&sentinel, 4);
     if (header.m_submesh_count != 0) {
@@ -433,7 +434,7 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
         if (m_spatial.submesh_count > 1) {
             W8OctSubmeshBuild* record = records + 1;
             W8OctSubmesh* submesh = m_pSubmeshes.data() + 1;
-                    /* Retail writes models from index 0: records[1..] and
+            /* Retail writes models from index 0: records[1..] and
                        submeshes[1..] are one-based, but the model cursor
                        starts at models[0]. */
             OctMeshModel* model = models.data();
@@ -544,7 +545,7 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                 }
             }
         }
-                /* Verified retail behavior: submesh_count was just overwritten
+        /* Verified retail behavior: submesh_count was just overwritten
                    with model_index, so the cleanup frees records[0..model_index)
                    and leaks the final record's vertex/polygon id arrays. */
         FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
@@ -1529,11 +1530,11 @@ srBoundingBox W8OctSpatialState::GetClippedBounds() const
 /* Test a triangle against an axis-aligned box.  The inexpensive containment
    and separating-axis checks precede explicit triangle-edge intersections
    with all six box faces. */
-bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const glm::vec3> vertices,
                           const srBoundingBox& box)
 {
     return triangleIntersectsBox(box, indexedTriangle(vertices, surface.vertex_indices),
-                                 surface.plane.normal.glmValue());
+                                 surface.plane.normal);
 }
 
 // FUNCTION: WIZ8 0x0046ce60

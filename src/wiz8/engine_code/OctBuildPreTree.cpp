@@ -32,6 +32,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "index_algorithms.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/LevelFile.h"
@@ -374,7 +375,7 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
                 working, child, child.m_extent,
                 [&](W8OctSpatialState& candidate) {
                     return triangleIntersectsBox(candidate.bounds(), vertices,
-                                                 polygon->plane.normal.glmValue());
+                                                 polygon->plane.normal);
                 },
                 [&]() {
                     ++level_counts[working->m_depth];
@@ -388,7 +389,7 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
             if (node->leaf_kind == 0) {
                 ReportBuildStatus(2, {});
                 ++leaf_count;
-                W8BoundingBox leaf_bounds;
+                srBoundingBox leaf_bounds;
                 leaf_bounds.minimum = working->m_bounds.minimum;
                 leaf_bounds.maximum = working->m_bounds.maximum;
                 FindLeafRegions(node, &leaf_bounds);
@@ -525,14 +526,15 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
         volume->m_polygon_count = 0;
         volume->m_region = region;
         volume->m_region_bit = region;
+        volume->m_points[0] = glm::vec3(0);
         for (int corner = 0; corner != 8; ++corner) {
-            volume->m_points[corner + 1] = record.corners[corner] * g_world_scale;
-            volume->m_points[0] += record.corners[corner] * g_world_scale * 0.125f;
+            volume->m_points[corner + 1] = record.corners[corner].glmValue() * g_world_scale;
+            volume->m_points[0] += record.corners[corner].glmValue() * g_world_scale * 0.125f;
         }
         volume->value_18 = record.value_06;
         std::array<glm::vec3, 8> points;
         for (unsigned corner = 0; corner < points.size(); ++corner)
-            points[corner] = volume->m_points[corner + 1].glmValue();
+            points[corner] = volume->m_points[corner + 1];
         const auto sorted = sortedFrustumCorners(points);
         for (unsigned corner = 0; corner < sorted.size(); ++corner)
             volume->m_points[corner + 1] = sorted[corner];
@@ -553,12 +555,11 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
    `bounds`. The list is a malloc'd run of up to 0x32 ids terminated by a zero
    slot; the first allocation reports failure through the build log. */
 // FUNCTION: WIZ8 0x004b1090
-void OctBuildPreTree::FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox* bounds)
+void OctBuildPreTree::FindLeafRegions(W8OctBuildNode* node, const srBoundingBox* bounds)
 {
     for (unsigned short region = 1; region < spatial.m_region_count; ++region) {
         if ((spatial.m_region_volumes[region].flags & 4) == 0 &&
-            BoundsInsideFrustum(spatial.m_region_volumes[region],
-                                {bounds->minimum.glmValue(), bounds->maximum.glmValue()})) {
+            BoundsInsideFrustum(spatial.m_region_volumes[region], *bounds)) {
             if (node->region_arrays[1] == 0) {
                 unsigned short* list = static_cast<unsigned short*>(malloc(50 * sizeof(*list)));
                 if (list == 0) {
@@ -1277,12 +1278,11 @@ void OctBuildPreTree::ValidatePolygonRegions()
             continue;
         }
 
-        const float position[] = {polygon.position.x, polygon.position.y, polygon.position.z};
         const auto& minimum = spatial.m_bounds.minimum;
         int cell[3];
         short count[3];
         for (int axis = 0; axis < 3; ++axis) {
-            const float relative = position[axis] - minimum[axis];
+            const float relative = polygon.position[axis] - minimum[axis];
             cell[axis] = static_cast<int>(relative / spatial.m_region_grid_cell);
             count[axis] = 1;
             if (g_region_boundary_tolerance < cell[axis] * spatial.m_region_grid_cell - relative) {
@@ -1556,7 +1556,7 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     }
 
     for (int grid_axis = 0; grid_axis != 3; ++grid_axis) {
-        (&tree->m_leaf_grid_dimensions.x)[grid_axis] =
+        tree->m_leaf_grid_dimensions[grid_axis] =
             static_cast<int>((tree->m_spatial.m_clipped_bounds.maximum[grid_axis] -
                               tree->m_spatial.m_clipped_bounds.minimum[grid_axis]) /
                              tree->m_spatial.m_node_extent) +

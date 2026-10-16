@@ -20,7 +20,6 @@
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
-#include "surrender/srMath.h"
 #include "timer.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"

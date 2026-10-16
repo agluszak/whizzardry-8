@@ -15,6 +15,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
@@ -62,9 +63,9 @@ void UpdateWorldMonsters(W8World* world)
         srAssertFail("pWorld", THREE_D_CPP, 0x10d, 0);
     }
 
-    srVector3T<double> camera_location = world->camera->getLocation();
+    glm::dvec3 camera_location = world->camera->getLocation();
     srVector3T<float> position;
-    position = camera_location;
+    position = glm::vec3(camera_location);
 
     unsigned int count = world->plsMonsters.size();
     UpdateNearestMonsterGroupMembers();
@@ -698,7 +699,7 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
     const auto coefficients = planes | std::views::transform([](const W8Plane& plane) {
-                                  return glm::vec4(plane.normal.glmValue(), plane.w);
+                                  return glm::vec4(plane.normal, plane.w);
                               });
     return srPlaneMath::containsSphere(coefficients, point, radius);
 }
@@ -709,7 +710,7 @@ bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& b
     for (unsigned corner = 0; corner < 8; ++corner)
         if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) return true;
     for (unsigned corner = 1; corner < 9; ++corner)
-        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) return true;
+        if (bounds.containsHalfOpen(volume.m_points[corner])) return true;
     return false;
 }
 

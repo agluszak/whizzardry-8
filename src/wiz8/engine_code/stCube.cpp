@@ -19,6 +19,7 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
 #include "layouts/world.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
@@ -786,21 +787,17 @@ void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size)
 bool SelectWorldCursorNode(void)
 {
     if (g_world != 0 && g_world->camera != 0) {
-        srVector3T<float> camera_position;
-        srVector3T<double> camera_location;
-
-        camera_position = cameraLocation();
-        camera_location = glm::dvec3(camera_position.glmValue());
+        const glm::dvec3 camera_location(cameraLocation());
         int selected = g_cursor_node_index;
         if (static_cast<std::size_t>(selected) < g_world_cursor_nodes.size()) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[selected];
-            srVector3T<double> target = entry->node->getLocation();
+            glm::dvec3 target = entry->node->getLocation();
 
             if (entry != 0) {
-                srVector3T<double> delta = target;
+                glm::dvec3 delta = target;
 
                 delta -= camera_location;
-                if (delta.Length() < g_cube_effect_max_distance) {
+                if (glm::length(delta) < g_cube_effect_max_distance) {
                     return true;
                 }
             }
@@ -808,13 +805,13 @@ bool SelectWorldCursorNode(void)
         int count = static_cast<int>(g_world_cursor_nodes.size());
         for (int index = 0; index < count; ++index) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[index];
-            srVector3T<double> target = entry->node->getLocation();
+            glm::dvec3 target = entry->node->getLocation();
 
             if (entry != 0) {
-                srVector3T<double> delta = target;
+                glm::dvec3 delta = target;
 
                 delta -= camera_location;
-                if (delta.Length() < g_cube_effect_max_distance) {
+                if (glm::length(delta) < g_cube_effect_max_distance) {
                     g_cursor_node_index = index;
                     return true;
                 }

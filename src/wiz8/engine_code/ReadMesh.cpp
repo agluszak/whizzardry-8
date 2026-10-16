@@ -45,30 +45,6 @@
 class srMaterialIFace;
 class srTextureIFace;
 
-// FUNCTION: WIZ8 0x004896C0
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
-                       srVector3T<float>* scale)
-{
-    float angle;
-    srVector3T<float> axis;
-
-    file->read_exact(&location->x, sizeof(location->x));
-    file->read_exact(&location->y, sizeof(location->y));
-    file->read_exact(&location->z, sizeof(location->z));
-    file->read_exact(&angle, sizeof(angle));
-    file->read_exact(&axis.x, sizeof(axis.x));
-    file->read_exact(&axis.y, sizeof(axis.y));
-    file->read_exact(&axis.z, sizeof(axis.z));
-
-    (*rotation) = glm::mat3(1);
-    (*rotation) *=
-        glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(axis.glmValue()))));
-
-    file->read_exact(&scale->x, sizeof(scale->x));
-    file->read_exact(&scale->y, sizeof(scale->y));
-    file->read_exact(&scale->z, sizeof(scale->z));
-}
-
 /* The last level material list, reused while consecutive meshes share it. */
 static std::vector<W8MaterialRecord> g_read_mesh_material_records;
 static std::vector<W8MeshMaterial> g_read_mesh_materials;
@@ -476,7 +452,7 @@ try {
     int vertex_count = 0;
     int face_count = 0;
     unsigned char flags = 0;
-    std::vector<srVector3T<float>> vertices;
+    std::vector<glm::vec3> vertices;
     std::vector<std::vector<short>> compressed_vertices;
     short frame_count = 0;
     float compression_scale = 1000.0f;
@@ -500,14 +476,19 @@ try {
         return {};
     }
 
-    srVector3T<float> location;
-    srVector3T<float> scale;
+    glm::vec3 location(0);
     glm::mat3 rotation;
     if (version > 2) {
         file->read_exact(&flags, sizeof(flags));
     }
     if (version > 1) {
-        ReadMeshTransform(file, &location, &rotation, &scale);
+        // Ten disk floats: location, angle/axis, then the authored scale.
+        // Retail consumes the scale but does not apply it to this instance.
+        std::array<float, 10> transform;
+        file->read_exact(transform.data(), transform.size() * sizeof(float));
+        location = {transform[0], transform[1], transform[2]};
+        const glm::vec3 axis(transform[4], transform[5], transform[6]);
+        rotation = glm::mat3_cast(glm::angleAxis(transform[3], normalizedOrZero(axis)));
     }
 
     if (version > 3) {
@@ -532,10 +513,12 @@ try {
 
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
         vertices.resize(vertex_count);
-        file->read_exact(vertices.data(), vertices.size() * sizeof(vertices[0]));
-        for (int index = 0; index < vertex_count; ++index) {
-            vertices[index] *= 500.0f;
-        }
+        std::vector<float> coordinates(static_cast<std::size_t>(vertex_count) * 3);
+        file->read_exact(coordinates.data(), coordinates.size() * sizeof(float));
+        for (int index = 0; index < vertex_count; ++index)
+            vertices[index] = glm::vec3(coordinates[index * 3], coordinates[index * 3 + 1],
+                                        coordinates[index * 3 + 2]) *
+                              500.0f;
     } else {
         unsigned char compression_type;
         file->read_exact(&compression_type, sizeof(compression_type));
@@ -614,7 +597,7 @@ try {
         for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
             glm::vec3* model_vertices = model->getVertexLoc();
             for (int index = 0; index < model->vertex_location_count; ++index) {
-                model_vertices[index] = vertices[vertex_maps[mesh_index][index]].glmValue();
+                model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
             }
             OptimizeMeshOrder(model);
             ++mesh_index;

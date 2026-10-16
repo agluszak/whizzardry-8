@@ -11,7 +11,6 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/mesh_links.h"
@@ -35,7 +34,7 @@ struct W8OctRegionPolygon {
     /* 1-based ordinal into the geometry polygon array. */
     w8_ulong ordinal;
     W8Plane plane; /* unit normal plus signed distance */
-    srVector3T<float> position;
+    glm::vec3 position{0};
     /* Canonical material-group index assigned by the material sort. */
     w8_ulong material;
     /* The per-polygon texture/material index CreateSubMeshes copies into
@@ -116,7 +115,7 @@ struct OctBuildPreTree : W8OctBuildTree {
                                          w8_ulong mode);
     /* Fill the leaf's region-id list with every region volume overlapping
        `bounds`; grows a 50-entry scratch list on first use. */
-    void FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox* bounds);
+    void FindLeafRegions(W8OctBuildNode* node, const srBoundingBox* bounds);
     /* Loads the .rlk region file beside the level and folds its bounds into
        the build. */
     unsigned short LoadRegionFile(const char* stem);

@@ -64,7 +64,6 @@
 #include "wiz8/engine_code/geometry_repack.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/environment_colour.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/index_algorithms.h"
@@ -966,8 +965,8 @@ void ReportBuildStatus(short channel, std::string_view message)
 // FUNCTION: WIZ8 0x004969D0
 void ReportStartupMessage(std::string_view message)
 {
-    static EnvironmentColour s_black;
-    static EnvironmentColour s_saved_colour;
+    static glm::vec3 s_black{1.0f};
+    static glm::vec3 s_saved_colour{1.0f};
     std::string* line;
     bool scroll;
     bool scrolled;
@@ -1216,12 +1215,7 @@ static int BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometr
                 }
                 vertex_index[corner] = index;
                 polygon->vertices[corner] = vertices + index;
-                polygon->position.x =
-                    vertices[index].position.x * g_float_one_third + polygon->position.x;
-                polygon->position.y =
-                    vertices[index].position.y * g_float_one_third + polygon->position.y;
-                polygon->position.z =
-                    vertices[index].position.z * g_float_one_third + polygon->position.z;
+                polygon->position += vertices[index].position * g_float_one_third;
             }
             polygon->degenerate = 0;
             if (vertex_index[0] == vertex_index[1] || vertex_index[0] == vertex_index[2] ||
@@ -1233,7 +1227,7 @@ static int BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometr
                 normal = trianglePlane(vertices[vertex_index[0]].m_original_position,
                                        vertices[vertex_index[1]].m_original_position,
                                        vertices[vertex_index[2]].m_original_position)
-                             .normal.glmValue();
+                             .normal;
                 offset = 0.0f;
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
@@ -1741,8 +1735,8 @@ static void ToggleOption(bool& option, char* label)
 void W8Octree::OctBuildOptions(char* stem)
 {
     bool done = g_build_level_links;
-    EnvironmentColour colour_saved;
-    EnvironmentColour colour_backup;
+    glm::vec3 colour_saved(0);
+    glm::vec3 colour_backup(0);
     std::string lines[7];
     char log_state[8];
     char rename_state[8];
@@ -1754,8 +1748,6 @@ void W8Octree::OctBuildOptions(char* stem)
     int edit_mode;
     int line;
 
-    colour_saved.SetZero();
-    colour_backup.SetZero();
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);

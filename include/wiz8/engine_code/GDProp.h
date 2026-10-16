@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
@@ -106,7 +107,7 @@ private:
     int m_surface_count;                  /* 0x14; m_pGDSurfaces count */
     int m_vertex_count;                   /* 0x18; m_pVertices count */
     W8GDSurface* m_pGDSurfaces;           /* 0x1c */
-    srVector3T<float>* m_pVertices;       /* 0x20 */
+    glm::vec3* m_pVertices;       /* 0x20 */
     Trigger* m_trigger;                   /* 0x24: installed by 0x004B7470 */
     W8PathVerticalRange m_path_range;     /* 0x28 */
     /* Vertex AABB cached by computeBounds and tested by

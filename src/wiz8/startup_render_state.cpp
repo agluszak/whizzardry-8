@@ -1,9 +1,10 @@
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <vector>
 
 #include "compat/native.h"
-#include "environment_colour.h"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/Environment.h"
 
@@ -28,9 +29,13 @@ void UpdateRenderElapsedTime(void)
 }
 
 // GLOBAL: WIZ8 0x0065A178
-EnvironmentColour g_environment_colours0[256];
+std::array<glm::vec3, 256> g_environment_colours0 = [] {
+    std::array<glm::vec3, 256> colours;
+    colours.fill(glm::vec3(1.0f));
+    return colours;
+}();
 // GLOBAL: WIZ8 0x0065AD98
-EnvironmentColour g_environment_colours1[256];
+std::array<glm::vec3, 256> g_environment_colours1 = g_environment_colours0;
 // GLOBAL: WIZ8 0x0065A168
 std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
 // GLOBAL: WIZ8 0x0060A394
@@ -46,7 +51,7 @@ float g_view_distance = 12.0f;
 // GLOBAL: WIZ8 0x0060A3A4
 float g_celestial_orbit_radius = -1.0f;
 // GLOBAL: WIZ8 0x0065AD78
-EnvironmentColour g_light_direction;
+glm::vec3 g_light_direction{1.0f};
 
 static float normalized_colour(unsigned int component)
 {
@@ -61,13 +66,13 @@ unsigned char InitializeEnvironmentColours(void)
 
     for (index = 0; index != 128; ++index) {
         value = normalized_colour(index);
-        g_environment_colours0[index] = value;
-        g_environment_colours1[index] = value;
+        g_environment_colours0[index] = glm::vec3(value);
+        g_environment_colours1[index] = glm::vec3(value);
     }
     for (index = 128; index != 256; ++index) {
         value = normalized_colour(255 - index);
-        g_environment_colours0[index] = value;
-        g_environment_colours1[index] = value;
+        g_environment_colours0[index] = glm::vec3(value);
+        g_environment_colours1[index] = glm::vec3(value);
     }
     g_sky_gradient_animations[0].reset();
     g_sky_gradient_animations[1].reset();
