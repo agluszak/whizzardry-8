@@ -1306,12 +1306,12 @@ void ResetLiveSessionForLoad(void)
 // FUNCTION: WIZ8 0x00512d00
 bool VerifyDataSubdirs(void)
 try {
-    for (const char* directory : {"saves", "saves\\characters", "saves\\npcs"}) {
+    const char* directories[]{"saves", "saves\\characters", "saves\\npcs"};
+    return std::ranges::all_of(directories, [](const char* directory) {
         wiz8::create_directory(wiz8::user_path(directory));
         const auto entry = wiz8::file_status(wiz8::user_path(directory));
-        if (!entry || entry->info.type != SDL_PATHTYPE_DIRECTORY) return false;
-    }
-    return true;
+        return entry && entry->info.type == SDL_PATHTYPE_DIRECTORY;
+    });
 } catch (const std::exception&) {
     return false;
 }
