@@ -55,7 +55,7 @@ public:
 
 private:
     virtual void copyNoScaling(srColorSurfaceIFace& source) override;
-    virtual void scaleFast(srColorSurfaceIFace& source) override;
+    virtual void scaleFast(srColorSurfaceIFace& source, SDL_ScaleMode mode) override;
 
     void init(const srPixelConvert::PixelFormat& format, w8_ulong width, w8_ulong height,
               w8_ulong pitch);

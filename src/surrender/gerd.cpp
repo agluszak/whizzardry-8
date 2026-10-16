@@ -2596,7 +2596,6 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
             (w8_ulong)(result->pixel_format.pixel_size + 1) * width);
         auto* surface = surfaces[level].get();
         destinations[level] = surface;
-        surface->setFilter(dimensions.filter);
         width >>= 1;
         height >>= 1;
     }

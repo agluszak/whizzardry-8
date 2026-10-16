@@ -1,5 +1,4 @@
 #include <array>
-#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -11,10 +10,8 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_int2.hpp"
-#include "surrender/pixel_math.h"
 #include "surrender/srARGB.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srFilter.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender_test_fixture.h"
@@ -163,7 +160,6 @@ TEST_CASE("SurRender uses shared packed surface operations")
                         srPixelConvert::SURFACE_RGB565, srPixelConvert::SURFACE_RGB24,
                         srPixelConvert::SURFACE_BGRA32}) {
         srColorSurface source(format, 7, 5);
-        source.setFilter(nullptr);
         for (int y = 0; y < 5; ++y)
             for (int x = 0; x < 7; ++x) source.setPixelRaw(x, y, (x + y * 7) * 0x1234567u);
         srColorSurface clone(source);
@@ -187,8 +183,9 @@ TEST_CASE("SurRender uses shared packed surface operations")
             scaled.copy(source);
             for (int y = 0; y < 9; ++y)
                 for (int x = 0; x < width; ++x)
-                    REQUIRE(scaled.getPixelRaw(x, y) ==
-                            source.getPixelRaw(x * 7 / width, y * 5 / 9));
+                    REQUIRE(
+                        scaled.getPixelRaw(x, y) ==
+                        source.getPixelRaw((2 * x + 1) * 7 / (2 * width), (2 * y + 1) * 5 / 18));
         }
         for (int dx : {-2, 0, 2})
             for (int dy : {-2, 0, 2}) {
@@ -280,40 +277,6 @@ TEST_CASE("generic rounded RGB conversion remains exact")
     }
 }
 
-TEST_CASE("filtered copies preserve SurRender sampling")
-{
-    REQUIRE(srInit());
-    // Golden output from the previous horizontal/vertical implementations.
-    uint64_t checksum = 14695981039346656037ull;
-    const srPixelConvert::e_surfaceType formats[]{srPixelConvert::SURFACE_BGRA32,
-                                                  srPixelConvert::SURFACE_RGB565};
-    srFilter* filters[]{&srBellFilter, &srBSplineFilter, &srTriangleFilter};
-    for (auto format : formats)
-        for (auto* filter : filters)
-            for (int clamp = 0; clamp < 4; ++clamp) {
-                srColorSurface source(format, 7, 5);
-                source.setFilter(filter);
-                source.setHClampMode(clamp & 1);
-                source.setVClampMode(clamp & 2);
-                for (int y = 0; y < 5; ++y)
-                    for (int x = 0; x < 7; ++x) source.setPixel(x, y, (x + y * 7) * 0x9e3779b9u);
-                for (int width : {1, 3, 7, 9, 14})
-                    for (int height : {1, 3, 5, 8, 10}) {
-                        srColorSurface output(format, width, height);
-                        output.copy(source);
-                        for (int y = 0; y < height; ++y)
-                            for (int x = 0; x < width; ++x) {
-                                const auto pixel = output.getPixelRaw(x, y);
-                                for (unsigned shift = 0; shift < 32; shift += 8)
-                                    checksum =
-                                        (checksum ^ ((pixel >> shift) & 255)) * 1099511628211ull;
-                            }
-                    }
-            }
-    REQUIRE(checksum == 16051822824179383716ull);
-    REQUIRE(srExit());
-}
-
 TEST_CASE_METHOD(SurRenderTestFixture,
                  "Intensity and indexed decoding support unaligned packed storage", "[pixels]")
 {
@@ -362,13 +325,6 @@ TEST_CASE_METHOD(SurRenderTestFixture,
             REQUIRE(output.back() == 0x6a);
         }
     }
-}
-
-TEST_CASE("Mipmap averages retain per-input floor and four-sample ceiling")
-{
-    REQUIRE(srPixels::average(0xffffffffu, 0x01010101u) == 0x7f7f7f7fu);
-    REQUIRE(srPixels::average(0u, 0u, 0u, 0xfefefefeu) == 0x40404040u);
-    REQUIRE(srPixels::average(0x0004080cu, 0x10182028u, 0x30384048u, 0x50586068u) == 0x242b3239u);
 }
 
 TEST_CASE("Inherited surface lines dispatch through clipped rectangle filling")

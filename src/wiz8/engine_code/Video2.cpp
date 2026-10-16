@@ -57,7 +57,6 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD.h"
-#include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srMaterial.h"
@@ -956,7 +955,6 @@ unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rec
     }
     srColorSurfaceIFace* buffer = gerd->lockBuffer();
     if (buffer != 0) {
-        target->setFilter(&srBoxFilter);
         target->copy(*buffer);
         gerd->unlockBuffer();
         return 1;
@@ -1728,7 +1726,6 @@ unsigned char InitializeMouseSurface(void)
     } else {
         return 0;
     }
-    g_mouse_surface->setFilter(&srBoxFilter);
     ClearMouseSurface();
     return 1;
 }
@@ -2140,7 +2137,6 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
         auto surface =
             std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, size, size);
         surface->fill(0);
-        surface->setFilter(&srBoxFilter);
 
         float scale_x;
         float scale_y;
@@ -2415,7 +2411,6 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                     static_cast<w8_ulong>(extent),
                                                     static_cast<w8_ulong>(extent));
-    surface->setFilter(&srBoxFilter);
     float scale_x;
     float scale_y;
     float mapping_x;
