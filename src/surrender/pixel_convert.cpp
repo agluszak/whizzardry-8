@@ -465,11 +465,11 @@ void readIndexed(const srPixelConvert::ConversionInfo& info)
     const auto& format = *info.format;
     const PackedChannel palette_index(format.red_bits, format.red_shift);
     const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
-    /* reinterpret-ok: palette entries are packed srARGB dwords. */
-    const auto* palette = reinterpret_cast<const w8_ulong*>(info.palette->getPaletteDataPtr());
+    const auto* palette = info.palette->getPaletteDataPtr();
     ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong index) {
-        return PixelAt{
-            (palette[palette_index.extract(pixel)] & 0xffffff) | alpha.expand(pixel) << 24, index};
+        const auto& color = palette[palette_index.extract(pixel)];
+        return PixelAt{srPixels::pack({color.red, color.green, color.blue, alpha.expand(pixel)}),
+                       index};
     });
 }
 

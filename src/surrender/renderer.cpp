@@ -464,17 +464,7 @@ static int fullyClipped(const unsigned char* flags, w8_ulong count)
 static w8_ulong attributeMask(const unsigned char* packed, w8_ulong count)
 {
     w8_ulong mask = 0;
-    if (count > 3) {
-        // reinterpret-ok: the packed byte stream is folded through word loads.
-        const w8_ulong* words = reinterpret_cast<const w8_ulong*>(packed);
-        for (w8_ulong i = 0; i < count / 4; i++) {
-            mask |= words[i];
-        }
-        mask = (mask & 0xff) | ((((mask & 0xff0000) | (mask >> 8)) >> 8 | (mask & 0xff00)) >> 8);
-    }
-    for (w8_ulong i = count & ~3UL; i < count; i++) {
-        mask |= packed[i];
-    }
+    for (w8_ulong i = 0; i < count; ++i) mask |= packed[i];
     return mask;
 }
 

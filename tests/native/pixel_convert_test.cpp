@@ -336,7 +336,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
         colors[index].red = index;
         colors[index].green = 255 - index;
         colors[index].blue = index ^ 0x55;
-        colors[index].alpha = 0;
+        colors[index].alpha = index ^ 0xa5;
     }
     srPalette palette(colors.data(), colors.size());
     for (auto type :
