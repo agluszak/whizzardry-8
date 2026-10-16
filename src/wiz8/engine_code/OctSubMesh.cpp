@@ -16,6 +16,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "surrender/mesh_resources.h"
 #include "surrender/srClass.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
@@ -133,8 +134,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     int selected_material = m_material_index;
     int index;
     if (m_material_index < 0) {
-        std::shared_ptr<srMaterial>* vertex_materials =
-            model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+        MeshResources<srMaterial>* vertex_materials =
+            model->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex material array.\n");
         }
@@ -148,7 +149,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
             if (material_index < 0 || material_index >= material_count) {
                 throw std::runtime_error("Invalid mesh vertex material index");
             }
-            vertex_materials[index] = materials[material_index].material;
+            vertex_materials->set(index, materials[material_index].material);
         }
     } else {
         model->setMaterial(materials[m_material_index].material, 0, srMeshModel::SIDE_FRONT);
@@ -164,7 +165,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
                   "OctMeshModel::Read -- Could not get poly-vertex array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyVertex.\n");
 
-    std::shared_ptr<srTexture>* polygon_textures = model->getPolyTexture(0, 0, 1);
+    MeshResources<srTexture>* polygon_textures = model->getPolygonTextureTable(0, 0, true);
     if (polygon_textures == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get poly texture array.\n");
     }
@@ -177,7 +178,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
         if (texture_index < 0 || texture_index >= material_count) {
             throw std::runtime_error("Invalid mesh polygon texture index");
         }
-        polygon_textures[index] = materials[texture_index].texture;
+        polygon_textures->set(index, materials[texture_index].texture);
     }
 
     vertex_normals = model->getVertexNormal();

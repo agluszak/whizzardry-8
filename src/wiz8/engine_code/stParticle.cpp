@@ -686,7 +686,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
 
     if (!texture_frames.empty()) {
-        pipeline->current_pass->texture_tables[0] = texture_frames.data();
+        pipeline->current_pass->texture_tables[0] = &texture_frames;
     } else if (texture != 0) {
         pipeline->texture0 = texture.get();
         pipeline->current_pass->textures[0] = texture.get();
@@ -705,11 +705,13 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 // FUNCTION: WIZ8 0x0049AB00
 void stParticle::SetTexture(std::shared_ptr<srTexture> texture)
 {
-    texture_frames.clear();
+    texture_frames = {};
     if (auto* animation = dynamic_cast<stTextureAnim*>(texture.get())) {
         texture_frames.resize(particle_count * 2);
         for (unsigned int i = 0; i < texture_frames.size(); i += 2) {
-            texture_frames[i] = texture_frames[i + 1] = std::make_shared<stTextureAnim>(*animation);
+            auto frame = std::make_shared<stTextureAnim>(*animation);
+            texture_frames.set(i, frame);
+            texture_frames.set(i + 1, std::move(frame));
         }
     }
     this->texture = std::move(texture);

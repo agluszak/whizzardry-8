@@ -272,7 +272,8 @@ static bool loaded_model_ownership()
                                       &mapped_keys);
     REQUIRE((model && mesh_count == 2 && maps.size() == 2));
     REQUIRE((model->parts.size() == 1 && model->parts[0]->head == model.get()));
-    REQUIRE(model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0)[0] == materials[0].material);
+    REQUIRE((*model->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false))[0] ==
+            materials[0].material);
     REQUIRE(model->parts[0]->getMaterial(0, srMeshModel::SIDE_FRONT) ==
             materials[2].material.get());
     std::weak_ptr<srModel> lifetime = model;
@@ -309,19 +310,20 @@ static bool skins_and_automap()
 
         {
             stMeshModel mesh(3, 1);
-            auto* base = mesh.getPolyTexture(0, 0, 1);
-            base[0] = blank;
-            base[1] = visible;
+            auto* base = mesh.getPolygonTextureTable(0, 0, true);
+            base->set(0, blank);
+            base->set(1, visible);
             std::string cycle(400, 'c');
             std::string first_name = cycle + '0';
             const int first = mesh.CreateSkinTable(first_name, -1);
             REQUIRE(first == 0);
             first_name[0] = 'x';
-            REQUIRE(mesh.skins[0].name == cycle + '0'); // Owned, not the caller's mutable name.
+            REQUIRE(mesh.skins.front().name ==
+                    cycle + '0'); // Owned, not the caller's mutable name.
             REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == -1);
             const int second = mesh.CreateSkinTable("second1", first);
             auto* second_textures = mesh.GetTextureTable(second);
-            REQUIRE((second == 1 && second_textures[0] == blank));
+            REQUIRE((second == 1 && (*second_textures)[0] == blank));
             const int third = mesh.CreateSkinTable("third2", second);
             REQUIRE(!mesh.GetActivePolygons(second, false));
             auto selection = mesh.GetActivePolygons(second, true);
@@ -337,7 +339,7 @@ static bool skins_and_automap()
             REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
             REQUIRE(mesh.CreateSkinTable("reused3", -1) == 0);
             REQUIRE(mesh.GetTextureTable(second) ==
-                    second_textures); // Vector growth does not move tables.
+                    second_textures); // Adding another skin does not move tables.
             REQUIRE(mesh.CreateSkinTable("", -1) == 3);
             REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == 4);
             REQUIRE(mesh.CreateSkinTable(cycle + '1', -1) == 5);
@@ -360,8 +362,8 @@ static bool skins_and_automap()
             selection = mesh.GetActivePolygons(-1, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
-            base[1] = blank;
-            base[2] = blank;
+            base->set(1, blank);
+            base->set(2, blank);
             const std::array<std::string_view, 1> exclude_all{"BLANK-BODY"};
             mesh.ApplyAutomapPolygonFilter(exclude_all);
             selection = mesh.GetActivePolygons(-1, true);

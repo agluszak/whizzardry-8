@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "mesh_resources.h"
 #include "srBoundingSphere.h"
 #include "srMaterial.h"
 #include "srMath.h"
@@ -123,7 +124,7 @@ public:
         const glm::vec4* spec_for_specular = nullptr;
         const float* alpha_source = nullptr;
         const glm::vec2* st_source[2]{};
-        const std::shared_ptr<srMaterial>* materials = nullptr;
+        const MeshResources<srMaterial>* materials = nullptr;
         void* user[12]{};
     };
 

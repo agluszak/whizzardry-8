@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstddef>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -23,6 +24,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "surrender/mesh_math.h"
+#include "surrender/mesh_resources.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
@@ -158,7 +160,7 @@ void stMeshModel::updateBakedLighting()
     const auto& lights = vertex_lights[vertex_light_table];
     if (lights.empty() || vertex_sunlight.empty()) return;
     auto* destination = getVertexDIG(0, 1);
-    const auto* materials = getVertexMaterial(0, SIDE_FRONT, 0);
+    const auto* materials = getVertexMaterialTable(0, SIDE_FRONT, false);
     const bool suppress_ambient = ambient_color == glm::vec3(0) || vertex_light_table == 1;
     const glm::vec3 base_ambient =
         materials || suppress_ambient
@@ -175,7 +177,7 @@ void stMeshModel::updateBakedLighting()
         glm::vec3 color;
         if (materials) {
             color = suppress_ambient ? glm::vec3(0) : ambient_color * vertex_sunlight[vertex];
-            const auto* material = materials[vertex].get();
+            const auto* material = (*materials)[vertex].get();
             if (material) {
                 if (material != previous_material) {
                     material_ambient =
@@ -301,13 +303,13 @@ void stMeshModel::ApplyAutomapPolygonFilter(std::span<const std::string_view> ex
 {
     std::vector<w8_ulong> active;
     active.reserve(polygon_count);
-    auto* textures = getPolyTexture(0, 0, 0);
+    auto* textures = getPolygonTextureTable(0, 0, false);
     if (textures != nullptr) {
         for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count);
              ++polygon) {
-            if (textures[polygon] == nullptr ||
+            if ((*textures)[polygon] == nullptr ||
                 std::none_of(excluded_textures.begin(), excluded_textures.end(), [&](auto name) {
-                    return MeshNameEquals(name, textures[polygon]->getName());
+                    return MeshNameEquals(name, (*textures)[polygon]->getName());
                 })) {
                 active.push_back(polygon);
             }
@@ -343,12 +345,13 @@ srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool che
     if (!checked && check_blanking) {
         std::vector<w8_ulong> active;
         active.reserve(polygon_count);
-        auto* textures = skin != skins.end() ? skin->textures.data() : getPolyTexture(0, 0, 0);
+        auto* textures =
+            skin != skins.end() ? &skin->textures : getPolygonTextureTable(0, 0, false);
         if (textures != nullptr) {
             for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count);
                  ++polygon) {
-                if (textures[polygon] == nullptr ||
-                    !MeshNameEquals(std::string_view(textures[polygon]->getName()).substr(0, 5),
+                if ((*textures)[polygon] == nullptr ||
+                    !MeshNameEquals(std::string_view((*textures)[polygon]->getName()).substr(0, 5),
                                     "blank")) {
                     active.push_back(polygon);
                 }
@@ -492,11 +495,11 @@ int stMeshModel::FindSkinTable(std::string_view name)
 }
 
 // FUNCTION: WIZ8 0x00473720
-std::shared_ptr<srTexture>* stMeshModel::GetTextureTable(int table)
+MeshResources<srTexture>* stMeshModel::GetTextureTable(int table)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                              [table](const auto& skin) { return skin.id == table; });
-    return skin != skins.end() ? skin->textures.data() : nullptr;
+    return skin != skins.end() ? &skin->textures : nullptr;
 }
 
 /* Clone one polygon-texture table under an owned name. Table ids are the lowest
@@ -509,7 +512,7 @@ int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
     }
     auto* source = GetTextureTable(base_table);
     if (source == nullptr) {
-        source = getPolyTexture(0, 0, 0);
+        source = getPolygonTextureTable(0, 0, false);
     }
     if (source == nullptr) {
         return -1;
@@ -519,7 +522,7 @@ int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
                        [table](const auto& skin) { return skin.id == table; })) {
         ++table;
     }
-    Skin skin{table, std::string(name), {source, source + polygon_count}, std::nullopt, false};
+    Skin skin{table, std::string(name), *source, std::nullopt, false};
     skins.push_back(std::move(skin));
     return table;
 }
@@ -528,7 +531,7 @@ int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
 void stMeshModel::RemoveSkinTable(int index)
 {
     if (static_cast<unsigned int>(index) < skins.size()) {
-        skins.erase(skins.begin() + index);
+        skins.erase(std::next(skins.begin(), index));
     }
 }
 

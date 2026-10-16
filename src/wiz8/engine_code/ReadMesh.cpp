@@ -25,6 +25,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
 #include "resource_cache.h"
+#include "surrender/mesh_resources.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
@@ -85,20 +86,20 @@ void OptimizeMeshOrder(srMeshModel* model)
     }
 
     std::vector<const srShader*> shader_tables;
-    std::vector<const std::shared_ptr<srTexture>*> texture_tables;
-    std::vector<const std::shared_ptr<srMaterial>*> material_tables;
+    std::vector<const MeshResources<srTexture>*> texture_tables;
+    std::vector<const MeshResources<srMaterial>*> material_tables;
     for (w8_long pass = 0; pass < model->pass_count; ++pass) {
         if (const srShader* shaders = model->getPolyShader(pass, 0)) {
             shader_tables.push_back(shaders);
         }
         for (w8_long layer = 0; layer < 2; ++layer) {
-            if (const auto* textures = model->getPolyTexture(pass, layer, 0)) {
+            if (const auto* textures = model->getPolygonTextureTable(pass, layer, false)) {
                 texture_tables.push_back(textures);
             }
         }
         for (int side = 0; side < 2; ++side) {
-            if (const auto* materials =
-                    model->getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0)) {
+            if (const auto* materials = model->getVertexMaterialTable(
+                    pass, static_cast<srMeshModel::e_side>(side), false)) {
                 material_tables.push_back(materials);
             }
         }
@@ -113,8 +114,8 @@ void OptimizeMeshOrder(srMeshModel* model)
             }
         }
         for (const auto* textures : texture_tables) {
-            if (textures[left] != textures[right]) {
-                return std::less<>{}(textures[left].get(), textures[right].get());
+            if ((*textures)[left] != (*textures)[right]) {
+                return std::less<>{}((*textures)[left].get(), (*textures)[right].get());
             }
         }
         return false;
@@ -136,8 +137,8 @@ void OptimizeMeshOrder(srMeshModel* model)
     std::iota(vertices.begin(), vertices.end(), 0);
     std::stable_sort(vertices.begin(), vertices.end(), [&](w8_ulong left, w8_ulong right) {
         for (const auto* materials : material_tables) {
-            if (materials[left] != materials[right]) {
-                return std::less<>{}(materials[left].get(), materials[right].get());
+            if ((*materials)[left] != (*materials)[right]) {
+                return std::less<>{}((*materials)[left].get(), (*materials)[right].get());
             }
         }
         return first_use[left] < first_use[right];
@@ -305,9 +306,9 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
             }
         }
 
-        std::shared_ptr<srTexture>* model_textures = model->getPolyTexture(0, 0, 1);
+        MeshResources<srTexture>* model_textures = model->getPolygonTextureTable(0, 0, true);
         for (int polygon = 0; polygon < polygon_counts[type]; ++polygon) {
-            model_textures[polygon] = polygon_textures[type][polygon];
+            model_textures->set(polygon, polygon_textures[type][polygon]);
         }
 
         bool one_material = true;
@@ -319,10 +320,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         if (one_material) {
             model->setMaterial(vertex_materials[type][0], 0, srMeshModel::SIDE_FRONT);
         } else {
-            std::shared_ptr<srMaterial>* model_materials =
-                model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+            MeshResources<srMaterial>* model_materials =
+                model->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
             for (int vertex = 0; vertex < vertex_counts[type]; ++vertex) {
-                model_materials[vertex] = vertex_materials[type][vertex];
+                model_materials->set(vertex, vertex_materials[type][vertex]);
             }
         }
 

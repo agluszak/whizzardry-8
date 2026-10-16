@@ -28,6 +28,7 @@
 #include <limits>
 
 #include "surrender/mesh_math.h"
+#include "surrender/mesh_resources.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
@@ -253,21 +254,33 @@ static T* GetLazyMeshTable(srMeshModel& mesh, std::vector<T>& slot, w8_long coun
 }
 
 // FUNCTION: SURRENDER 0x10040430
-std::shared_ptr<srMaterial>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
+MeshResources<srMaterial>* srMeshModel::getVertexMaterialTable(w8_long pass, e_side side,
+                                                               bool create)
 {
-    if (vertex < 0 || vertex > 3 || (int)side < 0 || (int)side > 1) {
+    if (pass < 0 || pass > 3 || (int)side < 0 || (int)side > 1) {
         return 0;
     }
-    return GetLazyMeshTable(*this, vertex_materials[vertex][side], vertex_location_count, table);
+    auto& assignments = vertex_materials[pass][side];
+    if (create && assignments.empty() && vertex_location_count) {
+        assignments.resize(vertex_location_count);
+        setDirty(DIRTY_TRI_MESH);
+    }
+    return assignments.empty() ? nullptr : &assignments;
 }
 
 // FUNCTION: SURRENDER 0x10040560
-std::shared_ptr<srTexture>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer, int table)
+MeshResources<srTexture>* srMeshModel::getPolygonTextureTable(w8_long pass, w8_long layer,
+                                                              bool create)
 {
-    if (polygon < 0 || polygon > 3 || layer < 0 || layer > 1) {
+    if (pass < 0 || pass > 3 || layer < 0 || layer > 1) {
         return 0;
     }
-    return GetLazyMeshTable(*this, poly_textures[polygon][layer], polygon_count, table);
+    auto& assignments = poly_textures[pass][layer];
+    if (create && assignments.empty() && polygon_count) {
+        assignments.resize(polygon_count);
+        setDirty(DIRTY_TRI_MESH);
+    }
+    return assignments.empty() ? nullptr : &assignments;
 }
 
 // FUNCTION: SURRENDER 0x10040690
@@ -562,11 +575,11 @@ void srMeshModel::updateTriMesh()
             tri_mesh.materials[pass][side] =
                 std::static_pointer_cast<srMaterial>(materials[pass][side]);
             tri_mesh.vertex_materials[pass][side] =
-                getVertexMaterial(pass, static_cast<e_side>(side), 0);
+                getVertexMaterialTable(pass, static_cast<e_side>(side), false);
         }
         for (w8_long layer = 0; layer < 2; layer++) {
             tri_mesh.textures[pass][layer] = textures[pass][layer];
-            tri_mesh.poly_textures[pass][layer] = getPolyTexture(pass, layer, 0);
+            tri_mesh.poly_textures[pass][layer] = getPolygonTextureTable(pass, layer, false);
             tri_mesh.texcoords[pass][layer] = getVertexTexCoords(pass, layer, 0);
         }
         tri_mesh.shaders[pass] = shaders[pass];
@@ -673,7 +686,8 @@ void srMeshModel::reindexPolygons(std::span<const w8_ulong> indices)
         permutation.apply(getPolyUVIndex(pass, 0));
         permutation.apply(getPolyShader(pass, 0));
         for (w8_long layer = 0; layer < 2; ++layer)
-            permutation.apply(getPolyTexture(pass, layer, 0));
+            if (auto* table = getPolygonTextureTable(pass, layer, false))
+                permutation.apply(table->indices.data());
     }
     if (active_polygon_count && getActivePolygonTable(0)) {
         auto* table = getActivePolygonTable(1);
@@ -703,7 +717,8 @@ void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
     }
     for (w8_long pass = 0; pass < pass_count; ++pass) {
         for (w8_long side = 0; side < 2; ++side)
-            permutation.apply(getVertexMaterial(pass, static_cast<e_side>(side), 0));
+            if (auto* table = getVertexMaterialTable(pass, static_cast<e_side>(side), false))
+                permutation.apply(table->indices.data());
         for (w8_long table = 0; table < 2; ++table)
             permutation.apply(getVertexTexCoords(pass, table, 0));
         permutation.apply(getVertexDIG(pass, 0));

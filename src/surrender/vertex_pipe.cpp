@@ -238,11 +238,11 @@ void srVertexPipe::process(const Input& input)
                 setMaterial(record->material);
                 processVertexBuffer();
             } else {
-                srMaterial* material = record->materials[avt[0]].get();
+                srMaterial* material = (*record->materials)[avt[0]].get();
                 setMaterial(material);
                 sub_batch_offset = 0;
                 while (sub_batch_offset < batch_count) {
-                    srMaterial* next = record->materials[avt[sub_batch_offset]].get();
+                    srMaterial* next = (*record->materials)[avt[sub_batch_offset]].get();
                     if (next != material) {
                         setMaterial(next);
                         material = next;
@@ -252,7 +252,7 @@ void srVertexPipe::process(const Input& input)
                         const w8_ulong index_count = batch_count - sub_batch_offset - 1;
                         w8_ulong same = 0;
                         while (same < index_count &&
-                               record->materials[indices[same]].get() == material) {
+                               (*record->materials)[indices[same]].get() == material) {
                             ++same;
                         }
                         this->vertex_count = same + 1;

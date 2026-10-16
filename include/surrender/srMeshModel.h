@@ -9,6 +9,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "mesh_resources.h"
 #include "srMaterial.h"
 #include "srMath.h"
 #include "srModel.h"
@@ -60,8 +61,8 @@ public:
         std::shared_ptr<srMaterial> materials[4][2];
         std::shared_ptr<srTexture> textures[4][2];
         srShader shaders[4];
-        std::shared_ptr<srMaterial>* vertex_materials[4][2]{};
-        std::shared_ptr<srTexture>* poly_textures[4][2]{};
+        MeshResources<srMaterial>* vertex_materials[4][2]{};
+        MeshResources<srTexture>* poly_textures[4][2]{};
         srShader* poly_shaders[4]{};
         glm::ivec3* poly_uv[4]{};
         glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
@@ -95,11 +96,11 @@ public:
     virtual void reindexVertices(std::span<const w8_ulong> indices);
     virtual TriMesh getTriMesh();
     virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
-    std::shared_ptr<srTexture>* getPolyTexture(w8_long polygon, w8_long layer, int table);
+    MeshResources<srTexture>* getPolygonTextureTable(w8_long pass, w8_long layer, bool create);
     glm::ivec3* getPolyVertex();
     glm::ivec3* getPolyUVIndex(w8_long layer, int table);
     glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
-    std::shared_ptr<srMaterial>* getVertexMaterial(w8_long vertex, e_side side, int table);
+    MeshResources<srMaterial>* getVertexMaterialTable(w8_long pass, e_side side, bool create);
     w8_ulong* getVertexShadeIndex(int table);
     glm::vec3* getVertexNormal();
     glm::vec4* getPolyEq();
@@ -179,12 +180,11 @@ public:
     std::array<std::array<std::shared_ptr<srMaterial>, 2>, MAX_PASSES> materials;
     std::array<std::array<std::shared_ptr<srTexture>, 2>, MAX_PASSES> textures;
     std::array<srShader, MAX_PASSES> shaders;
-    /* Empty vectors are absent tables, even if a previous resize retained capacity. Accessors
-       allocate only on demand and return nullptr for absent tables, not vector::data(). */
-    std::array<std::array<std::vector<std::shared_ptr<srTexture>>, 2>, MAX_PASSES> poly_textures;
+    // Assignment tables are created on demand. Their resource pools own each
+    // distinct material/texture once; vertices and polygons hold only indices.
+    std::array<std::array<MeshResources<srTexture>, 2>, MAX_PASSES> poly_textures;
     std::array<std::vector<srShader>, MAX_PASSES> poly_shaders;
-    std::array<std::array<std::vector<std::shared_ptr<srMaterial>>, 2>, MAX_PASSES>
-        vertex_materials;
+    std::array<std::array<MeshResources<srMaterial>, 2>, MAX_PASSES> vertex_materials;
     std::vector<glm::ivec3> poly_vertices;
     std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;

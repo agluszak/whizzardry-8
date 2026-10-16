@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <list>
 #include <memory>
 #include <optional>
 #include <span>
@@ -64,7 +65,7 @@ public:
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
-    std::shared_ptr<srTexture>* GetTextureTable(int table); /* 0x00473720 */
+    MeshResources<srTexture>* GetTextureTable(int table); /* 0x00473720 */
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin or automap filter is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
@@ -145,7 +146,7 @@ public:
     struct Skin {
         int id;
         std::string name;
-        std::vector<std::shared_ptr<srTexture>> textures;
+        MeshResources<srTexture> textures;
         // An absent selection draws all polygons; an engaged empty selection
         // draws none. The checked bit distinguishes that from a pending scan.
         std::optional<std::vector<w8_ulong>> active_polygons;
@@ -162,7 +163,7 @@ public:
     /* Set once both vertex lights and sunlight exist. */
     bool vertex_lighting_ready;
     std::vector<Frame> frames; // Empty for a static base-class mesh.
-    std::vector<Skin> skins;
+    std::list<Skin> skins;
     std::unordered_map<short, short> mapped_vertices; // key -> vertex
     w8_ulong last_decompress_release_tick;
     float vertex_compression_scale;
