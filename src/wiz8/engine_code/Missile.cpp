@@ -19,6 +19,7 @@
 
 #include "GrCycle.h"
 #include "Navigator.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -62,8 +63,8 @@
 #include "wiz8/spell_ids.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/text_line.h"
 #include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/xstatus.h"
 
 #define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
@@ -257,7 +258,7 @@ unsigned int g_missile_table_count;
 unsigned char LoadMissileDatabase(void)
 try {
     ReleaseMissileDatabase();
-    auto handle = wiz8::open_file("Data\\Databases\\MissileTables.dbs");
+    auto handle = wiz8::open_file(wiz8::asset_path("Data\\Databases\\MissileTables.dbs"));
     std::int32_t count;
     std::uint32_t version;
     handle->read_exact(&count, sizeof(count));
@@ -489,7 +490,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     snprintf(path, sizeof(path), "data\\Missiles\\%s.mls", name);
     handle = [&]() {
         try {
-            return wiz8::open_file(path, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

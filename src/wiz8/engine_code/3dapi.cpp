@@ -12,13 +12,14 @@
 
 #include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
+#include "asset_paths.h"
 #include "camera_motion.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
 #include "input.h"
 #include "layouts/world.h"
 #include "named_position.h"
@@ -183,7 +184,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file(level_path, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

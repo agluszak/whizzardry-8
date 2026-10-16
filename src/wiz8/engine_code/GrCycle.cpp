@@ -16,11 +16,13 @@
 
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
+#include <glm/ext/matrix_float3x3.hpp>
 
 #include "Emitter.h"
 #include "Navigator.h"
 #include "SpellEmitterHost.h"
 #include "application.h"
+#include "asset_paths.h"
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -240,7 +242,7 @@ try {
 
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file(mon_path, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(mon_path), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

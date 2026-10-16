@@ -19,26 +19,26 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
+#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/ext/vector_double3.hpp>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtc/quaternion.hpp>
+#include <glm/vector_relational.hpp> // NOLINT(misc-include-cleaner)
 #include <wiz8/filesystem.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
-#include "glm/common.hpp" // NOLINT(misc-include-cleaner)
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint2.hpp"
-#include "glm/geometric.hpp" // NOLINT(misc-include-cleaner)
-#include "glm/vector_relational.hpp" // NOLINT(misc-include-cleaner)
 #include "himage.h"
 #include "index_algorithms.h"
 #include "input.h"
@@ -87,9 +87,9 @@
 #include "wiz8/navigation_math.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/text_line.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
 
 class srMaterialIFace;
 class srTextureIFace;
@@ -257,15 +257,11 @@ try {
 
 /* Snapshot live path surfaces into the compact waypoint-file representation,
    clearing runtime-only disabled and edge bits before writing the .WPT file.
-   The cd-rom sentinel disables this editor-side write path. */
+ */
 // FUNCTION: WIZ8 0x00459400
 unsigned char W8PathingService::SaveWaypointSnapshot(bool force)
 try {
     if (!waypoints_dirty && !force) {
-        return 0;
-    }
-    const auto cd = wiz8::file_status("cd.rom");
-    if (cd && cd->info.type == SDL_PATHTYPE_FILE) {
         return 0;
     }
 
@@ -297,7 +293,8 @@ try {
         snapshot.size() != m_waypoints.size()) {
         return false;
     }
-    auto handle = wiz8::open_file(std::string(level_name) + ".WPT", wiz8::OpenMode::replace);
+    auto handle =
+        wiz8::open_file(wiz8::user_path(std::string(level_name) + ".WPT"), wiz8::OpenMode::replace);
     const unsigned int version = 2;
     handle->write(&version, sizeof(version));
     handle->write(&edge_node_count, sizeof(edge_node_count));
@@ -322,7 +319,7 @@ try {
     if (path_node_count == 0) {
         return false;
     }
-    auto handle = wiz8::open_file(std::string(level_name) + ".WPT");
+    auto handle = wiz8::open_file(wiz8::asset_path(std::string(level_name) + ".WPT"));
     unsigned int version, edge_nodes, waypoint_count, link_count;
     handle->read_exact(&version, sizeof(version));
     handle->read_exact(&edge_nodes, sizeof(edge_nodes));
@@ -6355,7 +6352,7 @@ steered:
 // FUNCTION: WIZ8 0x004cccb0
 bool LoadPathParameters()
 try {
-    auto handle = wiz8::open_file("Data\\Monsters\\pathparms.txt");
+    auto handle = wiz8::open_file(wiz8::asset_path("Data\\Monsters\\pathparms.txt"));
     bool more = true;
     char line[128];
     while (more != 0) {

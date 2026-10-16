@@ -16,6 +16,9 @@
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>
+
+#include "asset_paths.h"
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
@@ -87,7 +90,7 @@ W8GameData* ReadGameData(const char* path, bool secondary)
 {
     std::unique_ptr<wiz8::File> file;
     try {
-        file = wiz8::open_file(path);
+        file = wiz8::open_file(wiz8::asset_path(path));
     } catch (const std::exception&) {
         return 0; // Retail: a level without game data (e.g. Test\DefaultSky) is valid.
     }
@@ -102,7 +105,7 @@ W8GameData* ReadGameData(const char* path, bool secondary)
 W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary)
 {
     try {
-        return ReadGeometry(wiz8::open_host_file(path), secondary);
+        return ReadGeometry(wiz8::open_file(path), secondary);
     } catch (const std::exception& error) {
         ReportBuildStatus(7, error.what());
         return 0;

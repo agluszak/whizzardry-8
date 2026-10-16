@@ -31,11 +31,7 @@ struct ReadResult {
 
 struct FileStatus {
     SDL_PathInfo info{};
-    // Mutable-layer policy for the resolved path, not host permission guarantees.
-    bool writable = false;
-    // Host permission bits, separate from immutable/overlay access policy.
     bool read_only = false;
-    bool archived = false;
 };
 
 struct FileTimes {
@@ -53,10 +49,9 @@ public:
     File& operator=(const File&) = delete;
 
     // Borrowed SDL stream; shares this File's cursor and lifetime. Do not close it.
-    // Archive entries expose a bounded, read-only SDL stream.
     SDL_IOStream* io() const;
     // Transfers the SDL stream and its close responsibility to the caller.
-    // The File becomes closed; this also transfers the bounded SLF entry backend.
+    // The File becomes closed.
     SDL_IOStream* release_io() noexcept;
 
     ReadResult read(void* data, std::size_t bytes);
@@ -88,58 +83,28 @@ private:
     std::filesystem::path path_;
     bool writable_ = false;
     std::optional<SDL_Time> writer_create_time_;
-    struct Extent {
-        std::int64_t offset, length;
-        DiskFileTime modified;
-    };
-    std::optional<Extent> extent_;
-    friend std::unique_ptr<File> open_file(std::string_view, OpenMode);
-    friend std::unique_ptr<File> open_host_file(const std::filesystem::path&, OpenMode);
+    friend std::unique_ptr<File> open_file(const std::filesystem::path&, OpenMode);
 };
 
-// C: through F: (either slash spelling) are ALWAYS virtual asset drives.
-// Native absolute paths are rejected here: use open_host_file instead.
-// Colons are permitted only in the virtual drive prefix, not path components.
-// Relative game paths use the game's current directory. Reads prefer overlays;
-// update/append copy up assets, replace truncates only the writable overlay.
-// update requires an existing file; replace/append may create a file in an
-// existing game directory. Use create_directory for new game directories.
-std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode = OpenMode::read);
-// Native imports are explicitly separate, even for C:/... on Windows.
-// Host writes to immutable roots or symlink aliases of them are rejected.
-std::unique_ptr<File> open_host_file(const std::filesystem::path& path,
-                                     OpenMode mode = OpenMode::read);
-
-// Validates the complete directory before publishing entries. Mounted archives
-// contain no live streams; each open owns its own bounded cursor. Loose files
-// win over archives; patches win over base archives, later patches win ties.
-void mount_slf(std::string_view game_path, bool patch = false);
-void clear_asset_archives();
-void refresh_asset_archives();
-
-// Missing paths return nullopt; metadata/permission/I/O failures throw.
-std::optional<FileStatus> file_status(std::string_view game_path);
-std::optional<FileStatus> host_file_status(const std::filesystem::path& path);
-// Deletion removes only an overlay file; an underlying asset can become visible
-// again. No tombstones or recursive deletion of installed assets are performed.
-bool remove_file(std::string_view game_path);
-void create_directory(std::string_view game_path);
-// Materializes an overlay when needed; installed files remain untouched.
-void clear_read_only(std::string_view game_path);
-// Basenames, merged overlay-first, ASCII case-insensitive * / ? matching.
-// *.* also matches extensionless game files. Missing directories throw.
-std::vector<std::string> list_directory(std::string_view game_directory,
+// Ordinary native paths. Callers select asset_path() or user_path() explicitly.
+std::unique_ptr<File> open_file(const std::filesystem::path& path, OpenMode mode = OpenMode::read);
+std::optional<FileStatus> file_status(const std::filesystem::path& path);
+bool remove_file(const std::filesystem::path& path);
+void create_directory(const std::filesystem::path& path);
+void clear_read_only(const std::filesystem::path& path);
+// Basenames; ASCII case-insensitive * / ? matching. Missing directories throw.
+std::vector<std::string> list_directory(const std::filesystem::path& directory,
                                         std::string_view pattern = "*");
 
 // Streams opened for a copy are closed before destination replacement. Callers
 // must close independently owned destination streams themselves (also Windows).
-void copy_file(std::string_view source, std::string_view destination,
+void copy_file(const std::filesystem::path& source, const std::filesystem::path& destination,
                CopyMode mode = CopyMode::fail_if_exists);
 // Owns a same-filesystem staging file. commit flushes and closes every shared
 // stream reference before publication; abandonment removes the temporary file.
 class StagedFile {
 public:
-    explicit StagedFile(std::string_view destination);
+    explicit StagedFile(const std::filesystem::path& destination);
     ~StagedFile();
     StagedFile(const StagedFile&) = delete;
     StagedFile& operator=(const StagedFile&) = delete;
@@ -152,7 +117,4 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-// Closes the supplied destination BEFORE replacement and leaves it closed.
-// Other independently owned streams of that path must also be closed by caller.
-void replace_file(File& destination, std::string_view source);
 } // namespace wiz8

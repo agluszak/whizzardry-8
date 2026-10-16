@@ -8,8 +8,7 @@ struct W8LevelFolderRecord {
     char level_name[50];
     char location_code[4];
     signed char sky_index;
-    signed char cd_number;
-    signed char level_band; /* 0x6a: returned by GetLevelBand */
+    signed char level_band;
 };
 
 struct W8LevelProgressRow {
@@ -28,7 +27,6 @@ struct W8LevelProgressRow {
 
 #pragma pack(pop)
 
-static_assert(sizeof(W8LevelFolderRecord) == 0x6b, "W8LevelFolderRecord_must_be_0x6b");
 static_assert(sizeof(W8LevelProgressRow) == 0x21, "W8LevelProgressRow_must_be_0x21");
 
 /* LevelBuildInfoByID fills eight consecutive path buffers. LoadLevel passes

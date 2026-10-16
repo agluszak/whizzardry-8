@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "difficulty.h"
@@ -61,7 +62,8 @@ std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
 // FUNCTION: WIZ8 0x0054aac0
 unsigned char InitializeNpcDatabase(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\NPC.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\NPC.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
     if (count >
@@ -118,7 +120,8 @@ try {
 // FUNCTION: WIZ8 0x0054ad00
 unsigned char InitializeFactDatabase(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\FACT.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     auto records =
         wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
@@ -141,7 +144,8 @@ void DestroyFactDatabase(void)
 // FUNCTION: WIZ8 0x0054ae20
 unsigned char InitializeLevelDatabase(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\LEVELS.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
     level_records = std::move(records);

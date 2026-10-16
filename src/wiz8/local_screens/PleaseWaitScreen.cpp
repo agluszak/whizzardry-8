@@ -2,23 +2,19 @@
 
 #include <exception>
 #include <memory>
-#include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_log.h>
 #include <fmt/format.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
 #include "soundman.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
@@ -33,7 +29,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/sr_api.h"
@@ -46,7 +41,6 @@ struct W8LevelLoadDescriptor {
     int mode;              /* 0x0f0, the screen state's own mode */
     int parameter;
     int parameter_2;
-    bool waiting;    /* 0x0fc, gates the polling path */
     std::string name; /* 0x0fd, bounded only by the next field */
     std::string previous_save_name;
     W8SaveScreenshot* save_payload;
@@ -56,14 +50,8 @@ struct W8LevelLoadDescriptor {
 
 // GLOBAL: WIZ8 0x0069B7C0
 Font g_level_load_font;
-// GLOBAL: WIZ8 0x0069B7C4
-static int g_swap_disc_dialog_poll_count;
 // GLOBAL: WIZ8 0x0069B7C8
 std::unique_ptr<W8LevelLoadDescriptor> g_load_descriptor;
-// GLOBAL: WIZ8 0x0069B7CC
-static std::unique_ptr<W8MessageDialogBase> g_swap_disc_dialog;
-// GLOBAL: WIZ8 0x0069B7D0
-static bool g_cd_marker_present;
 
 /* Engine Code\Levels.cpp owns this with C++ linkage. */
 
@@ -81,17 +69,8 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 /* The path the five assertions carry. */
 #define PLEASE_WAIT_SCREEN_CPP __FILE__
 
-/* Lifecycle record 4's initializer. The marker write is guarded, so a missing
-   CD.ROM leaves the flag at its BSS zero rather than storing a comparison
-   result. */
 unsigned char PleaseWaitScreenInitialize(void)
 {
-    if ([&]() {
-            const auto status = wiz8::file_status("CD.ROM");
-            return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE;
-        }()) {
-        g_cd_marker_present = true;
-    }
     return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
 }
 
@@ -112,7 +91,7 @@ unsigned char PleaseWaitScreenEnter(void)
             InitializeFactState();
             g_load_descriptor->parameter = SelectNewGameStartLevel();
             ReleaseMessageStorage();
-            wiz8::remove_file("Saves\\CurrentGame.SAV");
+            wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
             break;
         case 1:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
@@ -135,43 +114,7 @@ unsigned char PleaseWaitScreenEnter(void)
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
     g_load_descriptor->entered_tick = w8_get_ticks();
-    g_swap_disc_dialog_poll_count = 0;
     return 1;
-}
-
-/* The gate the frame handler runs before every load. When the level archive is
-   not reachable and the CD marker says it should be, it parks the screen: it
-   records what was being waited for, raises the swap-disc dialog once, and
-   reports 0 so the caller does not proceed. A reachable archive, or a disc the
-   check clears, reports 1.
-
-   The swap-disc dialog is constructed once and retained. */
-static bool PleaseWaitScreenEnsureLevelArchive(int level)
-{
-    if (![&]() {
-            const auto status = wiz8::file_status("Levels\\Levels.slf");
-            return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE;
-        }() &&
-        g_cd_marker_present) {
-        if (IsLevelCdMissing(level)) {
-            g_load_descriptor->waiting = true;
-            g_load_descriptor->parameter = level;
-            g_load_descriptor->entered_tick = w8_get_ticks();
-            if (!g_swap_disc_dialog) {
-                g_swap_disc_dialog = std::make_unique<W8MessageDialogBase>();
-                g_swap_disc_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
-                g_swap_disc_dialog->SetOrigin(0xf0, 0xbe);
-                g_swap_disc_dialog->SetExtent(0xa0, 100);
-            }
-            std::string message =
-                fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
-            SetDialogPrompt(g_swap_disc_dialog.get(), message);
-            EnableCursorScene();
-            return false;
-        }
-        wiz8::refresh_asset_archives();
-    }
-    return true;
 }
 
 /* Draw the loading screen's backdrop, progress frame and caption. Retail
@@ -189,43 +132,8 @@ static void DrawPleaseWaitScreen()
     ResetTransientRenderScenes();
 }
 
-/* The frame handler, and the body whose five assertions name this unit.
-   Two passes in one: while the screen is parked on a missing disc it polls the
-   swap-disc dialog and does nothing else, and otherwise it draws one frame,
-   performs the load the record was entered for, and queues the transition out.
-
-   Both passes fall through to the same trailing 0x00426790, which is why the
-   parked path returns through it rather than around it. */
 void PleaseWaitScreenFrame(void)
 {
-    if (g_load_descriptor->waiting) {
-        if (g_swap_disc_dialog->is_open) {
-            g_swap_disc_dialog->RefreshModal();
-            if (!g_swap_disc_dialog->ProcessInput()) {
-                if (!g_swap_disc_dialog->accepted) {
-                    RetireModal(std::move(g_swap_disc_dialog), false);
-                    RequestScreenTransition();
-                    return;
-                }
-                DrawPleaseWaitScreen();
-                RenderFrame();
-                return;
-            }
-        } else if (w8_get_ticks() - g_load_descriptor->entered_tick > 200) {
-            if (!IsLevelCdMissing(g_load_descriptor->parameter)) {
-                g_load_descriptor->waiting = false;
-                wiz8::refresh_asset_archives();
-                g_swap_disc_dialog->is_open = false;
-            } else if (!g_swap_disc_dialog->is_open && ++g_swap_disc_dialog_poll_count > 4) {
-                g_swap_disc_dialog->is_open = true;
-                g_swap_disc_dialog_poll_count = 0;
-            }
-            g_load_descriptor->entered_tick = w8_get_ticks();
-        }
-        RenderFrame();
-        return;
-    }
-
     switch (g_load_descriptor->mode) {
     case 0:
         g_load_descriptor->caption = g_localized_strings[0x6ef];
@@ -258,37 +166,34 @@ void PleaseWaitScreenFrame(void)
 
     switch (g_load_descriptor->mode) {
     case 0:
-        if (PleaseWaitScreenEnsureLevelArchive(8)) {
-            ResetLiveSessionForLoad();
-            int level;
-            int entrance;
-            ChooseNewGameStartLocation(&level, &entrance);
-            if (!LoadLevel(level, entrance, false)) {
-                srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 279, 0);
-            }
-            PostNewGameLoad();
+        ResetLiveSessionForLoad();
+        int level;
+        int entrance;
+        ChooseNewGameStartLocation(&level, &entrance);
+        if (!LoadLevel(level, entrance, false)) {
+            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 279, 0);
         }
+        PostNewGameLoad();
+
         break;
     case 1:
-        if (PleaseWaitScreenEnsureLevelArchive(g_current_screen_state.parameter)) {
-            if (!LoadGame(g_load_descriptor->name)) {
-                srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
-            }
-            if (!LoadLevel(g_status.current_level, -1, true)) {
-                srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
-            }
+        if (!LoadGame(g_load_descriptor->name)) {
+            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
         }
+        if (!LoadLevel(g_status.current_level, -1, true)) {
+            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
+        }
+
         break;
     case 2: {
         bool saved = SaveGame(g_load_descriptor->name, g_load_descriptor->save_payload);
         // Do not destroy the previous save until the new one has been committed.
-        // An asset-only save has no writable overlay to remove and is left intact.
         if (saved && !g_load_descriptor->previous_save_name.empty() &&
             g_load_descriptor->previous_save_name != g_load_descriptor->name) {
             const std::string previous_path = fmt::format(
-                "Saves\\{}.{}", g_load_descriptor->previous_save_name, g_save_extension);
+                "saves\\{}.{}", g_load_descriptor->previous_save_name, g_save_extension);
             try {
-                wiz8::remove_file(previous_path);
+                wiz8::remove_file(wiz8::user_path(previous_path));
             } catch (const std::exception& error) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                             "Saved %s but could not remove previous save %s: %s",
@@ -305,29 +210,24 @@ void PleaseWaitScreenFrame(void)
         break;
     }
     case 3:
-        if (PleaseWaitScreenEnsureLevelArchive(g_load_descriptor->parameter)) {
-            if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter,
-                                             g_load_descriptor->parameter_2)) {
-                srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 320, 0);
-            }
-            AutoSaveIfAllowed(true);
+        if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter,
+                                         g_load_descriptor->parameter_2)) {
+            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 320, 0);
         }
+        AutoSaveIfAllowed(true);
     }
 
-    if (!g_load_descriptor->waiting) {
-        if (!GetWorld()) {
-            srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
-        }
-        RetireModal(std::move(g_swap_disc_dialog), false);
-        RequestScreenTransition();
-        if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
-            SetIntroVideoIndex(4);
-            SetPendingScreenState(W8_SCREEN_INTRO);
-            return;
-        }
-        if (GetPendingScreenState() != 7) {
-            SetPendingScreenState(W8_SCREEN_MAIN_GAME);
-        }
+    if (!GetWorld()) {
+        srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
+    }
+    RequestScreenTransition();
+    if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
+        SetIntroVideoIndex(4);
+        SetPendingScreenState(W8_SCREEN_INTRO);
+        return;
+    }
+    if (GetPendingScreenState() != 7) {
+        SetPendingScreenState(W8_SCREEN_MAIN_GAME);
     }
 }
 

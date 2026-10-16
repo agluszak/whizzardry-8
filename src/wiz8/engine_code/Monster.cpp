@@ -27,6 +27,7 @@
 #include "Font.h"
 #include "ReadMesh.h"
 #include "application.h"
+#include "asset_paths.h"
 #include "attack_modes.h"
 #include "audio_resources.h"
 #include "compat/native.h"
@@ -124,10 +125,10 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/surface_storage.h"
+#include "wiz8/text_line.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/xstatus.h"
 
 struct W8NpcState;
@@ -394,7 +395,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     path = fmt::format("data\\Monsters\\{}.mls", monster_name);
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file(path, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

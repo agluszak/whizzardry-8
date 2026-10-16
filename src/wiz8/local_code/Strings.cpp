@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/string_database.h"
 #include "wiz8/unicode.h"
@@ -25,7 +26,7 @@ std::vector<std::string> g_localized_strings;
 std::string GetStringFromStringDatabase(std::string_view path, int index, unsigned int* metadata_00,
                                         unsigned int* metadata_04)
 try {
-    auto handle = wiz8::open_file(path);
+    auto handle = wiz8::open_file(wiz8::asset_path(path));
     unsigned char header[5];
     handle->read_exact(header, sizeof(header));
     int count;
@@ -87,7 +88,7 @@ static std::string ImportLocalizedPattern(std::string text)
 // FUNCTION: WIZ8 0x00518360
 void LoadLocalizedStrings(std::string_view path)
 {
-    auto handle = wiz8::open_file(path);
+    auto handle = wiz8::open_file(wiz8::asset_path(path));
     int count;
     handle->read_exact(&count, 4);
     if (count <= 0 || count > 100000) throw std::runtime_error("Invalid localization entry count");

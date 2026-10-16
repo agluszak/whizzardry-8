@@ -7,6 +7,7 @@
 #include <SDL3/SDL_keycode.h>
 #include <fmt/format.h>
 
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "input.h"
 #include "wiz8/bink_video.h"
@@ -21,7 +22,6 @@
 /* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
    The canonical state-zero row owns this enter/frame/leave bundle. */
 
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -46,7 +46,6 @@ W8BinkVideo* gpVideo;
 unsigned char IntroScreenEnter(void)
 {
     std::string path;
-    char gzCdDirectory[4];
 
     ClearSurfaceRect(0, 0, 0x280, 0x1e0);
     if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {
@@ -54,20 +53,10 @@ unsigned char IntroScreenEnter(void)
     }
     path = fmt::format("Data\\Flics\\Intro\\{}", g_intro_video_names[g_intro_video_index]);
     if (![&]() {
-            const auto status = wiz8::file_status(path);
+            const auto status = wiz8::file_status(wiz8::asset_path(path));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }()) {
-        if (!FindGameDataPath(gzCdDirectory, 3)) {
-            return 1;
-        }
-        path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory,
-                           g_intro_video_names[g_intro_video_index]);
-        if (![&]() {
-                const auto status = wiz8::file_status(path);
-                return status && status->info.type == SDL_PATHTYPE_FILE;
-            }()) {
-            return 1;
-        }
+        return 1;
     }
     StopMusicPlaylist(true);
     DisableCursorScene();
@@ -116,24 +105,15 @@ void IntroScreenFrame(void)
 static void AdvanceIntroScreen(void)
 {
     std::string path;
-    char gzCdDirectory[4];
     bool first_video_available = false;
 
     if (g_intro_video_index == 6 && !g_settings.intro_seen) {
         g_intro_video_index = 0;
         path = fmt::format("Data\\Flics\\Intro\\{}", g_intro_video_names[g_intro_video_index]);
         first_video_available = [&]() {
-            const auto status = wiz8::file_status(path);
+            const auto status = wiz8::file_status(wiz8::asset_path(path));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }();
-        if (!first_video_available && FindGameDataPath(gzCdDirectory, 3)) {
-            path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory,
-                               g_intro_video_names[g_intro_video_index]);
-            first_video_available = [&]() {
-                const auto status = wiz8::file_status(path);
-                return status && status->info.type == SDL_PATHTYPE_FILE;
-            }();
-        }
         if (first_video_available && gpVideo != 0 && gpVideo->Open(path.c_str(), 0)) {
             return;
         }

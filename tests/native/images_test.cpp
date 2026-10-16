@@ -24,14 +24,16 @@
 #include <zconf.h>
 #include <zlib.h>
 
+#include "asset_paths.h"
 #include "himage.h"
 #include "image.h"
 #include "image_assets.h"
 #include "imgfmt.h"
+#include "prepared_assets.h"
 #include "scoped_asset_roots.h"
+#include "slf.h"
 #include "sprite.h"
 #include "temporary_directory.h"
-#include "wiz8/slf.h"
 #include "wiz8/surface_storage.h"
 
 static std::vector<std::uint16_t> sprite_pixels(const SpriteFrame& frame)
@@ -190,7 +192,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
 {
     static_assert(sizeof(wiz8::SlfHeader) == 532 && sizeof(wiz8::SlfEntry) == 280);
     wiz8::SlfHeader header{};
-    strcpy(header.sLibName, "Data.slf");
+    strcpy(header.sLibName, "data.slf");
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = files.size();
     header.iVersion = 0x200;
@@ -276,7 +278,7 @@ static void check_pcx(const SDL_Surface& image)
 struct ImageFixture {
     ScopedTemporaryDirectory directory{"wiz8-images"};
     fs::path root = directory.path;
-    fs::path assets = root / "assets", user = root / "user", disc = root / "disc";
+    fs::path assets = root / "assets", user = root / "user";
     Bytes truncated;
     ScopedAssetRoots asset_roots;
 
@@ -284,32 +286,30 @@ struct ImageFixture {
     {
         g_image_assets.clear();
         fs::create_directories(user);
-        fixture(assets / "Dotted.dir" / "many.dots.PcX", pcx());
-        fixture(assets / "Dotted.dir" / "default.PCX", pcx());
+        fixture(assets / "dotted.dir" / "many.dots.pcx", pcx());
+        fixture(assets / "dotted.dir" / "default.pcx", pcx());
         fixture(assets / "override.pcx", pcx());
         auto override_pcx = pcx();
         override_pcx[128] = override_pcx[130] = override_pcx[132] = 2;
         override_pcx[133] = 1;
         override_pcx[135] = 0;
-        fixture(user / "override.pcx", override_pcx);
-        fixture(disc / "disc.tga", tga(24, true, false));
+        fixture(assets / "override.pcx", override_pcx);
+        fixture(assets / "disc.tga", tga(24, true, false));
         truncated = tga(24, true, false);
         truncated.resize(21);
-        fixture(assets / "Data" / "Data.slf", slf({{"Packed.pcx", pcx()},
-                                                   {"Packed.tga", tga(24, false, true)},
-                                                   {"Truncated.tga", truncated}}));
-        asset_roots.configure({wiz8::path_to_utf8(assets),
-                               wiz8::path_to_utf8(user),
-                               {wiz8::path_to_utf8(disc), "", ""}});
+        fixture(assets / "data" / "data.slf", slf({{"packed.pcx", pcx()},
+                                                   {"packed.tga", tga(24, false, true)},
+                                                   {"truncated.tga", truncated}}));
+        asset_roots.configure({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)});
 
-        wiz8::mount_slf("Data\\Data.slf");
+        extract_test_archive("data\\data.slf");
         rgb555();
     }
 
     ~ImageFixture()
     {
         g_image_assets.clear();
-        wiz8::clear_asset_archives();
+
         rgb555();
     }
 };
@@ -360,7 +360,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     }
 
     {
-        auto image = load("c:\\dotted.DIR\\many.dots.pcx");
+        auto image = load("dotted.dir\\many.dots.pcx");
         REQUIRE(image);
         check_pcx(*image);
         char extensionless[] = "Dotted.dir\\default";
@@ -368,18 +368,18 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((default_image && !strcmp(extensionless, "Dotted.dir\\default")));
         check_pcx(*default_image);
 
-        auto bitmap = load("Dotted.dir/default.PCX");
+        auto bitmap = load("dotted.dir/default.pcx");
         REQUIRE(bitmap);
         REQUIRE((bitmap->w == 3 && bitmap->h == 2 && indexed(*bitmap)));
         const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
         REQUIRE(!memcmp(bitmap_bytes(*bitmap).data(), expected, sizeof(expected)));
     }
     {
-        auto complete = load("Dotted.dir/default.PCX");
+        auto complete = load("dotted.dir/default.pcx");
         REQUIRE(complete);
         check_pcx(*complete);
         g_sgp_pixel_format = SDL_PIXELFORMAT_ABGR1555;
-        auto custom = load("Dotted.dir/default.PCX");
+        auto custom = load("dotted.dir/default.pcx");
         REQUIRE((custom && indexed(*custom)));
         const auto palette = Create16BPPPalette(bitmap_palette(*custom));
         REQUIRE(palette[0] == 0);
@@ -458,31 +458,31 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
                  !memcmp(bitmap_bytes(*override_image).data(), indices, sizeof(indices))));
     }
     {
-        auto disc_image = load("D:\\DISC.TGA");
+        auto disc_image = load("disc.tga");
         REQUIRE((disc_image && !memcmp(bitmap_bytes(*disc_image).data(), rgb, sizeof(rgb))));
-        char entry[] = "Data\\Packed.pcx";
+        char entry[] = "data\\packed.pcx";
         auto first = [&]() {
             try {
-                return wiz8::open_file(entry, wiz8::OpenMode::read);
+                return wiz8::open_file(wiz8::asset_path(entry), wiz8::OpenMode::read);
             } catch (const std::exception&) {
                 return std::unique_ptr<wiz8::File>{};
             }
         }();
         auto second = [&]() {
             try {
-                return wiz8::open_file(entry, wiz8::OpenMode::read);
+                return wiz8::open_file(wiz8::asset_path(entry), wiz8::OpenMode::read);
             } catch (const std::exception&) {
                 return std::unique_ptr<wiz8::File>{};
             }
         }();
         REQUIRE((first && second && (first->seek(9, wiz8::SeekOrigin::begin), true)));
-        auto image = load("C:\\data\\PACKED.PCX");
+        auto image = load("data\\packed.pcx");
         REQUIRE(image);
         check_pcx(*image);
         REQUIRE((first->tell() == 9 && second->tell() == 0));
         auto tga_image = load("data\\packed.tga");
         REQUIRE((tga_image && !memcmp(bitmap_bytes(*tga_image).data(), rgb, sizeof(rgb))));
-        REQUIRE(!load("Data\\Truncated.tga")); // Must not read the next SLF record as image data.
+        REQUIRE(!load("data\\truncated.tga")); // Must not read the next SLF record as image data.
         REQUIRE((first->tell() == 9 && second->tell() == 0));
         first.reset();
         second.reset();
@@ -499,7 +499,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
                 pixel[1] = 20;
                 pixel[2] = 40;
             }
-        REQUIRE(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
+        REQUIRE(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.jpeg").c_str(), 100));
         auto image = load("test.jpeg");
         REQUIRE((image && image->w == 8 && image->h == 8 && SDL_BYTESPERPIXEL(image->format) >= 3));
         REQUIRE_FALSE(indexed(*image));
@@ -584,9 +584,9 @@ TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership 
     REQUIRE(sprite_pixels(object->frames[0]) == expected);
     REQUIRE(object->colors == Create16BPPPalette(object->palette));
 
-    fixture(assets / "Data" / "Sprites.slf", slf({{"Sheet.sti", bytes}}));
-    wiz8::mount_slf("Data\\Sprites.slf");
-    auto archived = g_image_assets.sprites("Data\\Sheet.sti");
+    fixture(assets / "data" / "sprites.slf", slf({{"sheet.sti", bytes}}));
+    extract_test_archive("data\\sprites.slf");
+    auto archived = g_image_assets.sprites("data\\sheet.sti");
     REQUIRE(archived);
     REQUIRE(sprite_pixels(archived->frames[0]) == expected);
 
@@ -637,18 +637,18 @@ TEST_CASE_METHOD(ImageFixture,
     const auto valid = sti_bitmap(500, 200, 8, expected, true);
     auto truncated = valid;
     truncated.pop_back();
-    fixture(assets / "Data" / "Compressed.slf",
-            slf({{"Good.sti", valid}, {"Bad.sti", truncated}, {"Following.sti", valid}}));
-    wiz8::mount_slf("Data\\Compressed.slf");
-    auto first = wiz8::open_file("Data\\Good.sti");
-    auto second = wiz8::open_file("Data\\Good.sti");
+    fixture(assets / "data" / "compressed.slf",
+            slf({{"good.sti", valid}, {"bad.sti", truncated}, {"following.sti", valid}}));
+    extract_test_archive("data\\compressed.slf");
+    auto first = wiz8::open_file(wiz8::asset_path("data\\good.sti"));
+    auto second = wiz8::open_file(wiz8::asset_path("data\\good.sti"));
     first->seek(9, wiz8::SeekOrigin::begin);
     for (unsigned repeat = 0; repeat < 3; ++repeat) {
-        auto image = load("Data\\Good.sti");
+        auto image = load("data\\good.sti");
         REQUIRE(image);
         REQUIRE(bitmap_bytes(*image) == expected);
-        REQUIRE_FALSE(load("Data\\Bad.sti"));
-        auto following = load("Data\\Following.sti");
+        REQUIRE_FALSE(load("data\\bad.sti"));
+        auto following = load("data\\following.sti");
         REQUIRE(following);
         REQUIRE(bitmap_bytes(*following) == expected);
         REQUIRE(first->tell() == 9);

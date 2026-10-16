@@ -12,6 +12,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
+#include "asset_paths.h"
 #include "cursor.h"
 #include "layouts/item_instance.h"
 #include "layouts/npc_dialogue.h"
@@ -809,8 +810,10 @@ void AuditNpcScriptQuotes(void)
     total_quotes = 0;
     total_scripts = 0;
     try {
-        auto log_file = wiz8::open_file("data\\longquotes.txt", wiz8::OpenMode::replace);
-        auto file = wiz8::open_file("data\\quotereport.txt", wiz8::OpenMode::replace);
+        auto log_file =
+            wiz8::open_file(wiz8::user_path("logs\\longquotes.txt"), wiz8::OpenMode::replace);
+        auto file =
+            wiz8::open_file(wiz8::user_path("logs\\quotereport.txt"), wiz8::OpenMode::replace);
         const auto today = wiz8::current_local_time();
         std::tm calendar{};
         calendar.tm_year = today.year - 1900;
@@ -824,7 +827,8 @@ void AuditNpcScriptQuotes(void)
         g_status.quote_audit = 1;
         write_report(std::string("Script Report File: ") + date + "\n");
         write_report("-------------------------------------------------\n");
-        for (const auto& name : wiz8::list_directory("Data\\NPC Scripts", "*.nsf")) {
+        for (const auto& name :
+             wiz8::list_directory(wiz8::asset_path("Data\\NPC Scripts"), "*.nsf")) {
             path = fmt::format("Data\\NPC Scripts\\{}", name);
             script = LoadNpcScriptFile(path);
             std::unique_ptr<W8NpcScriptFile, decltype(&ReleaseNpcScriptFile)> script_owner(

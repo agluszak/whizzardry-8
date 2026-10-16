@@ -184,7 +184,10 @@ jobs:
             -in "$encrypted" -pass env:WIZ8_CACHE_KEY | tar -C "$game_root" -xf -
           test -d "$game_root/Data"
           test -d "$game_root/Levels"
-          echo "WIZ8_ASSET_ROOT=$game_root" >> "$GITHUB_ENV"
+          source "build/${{ matrix.preset }}/conan/conanrun.sh"
+          prepared_root="$RUNNER_TEMP/wiz8-native-prepared"
+          "build/${{ matrix.preset }}/wiz8_prepare_assets" "$prepared_root" "$game_root"
+          echo "WIZ8_ASSET_ROOT=$prepared_root" >> "$GITHUB_ENV"
 
       - name: Test native contracts and licensed runtime scenarios
         run: |

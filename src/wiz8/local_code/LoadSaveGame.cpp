@@ -9,6 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <new>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -21,6 +22,7 @@
 
 #include "AnimRep.hpp"
 #include "Item.h"
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
@@ -159,7 +161,7 @@ struct SaveVersion {
 constexpr SaveVersion kCurrentSaveVersion{1, 2, 4};
 constexpr SaveVersion kUnversionedSave{1, 0, 0};
 
-constexpr std::string_view kCurrentGamePath = "Saves\\CurrentGame.SAV";
+constexpr std::string_view kCurrentGamePath = "saves\\CurrentGame.SAV";
 constexpr std::string_view kAutoSaveName = "AutoSave";
 
 /* Monster groups and monsters beyond the live lists (encounter groups and
@@ -185,7 +187,7 @@ constexpr std::size_t kStatusSuffixOffset = 0xd8;
 
 std::string SaveSlotPath(std::string_view name)
 {
-    return fmt::format("Saves\\{}.{}", name, g_save_extension);
+    return fmt::format("saves\\{}.{}", name, g_save_extension);
 }
 
 std::string QuickSaveName(int slot)
@@ -195,7 +197,7 @@ std::string QuickSaveName(int slot)
 
 bool IsRegularFile(std::string_view path)
 {
-    const auto status = wiz8::file_status(path);
+    const auto status = wiz8::file_status(wiz8::user_path(path));
     return status && status->info.type == SDL_PATHTYPE_FILE;
 }
 
@@ -228,7 +230,7 @@ class SaveTransaction {
 
 public:
     W8Chunk chunks;
-    explicit SaveTransaction(std::string_view path) : staged_(path)
+    explicit SaveTransaction(std::string_view path) : staged_(wiz8::user_path(path))
     {
         if (!chunks.OpenWrite(staged_.file())) throw std::runtime_error("open staged save");
     }
@@ -749,8 +751,8 @@ static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
 std::string BuildCharacterFilePath(std::string_view filename, int slot)
 {
     if (!g_status.game_started)
-        return fmt::format("{}\\{}", slot == -1 ? "Saves\\Characters" : "Saves\\NPCs", filename);
-    if (slot != -1 && !g_status.flags[slot]) return fmt::format("Saves\\NPCs\\{}", filename);
+        return fmt::format("{}\\{}", slot == -1 ? "saves\\characters" : "saves\\npcs", filename);
+    if (slot != -1 && !g_status.flags[slot]) return fmt::format("saves\\npcs\\{}", filename);
     return std::string(filename);
 }
 
@@ -771,7 +773,8 @@ try {
         if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
             loaded = LoadCharacterFromCurrentGame(path, character);
         } else {
-            auto handle = wiz8::open_file(path);
+            auto handle =
+                wiz8::open_file(slot == -1 ? wiz8::user_path(path) : wiz8::asset_path(path));
             *character = {};
             W8Character saved{};
             wiz8::retail::read_sized(*handle, saved);
@@ -815,7 +818,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
                                                 const wiz8::FileStatus& metadata, int utc_offset)
 {
     W8Chunk chunks;
-    if (!chunks.OpenRead("Saves\\" + name)) return nullptr;
+    if (!chunks.OpenRead(wiz8::user_path("saves\\" + name))) return nullptr;
     auto slot = std::make_unique<W8SaveSlot>();
     DetachedStatus saved;
     bool has_status = false;
@@ -858,11 +861,12 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
 // FUNCTION: WIZ8 0x00511e70
 bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots)
 try {
-    if (!wiz8::file_status("Saves")) return true;
+    if (!wiz8::file_status(wiz8::user_path("saves"))) return true;
     const auto first = static_cast<std::ptrdiff_t>(slots.size());
     const auto utc_offset = wiz8::current_utc_offset_seconds();
-    for (const auto& name : wiz8::list_directory("Saves", std::string("*.") + g_save_extension)) {
-        const auto metadata = wiz8::file_status("Saves\\" + name);
+    for (const auto& name :
+         wiz8::list_directory(wiz8::user_path("saves"), std::string("*.") + g_save_extension)) {
+        const auto metadata = wiz8::file_status(wiz8::user_path("saves\\" + name));
         if (!metadata || metadata->info.type != SDL_PATHTYPE_FILE) continue;
         if (IsCurrentGameFileName(name) || name.size() >= kCharacterNameBytes) continue;
         std::unique_ptr<W8SaveSlot> slot;
@@ -890,7 +894,7 @@ try {
 int GetSaveGameLevel(std::string_view slot_name)
 try {
     W8Chunk chunks;
-    if (!chunks.OpenRead(SaveSlotPath(slot_name))) return 0;
+    if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return 0;
     DetachedStatus saved;
     bool found = false;
     chunks.ForEachChunk([&](unsigned int id) {
@@ -934,9 +938,10 @@ static void PrepareStatusForSave(const wiz8::File& file)
 static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot, W8Chunk& chunks)
 {
     if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 &&
-        wiz8::file_status(kCurrentGamePath)) {
+        wiz8::file_status(wiz8::user_path(kCurrentGamePath))) {
         W8Chunk current_game;
-        if (!current_game.OpenRead(kCurrentGamePath)) throw std::runtime_error("open current game");
+        if (!current_game.OpenRead(wiz8::user_path(kCurrentGamePath)))
+            throw std::runtime_error("open current game");
         CopyCurrentGameChunks(current_game, chunks);
         current_game.Close();
     }
@@ -1027,9 +1032,9 @@ bool SaveLevelStatus(const char* path)
 try {
     if (!path) return false;
     SaveTransaction transaction(path);
-    if (wiz8::file_status(path)) {
+    if (wiz8::file_status(wiz8::user_path(path))) {
         W8Chunk source;
-        if (!source.OpenRead(path)) return false;
+        if (!source.OpenRead(wiz8::user_path(path))) return false;
         source.ForEachChunk([&](unsigned int id) {
             if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == g_status.current_level)
                 return;
@@ -1125,7 +1130,7 @@ try {
 
 /* Apply a status file's group for `level`. */
 // FUNCTION: WIZ8 0x005135d0
-bool LoadLevelStatus(const char* path, int level)
+bool LoadLevelStatus(const std::filesystem::path& path, int level)
 try {
     W8Chunk chunk;
     if (!chunk.OpenRead(path)) return false;
@@ -1160,7 +1165,7 @@ try {
         srAssertFail("LevelFilesExist(ulLevel, &LevelName)", LOADSAVEGAME_CPP, 0x366, 0);
     }
     W8Chunk chunk;
-    if (!chunk.OpenRead(BuildLevelStatusPath(level))) return false;
+    if (!chunk.OpenRead(wiz8::asset_path(BuildLevelStatusPath(level)))) return false;
     WithLevelGroup(chunk, std::nullopt, [&] {
         auto& file = chunk.Stream();
         chunk.ForEachChunk([&](unsigned int section) {
@@ -1297,14 +1302,14 @@ void ResetLiveSessionForLoad(void)
     ResetGameplayStatusBlock();
 }
 
-/* Create the writable save directories in the user overlay. */
+/* Create the writable save directories in the user directory. */
 // FUNCTION: WIZ8 0x00512d00
 bool VerifyDataSubdirs(void)
 try {
-    for (const char* directory : {"Saves", "Saves\\Characters", "Saves\\NPCs"}) {
-        wiz8::create_directory(directory);
-        const auto entry = wiz8::file_status(directory);
-        if (!entry || entry->info.type != SDL_PATHTYPE_DIRECTORY || !entry->writable) return false;
+    for (const char* directory : {"saves", "saves\\characters", "saves\\npcs"}) {
+        wiz8::create_directory(wiz8::user_path(directory));
+        const auto entry = wiz8::file_status(wiz8::user_path(directory));
+        if (!entry || entry->info.type != SDL_PATHTYPE_DIRECTORY) return false;
     }
     return true;
 } catch (const std::exception&) {
@@ -1366,7 +1371,8 @@ try {
 // FUNCTION: WIZ8 0x00512fb0
 bool SaveGameExists(void)
 {
-    const auto saves = wiz8::list_directory("Saves", std::string("*.") + g_save_extension);
+    const auto saves =
+        wiz8::list_directory(wiz8::user_path("saves"), std::string("*.") + g_save_extension);
     return std::ranges::any_of(saves,
                                [](const auto& name) { return !IsCurrentGameFileName(name); });
 }
@@ -1383,9 +1389,9 @@ try {
         if (g_status.game_started) {
             saved = SaveCharacterToCurrentGame(path, slot, character);
         } else {
-            const auto status = wiz8::file_status(path);
-            if (status && status->read_only) wiz8::clear_read_only(path);
-            wiz8::StagedFile staged(path);
+            const auto status = wiz8::file_status(wiz8::user_path(path));
+            if (status && status->read_only) wiz8::clear_read_only(wiz8::user_path(path));
+            wiz8::StagedFile staged(wiz8::user_path(path));
             wiz8::retail::write_sized(*staged.file(), *character);
             staged.commit();
             saved = true;
@@ -1405,7 +1411,7 @@ bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, W8Character
 try {
     if (path.empty() || !character || path.size() >= kCharacterNameBytes) return false;
     W8Chunk source;
-    if (!source.OpenRead(kCurrentGamePath)) return false;
+    if (!source.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
     SaveTransaction transaction(kCurrentGamePath);
     source.ForEachChunk([&](unsigned int id) {
         if (id == W8_CHUNK_CHARACTER && source.CurrentChunkExtent() >= kCharacterNameBytes) {
@@ -1433,7 +1439,7 @@ bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character)
 try {
     if (path.empty() || !character) return false;
     W8Chunk chunk;
-    if (!chunk.OpenRead(kCurrentGamePath)) return false;
+    if (!chunk.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
     std::optional<W8Character> found;
     chunk.ForEachChunk([&](unsigned int id) {
         if (id != W8_CHUNK_CHARACTER || chunk.CurrentChunkExtent() < kCharacterNameBytes + 4)
@@ -1477,8 +1483,8 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
 // FUNCTION: WIZ8 0x00515920
 void DeleteCurrentSaveFiles(void)
 {
-    wiz8::remove_file(SaveSlotPath(GetLastSaveName()));
-    wiz8::remove_file(kCurrentGamePath);
+    wiz8::remove_file(wiz8::user_path(SaveSlotPath(GetLastSaveName())));
+    wiz8::remove_file(wiz8::user_path(kCurrentGamePath));
 }
 
 /* Save now if autosaving is enabled (or the game is Iron Man) and the moment
@@ -1555,8 +1561,8 @@ try {
     std::optional<std::pair<int, std::uint64_t>> oldest;
     for (int slot = 1; slot <= 3; ++slot) {
         const auto path = SaveSlotPath(QuickSaveName(slot));
-        if (!wiz8::file_status(path)) return QuickSaveName(slot);
-        const auto ticks = wiz8::open_file(path)->times().modified.ticks();
+        if (!wiz8::file_status(wiz8::user_path(path))) return QuickSaveName(slot);
+        const auto ticks = wiz8::open_file(wiz8::user_path(path))->times().modified.ticks();
         if (!oldest || ticks < oldest->second) oldest.emplace(slot, ticks);
     }
     return QuickSaveName(oldest->first);
@@ -1573,7 +1579,7 @@ try {
     for (int slot = 1; slot <= 3; ++slot) {
         const auto path = SaveSlotPath(QuickSaveName(slot));
         if (!IsRegularFile(path)) continue;
-        const auto ticks = wiz8::open_file(path)->times().modified.ticks();
+        const auto ticks = wiz8::open_file(wiz8::user_path(path))->times().modified.ticks();
         if (!newest || ticks > newest->second) newest.emplace(slot, ticks);
     }
     if (newest) return QuickSaveName(newest->first);
@@ -1667,7 +1673,7 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
 bool LoadSavedLevelItems(int level, std::vector<std::unique_ptr<W8WorldItem>>& items)
 try {
     W8Chunk chunk;
-    if (!chunk.OpenRead(kCurrentGamePath)) return false;
+    if (!chunk.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
     const bool found = WithLevelGroup(chunk, level, [&] {
         chunk.ForEachChunk([&](unsigned int section) {
             if (section != W8_CHUNK_WORLD_ITEMS) return;
@@ -1708,9 +1714,10 @@ try {
 bool LoadGame(std::string_view slot_name)
 try {
     ResetLiveSessionForLoad();
-    wiz8::copy_file(SaveSlotPath(slot_name), kCurrentGamePath, wiz8::CopyMode::replace);
+    wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath),
+                    wiz8::CopyMode::replace);
     W8Chunk chunks;
-    if (!chunks.OpenRead(kCurrentGamePath)) return false;
+    if (!chunks.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
     auto& file = chunks.Stream();
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {

@@ -10,9 +10,10 @@
 #include <utility>
 #include <vector>
 
+#include "asset_paths.h"
 #include "filesystem.h"
+#include "wiz8/text_line.h"
 #include "wiz8/unicode.h"
-#include "wiz8/virtual_file.h"
 
 /* Read one byte at a time through the virtual-file layer.  End-of-file after
    at least one byte still returns a line, while an empty end-of-file clears
@@ -56,7 +57,7 @@ void stScript::Clear()
 bool stScript::Load(const char* path)
 try {
     if (!path) return false;
-    std::istringstream input(wiz8::open_file(path)->read_text());
+    std::istringstream input(wiz8::open_file(wiz8::asset_path(path))->read_text());
     std::string text;
     stScript pending;
     int source_line = 0;

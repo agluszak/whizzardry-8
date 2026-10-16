@@ -5,6 +5,7 @@
 
 #include <fmt/format.h>
 
+#include "asset_paths.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Quality.h"
@@ -33,7 +34,7 @@ void LoadGameConfiguration(void)
 
     path = fmt::format("{}.{}", g_config_file_name, g_config_file_extension);
     ResetMGSKeyboardBindings();
-    if (file.OpenRead(path)) {
+    if (file.OpenRead(wiz8::user_path("config/" + path))) {
         file.ForEachChunk([&](unsigned int id) {
             if (id == W8_CHUNK_SETTINGS) {
                 if (file.CurrentChunkExtent() == sizeof(g_settings)) {
@@ -78,7 +79,7 @@ try {
     std::string path;
 
     path = fmt::format("{}.{}", g_config_file_name, g_config_file_extension);
-    if (!file.OpenWrite(path)) {
+    if (!file.OpenWrite(wiz8::user_path("config/" + path))) {
         return false;
     }
     file.WriteChunk(W8_CHUNK_SETTINGS, [&] { file.WriteValue(g_settings); });

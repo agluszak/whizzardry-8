@@ -25,6 +25,7 @@
 #include <wiz8/filesystem.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "glm/ext/vector_float3.hpp"
@@ -484,7 +485,7 @@ static std::optional<std::string> ParseKeywordToken(std::string_view& line)
 /* Load one keyword file into a file list. */
 static bool LoadKeywordFile(std::string_view path, KeywordFile& file)
 try {
-    auto input = wiz8::open_file(path);
+    auto input = wiz8::open_file(wiz8::asset_path(path));
     if (input->size() < 0 || input->size() > 16 * 1024 * 1024) return false;
     const auto bytes = input->read_text();
     if (bytes.find('\0') != std::string::npos) return false;

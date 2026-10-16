@@ -20,6 +20,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "GrCycle.h"
+#include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -59,7 +60,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
+#include "wiz8/text_line.h"
 
 // GLOBAL: WIZ8 0x0065BE40
 std::vector<stSound3D*> g_sound3d_instances;
@@ -429,7 +430,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
     snprintf(path, sizeof(path), "data\\Spells\\%s.mls", name);
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file(path, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }
@@ -1256,7 +1257,8 @@ try {
     ReleaseSpellDatabase();
     handle = [&]() {
         try {
-            return wiz8::open_file("Data\\Databases\\SpellTables.dbs", wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path("Data\\Databases\\SpellTables.dbs"),
+                                   wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

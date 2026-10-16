@@ -50,7 +50,7 @@ using DecodedImage = std::variant<BitmapImage, SpriteSheet>;
 //
 // *****************************************************************************
 
-// Virtual game paths (including SLF entries), never host paths. The final
+// Paths relative to the prepared asset root. The final
 // basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
 // default to PCX without changing the caller's path.
 // STI zlib decoding and ETRLE frame decoding finish

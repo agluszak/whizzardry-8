@@ -12,15 +12,16 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
+#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtx/rotate_vector.hpp>
+#include <glm/trigonometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "AnimRep.hpp"
 #include "Monster.h"
-#include "glm/common.hpp"
+#include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/trigonometric.hpp"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/item_tables.h"
@@ -595,16 +596,17 @@ void ActivateItem(W8WorldItem* item)
         zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
     }
     if (![&]() {
-            const auto status = wiz8::file_status(zItemFullPath);
+            const auto status = wiz8::file_status(wiz8::asset_path(zItemFullPath));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }()) {
         zItemName = "questionmark";
         zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
         if (![&]() {
-                const auto status = wiz8::file_status(zItemFullPath);
+                const auto status = wiz8::file_status(wiz8::asset_path(zItemFullPath));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
-            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
+            srAssertFail("[&]() { const auto status = "
+                         "wiz8::file_status(wiz8::asset_path(zItemFullPath)); return "
                          "status && status->info.type == SDL_PATHTYPE_FILE; }()",
                          ITEM_MANAGER_CPP, 0x1ed,
                          fmt::format("ActivateItem: ERROR - missing ITM file {}, item {:d}",

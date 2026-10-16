@@ -19,6 +19,7 @@
 #include <fmt/printf.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "difficulty.h"
 #include "file_time.h"
@@ -163,7 +164,8 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
     search_path = BuildCharacterFilePath(fmt::format("*.{}", "CHR"), -1);
     const std::string pattern(search_path);
     const auto separator = pattern.find_last_of("\\/");
-    for (const auto& entry : wiz8::list_directory(pattern.substr(0, separator), "*.CHR")) {
+    for (const auto& entry :
+         wiz8::list_directory(wiz8::user_path(pattern.substr(0, separator)), "*.CHR")) {
         W8Character* character = new W8Character;
         if (!LoadCharacter(entry.c_str(), character, -1)) {
             delete character;
@@ -249,7 +251,7 @@ void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
         path = BuildCharacterPath(characters[index]->name, -1);
         std::unique_ptr<wiz8::File> handle = [&]() {
             try {
-                return wiz8::open_file(path, wiz8::OpenMode::read);
+                return wiz8::open_file(wiz8::user_path(path), wiz8::OpenMode::read);
             } catch (const std::exception&) {
                 return std::unique_ptr<wiz8::File>{};
             }
@@ -863,8 +865,8 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     RefreshRows();
     RefreshSlots();
     if (importing && g_party_selection_character_collection->names.empty()) {
-        for (const auto& entry : wiz8::list_directory("Saves\\Import", "*.*")) {
-            const auto status = wiz8::file_status("Saves\\Import\\" + entry);
+        for (const auto& entry : wiz8::list_directory(wiz8::user_path("saves\\import"), "*.*")) {
+            const auto status = wiz8::file_status(wiz8::user_path("saves\\import\\" + entry));
             if (status && status->info.type == SDL_PATHTYPE_FILE)
                 g_party_selection_character_collection->names.push_back(entry);
         }
@@ -1182,7 +1184,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         }
         std::string path;
         path = BuildCharacterPath(character->name, -1);
-        wiz8::remove_file(path);
+        wiz8::remove_file(wiz8::user_path(path));
         collection->DeleteAt(selected);
 
         int maximum = static_cast<int>(collection->characters.size()) - 6;
@@ -1236,7 +1238,7 @@ void W8PartySelectionController::LoadImportedPartyFile(int selection)
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     if (selection >= 0 && selection < static_cast<int>(collection->names.size())) {
         std::string path;
-        path = fmt::format("{}\\{}", "Saves\\Import", collection->names[selection]);
+        path = fmt::format("{}\\{}", "saves\\import", collection->names[selection]);
         int result = ImportWizardry7Party(path);
         if (result != 0) {
             ResetForNewGame();

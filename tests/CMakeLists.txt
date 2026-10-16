@@ -1,4 +1,4 @@
-link_libraries(Catch2::Catch2WithMain)
+link_libraries(Catch2::Catch2WithMain wiz8_asset_preparation)
 
 add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE WIZ8_GAME_CORE)
@@ -111,17 +111,6 @@ target_include_directories(native_jpeg_transfer_test PRIVATE "${PROJECT_SOURCE_D
 target_compile_definitions(native_jpeg_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
 target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings SDL3_image::SDL3_image)
 catch_discover_tests(native_jpeg_transfer_test TEST_PREFIX "native_image_transfer/")
-
-add_executable(native_virtual_image_transfer_test native/image_import/virtual_transfer_test.cpp)
-target_include_directories(native_virtual_image_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/surrender")
-target_compile_definitions(native_virtual_image_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
-target_link_libraries(native_virtual_image_transfer_test PRIVATE WIZ8_GAME_CORE SDL3_image::SDL3_image)
-if(APPLE)
-    target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,-dead_strip)
-elseif(UNIX)
-    target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
-endif()
-add_test(NAME native_virtual_image_transfer COMMAND native_virtual_image_transfer_test)
 
 add_executable(native_surface_test native/surface_test.cpp)
 target_link_libraries(native_surface_test PRIVATE WIZ8_GAME_CORE)
