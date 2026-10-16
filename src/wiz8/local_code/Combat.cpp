@@ -1797,8 +1797,8 @@ void PracticeCombatRoundSkills(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
-    for (int hand = 0; hand < 2; ++hand) {
-        W8CombatHandRecord* hand_record = &row->hand_records[hand];
+    for (auto& hand : row->hand_records) {
+        W8CombatHandRecord* hand_record = &hand;
         unsigned int chance;
         if (hand_record->dual_wielding == 0) {
             chance = hand_record->weapon_skill != W8_SKILL_MARTIAL_ARTS ? 100 : 50;

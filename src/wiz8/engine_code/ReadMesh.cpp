@@ -296,8 +296,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                          "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
         }
 
-        for (int mapped = 0; mapped < static_cast<int>(mapped_meshes.size()); ++mapped) {
-            if (mapped_meshes[mapped] == type) {
+        for (short mapped_meshe : mapped_meshes) {
+            if (mapped_meshe == type) {
                 for (int entry = 0; entry < static_cast<int>(mapped_values->size()); ++entry) {
                     model->SetMappedVertex(mapped_vertices[entry], (*mapped_keys)[entry]);
                 }
@@ -571,9 +571,9 @@ try {
         srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x16c, 0);
     }
     std::vector<w8_ulong> shaders;
-    for (int index = 0; index < static_cast<int>(materials.size()); ++index) {
-        if (!std::ranges::contains(shaders, materials[index].render_flags.value)) {
-            shaders.push_back(materials[index].render_flags.value);
+    for (const auto& material : materials) {
+        if (!std::ranges::contains(shaders, material.render_flags.value)) {
+            shaders.push_back(material.render_flags.value);
         }
     }
     if (shaders.size() > 8) {

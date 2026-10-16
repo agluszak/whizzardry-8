@@ -52,6 +52,8 @@ struct W8ItemRep : public W8AnimRepBase {
 struct W8Item : public W8GrObject {
     W8Item();
     virtual ~W8Item() override;
+    W8Item(const W8Item&) = default;
+    W8Item& operator=(const W8Item&) = delete;
 
     Trigger* trigger;
     /* 0x1c: countdown clock; IsTicking reports whether it is running. */

@@ -1094,6 +1094,7 @@ static void camera_angles()
 
 #include <catch2/generators/catch_generators.hpp>
 
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct NpcGlobalGuard {
     decltype(g_npc_records) previous_records = g_npc_records;
     decltype(gXStatus.uiNpcsInDatabase) previous_count = gXStatus.uiNpcsInDatabase;
@@ -1106,6 +1107,7 @@ struct NpcGlobalGuard {
     }
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct CombatRecordGuard {
     decltype(g_spell_records) previous_spells = g_spell_records;
     decltype(g_status.buffers.Char) previous_characters = g_status.buffers.Char;

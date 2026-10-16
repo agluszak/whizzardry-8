@@ -11,6 +11,7 @@ Checks: >-
   bugprone-virtual-near-miss,
   cppcoreguidelines-special-member-functions,
   misc-uniqueptr-reset-release,
+  modernize-loop-convert,
   modernize-make-unique,
   modernize-use-default-member-init,
   modernize-use-equals-default,

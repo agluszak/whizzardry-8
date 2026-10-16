@@ -2460,11 +2460,8 @@ void VideoToolTip(std::string_view text)
     bounds.top = 0;
     bounds.right = 0xfa;
     bounds.bottom = 0xfa;
-    W8TextBuffer* buffer = new W8TextBuffer(&bounds, text, g_font10arial,
-                                            g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    if (buffer == 0) {
-        return;
-    }
+    auto buffer = std::make_unique<W8TextBuffer>(
+        &bounds, text, g_font10arial, g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
     g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
     g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     surface->fill(0);
@@ -2505,7 +2502,6 @@ void VideoToolTip(std::string_view text)
     }
     g_help_box_x = position_x;
     g_help_box_y = position_y;
-    delete buffer;
 }
 
 /* Renderer configuration helpers reached from the video device, not the

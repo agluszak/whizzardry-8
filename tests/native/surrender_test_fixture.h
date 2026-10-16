@@ -7,4 +7,6 @@
 struct SurRenderTestFixture {
     SurRenderTestFixture() { REQUIRE(srInit()); }
     ~SurRenderTestFixture() { srExit(); }
+    SurRenderTestFixture(const SurRenderTestFixture&) = delete;
+    SurRenderTestFixture& operator=(const SurRenderTestFixture&) = delete;
 };

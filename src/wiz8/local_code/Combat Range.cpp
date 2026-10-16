@@ -1043,10 +1043,9 @@ void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8Mon
     monster_info->unknown_37b = 1;
 
     W8RangeCategory best_range = W8_RANGE_NONE;
-    for (unsigned int attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
-        if (record->attacks[attack].fHasAttack != 0 &&
-            best_range < record->attacks[attack].range_category) {
-            best_range = static_cast<W8RangeCategory>(record->attacks[attack].range_category);
+    for (const auto& attack : record->attacks) {
+        if (attack.fHasAttack != 0 && best_range < attack.range_category) {
+            best_range = static_cast<W8RangeCategory>(attack.range_category);
         }
     }
 

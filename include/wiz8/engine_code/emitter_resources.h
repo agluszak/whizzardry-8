@@ -29,6 +29,8 @@ struct EmitterCycleResources {
 
     EmitterCycleResources() = default;
     EmitterCycleResources(EmitterCycleResources&&) noexcept = default;
+    EmitterCycleResources(const EmitterCycleResources&) = delete;
+    ~EmitterCycleResources() = default;
     EmitterCycleResources& operator=(const EmitterCycleResources&) = delete;
     std::vector<stLight*>* lightView() { return lights.lights.empty() ? nullptr : &lights.lights; }
     void swap(EmitterCycleResources& other) noexcept

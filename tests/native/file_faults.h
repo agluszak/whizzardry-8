@@ -23,4 +23,6 @@ struct FileFaults {
         previous = wiz8::testing::set_file_operation_hook(hook);
     }
     ~FileFaults() { wiz8::testing::set_file_operation_hook(previous); }
+    FileFaults(const FileFaults&) = delete;
+    FileFaults& operator=(const FileFaults&) = delete;
 };

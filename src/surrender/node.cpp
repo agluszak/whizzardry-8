@@ -143,7 +143,7 @@ srNode::BoundInfo srNode::getLocalBounds()
 srNode& srNode::operator=(const srNode& other)
 {
     if (this != &other) {
-        std::lock_guard access(sceneGraphCSect);
+        std::scoped_lock access(sceneGraphCSect);
         srClass::operator=(other);
         flags = other.flags;
         location = other.location;

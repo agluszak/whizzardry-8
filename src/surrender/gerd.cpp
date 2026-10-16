@@ -215,7 +215,7 @@ srDD* srGERD::getDD() const
 // FUNCTION: SURRENDER 0x10017A50
 void srGERD::setTextureReduction(w8_long reduction)
 {
-    std::lock_guard access(state_section);
+    std::scoped_lock access(state_section);
     texture_reduction = std::clamp(reduction, w8_long{0}, w8_long{7});
 }
 

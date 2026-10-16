@@ -159,6 +159,7 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
 {
     std::array<W8Character, 8> party{};
     party[0].fInParty = party[1].fInParty = true;
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local restoration guard
     struct RestoreParty {
         W8Character* saved;
         ~RestoreParty() { g_status.buffers.Char = saved; }
@@ -412,6 +413,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
         {
         }
         ~ObservedInstance() override { observations.push_back(g_world->transient_lights.size()); }
+        ObservedInstance(const ObservedInstance&) = delete;
         std::vector<std::size_t>& observations;
     };
     std::vector<std::size_t> observations;
@@ -440,6 +442,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         {
             active_particle_count = 1;
         }
+        ObservedParticle(const ObservedParticle&) = delete;
         ~ObservedParticle() override
         {
             destroyed = true;

@@ -131,7 +131,7 @@ class stLight : public srLight {
 public:
     virtual ~stLight() override; /* 0x0049C430 */
 
-    stLight() {}
+    stLight() = default;
     explicit stLight(Ownership ownership)
         : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT, ownership)
     {

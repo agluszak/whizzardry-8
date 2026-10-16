@@ -62,7 +62,7 @@ struct ClientNode : srNode {
     ~ClientNode() override { ++destroyed_nodes; }
 };
 struct ClientMaterial : srMaterial {
-    ~ClientMaterial() override {}
+    ~ClientMaterial() override = default;
 };
 // Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
 static bool samePixels(srColorSurface& surface, const unsigned char* pixels)

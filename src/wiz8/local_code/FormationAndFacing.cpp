@@ -488,8 +488,7 @@ void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
 
     position->bQuadrant = 0xff;
     position->bQuadrantSlot = -1;
-    for (unsigned int index = 0; index < 3; ++index) {
-        unsigned char row = row_order[index];
+    for (unsigned char row : row_order) {
         signed char seat = MakeRoomInFormationRow(formation, row);
         if (seat != -1) {
             SetFormationPosition(formation, slot, row, seat, true, true, true);

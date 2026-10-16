@@ -236,7 +236,7 @@ public:
     // Transfer an independently owned node into this owning scene subtree.
     template<class T> T* adoptChild(std::unique_ptr<T> child, int preserve_world_transform = 0)
     {
-        std::lock_guard access(sceneGraphCSect);
+        std::scoped_lock access(sceneGraphCSect);
         if (!child || !child->setParent(this, preserve_world_transform)) return nullptr;
         static_cast<srNode*>(child.get())->parent_owns_ = true;
         return child.release();

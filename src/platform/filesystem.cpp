@@ -101,6 +101,8 @@ struct StagingDirectory {
         }
         throw std::runtime_error("cannot reserve copy staging directory");
     }
+    StagingDirectory(const StagingDirectory&) = delete;
+    StagingDirectory& operator=(const StagingDirectory&) = delete;
     ~StagingDirectory()
     {
         std::error_code ignored;

@@ -508,8 +508,8 @@ int GetCharacterRealmSpellPoints(const W8Character* character, W8SpellRealm real
 int SumCharacterSpellPointsLeft(const W8Character* character)
 {
     int total = 0;
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        total += character->iSPLeft[realm] > 0 ? character->iSPLeft[realm] : 0;
+    for (int realm : character->iSPLeft) {
+        total += realm > 0 ? realm : 0;
     }
     return total;
 }
@@ -1341,8 +1341,8 @@ int RebuildRealmSpellPointCeilings(W8Character* character)
 int SumCharacterSpellPoints(const W8Character* character)
 {
     int total = 0;
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        total += character->sp_max[realm];
+    for (int realm : character->sp_max) {
+        total += realm;
     }
     return total;
 }

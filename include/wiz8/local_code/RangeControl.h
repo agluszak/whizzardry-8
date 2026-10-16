@@ -12,6 +12,7 @@ class W8RangeControl {
 public:
     W8RangeControl(UiLayer& input, int left, int top, int right, int bottom);
     ~W8RangeControl();
+    W8RangeControl(const W8RangeControl&) = delete;
     void SetRange(int first, int second);
     void SetValue(int value);
     void Decrement() { AdjustValue(1); }

@@ -26,7 +26,7 @@ public:
             Ownership ownership = Ownership::parent);
     ~srLight() override = default;
 
-    srLight(const srLight& other);
+    srLight(const srLight& other) = default;
 
     srLight& operator=(const srLight& other);
 
