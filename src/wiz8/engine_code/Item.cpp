@@ -218,8 +218,7 @@ try {
     if (name == 0 || output == 0) {
         srAssertFail("pacName && ppItem", ITEM_CPP, 0x11a, 0);
     }
-    char filename[52];
-    sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
+    const auto filename = fmt::format("data/items3d/{}.itm", name);
     std::unique_ptr<wiz8::File> file = [&]() {
         try {
             return wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::read);
@@ -236,9 +235,7 @@ try {
     info.world = context->world;
     info.hFile = file.get();
     info.bitmap_folder = context->bitmap_folder;
-    char* mesh_name = new char[1024];
-    strcpy(mesh_name, name);
-    info.mesh_filename = mesh_name;
+    info.mesh_filename = name;
     unsigned char version;
     bool success = false;
     if ((file->read(&version, 1).bytes == static_cast<std::size_t>(1)) && version == 2 &&
@@ -246,16 +243,12 @@ try {
         *output = item;
         success = true;
     }
-    if (file) file->close();
-    file.reset();
-    delete[] mesh_name;
     return success;
 } catch (const std::exception&) {
     return false;
 }
 
-/* On failure retail leaves the output alone and does not delete the allocated
-   item. This is not an owning smart-pointer factory. */
+/* Decode into temporary ownership and publish only a complete item. */
 // FUNCTION: WIZ8 0x0049F5D0
 bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** output, bool anonymous_mesh)
 {

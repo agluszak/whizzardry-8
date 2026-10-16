@@ -43,6 +43,7 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/octree_spatial.h"
+#include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
@@ -1683,4 +1684,50 @@ TEST_CASE("Octree particle registration checks the whole batch before publishing
     REQUIRE(octree.m_particles.empty());
     octree.AddLoadedParticles(std::span(particles).first(1));
     REQUIRE(octree.m_particles == std::vector<stParticle*>{&first});
+}
+
+extern std::vector<W8WorldCursorNode*> g_world_cursor_nodes;
+
+TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete saved records",
+                 "[loader][cursor][ownership]")
+{
+    W8WorldCursorNode first{}, second{};
+    const struct RegistryScope {
+        std::vector<W8WorldCursorNode*> previous = std::move(g_world_cursor_nodes);
+        ~RegistryScope() { g_world_cursor_nodes = std::move(previous); }
+    } registry;
+    std::strcpy(first.name, "first");
+    std::strcpy(second.name, "second");
+    first.userdata = {std::byte{7}};
+    second.userdata = {std::byte{8}};
+    g_world_cursor_nodes = {&first, &second};
+    std::string bytes;
+    append(bytes, 2);
+    append(bytes, 2u);
+    for (const auto* node : g_world_cursor_nodes) {
+        bytes.append(node->name, sizeof(node->name));
+        append(bytes, 2);
+        bytes.append("ab", 2);
+    }
+    const auto load = [&](const std::string& data) {
+        store("cursor-state.dat", data);
+        auto file = wiz8::open_file(wiz8::asset_path("cursor-state.dat"));
+        return LoadWorldCursorNodeStates(*file);
+    };
+    REQUIRE(load(bytes.substr(0, bytes.size() - 1)) == 0);
+    REQUIRE(first.userdata == std::vector{std::byte{7}});
+    REQUIRE(second.userdata == std::vector{std::byte{8}});
+    REQUIRE(load(bytes) == 2);
+    REQUIRE(first.userdata == std::vector{std::byte{'a'}, std::byte{'b'}});
+    REQUIRE(load(bytes) == 2);
+    SetWorldCursorNodeParameter(&first, 0, 4);
+    REQUIRE(first.userdata.empty());
+    auto invalid = bytes;
+    std::fill(invalid.begin() + 8, invalid.begin() + 40, 'x');
+    REQUIRE(load(invalid) == 0);
+    invalid = bytes;
+    const int negative = -1;
+    std::memcpy(invalid.data() + 40, &negative, sizeof(negative));
+    REQUIRE(load(invalid) == 0);
+    REQUIRE(first.userdata.empty());
 }

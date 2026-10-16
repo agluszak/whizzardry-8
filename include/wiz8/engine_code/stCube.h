@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include <vector>
+
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 
@@ -9,21 +12,9 @@ namespace wiz8 {
 class File;
 }
 
-/* One world-cursor node: the scene node at +0x04, the three label parameters at
-   +0x0c/+0x10/+0x14, the text scratch buffer at +0x18 and its length at +0x1c,
-   the packed fill colour at +0x20. The 0x0048E6D0 save body writes the 0x20
-   bytes at +0x24 and then that buffer and length. The TU name stCube.cpp and
-   the runtime model name "stCube" are suggestive but do not prove the class
-   spelling, so the name is a recovered descriptive name. Retail writes the two
-   zeros before the vptr; the C++ constructor installs the vptr first. */
-// VTABLE: WIZ8 0x005ecab8
+// A cursor node owns its saved scratch bytes; scene references are borrowed.
 class W8WorldCursorNode {
 public:
-    W8WorldCursorNode()
-    {
-        pUserdata = 0;
-        userdata_size = 0;
-    }
     virtual ~W8WorldCursorNode() = default;
     /* 0x0048D050: copy the node's world location out; answers 0 when the node
        chain is absent. */
@@ -31,8 +22,7 @@ public:
     srNode* node; /* 0x04 */
     unsigned int value_08;
     int parameters[3];   /* 0x0c, 0x10, 0x14 */
-    void* pUserdata;     /* 0x18 */
-    int userdata_size;   /* 0x1c */
+    std::vector<std::byte> userdata;
     w8_ulong color; /* 0x20 */
     char name[0x20];
 };
@@ -48,8 +38,6 @@ void SetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index, int value)
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. */
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec3* point);
-/* Allocate the node's userdata scratch, or release it when `size` is zero. */
-void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size);
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale);
 void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale);
 void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale);

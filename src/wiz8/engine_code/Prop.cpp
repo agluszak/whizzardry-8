@@ -8,6 +8,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -1452,24 +1453,15 @@ try {
             prop->flags |= flag_bits;
         }
         if (version > 6) {
-            char* buffer = new char[0x40];
-            int length = -1;
-            char* scan = buffer;
-
-            hFile->read_exact(buffer, 0x40);
-            do {
-                if (length == 0) {
-                    break;
-                }
-                --length;
-            } while (*scan++ != '\0');
-            if (length == -2) {
-                delete[] buffer;
-            } else {
-                if (prop->m_name != 0) {
-                    delete[] prop->m_name;
-                }
-                prop->m_name = buffer;
+            std::array<char, 64> name;
+            hFile->read_exact(name.data(), name.size());
+            const auto end = std::find(name.begin(), name.end(), '\0');
+            if (end == name.end()) throw std::runtime_error("unterminated prop name");
+            if (end != name.begin()) {
+                auto buffer = std::make_unique<char[]>(end - name.begin() + 1);
+                std::copy(name.begin(), end, buffer.get());
+                delete[] prop->m_name;
+                prop->m_name = buffer.release();
             }
         }
         if (version > 7) {
@@ -1775,7 +1767,7 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
     int key;
     unsigned int signature;
     unsigned int version;
-    char name[0x40];
+    char name[0x40 + 1]{};
     W8Prop* prop;
     W8Prop* entry;
 
@@ -1806,6 +1798,8 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
         handle.read_exact(&count, 4);
         for (index = 0; index < count; ++index) {
             handle.read_exact(name, 0x40);
+            if (std::find(name, name + 64, '\0') == name + 64)
+                throw std::runtime_error("unterminated saved prop name");
             prop = FindPropByName(g_world, name);
             if (prop != 0) {
                 prop->LoadAnimationState(handle);
