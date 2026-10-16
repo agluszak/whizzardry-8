@@ -83,6 +83,7 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/emitter_resources.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -983,7 +984,7 @@ W8MonsterRep::W8MonsterRep()
 unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* monster,
                                           int cycle_index, int load_all)
 {
-    std::vector<stLight*>* lights = new std::vector<stLight*>;
+    EmitterLights lights;
     W8AnimObj* animation;
     unsigned char success;
     signed char cycle;
@@ -995,7 +996,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
     }
 
     animation = new W8AnimObj;
-    success = AnimObjReadFromFile(info, animation, load_all, lights, 0);
+    success = AnimObjReadFromFile(info, animation, load_all, &lights.lights, 0);
     if (cycle_index == W8_MONSTER_CYCLE_NONE) {
         cycle_index = static_cast<signed char>(animation->cycle);
     }
@@ -1046,13 +1047,8 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
         }
     }
 
-    if (lights->empty()) {
-        delete lights;
-        lights = 0;
-    } else {
-        monster->SetLights(lights);
-    }
-    light_lists[cycle].push_back(lights);
+    auto& installed = light_lists[cycle].emplace_back(std::move(lights));
+    if (!installed.lights.empty()) monster->SetLights(&installed.lights);
     return success;
 }
 
@@ -1106,13 +1102,7 @@ W8MonsterRep::~W8MonsterRep()
     for (index = 0; index < 8; ++index) {
         delete objects[index];
     }
-    for (cycle = W8_MONSTER_CYCLE_BIRTH; cycle < W8_MONSTER_CYCLE_COUNT; ++cycle) {
-        int count = static_cast<int>(light_lists[cycle].size());
-        for (index = 0; index < count; ++index) {
-            DestroyLightVector(light_lists[cycle][index]);
-        }
-        light_lists[cycle].clear();
-    }
+    for (auto& cycle_lights : light_lists) cycle_lights.clear();
     wiz8::remove_all_and_delete_in_order(linked_runtime_objects);
     delete monster_light;
     delete[] name;
@@ -1132,16 +1122,10 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
         animation_scales[cycle].push_back(other->animation_scales[other_cycle][index]);
     }
 
-    for (index = 0; index < static_cast<int>(other->light_lists[other_cycle].size()); ++index) {
-        std::vector<stLight*>* source_lights = other->light_lists[other_cycle][index];
-        std::vector<stLight*>* copied_lights = CloneAnimationLightList(source_lights);
-        light_lists[cycle].push_back(copied_lights);
+    for (const auto& source : other->light_lists[other_cycle]) {
+        light_lists[cycle].emplace_back().CloneFrom(source);
     }
 }
-
-/* `new stLight` above is what forces this emission: VC6 inlines stLight's own
-   empty default constructor at the allocation site but leaves the registry
-   base's constructor out of line here. */
 
 /* The representation clone slot is an ordinary virtual copy operation.  The
    allocation size and call to the copy constructor are both visible in the
@@ -3073,7 +3057,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
     glm::mat3 rotation;
     srModelInstance* model;
     stTextureAnim* mouth;
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
     int index;
     int count;
 
@@ -3167,7 +3151,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
         if (!enabled) {
             enabled = true;
             SetShakeEventVisibility(m_pRep->current_cycle);
-            lights = m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle];
+            lights = &m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle].lights;
             if (lights != 0 && (count = static_cast<int>(lights->size())) != 0) {
                 for (index = 0; index < count; ++index) {
                     ((*lights)[index])->clearFlag(srNode::FLAG_DISABLE);
@@ -3180,7 +3164,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
     } else if (enabled) {
         enabled = false;
         SetShakeEventVisibility(m_pRep->current_cycle);
-        lights = m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle];
+        lights = &m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle].lights;
         if (lights != 0 && (count = static_cast<int>(lights->size())) != 0) {
             for (index = 0; index < count; ++index) {
                 ((*lights)[index])->setFlag(srNode::FLAG_DISABLE);
@@ -3270,7 +3254,7 @@ bool W8Monster::IsCycleSupported(signed char cycle)
 void W8Monster::SetCycle(signed char cycle)
 {
     std::vector<W8AnimObj*>* animations;
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
     W8AnimObj* animation;
     signed char subcycle;
     int count;
@@ -3325,11 +3309,11 @@ void W8Monster::SetCycle(signed char cycle)
     }
 
     if (m_pRep->current_cycle != 0) {
-        lights = m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle];
+        lights = &m_pRep->light_lists[m_pRep->current_cycle][m_pRep->current_subcycle].lights;
         if (lights != 0) {
             count = static_cast<int>(lights->size());
             for (index = 0; index < count; ++index) {
-                stLight* light = (*lights)[index];
+                stLight* light = (*lights)[index].get();
 
                 light->setParent(0, 1);
                 if (light->definition() != 0) {
@@ -3361,12 +3345,12 @@ void W8Monster::SetCycle(signed char cycle)
         m_pRep->frame_direction = W8_ANIMATION_FORWARD;
     }
 
-    lights = m_pRep->light_lists[cycle][subcycle];
+    lights = &m_pRep->light_lists[cycle][subcycle].lights;
     SetLights(lights);
     if (lights != 0) {
         count = static_cast<int>(lights->size());
         for (index = 0; index < count; ++index) {
-            stLight* light = (*lights)[index];
+            stLight* light = (*lights)[index].get();
 
             light->setParent(g_world->dynamic_scene, 1);
             light->Reset();

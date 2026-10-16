@@ -216,7 +216,7 @@ void W8SpellVisual::AdvanceAnimationFrame(int value, int arg_flags)
 // FUNCTION: WIZ8 0x004ac580
 void W8SpellVisual::SetCycle(signed char cycle)
 {
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < SPELL_CYCLE_FIRST || cycle > SPELL_CYCLE_LAST) {
         srAssertFail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST",
@@ -335,10 +335,6 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
 {
     wiz8::erase_first(world->spell_visuals, visual);
-    if (visual->m_plsLights) {
-        wiz8::clear_and_dispose(*visual->m_plsLights,
-                                [world](stLight* light) { WorldRemoveLight(world, light); });
-    }
     delete visual;
 }
 

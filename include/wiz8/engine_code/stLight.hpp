@@ -186,4 +186,3 @@ void LoadLightStates(wiz8::File& handle);
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world, which owns it, before adding it to the
    returned list. */
-std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source);

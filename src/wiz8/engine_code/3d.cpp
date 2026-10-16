@@ -319,9 +319,9 @@ static void ConfigureLightDefaults(stLight& light, const char* name)
 }
 
 // FUNCTION: WIZ8 0x0046DF90
-stLight* CreateLight(srNode* parent, const char* name)
+std::unique_ptr<stLight> CreateLight(srNode* parent, const char* name)
 {
-    auto* light = parent->adoptChild(std::make_unique<stLight>());
+    auto light = std::make_unique<stLight>(parent);
     ConfigureLightDefaults(*light, name);
     return light;
 }
@@ -340,12 +340,6 @@ stLight* CreateWorldLight(W8World* world, const char* name)
         srAssertFail("name", THREE_D_CPP, 570, 0);
     }
 
-    if (world == 0) {
-        // Animation templates are returned to their resource owner, detached from traversal.
-        auto* light = new stLight(static_cast<srNode*>(nullptr));
-        ConfigureLightDefaults(*light, name);
-        return light;
-    }
     auto light = std::make_unique<stLight>(world->static_scene.get());
     ConfigureLightDefaults(*light, name);
     return AddWorldLight(world, std::move(light));

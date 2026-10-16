@@ -31,7 +31,7 @@ W8AnimObj::~W8AnimObj() = default;
 
 // FUNCTION: WIZ8 0x004a05c0
 bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                         std::vector<stLight*>* light_list, int)
+                         std::vector<std::unique_ptr<stLight>>* light_list, int)
 try {
     unsigned char version = 0;
     bool success;
@@ -190,7 +190,7 @@ try {
                 srAssertFail("0", ANIM_OBJ_CPP, 0x1b2,
                              "AnimObjReadFromFile: Where is the light list?");
             } else {
-                std::unique_ptr<stLight> light(CreateWorldLight(0, "MonsterLight"));
+                auto light = CreateLight(nullptr, "MonsterLight");
                 light->diffuse = color;
                 light->specular = glm::vec3(0);
                 ConfigureWorldLight(light.get(), range * g_world_scale);
@@ -199,8 +199,7 @@ try {
                 light->m_position = position;
                 light->m_definition = definition.release();
                 light->setGroupMask(2);
-                light_list->push_back(light.get());
-                light.release();
+                light_list->push_back(std::move(light));
             }
         }
     }

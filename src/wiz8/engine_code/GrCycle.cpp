@@ -383,7 +383,6 @@ W8GrCycle::W8GrCycle()
 {
     current_model_instance = 0;
     m_plsLights = 0;
-    m_fDeleteLights = false;
     last_subcycle = 0;
     m_plsParticles = 0;
     wrapped = false;
@@ -395,15 +394,7 @@ W8GrCycle::W8GrCycle()
     scale = 1.0f;
 }
 
-/* A copy keeps none of the source's live scene state. The model instance, the
-   light vector and both event vectors start empty and are rebuilt, and a
-   source ground shadow is duplicated last through stGroundShadow's copy
-   constructor. What comes across is configuration: the delete-lights flag, the
-   two bytes beside it, and the scale.
-
-   Each of the three vectors is rebuilt the same way - a fresh growable vector at
-   capacity five, then one owned element per source element. The lights are only
-   rebuilt when this copy owns them, which is what m_fDeleteLights decides. */
+// Copy runtime state, particles and the shadow; representations own borrowed lights.
 // FUNCTION: WIZ8 0x004a5f20
 W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(other)
 {
@@ -412,7 +403,6 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
 
     current_model_instance = 0;
     m_plsLights = 0;
-    m_fDeleteLights = other.m_fDeleteLights;
     last_subcycle = other.last_subcycle;
     m_plsParticles = 0;
     wrapped = false;
@@ -422,28 +412,6 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
     scale = other.scale;
     m_ground_shadow = 0;
     frame_fraction = 0;
-    if (other.m_plsLights != 0 && !other.m_plsLights->empty() && m_fDeleteLights) {
-        count = static_cast<int>(other.m_plsLights->size());
-        m_plsLights = new std::vector<stLight*>();
-        for (index = 0; index < count; ++index) {
-            stLight* source_light = (*other.m_plsLights)[index];
-            float x = source_light->positionalX();
-            float y = source_light->positionalY();
-            float z = source_light->positionalZ();
-            auto owned_light = std::make_unique<stLight>();
-            *owned_light = *source_light;
-            stLight* copied_light = AddWorldLight(g_world, std::move(owned_light));
-            copied_light->ConfigureMonsterCopy();
-            copied_light->setLocation(x, y, z);
-            /* Monster lights light group 2, like the ones AnimObjReadFromFile
-               builds; the copy is not terminated. */
-            copied_light->setGroupMask(2);
-            if (copied_light->definition() != 0) {
-                g_world->lights_to_update.push_back(copied_light);
-            }
-            m_plsLights->push_back(copied_light);
-        }
-    }
     shake_events = other.shake_events;
     if (other.m_plsParticles != 0 && !other.m_plsParticles->empty()) {
         count = static_cast<int>(other.m_plsParticles->size());
@@ -483,10 +451,6 @@ W8GrCycle::~W8GrCycle()
     int index;
 
     UnregisterGrCycle(this);
-    if (m_plsLights != 0 && m_fDeleteLights) {
-        DestroyLightVector(m_plsLights);
-        m_plsLights = 0;
-    }
     for (const auto& event : shake_events) {
         CameraShakes().Stop(event);
     }
@@ -649,7 +613,7 @@ void W8GrCycle::UpdateLights()
     int index;
 
     for (index = 0; index < count; ++index) {
-        stLight* light = (*m_plsLights)[index];
+        stLight* light = (*m_plsLights)[index].get();
         stLightDefinition* definition = light->definition();
 
         if (definition == 0) {
@@ -909,7 +873,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         }
         rotation = pRep->GetRotation();
         for (index = 0; index < count; ++index) {
-            stLight* light = (*m_plsLights)[index];
+            stLight* light = (*m_plsLights)[index].get();
             glm::vec3 offset = light->m_position;
 
             glm::vec3 placed = rotation * offset + origin;
@@ -1256,10 +1220,11 @@ void W8GrCycleParticleAttachment::SelectCycle(signed char selected_cycle)
     }
 }
 
-void W8GrCycle::DetachCycleLights(std::vector<stLight*>* lights)
+void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 {
     if (lights != 0) {
-        for (stLight* light : *lights) {
+        for (const auto& owned : *lights) {
+            auto* light = owned.get();
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
@@ -1269,10 +1234,11 @@ void W8GrCycle::DetachCycleLights(std::vector<stLight*>* lights)
     }
 }
 
-void W8GrCycle::AttachCycleLights(std::vector<stLight*>* lights)
+void W8GrCycle::AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 {
     if (g_render_missile_lights && lights != 0) {
-        for (stLight* light : *lights) {
+        for (const auto& owned : *lights) {
+            auto* light = owned.get();
 
             light->setParent(g_world->dynamic_scene, 1);
             if (light->definition() != 0) {
@@ -1283,13 +1249,8 @@ void W8GrCycle::AttachCycleLights(std::vector<stLight*>* lights)
 }
 
 // FUNCTION: WIZ8 0x004a84c0
-void W8GrCycle::SetLights(std::vector<stLight*>* lights)
+void W8GrCycle::SetLights(std::vector<std::unique_ptr<stLight>>* lights)
 {
-    if (m_fDeleteLights && m_plsLights != 0) {
-        srAssertFail("!m_fDeleteLights || (m_fDeleteLights && !m_plsLights)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x678, 0);
-    }
-    m_fDeleteLights = false;
     m_plsLights = lights;
 }
 
@@ -1351,27 +1312,6 @@ void RegisterGrCycle(const char* name, W8GrCycle* cycle)
         entry->cycles.push_back(cycle);
     } else {
         g_registered_cycles.push_back({name, {cycle}});
-    }
-}
-
-// FUNCTION: WIZ8 0x004a8c50
-void DestroyLightVector(std::vector<stLight*>* vector)
-{
-    int count;
-    int index;
-
-    if (vector != 0) {
-        count = static_cast<int>(vector->size());
-        for (index = 0; index < count; ++index) {
-            stLight* light = (*vector)[index];
-
-            if (light->definition() != 0) {
-                wiz8::erase_first(g_world->lights_to_update, light);
-            }
-            light->setParent(0, 1);
-            WorldRemoveLight(g_world, light);
-        }
-        delete vector;
     }
 }
 

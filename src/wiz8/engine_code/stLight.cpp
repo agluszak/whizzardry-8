@@ -3,9 +3,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -426,24 +424,4 @@ void LoadLightStates(wiz8::File& handle)
 bool W8OctRegionVolume::ContainsPoint(const glm::vec3& point) const
 {
     return PointInsideFrustum(point, m_planes);
-}
-
-std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source)
-{
-    if (source == nullptr) {
-        return nullptr;
-    }
-    auto* copy = new std::vector<stLight*>;
-    for (stLight* light : *source) {
-        const float x = light->positionalX();
-        const float y = light->positionalY();
-        const float z = light->positionalZ();
-        auto copied_light = std::make_unique<stLight>();
-        *copied_light = *light;
-        copied_light->ConfigureMonsterCopy();
-        copied_light->setLocation(x, y, z);
-        copied_light->setParent(0, 0);
-        copy->push_back(AddWorldLight(g_world, std::move(copied_light)));
-    }
-    return copy;
 }

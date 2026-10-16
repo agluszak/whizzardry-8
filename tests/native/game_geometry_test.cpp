@@ -1857,9 +1857,9 @@ TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled
     SurRenderTestFixture runtime;
     const auto check = []<class Effect>() {
         srNode root;
-        auto* sibling = new TraversalMarker(root);
-        auto* effect = new Effect(&root);
-        auto* child = new TraversalMarker(*effect);
+        auto* sibling = root.adoptChild(std::make_unique<TraversalMarker>(root));
+        auto* effect = root.adoptChild(std::make_unique<Effect>(nullptr));
+        auto* child = effect->adoptChild(std::make_unique<TraversalMarker>(*effect));
         effect->clearFlag(srNode::FLAG_GLOBAL);
         srNode::TraverseInfo info;
         root.traverse(info);
@@ -1911,7 +1911,7 @@ TEST_CASE("Wizardry light inactivity and missing definitions have distinct trave
     stLight light(nullptr);
     light.setIntensity(1);
     light.clearFlag(srNode::FLAG_GLOBAL);
-    auto* child = new TraversalMarker(light);
+    auto* child = light.adoptChild(std::make_unique<TraversalMarker>(light));
     srNode::TraverseInfo info;
     light.traverse(info);
     REQUIRE(info.entries.empty()); // Active without a definition skips children too.

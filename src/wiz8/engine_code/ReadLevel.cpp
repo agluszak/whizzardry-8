@@ -317,7 +317,7 @@ try {
             if (record.version < 2) {
                 strcpy(name, "Static Point Light");
             }
-            light = CreateLight(world->dynamic_scene, name);
+            light = world->dynamic_scene->adoptChild(CreateLight(nullptr, name));
             if (light == 0) {
                 srAssertFail("pstLight", READ_LEVEL_CPP, 593, 0);
             }
