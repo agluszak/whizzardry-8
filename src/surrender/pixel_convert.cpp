@@ -9,7 +9,6 @@
 #include <SDL3/SDL_pixels.h>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -26,23 +25,23 @@
 /* Conversion routines stored in the format table. The generic pair is
    selected by PixelFormat::color_model; the per-entry overrides cover
    formats whose converter does not fit a generic kernel. */
-void __cdecl writeRGB(const srPixelConvert::ConversionInfo& info);
-void __cdecl readRGB(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info);
-void __cdecl readYUV(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeIntensity(const srPixelConvert::ConversionInfo& info);
-void __cdecl readIntensity(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeIndexed(const srPixelConvert::ConversionInfo& info);
-void __cdecl readIndexed(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeRGB555(const srPixelConvert::ConversionInfo& info);
-void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info);
-void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info);
-void __cdecl copyBGRA(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeABGR(const srPixelConvert::ConversionInfo& info);
-void __cdecl readABGR(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeRGB24(const srPixelConvert::ConversionInfo& info);
-void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info);
+void writeRGB(const srPixelConvert::ConversionInfo& info);
+void readRGB(const srPixelConvert::ConversionInfo& info);
+void writeYUV(const srPixelConvert::ConversionInfo& info);
+void readYUV(const srPixelConvert::ConversionInfo& info);
+void writeIntensity(const srPixelConvert::ConversionInfo& info);
+void readIntensity(const srPixelConvert::ConversionInfo& info);
+void writeIndexed(const srPixelConvert::ConversionInfo& info);
+void readIndexed(const srPixelConvert::ConversionInfo& info);
+void writeRGB555(const srPixelConvert::ConversionInfo& info);
+void readRGB555(const srPixelConvert::ConversionInfo& info);
+void writeBGRX(const srPixelConvert::ConversionInfo& info);
+void readBGRX(const srPixelConvert::ConversionInfo& info);
+void copyBGRA(const srPixelConvert::ConversionInfo& info);
+void writeABGR(const srPixelConvert::ConversionInfo& info);
+void readABGR(const srPixelConvert::ConversionInfo& info);
+void writeRGB24(const srPixelConvert::ConversionInfo& info);
+void readRGB24(const srPixelConvert::ConversionInfo& info);
 
 namespace {
 
@@ -187,7 +186,7 @@ void initFormat(w8_ulong index, unsigned char red_bits, unsigned char red_shift,
 
 /* Rounded channel expansion/reduction and fixed-point luma weights. */
 // FUNCTION: SURRENDER 0x10007850
-void __cdecl initPixelTables(void)
+void initPixelTables(void)
 {
     int i;
     lutExpand1[0] = 0xff;
@@ -457,7 +456,7 @@ static int clampChannel(float value)
    tables. The destination index comes from the shifted green-channel term instead of the loop
    index, so writes scatter across the head of the destination. */
 // FUNCTION: SURRENDER 0x100088D0
-void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
+void writeYUV(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     const PackedChannels channels(format);
@@ -479,7 +478,7 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
    an srARGB. The destination index comes from the expanded green (U) channel instead of the loop
    index. */
 // FUNCTION: SURRENDER 0x10008F70
-void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
+void readYUV(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     const PackedChannels channels(format);
@@ -498,7 +497,7 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
    quantizes the source color through the surface palette, shifts the index
    into the red channel position and overlays the reduced alpha. */
 // FUNCTION: SURRENDER 0x10009890
-void __cdecl writeIndexed(const srPixelConvert::ConversionInfo& info)
+void writeIndexed(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
@@ -519,7 +518,7 @@ void __cdecl writeIndexed(const srPixelConvert::ConversionInfo& info)
 /* PXXA read dispatcher: the packed index selects a palette entry whose
    packed BGR is kept, then the expanded alpha is overlaid in the top byte. */
 // FUNCTION: SURRENDER 0x10009B00
-void __cdecl readIndexed(const srPixelConvert::ConversionInfo& info)
+void readIndexed(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     const PackedChannel palette_index(format.red_bits, format.red_shift);
@@ -534,7 +533,7 @@ void __cdecl readIndexed(const srPixelConvert::ConversionInfo& info)
 
 /* Game-specific fixed-point luma and rounded channel reduction. */
 // FUNCTION: SURRENDER 0x10009DB0
-void __cdecl writeIntensity(const srPixelConvert::ConversionInfo& info)
+void writeIntensity(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     const PackedChannel intensity(format.red_bits, format.red_shift);
@@ -548,7 +547,7 @@ void __cdecl writeIntensity(const srPixelConvert::ConversionInfo& info)
 
 /* Expand game intensity and alpha channels to ARGB. */
 // FUNCTION: SURRENDER 0x1000A0D0
-void __cdecl readIntensity(const srPixelConvert::ConversionInfo& info)
+void readIntensity(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     const PackedChannel intensity(format.red_bits, format.red_shift);
@@ -571,7 +570,7 @@ static SDL_PixelFormat byteChannelFormat(const srPixelConvert::PixelFormat& f)
                                       f.alpha_bits ? 255u << f.alpha_shift : 0);
 }
 
-void __cdecl writeRGB(const srPixelConvert::ConversionInfo& info)
+void writeRGB(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     if (const auto sdl_format = byteChannelFormat(format); sdl_format != SDL_PIXELFORMAT_UNKNOWN) {
@@ -584,7 +583,7 @@ void __cdecl writeRGB(const srPixelConvert::ConversionInfo& info)
     });
 }
 
-void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
+void readRGB(const srPixelConvert::ConversionInfo& info)
 {
     const auto& format = *info.format;
     if (const auto sdl_format = byteChannelFormat(format); sdl_format != SDL_PIXELFORMAT_UNKNOWN) {
@@ -602,14 +601,14 @@ void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
    delegates to the vector processor copy, the 32-bit color-keyed formats
    mask through _and/_or, and the packed formats run dedicated loops. */
 // FUNCTION: SURRENDER 0x1000A8C0
-void __cdecl writeRGB24(const srPixelConvert::ConversionInfo& info)
+void writeRGB24(const srPixelConvert::ConversionInfo& info)
 {
     ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888,
                      SDL_PIXELFORMAT_RGB24);
 }
 
 // FUNCTION: SURRENDER 0x1000A900
-void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info)
+void readRGB24(const srPixelConvert::ConversionInfo& info)
 {
     ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGB24,
                      SDL_PIXELFORMAT_ARGB8888);
@@ -617,7 +616,7 @@ void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info)
 
 /* format_table[srPixelConvert::SURFACE_BGRA32] write/read: straight dword copy for BGRA32. */
 // FUNCTION: SURRENDER 0x1000A950
-void __cdecl copyBGRA(const srPixelConvert::ConversionInfo& info)
+void copyBGRA(const srPixelConvert::ConversionInfo& info)
 {
     if (info.count != 0 && info.dest != info.source) {
         std::memmove(info.dest, info.source, info.count * sizeof(w8_ulong));
@@ -625,7 +624,7 @@ void __cdecl copyBGRA(const srPixelConvert::ConversionInfo& info)
 }
 
 // FUNCTION: SURRENDER 0x1000A9B0
-void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
+void writeBGRX(const srPixelConvert::ConversionInfo& info)
 {
     // SDL writes an opaque X byte; this storage format requires zero instead.
     ConvertPixelRun(info, 4, 4, [](w8_ulong pixel, w8_ulong index) {
@@ -634,7 +633,7 @@ void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
 }
 
 // FUNCTION: SURRENDER 0x1000A9E0
-void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
+void readBGRX(const srPixelConvert::ConversionInfo& info)
 {
     ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_XRGB8888,
                      SDL_PIXELFORMAT_ARGB8888);
@@ -643,14 +642,14 @@ void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 /* format_table[srPixelConvert::SURFACE_RGBA32] write/read: rotate each BGRA pixel one byte lane so
    red leads the record on write and BGRA is restored on read. */
 // FUNCTION: SURRENDER 0x1000AA10
-void __cdecl writeABGR(const srPixelConvert::ConversionInfo& info)
+void writeABGR(const srPixelConvert::ConversionInfo& info)
 {
     ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888,
                      SDL_PIXELFORMAT_RGBA8888);
 }
 
 // FUNCTION: SURRENDER 0x1000AB70
-void __cdecl readABGR(const srPixelConvert::ConversionInfo& info)
+void readABGR(const srPixelConvert::ConversionInfo& info)
 {
     ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGBA8888,
                      SDL_PIXELFORMAT_ARGB8888);
@@ -659,7 +658,7 @@ void __cdecl readABGR(const srPixelConvert::ConversionInfo& info)
 /* format_table[srPixelConvert::SURFACE_RGB555] write/read: 32-bit BGRA packed to RGB555 through the
    5-bit reduction table, and expanded back with alpha forced opaque. */
 // FUNCTION: SURRENDER 0x1000ACD0
-void __cdecl writeRGB555(const srPixelConvert::ConversionInfo& info)
+void writeRGB555(const srPixelConvert::ConversionInfo& info)
 {
     ConvertPixelRun(info, 4, 2, [](w8_ulong pixel, w8_ulong index) {
         const auto color = srPixels::channels(pixel);
@@ -676,7 +675,7 @@ static unsigned char expandRGB555Red(w8_ulong word)
     return index < 32 ? lutExpand5And6.expand32[index] : lutExpand5And6.expand64[index - 32];
 }
 
-void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info)
+void readRGB555(const srPixelConvert::ConversionInfo& info)
 {
     ConvertPixelRun(info, 2, 4, [](w8_ulong pixel, w8_ulong index) {
         return PixelAt{0xff000000 | w8_ulong(expandRGB555Red(pixel)) << 16 |

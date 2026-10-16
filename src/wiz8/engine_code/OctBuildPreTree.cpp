@@ -19,13 +19,13 @@
 #include <variant>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <wiz8/filesystem.h>
 
 #include "OctBuildTree.h"
 #include "OctPreTree.h"
 #include "ReadMesh.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "geometry.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -1397,7 +1397,7 @@ OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem>
         const W8LevelParticleRecord& particle = system.particle;
         char name[64];
         strcpy(name, particle.name);
-        _strupr(name);
+        SDL_strupr(name);
         if (strncmp(name, "CLOUD", 5) == 0) {
             continue;
         }

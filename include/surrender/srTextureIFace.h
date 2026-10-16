@@ -12,7 +12,7 @@ class srFilter;
 class srTexture;
 class stSurface2D;
 
-class SR_DLL_IMPORT srTextureIFace : public srClass {
+class srTextureIFace : public srClass {
 public:
     /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
        srTexture ctor seeds Dimensions::compression with DEFAULT. */

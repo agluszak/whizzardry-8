@@ -863,7 +863,7 @@ finish_without_dispatch:
 
 namespace {
 struct PartyQuoteInput {
-    UiLayer input{UiLayerOrder::PartyQuotes};
+    UiLayer input{UiLayerOrder::PartyQuotes, UiLayerScope::Shared};
     std::array<HitTarget*, 8> targets;
     PartyQuoteInput()
     {

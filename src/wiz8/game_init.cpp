@@ -21,7 +21,6 @@
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
@@ -89,7 +88,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!InitializeLevelDatabase()) {
         return 0;
     }
-    InitializeItemVideoObjects();
     SetPendingScreenState(W8_SCREEN_INTRO);
     g_status.current_level = -1;
     if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {

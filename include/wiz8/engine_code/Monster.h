@@ -6,7 +6,6 @@
 #include <string_view>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/fwd.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/audio_resources.h"
@@ -151,7 +150,7 @@ struct W8MonsterRep : public W8EmitterHost {
    primary vtable 0x005ED22C and the W8Navigator secondary-base table at +0x18. */
 class W8Monster : public W8GrCycle {
 public:
-    typedef void(__cdecl* CycleCallback)(W8Monster* monster);
+    typedef void (*CycleCallback)(W8Monster* monster);
 
     W8Monster();
     W8Monster(const W8Monster& rhs);

@@ -17,12 +17,12 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
 #include "wiz8/fonts.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -155,9 +155,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
             overlay_ready =
                 PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
             highlighted = false;
-            if (party_slot == static_cast<unsigned int>(g_level_block->highlight_override) ||
-                party_slot ==
-                    static_cast<unsigned int>(g_level_block->formation_highlight_party_slot) ||
+            if (g_level_block->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
                 party_slot == static_cast<unsigned int>(g_level_block->held_item_display)) {
                 highlighted = true;
             }
@@ -197,8 +195,8 @@ void UpdateHeldItemCursor(void)
         g_status.item_in_cursor) {
         if (g_status.item_in_hand.iItemNo != -1) {
             g_status.item_in_cursor = true;
-            auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
-            SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
+            const auto sprites = ItemSprites(g_status.item_in_hand.iItemNo);
+            SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
             const auto cursor = CatalogArtwork::Load(0);
             BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
             RefreshMouseCursorTexture();
@@ -273,8 +271,8 @@ void SetItemCursor(int overlay_video_object)
 {
     if (g_status.item_in_hand.iItemNo != -1) {
         g_status.item_in_cursor = true;
-        auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
-        SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
+        const auto sprites = ItemSprites(g_status.item_in_hand.iItemNo);
+        SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
         const auto overlay = CatalogArtwork::Load(overlay_video_object);
         BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
@@ -310,15 +308,9 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->redraw_flags = static_cast<unsigned int>(-1);
     }
     g_level_block->camera_mode = 7;
-    g_level_block->highlight_override = -1;
-    g_level_block->condition_hover_party_slot = -1;
-    g_level_block->enchantment_hover_party_slot = -1;
-    g_level_block->name_hover_party_slot = -1;
-    g_level_block->vitals_hover_party_slot = -1;
-    g_level_block->assay_hover_party_slot = -1;
+    g_level_block->highlight = {};
     g_level_block->combat_action_hover_party_slot = -1;
     g_level_block->portrait_assay_hover_mode = 0;
-    g_level_block->formation_highlight_party_slot = -1;
     g_level_block->held_item_display = -1;
     g_level_block->highlight_row = -1;
     g_level_block->highlight_graphic = 0;
@@ -374,8 +366,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->selection_settled = false;
     g_level_block->tooltip_since = 0;
     g_level_block->tooltip_pending = false;
-    g_level_block->tooltip_subject = -1;
-    g_level_block->tooltip_kind = -1;
+    g_level_block->pending_highlight = {};
     g_level_block->countdown3 = w8_get_ticks() + (0);
     g_level_block->combat_slot = -1;
     g_level_block->keyboard_menu_open = false;

@@ -1,6 +1,7 @@
 #include "Font.h"
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -49,9 +50,15 @@ protected:
     void EndModalInput();
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);
     void ScrollTextArea(W8DialogTextArea& area, int first_visible_line);
-    /* Information popups close when a right click on them is released and
-       scroll their text with wheel input no control consumed. */
-    void UseInfoPopupInput(W8DialogScrollBar& scroll_bar) { m_info_scroll_bar = &scroll_bar; }
+    /* Information popups close when a right click on them is released,
+       scroll their text with wheel input no control consumed, and repaint
+       when their text, scroll bar or close button changes. */
+    struct InfoPopup {
+        W8DialogTextArea& text;
+        W8DialogScrollBar& scroll_bar;
+        W8ButtonWidget* close = nullptr;
+    };
+    void UseInfoPopup(InfoPopup popup) { m_info_popup.emplace(popup); }
 
     HitTarget* m_body = nullptr;
     std::string m_text;
@@ -74,6 +81,6 @@ public:
     std::function<void()> cleanup; // Resource restoration, including cancellation.
 
 private:
-    W8DialogScrollBar* m_info_scroll_bar = nullptr;
+    std::optional<InfoPopup> m_info_popup;
     bool m_right_button_down = false;
 };

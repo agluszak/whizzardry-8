@@ -9,12 +9,12 @@
 #include <string>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <wiz8/asset_paths.h>
 
 #include "ReadMesh.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -225,7 +225,7 @@ static int LevelFindIDByLocationCode(const char* location_code)
     int level_id;
 
     for (level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
-        if (_stricmp(g_level_folders[level_id].location_code, location_code) == 0) {
+        if (SDL_strcasecmp(g_level_folders[level_id].location_code, location_code) == 0) {
             return level_id;
         }
     }

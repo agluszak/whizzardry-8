@@ -6,7 +6,7 @@
 
 // VTABLE: SURRENDER 0x10077578 srTextureMap
 // class srTextureMap
-class SR_DLL_IMPORT srTextureMap : public srTexture {
+class srTextureMap : public srTexture {
 public:
     virtual ~srTextureMap() override;
     srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface = {});

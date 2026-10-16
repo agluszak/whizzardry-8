@@ -36,8 +36,7 @@ void UpdateConditionButtons(void);
    realm picks the icon catalog base and the flag picks the dim variant. */
 void StageMonsterCastIcon(unsigned int monster_index, W8SpellRealm spell_realm, bool flag,
                           int spell_id);
-/* Hide or show the condition-button region set for
-   the current layout. SyncMainGameModeRegions picks between them. */
+/* Hide or show the condition buttons; portraits mode hides them. */
 void DisableConditionButtons(void);
 void EnableConditionButtons(void);
 

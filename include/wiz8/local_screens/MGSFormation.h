@@ -8,7 +8,6 @@
    rotating compass needle tracking the party's heading. */
 
 void ReleaseFormationBoard(void);
-void EnableFormationInput();
 void DestroyFormationPanel(void);
 void CloseFormationPanel(void);
 

@@ -39,16 +39,15 @@ public:
     };
 
     /* Apply a covector transform and normalize the plane normal. */
-    static SR_DLL_IMPORT glm::vec4 transformClipPlane(const glm::vec4& plane,
-                                                      const glm::mat4& plane_matrix);
+    static glm::vec4 transformClipPlane(const glm::vec4& plane, const glm::mat4& plane_matrix);
     struct ClipMask {
         w8_ulong mask;
         float depth;
     };
     /* Sphere-vs-plane-mask test over active clip planes, including the
        0..1 penetration fraction across side planes. */
-    static SR_DLL_IMPORT ClipMask getClipMask(const glm::vec3& center, float radius,
-                                              std::span<const glm::vec4> planes, w8_ulong mask);
+    static ClipMask getClipMask(const glm::vec3& center, float radius,
+                                std::span<const glm::vec4> planes, w8_ulong mask);
     // Owns the surviving triangle indices, ordered active vertices and inverse remap.
-    static SR_DLL_IMPORT Output cull(const Input& input);
+    static Output cull(const Input& input);
 };

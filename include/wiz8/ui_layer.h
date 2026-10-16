@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -71,7 +72,6 @@ private:
     void useTextCursor();
     friend struct UiState;
     friend bool DispatchUiInput(const InputEvent*);
-    friend void ResetUiInput();
     HitTarget(UiLayer& layer, HitShape shape, Handler handler, int priority);
     UiLayer& layer_;
     HitShape shape_;
@@ -89,14 +89,8 @@ enum class UiLayerOrder {
     Combat,
     PortraitButtons,
     PortraitStatus,
-    PortraitSlot0,
-    PortraitSlot1,
-    PortraitSlot2,
-    PortraitSlot3,
-    PortraitSlot4,
-    PortraitSlot5,
-    PortraitSlot6,
-    PortraitSlot7,
+    // One layer per party slot, created in slot order.
+    PortraitSlots,
     ScreenEdges,
     Radar,
     FormationBase,
@@ -122,17 +116,18 @@ enum class UiLayerOrder {
     Standard,
 };
 
-constexpr UiLayerOrder PortraitSlotOrder(int slot)
-{
-    return static_cast<UiLayerOrder>(static_cast<int>(UiLayerOrder::PortraitSlot0) + slot);
-}
-
 // Lower layer orders win; within a layer higher priorities win, then first registration.
 enum class UiLayerMode { Normal, Modal };
 
+// A layer belongs to the input owner (normally the screen) active when it is
+// created, and receives input only while that owner is selected. Shared
+// layers outlive screen switches and stay active under every owner.
+enum class UiLayerScope { Owner, Shared };
+
 class UiLayer {
 public:
-    explicit UiLayer(UiLayerOrder order = UiLayerOrder::Standard);
+    explicit UiLayer(UiLayerOrder order = UiLayerOrder::Standard,
+                     UiLayerScope scope = UiLayerScope::Owner);
     explicit UiLayer(UiLayerMode mode, UiLayerOrder order = UiLayerOrder::Standard);
     ~UiLayer();
     UiLayer(const UiLayer&) = delete;
@@ -149,14 +144,12 @@ private:
     friend class W8DialogBase;
     friend class W8ButtonWidget;
     friend struct UiState;
-    friend void ResetUiInput();
     friend std::size_t LiveUiTargetCount();
     friend class HitTarget;
     UiLayerOrder order_;
+    std::optional<int> owner_; // Empty for shared layers.
     bool enabled_ = true, modal_ = false;
     std::vector<std::unique_ptr<HitTarget>> targets_;
-    HitTarget *saved_hover_ = nullptr, *saved_capture_ = nullptr;
-    SDL_MouseButtonFlags saved_buttons_ = 0;
 };
 
 // A UI transaction spans one step of input handling: pointer dispatch,

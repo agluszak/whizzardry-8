@@ -153,7 +153,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     return monster_info;
 }
 
-/* __stdcall, not __cdecl: 0x0042E650 ends in `ret 0x4`, and both callers here
+/* , not : 0x0042E650 ends in `ret 0x4`, and both callers here
    clean only three of the four dwords they push across the tail. */
 
 /* Materialize one inactive script record in the world. Existing engine

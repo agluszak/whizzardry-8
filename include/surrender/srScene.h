@@ -8,7 +8,7 @@ class srModeler;
 
 // VTABLE: SURRENDER 0x10077230 srScene
 // class srScene
-class SR_DLL_IMPORT srScene : public srNode {
+class srScene : public srNode {
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 

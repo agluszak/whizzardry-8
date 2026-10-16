@@ -84,11 +84,6 @@ constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
 static UiResult HandleFormationCell(const UiPointerEvent& event, int cell);
 static UiResult HandleFormationBackground(const UiPointerEvent& event);
 
-void EnableFormationInput()
-{
-    if (formation) formation->input.setEnabled(true);
-}
-
 void DestroyFormationPanel()
 {
     formation.reset();
@@ -118,7 +113,7 @@ void DrawFormationSlotMarkers(SDL_Surface& target)
         top = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].y;
         image = position->facing * 3;
         order_image = row->party_order_index * 3;
-        if (slot == g_level_block->formation_highlight_party_slot) {
+        if (slot == g_level_block->highlight.FormationSlot()) {
             image += 1;
             order_image += 1;
         }
@@ -221,8 +216,8 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
             break;
         }
     }
-    if (hit != g_level_block->formation_highlight_party_slot) {
-        SetTooltipSubject(6, hit);
+    if (hit != g_level_block->highlight.FormationSlot()) {
+        SetTooltipSubject(W8_HIGHLIGHT_FORMATION_BOARD, hit);
     }
     if (event.action != UiPointerAction::Enter) {
         if (event.action == UiPointerAction::Leave) {
@@ -445,7 +440,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
             formation->dirty = true;
         }
         g_formation_active_cell = -1;
-        SetTooltipSubject(7, -1);
+        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, -1);
         return UiResult::Handled;
     }
     if (event.action == UiPointerAction::Enter ||
@@ -453,7 +448,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         formation->highlighted[id] = true;
         formation->dirty = true;
         g_formation_active_cell = id;
-        SetTooltipSubject(7, g_formation_cell_slots[id]);
+        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[id]);
         return UiResult::Handled;
     }
     return UiResult::Pass;
@@ -533,8 +528,8 @@ static void DropFormationSlot(int cell)
     if (cell != -1) {
         formation->highlighted[cell] = true;
         g_formation_active_cell = cell;
-        g_level_block->formation_highlight_party_slot = g_formation_cell_slots[cell];
-        RequestRedraw(1 << (g_level_block->formation_highlight_party_slot & 0x1f));
+        g_level_block->highlight = {W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[cell]};
+        RequestRedraw(1 << (g_level_block->highlight.slot & 0x1f));
     }
     g_formation_drag_cell = -1;
 }

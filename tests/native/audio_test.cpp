@@ -723,7 +723,6 @@ TEST_CASE_METHOD(AudioFixture, "Button feedback preserves repeat and disabled si
          {"Interface Click 01.wav", "Interface Click 02.wav", "Interface Whoosh 01 Soft.wav"})
         write(directory / name, wave);
     startOfflineAudio();
-    ResetUiInput();
     UiLayer layer;
     W8ButtonWidget button(layer);
     int activations = 0;

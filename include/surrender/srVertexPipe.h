@@ -48,15 +48,15 @@ public:
         }
     };
 
-    SR_DLL_IMPORT srVertexPipe();
+    srVertexPipe();
     srVertexPipe(const srVertexPipe&) = delete;
     srVertexPipe& operator=(const srVertexPipe&) = delete;
 
-    SR_DLL_IMPORT void applyDiffuseLight(const glm::vec4& light);
-    SR_DLL_IMPORT void applyDiffuseLight(std::span<const float> values, const glm::vec4& light);
-    SR_DLL_IMPORT void applyFog(std::span<const float> values);
-    SR_DLL_IMPORT void copyDiffuseToSpecular();
-    SR_DLL_IMPORT void copySpecularToDiffuse();
+    void applyDiffuseLight(const glm::vec4& light);
+    void applyDiffuseLight(std::span<const float> values, const glm::vec4& light);
+    void applyFog(std::span<const float> values);
+    void copyDiffuseToSpecular();
+    void copySpecularToDiffuse();
     // FUNCTION: SURRENDER 0x1002C310
     inline void disableChannel(srVertexProcessor::e_channel channel)
     {
@@ -67,33 +67,32 @@ public:
     {
         channel_mask |= 1u << channel;
     }
-    SR_DLL_IMPORT std::span<const w8_ulong> getAVT() const;
-    SR_DLL_IMPORT std::span<float> getAlpha();
-    SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel> getChannelMask() const;
-    SR_DLL_IMPORT std::span<const float> getDepthCue();
-    SR_DLL_IMPORT std::span<glm::vec4> getDiffuse();
-    SR_DLL_IMPORT w8_ulong getExclusionMask() const;
-    SR_DLL_IMPORT srBoundingSphere getEyeSpaceBoundingSphere() const;
-    SR_DLL_IMPORT std::span<const glm::vec3> getEyeSpaceDir();
-    SR_DLL_IMPORT std::span<const float> getEyeSpaceDist();
-    SR_DLL_IMPORT std::span<const glm::vec4> getEyeSpaceLocation();
+    std::span<const w8_ulong> getAVT() const;
+    std::span<float> getAlpha();
+    srFlags<srVertexProcessor::e_channel> getChannelMask() const;
+    std::span<const float> getDepthCue();
+    std::span<glm::vec4> getDiffuse();
+    w8_ulong getExclusionMask() const;
+    srBoundingSphere getEyeSpaceBoundingSphere() const;
+    std::span<const glm::vec3> getEyeSpaceDir();
+    std::span<const float> getEyeSpaceDist();
+    std::span<const glm::vec4> getEyeSpaceLocation();
     std::span<const glm::vec3> getEyeSpaceNormal();
-    SR_DLL_IMPORT std::span<const float> getEyeSpaceZDist();
-    SR_DLL_IMPORT std::span<float> getFog();
-    SR_DLL_IMPORT const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
-    SR_DLL_IMPORT float* getQ(w8_ulong index, int create);
+    std::span<const float> getEyeSpaceZDist();
+    std::span<float> getFog();
+    const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
+    float* getQ(w8_ulong index, int create);
     glm::vec2* getST(w8_ulong index, int create);
-    static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
-    getShaderDisableMask(const srShader& shader);
-    static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
+    static srFlags<srVertexProcessor::e_channel> getShaderDisableMask(const srShader& shader);
+    static srFlags<srVertexProcessor::e_channel>
     getShaderDisableMask(const srShader* shader, const w8_ulong* channels, w8_ulong channel_count);
-    SR_DLL_IMPORT std::span<glm::vec4> getSpecular();
-    SR_DLL_IMPORT void* getUserArray(w8_ulong index);
+    std::span<glm::vec4> getSpecular();
+    void* getUserArray(w8_ulong index);
     w8_ulong getVertexCount() const;
     int isChannelAvailable(srVertexProcessor::e_channel channel) const;
-    SR_DLL_IMPORT void process(const Input& input);
-    SR_DLL_IMPORT void swapDiffuseAndSpecular();
-    SR_DLL_IMPORT int testEyeSpaceBounds(const glm::vec3& center, float radius) const;
+    void process(const Input& input);
+    void swapDiffuseAndSpecular();
+    int testEyeSpaceBounds(const glm::vec3& center, float radius) const;
 
     /* Per-record render state from Input::records. flags: bit0 vertex colors present, bit1 indexed
        specular into diffuse, bit2 indexed specular into specular, bit3 indexed alpha, bits4/5
@@ -136,22 +135,22 @@ private:
     /* srLight::process and srLight::isActive read the batch scratch, channel
        masks and lazy-setup flags the same way; the SDK friended it too. */
     friend class srLight;
-    SR_DLL_IMPORT void finishDiffuseAlpha();
-    SR_DLL_IMPORT void finishSpecularFog();
-    SR_DLL_IMPORT void processVertexBuffer();
-    static SR_DLL_IMPORT w8_ulong scanChangeIndexed(const w8_ulong* first, w8_ulong first_count,
-                                                    const w8_ulong* second, w8_ulong second_count);
-    SR_DLL_IMPORT void setMaterial(srMaterialIFace* material);
-    SR_DLL_IMPORT void setupAlpha();
-    SR_DLL_IMPORT void setupDepthCue();
-    SR_DLL_IMPORT void setupDiffuse();
-    SR_DLL_IMPORT void setupEyeSpaceDirAndDist();
-    SR_DLL_IMPORT void setupEyeSpaceNormal();
-    SR_DLL_IMPORT void setupEyeSpaceZDist();
-    SR_DLL_IMPORT void setupFog();
-    SR_DLL_IMPORT void setupQ(w8_ulong index);
-    SR_DLL_IMPORT void setupST(w8_ulong index);
-    SR_DLL_IMPORT void setupSpecular();
+    void finishDiffuseAlpha();
+    void finishSpecularFog();
+    void processVertexBuffer();
+    static w8_ulong scanChangeIndexed(const w8_ulong* first, w8_ulong first_count,
+                                      const w8_ulong* second, w8_ulong second_count);
+    void setMaterial(srMaterialIFace* material);
+    void setupAlpha();
+    void setupDepthCue();
+    void setupDiffuse();
+    void setupEyeSpaceDirAndDist();
+    void setupEyeSpaceNormal();
+    void setupEyeSpaceZDist();
+    void setupFog();
+    void setupQ(w8_ulong index);
+    void setupST(w8_ulong index);
+    void setupSpecular();
 
     friend class srLight;
 

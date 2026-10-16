@@ -71,7 +71,7 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
     SetOrigin(0x9c, 0x5a);
     SetExtent(0x14a, 0x12c);
     SetBackground(g_spell_info_background_path, 0);
-    UseInfoPopupInput(m_scroll_bar);
+    UseInfoPopup({m_text_area, m_scroll_bar, &m_button});
     if (!PopulateText()) {
         throw std::runtime_error("Cannot configure dialog controls");
     }
@@ -282,14 +282,6 @@ void W8SpellInfoDialog::DrawLabels(SDL_Surface& target)
     width = g_wiz_text_font_secondary.textWidth(text);
     DrawText(target, g_wiz_text_font_secondary, {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33},
              text);
-}
-
-bool W8SpellInfoDialog::TakeDirty()
-{
-    const bool text = m_text_area.TakeDirty();
-    const bool scroll = m_scroll_bar.TakeDirty();
-    const bool button = m_button.TakeDirty();
-    return W8DialogBase::TakeDirty() || text || scroll || button;
 }
 
 bool W8SpellInfoDialog::ProcessInput()

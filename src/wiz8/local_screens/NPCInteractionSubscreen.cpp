@@ -62,7 +62,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -2577,7 +2576,7 @@ static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
 {
     std::string count_text;
     std::string_view text;
-    g_npc_interaction_state->ui->item_preview = g_item_video_objects.SharedSprites(item->iItemNo);
+    g_npc_interaction_state->ui->item_preview = ItemSprites(item->iItemNo);
     if (item->stack_count < 2) {
         text = "";
     } else {
@@ -3046,7 +3045,7 @@ static W8ItemInstance* GetNpcTradeSlotItem(int index)
             CanCharacterActivateItem(character, &character->EquippedItem[slot])) {
             if (index == hit) {
                 g_npc_interaction_state->ui->item_preview =
-                    g_item_video_objects.SharedSprites(character->EquippedItem[slot].iItemNo);
+                    ItemSprites(character->EquippedItem[slot].iItemNo);
                 if (character->EquippedItem[slot].stack_count < 2) {
                     text = "";
                 } else {
@@ -3066,7 +3065,7 @@ static W8ItemInstance* GetNpcTradeSlotItem(int index)
             CanCharacterActivateItem(character, &character->backpack[slot])) {
             if (index == hit) {
                 g_npc_interaction_state->ui->item_preview =
-                    g_item_video_objects.SharedSprites(character->backpack[slot].iItemNo);
+                    ItemSprites(character->backpack[slot].iItemNo);
                 if (character->backpack[slot].stack_count < 2) {
                     text = "";
                 } else {

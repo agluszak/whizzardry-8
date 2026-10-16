@@ -2,7 +2,6 @@
 
 #include <optional>
 
-#include "compat/native.h"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"

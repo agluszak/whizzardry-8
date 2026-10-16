@@ -9,12 +9,12 @@
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "AnimRep.hpp"
 #include "Monster.h"
-#include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -199,7 +199,7 @@ int FindItemTableByName(const char* name)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (_stricmp(name, g_item_tables[index].name) == 0) {
+        if (SDL_strcasecmp(name, g_item_tables[index].name) == 0) {
             return index;
         }
     }
@@ -334,7 +334,7 @@ int FindItemRecordByName(const char* name)
     for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
-            if (_stricmp(g_item_records[index].display_name.c_str(), name) == 0) {
+            if (SDL_strcasecmp(g_item_records[index].display_name.c_str(), name) == 0) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {

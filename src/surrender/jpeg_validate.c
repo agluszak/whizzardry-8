@@ -1,9 +1,13 @@
 #include "jpeg_validate.h"
 
-#include <jpeglib.h>
 #include <setjmp.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+
+// clang-format off
+#include <jpeglib.h> // Needs FILE from stdio.h first.
+// clang-format on
 
 struct Validation {
     struct jpeg_decompress_struct image;

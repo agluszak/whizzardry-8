@@ -74,7 +74,13 @@ void ModalContent::RefreshModal()
 
 bool W8DialogBase::TakeDirty()
 {
-    return std::exchange(m_dirty, false);
+    bool dirty = std::exchange(m_dirty, false);
+    if (m_info_popup) {
+        dirty |= m_info_popup->text.TakeDirty();
+        dirty |= m_info_popup->scroll_bar.TakeDirty();
+        if (m_info_popup->close) dirty |= m_info_popup->close->TakeDirty();
+    }
+    return dirty;
 }
 
 void W8DialogBase::RefreshModal()
@@ -146,7 +152,7 @@ bool W8DialogBase::ProcessInput()
             [this](const InputEvent& input) {
                 if (input.type == InputEventType::RightButtonDown) {
                     m_right_button_down = true;
-                } else if (input.type == InputEventType::RightButtonUp && m_info_scroll_bar &&
+                } else if (input.type == InputEventType::RightButtonUp && m_info_popup &&
                            m_right_button_down) {
                     m_keep_open = false;
                 }
@@ -155,7 +161,7 @@ bool W8DialogBase::ProcessInput()
         .unhandled =
             [this](const InputEvent& input) {
                 if (input.type == InputEventType::MouseWheel) {
-                    if (m_info_scroll_bar) m_info_scroll_bar->ScrollBy(input.wheel);
+                    if (m_info_popup) m_info_popup->scroll_bar.ScrollBy(input.wheel);
                 } else if (input.type == InputEventType::KeyDown && input.key == SDLK_ESCAPE) {
                     m_keep_open = false;
                 }
