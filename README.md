@@ -17,6 +17,7 @@ From the repository root:
 ```sh
 python3 -m pip install 'conan==2.33.0'
 conan profile detect
+conan export conan/recipes/libalsa
 
 CC=clang-22 CXX=clang++-22 conan install . \
     -pr:h conan/profiles/linux-clang22 -pr:b default \

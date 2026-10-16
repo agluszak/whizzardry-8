@@ -17,6 +17,8 @@ class WhizzardryDependencies(ConanFile):
 
     def requirements(self):
         self.requires("sdl/3.4.14")
+        if self.settings.os == "Linux":
+            self.requires("libalsa/system", override=True)
         self.requires("sdl_image/3.4.4")
         self.requires("ffmpeg/7.1.3")
         self.requires("zlib/1.3.1")
@@ -32,11 +34,8 @@ class WhizzardryDependencies(ConanFile):
         self.options["sdl"].pulseaudio = False
         self.options["sdl"].sndio = False
         self.options["sdl"].dbus = False
-        # SDL only enables dynamically loaded dependencies in shared builds.
-        # Together with shared libalsa, this lets it load the host's ALSA
-        # configuration and plugins instead of the Conan package's (see generate()).
+        # SDL's platform state is shared by the game and its media libraries.
         self.options["sdl"].shared = True
-        self.options["libalsa"].shared = True
         # Keep JPEG and PNG; avoid heavyweight optional image codecs.
         self.options["sdl_image"].with_avif = False
         self.options["sdl_image"].with_libtiff = False
@@ -76,16 +75,6 @@ class WhizzardryDependencies(ConanFile):
         self.options["ffmpeg"].with_bzip2 = False
 
     def generate(self):
-        alsa = self.dependencies.host.get("libalsa")
-        if alsa is not None:
-            # The packaged libasound looks for its configuration and plugins
-            # under the Conan package, so it finds neither the host's default
-            # PCM nor its PipeWire/PulseAudio plugins. Use only its headers and
-            # let SDL load the host's libasound.so.2.
-            alsa.cpp_info.libs = []
-            alsa.cpp_info.libdirs = []
-            alsa.runenv_info.unset("ALSA_CONFIG_DIR")
-
         toolchain = CMakeToolchain(self)
         toolchain.user_presets_path = False
         toolchain.generate()
