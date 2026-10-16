@@ -13,7 +13,6 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_stdinc.h>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "input.h"
 #include "random.h"
