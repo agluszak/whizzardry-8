@@ -34,6 +34,7 @@
 #include "wiz8/bink_video.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/surface2d.h"
 
 class srScene;
@@ -41,7 +42,6 @@ class srScene;
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
-extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
 struct FixtureRoot {
@@ -114,7 +114,7 @@ TEST_CASE("game graphics")
         g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
         g_surface_node->DrawTiles(g_gerd.get());
-        RenderScene(g_cursor_scene, g_overlay_camera, nullptr, false);
+        RenderScene(g_overlay_scenes.cursor.get(), g_overlay_scenes.camera.get(), nullptr, false);
         g_gerd->endFrame();
     }
     auto buffer = g_gerd->lockBuffer();

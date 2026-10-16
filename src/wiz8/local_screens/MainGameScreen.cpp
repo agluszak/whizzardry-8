@@ -159,6 +159,7 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
@@ -7358,7 +7359,7 @@ unsigned char UpdateSurpriseFade(void)
                                                             pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
-                g_surprise_snapshot_surface, 0x280, 0x1e0, g_scene_fullscreen, 0x80);
+                g_surprise_snapshot_surface, 0x280, 0x1e0, g_overlay_scenes.fullscreen.get(), 0x80);
             g_surprise_snapshot_overlay->updateRectangle(g_gerd.get(), pixels, pitch, 0, 0, 0x280,
                                                          0x1e0);
             g_world_render_enabled = 0;

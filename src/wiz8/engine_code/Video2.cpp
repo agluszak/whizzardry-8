@@ -40,6 +40,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srTextureIFace.h"
 #include "wiz8/design_rect.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
 #ifdef WIZ8_RUNTIME_TESTS
@@ -178,22 +179,15 @@ SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
 // GLOBAL: WIZ8 0x600088
 unsigned int g_color_key = 0x3def;
+VideoOverlayScenes g_overlay_scenes;
 // GLOBAL: WIZ8 0x659640
-srScene* g_scene_user;
 // GLOBAL: WIZ8 0x659644
-srScene* g_scene_fullscreen;
 // GLOBAL: WIZ8 0x659648
-srScene* g_scene_permanent;
 // GLOBAL: WIZ8 0x65964c
-srScene* g_scene_prerender0;
 // GLOBAL: WIZ8 0x659650
-srScene* g_scene_prerender1;
 // GLOBAL: WIZ8 0x659654
-srScene* g_scene_overlay0;
 // GLOBAL: WIZ8 0x659658
-srScene* g_scene_overlay1;
 // GLOBAL: WIZ8 0x65965c
-srScene* g_scene_square;
 // GLOBAL: WIZ8 0x659660
 std::shared_ptr<srColorSurface> g_primary_color_surface;
 // GLOBAL: WIZ8 0x659664
@@ -201,9 +195,7 @@ class stSurface2D* g_surface_node;
 // GLOBAL: WIZ8 0x659680
 float g_surface_scale;
 // GLOBAL: WIZ8 0x659670
-srCamera* g_overlay_camera;
 // GLOBAL: WIZ8 0x659674
-srCamera* g_square_camera;
 // GLOBAL: WIZ8 0x659688
 std::shared_ptr<srColorSurface> g_mouse_surface;
 // GLOBAL: WIZ8 0x65967c
@@ -235,9 +227,7 @@ int g_overlay_render_mode;
 int g_paired_render_mode;
 // GLOBAL: WIZ8 0x659668
 // GLOBAL: WIZ8 0x65966c
-srClass* g_render_object0;
 // GLOBAL: WIZ8 0x659678
-srClass* g_render_object1;
 // GLOBAL: WIZ8 0x65409c
 uint64_t g_last_capture_tick;
 // GLOBAL: WIZ8 0x659704
@@ -246,7 +236,6 @@ float g_frames_per_second;
 float g_seconds_per_frame;
 
 // GLOBAL: WIZ8 0x659684
-srScene* g_cursor_scene;
 // GLOBAL: WIZ8 0x65968c
 srMeshModel* g_cursor_model;
 // GLOBAL: WIZ8 0x659690
@@ -301,10 +290,10 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
 static void ResetVideoDirtyState()
 {
     g_ui_upload = {};
-    PurgeInactiveSceneInstances(g_scene_prerender0);
-    PurgeInactiveSceneInstances(g_scene_overlay0);
-    PurgeInactiveSceneInstances(g_scene_prerender1);
-    PurgeInactiveSceneInstances(g_scene_overlay1);
+    PurgeInactiveSceneInstances(g_overlay_scenes.prerender[0].get());
+    PurgeInactiveSceneInstances(g_overlay_scenes.frame[0].get());
+    PurgeInactiveSceneInstances(g_overlay_scenes.prerender[1].get());
+    PurgeInactiveSceneInstances(g_overlay_scenes.frame[1].get());
     InvalidateRegion(0, 0, 640, 480);
 }
 
@@ -372,7 +361,6 @@ done:
 // FUNCTION: WIZ8 0x00421dc0
 void ShutdownVideoManager(void)
 {
-    ReleaseRendererObject(g_cursor_node);
     FreeMouseCursor();
     ShutdownVideoScenes();
     ShutdownStartupNavigation();
@@ -398,16 +386,21 @@ void ShutdownVideoManager(void)
 // FUNCTION: WIZ8 0x00423f30
 void ShutdownVideoScenes(void)
 {
-    ReleaseRendererObject(g_scene_permanent);
-    ReleaseRendererObject(g_scene_user);
-    ReleaseRendererObject(g_scene_fullscreen);
-    ReleaseRendererObject(g_scene_overlay0);
-    ReleaseRendererObject(g_scene_overlay1);
-    ReleaseRendererObject(g_scene_square);
-    ReleaseRendererObject(g_scene_prerender0);
-    ReleaseRendererObject(g_scene_prerender1);
-    ReleaseRendererObject(g_render_object0);
-    ReleaseRendererObject(g_render_object1);
+    VideoRemoveToolTip();
+    ReleaseRendererObject(g_cursor_node);
+    g_cursor_model = nullptr;
+    g_cursor_texture.reset();
+    g_overlay_scenes.cursor.reset();
+    g_overlay_scenes.user.reset();
+    g_overlay_scenes.fullscreen.reset();
+    g_overlay_scenes.frame[0].reset();
+    g_surface_node = nullptr;
+    g_overlay_scenes.frame[1].reset();
+    g_overlay_scenes.square.reset();
+    g_overlay_scenes.square_camera = nullptr;
+    g_overlay_scenes.prerender[0].reset();
+    g_overlay_scenes.prerender[1].reset();
+    g_overlay_scenes.camera.reset();
     g_blit_material.reset();
     g_mouse_surface.reset();
     g_primary_color_surface.reset();
@@ -813,10 +806,12 @@ void RenderFrame(void)
     }
     }
 
-    first_page = g_active_page ? g_scene_prerender0 : g_scene_prerender1;
-    second_page = g_active_page ? g_scene_prerender1 : g_scene_prerender0;
-    RenderScene(first_page, g_overlay_camera, 0, false);
-    RenderScene(second_page, g_overlay_camera, 0, false);
+    first_page =
+        g_active_page ? g_overlay_scenes.prerender[0].get() : g_overlay_scenes.prerender[1].get();
+    second_page =
+        g_active_page ? g_overlay_scenes.prerender[1].get() : g_overlay_scenes.prerender[0].get();
+    RenderScene(first_page, g_overlay_scenes.camera.get(), 0, false);
+    RenderScene(second_page, g_overlay_scenes.camera.get(), 0, false);
     g_gerd->setTextureReduction(g_resident_texture_policy);
 
     if (g_render_mesh_sky && g_secondary_world != 0 && g_monster_shadow_updates_enabled) {
@@ -863,16 +858,19 @@ void RenderFrame(void)
 #endif
         if (g_overlay_scenes_enabled) {
             if (!g_fullscreen_scene_last) {
-                RenderScene(g_scene_fullscreen, g_overlay_camera, nullptr, false);
+                RenderScene(g_overlay_scenes.fullscreen.get(), g_overlay_scenes.camera.get(),
+                            nullptr, false);
             }
-            RenderScene(g_scene_overlay0, g_overlay_camera, 0, false);
-            RenderScene(g_scene_user, g_overlay_camera, 0, false);
-            RenderScene(g_scene_square, g_square_camera, nullptr, false);
+            RenderScene(g_overlay_scenes.frame[0].get(), g_overlay_scenes.camera.get(), 0, false);
+            RenderScene(g_overlay_scenes.user.get(), g_overlay_scenes.camera.get(), 0, false);
+            RenderScene(g_overlay_scenes.square.get(), g_overlay_scenes.square_camera, nullptr,
+                        false);
             if (g_fullscreen_scene_last) {
-                RenderScene(g_scene_fullscreen, g_overlay_camera, nullptr, false);
+                RenderScene(g_overlay_scenes.fullscreen.get(), g_overlay_scenes.camera.get(),
+                            nullptr, false);
             }
             if (g_cursor_scene_enabled) {
-                RenderScene(g_cursor_scene, g_overlay_camera, 0, false);
+                RenderScene(g_overlay_scenes.cursor.get(), g_overlay_scenes.camera.get(), 0, false);
             }
         }
     g_gerd->endFrame();
@@ -895,8 +893,9 @@ void RenderFrame(void)
     next_page = g_active_page ^ 1;
     g_active_page = next_page;
     ++g_fps_frame_count;
-    retire_prerender = next_page ? g_scene_prerender1 : g_scene_prerender0;
-    retire_overlay = next_page ? g_scene_overlay1 : g_scene_overlay0;
+    retire_prerender =
+        next_page ? g_overlay_scenes.prerender[1].get() : g_overlay_scenes.prerender[0].get();
+    retire_overlay = next_page ? g_overlay_scenes.frame[1].get() : g_overlay_scenes.frame[0].get();
     PurgeInactiveSceneInstances(retire_prerender);
     PurgeInactiveSceneInstances(retire_overlay);
 
@@ -1189,7 +1188,7 @@ bool ResizeMouseCursorSurface(int width, int height)
     }
     delete g_cursor_node;
     mapping_scale = g_surface_scale / extent;
-    g_cursor_node = MakePolygonBrush(g_cursor_scene, g_mouse_surface, extent / 640.0,
+    g_cursor_node = MakePolygonBrush(g_overlay_scenes.cursor.get(), g_mouse_surface, extent / 640.0,
                                      extent / 480.0, mapping_scale, mapping_scale, 1.0f, 1.0f, 1);
     g_cursor_node->setName("MouseResize");
     PositionMouseCursor(g_cursor_width, g_cursor_height, false);
@@ -1412,17 +1411,18 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
 // FUNCTION: WIZ8 0x004285c0
 unsigned char InitializeMouseCursorScene(void)
 {
-    srScene* cursor_scene = new srScene(static_cast<srNode*>(0));
+    auto cursor_scene = std::make_unique<srScene>(nullptr);
+    cursor_scene->detach();
     cursor_scene->setAmbientLight(0.0f, 0.0f, 0.0f);
     cursor_scene->setFogColor(0.0f, 0.0f, 0.0f);
-    g_cursor_scene = cursor_scene;
-    g_cursor_scene->setName("Mouse Cursor Scene");
+    g_overlay_scenes.cursor = std::move(cursor_scene);
+    g_overlay_scenes.cursor->setName("Mouse Cursor Scene");
     if (!g_mouse_surface) {
         return 0;
     }
     ClearMouseSurface();
     g_cursor_node =
-        MakePolygonBrush(g_cursor_scene, g_mouse_surface, 0.2, 0.26666666666666666,
+        MakePolygonBrush(g_overlay_scenes.cursor.get(), g_mouse_surface, 0.2, 0.26666666666666666,
                          g_surface_scale / 128.0f, g_surface_scale / 128.0f, 1.0f, 1.0f, 1);
     if (g_cursor_node) {
         g_cursor_node->setName("MouseInit");
@@ -1734,9 +1734,10 @@ unsigned char InitializeMouseSurface(void)
 }
 
 /* A black, fog-free scene with no parent, used for the 2D overlay layers. */
-static srScene* createOverlayScene(const char* name)
+static std::unique_ptr<srScene> createOverlayScene(const char* name)
 {
-    auto* scene = new srScene(static_cast<srNode*>(0));
+    auto scene = std::make_unique<srScene>(nullptr);
+    scene->detach();
     scene->setName(name);
     scene->setAmbientLight(0.0f, 0.0f, 0.0f);
     scene->setFogColor(0.0f, 0.0f, 0.0f);
@@ -1744,11 +1745,15 @@ static srScene* createOverlayScene(const char* name)
 }
 
 /* A 2D overlay camera over the unit view plane, from (0, 0) to (right, top). */
-static srCamera* createOverlayCamera(srNode* parent, const char* name, double right, double top)
+static std::unique_ptr<srCamera> createOverlayCamera(srNode* parent, const char* name, double right,
+                                                     double top)
 {
     srCamera::Rect view;
 
-    auto* camera = new srCamera(parent);
+    auto camera = std::make_unique<srCamera>(parent);
+    if (!parent) {
+        camera->detach();
+    }
     camera->setName(name);
     camera->setClipRange(0.01, 2.0);
     camera->setLocation(0.0, 0.0, -1.0);
@@ -1770,25 +1775,17 @@ unsigned char InitializeRendererSceneObjects(void)
     char renderer_name[128];
 
     InitializeMouseSurface();
-    g_scene_permanent = createOverlayScene("2D Permanent Overlay Scene");
-
-    g_scene_user = createOverlayScene("2D User Overlay Scene");
-
-    g_scene_fullscreen = createOverlayScene("Full Screen Overlay Scene");
-
-    g_scene_overlay0 = createOverlayScene("2D Overlay Scene (0)");
-
-    g_scene_overlay1 = createOverlayScene("2D Overlay Scene (1)");
-
-    g_scene_square = createOverlayScene("2D Square Overlay Scene");
-
-    g_scene_prerender0 = createOverlayScene("2D Pre-render Overlay Scene (0)");
-
-    g_scene_prerender1 = createOverlayScene("2D Pre-render Overlay Scene (1)");
-
-    g_overlay_camera = createOverlayCamera(static_cast<srNode*>(0), "2D Overlay Camera", 1.0, 1.0);
-
-    g_square_camera = createOverlayCamera(g_scene_square, "2D Square Overlay Camera", 1.0, 0.75);
+    g_overlay_scenes.user = createOverlayScene("2D User Overlay Scene");
+    g_overlay_scenes.fullscreen = createOverlayScene("Full Screen Overlay Scene");
+    g_overlay_scenes.frame[0] = createOverlayScene("2D Overlay Scene (0)");
+    g_overlay_scenes.frame[1] = createOverlayScene("2D Overlay Scene (1)");
+    g_overlay_scenes.square = createOverlayScene("2D Square Overlay Scene");
+    g_overlay_scenes.prerender[0] = createOverlayScene("2D Pre-render Overlay Scene (0)");
+    g_overlay_scenes.prerender[1] = createOverlayScene("2D Pre-render Overlay Scene (1)");
+    g_overlay_scenes.camera = createOverlayCamera(nullptr, "2D Overlay Camera", 1.0, 1.0);
+    g_overlay_scenes.square_camera =
+        createOverlayCamera(g_overlay_scenes.square.get(), "2D Square Overlay Camera", 1.0, 0.75)
+            .release();
 
     material = std::make_shared<srMaterial>();
     g_blit_material = material;
@@ -1811,7 +1808,8 @@ unsigned char InitializeRendererSceneObjects(void)
     g_primary_color_surface =
         std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, *primarySurface);
 
-    g_surface_node = new stSurface2D(g_primary_color_surface, 640, 480, g_scene_overlay0, 128);
+    g_surface_node =
+        new stSurface2D(g_primary_color_surface, 640, 480, g_overlay_scenes.frame[0].get(), 128);
     if (!g_surface_node) return 0;
 
     strncpy(renderer_name, g_gerd->getName().c_str(), 127);
@@ -2206,9 +2204,10 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
         return 0;
     }
     if (mode != 0) {
-        node = Video2DRectToSquarePolygon(&source_rect, surface, g_scene_square, overlay);
+        node = Video2DRectToSquarePolygon(&source_rect, surface, g_overlay_scenes.square.get(),
+                                          overlay);
     } else {
-        node = Video2DRectToPolygon(&source_rect, surface, g_scene_user, overlay);
+        node = Video2DRectToPolygon(&source_rect, surface, g_overlay_scenes.user.get(), overlay);
         g_paired_render_mode = 2;
     }
     SetOverlayRenderMode();
@@ -2256,7 +2255,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     material->dirty = 1;
     model->setMaterial(std::move(material), 0, srMeshModel::SIDE_FRONT);
 
-    stModelInstance2D* instance = new stModelInstance2D(g_scene_user);
+    stModelInstance2D* instance = new stModelInstance2D(g_overlay_scenes.user.get());
     instance->setName("Video2DPolyColored");
     instance->SetModel(model);
     instance->setRotation(0.0, 0.0, 0.0);
@@ -2269,7 +2268,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     instance->render_state.height = static_cast<unsigned short>(height);
     SetModelInstance2DDisplayState(instance, 3);
     if (fullscreen) {
-        instance->setParent(g_scene_fullscreen, 1);
+        instance->setParent(g_overlay_scenes.fullscreen.get(), 1);
     }
     return instance;
 }
@@ -2491,7 +2490,8 @@ void VideoToolTip(std::string_view text)
     if (!text_surface) {
         return;
     }
-    srModelInstance* node = Video2DRectToPolygon(&rect, *text_surface, g_cursor_scene, 1);
+    srModelInstance* node =
+        Video2DRectToPolygon(&rect, *text_surface, g_overlay_scenes.cursor.get(), 1);
     if (node != 0) {
         g_tooltip_nodes.push_back(static_cast<stModelInstance2D*>(node));
     }

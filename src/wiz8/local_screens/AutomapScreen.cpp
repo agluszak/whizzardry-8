@@ -44,6 +44,7 @@
 #include "mgs_commands.h"
 #include "sight_state.h"
 #include "surrender/srCamera.h"
+#include "surrender/srClass.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srFilter.h"
@@ -86,6 +87,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/mipe.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
@@ -1527,7 +1529,7 @@ void CreateAutomapMarkerSprites(void)
                 CreateSpriteFromTexture(texture, surface->getWidth() * g_viewport_x_scale,
                                         surface->getHeight() * g_viewport_x_scale, true, true));
             g_automap_party_marker->detach();
-            g_automap_party_marker->setParent(g_scene_square, 1);
+            g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
             static_cast<srMeshModel*>(g_automap_party_marker->getModel())
                 ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
             surface->setFilter(&srBSplineFilter);
@@ -1588,7 +1590,7 @@ void RenderAutomapMarkers(void)
         g_automap_party_marker->setRotation(0.0, 0.0, -static_cast<double>(GetCameraYawRadians()));
         g_automap_party_marker->clearFlag(srNode::FLAG_DISABLE);
         g_automap_party_marker->setParent(0, 1);
-        g_automap_party_marker->setParent(g_scene_square, 1);
+        g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
     }
     unsigned int count = gXStatus.monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
@@ -1623,7 +1625,7 @@ void RenderAutomapMarkers(void)
             x -= width >> 1;
             unsigned short height = marker->GetScaledHeight();
             y -= height >> 1;
-            marker->setParent(g_scene_fullscreen, 1);
+            marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
             Position2DNodeUnsnapped(marker, x, y);
         }
     }
@@ -1653,7 +1655,7 @@ void RenderAutomapMarkers(void)
                 unsigned short width = marker->GetScaledWidth();
                 unsigned short height = marker->GetScaledHeight();
                 PositionToolTipNode(marker, x - (width >> 1), y - (height >> 1), false);
-                marker->setParent(g_scene_fullscreen, 1);
+                marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
             }
         }
     }
@@ -1686,7 +1688,7 @@ void RenderAutomapMarkers(void)
                 unsigned short height = marker->GetScaledHeight();
                 y -= height >> 1;
                 Position2DNodeUnsnapped(marker, x, y);
-                marker->setParent(g_scene_fullscreen, 1);
+                marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
                 if (note->layer == g_automap_layer && !note->text.empty() &&
                     (g_automap_page == 0 || note == g_automap_hovered_note ||
                      note == g_automap_editing_note)) {
@@ -1743,9 +1745,11 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     int x = (0x40 - properties.width) / 2;
     BlitVideoObjectToColorSurface(video_object, 0, *surface, x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
-    auto owned = std::unique_ptr<stModelInstance2D>(static_cast<stModelInstance2D*>(
-        MakePolygonBrush(g_scene_fullscreen, surface, surface->getWidth() * g_viewport_x_scale,
-                         surface->getHeight() * g_viewport_y_scale, 0.0f, 0.0f, 1.0f, 1.0f, 1)));
+    const auto width = surface->getWidth() * g_viewport_x_scale;
+    const auto height = surface->getHeight() * g_viewport_y_scale;
+    auto* parent = g_overlay_scenes.fullscreen.get();
+    auto* node = MakePolygonBrush(parent, surface, width, height, 0.0f, 0.0f, 1.0f, 1.0f, 1);
+    auto owned = std::unique_ptr<stModelInstance2D>(static_cast<stModelInstance2D*>(node));
     auto* marker = owned.get();
     if (marker == 0) {
         return 0;

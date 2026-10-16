@@ -39,6 +39,10 @@
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
+#include "surrender/srCamera.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
@@ -46,6 +50,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/compat/compiler.h"
+#include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -75,6 +80,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
@@ -2298,4 +2304,41 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
     REQUIRE(accepted);
     REQUIRE(g_modal_owner.get() == replacement);
     OpenModal(nullptr);
+}
+
+TEST_CASE("Video scene shutdown releases owned roots and preserves independent children")
+{
+    REQUIRE(srInit());
+    int destroyed = 0;
+    struct OverlayChild : srNode {
+        int& destroyed;
+        OverlayChild(srNode* parent, int& destroyed, Ownership ownership = Ownership::parent)
+            : srNode(parent, ownership), destroyed(destroyed)
+        {
+        }
+        ~OverlayChild() override { ++destroyed; }
+    };
+    for (auto* scene :
+         {&g_overlay_scenes.user, &g_overlay_scenes.fullscreen, &g_overlay_scenes.frame[0],
+          &g_overlay_scenes.frame[1], &g_overlay_scenes.square, &g_overlay_scenes.prerender[0],
+          &g_overlay_scenes.prerender[1], &g_overlay_scenes.cursor}) {
+        *scene = std::make_unique<srScene>(nullptr);
+        new OverlayChild(scene->get(), destroyed);
+    }
+    g_overlay_scenes.camera = std::make_unique<srCamera>(nullptr);
+    g_overlay_scenes.square_camera = new srCamera(g_overlay_scenes.square.get());
+    g_cursor_node = new srModelInstance(g_overlay_scenes.cursor.get());
+    auto independent = std::make_unique<OverlayChild>(g_overlay_scenes.user.get(), destroyed,
+                                                      srNode::Ownership::independent);
+    ShutdownVideoScenes();
+    REQUIRE(destroyed == 8);
+    REQUIRE(independent->getParent() == nullptr);
+    REQUIRE(g_cursor_node == nullptr);
+    REQUIRE(g_overlay_scenes.square_camera == nullptr);
+    REQUIRE_FALSE(g_overlay_scenes.camera);
+    REQUIRE_FALSE(g_overlay_scenes.cursor);
+    ShutdownVideoScenes();
+    REQUIRE(destroyed == 8);
+    independent.reset();
+    REQUIRE(srExit());
 }

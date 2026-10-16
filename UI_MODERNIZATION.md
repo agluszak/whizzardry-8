@@ -142,6 +142,15 @@ this migration must reduce code and lifetime protocols, not add a UI framework.
 Numeric split-field editors share their owning dialog's input layer for pointer
 caret placement and modal focus rather than creating a disabled private layer.
 
+Video scene roots have a separate resource owner, `VideoOverlayScenes`. The two
+prerender pages are rendered before the world, and the frame pages retain their
+existing retirement rule. User and fullscreen scenes retain their ordering
+switch; the square scene retains its own camera, and the cursor renders last.
+These are distinct render passes, not implicit button input layers. Widgets and
+models borrow scene parents; independently owned nodes detach during video
+shutdown. Design-space bounds use `DesignRect`, converted explicitly to an
+`SDL_Rect` for the target surface.
+
 ## Layer precedence and scrollbar ownership
 
 Screens and overlays use an ordered `UiLayerOrder` enum rather than recovered
