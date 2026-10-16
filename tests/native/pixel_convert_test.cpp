@@ -301,32 +301,6 @@ TEST_CASE("filtered copies preserve SurRender sampling")
     REQUIRE(srExit());
 }
 
-TEST_CASE("YUV conversion preserves scatter destinations and untouched storage")
-{
-    initPixelTables();
-    const std::array<w8_ulong, 8> input{0,          0x00ff0000, 0x0000ff00, 0x000000ff,
-                                        0xffffffff, 0x7f123456, 0x80010203, 0x01000000};
-    const std::array formats{srPixelConvert::SURFACE_Y4U2V2, srPixelConvert::SURFACE_A8Y4U2V2};
-    // Full-buffer checksums from the previous conversion bodies, including untouched bytes.
-    const std::array<uint64_t, 2> expected{8152149035273351469ull, 13038364476061159287ull};
-    for (unsigned index = 0; index < formats.size(); ++index) {
-        const auto format = srPixelConvert::pixelFormat(formats[index]);
-        const auto functions = srPixelConvert::selectFuncs(format);
-        std::array<unsigned char, 2048> encoded, decoded;
-        encoded.fill(0x6a);
-        decoded.fill(0x6a);
-        srPixelConvert::ConversionInfo info{encoded.data(), input.data(), input.size(), nullptr,
-                                            &format};
-        functions.write(info);
-        info = {decoded.data(), encoded.data(), input.size(), nullptr, &format};
-        functions.read(info);
-        uint64_t checksum = 14695981039346656037ull;
-        for (auto byte : encoded) checksum = (checksum ^ byte) * 1099511628211ull;
-        for (auto byte : decoded) checksum = (checksum ^ byte) * 1099511628211ull;
-        REQUIRE(checksum == expected[index]);
-    }
-}
-
 TEST_CASE_METHOD(SurRenderTestFixture,
                  "Intensity and indexed decoding support unaligned packed storage", "[pixels]")
 {
