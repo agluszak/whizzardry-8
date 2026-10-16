@@ -8,15 +8,16 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "compat/compiler.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srColorSurfaceIFace.h"
+#include "surface_pixels.h"
 #include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/sr_api.h"
+#include "wiz8/surface_storage.h"
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
 
@@ -25,9 +26,9 @@ static void CheckImage(const char* name, const std::vector<unsigned char>& bytes
 {
     auto stream = srIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
     auto surface = srImage::load(name, stream.get());
-    REQUIRE((surface && surface->getWidth() == 2 && surface->getHeight() == 2));
+    REQUIRE((surface && surface->w == 2 && surface->h == 2));
     for (int y = 0; y < 2; ++y)
-        for (int x = 0; x < 2; ++x) REQUIRE(surface->getPixel(x, y) == expected[y * 2 + x]);
+        for (int x = 0; x < 2; ++x) REQUIRE(ReadARGB(*surface, x, y) == expected[y * 2 + x]);
 }
 
 static std::vector<unsigned char> Targa(bool top, bool rle, bool alpha)
@@ -96,20 +97,11 @@ static std::vector<unsigned char> PCX(bool indexed)
     return bytes;
 }
 
-class PixelOnlySurface : public srColorSurface {
-public:
-    PixelOnlySurface() : srColorSurface(SDL_PIXELFORMAT_RGB565, nullptr, 16, 16, 32) {}
-
-    void getPixelRow(w8_ulong* pixels, w8_long, w8_long begin, w8_long end) override
-    {
-        for (w8_long x = begin; x < end; ++x) pixels[x - begin] = 0xfff82010;
-    }
-};
-
 static void CheckJPEG()
 {
-    auto source = std::make_unique<PixelOnlySurface>();
-    REQUIRE(!source->getDataPtr());
+    auto source = CreateCpuStorage(16, 16, SDL_PIXELFORMAT_RGB565);
+    SDL_FillSurfaceRect(source.get(), nullptr, SDL_MapSurfaceRGB(source.get(), 248, 32, 16));
+    const auto original = ReadARGB(*source, 0, 0);
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save("screenshot.JPG", output.get(), *source);
     REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) &&
@@ -125,23 +117,23 @@ static void CheckJPEG()
                                SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
         SDL_GetIOSize(output.get())));
     auto decoded = srImage::load("screenshot.jpeg", input.get());
-    REQUIRE((decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16));
+    REQUIRE((decoded && decoded->w == 16 && decoded->h == 16));
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) {
-            auto pixel = decoded->getPixel(x, y);
-            REQUIRE(abs(int((pixel >> 16) & 255) - 248) <= 4);
-            REQUIRE(abs(int((pixel >> 8) & 255) - 32) <= 4);
-            REQUIRE(abs(int(pixel & 255) - 16) <= 4);
+            auto pixel = ReadARGB(*decoded, x, y);
+            REQUIRE(abs(int((pixel >> 16) & 255) - int((original >> 16) & 255)) <= 4);
+            REQUIRE(abs(int((pixel >> 8) & 255) - int((original >> 8) & 255)) <= 4);
+            REQUIRE(abs(int(pixel & 255) - int(original & 255)) <= 4);
         }
 }
 
 static void CheckLossless(const char* name)
 {
-    srColorSurface source(SDL_PIXELFORMAT_BGRA32, 2, 2);
+    auto source = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_BGRA32);
     for (int y = 0; y < 2; ++y)
-        for (int x = 0; x < 2; ++x) source.setPixel(x, y, colors[y * 2 + x]);
+        for (int x = 0; x < 2; ++x) WriteARGB(*source, x, y, colors[y * 2 + x]);
     auto output = srIO::own(SDL_IOFromDynamicMem());
-    srImage::save(name, output.get(), source);
+    srImage::save(name, output.get(), *source);
     REQUIRE(
         ((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get())));
     const auto* bytes = static_cast<const unsigned char*>(SDL_GetPointerProperty(
@@ -165,13 +157,13 @@ static void CheckLossless(const char* name)
 
 static void CheckErrors()
 {
-    srColorSurface source(SDL_PIXELFORMAT_BGR24, 2, 2);
+    auto source = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_BGR24);
     for (const char* path : {static_cast<const char*>(nullptr), "", "image.pcx", "image",
                              "dir.png/image", "dir\\name.jpg\\image"}) {
         auto output = srIO::own(SDL_IOFromDynamicMem());
         bool rejected = false;
         try {
-            srImage::save(path, output.get(), source);
+            srImage::save(path, output.get(), *source);
         } catch (const std::runtime_error&) {
             rejected = true;
         }

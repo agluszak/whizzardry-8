@@ -16,7 +16,6 @@
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
@@ -55,7 +54,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "sprite.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
@@ -171,7 +169,7 @@
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
-class srColorSurfaceIFace;
+struct SDL_Surface;
 
 /* Every redraw request checks the screen state first, so a request made from
    another screen is simply dropped. */
@@ -7248,7 +7246,7 @@ const float g_fade_resume_scale = -500.0f;
 // GLOBAL: WIZ8 0x0068edca
 static bool g_surprise_fade_in;
 // GLOBAL: WIZ8 0x0068edf0
-static std::shared_ptr<srColorSurfaceIFace> g_surprise_snapshot_surface;
+static std::shared_ptr<SDL_Surface> g_surprise_snapshot_surface;
 // GLOBAL: WIZ8 0x0068edf4
 static std::unique_ptr<stSurface2D> g_surprise_snapshot_overlay;
 // GLOBAL: WIZ8 0x0068edf8
@@ -7354,9 +7352,7 @@ unsigned char UpdateSurpriseFade(void)
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
             const auto pitch = snapshot->pitch;
             void* pixels = snapshot->pixels;
-            auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_ARGB1555, pixels, 0x280,
-                                                            0x1e0, pitch);
-            g_surprise_snapshot_surface = surface;
+            g_surprise_snapshot_surface = snapshot;
             g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
                 g_surprise_snapshot_surface, 0x280, 0x1e0, g_scene_fullscreen, 0x80);
             g_surprise_snapshot_overlay->updateRectangle(g_gerd.get(), pixels, pitch, 0, 0, 0x280,

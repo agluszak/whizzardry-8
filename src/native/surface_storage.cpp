@@ -96,5 +96,17 @@ void StretchCpuSurface(SDL_Surface& source, SDL_Surface& destination, SDL_ScaleM
         snapshot = CopyCpuStorage(source);
         input = snapshot.get();
     }
+    if (input->format != destination.format ||
+        (mode == SDL_SCALEMODE_LINEAR && SDL_BYTESPERPIXEL(input->format) != 4) ||
+        SDL_ISPIXELFORMAT_INDEXED(input->format)) {
+        SDLSurfaceOwner converted(SDL_ConvertSurface(input, SDL_PIXELFORMAT_BGRA32),
+                                  SDL_DestroySurface);
+        require_sdl(bool(converted));
+        require_sdl(SDL_SetSurfaceBlendMode(converted.get(), SDL_BLENDMODE_NONE));
+        auto scaled = CreateCpuStorage(destination.w, destination.h, SDL_PIXELFORMAT_BGRA32);
+        require_sdl(SDL_StretchSurface(converted.get(), nullptr, scaled.get(), nullptr, mode));
+        require_sdl(SDL_BlitSurface(scaled.get(), nullptr, &destination, nullptr));
+        return;
+    }
     require_sdl(SDL_StretchSurface(input, nullptr, &destination, nullptr, mode));
 }

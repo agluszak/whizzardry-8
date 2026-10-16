@@ -5,14 +5,12 @@
 #include <string>
 
 #include "compat/compiler.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srTexture.h"
+#include "wiz8/surface_storage.h"
 
 namespace wiz8 {
 class File;
 }
-
-std::unique_ptr<srColorSurface> LoadSurface(wiz8::File* handle, w8_long*);
 
 /* Wizardry's virtual-file-backed texture. Priority, dimensions, parameters and
    name are inherited; has_alpha records the loaded surface's alpha channel. */
@@ -26,7 +24,7 @@ public:
     void setFileName(std::string file_name); /* 0x0047C830 */
     void setCached(int cached) { this->cached = cached; }
     int isSurfaceLoaded() const { return surface != 0; }
-    srColorSurface* getSurface() const { return surface.get(); }
+    SDL_Surface* getSurface() const { return surface.get(); }
     unsigned char hasAlpha() const { return has_alpha; }
     void loadSurface(); /* 0x0047BBF0 */
     /* Emitted at 0x47BBD0 for the materials.cpp probe caller and inlined at
@@ -51,7 +49,7 @@ private:
 
     int cached;
     std::string file_name;
-    std::unique_ptr<srColorSurface> surface;
+    std::shared_ptr<SDL_Surface> surface;
     w8_ulong frame_handle;
     bool has_alpha;
 };

@@ -18,7 +18,6 @@
 #include "srARGB.h"
 #include "srBoundingSphere.h"
 #include "srClass.h"
-#include "srColorSurfaceIFace.h"
 #include "srDD.h"
 #include "srMath.h"
 #include "srModel.h"
@@ -27,7 +26,8 @@
 #include "srTexture.h"
 #include "srTriMeshPipeline.h"
 #include "srVertexPipe.h"
-class srColorSurface;
+#include "wiz8/surface_storage.h"
+struct SDL_Surface;
 class srModelInstance;
 class srPalette;
 class srVertexProcessor;
@@ -408,8 +408,8 @@ public:
     void setWinding(e_winding winding);
     Renderer* lockRenderer();
     void unlockRenderer(Renderer* renderer, int submit);
-    srColorSurfaceIFace* lockBuffer();
-    void unlockBuffer();
+    SDL_Surface* lockBuffer();
+    void unlockBuffer(bool modified = false);
     w8_ulong getVertexProcessorCount() const;
     const std::vector<srVertexProcessor*>& getVertexProcessors() const;
     glm::vec4 getAmbientLight() const;
@@ -492,7 +492,6 @@ public:
     w8_long getPolygonOffset() const;
     void setPolygonOffset(w8_long offset);
 
-    int isBufferLocked();
     /* Releases every GERD on the global list. */
     const char* getErrorString(e_error error);
     e_error getError();
@@ -693,8 +692,6 @@ private:
     void initTextureParameterMatrix();
     void deleteDeletedRenderers();
     e_error openWindowInternal(const OpenInfo& info);
-    void _lockBuffer();
-    void _unlockBuffer();
     std::optional<SDL_PixelFormat> getPixelFormat() const;
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
@@ -702,8 +699,6 @@ private:
     void flushNonBusyRenderers();
     void flushSort();
     Renderer* _lockRenderer(RendererEntry* entry);
-    class LockSurface;
-    friend class LockSurface;
 
     /* Texture pool: live-texture count, free-list head and owned chunks. */
     struct TexturePool {
@@ -890,10 +885,7 @@ private:
     Statistics frame_statistics;
     /* getDD counts each device access, so the live counters are mutable. */
     mutable Statistics statistics;
-    std::unique_ptr<LockSurface> lock_surface;
-    /* Buffer-lock nesting depth; _lockBuffer only locks the device on the
-       first entry and _unlockBuffer unlocks when this returns to zero. */
-    w8_long buffer_lock_count;
+
     ClearState clear_state;
     // Grayscale ramp used by the CPU palette matching path.
     srARGB global_palette[0x100];

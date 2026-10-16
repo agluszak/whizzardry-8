@@ -19,6 +19,8 @@
 #include <vector>
 
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -40,8 +42,6 @@
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srClip.h"
 #include "surrender/srClock.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
@@ -51,6 +51,7 @@
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
+#include "wiz8/surface_storage.h"
 
 class srModelInstance;
 class srVertexProcessor;
@@ -103,46 +104,13 @@ void srGERD::TexturePool::release(Texture* texture)
 // RECOMP: ??0MatrixStack@srGERD@@QAE@XZ
 srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
-class srGERD::LockSurface : public srColorSurfaceIFace {
-public:
-    LockSurface(srGERD* gerd, SDL_PixelFormat format);
-    LockSurface& operator=(const LockSurface&) = default;
-    w8_long getDataSize() override { return 0; }
-
-    /* Cannot construct a LockSurface without the owning GERD and pixel format. */
-    virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
-    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    void setScissor(w8_ulong left, w8_ulong top, w8_ulong right, w8_ulong bottom);
-
-private:
-    void transferPixels(void* pixels, w8_long fixed, w8_long begin, w8_long end, bool vertical,
-                        bool write, bool raw = false);
-    srGERD* gerd;
-    w8_ulong left;
-    w8_ulong top;
-    w8_ulong right;
-    w8_ulong bottom;
-    srColorSurface scratch;
-
-public:
-    /* Set by lockBuffer when the locked pixel format is 32-bit ARGB. */
-    unsigned char argb32;
-
-private:
-};
-
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD(srDD* device)
-    : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{},
-      lock_surface(nullptr), buffer_lock_count(0), clear_state{}, texture_slots{}, texture_parms{},
-      texture_state{}, polygon_mode(POLYGON_FILL), polygon_offset(0), texture_deleted(nullptr),
-      texture_head(nullptr), texture_default(nullptr), texture_cache_used(0), texture_cache_size(0),
-      texture_sequence(0), texture_reduction(0), texture_hash_enabled(false), vertex_arrays_dirty(0)
+    : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{}, clear_state{},
+      texture_slots{}, texture_parms{}, texture_state{}, polygon_mode(POLYGON_FILL),
+      polygon_offset(0), texture_deleted(nullptr), texture_head(nullptr), texture_default(nullptr),
+      texture_cache_used(0), texture_cache_size(0), texture_sequence(0), texture_reduction(0),
+      texture_hash_enabled(false), vertex_arrays_dirty(0)
 {
     owner_thread = std::this_thread::get_id();
     this->device.dd = device;
@@ -679,8 +647,8 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
         if (resident->surface_data.empty()) {
             std::vector<unsigned char> staging(static_cast<std::size_t>(bytes_per_pixel) *
                                                level_height * level_width);
-            auto destination = std::make_unique<srColorSurface>(
-                resident->pixel_format, staging.data(), level_width, level_height, pitch);
+            auto destination = CreateCpuStorage(level_width, level_height, resident->pixel_format,
+                                                staging.data(), pitch);
             request.destination = destination.get();
             texture->getMipmapLevelPartial(request);
             destination.reset();
@@ -690,9 +658,8 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
                                     static_cast<w8_ulong>(request.source_bottom - y)},
                                    staging, pitch);
         } else {
-            auto destination = std::make_unique<srColorSurface>(resident->pixel_format,
-                                                                resident->mipPixels(mipmap).data(),
-                                                                level_width, level_height, pitch);
+            auto destination = CreateCpuStorage(level_width, level_height, resident->pixel_format,
+                                                resident->mipPixels(mipmap).data(), pitch);
             request.destination = destination.get();
             texture->getMipmapLevelPartial(request);
             if (resident->device.gpu.handle == 0) {
@@ -1248,150 +1215,6 @@ glm::mat4 srGERD::getInverseModelViewMatrix()
     return state.inverse_modelview;
 }
 
-// VTABLE: SURRENDER 0x100767F8
-// class srGERD::LockSurface
-
-/* Locked-buffer surface created by lockBuffer. It keeps its own scissor rect and proxies pixel
-   access through device bufferOp commands, staging through a 1-pixel-high srColorSurface scratch
-   buffer when the locked format is not 32-bit ARGB. */
-// FUNCTION: SURRENDER 0x100205D0
-srGERD::LockSurface::LockSurface(srGERD* gerd, SDL_PixelFormat format)
-    : scratch(format, std::max(gerd->getWidth(), gerd->getHeight()), 1)
-{
-    SurfaceDesc description{};
-    description.width = gerd->getWidth();
-    description.height = gerd->getHeight();
-    description.pitch = (SDL_BYTESPERPIXEL(format)) * description.width;
-    description.pixel_format = format;
-    setSurfaceDesc(description);
-    this->gerd = gerd;
-    left = 0;
-    top = 0;
-    right = 0;
-    bottom = 0;
-    argb32 = 0;
-}
-
-// FUNCTION: SURRENDER 0x100207A0
-void srGERD::LockSurface::setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel)
-{
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    /* Convert the pixel through the scratch surface, then hand the device a
-       pointer to the converted value. */
-    scratch.setPixel(0, 0, pixel);
-    w8_ulong converted = scratch.getPixelRaw(0, 0);
-    gerd->getDD()->fillPixels(x0, y, x1 - x0, converted);
-}
-
-void srGERD::LockSurface::transferPixels(void* pixels, w8_long fixed, w8_long begin, w8_long end,
-                                         bool vertical, bool write, bool raw)
-{
-    const w8_long fixedMin = vertical ? left : top;
-    const w8_long fixedMax = vertical ? right : bottom;
-    const w8_long start = vertical ? top : left;
-    const w8_long stop = vertical ? bottom : right;
-    if (fixed < fixedMin || fixed >= fixedMax) return;
-    // Raw reads historically skip one byte per clipped pixel; raw writes skip
-    // a complete packed pixel. Keep that device-interface behavior here.
-    const size_t stride = raw ? (write ? SDL_BYTESPERPIXEL(pixel_format) : 1) : sizeof(w8_ulong);
-    if (begin < start) {
-        pixels = static_cast<unsigned char*>(pixels) + size_t(start - begin) * stride;
-        begin = start;
-    }
-    end = std::min(end, stop);
-    if (begin >= end) return;
-    const bool convert = !raw && !argb32;
-    const w8_long count = end - begin;
-    if (convert && write) scratch.setPixelRow(static_cast<const w8_ulong*>(pixels), 0, 0, count);
-    const auto x = vertical ? fixed : begin;
-    const auto y = vertical ? begin : fixed;
-    auto* data = static_cast<w8_ulong*>(convert ? scratch.getDataPtr() : pixels);
-    if (write) {
-        gerd->getDD()->writePixels(x, y, vertical, {data, static_cast<std::size_t>(count)});
-    } else {
-        gerd->getDD()->readPixels(x, y, vertical, {data, static_cast<std::size_t>(count)});
-    }
-    if (convert && !write) scratch.getPixelRow(static_cast<w8_ulong*>(pixels), 0, 0, count);
-}
-
-// FUNCTION: SURRENDER 0x10020990
-void srGERD::LockSurface::getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1)
-{
-    transferPixels(pixels, y, x0, x1, false, false);
-}
-
-// FUNCTION: SURRENDER 0x10020840
-void srGERD::LockSurface::setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1)
-{
-    transferPixels(const_cast<w8_ulong*>(pixels), y, x0, x1, false, true);
-}
-
-// FUNCTION: SURRENDER 0x10020A70
-void srGERD::LockSurface::getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1)
-{
-    transferPixels(pixels, y, x0, x1, false, false, true);
-}
-
-// FUNCTION: SURRENDER 0x10020900
-void srGERD::LockSurface::setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1)
-{
-    transferPixels(const_cast<void*>(pixels), y, x0, x1, false, true, true);
-}
-
-// FUNCTION: SURRENDER 0x10020BB0
-void srGERD::LockSurface::getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1)
-{
-    transferPixels(pixels, x, y0, y1, true, false);
-}
-
-// FUNCTION: SURRENDER 0x10020AF0
-void srGERD::LockSurface::setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1)
-{
-    transferPixels(const_cast<w8_ulong*>(pixels), x, y0, y1, true, true);
-}
-
-// FUNCTION: SURRENDER 0x10020780
-void srGERD::LockSurface::setScissor(w8_ulong left, w8_ulong top, w8_ulong right, w8_ulong bottom)
-{
-    this->left = left;
-    this->right = right;
-    this->top = top;
-    this->bottom = bottom;
-}
-
-// FUNCTION: SURRENDER 0x10020C90
-void srGERD::_lockBuffer()
-{
-    if (buffer_lock_count == 0) {
-        flushImmediateRenderers();
-        getDD()->flushFrame();
-        getDD()->lockBuffer();
-    }
-    buffer_lock_count += 1;
-}
-
-// FUNCTION: SURRENDER 0x10020CF0
-void srGERD::_unlockBuffer()
-{
-    if (buffer_lock_count != 0) {
-        buffer_lock_count -= 1;
-        if (buffer_lock_count == 0) {
-            getDD()->unlockBuffer();
-        }
-    }
-}
-
 // FUNCTION: SURRENDER 0x10020D30
 void srGERD::clear(std::uint32_t buffers)
 {
@@ -1488,10 +1311,6 @@ void srGERD::recalcScissor()
         state.scissor_flags &= ~2UL;
     }
     getDD()->setScissor(state.scissor);
-    if (lock_surface != 0) {
-        lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
-                                 state.scissor.bottom);
-    }
 }
 
 // FUNCTION: SURRENDER 0x100215A0
@@ -2254,33 +2073,25 @@ void srGERD::deleteRenderers()
 }
 
 // FUNCTION: SURRENDER 0x10020DF0
-srColorSurfaceIFace* srGERD::lockBuffer()
+SDL_Surface* srGERD::lockBuffer()
 {
-    if (lock_surface != 0) {
-        return 0;
-    }
-    const auto format = getPixelFormat();
-    if (!format) {
+    if (!isWindowOpen()) {
         setError(ERROR_WINDOW_NOT_OPEN);
         return nullptr;
     }
     flush();
-    _lockBuffer();
     checkViewStateChanges();
-    lock_surface = std::make_unique<LockSurface>(this, *format);
-    lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
-                             state.scissor.bottom);
-    lock_surface->argb32 = *format == SDL_PIXELFORMAT_ARGB8888;
-    return lock_surface.get();
+    auto* surface = getDD()->lockBuffer();
+    const SDL_Rect clip{int(state.scissor.left), int(state.scissor.top),
+                        int(state.scissor.right - state.scissor.left),
+                        int(state.scissor.bottom - state.scissor.top)};
+    if (surface) SDL_SetSurfaceClipRect(surface, &clip);
+    return surface;
 }
 
-// FUNCTION: SURRENDER 0x10020F30
-void srGERD::unlockBuffer()
+void srGERD::unlockBuffer(bool modified)
 {
-    if (lock_surface != 0) {
-        lock_surface.reset();
-        _unlockBuffer();
-    }
+    getDD()->unlockBuffer(modified);
 }
 
 // FUNCTION: SURRENDER 0x1001A5F0
@@ -2291,7 +2102,6 @@ void srGERD::closeWindow(e_closeHint hint)
         state_flags |= STATE_CLOSING_WINDOW;
         flush();
         deleteRenderers();
-        unlockBuffer();
         invalidateResidentTextures();
         closeTexCache();
         getDD()->closeWindow();
@@ -2579,23 +2389,24 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
     evaluateTextureDimensions(result->device, dimensions);
     result->device.resident = (dimensions.hints >> srTextureIFace::HINT_RESIDENT) & 1;
     allocTextureData(*result);
-    std::array<srColorSurfaceIFace*, 12> destinations{};
-    std::unique_ptr<srColorSurface> surfaces[12];
+    std::array<SDL_Surface*, 12> destinations{};
+    std::vector<SDLSurfaceOwner> surfaces;
+    surfaces.reserve(12);
 
     w8_ulong width = result->device.width;
     w8_ulong height = result->device.height;
     for (w8_ulong level = result->device.first_level; level <= result->device.last_level; ++level) {
-        surfaces[level] = std::make_unique<srColorSurface>(
-            result->pixel_format, result->mipPixels(level).data(), width, height,
-            (w8_ulong)(SDL_BYTESPERPIXEL(result->pixel_format)) * width);
-        auto* surface = surfaces[level].get();
+        surfaces.push_back(CreateCpuStorage(width, height, result->pixel_format,
+                                            result->mipPixels(level).data(),
+                                            SDL_BYTESPERPIXEL(result->pixel_format) * width));
+        auto* surface = surfaces.back().get();
         destinations[level] = surface;
         width >>= 1;
         height >>= 1;
     }
     const srTextureIFace::MultiRequest request{
         result->device.first_level,
-        std::span<srColorSurfaceIFace* const>(destinations)
+        std::span<SDL_Surface* const>(destinations)
             .subspan(result->device.first_level,
                      result->device.last_level - result->device.first_level + 1)};
     texture->getMipmapData(request);
@@ -2716,10 +2527,6 @@ const char* srGERD::errStrings[9] = {"ERROR_NONE",
                                      "ERROR_NO_CONTEXT"};
 
 // FUNCTION: SURRENDER 0x10020DD0
-int srGERD::isBufferLocked()
-{
-    return lock_surface != 0;
-}
 
 // FUNCTION: SURRENDER 0x1001C870
 void srGERD::setPolygonMode(e_polygonMode mode)

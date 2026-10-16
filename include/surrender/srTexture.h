@@ -41,7 +41,7 @@ public:
     e_wrap getWrapT() const;
 
 protected:
-    static void copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request);
+    static void copyMipmapChain(SDL_Surface& source, const MultiRequest& request);
 
 public:
     /* Bit indices into texture_flags_. */
@@ -55,7 +55,7 @@ protected:
     static w8_ulong getNewFrameHandles(w8_ulong count);
     static w8_ulong _frameHandle;
     void invalidateFrameHandle(w8_ulong handle);
-    void setupDefaultValuesFromSurface(srColorSurfaceIFace* surface);
+    void setupDefaultValuesFromSurface(SDL_Surface* surface);
 
     w8_ulong packed_state;     /* 0x18: correction/mag/min/mipmap/wrap bits */
     float mipmap_bias;              /* 0x1c */

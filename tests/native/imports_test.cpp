@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cfenv>
@@ -25,11 +24,8 @@
    by the game, including compiler-generated members imported on Windows. */
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srARGB.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srFog.h"
 #include "surrender/srHuffman.h"
 #include "surrender/srLight.h"
@@ -37,11 +33,10 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPalette.h"
 #include "surrender/srScene.h"
-#include "surrender/srTextureIFace.h"
 #include "surrender/srTextureMap.h"
 #include "wiz8/sr_api.h"
+#include "wiz8/surface_storage.h"
 
 class srModel;
 
@@ -63,87 +58,6 @@ struct ClientNode : srNode {
 struct ClientMaterial : srMaterial {
     ~ClientMaterial() override {}
 };
-// Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
-static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
-{
-    const auto* data = static_cast<const unsigned char*>(surface.getDataPtr());
-    for (int row = 0; row < 2; ++row) {
-        if (std::memcmp(data + row * surface.getPitch(), pixels + row * 20, 12) != 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static int surface_storage()
-{
-    std::array<unsigned char, 40> pixels;
-    for (std::size_t index = 0; index < pixels.size(); ++index)
-        pixels[index] = static_cast<unsigned char>(index * 7);
-    const auto original = pixels;
-    auto palette = std::make_shared<srPalette>();
-    const auto references = palette.use_count();
-    {
-        srColorSurface borrowed(SDL_PIXELFORMAT_BGRA32, pixels.data(), 3, 2, 20);
-        borrowed.setPalette(palette);
-        REQUIRE((borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40));
-        REQUIRE((!borrowed.resize(4, 3) && !borrowed.rescale(4, 3)));
-        const auto format = SDL_PIXELFORMAT_RGB24;
-        REQUIRE(!borrowed.changePixelFormat(format, 1));
-
-        srColorSurface copied(borrowed);
-        REQUIRE(copied.getDataPtr() != pixels.data());
-        REQUIRE(samePixels(copied, pixels.data()));
-        REQUIRE(palette.use_count() == references + 2);
-        copied.setPixelRaw(0, 0, 0x12345678);
-        REQUIRE((pixels == original && copied.getPixelRaw(0, 0) == 0x12345678));
-        copied = static_cast<const srColorSurface&>(copied);
-        REQUIRE(copied.getPixelRaw(0, 0) == 0x12345678);
-
-        srColorSurface assigned(SDL_PIXELFORMAT_BGRA32, 1, 1);
-        assigned = borrowed;
-        REQUIRE(assigned.getDataPtr() != pixels.data());
-        REQUIRE(samePixels(assigned, pixels.data()));
-        REQUIRE(palette.use_count() == references + 3);
-        srColorSurface view(SDL_PIXELFORMAT_BGRA32, assigned.getDataPtr(), 3, 2,
-                            assigned.getPitch());
-        assigned = view;
-        REQUIRE(samePixels(assigned, pixels.data()));
-        REQUIRE(palette.use_count() == references + 2);
-        REQUIRE(assigned.resize(7, 5));
-        auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
-        REQUIRE(std::all_of(begin, begin + assigned.getDataSize(),
-                            [](auto value) { return value == 0; }));
-        assigned.fill(0xff336699);
-        REQUIRE(assigned.rescale(3, 2));
-        for (int y = 0; y < 2; ++y)
-            for (int x = 0; x < 3; ++x) REQUIRE(assigned.getPixelRaw(x, y) == 0xff336699);
-        REQUIRE(assigned.changePixelFormat(format, 1));
-        REQUIRE((assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633));
-        REQUIRE(assigned.getPixel(0, 0) == 0xff336699);
-
-        std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
-        srColorSurface other_borrowed(SDL_PIXELFORMAT_BGRA32, other_pixels.data(), 1, 1, 4);
-        other_borrowed = borrowed;
-        REQUIRE(other_pixels == (std::array<unsigned char, 4>{1, 2, 3, 4}));
-        REQUIRE(other_borrowed.getDataPtr() != pixels.data());
-        REQUIRE(other_borrowed.resize(2, 2));
-    }
-    REQUIRE((pixels == original && palette.use_count() == references));
-
-    // A view of an SDL surface keeps its pixels after the original owner releases them.
-    {
-        SDL_Surface* owner = SDL_CreateSurface(2, 2, SDL_PIXELFORMAT_ARGB1555);
-        REQUIRE(owner);
-        srColorSurface shared(SDL_PIXELFORMAT_ARGB1555, *owner);
-        REQUIRE((shared.getDataPtr() == owner->pixels && !shared.resize(4, 4)));
-        SDL_DestroySurface(owner);
-        shared.setPixelRaw(1, 1, 0x7fff);
-        REQUIRE(shared.getPixelRaw(1, 1) == 0x7fff);
-    }
-    return 0;
-}
-
 // Instances, including copies, share ownership of their model.
 static int shared_model_lifetimes()
 {
@@ -169,37 +83,20 @@ static int shared_surface_lifetimes()
         Map& operator=(const Map&) = default;
         ~Map() override = default;
     };
-    std::weak_ptr<srColorSurfaceIFace> surface_lifetime;
-    std::weak_ptr<srPalette> palette_lifetime;
-    srTextureIFace::Dimensions dimensions{};
+    std::weak_ptr<SDL_Surface> surface_lifetime;
     {
-        auto palette = std::make_shared<srPalette>(nullptr, 7);
-        srARGB color;
-        color.alpha = 0xff;
-        color.red = 0x12;
-        color.green = 0x34;
-        color.blue = 0x56;
-        palette->setColor(0, color);
-        palette_lifetime = palette;
-        srPalette borrowed;
-        borrowed = *palette;
-        auto surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_INDEX8, 2, 2);
-        surface->setPalette(palette);
+        auto surface = std::shared_ptr<SDL_Surface>(
+            CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
         surface_lifetime = surface;
         Map first(surface), second;
         second = first;
-        dimensions = first.getDimensions();
         surface.reset();
-        palette.reset();
         first.setSurfacePtr(nullptr);
         REQUIRE(!surface_lifetime.expired());
-        REQUIRE(second.getSurfacePtr()->getWidth() == 2);
+        REQUIRE(second.getSurfacePtr()->w == 2);
         second.setSurfacePtr(nullptr);
         REQUIRE(surface_lifetime.expired());
-        REQUIRE(!palette_lifetime.expired());
     }
-    dimensions.palette.reset();
-    REQUIRE(palette_lifetime.expired());
     return 0;
 }
 
@@ -250,7 +147,6 @@ TEST_CASE("imports_test")
     REQUIRE(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
     srAssertSetFunc(assertion);
     REQUIRE(srInit());
-    REQUIRE(surface_storage() == 0);
     REQUIRE(shared_surface_lifetimes() == 0);
     REQUIRE(shared_model_lifetimes() == 0);
     {

@@ -133,9 +133,6 @@ foreach(mode plain message button-self-destroy)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/assertion_failure.cmake")
 endforeach()
 
-add_executable(native_pixel_convert_test native/pixel_convert_test.cpp)
-target_link_libraries(native_pixel_convert_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
-add_test(NAME native_pixel_convert COMMAND native_pixel_convert_test)
 
 add_executable(native_vector_math_test native/vector_math_test.cpp)
 target_link_libraries(native_vector_math_test PRIVATE SURRENDER wiz8_native_settings)
