@@ -103,8 +103,7 @@ TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
 {
     Fixture fixture;
     srShader shader;
-    shader.value = unsigned(srShader::PASS_LESS) | srShader::MASK_DEPTH_WRITE |
-                   srShader::MASK_COLOR_WRITE |
+    shader.value = srShader::PASS_LESS | srShader::MASK_DEPTH_WRITE | srShader::MASK_COLOR_WRITE |
                    (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.triangle(0, {1, 0, 0, 1});
@@ -125,8 +124,8 @@ TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
         {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 8);
     fixture.device->bindTexture(0, texture);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
-                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     // U clamps to the green column, V repeats into the top row.
     fixture.device->setTextureParameters(0, {.wrap_s = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE});
@@ -160,8 +159,8 @@ TEST_CASE("Texture uploads copy pitched regions before CPU storage changes and d
     fixture.device->bindTexture(0, texture);
     fixture.device->setTextureParameters(0, {});
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
-                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.triangle(0, {1, 1, 1, 1}, 0.125f, 0.125f);
     REQUIRE(fixture.pixel() == 0xff0000);
@@ -196,7 +195,7 @@ TEST_CASE("Indexed draws reuse corners and snapshot mutable source streams")
     arrays.arrays[1] = colors.data();
     fixture.device->setVertexArrayInfo(&arrays);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE |
                    (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.device->setScissor({0, 0, 32, 64});
@@ -226,8 +225,8 @@ TEST_CASE("Texture updates preserve pixels sampled by earlier queued draws")
     update(0xffff0000);
     fixture.device->bindTexture(0, texture);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
-                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.device->setScissor({0, 0, 32, 64});
     fixture.triangle(0, {1, 1, 1, 1});
