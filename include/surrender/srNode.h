@@ -4,7 +4,6 @@
 #include <memory>
 #include <mutex>
 #include <new>
-#include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
@@ -121,11 +120,8 @@ public:
         };
         return find(find, first_child_);
     }
-    SR_DLL_IMPORT srNode* findParent(std::string_view name) const;
     SR_DLL_IMPORT srNode* getChild() const;
     SR_DLL_IMPORT w8_long getChildCount() const;
-    SR_DLL_IMPORT std::string getFullPath() const;
-    SR_DLL_IMPORT w8_long getHierarchyLevel() const;
     SR_DLL_IMPORT srNode* getNext() const;
     // FUNCTION: SURRENDER 0x10051A40 SYMBOL
     // RECOMP: ?getParent@srNode@@QBEPAV1@XZ
@@ -254,8 +250,6 @@ private:
     void setLocationComponent(unsigned component, double value);
     void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void checkTransformation() const;
-    SR_DLL_IMPORT srNode* findParentInternal(std::string_view name);
-    SR_DLL_IMPORT void getFullPathInternal(std::string& path) const;
     SR_DLL_IMPORT void setWSDirty();
     SR_DLL_IMPORT void signalInternal(w8_ulong signal, void* value);
     SR_DLL_IMPORT void unlink();

@@ -3,13 +3,11 @@
 #include <cstdlib>
 #include <cstring>
 
-#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_messagebox.h>
 #include <SDL3/SDL_stdinc.h>
 
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 // GLOBAL: SURRENDER 0x100A0280
 static srAssertHandler srAssertFunc = 0;
@@ -45,39 +43,6 @@ void __cdecl srAssertFail(const char* expression, const char* source_path, w8_lo
         return;
     }
     exit(0xdeadbabe);
-}
-
-// FUNCTION: SURRENDER 0x10033330
-w8_long __cdecl srDebugPrintf(w8_ulong level, const char* format, ...)
-{
-    if (level >= (srCore.debug_level & 0xff)) {
-        return 0;
-    }
-    if (format == 0) {
-        return 0;
-    }
-    char buffer[0x404];
-    va_list args;
-    va_start(args, format);
-    w8_long result = SDL_vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-    SDL_LogDebug(SDL_LOG_CATEGORY_RENDER, "%s", buffer);
-    return result;
-}
-
-// FUNCTION: SURRENDER 0x100333A0
-w8_long __cdecl srPrintf(const char* format, ...)
-{
-    if (format == 0) {
-        return 0;
-    }
-    char buffer[0x404];
-    va_list args;
-    va_start(args, format);
-    w8_long result = SDL_vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-    SDL_LogInfo(SDL_LOG_CATEGORY_RENDER, "%s", buffer);
-    return result;
 }
 /* The stock handler SurRender ships for hosts that want a dialog. */
 // FUNCTION: SURRENDER 0x100466A0

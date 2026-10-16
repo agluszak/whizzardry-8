@@ -1,8 +1,6 @@
 #include <atomic>
 #include <cmath>
 #include <mutex>
-#include <string>
-#include <string_view>
 
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -186,16 +184,6 @@ void srNode::signal(w8_ulong signal, void* value)
     if (processSignal(signal, value) != 0 && first_child_ != 0) {
         first_child_->signalInternal(signal, value);
     }
-}
-
-// FUNCTION: SURRENDER 0x10050710
-w8_long srNode::getHierarchyLevel() const
-{
-    w8_long level = 0;
-    for (srNode* node = parent_; node != 0; node = node->parent_) {
-        ++level;
-    }
-    return level;
 }
 
 // FUNCTION: SURRENDER 0x10050C10
@@ -612,49 +600,6 @@ srModelViewScope srNode::scopedWorldSpaceMatrix(srGERD& renderer) const
     srModelViewScope transform(renderer);
     renderer.multMatrix(glm::mat4(world_transform1));
     return transform;
-}
-
-// FUNCTION: SURRENDER 0x10050A30
-std::string srNode::getFullPath() const
-{
-    std::string path;
-    if (parent_ != 0) {
-        parent_->getFullPathInternal(path);
-    }
-    path += getName();
-    return path;
-}
-
-// FUNCTION: SURRENDER 0x100509B0
-void srNode::getFullPathInternal(std::string& path) const
-{
-    if (parent_ != 0) {
-        parent_->getFullPathInternal(path);
-    }
-    path += getName();
-    path += '/';
-}
-
-// FUNCTION: SURRENDER 0x10050930
-srNode* srNode::findParent(std::string_view name) const
-{
-    if (parent_ != 0) {
-        return parent_->findParentInternal(name);
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10050890
-srNode* srNode::findParentInternal(std::string_view name)
-{
-    srNode* node = this;
-    while (name != node->getName()) {
-        node = node->parent_;
-        if (node == 0) {
-            return 0;
-        }
-    }
-    return node;
 }
 
 // FUNCTION: SURRENDER 0x10053A20

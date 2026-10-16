@@ -23,16 +23,15 @@ public:
     struct DriverInfo {
         w8_ulong driver_id;
         char name[64];
-        char api_name[64];
     };
-    /* getInfo output record. The nine trailing strings are the device identity fields. */
+    /* Capabilities and limits returned by getInfo. */
     struct Info {
         enum { PIXEL_TEXTURE_STATISTICS = 0x10u, RELEASE_SURFACE_AFTER_BIND = 0x20u };
         /* openWindowInternal rejects back-buffer dimensions above these
            maximums. */
         w8_ulong max_back_buffer_width;
         w8_ulong max_back_buffer_height;
-        /* changeTexture tests bit 5; getDepthBufferType reads bit 3. */
+        /* changeTexture tests RELEASE_SURFACE_AFTER_BIND. */
         w8_ulong flags;
         /* SDL GPU defaults: 0x100; createRenderer passes it to each
            Renderer as its batch limit. */
@@ -44,13 +43,6 @@ public:
         w8_ulong texture_min_dim;
         w8_ulong texture_max_dim;
         w8_ulong texture_max_aspect;
-        /* SDL GPU defaults: 1. getHardwareID result; e_hardwareID is an
-           empty enum and cannot be the field type. */
-        w8_ulong hardware_id;
-        /* Device identity strings in getter order: device name, vendor,
-           platform, driver name, vendor, version, hardware chipset, name,
-           vendor. */
-        char text[9][0x40];
     };
     // CPU accumulation remains in GERD; the backend clears color, depth and stencil.
     struct ClearValues {
@@ -85,7 +77,6 @@ public:
        GL_POINT, GL_LINE and GL_FILL. */
     enum e_polygonMode { POLYGON_POINT = 0, POLYGON_LINE = 1, POLYGON_FILL = 2 };
     enum e_driverID {};
-    enum e_hardwareID {};
 
     virtual ~srDD() = default;
     virtual Info getInfo() = 0;

@@ -205,7 +205,7 @@ static bool reset()
 static bool pipelineSlots()
 {
     // Metadata-only GERD/device construction: no window, GPU context or rendering is requested.
-    srGERD renderer(srCreateSDLGPUDevice(), "SDLGPU");
+    srGERD renderer(srCreateSDLGPUDevice());
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
     REQUIRE((pipeline && pipeline->vertex_pipe && !pipeline->active_triangles));
     pipeline->triangle_count = 1;

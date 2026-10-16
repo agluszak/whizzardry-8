@@ -300,12 +300,11 @@ public:
         ACCUM_ADD = 3,
         ACCUM_RETURN = 4
     };
-    enum e_depthBuffer {};
     // Native accumulator channels retain the existing four signed 16-bit lanes.
     using AccumPixel = glm::i16vec4;
     static_assert(sizeof(AccumPixel) == 8);
 
-    srGERD(srDD* device, const char* device_name);
+    explicit srGERD(srDD* device);
     virtual ~srGERD() override;
 
     static srGERD* getFirst();
@@ -527,10 +526,7 @@ public:
     const char* getErrorString(e_error error);
     e_error getError();
     int isFlipped() const;
-    const char* getApiVersion() const;
     srDD::e_driverID getDriverID() const;
-    srDD::e_hardwareID getHardwareID() const;
-    e_depthBuffer getDepthBufferType() const;
     w8_ulong getSwapInterval() const;
     e_hintMode getHint(e_hint hint) const;
     void setHint(e_hint hint, e_hintMode mode);
@@ -778,8 +774,7 @@ private:
     struct Device {
         srDD* dd;
         srDD::Info info;
-        /* getDriverInfo target; getDriverID
-           (pre-context) and getApiVersion read its trailing fields. */
+        /* Backend name and renderer-list ordering key. */
         srDD::DriverInfo driver_info;
         /* setHint/getHint index this by e_hint. */
         e_hintMode hints[1];

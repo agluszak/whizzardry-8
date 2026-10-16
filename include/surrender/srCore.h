@@ -17,7 +17,6 @@ public:
     SR_DLL_IMPORT srCore();
     ~srCore();
 
-    SR_DLL_IMPORT unsigned char getDebugLevel() const;
     SR_DLL_IMPORT srFilter* getFilter() const;
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
@@ -33,11 +32,9 @@ public:
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
     srClock* getTimer() const { return timer.get(); }
     SR_DLL_IMPORT int isInitialized() const;
-    SR_DLL_IMPORT void setDebugLevel(unsigned char level);
     SR_DLL_IMPORT void setFilter(srFilter* filter);
 
 private:
-    friend w8_long __cdecl srDebugPrintf(w8_ulong level, const char* format, ...);
     /* srInit/srExit drive library lifecycle: they write the private field
        block and run the private reset() directly. */
     friend SR_DLL_IMPORT int __cdecl srInit(void);
@@ -52,7 +49,6 @@ private:
     srFilter* filter = nullptr;
     std::unique_ptr<srStatisticsManager> statistics_manager;
     std::shared_ptr<srPalette> palette;
-    w8_ulong debug_level = 1;
     std::unique_ptr<srNode> root_node;
     std::unique_ptr<srMaterial> material;
     std::unique_ptr<srTexture> texture;

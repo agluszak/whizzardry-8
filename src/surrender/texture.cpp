@@ -54,6 +54,7 @@ srTexture& srTexture::operator=(const srTexture& other)
     }
     return *this;
 }
+
 // FUNCTION: SURRENDER 0x1005EEF0
 w8_ulong srTexture::getNewFrameHandle()
 {

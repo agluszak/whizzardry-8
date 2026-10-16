@@ -26,7 +26,7 @@ TEST_CASE("renderer platform")
         REQUIRE((srInit() && srCore.isInitialized()));
         {
             auto* device = srCreateSDLGPUDevice();
-            srGERD gerd(device, "SDLGPU");
+            srGERD gerd(device);
             gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
             gerd.loadIdentity();
             const auto sphere = gerd.eyeSpaceBounds(srBoundingSphere{{1, 2, 3}, 2});
@@ -45,19 +45,15 @@ TEST_CASE("renderer platform")
             REQUIRE(info.max_back_buffer_width == 8192);
             REQUIRE(info.max_back_buffer_height == 8192);
             REQUIRE(info.renderer_batch_limit == 0x100);
-            REQUIRE(info.hardware_id == 1);
             REQUIRE(info.flags == 0);
             REQUIRE(info.texture_ram == 0);
             REQUIRE(info.max_texture_stages == 2);
             REQUIRE(info.texture_min_dim == 1);
             REQUIRE(info.texture_max_dim == 4096);
             REQUIRE(info.texture_max_aspect == 4096);
-            REQUIRE(std::string_view(info.text[0]) == "SDL GPU");
-            REQUIRE(std::string_view(info.text[4]) == "Unknown");
             const auto driver = device->getDriverInfo();
             REQUIRE(driver.driver_id == 0);
             REQUIRE(std::string_view(driver.name) == "SDLGPU");
-            REQUIRE(std::string_view(driver.api_name) == "SDL GPU");
             REQUIRE(gerd.lockBuffer() == nullptr);
             REQUIRE(gerd.getError() == srGERD::ERROR_WINDOW_NOT_OPEN);
             auto* renderer = gerd.lockRenderer();

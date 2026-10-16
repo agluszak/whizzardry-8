@@ -144,7 +144,7 @@ private:
 };
 
 // FUNCTION: SURRENDER 0x10019320
-srGERD::srGERD(srDD* device, const char* device_name)
+srGERD::srGERD(srDD* device)
     : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{},
       lock_surface(nullptr), buffer_lock_count(0), clear_state{}, texture_slots{}, texture_parms{},
       texture_state{}, polygon_mode(POLYGON_FILL), polygon_offset(0), texture_deleted(nullptr),
@@ -173,28 +173,6 @@ srGERD::srGERD(srDD* device, const char* device_name)
     state.max_modelview_scale = 0.0f;
     for (auto& color : global_palette) {
         color.blue = color.green = color.red = color.alpha = 0;
-    }
-    auto& info = this->device.info;
-    info.max_back_buffer_width = 0;
-    info.max_back_buffer_height = 0;
-    info.flags = 0;
-    info.renderer_batch_limit = 0;
-    info.texture_ram = 0;
-    info.max_texture_stages = 0;
-    info.texture_min_dim = 0;
-    info.texture_max_dim = 0;
-    info.texture_max_aspect = 0;
-    info.hardware_id = 0;
-    for (auto& text : info.text) {
-        std::fill(std::begin(text), std::end(text), '\0');
-    }
-    this->device.driver_info.driver_id = 0;
-    std::fill(std::begin(this->device.driver_info.name), std::end(this->device.driver_info.name),
-              '\0');
-    std::fill(std::begin(this->device.driver_info.api_name),
-              std::end(this->device.driver_info.api_name), '\0');
-    if (device_name != 0) {
-        strncpy(this->device.info.text[0], device_name, 0x3f);
     }
     pick.pick_key = 0;
     exclusion_mask = 0;
@@ -1122,12 +1100,6 @@ std::optional<srPixelConvert::PixelFormat> srGERD::getPixelFormat() const
 srGERD* srGERD::getFirst()
 {
     return first;
-}
-
-// FUNCTION: SURRENDER 0x1001D1D0
-srDD::e_hardwareID srGERD::getHardwareID() const
-{
-    return static_cast<srDD::e_hardwareID>(device.info.hardware_id);
 }
 
 // FUNCTION: SURRENDER 0x1001D1F0
@@ -3089,18 +3061,6 @@ srGERD::e_error srGERD::getError()
 int srGERD::isFlipped() const
 {
     return (state_flags >> 3) & 1;
-}
-
-// FUNCTION: SURRENDER 0x1001D0F0
-const char* srGERD::getApiVersion() const
-{
-    return device.driver_info.api_name;
-}
-
-// FUNCTION: SURRENDER 0x1001D1B0
-srGERD::e_depthBuffer srGERD::getDepthBufferType() const
-{
-    return (e_depthBuffer)((device.info.flags & 0xff) >> 3 & 1);
 }
 
 // FUNCTION: SURRENDER 0x1001D1C0

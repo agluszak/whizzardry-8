@@ -527,7 +527,7 @@ try {
     }
 
     srInit();
-    g_gerd = new srGERD(W8CreateNativeRenderDevice(), "SDLGPU");
+    g_gerd = new srGERD(W8CreateNativeRenderDevice());
     if (!g_gerd) {
         ShutdownWithErrorBox("Video device cannot be started. Please re-run 3DSetup.");
         return 0;

@@ -32,7 +32,6 @@ int __cdecl srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
-        srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
         srCore.timer = std::make_unique<srClock>();
         _srLibraryInit();
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
@@ -44,7 +43,6 @@ int __cdecl srInit()
         srCore.root_node->setName("SurRender root node");
         srCore.material = std::make_unique<srMaterial>();
         srCore.material->setName("SurRender default material");
-        srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
         for (int i = 0; i < 0x1000; ++i) {
@@ -52,16 +50,9 @@ int __cdecl srInit()
         }
         srCore.texture = std::make_unique<srTextureMap>(srCore.surface);
         srCore.texture->setName("SurRender default texture");
-        srDebugPrintf(0xfe, "srInit() -- done\n");
         srCore.initialized = 1;
     }
     return 1;
-}
-
-// FUNCTION: SURRENDER 0x10015680
-unsigned char srCore::getDebugLevel() const
-{
-    return debug_level;
 }
 
 // FUNCTION: SURRENDER 0x100156E0
@@ -70,17 +61,10 @@ int srCore::isInitialized() const
     return initialized;
 }
 
-// FUNCTION: SURRENDER 0x100156F0
-void srCore::setDebugLevel(unsigned char level)
-{
-    debug_level = level;
-}
-
 // FUNCTION: SURRENDER 0x100157A0
 int __cdecl srExit()
 {
     if (srCore.initialized != 0) {
-        srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");
         srGERD::releaseAll();
         srCore.root_node.reset();
         srCore.texture.reset();
@@ -93,7 +77,6 @@ int __cdecl srExit()
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
         srCore.reset();
-        srDebugPrintf(0xfe, "srExit() -- done\n");
     }
     return 1;
 }
@@ -156,7 +139,6 @@ void srCore::reset()
     filter = 0;
     root_node.reset();
     palette.reset();
-    debug_level = 1;
 }
 // GLOBAL: SURRENDER 0x100A4778
 int srCore::initialized;

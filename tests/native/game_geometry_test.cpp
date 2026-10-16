@@ -552,7 +552,7 @@ static void procedural_meshes()
 
 static void renderer_bounds()
 {
-    srGERD renderer(srCreateSDLGPUDevice(), "bounds");
+    srGERD renderer(srCreateSDLGPUDevice());
     renderer.matrixMode(srGERD::MATRIX_PROJECTION);
     renderer.loadIdentity();
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -1551,7 +1551,7 @@ TEST_CASE_METHOD(
     "Clip plane normalization preserves consumer transform ordering and degenerate planes",
     "[geometry][rendering]")
 {
-    srGERD renderer(srCreateSDLGPUDevice(), "clip plane ordering");
+    srGERD renderer(srCreateSDLGPUDevice());
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
     const auto scale = glm::scale(glm::mat4(1), glm::vec3(2, 3, 4));
     renderer.loadMatrix(scale);
@@ -1570,7 +1570,7 @@ TEST_CASE_METHOD(
 TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission",
                  "[geometry]")
 {
-    srGERD renderer(srCreateSDLGPUDevice(), "empty software selection");
+    srGERD renderer(srCreateSDLGPUDevice());
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
     stMeshModel model(1, 3);
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
@@ -1599,7 +1599,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     public:
         void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
     };
-    srGERD renderer(srCreateSDLGPUDevice(), "failed mesh submission");
+    srGERD renderer(srCreateSDLGPUDevice());
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
     // Reuse a CPU batch as sorted without requiring a window or GPU context.
     auto* batch = renderer.lockRenderer();
@@ -2463,7 +2463,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
                  "Model-view scopes reject overflow without taking another scope's stack entry",
                  "[geometry][rendering]")
 {
-    srGERD renderer(srCreateSDLGPUDevice(), "matrix scope overflow");
+    srGERD renderer(srCreateSDLGPUDevice());
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
     renderer.loadIdentity();
     std::vector<srModelViewScope> transforms;
@@ -2497,7 +2497,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
             return mesh;
         }
     };
-    srGERD renderer(srCreateSDLGPUDevice(), "linked draw boundary");
+    srGERD renderer(srCreateSDLGPUDevice());
     auto model = std::make_shared<ProbeMesh>();
     auto part = std::make_unique<ProbeMesh>();
     auto& middle = *part;
@@ -2533,7 +2533,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     struct FailingMaterial : srMaterial {
         void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
     };
-    srGERD renderer(srCreateSDLGPUDevice(), "failed instance draw");
+    srGERD renderer(srCreateSDLGPUDevice());
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
     auto* batch = renderer.lockRenderer();
     batch->sorted = 1;
@@ -2585,7 +2585,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
             view = info.renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
         }
     };
-    srGERD renderer(srCreateSDLGPUDevice(), "bounder scope");
+    srGERD renderer(srCreateSDLGPUDevice());
     renderer.matrixMode(srGERD::MATRIX_PROJECTION);
     renderer.loadIdentity();
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -2629,7 +2629,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
             if (fail) throw std::runtime_error("injected model draw failure");
         }
     };
-    srGERD renderer(srCreateSDLGPUDevice(), "render scope");
+    srGERD renderer(srCreateSDLGPUDevice());
     auto model = std::make_shared<Probe>();
     srModelInstance instance;
     instance.setModel(model);
