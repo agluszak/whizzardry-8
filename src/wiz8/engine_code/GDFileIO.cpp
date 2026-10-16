@@ -759,7 +759,7 @@ void ClassifySurfacePlane(const glm::vec3* vertices, W8GDSurface* surface)
 
     unsigned int flags = surface->flags;
     if ((flags & W8_GD_SURFACE_CROSSING) != 0) {
-        const auto dominant_axis = dominantPlaneAxis(surface->plane.normal.glmValue());
+        const auto dominant_axis = dominantPlaneAxis(surface->plane.normal);
         flags |= dominant_axis;
         surface->flags = flags;
     }

@@ -17,6 +17,7 @@
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -487,10 +488,10 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
     srVector3T<float> probe;
     srVector3T<float> test_direction;
     srVector3T<float> hit_point;
-    srVector3T<float> normal;
-    srVector3T<float> projected;
-    srVector3T<float> residual;
-    srVector3T<float> along_normal;
+    glm::vec3 normal;
+    glm::vec3 projected;
+    glm::vec3 residual;
+    glm::vec3 along_normal;
 
     nearest_surface = 0;
     if (g_world->collidable_props.empty()) {
@@ -552,16 +553,16 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
     if (nearest_surface != 0) {
         s_prop_hit_plane = nearest_surface->plane;
         slope = nearest_surface->slope;
-        projected = residual = along_normal = *scratch;
+        projected = residual = along_normal = scratch->glmValue();
         normal = s_prop_hit_plane.normal;
-        along_normal = ProjectVectorOntoVector(along_normal.glmValue(), normal.glmValue());
-        along_length = along_normal.Length();
-        residual = (residual - along_normal) * static_cast<double>(slope);
-        residual_length = residual.Length();
-        if (projected.Length() <= g_float_one) {
+        along_normal = ProjectVectorOntoVector(along_normal, normal);
+        along_length = glm::length(along_normal);
+        residual = glm::dvec3(residual - along_normal) * static_cast<double>(slope);
+        residual_length = glm::length(residual);
+        if (glm::length(projected) <= g_float_one) {
             facing = 0.0f;
         } else {
-            facing = glm::dot(projected.glmValue(), normal.glmValue()) / projected.Length();
+            facing = glm::dot(projected, normal) / glm::length(projected);
             if (facing < g_float_zero) {
                 along_length = -along_length;
             }
@@ -576,15 +577,15 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
         if ((level->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0 ||
             level->residual_contact_length < residual_length) {
             level->flags |= W8_LEVEL_FLAG_PROP_CONTACT;
-            level->contact_motion = projected.glmValue();
+            level->contact_motion = projected;
             level->residual_contact_length = residual_length;
             *direction += along_normal - residual;
-            level->contact_displacement = residual.glmValue();
-            level->contact_velocity = residual.glmValue() / level->camera_scale;
+            level->contact_displacement = residual;
+            level->contact_velocity = residual / level->camera_scale;
         }
         if (level->contact_facing < facing) {
             level->contact_facing = facing;
-            level->contact_normal = normal.glmValue();
+            level->contact_normal = normal;
         }
         s_prop_hit_plane.w -= along_length;
         nearest_surface->hit_plane = &s_prop_hit_plane;
@@ -1103,7 +1104,7 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                    (static_cast<int>(surface->chance) < 100 &&
                     static_cast<int>(surface->chance) < static_cast<int>(Random(100))))))) {
                 const auto contact = planeContact(
-                    glm::vec4(surface->plane.normal.glmValue(), surface->plane.w),
+                    glm::vec4(surface->plane.normal, surface->plane.w),
                     {trace->start, trace->end, trace->step, trace->length, trace->hit_limit},
                     PlaneContactMode::SurfaceCollision);
                 if (contact) {
@@ -1347,7 +1348,7 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
         }
     }
     const auto unit_dir = normalizedOrZero(direction);
-    const auto normal = plane.normal.glmValue();
+    const auto normal = plane.normal;
     const float segment_length = glm::length(direction);
     if (segment_length < g_float_one_ten_thousandth) {
         if (!special) {
@@ -1500,7 +1501,7 @@ std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
         return std::nullopt;
     }
     float offset = -(SignedPlaneDistance(plane, point));
-    const auto projected = point + plane.normal.glmValue() * offset;
+    const auto projected = point + plane.normal * offset;
     float edge_dist =
         srSegmentMath::project(projected, vertices[nearest_edge], vertices[(nearest_edge + 1) % 3])
             .distance;
@@ -1566,17 +1567,9 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
     }
     /* ProbePropsAlongMotion stores the prop's hit plane here; level surfaces
        leave it zero and use the embedded plane. */
-    const W8Plane* override_plane = hit_plane;
-    glm::vec3 normal;
-    float plane_distance;
-    if (override_plane == 0) {
-        normal = plane.normal.glmValue();
-        plane_distance = plane.w;
-    } else {
-        normal = override_plane->normal.glmValue();
-        plane_distance = override_plane->w;
-    }
-    float adjusted_d = plane_distance - distance;
+    const auto& contact_plane = hit_plane ? *hit_plane : plane;
+    const auto& normal = contact_plane.normal;
+    float adjusted_d = contact_plane.w - distance;
     W8LevelDataRecord* level = g_level_data;
     if (level->primary_contact_prop_id > -1 &&
         glm::dot(normal, level->contact_normal) < g_collision_contact_normal_threshold) {
@@ -1762,7 +1755,7 @@ bool W8GDSurface::ApplyEnvironContact(glm::vec3& direction)
     level->sound_environment = footstep_surface;
     level->sound_environment_alt = footstep_material;
     glm::vec3 normal;
-    normal = plane.normal.glmValue();
+    normal = plane.normal;
     float factor = g_environ->motion_factor;
     glm::vec3 slide = g_environ->vector * g_environ->scale;
     glm::vec3 unit = slide;

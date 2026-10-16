@@ -6,7 +6,6 @@
 
 #include "geometry.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
@@ -17,7 +16,7 @@
 // FUNCTION: WIZ8 0x004cfae0
 bool W8OctRegionPolygon::InsideFrustumPlanes(std::span<const W8Plane, 6> planes) const
 {
-    return PointInsideFrustum(position.glmValue(), planes);
+    return PointInsideFrustum(position, planes);
 }
 
 /* Test the polygon's representative point against an inclusive axis-aligned
@@ -25,7 +24,7 @@ bool W8OctRegionPolygon::InsideFrustumPlanes(std::span<const W8Plane, 6> planes)
 // FUNCTION: WIZ8 0x004cfb30
 bool W8OctRegionPolygon::containsPoint(const srBoundingBox& bounds) const
 {
-    return bounds.contains(position.glmValue());
+    return bounds.contains(position);
 }
 
 /* Grow `*run` to (count + capacity) dwords when count lands on a capacity

@@ -159,10 +159,10 @@ static void planes_and_segments()
     REQUIRE((surface.surface == 0 && surface.material == 0));
     W8Plane plane{};
     plane = trianglePlane(a.glmValue(), b.glmValue(), c.glmValue());
-    REQUIRE(close(plane.normal.glmValue(), {0, 1, 0}));
+    REQUIRE(close(plane.normal, {0, 1, 0}));
     REQUIRE(std::abs(SignedPlaneDistance(plane, {5, 4, 7}) - 2) < 1e-5f);
     plane = trianglePlane(a.glmValue(), a.glmValue(), a.glmValue());
-    REQUIRE((plane.normal == srVector3(0, 0, 0) && plane.w == 0));
+    REQUIRE((plane.normal == glm::vec3(0) && plane.w == 0));
 
     const glm::vec3 start(0, 0, 0), end(2, 0, 2);
     const glm::vec3 crossing_a(0, 0, 2), crossing_b(2, 0, 0);
@@ -2767,14 +2767,14 @@ TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep s
     for (int corner = 0; corner < 3; ++corner) surface.vertex_indices[corner] = corner;
     surface.slope = 0.3f;
     surfaceGeometry::initializePropSurface(surface, positions);
-    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, 1, 0));
+    REQUIRE(surface.plane.normal == glm::vec3(0, 1, 0));
     REQUIRE(surface.plane.w == 2);
     REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | W8_GD_SURFACE_WALKABLE | 1));
     REQUIRE(surface.slope == 0.3f);
     REQUIRE(surface.contact_margin == 500);
     std::swap(surface.vertex_indices[1], surface.vertex_indices[2]);
     surfaceGeometry::initializePropSurface(surface, positions);
-    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, -1, 0));
+    REQUIRE(surface.plane.normal == glm::vec3(0, -1, 0));
     REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | 1));
     REQUIRE(surface.slope == 0);
 }
@@ -2834,7 +2834,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     const auto points = sortedFrustumCorners(corners);
     const auto packed = BuildFrustumPlanes(points);
     for (unsigned i = 0; i < packed.size(); ++i)
-        view.frustum_planes[i] = {packed[i].normal.glmValue(), packed[i].w};
+        view.frustum_planes[i] = {packed[i].normal, packed[i].w};
     REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(0), 0));
     REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), 1));
     REQUIRE_FALSE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), .99f));

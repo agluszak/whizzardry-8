@@ -443,7 +443,7 @@ static void geometry()
     surface.vertex_indices[0] = 0;
     surface.vertex_indices[1] = 1;
     surface.vertex_indices[2] = 2;
-    surface.plane.normal.Set(0, 0, 1);
+    surface.plane.normal = {0, 0, 1};
     surface.flags = 2; // dominant Z axis for the spatial query
     append(bytes, surface);
     W8GameData data(nullptr, true);
@@ -1244,6 +1244,17 @@ TEST_CASE("Collision disk codecs retain vector components and unknown bytes", "[
     const auto encoded_environment = wiz8::retail::encode(live_environment);
     REQUIRE(std::memcmp(encoded_environment.data(), &environment, sizeof(environment)) == 0);
 
+    wiz8::retail::GDSurface surface{};
+    surface.plane = {{1.25f, -2.5f, 3.75f}, -4.5f};
+    surface.positional[0] = 0xa5;
+    surface.positional[1] = 0x5a;
+    W8GDSurface live_surface{};
+    wiz8::retail::decode_image(surface, live_surface);
+    REQUIRE(live_surface.plane.normal == glm::vec3(1.25f, -2.5f, 3.75f));
+    REQUIRE(live_surface.plane.w == -4.5f);
+    const auto encoded_surface = wiz8::retail::encode(live_surface);
+    REQUIRE(std::memcmp(encoded_surface.data(), &surface, sizeof(surface)) == 0);
+
     wiz8::retail::RegionVolume region{};
     region.flags = 0x10203040;
     region.m_region = 0x1234;
@@ -1256,7 +1267,7 @@ TEST_CASE("Collision disk codecs retain vector components and unknown bytes", "[
     wiz8::retail::decode_image(region, live_region);
     REQUIRE(live_region.m_region == 0x1234);
     REQUIRE(live_region.m_points[8] == glm::vec3(8, 18, 28));
-    REQUIRE(live_region.m_planes[5].normal.glmValue() == glm::vec3(35, 45, 55));
+    REQUIRE(live_region.m_planes[5].normal == glm::vec3(35, 45, 55));
     REQUIRE(live_region.m_planes[5].w == 65);
     const auto encoded_region = wiz8::retail::encode(live_region);
     REQUIRE(std::memcmp(encoded_region.data(), &region, sizeof(region)) == 0);

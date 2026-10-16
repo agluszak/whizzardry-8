@@ -293,7 +293,7 @@ bool GDProp::boundsOverlap(const srBoundingBox& box)
             box,
             indexedTriangle(std::span<const glm::vec3>(m_pVertices, m_vertex_count),
                             surface->vertex_indices),
-            surface->plane.normal.glmValue());
+            surface->plane.normal);
     }
     return hit;
 }
