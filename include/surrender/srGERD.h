@@ -268,14 +268,12 @@ public:
     enum e_polygonMode { POLYGON_POINT = 0, POLYGON_LINE = 1, POLYGON_FILL = 2 };
     /* 0 selects the model-view stack and 1 the projection stack. */
     enum e_matrixMode { MATRIX_MODELVIEW = 0, MATRIX_PROJECTION = 1 };
-    enum e_antiAlias { ANTIALIAS_NONE = 0 };
     enum e_clipMode { CLIPMODE_POSITIONAL_0 = 0 };
     /* 0 culls back faces and 1 front faces (each flipped by the winding); 2 disables culling. */
     enum e_cullMode { CULL_BACK = 0, CULL_FRONT = 1, CULL_NONE = 2 };
     /* toggle XORs 1<<option into enable_flags. Option 1 selects sorted rendering.
        The constructor sets options 4 and 6. */
     enum e_enable {
-        ENABLE_POSITIONAL_0 = 0,
         ENABLE_SORTED_RENDERING = 1,
         ENABLE_REVERSE_NORMALS = 3,
         ENABLE_AUTO_FLIP = 4,
@@ -307,7 +305,6 @@ public:
     void closeWindow(e_closeHint hint);
     e_backBuffer getBackBufferType() const;
     int isWindowOpen() const;
-    void setGamma(const glm::vec3& gamma);
     e_error beginFrame();
     void endFrame();
     void flush();
@@ -461,7 +458,6 @@ public:
     void setEnvironmentRange(float minimum, float maximum);
     void setEnvironmentScaleFactor(float scale, float inverse_scale);
     void setClipState(std::uint32_t state);
-    void setAntiAlias(e_antiAlias mode);
     void setTexture(srTextureIFace* texture, w8_ulong layer);
     void setTextureDefaultMagFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMinFilter(srTextureIFace::e_filter filter);
@@ -494,7 +490,6 @@ public:
     w8_ulong getSwapInterval() const;
     e_hintMode getHint(e_hint hint) const;
     void setHint(e_hint hint, e_hintMode mode);
-    e_antiAlias getAntiAlias() const;
     void disable(e_enable option);
     void enable(e_enable option);
     srShader getShader() const;
@@ -765,9 +760,7 @@ private:
     };
 
     struct Display {
-        glm::vec3 gamma;
         w8_ulong swap_interval;
-        e_antiAlias antialias;
     };
 
     struct PickState {
@@ -818,10 +811,7 @@ private:
     std::thread::id owner_thread;
     std::uint32_t enable_flags = 0;
     enum {
-        DIRTY_FRAME_ENABLE = 0x1UL,
-        DIRTY_GAMMA = 0x2UL,
         DIRTY_SWAP_INTERVAL = 0x4UL,
-        DIRTY_ANTIALIAS = 0x8UL,
         DIRTY_SCISSOR = 0x10UL,
         DIRTY_MATRIX_SHIFT = 5,
         DIRTY_MODELVIEW = 0x20UL,
@@ -837,8 +827,7 @@ private:
         DIRTY_POLYGON_MODE = 0x4000UL,
         DIRTY_POLYGON_OFFSET = 0x8000UL,
         DIRTY_CLIP_PLANES = 0x10000UL,
-        DIRTY_FRAME_STATE =
-            DIRTY_FRAME_ENABLE | DIRTY_GAMMA | DIRTY_SWAP_INTERVAL | DIRTY_ANTIALIAS,
+        DIRTY_FRAME_STATE = DIRTY_SWAP_INTERVAL,
         DIRTY_VIEW_STATE =
             DIRTY_SCISSOR | DIRTY_MODELVIEW | DIRTY_PROJECTION | DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE,
         DIRTY_DRAW_STATE = DIRTY_FOG_COLOR | DIRTY_TEXTURE0 | DIRTY_TEXTURE1 | DIRTY_SHADER |

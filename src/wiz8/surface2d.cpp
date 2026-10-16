@@ -85,7 +85,7 @@ stSurface2D::stSurface2D(std::shared_ptr<SDL_Surface> source, int source_width, 
       rows((source_height + tile_extent - 1) / tile_extent), width(source_width),
       height(source_height), tile_u(tile_extent / static_cast<float>(source_width)),
       tile_v(tile_extent / static_cast<float>(source_height)), field_168(0), field_16c(1.0f),
-      scale(0.0f), texture_update_flags(0)
+      scale(0.0f)
 {
     setParent(parent, 1);
     tiles.reserve(columns * rows);
@@ -157,7 +157,6 @@ void stSurface2D::DrawTiles(srGERD* renderer)
     shader.value = shader_bits;
     renderer->setShader(shader);
     renderer->setTexCoordPointer(2, srRendererDefs::TYPE_FLOAT, 8, texture_coordinates[0], 0);
-    renderer->setAntiAlias(srGERD::ANTIALIAS_NONE);
 
     for (row = 0; row != rows; ++row) {
         for (column = 0; column != columns; ++column) {
@@ -262,12 +261,6 @@ void stSurface2D::updateRectangle(srGERD* renderer, int left, int top, int right
         if (texture->bottom - y < update_height) {
             update_height = texture->bottom - y;
         }
-        if (texture_update_flags & UPDATE_FULL_TILE) {
-            destination_x = 0;
-            destination_y = 0;
-            update_width = tile_size;
-            update_height = tile_size;
-        }
         renderer->setTextureSubImage(texture, 0, destination_x, destination_y, update_width,
                                      update_height);
 
@@ -277,10 +270,4 @@ void stSurface2D::updateRectangle(srGERD* renderer, int left, int top, int right
             x = left;
         }
     }
-}
-
-// FUNCTION: WIZ8 0x0047e5b0
-void stSurface2D::enableTextureUpdateFlags(unsigned int flag)
-{
-    texture_update_flags |= flag;
 }

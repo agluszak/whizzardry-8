@@ -77,8 +77,7 @@ struct W8OptionsValues {
     float monster_movement_speed;
     float text_display_delay_ms;
     int auto_save;
-    float gamma;
-    int render_options[9];
+    int render_options[8];
     int monster_shadows;
     int smooth_monster_animations;
     int smooth_world_animations;

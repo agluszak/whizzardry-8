@@ -136,14 +136,11 @@ srGERD::srGERD(srDD* device)
     state_flags = 0;
     dirty = 0xffffffff;
     setError(ERROR_NONE);
-    display.gamma = glm::vec3(1.0f);
     display.swap_interval = 1;
-    display.antialias = ANTIALIAS_NONE;
     fog_color = glm::vec4(0);
     shader = srShader();
     texture_iface[0] = 0;
     texture_iface[1] = 0;
-    enable_flags |= 1u << ENABLE_POSITIONAL_0;
     this->device.hints[0] = static_cast<e_hintMode>(0);
     initTextureParameterMatrix();
     this->device.driver_info = getDD()->getDriverInfo();
@@ -248,10 +245,6 @@ void srGERD::resetStatistics()
 void srGERD::toggle(e_enable option)
 {
     enable_flags ^= 1UL << option;
-    if (option == ENABLE_POSITIONAL_0) {
-        dirty |= DIRTY_FRAME_ENABLE;
-        return;
-    }
 }
 
 // FUNCTION: SURRENDER 0x1001AE60
@@ -279,25 +272,6 @@ void srGERD::setSwapInterval(w8_ulong interval)
     if (interval != display.swap_interval) {
         display.swap_interval = interval;
         dirty |= DIRTY_SWAP_INTERVAL;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001AEE0
-void srGERD::setGamma(const glm::vec3& gamma)
-{
-    const auto adjusted = glm::max(gamma, glm::vec3(0));
-    if (!(adjusted == display.gamma)) {
-        display.gamma = adjusted;
-        dirty |= DIRTY_GAMMA;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001AFB0
-void srGERD::setAntiAlias(e_antiAlias mode)
-{
-    if (mode != display.antialias) {
-        display.antialias = mode;
-        dirty |= DIRTY_ANTIALIAS;
     }
 }
 
@@ -2524,12 +2498,6 @@ w8_ulong srGERD::getClearStencil() const
 srGERD::e_hintMode srGERD::getHint(e_hint hint) const
 {
     return device.hints[hint];
-}
-
-// FUNCTION: SURRENDER 0x1001D000
-srGERD::e_antiAlias srGERD::getAntiAlias() const
-{
-    return display.antialias;
 }
 
 // FUNCTION: SURRENDER 0x1001D010

@@ -199,7 +199,6 @@ extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern srModelInstance* g_current_model_instance;
-extern int g_renderer_mode;
 extern int g_overlay_render_mode;
 extern int g_paired_render_mode;
 extern float g_surface_scale;
@@ -214,7 +213,6 @@ void SetResidentTexturePolicy(int policy);
 void SetSurfaceScale(float scale);
 void SetTextureCacheSize(w8_ulong bytes);
 void SetSwapInterval(bool enabled);
-unsigned char GetRendererModeByte(void);
 void SetViewport(const DesignRect& bounds);
 // Update the surface viewport without changing the camera view plane.
 void SetScaledViewport(const DesignRect& bounds);
@@ -259,8 +257,6 @@ srModelInstance* GetPickedModelInstance(void);
 void SetPickedModelInstance(srModelInstance* value);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */
 bool IsCursorImageInsideViewport(void); /* 0x00428030 */
-
-void SetDisplayGamma(float value);
 
 /* Delete a scene object and clear the slot that owned it. */
 template<class T> inline void ReleaseRendererObject(T*& object)

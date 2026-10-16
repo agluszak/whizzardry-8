@@ -66,10 +66,6 @@ void LoadGameConfiguration(void)
     }
     SetSoundEffectsVolume(g_settings.sound_effects_volume);
     SetMusicVolume(g_settings.music_volume);
-    if (g_settings.gamma < 0.1f || g_settings.gamma > 2.0f) {
-        g_settings.gamma = 1.0f;
-    }
-    SetDisplayGamma(g_settings.gamma);
 }
 
 // FUNCTION: WIZ8 0x0054b6d0

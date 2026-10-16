@@ -56,7 +56,7 @@ struct W8GameSettings {
     unsigned char invert_mouse_y;
     float monster_movement_speed;
     unsigned char field_03b;
-    float gamma;
+    float legacy_gamma; // Retained CNFG slot; gamma is not a runtime setting.
     unsigned char pc_confirmations; /* options string 0x823 */
     unsigned char mouselook_toggle;
     unsigned char pc_subtitles; /* options string 0x824 */
