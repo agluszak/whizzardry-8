@@ -1,38 +1,26 @@
-#include <cstddef>
-
-#include "compat/compiler.h"
 #include "surrender/srGERD.h"
-#include "surrender/srTextureIFace.h"
-
-// Resolves a requested DEFAULT to its concrete choice, then mirrors that choice's entry into the
-// DEFAULT slot of the lookup table.
-template<class Enum, std::size_t N>
-static void resolveDefault(w8_ulong (&map)[N], Enum requested, Enum fallback, Enum default_value)
-{
-    if (requested == default_value) requested = fallback;
-    map[static_cast<std::size_t>(default_value)] = map[static_cast<std::size_t>(requested)];
-}
+#include "surrender/srTexture.h"
 
 // FUNCTION: SURRENDER 0x10018650
-void srGERD::setTextureDefaultMagFilter(srTextureIFace::e_filter filter)
+void srGERD::setTextureDefaultMagFilter(srTexture::e_filter value)
 {
-    resolveDefault(texture_state.mag_filter_map, filter, srTextureIFace::FILTER_GOOD,
-                   srTextureIFace::FILTER_DEFAULT);
+    texture_state.default_mag_filter =
+        value == srTexture::FILTER_DEFAULT ? srTexture::FILTER_GOOD : value;
     resetTexture();
 }
 
 // FUNCTION: SURRENDER 0x100186D0
-void srGERD::setTextureDefaultMinFilter(srTextureIFace::e_filter filter)
+void srGERD::setTextureDefaultMinFilter(srTexture::e_filter value)
 {
-    resolveDefault(texture_state.min_filter_map, filter, srTextureIFace::FILTER_GOOD,
-                   srTextureIFace::FILTER_DEFAULT);
+    texture_state.default_min_filter =
+        value == srTexture::FILTER_DEFAULT ? srTexture::FILTER_GOOD : value;
     resetTexture();
 }
 
 // FUNCTION: SURRENDER 0x10018750
-void srGERD::setTextureDefaultMipmap(srTextureIFace::e_mipmap mipmap)
+void srGERD::setTextureDefaultMipmap(srTexture::e_mipmap value)
 {
-    resolveDefault(texture_state.mipmap_map, mipmap, srTextureIFace::MIPMAP_FASTEST,
-                   srTextureIFace::MIPMAP_DEFAULT);
+    texture_state.default_mipmap =
+        value == srTexture::MIPMAP_DEFAULT ? srTexture::MIPMAP_FASTEST : value;
     resetTexture();
 }

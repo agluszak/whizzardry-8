@@ -49,7 +49,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "utf8/checked.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
@@ -1480,12 +1480,10 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
 static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
 {
     auto texture = std::make_shared<stTextureFile>(path, 0);
-    texture->enableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
-    texture->enableHint(srTextureIFace::HINT_NO_MIPMAPS);
-    texture->setMipmap(srTextureIFace::MIPMAP_NONE);
-    texture->setCorrection(srTextureIFace::CORRECTION_FASTEST);
-    texture->setMagFilter(srTextureIFace::FILTER_BEST);
-    texture->setMinFilter(srTextureIFace::FILTER_BEST);
+
+    texture->setMipmap(srTexture::MIPMAP_NONE);
+    texture->setMagFilter(srTexture::FILTER_BEST);
+    texture->setMinFilter(srTexture::FILTER_BEST);
     texture->loadSurface();
     return texture;
 }

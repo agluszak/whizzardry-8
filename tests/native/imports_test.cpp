@@ -36,7 +36,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "surrender/srTextureMap.h"
+#include "surrender/srTexture.h"
 #include "wiz8/surface_storage.h"
 
 class srModel;
@@ -69,8 +69,8 @@ static int shared_model_lifetimes()
 // Maps share their SDL source surface.
 static int shared_surface_lifetimes()
 {
-    struct Map : srTextureMap {
-        using srTextureMap::srTextureMap;
+    struct Map : srTexture {
+        using srTexture::srTexture;
         Map& operator=(const Map&) = default;
         ~Map() override = default;
     };

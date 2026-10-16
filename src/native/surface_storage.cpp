@@ -44,13 +44,20 @@ void StretchCpuSurface(SDL_Surface& source, SDL_Surface& destination, SDL_ScaleM
     if (input->format != destination.format ||
         (mode == SDL_SCALEMODE_LINEAR && SDL_BYTESPERPIXEL(input->format) != 4) ||
         SDL_ISPIXELFORMAT_INDEXED(input->format)) {
-        SDLSurfaceOwner converted(SDL_ConvertSurface(input, SDL_PIXELFORMAT_BGRA32),
-                                  SDL_DestroySurface);
-        require_sdl(bool(converted));
-        require_sdl(SDL_SetSurfaceBlendMode(converted.get(), SDL_BLENDMODE_NONE));
-        auto scaled = CreateCpuStorage(destination.w, destination.h, SDL_PIXELFORMAT_BGRA32);
-        require_sdl(SDL_StretchSurface(converted.get(), nullptr, scaled.get(), nullptr, mode));
-        require_sdl(SDL_BlitSurface(scaled.get(), nullptr, &destination, nullptr));
+        SDLSurfaceOwner converted{nullptr, SDL_DestroySurface};
+        if (input->format != SDL_PIXELFORMAT_BGRA32) {
+            converted.reset(SDL_ConvertSurface(input, SDL_PIXELFORMAT_BGRA32));
+            require_sdl(bool(converted));
+            require_sdl(SDL_SetSurfaceBlendMode(converted.get(), SDL_BLENDMODE_NONE));
+            input = converted.get();
+        }
+        if (destination.format == SDL_PIXELFORMAT_BGRA32) {
+            require_sdl(SDL_StretchSurface(input, nullptr, &destination, nullptr, mode));
+        } else {
+            auto scaled = CreateCpuStorage(destination.w, destination.h, SDL_PIXELFORMAT_BGRA32);
+            require_sdl(SDL_StretchSurface(input, nullptr, scaled.get(), nullptr, mode));
+            require_sdl(SDL_BlitSurface(scaled.get(), nullptr, &destination, nullptr));
+        }
         return;
     }
     require_sdl(SDL_StretchSurface(input, nullptr, &destination, nullptr, mode));

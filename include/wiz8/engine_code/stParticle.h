@@ -9,11 +9,11 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srMaterialIFace.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "wiz8/engine_code/particle_modes.h"
 
 class W8MonsterShakeCallback;
@@ -31,8 +31,8 @@ public:
     void DeactivateParticle(unsigned int index);
     std::optional<unsigned int> activateParticle(bool replaceWhenFull);
     glm::vec3 emissionPosition();
-    void SetTexture(std::shared_ptr<srTextureIFace> texture);
-    void SetMaterial(std::shared_ptr<srMaterialIFace> material);
+    void SetTexture(std::shared_ptr<srTexture> texture);
+    void SetMaterial(std::shared_ptr<srMaterial> material);
     void SetRenderFlags(srShader flags);
     void SetFlutter(W8ParticleFlutterMode mode);
     void SetParticleScale(float scale);
@@ -42,7 +42,7 @@ public:
     void Update(); /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
-    unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
+    unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTexture> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x00498D60 */
@@ -51,9 +51,9 @@ public:
 
     unsigned int requires_sorted_renderer = 0;
     double particle_size = 1.0; /* billboard quad scale */
-    std::shared_ptr<srMaterialIFace> material;
+    std::shared_ptr<srMaterial> material;
     srShader render_flags;
-    std::shared_ptr<srTextureIFace> texture;
+    std::shared_ptr<srTexture> texture;
     unsigned int particle_count = 0;
     /* Per-particle state. */
     std::vector<glm::vec3> particle_positions;
@@ -70,7 +70,7 @@ public:
     std::vector<glm::ivec3> triangles;
     /* Per-triangle animated texture copies; both triangles of a particle share
        one. Empty unless the texture is animated. */
-    std::vector<std::shared_ptr<srTextureIFace>> texture_frames;
+    std::vector<std::shared_ptr<srTexture>> texture_frames;
     /* Two triangle indices per still-active particle, rebuilt whenever
        update_flags carries W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY. */
     std::vector<w8_ulong> active_triangles;

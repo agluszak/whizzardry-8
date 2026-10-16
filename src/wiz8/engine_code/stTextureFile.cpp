@@ -8,7 +8,6 @@
 #include <SDL3/SDL_pixels.h>
 
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
@@ -24,18 +23,14 @@ void stTextureFile::releaseSurface()
 }
 
 // FUNCTION: WIZ8 0x0047C630
-stTextureFile::stTextureFile(const char* file_name, int cached)
-    : cached(0), surface(nullptr), frame_handle(getNewFrameHandle()), has_alpha(0)
+stTextureFile::stTextureFile(const char* file_name, int preload) : has_alpha(0)
 {
-    /* Retail stores 0 then conditionally stores 1: the authored value is the
-       normalized predicate, not the raw parameter. */
-    this->cached = (cached != 0);
     invalidate();
     setFileName(file_name ? file_name : "");
     if (file_name != 0) {
         setName(file_name);
     }
-    if (cached != 0 && file_name != 0) {
+    if (preload != 0 && file_name != 0) {
         setupDefaultValues();
     }
 }
@@ -45,18 +40,15 @@ stTextureFile& stTextureFile::operator=(const stTextureFile& other)
     if (this != &other) {
         srTexture::operator=(other);
         setFileName(other.file_name);
-        cached = other.cached;
     }
     return *this;
 }
 
 // FUNCTION: WIZ8 0x0047C5F0
-w8_ulong stTextureFile::getTextureFrameHandle()
+srTexture* stTextureFile::resolve()
 {
-    if ((texture_flags_ & LOAD_FAILED) != 0) {
-        return 0;
-    }
-    return frame_handle;
+    if (!surface && (texture_flags_ & LOAD_FAILED) == 0) loadSurface();
+    return surface ? this : nullptr;
 }
 
 // FUNCTION: WIZ8 0x0047C600
@@ -86,7 +78,7 @@ void stTextureFile::setFileName(std::string file_name)
 void stTextureFile::invalidate()
 {
     releaseSurface();
-    invalidateFrameHandle(frame_handle);
+    srTexture::invalidate();
     texture_flags_ &= ~LOAD_FAILED;
 }
 
@@ -135,12 +127,3 @@ void stTextureFile::loadSurface()
 }
 
 // FUNCTION: WIZ8 0x0047CA50
-void stTextureFile::getMipmapData(const MultiRequest& request)
-{
-    if (!surface) loadSurface();
-    if (!surface) return;
-    copyMipmapChain(*surface, request);
-    if ((cached & 1) == 0) releaseSurface();
-}
-
-void stTextureFile::getMipmapLevelPartial(PartialRequest&) {}

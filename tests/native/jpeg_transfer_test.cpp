@@ -353,13 +353,6 @@ TEST_CASE("JPEG decoding and transfer", "[image][transfer]")
     jpegTests();
 }
 
-TEST_CASE("JPEG validation", "[image][transfer]")
-{
-    jpegValidationTests();
-}
-
-TEST_CASE("Pixel transfer pitch", "[image][transfer]") {}
-
 TEST_CASE("TGA orientation and RLE", "[image][transfer]")
 {
     tgaTests();

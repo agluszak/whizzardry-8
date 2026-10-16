@@ -5,9 +5,9 @@
 
 #include "glm/ext/vector_int3.hpp"
 
-class srMaterialIFace;
+class srMaterial;
 class srShader;
-class srTextureIFace;
+class srTexture;
 class stMaterial;
 class stMeshModel;
 

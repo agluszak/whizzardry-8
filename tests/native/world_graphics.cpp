@@ -26,7 +26,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "surrender/srTextureMap.h"
+#include "surrender/srTexture.h"
 #include "temporary_directory.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -193,7 +193,7 @@ TEST_CASE("world graphics")
         auto* tooltip_node = static_cast<srModelInstance*>(node);
         REQUIRE(tooltip_node);
         auto* mesh = static_cast<srMeshModel*>(tooltip_node->getModel());
-        auto* texture = static_cast<srTextureMap*>(mesh->getTexture(0, 0));
+        auto* texture = static_cast<srTexture*>(mesh->getTexture(0, 0));
         auto* surface = texture->getSurfacePtr();
         REQUIRE(surface);
         for (int y = 0; y < g_help_box_height; ++y)

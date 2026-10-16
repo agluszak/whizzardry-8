@@ -9,13 +9,12 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureMap.h"
+#include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 
@@ -168,7 +167,7 @@ static bool uvGrowth()
 static bool reset()
 {
     auto material = std::make_shared<srMaterial>();
-    auto texture = std::make_shared<srTextureMap>();
+    auto texture = std::make_shared<srTexture>();
     {
         srMeshModel mesh(1, 3);
         mesh.getVertexLoc()[1] = glm::vec3(1, 2, 3);
@@ -203,7 +202,7 @@ static bool reset()
 static bool pipelineSlots()
 {
     // Metadata-only GERD/device construction: no window, GPU context or rendering is requested.
-    srGERD renderer(srCreateSDLGPUDevice());
+    srGERD renderer;
     auto* pipeline = &renderer.meshPipeline();
     REQUIRE((pipeline && !pipeline->active_triangles));
     pipeline->triangle_count = 1;
@@ -237,7 +236,7 @@ static bool pipelineSlots()
     }
     // Another renderer can prepare and destroy its scratch without replacing this mesh's passes.
     {
-        srGERD other(srCreateSDLGPUDevice());
+        srGERD other;
         auto& other_pipeline = other.meshPipeline();
         other_pipeline.AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, srShader());
         other_pipeline.Flush();

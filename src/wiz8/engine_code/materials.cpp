@@ -41,7 +41,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTextureIFace.h"
 #include "surrender/srVertexPipe.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
@@ -625,7 +624,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
 {
     const W8MaterialRecord* source = &record;
     W8MeshMaterial result;
-    std::shared_ptr<srTextureIFace>& texture = result.texture;
+    std::shared_ptr<srTexture>& texture = result.texture;
     srShader* render_flags = &result.render_flags;
     char texture_path[80] = "";
     char material_name[80] = "";
@@ -790,8 +789,8 @@ W8MeshMaterial CreateDefaultMaterial()
 /* Load a texture by full path: split it into folder and file, then take the
    animated loader for .IFL names and the plain one for everything else. */
 // FUNCTION: WIZ8 0x004B9460
-std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
-                                                    const W8MaterialRecord* source, bool required)
+std::shared_ptr<srTexture> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
+                                               bool required)
 {
     const std::string_view full_path(path);
     const auto split = full_path.find_last_of("/\\:");
@@ -827,14 +826,14 @@ std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char*
                 g_gerd->setTexture(texture.get(), 0);
                 g_gerd->setTexture(0, 0);
             }
-            if (texture->getTextureFrameHandle() == 0) {
+            if (texture->resolve() == 0) {
                 path.replace(extension, std::string::npos, "jpg");
                 texture->setFileName(path.c_str());
                 if (g_gerd != 0) {
                     g_gerd->setTexture(texture.get(), 0);
                     g_gerd->setTexture(0, 0);
                 }
-                if (texture->getTextureFrameHandle() == 0) {
+                if (texture->resolve() == 0) {
                     ShutdownWithErrorBox(fmt::format("Missing texture file: {}", path));
                 }
             }
@@ -898,7 +897,7 @@ std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const cha
 bool MeshHasAnimatedTexture(srMeshModel* model)
 {
     if (model != 0) {
-        std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
+        std::shared_ptr<srTexture>* textures = model->getPolyTexture(0, 0, 0);
 
         if (textures != 0) {
             int polygon;
@@ -922,7 +921,7 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame)
         srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
 
         if (model != 0) {
-            std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
+            std::shared_ptr<srTexture>* textures = model->getPolyTexture(0, 0, 0);
 
             if (textures != 0) {
                 if (auto* animation = dynamic_cast<stTextureAnim*>(textures[0].get())) {
@@ -940,7 +939,7 @@ stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance)
         srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
 
         if (model != 0) {
-            std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
+            std::shared_ptr<srTexture>* textures = model->getPolyTexture(0, 0, 0);
 
             if (textures != 0) {
                 return dynamic_cast<stTextureAnim*>(textures[0].get());

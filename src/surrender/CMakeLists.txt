@@ -20,7 +20,6 @@ set(SURRENDER_SOURCES
     scene.cpp
     renderer.cpp
     texture.cpp
-    texture_map.cpp
 )
 
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})

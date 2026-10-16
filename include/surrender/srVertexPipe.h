@@ -11,7 +11,7 @@
 #include "srMath.h"
 #include "srVertexProcessor.h"
 
-class srMaterialIFace;
+class srMaterial;
 
 class srVertexPipe {
     friend class W8GroundShadowMapper;
@@ -109,7 +109,7 @@ public:
         };
         w8_ulong flags = 0;
         w8_ulong channels = 0;
-        srMaterialIFace* material = nullptr;
+        srMaterial* material = nullptr;
         struct ColorSource {
             enum e_format { FORMAT_ARGB = 0, FORMAT_VECTOR3 = 1, FORMAT_VECTOR4 = 2 };
             const void* colors = nullptr;
@@ -123,7 +123,7 @@ public:
         const glm::vec4* spec_for_specular = nullptr;
         const float* alpha_source = nullptr;
         const glm::vec2* st_source[2]{};
-        const std::shared_ptr<srMaterialIFace>* materials = nullptr;
+        const std::shared_ptr<srMaterial>* materials = nullptr;
         void* user[12]{};
     };
 
@@ -139,7 +139,7 @@ private:
     void processVertexBuffer();
     static w8_ulong scanChangeIndexed(const w8_ulong* first, w8_ulong first_count,
                                       const w8_ulong* second, w8_ulong second_count);
-    void setMaterial(srMaterialIFace* material);
+    void setMaterial(srMaterial* material);
     void setupAlpha();
     void setupDepthCue();
     void setupDiffuse();
@@ -179,7 +179,7 @@ private:
     w8_ulong channel_mask; /* 0x0c */
     w8_ulong lazy_setup_mask; /* 0x10 */
     srVertexProcessor::MaterialInfo material_info; /* 0x14 through 0x67 */
-    srMaterialIFace* material; /* 0x68 */
+    srMaterial* material; /* 0x68 */
     const Input* input; /* 0x6c */
     const w8_ulong* avt; /* 0x70 */
     const Record* current_record; /* 0x74 */

@@ -42,8 +42,8 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 
-class srMaterialIFace;
-class srTextureIFace;
+class srMaterial;
+class srTexture;
 
 /* The last level material list, reused while consecutive meshes share it. */
 static std::vector<W8MaterialRecord> g_read_mesh_material_records;
@@ -85,8 +85,8 @@ void OptimizeMeshOrder(srMeshModel* model)
     }
 
     std::vector<const srShader*> shader_tables;
-    std::vector<const std::shared_ptr<srTextureIFace>*> texture_tables;
-    std::vector<const std::shared_ptr<srMaterialIFace>*> material_tables;
+    std::vector<const std::shared_ptr<srTexture>*> texture_tables;
+    std::vector<const std::shared_ptr<srMaterial>*> material_tables;
     for (w8_long pass = 0; pass < model->pass_count; ++pass) {
         if (const srShader* shaders = model->getPolyShader(pass, 0)) {
             shader_tables.push_back(shaders);
@@ -156,7 +156,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
 {
     std::vector<srShader> polygon_types;
     /* Each (material, source vertex) pair becomes one vertex per polygon type. */
-    std::map<std::pair<const srMaterialIFace*, int>, int> vertex_indices[8];
+    std::map<std::pair<const srMaterial*, int>, int> vertex_indices[8];
     std::vector<int> duplicated_from[8];
     std::vector<int> duplicated_to[8];
     std::vector<short> mapped_meshes;
@@ -165,8 +165,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
     int polygon_counts[8];
     int vertex_counts[8];
     int extra_uv_counts[8];
-    std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 8> vertex_materials;
-    std::array<std::vector<std::shared_ptr<srTextureIFace>>, 8> polygon_textures;
+    std::array<std::vector<std::shared_ptr<srMaterial>>, 8> vertex_materials;
+    std::array<std::vector<std::shared_ptr<srTexture>>, 8> polygon_textures;
     std::array<std::vector<glm::vec2>, 8> vertex_uvs;
     std::array<std::vector<glm::vec2>, 8> extra_uvs;
     std::array<std::vector<glm::ivec3>, 8> polygon_vertices;
@@ -305,7 +305,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
             }
         }
 
-        std::shared_ptr<srTextureIFace>* model_textures = model->getPolyTexture(0, 0, 1);
+        std::shared_ptr<srTexture>* model_textures = model->getPolyTexture(0, 0, 1);
         for (int polygon = 0; polygon < polygon_counts[type]; ++polygon) {
             model_textures[polygon] = polygon_textures[type][polygon];
         }
@@ -319,7 +319,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         if (one_material) {
             model->setMaterial(vertex_materials[type][0], 0, srMeshModel::SIDE_FRONT);
         } else {
-            std::shared_ptr<srMaterialIFace>* model_materials =
+            std::shared_ptr<srMaterial>* model_materials =
                 model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
             for (int vertex = 0; vertex < vertex_counts[type]; ++vertex) {
                 model_materials[vertex] = vertex_materials[type][vertex];
