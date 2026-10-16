@@ -956,6 +956,8 @@ void ReportBuildStatus(short channel, std::string_view message)
 // FUNCTION: WIZ8 0x004969D0
 void ReportStartupMessage(std::string_view message)
 {
+    // Build logging also runs without an initialized video window.
+    if (!ghWindow) return;
     static glm::vec3 s_black{1.0f};
     static glm::vec3 s_saved_colour{1.0f};
     std::string* line;
