@@ -13,7 +13,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
-#include "surrender/srTriMeshPipeline.h"
 #include "wiz8/surface_storage.h"
 
 // FUNCTION: SURRENDER 0x10015040
@@ -73,8 +72,6 @@ int srExit()
         srCore.material.reset();
         srCore.initialized = 0;
 
-        delete srTriMeshPipeline::pipe;
-        srTriMeshPipeline::pipe = 0;
         srCore.reset();
     }
     return 1;

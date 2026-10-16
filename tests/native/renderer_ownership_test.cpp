@@ -863,7 +863,7 @@ bool pipelineRecordTexcoords()
     // Consume the producer's actual records, including a second record and
     // both UV channels. A layout/stride mismatch used to crash menu rendering.
     srGERD renderer(srCreateSDLGPUDevice());
-    auto* pipeline = srTriMeshPipeline::Get(&renderer);
+    auto* pipeline = &renderer.meshPipeline();
     std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
     std::array<w8_ulong, 3> indices{2, 0, 1};
     glm::mat4 identity;
@@ -900,7 +900,7 @@ bool pipelineRecordTexcoords()
     input.positions = positions;
     input.vertex_arrays = arrays;
     input.records = std::span{pipeline->records}.first(pipeline->slot_count);
-    pipeline->vertex_pipe->process(input);
+    pipeline->vertex_pipe.process(input);
     for (unsigned channel = 0; channel < output.size(); ++channel)
         for (unsigned vertex = 0; vertex < positions.size(); ++vertex) {
             REQUIRE(output[channel][vertex].x == source[channel][indices[vertex]].x);

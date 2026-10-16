@@ -612,7 +612,7 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     double scale = height;
     renderer.scale(scale, scale, scale);
 
-    srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
+    srTriMeshPipeline* pipeline = &renderer.meshPipeline();
     pipeline->triangle_count = std::size(g_shadow_triangles);
     pipeline->triangles = g_shadow_triangles;
     pipeline->vertex_count = std::size(g_shadow_positions);
@@ -632,5 +632,5 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     pipeline->SetFlags(shader);
     ++pipeline->slot_count;
     pipeline->PrepareSlot();
-    pipeline->FlushIfCurrent();
+    pipeline->Flush();
 }

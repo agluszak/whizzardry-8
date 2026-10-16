@@ -18,6 +18,7 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -674,7 +675,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->setCullMode(srGERD::CULL_NONE);
     renderer->setPickKey(0);
 
-    srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(renderer);
+    srTriMeshPipeline* pipeline = &renderer->meshPipeline();
 
     pipeline->active_triangles = std::span(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
@@ -712,7 +713,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     {
         const srMeshSubmission::PickScope picking(*renderer, true);
-        pipeline->FlushIfCurrent();
+        pipeline->Flush();
     }
     renderer->popEnable();
 }
