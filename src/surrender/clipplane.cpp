@@ -1,15 +1,11 @@
-#include <ostream>
 
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srClipPlane.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x10049B90
-srClipPlane::srClipPlane(srNode* parent)
-    : srClassSupport<srClipPlane, srNode, 0x1500>(static_cast<srNode*>(0))
+srClipPlane::srClipPlane(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     clip_plane_ = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
     clip_type_ = CLIP_POSITIONAL_0;
@@ -34,20 +30,6 @@ void srClipPlane::process(const ProcessInfo& info, e_processType type)
 void srClipPlane::traverse(TraverseInfo& info)
 {
     traverseEffect(info);
-}
-
-// FUNCTION: SURRENDER 0x10049E40
-void srClipPlane::dump(std::ostream& stream)
-{
-    srNode::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  Plane equation: ";
-    stream << '{' << clip_plane_.x << ',' << clip_plane_.y << ',' << clip_plane_.z << ','
-           << clip_plane_.w << '}';
-    stream << '\n';
-    stream.width(0x20);
-    stream << "  Clip type: " << clip_type_ << '\n';
 }
 
 // FUNCTION: SURRENDER 0x1004A0A0

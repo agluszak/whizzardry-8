@@ -156,16 +156,6 @@ TEST_CASE("pixel conversions")
     puts("Pixel conversions: exact SDL byte channels, alpha, in-place rotation and exhaustive "
          "custom RGB555 passed");
 }
-
-TEST_CASE("pixel format names are owned values")
-{
-    auto format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_RGB565);
-    REQUIRE(format.getName() == "RGB565/16");
-
-    format.fourcc = 0x34333231;
-    REQUIRE(format.getName() == "1234");
-}
-
 TEST_CASE("SurRender uses shared packed surface operations")
 {
     REQUIRE(srInit());
@@ -214,6 +204,27 @@ TEST_CASE("SurRender uses shared packed surface operations")
             }
     }
     REQUIRE(srExit());
+}
+
+TEST_CASE("Surface copies and blits respect virtual pixels across dynamic types")
+{
+    SurRenderTestFixture runtime;
+    struct VirtualPixels : srColorSurface {
+        VirtualPixels() : srColorSurface(srPixelConvert::SURFACE_BGRA32, 2, 2) { fill(0xff000000); }
+        void getPixelRow(w8_ulong* pixels, w8_long, w8_long begin, w8_long end) override
+        {
+            for (w8_long x = begin; x < end; ++x) pixels[x - begin] = 0xff123456;
+        }
+    } source;
+    srColorSurface destination(srPixelConvert::SURFACE_BGRA32, 2, 2);
+
+    // Both surfaces have identical backing formats. A subclass must still use
+    // its virtual pixel interface rather than the base class's raw SDL blit.
+    destination.copy(source);
+    REQUIRE(destination.getPixel(0, 0) == 0xff123456);
+    destination.fill(0xff000000);
+    destination.blit(0, 0, source, 0, 0, 2, 2);
+    REQUIRE(destination.getPixel(1, 1) == 0xff123456);
 }
 
 TEST_CASE("generic rounded RGB conversion remains exact")

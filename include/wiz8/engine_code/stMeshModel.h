@@ -16,7 +16,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srTypeRegistry.h"
 
 class srTextureIFace;
 
@@ -35,11 +34,8 @@ enum W8MeshModelFlag {
 };
 
 // VTABLE: WIZ8 0x005ec454 stMeshModel
-// VTABLE: WIZ8 0x005ec4b0 srClassSupport<stMeshModel, srMeshModel, 65539>
-class stMeshModel : public srClassSupport<stMeshModel, srMeshModel, 0x10003> {
+class stMeshModel : public srMeshModel {
 public:
-    static const char* sGetClassName() { return "stMeshModel"; }
-
     stMeshModel(w8_long polygons, w8_long vertices);
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
     stMeshModel(const stMeshModel&) = delete;

@@ -15,12 +15,6 @@ double srBoxFilter::getSupport() const
     return 0.5;
 }
 
-// FUNCTION: SURRENDER 0x10003470
-const char* srBoxFilter::getName() const
-{
-    return "box filter";
-}
-
 // FUNCTION: SURRENDER 0x10003340
 double srTriangleFilter::getWeight(double value) const
 {
@@ -37,12 +31,6 @@ double srTriangleFilter::getWeight(double value) const
 double srTriangleFilter::getSupport() const
 {
     return 1.0;
-}
-
-// FUNCTION: SURRENDER 0x100036A0
-const char* srTriangleFilter::getName() const
-{
-    return "triangle filter";
 }
 
 // FUNCTION: SURRENDER 0x10003410
@@ -66,12 +54,6 @@ double srBellFilter::getSupport() const
     return 1.5;
 }
 
-// FUNCTION: SURRENDER 0x100035D0
-const char* srBellFilter::getName() const
-{
-    return "bell-curve filter";
-}
-
 // FUNCTION: SURRENDER 0x100034B0
 double srBSplineFilter::getWeight(double value) const
 {
@@ -93,13 +75,6 @@ double srBSplineFilter::getSupport() const
 {
     return 2.0;
 }
-
-// FUNCTION: SURRENDER 0x10003770
-const char* srBSplineFilter::getName() const
-{
-    return "B-Spline filter";
-}
-
 // GLOBAL: SURRENDER 0x100A0290
 class srTriangleFilter srTriangleFilter;
 

@@ -82,10 +82,9 @@ static void shutdown_survivors()
 
     // These are the actual global owners used by mouse and automap rendering.
     REQUIRE((srExit()));
-    REQUIRE((srCore.getRegistry() == nullptr));
     g_mouse_surface->setName("Detached mouse surface");
     REQUIRE((g_mouse_surface->getName() == "Detached mouse surface"));
-    g_automap_surface.reset(); // Destruction without a live registry.
+    g_automap_surface.reset(); // Destruction after renderer shutdown.
     REQUIRE((srInit()));
     model.reset();
     survivor.reset();

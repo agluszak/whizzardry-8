@@ -1,7 +1,5 @@
 #pragma once
 
-#include <iosfwd>
-
 class srStatisticsManager {
 public:
     struct Statistics {
@@ -22,7 +20,6 @@ public:
 
     SR_DLL_IMPORT void reset();
     SR_DLL_IMPORT Statistics getStatistics() const;
-    SR_DLL_IMPORT void dump(std::ostream& stream, const Statistics& statistics);
 
     /* SurRender's submission pipeline updates these counters directly. */
     Statistics statistics;

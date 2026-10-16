@@ -4,13 +4,10 @@
 #include <vector>
 
 #include "srARGB.h"
-#include "srTypeRegistry.h"
-
-// VTABLE: SURRENDER 0x100753EC
-// class srClassSupport<srPalette, srClass, 10496>
+#include "srClass.h"
 
 // VTABLE: SURRENDER 0x100753CC srPalette
-class srPalette : public srClassSupport<srPalette, srClass, 0x2900> {
+class srPalette : public srClass {
 public:
     /* Two-level lookup: lut_rg[(g<<8)|r] selects a palette row, lut_rgb[(row<<8)|b] yields the
        index. */
@@ -66,13 +63,9 @@ public:
         w8_long rg_dist[0x100];            /* 0x21518 */
     };
 
-    static SR_DLL_IMPORT const char* sGetClassName();
-
     SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
 
     SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
-
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
 
     SR_DLL_IMPORT srARGB getColor(w8_long index) const;
     SR_DLL_IMPORT const srARGB* getPaletteDataPtr();

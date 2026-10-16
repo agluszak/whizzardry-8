@@ -1,14 +1,12 @@
 #include <algorithm>
 #include <memory>
-#include <ostream>
 #include <vector>
 
 #include "compat/compiler.h"
 #include "surrender/srARGB.h"
+#include "surrender/srClass.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 /* Squared channel distance scaled by the luma weights 299/587/114; the biased
    pointers index by (channel - reference) so negative differences work. */
@@ -358,8 +356,7 @@ void srPalette::update()
    count gets a linear ramp. */
 // FUNCTION: SURRENDER 0x10004310
 srPalette::srPalette(srARGB* colors, w8_long color_count)
-    : srClassSupport<srPalette, srClass, 0x2900>(), flags(0), colors(color_count),
-      color_count(color_count)
+    : srClass(), flags(0), colors(color_count), color_count(color_count)
 {
     if (colors == 0) {
         if (color_count == 0x100) {
@@ -423,17 +420,6 @@ srPalette& srPalette::operator=(const srPalette& other)
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x100047A0
-void srPalette::dump(std::ostream& stream)
-{
-    srClass::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  Colors: " << color_count << '\n';
-    stream.width(0x20);
-    stream << "  Dataptr: " << static_cast<void*>(colors.data()) << '\n';
-}
-
 // FUNCTION: SURRENDER 0x10004850
 void srPalette::setColors(w8_long destination_index, const srARGB* const colors,
                           w8_long color_count)
@@ -490,10 +476,4 @@ void srPalette::quantize(unsigned char* const indices, const srARGB* const color
 const srARGB* srPalette::getPaletteDataPtr()
 {
     return colors.data();
-}
-
-// FUNCTION: SURRENDER 0x10004960
-const char* srPalette::sGetClassName()
-{
-    return "srPalette";
 }

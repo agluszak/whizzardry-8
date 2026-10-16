@@ -24,7 +24,6 @@
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Video2.h"
@@ -43,8 +42,6 @@ extern float g_monster_light_scale;
 // GLOBAL: WIZ8 0x0065A148
 static std::vector<glm::vec3> g_vertex_scratch;
 
-// VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 4352>
-// class srClassSupport<stModelInstance2D, class srModelInstance, 65541>
 /* Find the animated texture assigned to polygons whose runtime name begins
    with "mouth". Damage-stage instances use the stage-specific texture table;
    ordinary instances use the mesh's active polygon texture table. */
@@ -58,7 +55,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
                                : mesh->GetTextureTable(damage_stage_tables[damage_stage]);
         if (textures != nullptr) {
             for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-                auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
+                auto* animation = dynamic_cast<stTextureAnim*>(textures[polygon].get());
                 if (animation != nullptr &&
                     _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
                     return animation;
@@ -146,7 +143,7 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     bool replaced = false;
 
-    if (auto* animation = sr_cast<stTextureAnim>(replacement)) {
+    if (auto* animation = dynamic_cast<stTextureAnim*>(replacement.get())) {
         animation->Prepare();
     }
 
@@ -159,7 +156,7 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
 
         for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
             srTextureIFace* texture = textures[polygon].get();
-            if (!sr_cast<stTextureFile>(texture) && !sr_cast<stTextureAnim>(texture)) {
+            if (!dynamic_cast<stTextureFile*>(texture) && !dynamic_cast<stTextureAnim*>(texture)) {
                 continue;
             }
 
@@ -184,8 +181,7 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
    which precedes the rest of the stModelInstance2D lifecycle family. It is an
    ordinary stModelInstance.cpp definition, not a header/template emission. */
 // FUNCTION: WIZ8 0x0047F0F0
-stModelInstance2D::stModelInstance2D(srNode* parent)
-    : srClassSupport<stModelInstance2D, srModelInstance, 0x10005>(static_cast<srNode*>(0))
+stModelInstance2D::stModelInstance2D(srNode* parent) : srModelInstance(static_cast<srNode*>(0))
 {
     render_state.display_state = 0;
     render_state.width = 0;
@@ -327,8 +323,7 @@ void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& s
 
 // FUNCTION: WIZ8 0x0047EC80
 stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
-    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(nullptr),
-                                                                ownership)
+    : srModelInstance(static_cast<srNode*>(nullptr), ownership)
 {
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;

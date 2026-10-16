@@ -50,7 +50,6 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
@@ -1996,10 +1995,10 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
             return result;
         }
 
-        if (auto* file = sr_cast<stTextureFile>(texture); file && file->hasAlpha()) {
+        if (auto* file = dynamic_cast<stTextureFile*>(texture.get()); file && file->hasAlpha()) {
             has_alpha = true;
         }
-        if (auto* animation = sr_cast<stTextureAnim>(texture)) {
+        if (auto* animation = dynamic_cast<stTextureAnim*>(texture.get())) {
             if (animation->Prepare()) {
                 has_alpha = true;
             }
@@ -2226,7 +2225,7 @@ bool MeshHasAnimatedTexture(srMeshModel* model)
             int polygon;
 
             for (polygon = 0; polygon < model->polygon_count; ++polygon) {
-                if (sr_cast<stTextureAnim>(textures[polygon])) {
+                if (dynamic_cast<stTextureAnim*>(textures[polygon].get())) {
                     return true;
                 }
             }
@@ -2247,7 +2246,7 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame)
             std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
 
             if (textures != 0) {
-                if (auto* animation = sr_cast<stTextureAnim>(textures[0])) {
+                if (auto* animation = dynamic_cast<stTextureAnim*>(textures[0].get())) {
                     animation->SetFrame(frame);
                 }
             }
@@ -2265,7 +2264,7 @@ stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance)
             std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
 
             if (textures != 0) {
-                return sr_cast<stTextureAnim>(textures[0]);
+                return dynamic_cast<stTextureAnim*>(textures[0].get());
             }
         }
     }

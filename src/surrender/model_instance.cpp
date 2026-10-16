@@ -1,6 +1,4 @@
 #include <memory>
-#include <ostream>
-#include <string>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -11,7 +9,6 @@
 #include "glm/matrix.hpp"
 #include "surrender/model_view_scope.h"
 #include "surrender/srCore.h"
-#include "surrender/srDebug.h"
 #include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
@@ -19,12 +16,10 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srStatisticsManager.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x1004F920
 srModelInstance::srModelInstance(srNode* parent, Ownership ownership)
-    : srClassSupport<srModelInstance, srNode, 0x1100>(static_cast<srNode*>(nullptr), ownership)
+    : srNode(static_cast<srNode*>(nullptr), ownership)
 {
     alignment_flags.value = 0;
     align_angle = 0.0f;
@@ -128,27 +123,6 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
     ++srCore.getStatisticsManager()->statistics.meshes_traversed;
     const auto scope = scopedRender(*info.renderer);
     getModel()->render(*info.renderer);
-}
-
-// FUNCTION: SURRENDER 0x1004FB20
-void srModelInstance::dump(std::ostream& stream)
-{
-    srNode::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  Is aligned: " << srBoolToString(alignment_flags.value & 1) << '\n';
-    if ((alignment_flags.value & 1) != 0) {
-        stream.width(0x20);
-        stream << "    Align axis: ";
-        stream << '{' << align_axis.x << ',' << align_axis.y << ',' << align_axis.z << '}' << '\n';
-        stream.width(0x20);
-        stream << "    Align angle: " << (double)align_angle << '\n';
-    }
-    stream.width(0x20);
-    stream << "  Model: ";
-    stream << (getModel() != 0 ? getModel()->getName() : "none") << '\n';
-    stream.width(0x20);
-    stream << "  Exclusion mask: " << exclusion_mask << '\n';
 }
 
 // FUNCTION: SURRENDER 0x1004FF40

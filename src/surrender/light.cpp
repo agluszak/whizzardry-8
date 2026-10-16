@@ -2,7 +2,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <ostream>
 #include <span>
 
 #include "compat/compiler.h"
@@ -15,16 +14,13 @@
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"
 #include "surrender/srCore.h"
-#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
-#include "surrender/stream_scope.h"
 
 /* Derived-state bits: bit0 = pushed as an active vertex processor this frame, bit1 = spotlight cone
    active, bit2 = directional, bit3 = OpenGL attenuation active, bit4 = constant-only OpenGL
@@ -32,7 +28,7 @@
 
 // FUNCTION: SURRENDER 0x1004DDA0
 srLight::srLight(srNode* parent, e_preset preset, Ownership ownership)
-    : srClassSupport<srLight, srIlluminator, 0x1220>(static_cast<srNode*>(nullptr), ownership)
+    : srIlluminator(static_cast<srNode*>(nullptr), ownership)
 {
     enable_flags = 0;
     derived_flags = 0;
@@ -69,14 +65,13 @@ srLight::srLight(srNode* parent, e_preset preset, Ownership ownership)
    and light members. Compiler-generated copying shares scene
    links and registry ownership, leaving dangling siblings during unload. */
 srLight::srLight(const srLight& other)
-    : srClassSupport<srLight, srIlluminator, 0x1220>(other),
-      attenuation_model(other.attenuation_model), near_start(other.near_start),
-      near_end(other.near_end), far_start(other.far_start), far_end(other.far_end),
-      scaled_near_start(other.scaled_near_start), scaled_far_end(other.scaled_far_end),
-      near_attenuation(other.near_attenuation), far_attenuation(other.far_attenuation),
-      opengl_attenuation(other.opengl_attenuation), enable_flags(other.enable_flags),
-      ambient(other.ambient), diffuse(other.diffuse), specular(other.specular),
-      spot_direction(other.spot_direction), spot_angle(other.spot_angle),
+    : srIlluminator(other), attenuation_model(other.attenuation_model),
+      near_start(other.near_start), near_end(other.near_end), far_start(other.far_start),
+      far_end(other.far_end), scaled_near_start(other.scaled_near_start),
+      scaled_far_end(other.scaled_far_end), near_attenuation(other.near_attenuation),
+      far_attenuation(other.far_attenuation), opengl_attenuation(other.opengl_attenuation),
+      enable_flags(other.enable_flags), ambient(other.ambient), diffuse(other.diffuse),
+      specular(other.specular), spot_direction(other.spot_direction), spot_angle(other.spot_angle),
       spot_exponent(other.spot_exponent), intensity(other.intensity), safe_range(other.safe_range),
       scaled_ambient(other.scaled_ambient), scaled_diffuse(other.scaled_diffuse),
       scaled_specular(other.scaled_specular), spot_direction_eye(other.spot_direction_eye),
@@ -107,57 +102,6 @@ srLight& srLight::operator=(const srLight& other)
         safe_range = other.safe_range;
     }
     return *this;
-}
-
-// GLOBAL: SURRENDER 0x100A49D0
-// Comma-separated light flag-name table, unset on disk; dump prints flag
-// indices when it is null.
-static const char* const s_light_flag_names = 0;
-
-// The label is the first output, so the column width pads it; keep any '{' in the label.
-static void dumpRow(std::ostream& stream, const char* label, const auto& value)
-{
-    stream.width(0x20);
-    stream << label << value << '\n';
-}
-
-static void dumpVectorRow(std::ostream& stream, const char* label, const glm::vec3& value)
-{
-    stream.width(0x20);
-    stream << label << value.x << ',' << value.y << ',' << value.z << '}' << '\n';
-}
-
-// FUNCTION: SURRENDER 0x1004E0C0
-void srLight::dump(std::ostream& stream)
-{
-    srNode::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  Control flags: ";
-    srDumpFlags(stream, enable_flags, s_light_flag_names);
-    stream << '\n';
-    dumpRow(stream, "  Intensity: ", intensity);
-    dumpVectorRow(stream, "  Ambient coeff.: {", ambient);
-    dumpVectorRow(stream, "  Diffuse coeff.: {", diffuse);
-    dumpVectorRow(stream, "  Specular coeff.: {", specular);
-    dumpVectorRow(stream, "  Spot direction: {", spot_direction);
-    dumpRow(stream, "  Spot angle: ", spot_angle);
-    dumpRow(stream, "  Spot exponent: ", spot_exponent);
-    dumpRow(stream, "  Safe Range: ", safe_range);
-    stream.width(0x20);
-    stream << "  Attenuation model: ";
-    if (attenuation_model == ATTENUATION_OPENGL) {
-        stream << "OpenGL" << '\n';
-        dumpVectorRow(stream, "  Attenuation fact.: {", opengl_attenuation);
-    } else if (attenuation_model == ATTENUATION_3DSTUDIO_MAX) {
-        stream << "3DStudio Max" << '\n';
-        stream.width(0x20);
-        stream << "  Near Range : " << near_start << " - " << near_end << '\n';
-        stream.width(0x20);
-        stream << "  Far Range : " << far_start << " - " << far_end << '\n';
-    } else {
-        stream << "No attenuation" << '\n';
-    }
 }
 
 // FUNCTION: SURRENDER 0x1004D650

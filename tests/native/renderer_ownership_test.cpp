@@ -652,7 +652,7 @@ bool materialChannelOperations()
 bool rendererOwnership()
 {
     {
-        srGERD growing(srCreateSDLGPUDevice(), "renderer entry growth");
+        srGERD growing(srCreateSDLGPUDevice());
         std::array<srGERD::Renderer*, 32> borrowed{};
         for (std::size_t index = 0; index < borrowed.size(); ++index) {
             borrowed[index] = growing.lockRenderer();
@@ -666,7 +666,7 @@ bool rendererOwnership()
     }
     // No context or window is opened: these checks only exercise CPU ownership
     // and the renderer's owner-thread submission bookkeeping.
-    srGERD gerd(srCreateSDLGPUDevice(), "ownership fixture");
+    srGERD gerd(srCreateSDLGPUDevice());
     struct TransformInstance : srModelInstance {
         using srModelInstance::scopedRenderTransform;
     };
@@ -773,7 +773,7 @@ bool rendererOwnership()
 
 bool rendererTextureStages()
 {
-    srGERD gerd(srCreateSDLGPUDevice(), "texture stage fixture");
+    srGERD gerd(srCreateSDLGPUDevice());
     for (unsigned stages : {1u, 2u}) {
         srGERD::Renderer renderer({&gerd, 0, 256, stages});
         auto arrays = renderer.allocVertexArray(3);
@@ -876,7 +876,7 @@ bool pipelineRecordTexcoords()
 {
     // Consume the producer's actual records, including a second record and
     // both UV channels. A layout/stride mismatch used to crash menu rendering.
-    srGERD renderer(srCreateSDLGPUDevice(), "record handoff");
+    srGERD renderer(srCreateSDLGPUDevice());
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
     std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
     std::array<w8_ulong, 3> indices{2, 0, 1};
@@ -1084,7 +1084,7 @@ TEST_CASE("Counted mipmap chains copy adjacent levels and stop at missing destin
 TEST_CASE("Picking honors counted selections, direct indices, nearest depth and atomic validation")
 {
     SurRenderTestFixture runtime;
-    srGERD renderer(srCreateSDLGPUDevice(), "counted picking");
+    srGERD renderer(srCreateSDLGPUDevice());
     srModelInstance selected;
     renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));
     REQUIRE_FALSE(renderer.popPick());

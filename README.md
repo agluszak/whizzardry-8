@@ -263,20 +263,18 @@ POSIX ctime are not interchangeable persistent identities; no loader-side
 iron-man timestamp validator currently exists. Cross-host birth-time identity
 and a full iron-man save/load roundtrip remain unverified.
 
-SurRender keeps its scene graph, mesh/material data, rendering pipeline and game
-format identities. Objects have ordinary C++ owners: scene nodes are owned by
-their parents, meshes by their model head, and shared materials, textures, models,
-palettes and surfaces by `std::shared_ptr`. Surface pixels live in SDL surfaces.
+SurRender keeps its scene graph, mesh/material data and rendering pipeline.
+Objects have ordinary C++ owners: scene nodes are owned by their parents,
+meshes by their model head, and shared materials, textures, models, palettes
+and surfaces by `std::shared_ptr`. Surface pixels live in SDL surfaces.
 Loaded materials, textures, monster scripts and level meshes are reused through
-name-keyed weak caches, not the registry. The remaining `srRegistry` facade
-provides the named lookup and typed iteration gameplay uses for scene objects;
-standard maps own class metadata and index each live object once. Names are case-sensitive and may be shared. Name lookup
-visits the most recently named object first, and instance iteration visits the
-most recently created object first, with optional exact-class filtering.
-Class IDs, class names and ancestry remain explicit format metadata; they are
-not derived from compiler RTTI. There are no configurable per-class instance
-indexes or client wrapper subclasses; game code constructs concrete SurRender
-types directly. The unused object update callback scheduler, device-call profiling
+name-keyed weak caches. Scene lookups use names and C++ runtime types, visiting
+the level world before the sky world. Names are case-sensitive and may be shared;
+child lookup checks a node, its siblings, then its children, while iteration
+visits children before proceeding to siblings. The named base owns its string,
+and copying scene resources preserves names and unnamed state. Runtime type
+queries use C++ RTTI; there is no class registry or registration protocol.
+The unused object update callback scheduler, device-call profiling
 wrapper and video importer manager have been removed; game movies use the
 existing FFmpeg decoder.
 

@@ -27,7 +27,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -341,7 +340,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     material->setMapper(&g_material_mapper);
 
     for (srNode* node = sky_world->level->first_child_; node != 0; node = node->next_sibling_) {
-        if (auto* instance = sr_cast<stModelInstance>(node)) {
+        if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             srMeshModel* mesh = static_cast<srMeshModel*>(instance->getModel());
 
             mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE); /* CONTROL_SKIP_AUTO_SPHERE */

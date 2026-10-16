@@ -40,7 +40,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
-#include "surrender/srTypeRegistry.h"
 #include "texture_animation.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -74,7 +73,7 @@ class srTextureIFace;
 #define READ_LEVEL_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\ReadLevel.cpp"
 
 // FUNCTION: WIZ8 0x004B9C00
-stLevel::stLevel(srNode* parent) : srClassSupport<stLevel, srNode, 0x10007>(static_cast<srNode*>(0))
+stLevel::stLevel(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     if (parent != 0) {
         setParent(parent, 1);
@@ -1194,7 +1193,7 @@ try {
                     }
 
                     auto* material =
-                        sr_cast<stMaterial>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+                        dynamic_cast<stMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
                     if (material != 0) {
                         auto copy = std::make_shared<stMaterial>(*material);
                         copy->setName("Unsunlit Prop Material");

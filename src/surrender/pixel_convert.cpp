@@ -5,7 +5,6 @@
 #include <limits>
 #include <optional>
 #include <span>
-#include <string>
 
 #include <SDL3/SDL_pixels.h>
 
@@ -312,59 +311,6 @@ void initFormats()
 }
 
 } // namespace
-
-// FUNCTION: SURRENDER 0x10007E40
-int srPixelConvert::PixelFormat::isValid() const
-{
-    if (PIXEL_SIZE_8 <= pixel_size && pixel_size <= PIXEL_SIZE_32 && COLOR_RGB <= color_model &&
-        color_model <= COLOR_INDEXED && red_bits <= 8 && green_bits <= 8 && blue_bits <= 8 &&
-        alpha_bits <= 8 && red_shift <= 0x1f && green_shift <= 0x1f && blue_shift <= 0x1f &&
-        alpha_shift <= 0x1f) {
-        return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10007E90
-std::string srPixelConvert::PixelFormat::getName() const
-{
-    static const char channel_letters[] = "RGBAYUVAIXXAPXXA";
-
-    if (fourcc != 0) {
-        char code[5] = {static_cast<char>(fourcc), static_cast<char>(fourcc >> 8),
-                        static_cast<char>(fourcc >> 16), static_cast<char>(fourcc >> 24), 0};
-        return code;
-    }
-
-    w8_ulong shifts[4] = {red_shift, green_shift, blue_shift, alpha_shift};
-    unsigned char bits[4] = {red_bits, green_bits, blue_bits, alpha_bits};
-    unsigned char order[4] = {0, 1, 2, 3};
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < i; j++) {
-            if (shifts[j] < shifts[i]) {
-                w8_ulong shift = shifts[i];
-                shifts[i] = shifts[j];
-                shifts[j] = shift;
-                unsigned char bit = bits[i];
-                bits[i] = bits[j];
-                bits[j] = bit;
-                unsigned char channel = order[i];
-                order[i] = order[j];
-                order[j] = channel;
-            }
-        }
-    }
-
-    std::string name;
-    for (int k = 0; k < 4; k++)
-        if (bits[k] != 0) name.push_back(channel_letters[color_model * 4 + order[k]]);
-    for (int j = 0; j < 4; j++)
-        if (bits[j] != 0) name.push_back(static_cast<char>(bits[j] + '0'));
-    name += '/';
-    name += std::to_string(pixel_size * 8 + 8);
-    return name;
-}
-
 static glm::vec4 channelBitCounts(const srPixelConvert::PixelFormat& format)
 {
     return glm::vec4(format.red_bits, format.green_bits, format.blue_bits, format.alpha_bits);

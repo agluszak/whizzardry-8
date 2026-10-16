@@ -1,12 +1,5 @@
-#include <iostream>
 #include <memory>
-#include <string>
-#include <string_view>
-#include <thread>
 
-#include <SDL3/SDL_platform.h>
-
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "surrender/srClock.h"
 #include "surrender/srColorSurface.h"
@@ -24,8 +17,6 @@
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)
@@ -36,34 +27,13 @@ void __cdecl _srLibraryInit(void)
     initPixelTables();
 }
 
-// FUNCTION: SURRENDER 0x10015010
-std::string_view srCore::getCopyright() const
-{
-    return "SurRender 1.42.2.9 Release Build (MSVC 6.0) (c) Hybrid Holding Ltd. 1994-1999";
-}
-
-// FUNCTION: SURRENDER 0x10015020
-std::string_view srCore::getBuildTime() const
-{
-    return __DATE__ " " __TIME__;
-}
-
-// FUNCTION: SURRENDER 0x10015030
-std::string_view srCore::getVersion() const
-{
-    return "1.42.2.9";
-}
-
 // FUNCTION: SURRENDER 0x10015040
 int __cdecl srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
-        srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
-        srCore.registry_ = std::make_unique<srRegistry>();
         srCore.timer = std::make_unique<srClock>();
         _srLibraryInit();
-        srCore.multi_thread = std::thread::hardware_concurrency() > 1;
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
@@ -73,7 +43,6 @@ int __cdecl srInit()
         srCore.root_node->setName("SurRender root node");
         srCore.material = std::make_unique<srMaterial>();
         srCore.material->setName("SurRender default material");
-        srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
         for (int i = 0; i < 0x1000; ++i) {
@@ -81,22 +50,9 @@ int __cdecl srInit()
         }
         srCore.texture = std::make_unique<srTextureMap>(srCore.surface);
         srCore.texture->setName("SurRender default texture");
-        srDebugPrintf(0xfe, "srInit() -- done\n");
         srCore.initialized = 1;
     }
     return 1;
-}
-
-// FUNCTION: SURRENDER 0x10015680
-unsigned char srCore::getDebugLevel() const
-{
-    return debug_level;
-}
-
-// FUNCTION: SURRENDER 0x100156D0
-w8_ulong srCore::getUniqueID()
-{
-    return next_unique_id++;
 }
 
 // FUNCTION: SURRENDER 0x100156E0
@@ -105,29 +61,10 @@ int srCore::isInitialized() const
     return initialized;
 }
 
-// FUNCTION: SURRENDER 0x100156F0
-void srCore::setDebugLevel(unsigned char level)
-{
-    debug_level = level;
-}
-
-// FUNCTION: SURRENDER 0x10015710
-int srCore::supportMultiThread()
-{
-    return multi_thread;
-}
-
-// FUNCTION: SURRENDER 0x10015720
-void srCore::supportMultiThread(int enabled)
-{
-    multi_thread = enabled;
-}
-
 // FUNCTION: SURRENDER 0x100157A0
 int __cdecl srExit()
 {
     if (srCore.initialized != 0) {
-        srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");
         srGERD::releaseAll();
         srCore.root_node.reset();
         srCore.texture.reset();
@@ -139,10 +76,7 @@ int __cdecl srExit()
         srCore.timer.reset();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
-        srDebugPrintf(0xfe, "srExit() -- cleaning up class registry.\n");
-        srCore.registry_.reset();
         srCore.reset();
-        srDebugPrintf(0xfe, "srExit() -- done\n");
     }
     return 1;
 }
@@ -200,36 +134,12 @@ srCore::~srCore() = default;
 // FUNCTION: SURRENDER 0x10015C90
 void srCore::reset()
 {
-    multi_thread = 0;
     texture.reset();
     surface.reset();
     filter = 0;
     root_node.reset();
     palette.reset();
-    debug_level = 1;
-    next_unique_id = 0;
 }
-
-// FUNCTION: SURRENDER 0x10015CF0
-void srCore::dump(std::ostream& stream)
-{
-    const srDumpStreamScope formatting(stream);
-    stream << '\n' << getCopyright() << '\n';
-    stream.width(0x18);
-    stream << "Build time: " << getBuildTime() << '\n';
-    stream.width(0x18);
-    stream << "Debug Level: " << debug_level << '\n';
-    stream.width(0x18);
-    stream << "Seconds since reset: " << timer->seconds() << '\n';
-    stream.width(0x18);
-    stream << "Operating System: " << SDL_GetPlatform() << '\n';
-    stream << "CPU Information:\n";
-    stream.width(0x18);
-    stream << "  Logical CPUs: " << std::thread::hardware_concurrency() << '\n';
-    stream.width(0x18);
-    stream << "  Multi-thread:  " << srBoolToString(multi_thread) << '\n';
-}
-
 // GLOBAL: SURRENDER 0x100A4778
 int srCore::initialized;
 // GLOBAL: SURRENDER 0x100755E0

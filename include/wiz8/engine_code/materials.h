@@ -7,7 +7,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srShader.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/texture_animation.h"
 
@@ -35,11 +34,8 @@ enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
    is 0x7C bytes, which is what the constructor's callers allocate through
    srHeap, and the only field past srMaterial's extent is at 0x78. */
 // VTABLE: WIZ8 0x005ECB38 stMaterial
-// VTABLE: WIZ8 0x005ECB6C srClassSupport<stMaterial, srMaterial, 65538>
-class stMaterial : public srClassSupport<stMaterial, srMaterial, 0x10002> {
+class stMaterial : public srMaterial {
 public:
-    static const char* sGetClassName() { return "stMaterial"; }
-
     stMaterial();
     virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
 

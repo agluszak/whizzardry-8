@@ -2,15 +2,9 @@
 
 #include "srIlluminator.h"
 
-// VTABLE: SURRENDER 0x100770F8 srVertexProcessor
-// class srClassSupport<srLight, srIlluminator, 4640>
-
-// VTABLE: SURRENDER 0x10077104 srClassSupport<srIlluminator, srNode, 4608>
-// class srClassSupport<srLight, srIlluminator, 4640>
-
 // VTABLE: SURRENDER 0x100770B8 srVertexProcessor
 // VTABLE: SURRENDER 0x100770C4 srLight
-class SR_DLL_IMPORT srLight : public srClassSupport<srLight, srIlluminator, 0x1220> {
+class SR_DLL_IMPORT srLight : public srIlluminator {
 public:
     enum e_preset { PRESET_DIRECTIONAL = 0, PRESET_POINT = 1, PRESET_SPOT = 2 };
 
@@ -35,11 +29,6 @@ public:
     srLight(const srLight& other);
 
     srLight& operator=(const srLight& other);
-
-    // FUNCTION: SURRENDER 0x1004E8F0
-    static const char* sGetClassName() { return "srLight"; }
-
-    virtual void dump(std::ostream& stream) override;
 
 public:
     virtual void traverse(srNode::TraverseInfo& info) override;

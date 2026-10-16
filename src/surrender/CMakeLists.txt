@@ -32,7 +32,6 @@ set(SURRENDER_SOURCES
     texture_map.cpp
     statistics.cpp
     triangulator.cpp
-    type_registry.cpp
     window.cpp
 )
 

@@ -14,8 +14,8 @@
 #include "surrender/srClock.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "surrender/srTypeRegistry.h"
 #include "temporary_directory.h"
+#include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -94,6 +94,16 @@ bool nodes(const std::filesystem::path& directory)
     auto* layer = new srClipPlane(level.world.static_scene);
     layer->setName("LAYER 1");
 
+    // Engine-light setup must keep its exact-type contract: stLight has its
+    // own group configuration even though it derives from srLight.
+    auto* engine_light = new srLight(level.world.static_scene);
+    engine_light->setName("TORCH");
+    engine_light->setGroupMask(7);
+    torch->setGroupMask(9);
+    FinalizeStaticScene(level.world.static_scene);
+    REQUIRE(engine_light->getGroupMask() == 1);
+    REQUIRE(torch->getGroupMask() == 9);
+
     REQUIRE((FindWorldNode<stLight>("LAMP") == lamp));
     REQUIRE((FindWorldNode<stLight>("lamp") == nullptr));
     REQUIRE((FindWorldNode<srNode>("SUN") == sky_light));
@@ -104,6 +114,11 @@ bool nodes(const std::filesystem::path& directory)
     int lights = 0;
     ForEachWorldNode<stLight>([&](stLight*) { ++lights; });
     REQUIRE((lights == 3));
+
+    // Ancestry-based traversal includes both engine and game lights.
+    int all_lights = 0;
+    ForEachWorldNode<srLight>([&](srLight*) { ++all_lights; });
+    REQUIRE(all_lights == 4);
 
     // Only trigger-toggled lights are saved; loading restores them by name.
     lamp->m_save_marked = true;
