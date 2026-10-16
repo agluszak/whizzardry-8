@@ -2116,6 +2116,38 @@ TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independ
     REQUIRE(tree.m_region_index_stream[3] == 0);
 }
 
+TEST_CASE("Build-node consumption preserves octant order and compact indices", "[geometry][octree]")
+{
+    OctPreTree tree;
+    tree.m_spatial.m_depth = 1;
+    tree.m_branches.resize(2);
+    tree.m_leaves.resize(3);
+    tree.m_polygon_index_stream.resize(5);
+    tree.m_gd_surface_index_stream.resize(1);
+    tree.m_branch_count = tree.m_leaf_count = tree.polygon_cursor = tree.m_gd_surface_stream_len =
+        1;
+    std::array<W8OctRegionPolygon, 2> polygons{};
+    polygons[0].ordinal = 17;
+    polygons[1].ordinal = 23;
+    W8OctBuildNode root;
+    for (unsigned i = 0; i < 2; ++i) {
+        auto& leaf = root.children[i == 0 ? 1 : 7];
+        leaf = std::make_unique<W8OctBuildNode>();
+        leaf->leaf_kind = 1;
+        leaf->surfaces[0].push_back(&polygons[i]);
+    }
+    REQUIRE(root.nodeCount() == 3);
+    REQUIRE(root.ConvertToOctPreTree(0, &tree) == 1);
+    REQUIRE(tree.m_branch_count == 2);
+    REQUIRE(tree.m_leaf_count == 3);
+    REQUIRE(tree.m_branches[1].children[1] == 1);
+    REQUIRE(tree.m_branches[1].children[7] == 2);
+    REQUIRE(tree.m_leaves[1].polygon_offset == 1);
+    REQUIRE(tree.m_leaves[2].polygon_offset == 3);
+    REQUIRE(tree.m_polygon_index_stream == std::vector<w8_ulong>{0, 1, 17, 1, 23});
+    REQUIRE(root.nodeCount() == 1);
+}
+
 TEST_CASE_METHOD(SurRenderTestFixture,
                  "Prop bounds return complete boxes and register inclusive octree cells",
                  "[geometry][octree]")
