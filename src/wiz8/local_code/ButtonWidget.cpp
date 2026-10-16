@@ -10,6 +10,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
+#include "wiz8/assertions.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
