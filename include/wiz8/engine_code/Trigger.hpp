@@ -325,7 +325,6 @@ extern int g_container_event;
 bool CreateTriggerShakeEvent(int intensity, float duration, float countdown_duration, bool reverse);
 bool AnyPropTriggerInView(W8World* world);
 
-void ReleaseAllTriggers(void);
 void UpdateWorldTriggers(W8World* world);
 Trigger* FindTriggerForProp(W8World* world, W8Prop* prop);
 
