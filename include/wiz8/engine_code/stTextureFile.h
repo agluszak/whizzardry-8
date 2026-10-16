@@ -1,14 +1,14 @@
 #pragma once
 
-#include <iosfwd>
 #include <memory>
 #include <string>
 
 #include "compat/compiler.h"
 #include "surrender/srTexture.h"
-#include "wiz8/surface_storage.h"
 
 namespace wiz8 {
+struct SDL_Surface;
+
 class File;
 }
 

@@ -13,9 +13,10 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
+
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "srARGB.h"
 #include "srBoundingSphere.h"
 #include "srClass.h"
 #include "srDD.h"
@@ -26,10 +27,8 @@
 #include "srTexture.h"
 #include "srTriMeshPipeline.h"
 #include "srVertexPipe.h"
-#include "wiz8/surface_storage.h"
 struct SDL_Surface;
 class srModelInstance;
-class srPalette;
 class srVertexProcessor;
 struct srVertexArray;
 
@@ -350,8 +349,6 @@ public:
         w8_ulong texture_parameter_sets;
         /* createNewTexture increments this created-texture count. */
         w8_ulong textures_created;
-        /* Palette binds counted when a changed texture carries a new palette. */
-        w8_ulong palette_binds;
         /* setShader calls counted by applyDrawStateChanges. */
         w8_ulong shader_sets;
         /* drawArrays/drawElements increment this draw-call count. */
@@ -518,7 +515,6 @@ public:
     srTextureIFace::e_filter getTextureDefaultMinFilter() const;
     srTextureIFace::e_mipmap getTextureDefaultMipmap() const;
     w8_long getTextureReduction() const;
-    void setGlobalPalette(const srPalette& palette);
     w8_long getMaxTextureWidth() const;
     w8_long getMaxTextureHeight() const;
     w8_long getMaxTextureAspectRatio() const;
@@ -684,7 +680,6 @@ private:
     void closeTexCache();
     void initDDInfo();
     void uploadTexture(Texture& texture);
-    void initGlobalPalette();
     void initClearColors();
     void initView();
     void initLights();
@@ -692,7 +687,6 @@ private:
     void initTextureParameterMatrix();
     void deleteDeletedRenderers();
     e_error openWindowInternal(const OpenInfo& info);
-    std::optional<SDL_PixelFormat> getPixelFormat() const;
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
     RendererEntry* createRenderer(int sorted);
@@ -887,8 +881,6 @@ private:
     mutable Statistics statistics;
 
     ClearState clear_state;
-    // Grayscale ramp used by the CPU palette matching path.
-    srARGB global_palette[0x100];
     /* Bound Texture per stage, swapped by changeTexture. */
     Texture* texture_slots[2];
     /* Per-stage packed device parameters written by setTextureParameters. */

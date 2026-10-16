@@ -1,13 +1,12 @@
 #pragma once
 
-#include <memory>
 #include <span>
 
 #include <SDL3/SDL_pixels.h>
 
 #include "srClass.h"
-#include "srPalette.h"
-#include "wiz8/surface_storage.h"
+
+struct SDL_Surface;
 
 class srTexture;
 class stSurface2D;
@@ -17,7 +16,6 @@ public:
     /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
        srTexture ctor seeds Dimensions::compression with DEFAULT. */
     enum e_compression { COMPRESSION_DEFAULT = 4 };
-    /* Copies retain shared palette ownership; the output object must be constructed. */
     struct Dimensions {
         w8_ulong width;
         w8_ulong height;

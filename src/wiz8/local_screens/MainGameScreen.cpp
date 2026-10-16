@@ -7350,13 +7350,10 @@ unsigned char UpdateSurpriseFade(void)
     if (boundary) {
         if (gXStatus.surprise_phase == 0) {
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
-            const auto pitch = snapshot->pitch;
-            void* pixels = snapshot->pixels;
             g_surprise_snapshot_surface = snapshot;
             g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
                 g_surprise_snapshot_surface, 0x280, 0x1e0, g_scene_fullscreen, 0x80);
-            g_surprise_snapshot_overlay->updateRectangle(g_gerd.get(), pixels, pitch, 0, 0, 0x280,
-                                                         0x1e0);
+            g_surprise_snapshot_overlay->updateRectangle(g_gerd.get(), 0, 0, 0x280, 0x1e0);
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {

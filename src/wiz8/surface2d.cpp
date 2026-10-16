@@ -231,13 +231,9 @@ void stSurface2D::setAlphaTestEnabled(bool enabled)
     }
 }
 
-/* Retail 0x0047E450. The locked surface and pitch are deliberately retained in
-   the ABI even though SurRender obtains the pixels through each stTexture2D's
-   source surface. Keeping the source locked brackets the immediate partial
-   texture uploads exactly as the caller does. */
+/* Dirty rectangles update only the intersecting GPU tiles. */
 // FUNCTION: WIZ8 0x0047E450
-void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, int top, int right,
-                                  int bottom)
+void stSurface2D::updateRectangle(srGERD* renderer, int left, int top, int right, int bottom)
 {
     int x = left;
     int y = top;

@@ -12,11 +12,9 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
 
-#include "surrender/srARGB.h"
 #include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srPalette.h"
 #include "wiz8/surface_storage.h"
 
 namespace srImage {
@@ -142,16 +140,16 @@ SDLSurfaceOwner loadTga(SDL_IOStream* source)
             (has_palette &&
              SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size()))
             return {nullptr, SDL_DestroySurface};
-        std::shared_ptr<srPalette> core_palette;
+        std::shared_ptr<SDL_Palette> core_palette;
         if (indexed && !has_palette) {
             core_palette = srCore.getPalette();
             if (!core_palette) return {nullptr, SDL_DestroySurface};
             palette_data.resize(256 * 3);
             for (unsigned i = 0; i < 256; ++i) {
-                const srARGB color = core_palette->getColor(i);
-                palette_data[i * 3] = color.blue;
-                palette_data[i * 3 + 1] = color.green;
-                palette_data[i * 3 + 2] = color.red;
+                const SDL_Color color = core_palette->colors[i];
+                palette_data[i * 3] = color.b;
+                palette_data[i * 3 + 1] = color.g;
+                palette_data[i * 3 + 2] = color.r;
             }
             prefix[1] = 1;
             prefix[3] = prefix[4] = 0;
@@ -205,13 +203,7 @@ SDLSurfaceOwner loadTga(SDL_IOStream* source)
         }
         if (indexed) {
             if (core_palette) {
-                std::array<SDL_Color, 256> colors;
-                for (unsigned i = 0; i < colors.size(); ++i) {
-                    const auto color = core_palette->getColor(i);
-                    colors[i] = {color.red, color.green, color.blue, color.alpha};
-                }
-                if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(surface.get()), colors.data(), 0,
-                                          256))
+                if (!SDL_SetSurfacePalette(surface.get(), core_palette.get()))
                     return {nullptr, SDL_DestroySurface};
             } else {
                 const auto* palette = SDL_GetSurfacePalette(decoded.get());

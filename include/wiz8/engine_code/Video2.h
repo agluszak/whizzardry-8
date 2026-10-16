@@ -100,7 +100,6 @@ extern const float g_viewport_x_scale;
 extern const float g_viewport_y_scale;
 
 struct SDL_Surface;
-struct SDL_Surface;
 class srModelInstance;
 class srNode;
 class srTextureIFace;

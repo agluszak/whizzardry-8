@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
@@ -13,7 +14,6 @@
 #include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
-#include "surrender/srPalette.h"
 #include "surrender/srScene.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
@@ -38,8 +38,22 @@ int srInit()
         _srLibraryInit();
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
-        srCore.palette = std::make_shared<srPalette>(nullptr, 0x100);
-        srCore.palette->setName("SurRender default palette");
+        srCore.palette = std::shared_ptr<SDL_Palette>(SDL_CreatePalette(256), SDL_DestroyPalette);
+        if (!srCore.palette) throw std::runtime_error(SDL_GetError());
+        std::array<SDL_Color, 256> colors;
+        unsigned index = 0;
+        for (unsigned red = 0; red < 6; ++red)
+            for (unsigned green = 0; green < 6; ++green)
+                for (unsigned blue = 0; blue < 6; ++blue)
+                    if (red != green || red != blue)
+                        colors[index++] = {Uint8(red * 51), Uint8(green * 51), Uint8(blue * 51),
+                                           255};
+        for (unsigned gray = 0; gray < 46; ++gray) {
+            const auto value = Uint8(std::lround(gray * 255.0 / 45));
+            colors[index++] = {value, value, value, 255};
+        }
+        if (!SDL_SetPaletteColors(srCore.palette.get(), colors.data(), 0, colors.size()))
+            throw std::runtime_error(SDL_GetError());
         srCore.root_node = std::make_unique<srScene>(nullptr);
         srCore.root_node->setName("SurRender root node");
         srCore.material = std::make_unique<srMaterial>();
@@ -93,7 +107,7 @@ SDL_Surface* srCore::getSurface() const
 }
 
 // FUNCTION: SURRENDER 0x10015B50
-std::shared_ptr<srPalette> srCore::getPalette() const
+std::shared_ptr<SDL_Palette> srCore::getPalette() const
 {
     return palette;
 }

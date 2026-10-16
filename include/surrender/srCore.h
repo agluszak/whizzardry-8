@@ -8,7 +8,7 @@
 struct SDL_Surface;
 class srMaterial;
 class srNode;
-class srPalette;
+struct SDL_Palette;
 class srTexture;
 
 class srCore {
@@ -19,7 +19,7 @@ public:
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
     srMaterial* getMaterial() const { return material.get(); }
-    std::shared_ptr<srPalette> getPalette() const;
+    std::shared_ptr<SDL_Palette> getPalette() const;
     srNode* getRootNode() const;
     // FUNCTION: SURRENDER 0x100156B0
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
@@ -44,7 +44,7 @@ private:
     std::unique_ptr<srClock> timer;
     std::shared_ptr<SDL_Surface> surface;
     std::unique_ptr<srStatisticsManager> statistics_manager;
-    std::shared_ptr<srPalette> palette;
+    std::shared_ptr<SDL_Palette> palette;
     std::unique_ptr<srNode> root_node;
     std::unique_ptr<srMaterial> material;
     std::unique_ptr<srTexture> texture;

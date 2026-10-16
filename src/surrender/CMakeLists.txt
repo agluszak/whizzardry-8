@@ -21,7 +21,6 @@ set(SURRENDER_SOURCES
     model_instance.cpp
     node.cpp
     scene.cpp
-    palette.cpp
     renderer.cpp
     texture.cpp
     texture_map.cpp

@@ -1166,7 +1166,7 @@ TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-laye
     initialize_test_framebuffer();
     auto& framebuffer = GetFrameBufferSurface();
     SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234);
-    auto before = CopyCpuStorage(framebuffer);
+    SDLSurfaceOwner before(SDL_DuplicateSurface(&framebuffer), SDL_DestroySurface);
     auto target = CreateCpuStorage(100, 50, SDL_PIXELFORMAT_RGB565);
     REQUIRE(before);
     REQUIRE(target);
