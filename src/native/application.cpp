@@ -14,6 +14,7 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "input.h"
 #include "random.h"
 #include "soundman.h"
@@ -79,6 +80,9 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error(failure);
         }
         sdl_initialized_ = true;
+        for (const auto* directory :
+             {"config", "logs", "saves/characters", "saves/npcs", "saves/import"})
+            wiz8::create_directory(wiz8::user_path(directory));
         gfIgnoreMessages = false;
         gzErrorMsg.clear();
         const auto options = ParseArguments(arguments);
@@ -88,7 +92,6 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         if (options.inspector) VideoInspectorEnable();
         if (options.windowed) VideoFullScreen(false);
         if (options.no_octree) NoOct();
-        wiz8::refresh_asset_archives();
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
         ConfigureFontRendering(CreateEnglishTransTable());
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
@@ -151,7 +154,6 @@ void wiz8::Application::shutdown() noexcept
     ReleaseMenuFonts();
     ResetFontRendering();
     ShutdownVideoManager();
-    wiz8::clear_asset_archives();
     SDL_ShowCursor();
     VideoDumpMemoryLeaks();
     gfApplicationActive = false;

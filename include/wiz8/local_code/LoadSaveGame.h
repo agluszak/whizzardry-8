@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -70,7 +71,7 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 bool LoadGame(std::string_view slot_name);
 
 bool SaveLevelStatus(const char* path);
-bool LoadLevelStatus(const char* path, int level);
+bool LoadLevelStatus(const std::filesystem::path& path, int level);
 std::string BuildLevelStatusPath(unsigned int level);
 bool LoadStatusHeader(W8Chunk* chunk);
 bool SaveStatusHeader(W8Chunk* chunks);

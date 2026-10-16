@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 
+#include "asset_paths.h"
 #include "equipment_slots.h"
 #include "layouts/game_status.h"
 #include "layouts/item_instance.h"
@@ -110,7 +111,7 @@ W8Wiz7Character g_imported_characters[6];
 unsigned char LoadWizardry7ImportFile(std::string_view path)
 try {
     if (path.empty()) return 0;
-    auto file = wiz8::open_file(path, wiz8::OpenMode::read);
+    auto file = wiz8::open_file(wiz8::user_path(path), wiz8::OpenMode::read);
     unsigned char header[0x34c];
     short party_block[0x26];
     W8Wiz7Character characters[6]{};

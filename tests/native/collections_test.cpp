@@ -145,13 +145,13 @@ static bool keyboardBindingReplacement()
     }};
     static_assert(W8_MGS_COMMAND_CANCEL == 0 && W8_MGS_COMMAND_MOVE_FORWARD == 200);
     {
-        auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
         file->write(records.data(), records.size());
     }
     MGSKeyboard keyboard;
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     {
-        auto file = wiz8::open_host_file(path);
+        auto file = wiz8::open_file(path);
         REQUIRE(keyboard.Load(*file, true));
     }
     // A duplicate command replaces its record and moves to the end of the
@@ -172,11 +172,11 @@ static bool keyboardBindingReplacement()
     keyboard.GetBinding(1)->key = SDLK_UNKNOWN;
     keyboard.GetBinding(1)->unmapped_retail_key = 0x1234;
     {
-        auto file = wiz8::open_host_file(root / "saved.bin", wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(root / "saved.bin", wiz8::OpenMode::replace);
         REQUIRE(keyboard.Save(*file));
     }
     {
-        auto file = wiz8::open_host_file(root / "saved.bin");
+        auto file = wiz8::open_file(root / "saved.bin");
         std::array<std::uint8_t, 24> saved{};
         file->read_exact(saved.data(), saved.size());
         const std::array<std::uint8_t, 24> expected{{
@@ -185,7 +185,7 @@ static bool keyboardBindingReplacement()
         REQUIRE(saved == expected);
     }
     {
-        auto file = wiz8::open_host_file(root / "saved.bin");
+        auto file = wiz8::open_file(root / "saved.bin");
         MGSKeyboard restored;
         REQUIRE(restored.Load(*file, true));
         const InputEvent press{.type = InputEventType::KeyDown,
@@ -210,7 +210,7 @@ static bool journalSerialization()
     const auto assets = root / "assets", user = root / "user";
     std::filesystem::create_directories(assets);
     std::filesystem::create_directories(user);
-    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}}};
+    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)}};
     const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
     const std::array<W8JournalEntry, count> expected{{{1, static_cast<W8FactId>(10), 0},
@@ -218,13 +218,13 @@ static bool journalSerialization()
                                                       {9, static_cast<W8FactId>(30), -1}}};
     static_assert(sizeof(W8JournalEntry) == 12);
     {
-        auto file = wiz8::open_host_file(input_path, wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(input_path, wiz8::OpenMode::replace);
         file->write(&format, sizeof(format));
         file->write(&count, sizeof(count));
         file->write(expected.data(), sizeof(expected));
     }
     {
-        auto file = wiz8::open_host_file(input_path);
+        auto file = wiz8::open_file(input_path);
         LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.size() == count);
@@ -234,7 +234,7 @@ static bool journalSerialization()
                  actual.alternate_text == expected[i].alternate_text));
     }
     {
-        auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(output_path, wiz8::OpenMode::replace);
         SaveFactJournal(*file);
     }
     std::ifstream input(input_path, std::ios::binary), output(output_path, std::ios::binary);
@@ -245,13 +245,13 @@ static bool journalSerialization()
     REQUIRE((original == roundtrip && original.size() == 8 + 3 * 12));
     // Reusing the journal with an empty chunk must shrink its live extent.
     {
-        auto file = wiz8::open_host_file(input_path, wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(input_path, wiz8::OpenMode::replace);
         const int empty = 0;
         file->write(&format, sizeof(format));
         file->write(&empty, sizeof(empty));
     }
     {
-        auto file = wiz8::open_host_file(input_path);
+        auto file = wiz8::open_file(input_path);
         LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.empty());

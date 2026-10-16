@@ -101,28 +101,32 @@ preserve a decomp-era class or abstraction.
 
 ## Run
 
-Point the launcher to your installed game assets:
+Prepare the retail installation once, then point the launcher at the result:
 
 ```sh
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 ./run.sh /WINDOW
+build/linux/wiz8_prepare_assets /path/to/prepared /path/to/retail-install
+WIZ8_ASSET_ROOT=/path/to/prepared ./run.sh
 ```
 
-The launcher accepts an optional `.env` file and passes arguments through to
-the game. It uses the host's preset build directory unless `WIZ8_BUILD_DIR` is specified.
-The launcher leaves display and GPU driver selection to SDL and the host.
-`WIZ8_GPU_DEBUG=1` enables SDL GPU debugging and
-`WIZ8_SRDD_TRACE=1` traces SurRender draws.
+The output directory must be new and outside the input trees. Optional additional
+input directories supply content from the original CDs; the installation wins
+loose-file conflicts. Preparation extracts the six retail libraries, applies
+`Patches/Patch.000` through `Patch.049` in order, then overlays loose files.
+Filenames and separators are normalized to lowercase and forward slashes. Unsafe
+archive names, duplicate normalized filenames and symlinks are rejected.
+SLF archives, patches, disc markers and old saves/configuration are omitted from
+the output. Preparation preserves source modification times. Keep the original
+installation if you want to prepare again after installing a patch or mod.
 
-Game assets and writable saves/configuration are separate. The virtual `C:\`
-drive maps to `WIZ8_ASSET_ROOT`; file reads prefer `WIZ8_USER_ROOT`, then
-fall back to the installed assets. All writes go to the user root.
-The default comes from SDL's preference directory for
-`Whizzardry/whizzardry8`. Existing populated legacy `whizzardry8` directories
-are reused only when the preferred directory is empty. If both contain saves,
-the preferred directory wins; set `WIZ8_USER_ROOT` explicitly to use the other.
-The launcher queries this same policy rather than inventing another location.
-Optional `WIZ8_CD1_ROOT` through `WIZ8_CD3_ROOT` provide read-only virtual
-disc drives. The launcher writes diagnostics to the user root.
+Runtime assets are ordinary read-only files under `WIZ8_ASSET_ROOT`. There is no
+drive mapping, archive mounting, current-directory state or writable asset overlay.
+Writable data lives in SDL's preference directory for `Whizzardry/whizzardry8`:
+`saves/`, `config/` and `logs/`. `WIZ8_USER_ROOT` can explicitly select another
+user directory for tests or a portable installation. Legacy locations are not
+searched; copy wanted saves into the chosen user directory explicitly, using lowercase directory names (`saves/`,
+`saves/characters/`) and retaining the original save/character filenames.
+The launcher queries the engine's user root and writes `logs/launch.log` there.
+It accepts an optional `.env` and passes arguments to the game.
 
 ## Native tests
 
@@ -152,8 +156,8 @@ combat teardown. The lethal hit calls the game's damage function directly;
 this does not cover weapon targeting or hit rolls. Set
 `WIZ8_RUNTIME_KEEP_USER_ROOT=1` to keep a scenario's files for debugging.
 
-The CTest suite covers portable file/SLF operations, SDL events/timers,
-CRT and pointer semantics, serialization, compression, image decoding/virtual
+The CTest suite covers native files, asset preparation, SDL events/timers,
+CRT and pointer semantics, serialization, compression, image decoding and stream
 transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
 typed ownership/lifetimes, fatal assertions, movie decoding and SurRender interfaces.
 GPU tests need a working
@@ -247,10 +251,10 @@ unaligned typed text pointers are dereferenced. Malformed Unicode becomes
 U+FFFD, and bounded writes do not split UTF-8 sequences or surrogate pairs.
 
 There is no Wine runner, 32-bit target or legacy fallback.
-The game/asset filesystem in `src/platform/` owns virtual paths and uses SDL3
-streams, native UTF-8 host imports and standard C++ filesystem operations.
-Asset names are ASCII-case-insensitive on every host; explicit host imports
-keep native filesystem case semantics. The remaining `src/compat/` CRT code
+The filesystem helpers in `src/platform/` own SDL3 streams and atomic save
+staging. Callers choose explicit asset or user paths; host imports use native
+filesystem paths. SLF parsing is confined to `tools/assets/`.
+The remaining `src/compat/` CRT code
 contains narrow spelling and clock helpers. Localization, quotes, credits and
 saved transcripts use explicit UTF-16LE codecs; native printf formatting
 receives UTF-8, including names used to build character filenames.

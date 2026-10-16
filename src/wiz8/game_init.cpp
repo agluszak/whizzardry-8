@@ -33,7 +33,7 @@
 
 /*
  * The data bring-up gate the native application initializes last. It stamps the version
- * string, opens the archives and string data, then walks every database
+ * string, opens the string data, then walks every database
  * loader in turn, abandoning the sequence the moment one fails. Its callees
  * are mostly unidentified and carry address-derived names; the ones already
  * recovered elsewhere keep theirs.

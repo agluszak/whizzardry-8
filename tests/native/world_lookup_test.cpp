@@ -125,13 +125,13 @@ bool nodes(const std::filesystem::path& directory)
     lamp->setFlag(srNode::FLAG_DISABLE);
     const auto path = directory / "lights.bin";
     {
-        auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
         SaveLightStates(*file);
     }
     lamp->clearFlag(srNode::FLAG_DISABLE);
     torch->setFlag(srNode::FLAG_DISABLE);
     {
-        auto file = wiz8::open_host_file(path);
+        auto file = wiz8::open_file(path);
         LoadLightStates(*file);
     }
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
@@ -152,12 +152,12 @@ bool nodes(const std::filesystem::path& directory)
     gas->persisted = true;
     gas->SetActive(0);
     {
-        auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
         SaveParticleStates(*file);
     }
     gas->emitting = 1;
     {
-        auto file = wiz8::open_host_file(path);
+        auto file = wiz8::open_file(path);
         LoadParticleStates(*file);
     }
     REQUIRE((!gas->emitting && idle->emitting));

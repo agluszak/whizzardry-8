@@ -22,7 +22,7 @@ TEST_CASE("packed bit IO")
     for (unsigned bit = 0; bit < original.size(); ++bit)
         original[bit] = (words[bit / 32] >> (bit % 32)) & 1;
     {
-        auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
         REQUIRE((SavePackedBits(*file, original)));
         REQUIRE((file->seek(0, wiz8::SeekOrigin::begin) == 0));
         Uint32 magic;
@@ -34,7 +34,7 @@ TEST_CASE("packed bit IO")
         REQUIRE((SDL_SeekIO(file->io(), -4, SDL_IO_SEEK_END) == file->size() - 4));
         REQUIRE((SDL_ReadU32LE(file->io(), &magic) && magic == 0xdeadd00d));
     }
-    auto file = wiz8::open_host_file(path);
+    auto file = wiz8::open_file(path);
     std::vector<unsigned char> encoded(file->size());
     file->read_exact(encoded.data(), encoded.size());
     // Captured from BitArray::Save at c8b831f, before the vector migration.
@@ -60,7 +60,7 @@ TEST_CASE("packed bit IO")
             std::ofstream output(path, std::ios::binary | std::ios::trunc);
             output.write(reinterpret_cast<const char*>(encoded.data()), size);
         }
-        auto truncated = wiz8::open_host_file(path);
+        auto truncated = wiz8::open_file(path);
         std::vector<bool> destination(32);
         SetBit(destination, 7);
         REQUIRE((!LoadPackedBits(*truncated, destination)));
@@ -71,7 +71,7 @@ TEST_CASE("packed bit IO")
     for (const unsigned count : {31u, 32u, 33u, 16777247u}) {
         std::vector<bool> source(count), resized(1);
         SetBit(source, count - 1);
-        auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        auto output = wiz8::open_file(path, wiz8::OpenMode::replace);
         REQUIRE((SavePackedBits(*output, source)));
         output->seek(0, wiz8::SeekOrigin::begin);
         REQUIRE((LoadPackedBits(*output, resized) && resized.size() == count));
@@ -80,7 +80,7 @@ TEST_CASE("packed bit IO")
     // Mismatched serialized bit count and Huffman word count cannot commit.
     encoded[4] = 32; // Original count was 64, with three decoded words.
     {
-        auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        auto output = wiz8::open_file(path, wiz8::OpenMode::replace);
         output->write(encoded.data(), encoded.size());
         output->seek(0, wiz8::SeekOrigin::begin);
         std::vector<bool> destination(32);

@@ -25,6 +25,7 @@
 #include <wiz8/filesystem.h>
 
 #include "AnimRep.hpp"
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp" // IWYU pragma: keep
@@ -485,7 +486,7 @@ try {
     }
 
     try {
-        auto input = wiz8::open_file("3DVideo.CFG");
+        auto input = wiz8::open_file(wiz8::user_path("config/3dvideo.cfg"));
         if (input->size() > 65536) throw std::runtime_error("oversized video configuration");
         std::string text(static_cast<std::size_t>(input->size()), '\0');
         if (input->read(text.data(), text.size()).bytes != text.size())

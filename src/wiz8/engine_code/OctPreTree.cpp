@@ -14,17 +14,18 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
+#include <glm/vector_relational.hpp> // NOLINT(misc-include-cleaner)
 
 #include "ReadMesh.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "geometry.h"
-#include "glm/common.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "glm/geometric.hpp"
-#include "glm/vector_relational.hpp"
 #include "index_algorithms.h"
 #include "navigation_flags.h"
 #include "packed_bits.h"
@@ -257,7 +258,7 @@ try {
     }
     file = [&]() {
         try {
-            return wiz8::open_file("NewLevel.oct", wiz8::OpenMode::replace);
+            return wiz8::open_file(wiz8::user_path("NewLevel.oct"), wiz8::OpenMode::replace);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

@@ -16,9 +16,6 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info);
 unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game);
 unsigned char UnloadLevel(const char* save_directory);
 
-bool IsLevelCdMissing(int level);
-unsigned char FindGameDataPath(char* path, int cd_number);
-int GetLevelCdNumber(int level);
 void UnloadSkyWorld(void);
 char GetLevelBand(int saved_level);
 

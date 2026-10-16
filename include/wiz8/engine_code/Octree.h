@@ -192,7 +192,6 @@ public:
     W8Octree(const char* path, W8GameData** game_data);
     /* Preprocessing calls retain this receiver even when a body uses only
        global build state. */
-    char BuildPreprocessedFiles(const char* level_path);
     void OctBuildOptions(char* stem);
     void Reset();
     void Initialize(const W8OctFileHeader* header);

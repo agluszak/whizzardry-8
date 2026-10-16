@@ -24,6 +24,7 @@
 #include "Font.h"
 #include "Item.h"
 #include "application.h"
+#include "asset_paths.h"
 #include "camera_motion.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
@@ -2691,7 +2692,7 @@ void MainGameScreenFrame(void)
         }
         strcat(path, ".rlk");
         if (![&]() {
-                const auto status = wiz8::file_status(path);
+                const auto status = wiz8::file_status(wiz8::asset_path(path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
             g_world->octree->BuildRegionLinks(true);

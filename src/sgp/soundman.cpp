@@ -19,8 +19,9 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include <glm/ext/vector_float3.hpp>
-#include <glm/geometric.hpp>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "random.h"
 #include "wiz8/audio_resources.h"
@@ -84,7 +85,7 @@ std::string resolve_path(std::string_view path)
     if (path.empty()) return {};
     std::string filename(path);
     SDL_strupr(filename.data());
-    if (const auto status = wiz8::file_status(filename);
+    if (const auto status = wiz8::file_status(wiz8::asset_path(filename));
         status && status->info.type == SDL_PATHTYPE_FILE)
         return filename;
     if (filename.ends_with(".WAV"))
@@ -215,7 +216,7 @@ Playback stream_resolved(const std::string& filename, PlayOptions options)
 
 std::optional<std::uint32_t> file_size(const std::string& filename)
 {
-    const auto status = wiz8::file_status(filename);
+    const auto status = wiz8::file_status(wiz8::asset_path(filename));
     if (!status || status->info.type != SDL_PATHTYPE_FILE) return std::nullopt;
     return std::uint32_t(std::min<Uint64>(status->info.size, UINT32_MAX));
 }

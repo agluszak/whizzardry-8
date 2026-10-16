@@ -67,7 +67,7 @@ static std::vector<unsigned int> ReadFrame()
 
 static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
 {
-    auto output = wiz8::open_host_file(wiz8::path_from_utf8(path), wiz8::OpenMode::replace);
+    auto output = wiz8::open_file(wiz8::path_from_utf8(path), wiz8::OpenMode::replace);
     REQUIRE(output);
     char header[80];
     const int count =
@@ -88,15 +88,16 @@ TEST_CASE("world graphics")
     const char* mode = SDL_getenv("WIZ8_WORLD_MODE");
     std::unique_ptr<wiz8::Application> application;
     std::string temporary;
-    bool have_overlay = false;
+    bool have_user_directory = false;
 
     REQUIRE(character_name); // Character basename under installed Saves/Characters.
     temporary = make_temporary_directory("wiz8-world");
-    have_overlay = true;
+    have_user_directory = true;
     auto roots = w8_native::path_roots();
     roots.user = temporary;
     w8_native::configure_paths(roots);
-    auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
+    wiz8::create_directory(wiz8::user_path("config"));
+    auto config = wiz8::open_file(wiz8::user_path("config/3dvideo.cfg"), wiz8::OpenMode::replace);
     const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
     config->write(settings.data(), settings.size());
     config->close();
@@ -108,7 +109,7 @@ TEST_CASE("world graphics")
     REQUIRE(LoadCharacter(character_name, &character, -1));
     REQUIRE(AddCharacterToParty(character, -1) == 2);
     RunNewGameOpeningSequence(false, {});
-        // Bypass only the opening movie; use the normal new-game loading screen.
+    // Bypass only the opening movie; use the normal new-game loading screen.
     g_pending_screen_state.mode = 0;
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
     fprintf(stderr, "world: enter real new-game loader\n");
@@ -143,7 +144,7 @@ TEST_CASE("world graphics")
         }
         REQUIRE(portrait.portrait.pose == 1);
         REQUIRE(portrait.portrait.rendered_pose == 1);
-            // A complete blink must paint both the closed and reopened eyes.
+        // A complete blink must paint both the closed and reopened eyes.
         portrait.portrait.blink_closing = true;
         for (int frame = 0; frame < 10 && portrait.portrait.pose != 2; ++frame) {
             portrait.portrait.pose_clock = 0;
@@ -171,7 +172,7 @@ TEST_CASE("world graphics")
             return result;
         };
         const auto first = caption();
-            // Deliberately stain the panel to model obsolete text from another action.
+        // Deliberately stain the panel to model obsolete text from another action.
         for (int y = 450; y < 480; ++y)
             memset(static_cast<unsigned char*>(framebuffer.pixels) + y * framebuffer.pitch +
                        343 * 2,
@@ -210,7 +211,7 @@ TEST_CASE("world graphics")
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) ++enabled;
     REQUIRE(enabled > 0);
 
-        // Same scene and UI, with only the actual world pass switched off.
+    // Same scene and UI, with only the actual world pass switched off.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
     const auto with_world = g_gerd->getStatistics();
@@ -288,5 +289,5 @@ TEST_CASE("world graphics")
     }
 
     application.reset();
-    if (have_overlay) std::filesystem::remove_all(temporary);
+    if (have_user_directory) std::filesystem::remove_all(temporary);
 }

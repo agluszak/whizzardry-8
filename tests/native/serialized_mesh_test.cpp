@@ -68,7 +68,7 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
 void WriteFixture(const std::filesystem::path& path, bool duplicate_successor,
                   bool invalid_texture = false)
 {
-    auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+    auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
     Write(*file, 4u); // Two roots and two successors.
     Write(*file, 2u);
     Write(*file, short{2});
@@ -86,7 +86,7 @@ void WriteFixture(const std::filesystem::path& path, bool duplicate_successor,
 
 void WriteAnimatedFixture(const std::filesystem::path& path)
 {
-    auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+    auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
     Write(*file, 3); // Format with flags and transform.
     Write(*file, 3); // Vertices.
     Write(*file, 1); // Faces.
@@ -114,7 +114,7 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
 
 bool LoadAnimated(const std::filesystem::path& path)
 {
-    auto file = wiz8::open_host_file(path);
+    auto file = wiz8::open_file(path);
     W8World world{};
     W8ReadLevelInfo info{&world, file.get(), "", nullptr};
     auto first = ReadSingleLevelMesh(&info, "animated fixture", true);
@@ -142,7 +142,7 @@ bool LoadAnimated(const std::filesystem::path& path)
 bool LoadCycles(const std::filesystem::path& path)
 {
     for (int cycle = 0; cycle != 3; ++cycle) {
-        auto file = wiz8::open_host_file(path);
+        auto file = wiz8::open_file(path);
         W8ReadLevelInfo info{};
         W8World world{};
         info.world = &world;
@@ -201,7 +201,7 @@ TEST_CASE("serialized_mesh_test")
     WriteAnimatedFixture(animated);
     bool ok = LoadCycles(good) && LoadAnimated(animated);
     for (const auto& path : {bad, invalid, truncated}) {
-        auto file = wiz8::open_host_file(path);
+        auto file = wiz8::open_file(path);
         W8ReadLevelInfo info{};
         W8World world{};
         info.world = &world;
@@ -213,13 +213,13 @@ TEST_CASE("serialized_mesh_test")
     {
         W8World world{};
         for (std::size_t size : {0u, 3u, 5u}) {
-            auto file = wiz8::open_host_file(good);
+            auto file = wiz8::open_file(good);
             W8ReadLevelInfo info{&world, file.get(), "", nullptr};
             REQUIRE(ReadMultipleLevelMeshes(&info, size, nullptr).empty());
         }
         std::size_t operations;
         {
-            auto file = wiz8::open_host_file(good);
+            auto file = wiz8::open_file(good);
             W8ReadLevelInfo info{&world, file.get(), "", nullptr};
             FileFaults trace;
             auto instances = ReadMultipleLevelMeshes(&info, 4, nullptr);
@@ -230,7 +230,7 @@ TEST_CASE("serialized_mesh_test")
         // replaying every read/seek in the same malformed-load path.
         REQUIRE(operations >= 3);
         for (const std::size_t operation : {std::size_t{1}, operations / 2, operations}) {
-            auto file = wiz8::open_host_file(good);
+            auto file = wiz8::open_file(good);
             W8ReadLevelInfo info{&world, file.get(), "", nullptr};
             FileFaults fault(operation);
             REQUIRE(ReadMultipleLevelMeshes(&info, 4, nullptr).empty());
@@ -256,8 +256,8 @@ TEST_CASE("serialized_mesh_test")
         world.psrMeshes = {new TrackedInstance(&scene, destroyed),
                            new TrackedInstance(&scene, destroyed), nullptr};
         const auto empty = directory / "empty.lvl";
-        wiz8::open_host_file(empty, wiz8::OpenMode::replace)->close();
-        auto file = wiz8::open_host_file(empty);
+        wiz8::open_file(empty, wiz8::OpenMode::replace)->close();
+        auto file = wiz8::open_file(empty);
         REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
         REQUIRE(destroyed == 3);
         REQUIRE(world.update_mesh_source == nullptr);
@@ -285,7 +285,7 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
     for (bool transform : {false, true})
         for (bool lod : {false, true}) {
             {
-                auto file = wiz8::open_host_file(input, wiz8::OpenMode::replace);
+                auto file = wiz8::open_file(input, wiz8::OpenMode::replace);
                 Write(*file, std::array<unsigned char, 7>{1, 1, 1, 1, 0, 0,
                                                           static_cast<unsigned char>(transform)});
                 Write(*file, std::array<char, 50>{});
@@ -321,12 +321,12 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
             const std::string bytes = bytes_at(input);
             W8LevelFileAnimObj animation{};
             {
-                auto file = wiz8::open_host_file(input);
+                auto file = wiz8::open_file(input);
                 REQUIRE(ReadAnimObjFile(*file, animation));
                 REQUIRE(file->tell() == static_cast<std::int64_t>(bytes.size()));
             }
             {
-                auto file = wiz8::open_host_file(output, wiz8::OpenMode::replace);
+                auto file = wiz8::open_file(output, wiz8::OpenMode::replace);
                 REQUIRE(WriteAnimObjFile(*file, animation));
             }
             REQUIRE(bytes_at(output) == bytes);
@@ -336,7 +336,7 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                     std::ofstream file(input, std::ios::binary | std::ios::trunc);
                     file.write(bytes.data(), end);
                 }
-                auto file = wiz8::open_host_file(input);
+                auto file = wiz8::open_file(input);
                 W8LevelFileAnimObj partial{};
                 REQUIRE_FALSE(ReadAnimObjFile(*file, partial));
                 REQUIRE(partial.morphs.empty());
@@ -373,7 +373,7 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
     for (short version : {0, 1, 2}) {
         for (int material : {0, -1}) {
             {
-                auto file = wiz8::open_host_file(expected_path, wiz8::OpenMode::replace);
+                auto file = wiz8::open_file(expected_path, wiz8::OpenMode::replace);
                 Write(*file, std::array<int, 7>{4 | (version << 8), 3, 3, 1, 11, 13, material});
                 Write(*file, locations);
                 Write(*file, std::array<float, 6>{1, 2, 3, 4, 5, 6});
@@ -409,7 +409,7 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                     mesh.m_vertex_lights.emplace_back(value[0], value[1], value[2]);
                 mesh.m_poly_equations.assign(equations.begin(), equations.end());
                 mesh.m_sun_lights.resize(version, std::vector<float>(sun.begin(), sun.end()));
-                auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
+                auto file = wiz8::open_file(output_path, wiz8::OpenMode::replace);
                 if (inject_failure) {
                     // Raw texture-array failure occurs after the index arrays have
                     // transferred, while normals, lights, and equations remain owned.

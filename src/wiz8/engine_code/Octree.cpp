@@ -15,6 +15,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -22,13 +23,15 @@
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_log.h>
+#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtc/quaternion.hpp>
+#include <glm/vector_relational.hpp> // NOLINT(misc-include-cleaner)
 
 #include "OctPreTree.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
-#include "file_time.h"
-#include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -36,8 +39,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_int3_sized.hpp"
-#include "glm/geometric.hpp"
-#include "glm/vector_relational.hpp"
+#include "ground_probe.h"
 #include "index_algorithms.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
@@ -793,7 +795,7 @@ static unsigned char FindNextLevelFile(std::string* name)
         search += extension;
         const auto separator = search.find_last_of("\\/");
         g_octree_file_search = wiz8::list_directory(
-            separator == std::string::npos ? "." : search.substr(0, separator),
+            wiz8::asset_path(separator == std::string::npos ? "." : search.substr(0, separator)),
             separator == std::string::npos ? search : search.substr(separator + 1));
         g_octree_file_search_index = 0;
         g_octree_file_search_active = !g_octree_file_search.empty();
@@ -825,7 +827,7 @@ try {
     unsigned int count = 0;
     unsigned int files = 0;
     while (FindNextLevelFile(&name) != 0) {
-        auto file = wiz8::open_file(name);
+        auto file = wiz8::open_file(wiz8::asset_path(name));
         file->read_exact(&count, sizeof(count));
         const auto bytes = std::uint64_t{count} * sizeof(wiz8::retail::Vec3f);
         if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
@@ -860,7 +862,7 @@ try {
         name.resize(extension);
     }
     name += g_octree_point_extension;
-    auto file = wiz8::open_file(name, wiz8::OpenMode::replace);
+    auto file = wiz8::open_file(wiz8::user_path(name), wiz8::OpenMode::replace);
     const auto count = static_cast<std::uint32_t>(m_sample_points.size());
     file->write(&count, sizeof(count));
     for (const auto& point : m_sample_points) wiz8::retail::write(*file, point);
@@ -878,7 +880,7 @@ try {
         name.resize(extension);
     }
     name += g_region_link_extension;
-    auto file = wiz8::open_file(name);
+    auto file = wiz8::open_file(wiz8::asset_path(name));
     unsigned int count;
     file->read_exact(&count, sizeof(count));
     const auto bytes = std::uint64_t{count} * (sizeof(unsigned int) + sizeof(unsigned short));
@@ -1271,10 +1273,10 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         }
         strcat(point_path, g_octree_point_extension);
         if ([&]() {
-                const auto status = wiz8::file_status(point_path);
+                const auto status = wiz8::file_status(wiz8::asset_path(point_path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
-            wiz8::remove_file(point_path);
+            wiz8::remove_file(wiz8::user_path(point_path));
         }
         m_sample_points.clear();
     }
@@ -1370,7 +1372,7 @@ try {
         return false;
     }
     const unsigned int count = keys.size();
-    auto file = wiz8::open_file(name, wiz8::OpenMode::replace);
+    auto file = wiz8::open_file(wiz8::user_path(name), wiz8::OpenMode::replace);
     file->write(&count, sizeof(count));
     file->write(keys.data(), keys.size() * sizeof(keys[0]));
     file->write(values.data(), values.size() * sizeof(values[0]));
@@ -2475,13 +2477,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (asset_status < 0) {
             throw std::runtime_error("Octree assets unavailable.");
         }
-        if (asset_status > 0 && !BuildPreprocessedFiles(path)) {
-            ReportStartupMessage("Cannot find or build current preprocessed files.");
-            ReportStartupMessage("Attempting to run with LVL file only -- SOME FEATURES DISABLED.");
-            ReportStartupMessage({});
-            throw std::runtime_error("Could not build octree assets.");
-        }
-        auto hOctFile = wiz8::open_file(path);
+        auto hOctFile = wiz8::open_file(wiz8::asset_path(path));
         W8OctFileHeader header;
         hOctFile->read_exact(&header, sizeof(header));
         unsigned int uiTerminator;
@@ -2666,78 +2662,15 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
     }
 }
 
-/* Answer whether this level's OCT/PVL/WGD/LVL set is present, current, and
-   newer than the raw sources. Negative means skip the octree, zero means the
-   set is ready, and positive means the preprocessed files should be rebuilt. */
-// FUNCTION: WIZ8 0x0042ccc0
+// Installed assets are already prepared. Missing OCT/PVL falls back to LVL.
 int CheckLevelAssetSet(const char* level_path)
 {
-    if (g_octree_disabled) {
+    if (g_octree_disabled || std::string_view(level_path).find("Sky") != std::string_view::npos ||
+        std::string_view(level_path).find("sky") != std::string_view::npos)
         return -1;
-    }
-    std::string copy = level_path;
-    TrimAndLowercaseString(copy.data());
-    if (strstr(copy.c_str(), "sky") != 0) {
-        return -1;
-    }
-    const auto cd = wiz8::file_status("CD.ROM");
-    if (cd && cd->info.type == SDL_PATHTYPE_FILE) {
-        return 0;
-    }
-
-    std::string stem = level_path;
-    if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
-        stem.resize(extension);
-    }
-    const auto oct = wiz8::file_status(level_path);
-    const auto pvl = wiz8::file_status(stem + ".PVL");
-    int rebuild = 1;
-    unsigned short version = 0;
-    if (oct && oct->info.type == SDL_PATHTYPE_FILE && pvl && pvl->info.type == SDL_PATHTYPE_FILE) {
-        try {
-            auto file = wiz8::open_file(level_path);
-            file->read_exact(&version, sizeof(version));
-            rebuild = version < W8OctFileHeader::VERSION;
-        } catch (const std::exception&) {
-            rebuild = 1;
-        }
-        if (version > W8OctFileHeader::VERSION) {
-            ShutdownWithErrorBox(
-                "EXE OUT OF DATE: Program is older than File version--There is a new "
-                "executable available.");
-        }
-    }
-    const auto lvl = wiz8::file_status(stem + ".LVL");
-    if (!lvl || lvl->info.type != SDL_PATHTYPE_FILE) {
-        return -rebuild;
-    }
-    const auto wgd = wiz8::file_status(stem + ".WGD");
-    if (!wgd || wgd->info.type != SDL_PATHTYPE_FILE) {
-        ReportStartupMessage(
-            "Could not find WGD file. Cannot find or build current preprocessed files.");
-        ReportStartupMessage("Attempting to run with LVL file only -- NO COLLISION DATA.");
-        ReportStartupMessage({});
-        return -rebuild;
-    }
-
-    const auto oct_time = oct ? wiz8::file_time_from_sdl(oct->info.modify_time).ticks() : 0;
-    const auto pvl_time = pvl ? wiz8::file_time_from_sdl(pvl->info.modify_time).ticks() : 0;
-    const auto wgd_time = wiz8::file_time_from_sdl(wgd->info.modify_time).ticks();
-    const auto lvl_time = wiz8::file_time_from_sdl(lvl->info.modify_time).ticks();
-    constexpr std::uint64_t tolerance = 10 * 10000000;
-    if (oct && pvl && oct_time < pvl_time) {
-        if (wgd_time <= oct_time || wgd_time - oct_time < tolerance) {
-            return lvl_time > oct_time && lvl_time - oct_time >= tolerance ? 1 : rebuild;
-        }
-    } else if (pvl) {
-        if ((wgd_time <= pvl_time || wgd_time - pvl_time < tolerance) &&
-            (lvl_time <= pvl_time || lvl_time - pvl_time < tolerance)) {
-            return rebuild;
-        }
-    } else {
-        return rebuild;
-    }
-    return 1;
+    auto pvl = wiz8::asset_path(level_path);
+    pvl.replace_extension(".pvl");
+    return wiz8::file_status(wiz8::asset_path(level_path)) && wiz8::file_status(pvl) ? 0 : -1;
 }
 
 /* Reset the owned tables and query state before applying an OCT header.
@@ -2938,16 +2871,6 @@ void W8Octree::AddLoadedParticle(stParticle* particle)
 // FUNCTION: WIZ8 0x0042de60
 W8Octree::~W8Octree()
 {
-    if (m_region_links_dirty) {
-        SaveRegionLinks(m_path_stem.c_str());
-    }
-    if (m_points_dirty) {
-        SavePoints(m_path_stem.c_str());
-    }
-    if (pathing != 0) {
-        pathing->SaveWaypointSnapshot(false);
-    }
-
     if (m_pRegionLinks != 0) {
         m_pRegionLinks->clear();
         delete m_pRegionLinks;

@@ -23,7 +23,6 @@ set(SURRENDER_SOURCES
     model_instance.cpp
     node.cpp
     scene.cpp
-    system.cpp
     palette.cpp
     pixel_convert.cpp
     renderer.cpp

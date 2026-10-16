@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "asset_paths.h"
 #include "filesystem.h"
 #include "wiz8/unicode.h"
 
@@ -87,7 +88,7 @@ try {
 // FUNCTION: WIZ8 0x0055a480
 W8NpcScriptFile* LoadNpcScriptFile(std::string_view path)
 try {
-    auto file = wiz8::open_file(path);
+    auto file = wiz8::open_file(wiz8::asset_path(path));
     wiz8::retail::nsf::Header disk;
     file->read_exact(&disk, sizeof(disk));
     auto script = std::make_unique<W8NpcScriptFile>();

@@ -4,13 +4,16 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "GrCycle.h"
+#include "SpellEmitterHost.h"
 #include "SpellVisual.h"
+#include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
@@ -196,9 +199,7 @@ struct SpellVisualFixture {
         g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
-        roots.configure({(directory.path / "assets").string(),
-                         (directory.path / "user").string(),
-                         {"", "", ""}});
+        roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
         SetCurrentWorld(&world);
     }
 
@@ -314,7 +315,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and o
 // to exercise cleanup after resources have actually been acquired.
 static void WriteEmitterFixture(unsigned char cycle, bool truncate)
 {
-    auto file = wiz8::open_file("emitter.dat", wiz8::OpenMode::replace);
+    auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"), wiz8::OpenMode::replace);
     const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
     file->write(header, sizeof(header));
     const float speed = 15, chance = 1;
@@ -347,7 +348,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
     const auto original_timer = host.timer;
     for (const auto [cycle, truncate] : {std::pair<unsigned char, bool>{2, true}, {255, false}}) {
         WriteEmitterFixture(cycle, truncate);
-        auto file = wiz8::open_file("emitter.dat");
+        auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         W8ReadLevelInfo info{};
         info.hFile = file.get();
         REQUIRE_FALSE(ReadEmitterCycle(host, host.resources.cycles, &info, visual, -1, false));
@@ -360,7 +361,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
     }
     WriteEmitterFixture(2, false);
     for (int i = 0; i < 2; ++i) {
-        auto file = wiz8::open_file("emitter.dat");
+        auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         W8ReadLevelInfo info{};
         info.hFile = file.get();
         REQUIRE(ReadEmitterCycle(host, host.resources.cycles, &info, visual, -1, false));

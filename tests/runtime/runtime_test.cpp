@@ -187,7 +187,9 @@ public:
         roots.assets = assets;
         roots.user = user_.path.string();
         roots_.emplace(roots);
-        auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
+        wiz8::create_directory(wiz8::user_path("config"));
+        auto config =
+            wiz8::open_file(wiz8::user_path("config/3dvideo.cfg"), wiz8::OpenMode::replace);
         const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
         config->write(settings.data(), settings.size());
         config->close();
@@ -621,7 +623,7 @@ std::string CreateCharacter(Game& game)
 
     game.click_at(616, 464);
     game.wait_screen("committed", W8_SCREEN_PARTY_SELECTION);
-    const auto saved = game.user_root() / "Saves" / "Characters" / (name + ".CHR");
+    const auto saved = game.user_root() / "saves" / "characters" / (name + ".CHR");
     if (!fs::is_regular_file(saved)) Fail("saved", "missing " + saved.string());
     REQUIRE(fs::file_size(saved) > 0);
     return name;
@@ -710,7 +712,7 @@ int PremadeSlot()
 /* A new game with the checked-in character, bypassing party selection. */
 void StartPremadeGame(Game& game)
 {
-    game.install(fs::path(WIZ8_RUNTIME_FIXTURES) / "vi.CHR", "Saves/Characters/vi.CHR");
+    game.install(fs::path(WIZ8_RUNTIME_FIXTURES) / "vi.CHR", "saves/characters/vi.CHR");
     ReachMainMenu(game);
     ResetForNewGame();
     W8Character character{};
@@ -813,7 +815,7 @@ std::vector<fs::path> SaveFiles(const fs::path& user)
 {
     std::vector<fs::path> saves;
     std::error_code ignored;
-    for (const auto& entry : fs::directory_iterator(user / "Saves", ignored))
+    for (const auto& entry : fs::directory_iterator(user / "saves", ignored))
         if (entry.is_regular_file() && entry.path().extension() == ".SAV" &&
             entry.path().stem() != "CurrentGame")
             saves.push_back(entry.path());
@@ -1315,16 +1317,16 @@ void ResourceLifecycleScenario()
 void WriteSaveFixture(const fs::path& output, const fs::path& save, const glm::vec3& anchor)
 {
     fs::create_directories(output);
-    fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
-    std::ofstream metadata(output / "Fixture.txt");
+    fs::copy_file(save, output / "fixture.SAV", fs::copy_options::overwrite_existing);
+    std::ofstream metadata(output / "fixture.txt");
     metadata << std::setprecision(std::numeric_limits<float>::max_digits10) << anchor.x << ' '
              << anchor.y << ' ' << anchor.z << ' ' << g_status.current_level << ' '
              << g_status.buffers.Char[PremadeSlot()].experience << ' '
              << g_status.buffers.Char[PremadeSlot()].hp_current << '\n';
     metadata.close();
     REQUIRE(metadata);
-    std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
-                std::uintmax_t(fs::file_size(output / "Fixture.SAV")));
+    std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "fixture.SAV").string().c_str(),
+                std::uintmax_t(fs::file_size(output / "fixture.SAV")));
 }
 
 /* Quick save, walk away, quick load: the party is back where it saved. */
@@ -1393,11 +1395,11 @@ void LoadGameScenario(const fs::path& fixture)
     int level = -1;
     unsigned experience = 0;
     unsigned health = 0;
-    std::ifstream metadata(fixture / "Fixture.txt");
+    std::ifstream metadata(fixture / "fixture.txt");
     REQUIRE(metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience >> health);
     REQUIRE((std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z)));
-    REQUIRE(fs::is_regular_file(fixture / "Fixture.SAV"));
-    game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
+    REQUIRE(fs::is_regular_file(fixture / "fixture.SAV"));
+    game.install(fixture / "fixture.SAV", "saves/fixture.SAV");
     ReachMainMenu(game);
     game.click("load-game", MainMenuRegion(2));
     W8OptionsSaveLoadPanel* panel = nullptr;

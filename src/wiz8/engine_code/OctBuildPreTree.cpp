@@ -20,17 +20,18 @@
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <wiz8/filesystem.h>
 
 #include "OctBuildTree.h"
 #include "OctPreTree.h"
 #include "ReadMesh.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "geometry.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "glm/geometric.hpp"
 #include "index_algorithms.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
@@ -411,7 +412,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
     sprintf(path, "%s.cub", stem);
     std::unique_ptr<wiz8::File> file;
     try {
-        file = wiz8::open_file(path);
+        file = wiz8::open_file(wiz8::asset_path(path));
     } catch (const std::exception&) {
         ReportBuildStatus(6, "\nWARNING: Could not find and\\or open region file.\n\n");
         return 0;

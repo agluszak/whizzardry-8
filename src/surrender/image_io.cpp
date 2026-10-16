@@ -10,6 +10,7 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
 
+#include "asset_paths.h"
 #include "image_helpers.h"
 #include "jpeg_validate.h"
 #include "surrender/srColorSurface.h"
@@ -225,7 +226,7 @@ std::unique_ptr<srColorSurfaceIFace> load(const char* path)
     extension(path);
     if (!srCore.isInitialized())
         throw std::runtime_error("Image I/O requires SurRender initialization");
-    auto file = wiz8::open_file(path);
+    auto file = wiz8::open_file(wiz8::asset_path(path));
     auto surface = load(path, *file);
     if (!surface) throw std::runtime_error("Image decoding failed");
     return surface;
@@ -248,7 +249,7 @@ void save(const char* path, srColorSurfaceIFace& surface, int quality)
     const auto format = outputFormat(path);
     if (!srCore.isInitialized())
         throw std::runtime_error("Image I/O requires SurRender initialization");
-    auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+    auto file = wiz8::open_file(wiz8::user_path(path), wiz8::OpenMode::replace);
     saveImage(format, file->io(), surface, quality);
 }
 } // namespace srImage

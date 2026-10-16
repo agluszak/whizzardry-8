@@ -20,6 +20,7 @@
 #include <wiz8/filesystem.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "dialog_code/MessageDialogBase.h"
 #include "difficulty.h"
 #include "file_time.h"
@@ -488,8 +489,8 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     int selected_slot = m_current * 5 + 1 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     std::string path;
-    path = fmt::format("{}\\{}.{}", "Saves", slot.name, g_save_extension);
-    if (wiz8::remove_file(path) == 0) {
+    path = fmt::format("{}\\{}.{}", "saves", slot.name, g_save_extension);
+    if (wiz8::remove_file(wiz8::user_path(path)) == 0) {
         g_options_screen->ShowNotification(false, 0x82f,
                                            [this](bool accepted) { OnDialogClosed(accepted, 0); });
         return;

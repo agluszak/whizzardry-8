@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 
+#include "asset_paths.h"
 #include "audio_resources.h"
 #include "soundman.h"
 #include "wiz8/filesystem.h"
@@ -28,7 +29,7 @@ W8MouthGapTrack LoadMouthGapTrack(std::string_view voice_path)
     W8MouthGapTrack track;
     std::unique_ptr<wiz8::File> file;
     try {
-        file = wiz8::open_file(gap_path, wiz8::OpenMode::read);
+        file = wiz8::open_file(wiz8::asset_path(gap_path), wiz8::OpenMode::read);
     } catch (const std::exception&) {
         return track;
     }

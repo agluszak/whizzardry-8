@@ -143,7 +143,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     static const int s_empty_quote_text_ids[2] = {1867, 1868};
 
     if (quote->dialogue_alert != 0) {
-        voice_path = "Data\\Sound\\NPCs\\Dialogue Alert.wav";
+        voice_path = "Data\\Sound\\npcs\\Dialogue Alert.wav";
         display_text = quote->subquotes[subquote_index];
         if (!notice_only) {
             g_presentation = W8NpcPresentation::portrait_message;
@@ -158,7 +158,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     if (speaker->is_grouped && !force_npc_voice) {
         voice_dir = "PCs";
     } else {
-        voice_dir = "NPCs";
+        voice_dir = "npcs";
     }
     voice_stem = FormatNpcVoiceSoundPath(speaker);
     voice_path = fmt::format("Data\\Sound\\{}\\{}\\{}_{:03d}", voice_dir, voice_stem, voice_stem,

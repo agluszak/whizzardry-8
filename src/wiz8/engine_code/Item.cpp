@@ -9,15 +9,16 @@
 #include <utility>
 
 #include <fmt/format.h>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtx/euler_angles.hpp>
 
 #include "AnimRep.hpp"
 #include "GrObject.h"
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
 #include "input.h"
 #include "layouts/world.h"
 #include "random.h"
@@ -221,7 +222,7 @@ try {
     sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
     std::unique_ptr<wiz8::File> file = [&]() {
         try {
-            return wiz8::open_file(filename, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

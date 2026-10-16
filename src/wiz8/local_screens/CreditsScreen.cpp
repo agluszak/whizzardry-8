@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "input.h"
@@ -73,7 +74,8 @@ try {
 
     handle = [&]() {
         try {
-            return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path((char*)"Data\\Options\\Credits.txt"),
+                                   wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

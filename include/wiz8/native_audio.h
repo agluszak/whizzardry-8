@@ -27,6 +27,6 @@ void shutdown_audio();
 MIX_Mixer* audio_mixer();
 // Movie tracks retain the mixer if soundman shuts down before the movie.
 std::shared_ptr<MIX_Mixer> retain_audio_mixer();
-// An independent, seekable stream bounded to its loose file or SLF entry.
+// An independent, seekable stream for one prepared audio file.
 AudioInput open_audio_input(const char* game_path);
 } // namespace w8_native

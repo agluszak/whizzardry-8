@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "asset_paths.h"
 #include "layouts/item_tables.h"
 #include "retail_records.h"
 #include "wiz8/containers.h"
@@ -64,7 +65,8 @@ std::vector<W8ItemTableRecord> item_tables;
 // FUNCTION: WIZ8 0x0054a400
 bool InitializeItemDatabase(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\Items.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\Items.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     auto records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle, count);
     item_records = std::move(records);
@@ -80,7 +82,8 @@ try {
 // FUNCTION: WIZ8 0x0054a510
 bool InitializeItemTables(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\ItemTables.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\ItemTables.DBS"), wiz8::OpenMode::read);
     unsigned int category_count;
     handle->read_exact(&category_count, sizeof(category_count));
     const auto remaining = handle->size() - handle->tell();
@@ -129,7 +132,8 @@ try {
         srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140,
                      0);
     }
-    auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
     handle->seek(std::int64_t(uiMonsterIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4,
                  wiz8::SeekOrigin::begin);
     W8MonsterRecord loaded;
@@ -175,7 +179,8 @@ void DestroyItemTables(void)
 // FUNCTION: WIZ8 0x0054a760
 bool LoadMonsterDatabase(W8MonsterRecord** records)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
     if (count > std::size(gXStatus.monster_record_cache) ||
@@ -205,7 +210,8 @@ try {
     if (uiStartIndex > uiEndIndex) {
         srAssertFail("uiStartIndex <= uiEndIndex", GAMEPLAY_DATABASE_CPP, 0x17b, 0);
     }
-    auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
     handle->seek(std::int64_t(uiStartIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4,
                  wiz8::SeekOrigin::begin);
     const auto count = std::size_t(uiEndIndex) - uiStartIndex + 1;

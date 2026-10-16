@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 
+#include "asset_paths.h"
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srImageIO.h"
@@ -122,7 +123,7 @@ void stTextureFile::loadSurface()
     surface = 0;
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file(file_name, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(file_name), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }
