@@ -1,11 +1,8 @@
 #pragma once
 
 #include <array>
-#include <cstdlib>
-#include <memory>
 #include <ranges>
 #include <span>
-#include <type_traits>
 #include <vector>
 
 #include "wiz8/engine_code/OctBuildPreTree.h"
@@ -13,18 +10,6 @@
 
 namespace geometryRepack {
 using CornerIndices = std::array<w8_ulong, 3>;
-
-// Build tables keep index zero as a sentinel and one extra allocation slot.
-// Own replacements until all allocations succeed, then transfer to the context.
-template<class Record>
-auto copyTable(std::span<const Record> records)
-{
-    static_assert(std::is_trivially_copyable_v<Record>);
-    std::unique_ptr<Record, decltype(&std::free)> table(
-        static_cast<Record*>(std::calloc(records.size() + 1, sizeof(Record))), &std::free);
-    if (table) std::ranges::copy(records, table.get());
-    return table;
-}
 
 template<class Record, class Keep>
 std::vector<Record> compactTable(std::span<const Record> records, Keep keep)

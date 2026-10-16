@@ -1031,7 +1031,7 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
             gd_prop = prop->m_gd_prop;
         }
     } else {
-        gd_prop = (*g_oct_pre_tree->props)[prop_id];
+        gd_prop = g_oct_pre_tree->props[prop_id];
     }
     const std::span surfaces(gd_prop->m_pGDSurfaces, gd_prop->m_surface_count);
     const std::span vertices(gd_prop->m_pVertices, gd_prop->m_vertex_count);

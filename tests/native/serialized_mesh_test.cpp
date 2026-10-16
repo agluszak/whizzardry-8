@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -46,8 +45,9 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
 {
     const std::array<int, 7> header{0, 3, 3, 1, predecessor, -1, 0};
     Write(file, header);
-    const std::array<glm::vec3, 3> locations{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
-                                             glm::vec3(0, 1, 0)};
+    const std::array<std::array<float, 3>, 3> locations{std::array<float, 3>{0, 0, 0},
+                                                        std::array<float, 3>{1, 0, 0},
+                                                        std::array<float, 3>{0, 1, 0}};
     Write(file, locations);
     const std::array<glm::vec2, 3> uv{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(0, 1)};
     Write(file, uv);
@@ -55,8 +55,9 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
     Write(file, triangle); // UV indices.
     Write(file, triangle); // Vertex indices.
     Write(file, texture_index); // Texture index.
-    const std::array<glm::vec3, 3> normals{glm::vec3(0, 0, 1), glm::vec3(0, 0, 1),
-                                           glm::vec3(0, 0, 1)};
+    const std::array<std::array<float, 3>, 3> normals{std::array<float, 3>{0, 0, 1},
+                                                      std::array<float, 3>{0, 0, 1},
+                                                      std::array<float, 3>{0, 0, 1}};
     Write(file, normals);
     Write(file, locations); // Static vertex lighting.
     const glm::vec4 equation(0, 0, 1, 0);
@@ -349,25 +350,22 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
     ScopedTemporaryDirectory directory{"wiz8-octmesh-writer"};
     const auto expected_path = directory.path / "expected.bin";
     const auto output_path = directory.path / "output.bin";
-    const std::array<glm::vec3, 3> locations{glm::vec3(1, 2, 3), glm::vec3(4, 5, 6),
-                                             glm::vec3(7, 8, 9)};
+    const std::array<std::array<float, 3>, 3> locations{std::array<float, 3>{1, 2, 3},
+                                                        std::array<float, 3>{4, 5, 6},
+                                                        std::array<float, 3>{7, 8, 9}};
     const std::array<glm::vec2, 3> uv{glm::vec2(1, 2), glm::vec2(3, 4), glm::vec2(5, 6)};
     const std::array<int, 3> materials{2, 3, 5};
     const std::array<glm::ivec3, 1> uv_indices{glm::ivec3(0, 2, 1)};
     const std::array<glm::ivec3, 1> vertices{glm::ivec3(2, 1, 0)};
     const std::array<int, 1> textures{7};
-    const std::array<glm::vec3, 3> normals{glm::vec3(0, 0, 1), glm::vec3(0, 1, 0),
-                                           glm::vec3(1, 0, 0)};
-    const std::array<glm::vec3, 3> lights{glm::vec3(.1f, .2f, .3f), glm::vec3(.4f, .5f, .6f),
-                                          glm::vec3(.7f, .8f, .9f)};
+    const std::array<std::array<float, 3>, 3> normals{std::array<float, 3>{0, 0, 1},
+                                                      std::array<float, 3>{0, 1, 0},
+                                                      std::array<float, 3>{1, 0, 0}};
+    const std::array<std::array<float, 3>, 3> lights{std::array<float, 3>{.1f, .2f, .3f},
+                                                     std::array<float, 3>{.4f, .5f, .6f},
+                                                     std::array<float, 3>{.7f, .8f, .9f}};
     const std::array<glm::vec4, 1> equations{glm::vec4(1, 2, 3, 4)};
     const std::array<float, 3> sun{.25f, .5f, .75f};
-    auto copy = []<class T, std::size_t N>(const std::array<T, N>& source) {
-        auto* result = static_cast<T*>(std::malloc(sizeof(source)));
-        REQUIRE(result);
-        std::copy_n(source.data(), N, result);
-        return result;
-    };
     auto bytes_at = [](const auto& path) {
         std::ifstream input(path, std::ios::binary);
         return std::string(std::istreambuf_iterator<char>{input}, {});
@@ -378,14 +376,14 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                 auto file = wiz8::open_host_file(expected_path, wiz8::OpenMode::replace);
                 Write(*file, std::array<int, 7>{4 | (version << 8), 3, 3, 1, 11, 13, material});
                 Write(*file, locations);
-                Write(*file, uv);
+                Write(*file, std::array<float, 6>{1, 2, 3, 4, 5, 6});
                 if (material < 0) Write(*file, materials);
                 Write(*file, std::array<std::int32_t, 3>{0, 2, 1});
                 Write(*file, std::array<std::int32_t, 3>{2, 1, 0});
                 Write(*file, textures);
                 Write(*file, normals);
                 Write(*file, lights);
-                Write(*file, equations);
+                Write(*file, std::array<float, 4>{1, 2, 3, 4});
                 if (version) Write(*file, sun); // Only the first bank is serialized.
                 Write(*file, -1);
             }
@@ -398,21 +396,19 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                 mesh.m_link_index = 11;
                 mesh.next_link = 13;
                 mesh.m_material_index = material;
-                mesh.m_vertex_locations = copy(locations);
-                mesh.m_vertex_map = copy(uv);
-                mesh.m_vertex_materials = copy(materials);
-                mesh.m_poly_uv_index = copy(uv_indices);
-                mesh.m_poly_vertices = copy(vertices);
-                mesh.m_poly_textures = copy(textures);
-                mesh.m_vertex_normals = copy(normals);
-                mesh.m_vertex_lights = copy(lights);
-                mesh.m_poly_equations = copy(equations);
-                if (version) {
-                    mesh.m_sun_lights = static_cast<float**>(std::calloc(version, sizeof(float*)));
-                    REQUIRE(mesh.m_sun_lights);
-                    for (short index = 0; index < version; ++index)
-                        mesh.m_sun_lights[index] = copy(sun);
-                }
+                for (const auto& value : locations)
+                    mesh.m_vertex_locations.emplace_back(value[0], value[1], value[2]);
+                mesh.m_vertex_map.assign(uv.begin(), uv.end());
+                mesh.m_vertex_materials.assign(materials.begin(), materials.end());
+                mesh.m_poly_uv_index.assign(uv_indices.begin(), uv_indices.end());
+                mesh.m_poly_vertices.assign(vertices.begin(), vertices.end());
+                mesh.m_poly_textures.assign(textures.begin(), textures.end());
+                for (const auto& value : normals)
+                    mesh.m_vertex_normals.emplace_back(value[0], value[1], value[2]);
+                for (const auto& value : lights)
+                    mesh.m_vertex_lights.emplace_back(value[0], value[1], value[2]);
+                mesh.m_poly_equations.assign(equations.begin(), equations.end());
+                mesh.m_sun_lights.resize(version, std::vector<float>(sun.begin(), sun.end()));
                 auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
                 if (inject_failure) {
                     // Raw texture-array failure occurs after the index arrays have
@@ -420,26 +416,26 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                     FileFaults fault(material < 0 ? 13 : 12);
                     REQUIRE_THROWS(mesh.Write(*file));
                     REQUIRE(fault.fired);
-                    REQUIRE(mesh.m_poly_textures);
-                    REQUIRE(mesh.m_vertex_normals);
-                    REQUIRE(mesh.m_vertex_lights);
-                    REQUIRE(mesh.m_poly_equations);
+                    REQUIRE_FALSE(mesh.m_poly_textures.empty());
+                    REQUIRE_FALSE(mesh.m_vertex_normals.empty());
+                    REQUIRE_FALSE(mesh.m_vertex_lights.empty());
+                    REQUIRE_FALSE(mesh.m_poly_equations.empty());
 
                 } else {
                     REQUIRE(mesh.Write(*file));
                     file->close();
                     REQUIRE(bytes_at(output_path) == bytes_at(expected_path));
-                    REQUIRE_FALSE(mesh.m_poly_textures);
-                    REQUIRE_FALSE(mesh.m_vertex_normals);
-                    REQUIRE_FALSE(mesh.m_vertex_lights);
-                    REQUIRE_FALSE(mesh.m_poly_equations);
-                    REQUIRE_FALSE(mesh.m_sun_lights);
+                    REQUIRE(mesh.m_poly_textures.empty());
+                    REQUIRE(mesh.m_vertex_normals.empty());
+                    REQUIRE(mesh.m_vertex_lights.empty());
+                    REQUIRE(mesh.m_poly_equations.empty());
+                    REQUIRE(mesh.m_sun_lights.empty());
                 }
-                REQUIRE_FALSE(mesh.m_vertex_locations);
-                REQUIRE_FALSE(mesh.m_vertex_map);
-                REQUIRE_FALSE(mesh.m_vertex_materials);
-                REQUIRE_FALSE(mesh.m_poly_uv_index);
-                REQUIRE_FALSE(mesh.m_poly_vertices);
+                REQUIRE(mesh.m_vertex_locations.empty());
+                REQUIRE(mesh.m_vertex_map.empty());
+                REQUIRE(mesh.m_vertex_materials.empty());
+                REQUIRE(mesh.m_poly_uv_index.empty());
+                REQUIRE(mesh.m_poly_vertices.empty());
             }
         }
     }

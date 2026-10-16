@@ -74,6 +74,7 @@
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -732,41 +733,6 @@ TEST_CASE("navigator route growth, copying and movement")
     aliased.path_position_index = 9;
     aliased.AppendPathPosition(&aliased.path[1].position, 7);
     REQUIRE((aliased.path[9].position == end && aliased.path[9].value == 7));
-}
-
-TEST_CASE("Empty octree build geometry cleanup", "[geometry]")
-{
-    // The preprocessing arrays reserve slot zero for a sentinel. No real
-    // records exist when the count is one, so index one must not be read.
-    W8OctPreTreeGeometry geometry{};
-    geometry.vertex_count = 1;
-    geometry.m_polygon_count = 1;
-    geometry.m_vertices =
-        static_cast<W8OctPreTreeVertex*>(std::calloc(1, sizeof(W8OctPreTreeVertex)));
-    geometry.m_polygons =
-        static_cast<W8OctRegionPolygon*>(std::calloc(1, sizeof(W8OctRegionPolygon)));
-    geometry.owned = std::malloc(8);
-    REQUIRE(geometry.m_vertices);
-    REQUIRE(geometry.m_polygons);
-    REQUIRE(geometry.owned);
-
-    geometry.Release();
-    REQUIRE(geometry.m_vertices == nullptr);
-    REQUIRE(geometry.m_polygons == nullptr);
-    REQUIRE(geometry.owned == nullptr);
-    REQUIRE(geometry.vertex_count == 0);
-    REQUIRE(geometry.m_polygon_count == 0);
-    geometry.Release();
-}
-
-TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
-{
-    W8OctPreTreeGeometry geometry{};
-    int* faces = nullptr;
-    REQUIRE(geometry.CheckArrayLength(&faces, 0, 0) == 0);
-    REQUIRE(faces == nullptr);
-    REQUIRE(geometry.CheckArrayLength(&faces, 65535, 5) == 0);
-    REQUIRE(faces == nullptr);
 }
 
 TEST_CASE("Inclusive cell boxes retain order clipping and extreme endpoints", "[geometry][octree]")
@@ -2573,29 +2539,19 @@ TEST_CASE_METHOD(
     constexpr unsigned materials = 80;
     constexpr unsigned faces_count = 120;
     W8OctPreTreeGeometry geometry{};
-    geometry.vertex_count = 5; // Three used vertices and one unused vertex after the sentinel.
-    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(
-        std::calloc(geometry.vertex_count, sizeof(W8OctPreTreeVertex)));
-    REQUIRE(geometry.m_vertices);
-    struct ReleaseVertices {
-        W8OctPreTreeGeometry& geometry;
-        ~ReleaseVertices() { std::free(geometry.m_vertices); }
-    } release{geometry};
-    std::vector<W8OctRegionPolygon> polygons(faces_count + 1);
-    std::vector<int> faces(faces_count);
-    geometry.m_polygon_count = polygons.size();
-    geometry.m_polygons = polygons.data();
+    geometry.m_vertices.resize(5); // Three used vertices and one unused vertex after the sentinel.
+    geometry.m_polygons.resize(faces_count + 1);
+    auto& polygons = geometry.m_polygons;
     for (unsigned source = 1; source < 5; ++source) {
         auto& vertex = geometry.m_vertices[source];
         vertex.m_vertex_index = source;
         vertex.position = glm::vec3(float(source), 2, 3);
         if (source < 4) {
-            vertex.face_indices = faces.data();
-            vertex.face_count = faces.size();
+            for (unsigned face = 1; face <= faces_count; ++face)
+                vertex.face_indices.push_back(face);
         }
     }
     for (unsigned face = 1; face <= faces_count; ++face) {
-        faces[face - 1] = face;
         auto& polygon = polygons[face];
         polygon.material = (face - 1) % materials;
         polygon.kind = face % 3;
@@ -2605,8 +2561,8 @@ TEST_CASE_METHOD(
         }
     }
     REQUIRE(geometry.splitVerticesByMaterial());
-    REQUIRE(geometry.vertex_count == 3 * materials + 1);
-    REQUIRE(geometry.vertex_count > 4 * 5); // Exceeds the former four-times allocation.
+    REQUIRE(geometry.m_vertices.size() == 3 * materials + 1);
+    REQUIRE(geometry.m_vertices.size() > 4 * 5); // Exceeds the former four-times allocation.
     for (unsigned face = 1; face <= faces_count; ++face) {
         const auto& polygon = polygons[face];
         for (unsigned corner = 0; corner < 3; ++corner) {
@@ -2647,22 +2603,8 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
           "[geometry][octree]")
 {
     W8OctPreTreeGeometry geometry{};
-    geometry.vertex_count = 7;
-    geometry.m_polygon_count = 4;
-    geometry.m_vertices =
-        static_cast<W8OctPreTreeVertex*>(std::calloc(7, sizeof(W8OctPreTreeVertex)));
-    geometry.m_polygons =
-        static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
-    struct ReleaseGeometry {
-        W8OctPreTreeGeometry& geometry;
-        ~ReleaseGeometry()
-        {
-            std::free(geometry.m_vertices);
-            std::free(geometry.m_polygons);
-        }
-    } release{geometry};
-    REQUIRE(geometry.m_vertices);
-    REQUIRE(geometry.m_polygons);
+    geometry.m_vertices.resize(7);
+    geometry.m_polygons.resize(4);
     for (w8_ulong vertex = 1; vertex < 7; ++vertex) {
         auto& record = geometry.m_vertices[vertex];
         record.m_vertex_index = vertex;
@@ -2682,14 +2624,15 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
         polygon.ordinal = face + 10;
         polygon.material = face * 10;
         for (unsigned corner = 0; corner < 3; ++corner) {
-            polygon.vertices[corner] = geometry.m_vertices + source_corners[face - 1][corner];
+            polygon.vertices[corner] =
+                geometry.m_vertices.data() + source_corners[face - 1][corner];
             polygon.face.texture_coordinates[corner] = glm::vec2(face, corner);
         }
     }
     geometry.m_polygons[2].degenerate = true;
     REQUIRE(geometry.compact());
-    REQUIRE(geometry.vertex_count == 4);
-    REQUIRE(geometry.m_polygon_count == 3);
+    REQUIRE(geometry.m_vertices.size() == 4);
+    REQUIRE(geometry.m_polygons.size() == 3);
     REQUIRE(geometry.m_vertices[1].position.x == 1);
     REQUIRE(geometry.m_vertices[2].position.x == 2);
     REQUIRE(geometry.m_vertices[3].position.x == 6);
@@ -2703,7 +2646,8 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
         REQUIRE(polygon.ordinal == face);
         REQUIRE(polygon.material == original * 10);
         for (unsigned corner = 0; corner < 3; ++corner) {
-            REQUIRE(polygon.vertices[corner] == geometry.m_vertices + expected[face - 1][corner]);
+            REQUIRE(polygon.vertices[corner] ==
+                    geometry.m_vertices.data() + expected[face - 1][corner]);
             REQUIRE(polygon.face.vertices[corner] == static_cast<int>(expected[face - 1][corner]));
             REQUIRE(polygon.face.texture_coordinates[corner] == glm::vec2(original, corner));
         }
@@ -2777,34 +2721,6 @@ TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep s
     REQUIRE(surface.plane.normal == glm::vec3(0, -1, 0));
     REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | 1));
     REQUIRE(surface.slope == 0);
-}
-
-TEST_CASE("Octree build cleanup frees shared runs and retains the reserved record")
-{
-    W8OctPreTreeGeometry geometry{};
-    geometry.vertex_count = geometry.m_polygon_count = 4;
-    geometry.m_vertices =
-        static_cast<W8OctPreTreeVertex*>(std::calloc(4, sizeof(W8OctPreTreeVertex)));
-    geometry.m_polygons =
-        static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
-    REQUIRE(geometry.m_vertices);
-    REQUIRE(geometry.m_polygons);
-    int sentinel = 0;
-    geometry.m_vertices[0].face_indices = geometry.m_vertices[0].owned = &sentinel;
-    geometry.m_polygons[0].face_indices = &sentinel;
-    const auto run = [] { return static_cast<int*>(std::malloc(sizeof(int))); };
-    geometry.m_vertices[1].face_indices = geometry.m_vertices[2].face_indices = run();
-    geometry.m_vertices[3].face_indices = run();
-    geometry.m_vertices[1].owned = run();
-    geometry.m_vertices[3].owned = run();
-    geometry.m_polygons[1].face_indices = geometry.m_polygons[2].face_indices = run();
-    geometry.m_polygons[3].face_indices = run();
-    geometry.Release();
-    REQUIRE(geometry.vertex_count == 0);
-    REQUIRE(geometry.m_polygon_count == 0);
-    REQUIRE_FALSE(geometry.m_vertices);
-    REQUIRE_FALSE(geometry.m_polygons);
-    geometry.Release();
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture,
@@ -3039,6 +2955,47 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     glm::vec3 ambient(1);
     GetWorldLightValue(&world, &ambient);
     REQUIRE(ambient == glm::vec3(0));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Submesh splitting owns all buffers beyond the old six-region capacity",
+                 "[geometry][octree]")
+{
+    W8OctPreTreeGeometry geometry{};
+    geometry.m_vertices.resize(4);
+    for (int corner = 0; corner < 3; ++corner) {
+        auto& vertex = geometry.m_vertices[corner + 1];
+        vertex.m_vertex_index = corner + 1;
+        vertex.position = {corner == 1 ? 1.f : 0.f, corner == 2 ? 1.f : 0.f, 0};
+    }
+    geometry.m_polygons.resize(22);
+    for (unsigned region = 1; region <= 7; ++region) {
+        for (unsigned kind = 1; kind <= 3; ++kind) {
+            auto& polygon = geometry.m_polygons[(region - 1) * 3 + kind];
+            polygon.region = region;
+            polygon.kind = kind;
+            for (int corner = 0; corner < 3; ++corner) {
+                polygon.vertices[corner] = &geometry.m_vertices[corner + 1];
+                polygon.face.texture_coordinates[corner] = {float(corner), float(kind)};
+            }
+        }
+    }
+    OctPreTree tree;
+    tree.game_data = &geometry;
+    tree.m_spatial.submesh_count = tree.m_spatial.m_region_count = 8;
+    tree.m_spatial.m_polygon_count = geometry.m_polygons.size();
+    tree.m_sun_count = 0;
+    auto models = tree.CreateSubMeshes(&geometry);
+    REQUIRE(models.size() == 21);
+    for (const auto& model : models) {
+        REQUIRE(model.m_vertex_locations.size() == 3);
+        REQUIRE(model.m_poly_vertices.size() == 1);
+        REQUIRE(model.m_poly_uv_index.size() == 1);
+        for (int corner = 0; corner < 3; ++corner) {
+            const auto uv = model.m_vertex_map[model.m_poly_uv_index[0][corner]];
+            REQUIRE(uv == glm::vec2(corner, model.m_packed_header));
+        }
+    }
 }
 
 TEST_CASE("Positional sound copies register each live node once", "[scene][sound]")

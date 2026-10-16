@@ -1,5 +1,7 @@
 #pragma once
 
+struct W8OctPreTreeGeometry;
+
 #include <memory>
 #include <optional>
 #include <span>
@@ -309,7 +311,7 @@ struct W8GameData {
     void AddLinkedRecord(const glm::vec3* vertices, float value, float scalar,
                          const signed char* face); /* 0x00448BF0 */
     /* Compiles the read game data into the shared build arrays. */
-    void CompileGameData(); /* 0x00449D10 */
+    W8OctPreTreeGeometry CompileGameData(); /* 0x00449D10 */
 
     /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */

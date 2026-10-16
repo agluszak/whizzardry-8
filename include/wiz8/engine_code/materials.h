@@ -110,9 +110,6 @@ std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
 struct W8OctPreTreeVertex;
 struct W8OctRegionPolygon;
 
-extern W8OctPreTreeVertex* g_gd_vertices;
-extern W8OctRegionPolygon* g_gd_polygons;
-
 void ReportBuildStatus(short channel, std::string_view message);
 void ReportStartupMessage(std::string_view message);
 char* TrimAndLowercaseString(char* text);
