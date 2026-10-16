@@ -13,6 +13,7 @@
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/surface_storage.h"
 
 namespace {
 const char* extension(const char* path)
