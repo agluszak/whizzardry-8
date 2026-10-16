@@ -63,7 +63,6 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/SpellEffect.h"
