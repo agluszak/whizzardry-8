@@ -20,7 +20,6 @@ public:
     stTextureAnim(const stTextureAnim& other); /* 0x00485070 */
 
     virtual w8_ulong getTextureFrameHandle() override;               /* 0x004856F0 */
-    virtual float getPriority() override;                                 /* 0x00484D60 */
     Dimensions getDimensions() override;          /* 0x00484D80 */
     virtual void getMipmapData(const MultiRequest& request) override;           /* 0x00484DB0 */
     virtual void getMipmapLevelPartial(PartialRequest& request) override; /* 0x00484DE0 */

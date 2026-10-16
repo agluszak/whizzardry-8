@@ -1126,7 +1126,7 @@ void W8OptionsGraphicsPanel::Populate()
     AddCheckbox(0x81b, &g_options_values.render_options[5]);
     AddCheckbox(0x818, &g_options_values.monster_shadows);
     AddCheckbox(0x817, &g_options_values.render_options[4]);
-    AddCheckbox(0x81d, &g_options_values.render_options[7]);
+    AddCheckbox(0x81d, &g_options_values.render_options[6]);
 }
 
 void W8OptionsAdvancedGraphicsPanel::Populate()
@@ -1134,7 +1134,6 @@ void W8OptionsAdvancedGraphicsPanel::Populate()
     m_content_top += 22;
     AddCheckbox(0x815, &g_options_values.render_options[2]);
     AddCheckbox(0x812, &g_options_values.render_options[0]);
-    AddCheckbox(0x81c, &g_options_values.render_options[6]);
     AddCheckbox(0x813, &g_options_values.render_options[1]);
 }
 
@@ -1436,8 +1435,7 @@ void W8OptionsValues::TransferSettings()
     TransferRenderOption(&render_options[3], W8_RENDER_OPTION_VIDEO_SYNC);
     TransferRenderOption(&render_options[4], W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS);
     TransferRenderOption(&render_options[5], W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
-    TransferRenderOption(&render_options[6], W8_RENDER_OPTION_HIGH_TEXTURE_CACHE);
-    TransferRenderOption(&render_options[7], W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
+    TransferRenderOption(&render_options[6], W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
     TransferByte(&monster_shadows, &g_settings.monster_shadows);
     TransferByte(&smooth_monster_animations, &g_settings.smooth_monster_animations);
     TransferByte(&smooth_world_animations, &g_settings.smooth_world_animations);

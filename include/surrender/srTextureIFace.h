@@ -74,7 +74,6 @@ public:
         HINT_ONE_BIT_ALPHA = 2,
         HINT_NO_MIPMAPS = 3,
         HINT_ALPHA_ONLY = 4,
-        HINT_RESIDENT = 5,
         HINT_POSITIONAL_6 = 6,
         HINT_NO_REDUCTION = 7,
         HINT_INTENSITY = 8
@@ -88,7 +87,6 @@ public:
     };
 
     virtual w8_ulong getTextureFrameHandle() = 0;
-    virtual float getPriority() = 0;
     virtual Dimensions getDimensions() = 0;
     virtual void getMipmapData(const MultiRequest& request) = 0;
     virtual void getMipmapLevelPartial(PartialRequest& request) = 0;

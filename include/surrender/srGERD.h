@@ -361,7 +361,6 @@ public:
         w8_ulong matrix_classifications;
     };
     Statistics getStatistics();
-    w8_ulong getTextureCacheUsed() const;
     w8_ulong getResidentTextureMemUsed() const;
     void setClearColor(const glm::vec4& color);
     void setClearColor(float red, float green, float blue, float alpha);
@@ -476,8 +475,6 @@ public:
     /* Clears every open renderer's binding of a texture being destroyed. */
     static void unbindTexture(const srTextureIFace* texture);
     void invalidateTextureByFrameHandle(w8_ulong handle);
-    w8_ulong getTextureCacheSize() const;
-    void setTextureCacheSize(w8_ulong bytes);
     void setSwapInterval(w8_ulong interval);
     w8_long getPolygonOffset() const;
     void setPolygonOffset(w8_long offset);
@@ -499,8 +496,6 @@ public:
     double getClearDepth() const;
     void setClearStencil(w8_ulong stencil);
     w8_ulong getClearStencil() const;
-    int isTextureCached(srTextureIFace* texture) const;
-    int isTextureResident(srTextureIFace* texture) const;
     w8_long getTextureReduction() const;
     w8_long getMaxTextureWidth() const;
     w8_long getMaxTextureHeight() const;
@@ -580,20 +575,16 @@ public:
 private:
     struct TextureCacheData {
         srDD::Texture gpu;
-        float priority = 0.5f;
-        w8_ulong last_use = 0, size = 0;
         w8_ulong width = 0, height = 0, first_level = 0, last_level = 0;
-        w8_ulong deleted = 0, resident = 0;
     };
     struct Texture {
-        Texture* prev;
-        Texture* next;
-        w8_ulong id;
+        explicit Texture(srDD& owner) : owner(owner) {}
+        ~Texture() { owner.deleteTexture(device.gpu); }
+        Texture(const Texture&) = delete;
+        Texture& operator=(const Texture&) = delete;
+        srDD& owner;
         SDL_PixelFormat pixel_format = SDL_PIXELFORMAT_BGRA32;
-        std::vector<unsigned char> surface_data;
-        std::string name;
         TextureCacheData device;
-        std::span<unsigned char> mipPixels(w8_ulong level);
     };
 
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
@@ -621,11 +612,6 @@ private:
        out-of-range errors report "UNKNOWN ERROR". */
     static const char* errStrings[9];
 
-    struct TextureEntry {
-        w8_long next;
-        w8_ulong handle;
-        Texture* texture;
-    };
     void setError(e_error error);
     void resetTexture();
     void assertContext() const;
@@ -644,25 +630,13 @@ private:
     void recalcScissor();
     void changeTexture(srTextureIFace* texture, w8_ulong stage, int apply_parms);
     Texture* createNewTexture(srTextureIFace* texture);
-    Texture* allocTexture(w8_ulong id);
-    void allocTextureData(Texture& texture);
-    void deleteTexture(Texture& texture);
-    void removeDeletedTextures();
-    void releaseTextureSurfaceData(Texture& texture);
     void setTextureParameters(w8_ulong stage, const srTextureIFace::Parameters& parameters);
     void evaluateTextureDimensions(TextureCacheData& device,
                                    const srTextureIFace::Dimensions& dimensions);
-    void releaseTextureMemory(w8_long bytes);
-    w8_ulong getTextureBytesNeeded(Texture& texture) const;
-    Texture* findLowestPriority();
-    void invalidateTexture(Texture& texture);
-    void invalidateResidentTexture(Texture& texture);
     void resetCurrentTexPointers();
-    void markTextureAsDeleted(Texture& texture);
     void initTexCache();
     void closeTexCache();
     void initDDInfo();
-    void uploadTexture(Texture& texture);
     void initClearColors();
     void initView();
     void initLights();
@@ -672,19 +646,6 @@ private:
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
     void flushSort();
-
-    /* Texture pool: live-texture count, free-list head and owned chunks. */
-    struct TexturePool {
-        TexturePool();
-
-        Texture* allocate();
-        void release(Texture* texture);
-
-        w8_ulong count;
-        Texture* free;
-        std::vector<std::vector<Texture>> chunks;
-    };
-    friend struct TexturePool;
 
     static srGERD* active;
 
@@ -696,7 +657,7 @@ private:
     };
 
     struct Device {
-        srDD* dd;
+        std::unique_ptr<srDD> dd;
         srDD::Info info;
         /* Backend name and renderer-list ordering key. */
         srDD::DriverInfo driver_info;
@@ -855,16 +816,9 @@ private:
        a texture clears its bindings when destroyed. */
     srTextureIFace* texture_iface[2];
     /* Live textures keyed by the texture interface's frame handle. */
-    std::unordered_map<w8_ulong, Texture*> texture_lookup;
-    TexturePool texture_pool;
-    Texture* texture_deleted;
-    Texture* texture_head;
+    std::unordered_map<w8_ulong, Texture> textures;
     Texture* texture_default;
-    w8_ulong texture_cache_used;
-    w8_ulong texture_cache_size;
-    w8_ulong texture_sequence;
     w8_long texture_reduction;
-    bool texture_hash_enabled;
     unsigned char unknown_2045_[3];
     glm::vec4 ambient_light;
     Environment environment;

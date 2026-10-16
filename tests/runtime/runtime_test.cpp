@@ -1293,10 +1293,10 @@ void ResourceLifecycleScenario()
         for (int frame = 0; frame != 4; ++frame) game.frame();
         RenderFrame();
         REQUIRE(world->level->m_submitted_polygons > 0);
-        REQUIRE(g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
         g_gerd->invalidateTextureCache();
         RenderFrame();
-        REQUIRE(g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
         REQUIRE(world->level->m_submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
@@ -1309,7 +1309,7 @@ void ResourceLifecycleScenario()
         ExpectAt("reloaded-position", anchor);
     }
     RenderFrame();
-    REQUIRE(g_gerd->getTextureCacheUsed() > 0);
+    REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
 }
 
 /* The UI load test consumes the save written by the quick-save regression.
