@@ -6,6 +6,7 @@ class File;
 }
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -103,8 +104,7 @@ struct W8NpcScriptFile {
     std::vector<W8NpcScriptQuote> quotes;
 };
 
-void ReleaseNpcScriptFile(W8NpcScriptFile* file);
 std::optional<W8NpcScriptQuote> ReadNpcScriptQuote(wiz8::File* handle);
-W8NpcScriptFile* LoadNpcScriptFile(std::string_view path);
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptFile(std::string_view path);
 
 #endif

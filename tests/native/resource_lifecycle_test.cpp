@@ -113,7 +113,7 @@ static void npc_script_teardown()
             for (auto& sub : entry.sub_entries) sub.text.assign(80, 's');
         }
     }
-    ReleaseNpcScriptFile(owner.release());
+    owner.reset();
     owner = std::make_unique<W8NpcScriptFile>();
     owner->name.assign(80, 'n');
     // Zero-quote scripts still own their name and header.

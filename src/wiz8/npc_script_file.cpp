@@ -19,10 +19,6 @@
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 // FUNCTION: WIZ8 0x0055a0a0
-void ReleaseNpcScriptFile(W8NpcScriptFile* file)
-{
-    delete file;
-}
 
 static std::string ReadNarrowText(wiz8::File& file)
 {
@@ -86,7 +82,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x0055a480
-W8NpcScriptFile* LoadNpcScriptFile(std::string_view path)
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptFile(std::string_view path)
 try {
     auto file = wiz8::open_file(wiz8::asset_path(path));
     wiz8::retail::nsf::Header disk;
@@ -103,7 +99,7 @@ try {
         if (!quote) return nullptr;
         script->quotes.push_back(std::move(*quote));
     }
-    return script.release();
+    return script;
 } catch (const std::exception&) {
     return nullptr;
 }

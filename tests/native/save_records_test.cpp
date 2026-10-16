@@ -77,7 +77,14 @@
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
 
-extern std::vector<W8NpcState*> g_npc_states;
+extern std::vector<std::unique_ptr<W8NpcState>> g_npc_states;
+
+static std::vector<W8NpcState*> NpcStatePointers()
+{
+    std::vector<W8NpcState*> pointers;
+    for (const auto& state : g_npc_states) pointers.push_back(state.get());
+    return pointers;
+}
 extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 
 template<class T> static void write(std::ofstream& out, const T& value)
@@ -1229,7 +1236,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         LoadNpcStates(*file);
         REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
-            W8NpcState* npc = g_npc_states[i];
+            W8NpcState* npc = g_npc_states[i].get();
             REQUIRE(npc->record == &database[i]);
             REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2) {
@@ -1251,7 +1258,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             LoadNpcStates(*file);
             operations = trace.operations;
         }
-        const auto stable_states = g_npc_states;
+        const auto stable_states = NpcStatePointers();
         auto* stable_npc = stable_states[0];
         for (std::size_t operation = 1; operation <= operations; ++operation) {
             CAPTURE(version, operation);
@@ -1266,7 +1273,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
                 }
                 REQUIRE(fault.fired);
             }
-            REQUIRE((rejected && g_npc_states == stable_states && g_npc_states[0] == stable_npc));
+            REQUIRE((rejected && NpcStatePointers() == stable_states &&
+                     g_npc_states[0].get() == stable_npc));
             REQUIRE(stable_npc->character->name[0] == L'A');
         }
         // Round-trip the supported NPCT version through its actual writer.
@@ -1277,7 +1285,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         LoadNpcStates(*file);
         REQUIRE(g_npc_states.size() == 3);
         for (int index = 0; index < 3; ++index) {
-            auto* npc = g_npc_states[index];
+            auto* npc = g_npc_states[index].get();
             REQUIRE((npc->record == &database[index] && npc->items.empty()));
             if (index < 2)
                 REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
@@ -1285,7 +1293,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
                 REQUIRE(!npc->character);
         }
         file.reset();
-        const auto previous = g_npc_states;
+        const auto previous = NpcStatePointers();
         auto* previous_npc = previous[0];
         for (int malformed = 0; malformed < 4; ++malformed) {
             CAPTURE(version, malformed);
@@ -1304,15 +1312,15 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             } catch (const std::exception&) {
                 rejected = true;
             }
-            REQUIRE((rejected && g_npc_states == previous));
-            REQUIRE(g_npc_states[0] == previous_npc);
+            REQUIRE((rejected && NpcStatePointers() == previous));
+            REQUIRE(g_npc_states[0].get() == previous_npc);
             REQUIRE(previous_npc->character->name[0] == L'A');
             file.reset();
         }
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
         ReleaseNpcBinding(3); // one past the end is not a live binding
         auto* kept = GetNpcState(1);
-        auto* retired = g_npc_states[0];
+        auto* retired = g_npc_states[0].get();
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
         auto* replacement = CreateNpcRuntimeNode(0);
@@ -1389,7 +1397,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         REQUIRE(out.good());
         out.close();
         char filename[] = "data\\dialogue.nsf";
-        W8NpcScriptFile* file = LoadNpcScriptFile(filename);
+        auto file = LoadNpcScriptFile(filename);
         REQUIRE((file && file->quote_count == 3));
         REQUIRE((marker ? file->name == "name" : file->name.empty()));
         W8NpcScriptQuote* quotes = file->quotes.data();
@@ -1401,7 +1409,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         REQUIRE((quotes[1].entries.empty() && quotes[1].subquotes.empty()));
         REQUIRE(
             (quotes[2].entries[0].operand0 == 0x1234 && quotes[2].entries[0].sub_entries.empty()));
-        ReleaseNpcScriptFile(file);
+        file.reset();
         std::ifstream encoded(script_path, std::ios::binary);
         const std::string bytes((std::istreambuf_iterator<char>(encoded)), {});
         encoded.close();

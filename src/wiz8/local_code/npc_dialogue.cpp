@@ -79,7 +79,7 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
     int item_index;
     int sub_index;
 
-    script = g_npc_dialogue.speaker()->script_file;
+    script = g_npc_dialogue.speaker()->script_file.get();
     for (quote_index = 0; quote_index < script->quote_count; quote_index++) {
         quote = &script->quotes[quote_index];
         for (item_index = 0; item_index < quote->entry_count; item_index++) {
@@ -373,7 +373,7 @@ int W8NpcDialogue::FindReplyQuote(std::string_view text) const
 // FUNCTION: WIZ8 0x005294c0
 std::string GetNpcQuoteText(W8NpcState* npc, int type)
 {
-    const W8NpcScriptFile* script = npc->script_file;
+    const W8NpcScriptFile* script = npc->script_file.get();
     if (type < 0 || type >= static_cast<int>(script->quote_count)) return {};
     const auto& record = script->quotes[type];
     if (record.subquotes.empty() || record.subquotes[0].empty()) return {};

@@ -1,6 +1,7 @@
 #ifndef WIZ8_LAYOUTS_NPC_STATE_H
 #define WIZ8_LAYOUTS_NPC_STATE_H
 
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <vector>
@@ -11,7 +12,7 @@ struct W8NpcItemEntry;
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
-struct W8NpcScriptFile;
+#include "wiz8/npc_script_file.h"
 
 /* One entry in an NPC's stock list. */
 struct W8NpcItemEntry {
@@ -27,7 +28,7 @@ static_assert(sizeof(W8NpcItemEntry) == 0x14 && std::is_trivially_copyable_v<W8N
 
 /* A live NPC. Saves store it as wiz8::retail::NpcState. */
 struct W8NpcState {
-    W8NpcScriptFile* script_file; /* 0x00: the NPC's .nsf script file */
+    std::unique_ptr<W8NpcScriptFile> script_file;
     /* 0x04: spawned flag; FindNpcOfKind returns it as the "in the world"
        answer, facts/combat paths set it, and 0xffff is the never-set
        sentinel normalized to zero on load. */
