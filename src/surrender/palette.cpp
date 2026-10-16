@@ -318,17 +318,12 @@ srPalette::Quantizer::Quantizer()
 // FUNCTION: SURRENDER 0x10004160
 int srPalette::matchPalette(const srARGB* const colors, w8_long color_count) const
 {
-    if (color_count != this->color_count) {
-        return 0;
-    }
-    for (w8_long index = 0; index < color_count; ++index) {
-        // reinterpret-ok: retail compares the packed color dwords
-        if (reinterpret_cast<const w8_ulong&>(this->colors[index]) !=
-            reinterpret_cast<const w8_ulong&>(colors[index])) {
-            return 0;
-        }
-    }
-    return 1;
+    return color_count == this->color_count &&
+           std::equal(this->colors.begin(), this->colors.begin() + color_count, colors,
+                      [](const srARGB& first, const srARGB& second) {
+                          return first.red == second.red && first.green == second.green &&
+                                 first.blue == second.blue && first.alpha == second.alpha;
+                      });
 }
 
 // FUNCTION: SURRENDER 0x10004210

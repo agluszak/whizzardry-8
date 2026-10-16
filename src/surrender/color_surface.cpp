@@ -965,38 +965,7 @@ void srColorSurface::copyNoScaling(srColorSurfaceIFace& source)
         return;
     }
     if (isCompatible(source) == 0) {
-        if (typeid(source) != typeid(*this)) {
-            srColorSurfaceIFace::copyNoScaling(source);
-            return;
-        }
-        if (pixel_format.color_model == srPixelConvert::COLOR_RGB &&
-            pixel_format.pixel_size == srPixelConvert::PIXEL_SIZE_32 &&
-            pixel_format.red_bits == 8 && pixel_format.green_bits == 8 &&
-            pixel_format.blue_bits == 8 && pixel_format.alpha_bits == 8 &&
-            pixel_format.red_shift == 0x10 && pixel_format.green_shift == 8 &&
-            pixel_format.blue_shift == 0 && pixel_format.alpha_shift == 0x18) {
-            unsigned char* dest = (unsigned char*)getDataPtr();
-            for (w8_long row = 0; row < height; ++row) {
-                source.getPixelRow((w8_ulong*)dest, row, 0, width);
-                dest += pitch;
-            }
-            return;
-        }
-        const srPixelConvert::PixelFormat& source_format = source.pixel_format;
-        if (source_format.color_model != 0 || source_format.pixel_size != 3 ||
-            source_format.red_bits != 8 || source_format.green_bits != 8 ||
-            source_format.blue_bits != 8 || source_format.alpha_bits != 8 ||
-            source_format.red_shift != 0x10 || source_format.green_shift != 8 ||
-            source_format.blue_shift != 0 || source_format.alpha_shift != 0x18 ||
-            source.getDataPtr() == 0) {
-            srColorSurfaceIFace::copyNoScaling(source);
-            return;
-        }
-        unsigned char* src = (unsigned char*)source.getDataPtr();
-        for (w8_long row = 0; row < height; ++row) {
-            setPixelRow((const w8_ulong*)src, row, 0, width);
-            src += source.pitch;
-        }
+        srColorSurfaceIFace::copyNoScaling(source);
         return;
     }
     blit(0, 0, source, 0, 0, width, height);

@@ -515,7 +515,6 @@ try {
     srInit();
     g_gerd = std::make_unique<srGERD>(W8CreateNativeRenderDevice());
 
-    // reinterpret-ok: SurRender takes the window handle as an integer
     if (g_gerd->createContext(ghWindow) != srGERD::ERROR_NONE || !OpenRendererWindow()) {
         g_gerd.reset();
         return 0;

@@ -649,9 +649,10 @@ void srVertexPipe::setupST(w8_ulong index)
     if (((current_record->flags & (srVertexPipe::Record::HAS_TEXCOORD0 << index)) != 0)) {
         const glm::vec2* source = current_record->st_source[index];
         if (source != 0) {
+            auto* destination = (index == 0 ? vertex_array->st0 : vertex_array->st1) + batch_base +
+                                sub_batch_offset;
             for (std::size_t i = 0; i < vertex_count; ++i)
-                ((&vertex_array->st0)[index] + batch_base + sub_batch_offset)[i] =
-                    (reinterpret_cast<const glm::vec2*>(source))[avt[sub_batch_offset + i]];
+                destination[i] = source[avt[sub_batch_offset + i]];
         }
     }
     lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_ST0);
