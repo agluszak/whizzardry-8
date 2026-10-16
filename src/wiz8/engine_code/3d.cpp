@@ -699,7 +699,7 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
     const auto coefficients = planes | std::views::transform([](const W8Plane& plane) {
-                                  return glm::vec4(plane.normal.glmValue(), plane.w);
+                                  return glm::vec4(plane.normal, plane.w);
                               });
     return srPlaneMath::containsSphere(coefficients, point, radius);
 }

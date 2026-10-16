@@ -36,8 +36,8 @@ enum W8GDSurfaceFlags {
    distance. The canonical coefficient quad shared by GD surfaces, build-time
    region polygons and frustum culling volumes. */
 struct W8Plane {
-    srVector3T<float> normal;
-    float w;
+    glm::vec3 normal{0};
+    float w{};
 };
 
 struct PlaneContact {
@@ -65,9 +65,6 @@ struct W8GDSurface {
     unsigned int chance;
     float slope; /* face slope; generated surfaces derive it from plane.normal.y */
 
-    /* The plane's unit normal. */
-    const srVector3T<float>* Normal() const { return &plane.normal; }
-
     /* The returned contact carries the position and travelled distance.
        A hit also stores the surface's contact limit in distance. */
     std::optional<PlaneContact> segmentContact(const glm::vec3& from, const glm::vec3& direction,
@@ -89,12 +86,6 @@ struct W8GDSurface {
 };
 
 using RuntimeTriangle = std::array<glm::vec3, 3>;
-
-// Copy packed level storage into aligned runtime math values at the boundary.
-inline RuntimeTriangle runtimeTriangle(std::span<const srVector3, 3> vertices)
-{
-    return {vertices[0].glmValue(), vertices[1].glmValue(), vertices[2].glmValue()};
-}
 
 template<class Indices>
 inline RuntimeTriangle indexedTriangle(std::span<const glm::vec3> vertices, const Indices& indices)
@@ -166,7 +157,7 @@ inline std::optional<PlaneContact> planeContact(const glm::vec4& plane, const Pl
    0x0046D880 and stLight ContainsPoint 0x0049E460. No Wiz8 COMDAT. */
 inline float SignedPlaneDistance(const W8Plane& plane, const glm::vec3& point)
 {
-    return glm::dot(plane.normal.glmValue(), point) + plane.w;
+    return glm::dot(plane.normal, point) + plane.w;
 }
 
 void ClassifySurfacePlane(const glm::vec3* vertices, W8GDSurface* surface);
