@@ -3931,10 +3931,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             g_npc_interaction_state->quote_y + g_npc_interaction_state->quote_height);
         g_npc_interaction_state->quote_visible = true;
         if (std::holds_alternative<std::monostate>(notice)) {
-            W8PendingNoticeLine* line = new W8PendingNoticeLine;
-            line->npc_kind = npc_kind;
-            line->text = normalized;
-            g_npc_interaction_state->pending_notice_lines.push_back(line);
+            g_npc_interaction_state->pending_notice_lines.push_back({normalized, npc_kind});
         }
         bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
         g_npc_interaction_state->quote_notice = notice;
@@ -4016,7 +4013,7 @@ void FlushPendingNoticeLines(void)
 
     for (index = 0; index < static_cast<int>(g_npc_interaction_state->pending_notice_lines.size());
          ++index) {
-        W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines[index];
+        const auto* line = &g_npc_interaction_state->pending_notice_lines[index];
         if (line->npc_kind != -1 &&
             line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
             W8NpcState* npc = GetNpcState(line->npc_kind);
@@ -4028,7 +4025,7 @@ void FlushPendingNoticeLines(void)
         }
         ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3, GetTextBoxScrollRange());
     }
-    wiz8::remove_all_and_delete_in_order(g_npc_interaction_state->pending_notice_lines);
+    g_npc_interaction_state->pending_notice_lines.clear();
 }
 
 void LookAtDialogueNpc(void)

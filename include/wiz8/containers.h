@@ -35,22 +35,4 @@ void remove_all_and_delete(std::vector<T*>& values)
     }
 }
 
-// Drain in order, unlinking before calling code that may mutate the collection.
-template<class T, class Dispose>
-void clear_and_dispose(std::vector<T>& values, Dispose dispose)
-{
-    while (!values.empty()) {
-        T value = values.front();
-        values.erase(values.begin());
-        dispose(value);
-    }
-}
-
-// Use where destruction order is observable (for example, queued events).
-template<class T>
-void remove_all_and_delete_in_order(std::vector<T*>& values)
-{
-    clear_and_dispose(values, [](T* value) { delete value; });
-}
-
 } // namespace wiz8

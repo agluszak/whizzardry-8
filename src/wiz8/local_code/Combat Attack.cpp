@@ -3311,7 +3311,7 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
     int accuracy;
     int i;
     int missile_type = g_item_records[row->paired_item_id].missile_type;
-    if (g_missile_table_count <= static_cast<unsigned int>(missile_type)) {
+    if (g_missile_table.size() <= static_cast<unsigned int>(missile_type)) {
         DebugMessage(0,
                      fmt::format("DATA ERROR: Item {} has an invalid missile type ({:d})",
                                  g_item_records[row->paired_item_id].display_name, missile_type));

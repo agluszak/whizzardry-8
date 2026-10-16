@@ -1,7 +1,10 @@
 #include "wiz8/local_code/CharGeneration.h"
 
+#include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 
 #include "conditions.h"
 #include "layouts/game_status.h"
@@ -371,7 +374,7 @@ void ApplyProfessionMinimumAttributes(W8Character* character,
 // FUNCTION: WIZ8 0x00557200
 void PayDownAttributeDebt(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int deficits[7][2];
+    std::array<std::array<int, 2>, 7> deficits;
     int index;
 
     int total = 0;
@@ -386,7 +389,7 @@ void PayDownAttributeDebt(W8Character* character, W8CharacterCreationState* crea
         deficits[index][1] = index;
         total -= deficit;
     }
-    qsort(deficits, 7, sizeof(deficits[0]), CompareSignedDescending);
+    std::ranges::sort(deficits, std::greater{}, [](const auto& row) { return row[0]; });
     if (character->attribute_point_deficit != total) {
         character->attribute_point_deficit = total;
     }
@@ -783,12 +786,12 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                 }
             }
             RecalculateRealmSpellPoints(character);
-            int pools[6][2];
+            std::array<std::array<int, 2>, 6> pools;
             for (index = 0; index < 6; ++index) {
                 pools[index][0] = character->sp_max[index];
                 pools[index][1] = index;
             }
-            qsort(pools, 6, sizeof(pools[0]), CompareSignedDescending);
+            std::ranges::sort(pools, std::greater{}, [](const auto& row) { return row[0]; });
             int count =
                 creation_state->spell_points_total < 7 ? creation_state->spell_points_total : 6;
             for (index = 0; index < count; ++index) {

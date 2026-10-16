@@ -8,10 +8,10 @@ do not need the original compiler layout.
   Use prepared lowercase assets and explicit asset/user roots; runtime I/O uses ordinary files.
 - Save and game-data records that hold live objects now have fixed-width
   disk images and `wiz8::retail::Record` codecs (`retail_save_records.h`,
-  `retail_geometry_records.h`); runtime types use ordinary pointers. Next:
-  give those runtime types owning members (characters,
-  monster group member lists, world item chains) instead of raw pointers
-  managed by hand.
+  `retail_geometry_records.h`); runtime types use normal C++ ownership. Monster groups,
+  species caches, visibility maps, and world item records own their storage;
+  gameplay and spatial registries borrow pointers or IDs. Continue auditing
+  character state and remaining transient object lifetimes.
 - Continue separating the remaining numeric save records and engine resource
   identifiers from their runtime representations. Game text and editable
   controls now own UTF-8 strings; retail UTF-16LE records have independent
@@ -121,6 +121,20 @@ replaced NPC states remain alive until the registry is reset. Cycle particle
 attachments and monster spell-icon entries are value collections; particle
 retirement and world icon removal retain their existing world lifetimes.
 World cursor state has a normal C++ owner and no retail-layout padding.
+Cursor-node scratch bytes now live in vectors; saved scratch and fixed asset
+names are validated at the file boundary. Trigger text, payloads, and events,
+prop representations/timers/animations, and ambient schedules have explicit
+owners. Monster animations, marker items, lights, and floating models likewise
+use owned members; retiring particles cancel borrowed monster callbacks.
+
+World destruction stops activity and drops borrowed indexes before releasing
+entities, then geometry and the spatial index, and finally the scene. Loaded
+monsters have separate owning storage and an active borrowed update list, so
+hiding the cursor or loading an inactive monster does not transfer ownership.
+Typed runtime loaders return unique owners, including on partial load failure.
+Missile-table records and octree lookup maps are values; gameplay sorting uses
+typed standard algorithms. The raw-pointer deletion helpers are gone.
+
 
 Recompilation-era addressable numeric constants have been replaced with literals
 and semantic constexpr parameters. Runtime tuning values remain mutable. The

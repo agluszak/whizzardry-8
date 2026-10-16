@@ -17,7 +17,7 @@ struct MonGen {
     /* World position, saved as three dwords and handed to GenerateEncounter. */
     glm::vec3 spawn_position;
     int encounter_table_index; /* index into g_encounter_tables, -1 means none */
-    W8IntervalGate* m_pTimer;
+    W8IntervalGate timer;
     char name[32];
     unsigned char generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
@@ -39,7 +39,6 @@ struct MonGen {
     static unsigned char LoadAll(wiz8::File& save_handle);
     /* Select one loaded encounter table and apply its HARASSMENT flag. */
     void SetEncounterTable(int index);
-    ~MonGen();
     MonGen(const MonGen&) = delete;
     MonGen& operator=(const MonGen&) = delete;
 };

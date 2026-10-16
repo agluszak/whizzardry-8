@@ -260,7 +260,7 @@ void SortNpcItems(W8NpcState* npc)
 {
     std::ranges::stable_sort(npc->items,
                              [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
-                                 return CompareItemsForPool(&first.item, &second.item) < 0;
+                                 return ItemPrecedesInPool(first.item, second.item);
                              });
 }
 

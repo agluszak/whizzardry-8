@@ -98,7 +98,6 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     ReleaseGenericItemNames();
     ReleaseNpcStates();
     UnloadEncounterTables();
-    ReleaseMissileDatabase();
     ReleaseSpellDatabase();
     DestroyItemDatabase();
     DestroyItemTables();

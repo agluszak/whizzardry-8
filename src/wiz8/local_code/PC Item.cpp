@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <cstring>
@@ -2501,10 +2502,10 @@ void BindEveryPartyItem(void)
    finally by uses. Every comparison is the reverse of the usual sense, so the
    pool ends up in descending order. */
 // FUNCTION: WIZ8 0x00520600
-int CompareItemsForPool(const void* first, const void* second)
+bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& second)
 {
-    const W8ItemInstance* a = (const W8ItemInstance*)first;
-    const W8ItemInstance* b = (const W8ItemInstance*)second;
+    const auto* a = &first;
+    const auto* b = &second;
     const W8ItemDatabaseRecord* ra;
     const W8ItemDatabaseRecord* rb;
 
@@ -2518,42 +2519,42 @@ int CompareItemsForPool(const void* first, const void* second)
     rb = &g_item_records[b->iItemNo];
 
     if (rb->equip_class < ra->equip_class) {
-        return 1;
+        return false;
     }
     if (ra->equip_class < rb->equip_class) {
-        return -1;
+        return true;
     }
     if (rb->unidentified_name_index < ra->unidentified_name_index) {
-        return 1;
+        return false;
     }
     if (ra->unidentified_name_index < rb->unidentified_name_index) {
-        return -1;
+        return true;
     }
     if (!a->identified) {
         if (!b->identified) {
-            return 0;
+            return false;
         }
-        return 1;
+        return false;
     }
     if (!b->identified) {
-        return -1;
+        return true;
     }
     if (ra->value < rb->value) {
-        return 1;
+        return false;
     }
     if (rb->value < ra->value) {
-        return -1;
+        return true;
     }
     if (a->stack_count < b->stack_count) {
-        return 1;
+        return false;
     }
     if (b->stack_count < a->stack_count) {
-        return -1;
+        return true;
     }
     if (a->uses_or_charges < b->uses_or_charges) {
-        return 1;
+        return false;
     }
-    return -(b->uses_or_charges < a->uses_or_charges);
+    return b->uses_or_charges < a->uses_or_charges;
 }
 
 /* Put the party pool back in order; a pool of one is left alone. */
@@ -2564,8 +2565,8 @@ void SortPartyItemPool(void)
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 3795, 0);
     }
     if (g_status.party_item_count > 1) {
-        qsort(g_status.party_item_pool, g_status.party_item_count, sizeof(W8ItemInstance),
-              CompareItemsForPool);
+        std::sort(g_status.party_item_pool, g_status.party_item_pool + g_status.party_item_count,
+                  ItemPrecedesInPool);
     }
 }
 

@@ -1940,13 +1940,6 @@ no_probes:;
 /* Second Remove emission (0x00438C90 above is the other), serving the
    keyboard/automap tables' callers. */
 
-// FUNCTION: WIZ8 0x00436840
-W8OctreeObjectRegistry::W8OctreeObjectRegistry()
-    : by_cell(new W8OctreeIndex), by_object(new W8OctreeIndex)
-{
-}
-
-// FUNCTION: WIZ8 0x00436b20
 // FUNCTION: WIZ8 0x00436b90
 unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, int id,
                                                        const glm::ivec3& point)
@@ -1956,10 +1949,10 @@ unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, 
     int object_value = static_cast<int>(object_key);
     int cell_value = static_cast<int>(cell_key);
 
-    RemoveIndexValue(*by_object, object_key, cell_value);
-    InsertIndexValue(*by_object, object_key, cell_value);
-    RemoveIndexValue(*by_cell, cell_key, object_value);
-    InsertIndexValue(*by_cell, cell_key, object_value);
+    RemoveIndexValue(by_object, object_key, cell_value);
+    InsertIndexValue(by_object, object_key, cell_value);
+    RemoveIndexValue(by_cell, cell_key, object_value);
+    InsertIndexValue(by_cell, cell_key, object_value);
     return 1;
 }
 
@@ -1968,13 +1961,13 @@ unsigned char W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, 
 {
     unsigned int object_key = PackOctreeObjectKey(kind, id);
     int object_value = static_cast<int>(object_key);
-    const auto slot = by_object->equal_range(object_key).first;
-    if (slot == by_object->end()) {
+    const auto slot = by_object.equal_range(object_key).first;
+    if (slot == by_object.end()) {
         return 0;
     }
     const auto cell_key = static_cast<unsigned int>(slot->second);
-    by_object->erase(slot);
-    RemoveIndexValue(*by_cell, cell_key, object_value);
+    by_object.erase(slot);
+    RemoveIndexValue(by_cell, cell_key, object_value);
     // Retail advances through the erased slot's free-list link and normally
     // ends here. Preserve the single-pair removal without dereferencing erase.
     return 1;
@@ -1996,7 +1989,7 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
                                                          const glm::ivec3& point)
 {
     unsigned int object_key = PackOctreeObjectKey(kind & 0xffff, id);
-    int occupied = LookupIndexValue(*by_object, object_key);
+    int occupied = LookupIndexValue(by_object, object_key);
 
     if (occupied != 0) {
         /* Retail only recognizes a repeat of (0,0,z): x is not decoded,
@@ -2007,26 +2000,26 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
         }
         unsigned int occupied_key = static_cast<unsigned int>(occupied);
         int object_value = static_cast<int>(object_key);
-        RemoveIndexValue(*by_object, object_key);
-        RemoveIndexValue(*by_cell, occupied_key, object_value);
+        RemoveIndexValue(by_object, object_key);
+        RemoveIndexValue(by_cell, occupied_key, object_value);
     } else if (static_cast<short>(kind) == W8_OCTREE_KIND_LOCATION) {
         unsigned int cell_key = PackOctreeCellKey(point.x, point.y, point.z);
         int cell_value = static_cast<int>(cell_key);
         unsigned int tagged_key = PackOctreeObjectKey(W8_OCTREE_KIND_NAVIGATOR, id);
         int tagged_value = static_cast<int>(tagged_key);
-        RemoveIndexValue(*by_object, tagged_key, cell_value);
-        InsertIndexValue(*by_object, tagged_key, cell_value);
-        RemoveIndexValue(*by_cell, cell_key, tagged_value);
-        InsertIndexValue(*by_cell, cell_key, tagged_value);
+        RemoveIndexValue(by_object, tagged_key, cell_value);
+        InsertIndexValue(by_object, tagged_key, cell_value);
+        RemoveIndexValue(by_cell, cell_key, tagged_value);
+        InsertIndexValue(by_cell, cell_key, tagged_value);
     }
 
     unsigned int cell_key = PackOctreeCellKey(point.x, point.y, point.z);
     int cell_value = static_cast<int>(cell_key);
     int object_value = static_cast<int>(object_key);
-    RemoveIndexValue(*by_object, object_key, cell_value);
-    InsertIndexValue(*by_object, object_key, cell_value);
-    RemoveIndexValue(*by_cell, cell_key, object_value);
-    InsertIndexValue(*by_cell, cell_key, object_value);
+    RemoveIndexValue(by_object, object_key, cell_value);
+    InsertIndexValue(by_object, object_key, cell_value);
+    RemoveIndexValue(by_cell, cell_key, object_value);
+    InsertIndexValue(by_cell, cell_key, object_value);
     return 1;
 }
 
@@ -2048,10 +2041,10 @@ void W8Octree::AddCollidablePropBounds(int index, const srBoundingBox& bounds)
         const auto cell_key = PackOctreeCellKey(cell.x, cell.y, cell.z);
         const int cell_value = static_cast<int>(cell_key);
         const int prop_value = static_cast<int>(prop_key);
-        auto& by_prop = *object_registry->by_object;
+        auto& by_prop = object_registry->by_object;
         RemoveIndexValue(by_prop, prop_key, cell_value);
         InsertIndexValue(by_prop, prop_key, cell_value);
-        auto& by_cell = *object_registry->by_cell;
+        auto& by_cell = object_registry->by_cell;
         RemoveIndexValue(by_cell, cell_key, prop_value);
         InsertIndexValue(by_cell, cell_key, prop_value);
     });
@@ -2963,10 +2956,10 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
         break;
     default:
         g_octree_query_cell = PackOctreeCellKey(cell.x, cell.y, cell.z);
-        g_octree_query_slot = object_registry->by_cell->end();
-        slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
+        g_octree_query_slot = object_registry->by_cell.end();
+        slot = NextIndexValue(object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
         g_octree_query_slot = slot;
-        while (slot != object_registry->by_cell->end() && m_gd_result_count < 10000) {
+        while (slot != object_registry->by_cell.end() && m_gd_result_count < 10000) {
             unsigned int packed = static_cast<unsigned int>(slot->second);
             g_octree_query_id = static_cast<unsigned short>(packed);
             const unsigned short entry_kind = OctreeKeyKind(packed);
@@ -2979,7 +2972,7 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
                 ++m_gd_result_count;
             }
             slot =
-                NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
+                NextIndexValue(object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
             g_octree_query_slot = slot;
         }
         break;
@@ -3334,7 +3327,6 @@ void OctreeMeshLinks::write(wiz8::File& file, std::size_t mesh_count) const
 
 W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)
 {
-    Reset();
     m_level_kind = 1;
     if (source != 0) {
         m_bounds = source->m_bounds;
@@ -3368,7 +3360,8 @@ W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)
 
 void W8OctSpatialState::Reset()
 {
-    memset(this, 0, sizeof(*this));
+    *this = W8OctSpatialState{};
+    m_level_kind = 0;
 }
 
 srBoundingBox W8OctSpatialState::GetClippedBounds() const

@@ -228,7 +228,7 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
 }
 
 // GLOBAL: WIZ8 0x0065bde0
-W8MissileTableRecord* g_missile_table;
+std::vector<W8MissileTableRecord> g_missile_table;
 
 // GLOBAL: WIZ8 0x0060c9c8
 const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
@@ -243,44 +243,28 @@ static int missileCycleIndex(const char* pac_name)
     }
     return -1;
 }
-// GLOBAL: WIZ8 0x0065bddc
-unsigned int g_missile_table_count;
-
 /* Engine Code\\Missile.cpp's startup database load.  Each disk row has a
    0x101-byte editor prefix followed by the 0x1e5-byte runtime record. */
 // FUNCTION: WIZ8 0x004a5600
 unsigned char LoadMissileDatabase(void)
 try {
-    ReleaseMissileDatabase();
     auto handle = wiz8::open_file(wiz8::asset_path("Data\\Databases\\MissileTables.dbs"));
     std::int32_t count;
     std::uint32_t version;
     handle->read_exact(&count, sizeof(count));
     handle->read_exact(&version, sizeof(version));
     if (count < 0 || count > 100000) return false;
-    auto rows = std::make_unique<W8MissileTableRecord[]>(count);
+    std::vector<W8MissileTableRecord> rows(count);
     for (std::int32_t index = 0; index < count; ++index) {
         handle->seek(0x101, wiz8::SeekOrigin::current);
         if (wiz8::retail::read(*handle, rows[index]).bytes !=
             wiz8::retail::kMissileTableRecordBytes)
             return false;
     }
-    g_missile_table = rows.release();
-    g_missile_table_count = count;
+    g_missile_table = std::move(rows);
     return true;
 } catch (const std::exception&) {
     return false;
-}
-
-/* Release the one allocation that owns every runtime missile-table row. */
-// FUNCTION: WIZ8 0x004a5760
-void ReleaseMissileDatabase(void)
-{
-    if (g_missile_table) {
-        delete[] g_missile_table;
-        g_missile_table = 0;
-        g_missile_table_count = 0;
-    }
 }
 
 /* True while this missile is still an in-flight engagement that must finish

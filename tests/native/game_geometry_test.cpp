@@ -821,7 +821,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     // reverse index, navigator entries and de-duplicates one insertion at a
     // time; none of those operations is under test here. With 10k objects in
     // one cell, repeating those updates dominates this query regression.
-    auto& by_cell = *tree.object_registry->by_cell;
+    auto& by_cell = tree.object_registry->by_cell;
     by_cell.reserve(10001);
     const auto cell_key = PackOctreeCellKey(cell.x, cell.y, cell.z);
     for (unsigned id = 1; id <= 10001; ++id)
@@ -833,8 +833,8 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     // The 10,000-result query above verifies the fixed cap. nearbyLocations
     // delegates to queryObjects, so exercise its bounds on the smaller data
     // set below rather than traversing the same 10,000 entries again.
-    tree.object_registry->by_cell->clear();
-    tree.object_registry->by_object->clear();
+    tree.object_registry->by_cell.clear();
+    tree.object_registry->by_object.clear();
     for (int id = 1; id <= 512; ++id)
         tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
     const auto nearby = tree.nearbyLocations({500, 500, 500}, 1);
@@ -1940,11 +1940,11 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
     tree.m_spatial.m_node_extent = 2;
     const srBoundingBox cells{{9, 10, 10}, {12, 10, 10}};
     tree.AddCollidablePropBounds(4, cells);
-    REQUIRE(tree.object_registry->by_cell->size() == 2);
-    REQUIRE(tree.object_registry->by_object->size() == 2);
+    REQUIRE(tree.object_registry->by_cell.size() == 2);
+    REQUIRE(tree.object_registry->by_object.size() == 2);
     tree.AddCollidablePropBounds(4, cells);
-    REQUIRE(tree.object_registry->by_cell->size() == 2);
-    REQUIRE(tree.object_registry->by_object->size() == 2);
+    REQUIRE(tree.object_registry->by_cell.size() == 2);
+    REQUIRE(tree.object_registry->by_object.size() == 2);
     srBoundingBox endpoints{{0, 10, 0}, {0, 10, 0}};
     endpoints.include({1, -2, 20});
     REQUIRE(endpoints.minimum.y == -2); // Y is compared with Y even when Z lies above the start.

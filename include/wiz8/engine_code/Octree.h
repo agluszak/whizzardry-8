@@ -130,13 +130,8 @@ inline int OctreeCellKeyZ(int key)
 
 class W8OctreeObjectRegistry {
 public:
-    /* Retail emits both lifecycle bodies out of line in the Octree TU: the
-       constructor at 0x00436840 and the destructor at 0x00436B20. */
-    W8OctreeObjectRegistry();
-    ~W8OctreeObjectRegistry() = default;
-
-    std::unique_ptr<W8OctreeIndex> by_cell;
-    std::unique_ptr<W8OctreeIndex> by_object;
+    W8OctreeIndex by_cell;
+    W8OctreeIndex by_object;
 
     /* Returns whether the pairing ended up recorded; every recovered caller
        discards it. */
