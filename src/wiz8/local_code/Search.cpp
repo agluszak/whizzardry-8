@@ -1,5 +1,6 @@
 #include "wiz8/local_code/Search.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -15,11 +16,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "random.h"
-#include "surrender/srDebug.h"
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
@@ -52,7 +51,7 @@
    line 337 establishes the original translation unit. */
 
 // GLOBAL: WIZ8 0x00689fa8
-std::vector<W8Searchable*> g_searchables;
+std::vector<std::unique_ptr<W8Searchable>> g_searchables;
 // GLOBAL: WIZ8 0x00689fb8
 W8SearchableView g_search_view;
 // GLOBAL: WIZ8 0x00689fcc
@@ -70,27 +69,38 @@ float g_search_cone_angle = 3.1415925f;
 // FUNCTION: WIZ8 0x00517900
 W8SearchableView::W8SearchableView() : cursor(-1), items() {}
 
+// Remove borrowed entries before their registry owner is destroyed. Keeping the
+// cursor before the next entry lets an active search pulse continue after removal.
+static void InvalidateSearchView(W8Searchable* searchable)
+{
+    auto& items = g_search_view.items;
+    const auto entry = std::find(items.begin(), items.end(), searchable);
+    if (entry == items.end()) return;
+    if (entry - items.begin() <= g_search_view.cursor) --g_search_view.cursor;
+    items.erase(entry);
+}
+
 /* Searchable was detected: items shed their hidden flag and become findable,
    triggers run; either way the record leaves the registry. */
 // FUNCTION: WIZ8 0x00516ad0
 void W8Searchable::Reveal()
 {
-    if (world_item != 0) {
-        if (!ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN)) {
-            return;
-        }
+    if (world_item ? !ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN) : trigger == nullptr) return;
+    const auto entry = std::find_if(g_searchables.begin(), g_searchables.end(),
+                                    [this](const auto& owner) { return owner.get() == this; });
+    if (entry == g_searchables.end()) return;
+    // Retain this record across trigger callbacks, which may change the registry.
+    auto owner = std::move(*entry);
+    InvalidateSearchView(this);
+    g_searchables.erase(entry);
+    if (world_item) {
         SetItemFlags(world_item, W8_WORLD_ITEM_HIDDEN, false);
         SetItemFlags(world_item, W8_WORLD_ITEM_RADAR_BLIP_LIT, true);
         SetItemAndEntityFlags(world_item, W8_ITEM_ENTITY_HIGHLIGHT_BLUE, false);
     } else {
-        if (trigger == 0) {
-            return;
-        }
         trigger->Run(-1);
         trigger->flags |= W8_TRIGGER_SEARCHED;
     }
-    wiz8::erase_first(g_searchables, this);
-    delete this;
 }
 
 /* Refill the view with the registered searchables inside the search radius
@@ -104,7 +114,7 @@ W8SearchableView* CollectSearchablesInView(void)
     g_search_view.items.clear();
     g_search_view.cursor = -1;
     for (int index = 0; index < total; ++index) {
-        W8Searchable* searchable = g_searchables[index];
+        W8Searchable* searchable = g_searchables[index].get();
         glm::vec3 position;
         searchable->GetPosition(&position);
         glm::vec3 delta = camera - position;
@@ -136,33 +146,27 @@ W8SearchableView* CollectSearchablesInView(void)
 // FUNCTION: WIZ8 0x00516e20
 void RegisterSearchableWorldItem(W8WorldItem* item)
 {
-    W8Searchable* searchable = new W8Searchable;
-    if (searchable == 0) {
-        srAssertFail("pSearchable", "C:\\Projects\\Wizardry 8\\Local Code\\search.cpp", 0x125, 0);
-    }
+    auto searchable = std::make_unique<W8Searchable>();
     searchable->world_item = item;
-    g_searchables.push_back(searchable);
+    g_searchables.push_back(std::move(searchable));
 }
 
 // FUNCTION: WIZ8 0x00516f00
 void RegisterSearchableTrigger(Trigger* trigger)
 {
-    W8Searchable* searchable = new W8Searchable;
-    if (searchable == 0) {
-        srAssertFail("pSearchable", "C:\\Projects\\Wizardry 8\\Local Code\\search.cpp", 0x151, 0);
-    }
+    auto searchable = std::make_unique<W8Searchable>();
     searchable->trigger = trigger;
-    g_searchables.push_back(searchable);
+    g_searchables.push_back(std::move(searchable));
 }
 
 // FUNCTION: WIZ8 0x00516fe0
 void UnregisterSearchableTrigger(Trigger* trigger)
 {
     for (int index = 0; index < static_cast<int>(g_searchables.size()); ++index) {
-        W8Searchable* searchable = g_searchables[index];
+        W8Searchable* searchable = g_searchables[index].get();
         if (searchable->trigger == trigger) {
-            wiz8::erase_first(g_searchables, searchable);
-            delete searchable;
+            InvalidateSearchView(searchable);
+            g_searchables.erase(g_searchables.begin() + index);
             return;
         }
     }
@@ -203,7 +207,7 @@ void W8Searchable::GetPosition(glm::vec3* position)
 void ClearSearchables()
 {
     g_search_view.items.clear();
-    wiz8::remove_all_and_delete_in_order(g_searchables);
+    g_searchables.clear();
     g_search_view.cursor = -1;
 }
 
