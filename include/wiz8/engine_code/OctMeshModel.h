@@ -4,8 +4,6 @@
 #include <vector>
 
 #include "glm/ext/vector_int3.hpp"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/filesystem.h"
 
 class srMaterialIFace;
 class srShader;
@@ -13,7 +11,14 @@ class srTextureIFace;
 class stMaterial;
 class stMeshModel;
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+
+namespace wiz8 {
+class File;
+}
+struct W8MeshMaterial;
 
 /* Engine Code\OctSubMesh.cpp's serialized mesh workspace. The assertion in
    its write method names the original class OctMeshModel; the adjacent
@@ -21,36 +26,35 @@ class stMeshModel;
    receiver. Only fields whose roles are established by those bodies are named. */
 class OctMeshModel {
 public:
-    OctMeshModel();  /* 0x0049E4C0 */
-    ~OctMeshModel(); /* 0x0049E500 */
+    OctMeshModel() = default;
     // Owns its arrays: moves transfer them, copies are not allowed.
-    OctMeshModel(OctMeshModel&& other) noexcept;
-    OctMeshModel& operator=(OctMeshModel&& other) noexcept;
+    OctMeshModel(OctMeshModel&& other) noexcept = default;
+    OctMeshModel& operator=(OctMeshModel&& other) noexcept = default;
     OctMeshModel(const OctMeshModel&) = delete;
     OctMeshModel& operator=(const OctMeshModel&) = delete;
     std::unique_ptr<stMeshModel> Read(wiz8::File* file,
                                       const std::vector<W8MeshMaterial>& materials);
     bool Write(wiz8::File& hFile); /* 0x0049E5D0 */
 
-    short version;
-    short padding_02;
-    int m_link_index;
-    int next_link;
-    int m_material_index;
-    int m_map_count;                       /* m_psrMap entry count */
-    srVector3T<float>* m_vertex_locations; /* m_psrVertLoc */
-    glm::vec2* m_vertex_map;       /* m_psrMap */
-    int* m_vertex_materials;               /* m_plVertMats */
-    glm::ivec3* m_poly_vertices;           /* m_psrPolyVertex */
-    glm::ivec3* m_poly_uv_index;           /* m_psrPolyUVIndex */
-    int* m_poly_textures;                  /* m_plPolyTextures */
-    srVector3T<float>* m_vertex_normals;   /* m_pVertNorms */
-    srVector3T<float>* m_vertex_lights;    /* m_pVertLights */
-    glm::vec4* m_poly_equations;   /* m_psrPolyEqtns */
-    float** m_sun_lights;                  /* m_ppflSunLights */
-    unsigned int m_packed_header;
-    int m_vertex_count;
-    int m_polygon_count;
+    short version{};
+    short padding_02{};
+    int m_link_index{};
+    int next_link{};
+    int m_material_index{};
+    int m_map_count{};                       /* m_psrMap entry count */
+    std::vector<glm::vec3> m_vertex_locations; /* m_psrVertLoc */
+    std::vector<glm::vec2> m_vertex_map;       /* m_psrMap */
+    std::vector<int> m_vertex_materials;               /* m_plVertMats */
+    std::vector<glm::ivec3> m_poly_vertices;           /* m_psrPolyVertex */
+    std::vector<glm::ivec3> m_poly_uv_index;           /* m_psrPolyUVIndex */
+    std::vector<int> m_poly_textures;                  /* m_plPolyTextures */
+    std::vector<glm::vec3> m_vertex_normals;   /* m_pVertNorms */
+    std::vector<glm::vec3> m_vertex_lights;    /* m_pVertLights */
+    std::vector<glm::vec4> m_poly_equations;   /* m_psrPolyEqtns */
+    std::vector<std::vector<float>> m_sun_lights;                  /* m_ppflSunLights */
+    unsigned int m_packed_header{};
+    int m_vertex_count{};
+    int m_polygon_count{};
 };
 
 /* The first Read call snapshots material/texture/render-flag zero as the

@@ -472,7 +472,7 @@ public:
     /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
        verify passes walk to bound-check each automesh's vertices. */
     std::unordered_multimap<unsigned short, w8_ulong> automesh_cells;
-    PrePathing* pre_pathing;
+    std::unique_ptr<PrePathing> pre_pathing;
     /* The path-node scratch block BuildPathLists/PathNodeObstructed fill:
        created-node count, then the runs of registered prop ids the node
        rests on (supports) and that overlap its clearance box (blocks).
@@ -494,7 +494,7 @@ public:
     float path_node_extent;
     /* The registered prop objects the path-bounds test collides against;
        0x0046BEC0 reads m_surface_count and the collidable flag on each. */
-    std::vector<GDProp*>* props;
+    std::vector<GDProp*> props;
 
     /* Walks the `from`-`to` segment through the leaf grid, collecting each
        visited leaf's region-polygon ids and plane/slab-testing them. Answers
