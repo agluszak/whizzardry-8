@@ -116,7 +116,7 @@ struct OctBuildPreTree : W8OctBuildTree {
                                          w8_ulong mode);
     /* Fill the leaf's region-id list with every region volume overlapping
        `bounds`; grows a 50-entry scratch list on first use. */
-    void FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox* bounds);
+    void FindLeafRegions(W8OctBuildNode* node, const srBoundingBox* bounds);
     /* Loads the .rlk region file beside the level and folds its bounds into
        the build. */
     unsigned short LoadRegionFile(const char* stem);

@@ -217,12 +217,6 @@ template<class T> srVector3T<T> operator/(const srVector3T<T>& vector, double sc
     return result;
 }
 
-class srVector2i {
-public:
-    int x;
-    int y;
-};
-
 using SRBYTE = unsigned char;
 using SRDWORD = w8_ulong;
 using srVector3 = srVector3T<float>;

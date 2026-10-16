@@ -379,7 +379,7 @@ public:
     void BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to, const glm::vec2* origin,
                            W8PathGridWalk* walk);
     bool ProbeWaypointSegment(const srVector3T<float>* from, const srVector3T<float>* to);
-    unsigned int ComputeWaypointNeighborMask(const srVector2i* cell, unsigned int path_value);
+    unsigned int ComputeWaypointNeighborMask(const glm::ivec2* cell, unsigned int path_value);
     // Return a blocked-neighbor slide direction from a live cell or the stored mask.
     std::optional<glm::vec3> neighborSlideDirection(const glm::vec3& position,
                                                     const glm::vec3& delta);
@@ -399,7 +399,7 @@ public:
        recursive result. m_probe_cell_key tracks the farthest candidate. */
     unsigned short RecurseTargetLinks(unsigned short waypoint); /* 0x004615D0 */
     unsigned short RecursePatrolLinks(unsigned short waypoint);
-    float MeasureDirectionalPath(const srVector2i* cell, int direction, unsigned int height,
+    float MeasureDirectionalPath(const glm::ivec2* cell, int direction, unsigned int height,
                                  float distance);
     float CompareDirectionalClearance(const srVector3T<float>* position,
                                       const srVector3T<float>* direction, float distance);
@@ -458,7 +458,7 @@ public:
     /* Path probe-clearance height from the octree
        header; only ConfigureForLevel writes it. */
     float path_clearance; /* 0x28 */
-    W8BoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
+    srBoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
     /* Four malloc'd tables and one polymorphic object, all released by
        0x00457B10 - the first four with free, the last through its own
        deleting slot. */

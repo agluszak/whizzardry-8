@@ -8,6 +8,7 @@
 
 #include "AnimRep.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int2.hpp"
 #include "layouts/gameplay_databases.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
@@ -58,7 +59,7 @@ static unsigned char g_radar_disposition_class[4] = {0, 1, 2, 0};
 /* Screen offsets at which the zoomed map image gets each
    occupied formation cell's party-order chip painted. */
 // GLOBAL: WIZ8 0x0064cb6c
-static srVector2i g_radar_cell_offsets[15] = {
+static glm::ivec2 g_radar_cell_offsets[15] = {
     {45, 37}, {42, 38}, {48, 38}, {53, 45}, {52, 42}, {52, 48}, {45, 53}, {48, 52},
     {42, 52}, {37, 45}, {38, 48}, {38, 42}, {45, 42}, {43, 46}, {47, 46},
 };

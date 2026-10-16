@@ -32,15 +32,6 @@ enum W8GDSurfaceFlags {
         W8_GD_SURFACE_COLLISION_PROCESSED | W8_GD_SURFACE_CONDITIONAL_DISABLED
 };
 
-/* Axis-aligned minimum/maximum box used by Wizardry's runtime/build geometry.
-   The region builder stores counted 0x18-byte arrays of these and the octree
-   consumes one complete pair through AddCollidablePropBounds. Original source
-   spelling is not recovered. */
-struct W8BoundingBox {
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-};
-
 /* Plane equation record n·p + w = 0: a unit normal plus the signed origin
    distance. The canonical coefficient quad shared by GD surfaces, build-time
    region polygons and frustum culling volumes. */

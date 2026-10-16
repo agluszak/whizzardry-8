@@ -16,13 +16,13 @@
 #include <fmt/format.h>
 
 #include "camera_motion.h"
+#include "glm/ext/vector_int2.hpp"
 #include "input.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "mgs_commands.h"
-#include "surrender/srMath.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
@@ -660,7 +660,7 @@ void DispatchMGSCommand(W8MGSCommand command)
 }
 
 // GLOBAL: WIZ8 0x0064c1cc
-srVector2i g_keyboard_row_positions[13] = {
+glm::ivec2 g_keyboard_row_positions[13] = {
     {5, 55}, {23, 55}, {41, 55}, {59, 55}, {59, 37}, {5, 37},  {5, 19},
     {5, 1},  {23, 1},  {41, 1},  {59, 1},  {59, 19}, {32, 28},
 };

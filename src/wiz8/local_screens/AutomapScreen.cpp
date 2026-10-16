@@ -33,6 +33,7 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int2.hpp"
 #include "himage.h"
 #include "image.h"
 #include "input.h"
@@ -194,12 +195,12 @@ int g_automap_button_catalogs[16] = {388, 392, 396, 380, 384, 348, 352, 356,
                                      340, 344, 360, 364, 368, 372, 376, 336};
 /* Screen positions for the sixteen buttons. */
 // GLOBAL: WIZ8 0x0064b864
-srVector2i g_automap_button_positions[16] = {
+glm::ivec2 g_automap_button_positions[16] = {
     {490, 124}, {541, 124}, {591, 124}, {490, 70},  {541, 70},  {591, 70},  {591, 70},  {591, 70},
     {490, 164}, {591, 164}, {540, 218}, {540, 326}, {486, 272}, {594, 272}, {540, 272}, {588, 441},
 };
 // GLOBAL: WIZ8 0x0064b8e4
-srVector2i g_automap_cursor_offsets[5] = {{0, 0}, {8, 7}, {1, 24}, {1, 24}, {8, 7}};
+glm::ivec2 g_automap_cursor_offsets[5] = {{0, 0}, {8, 7}, {1, 24}, {1, 24}, {8, 7}};
 // GLOBAL: WIZ8 0x0064b910
 float g_automap_range = 10000.0f;
 /* Developer I-key latch; retail has no rendering consumer for this toggle. */

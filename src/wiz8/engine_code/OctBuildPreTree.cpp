@@ -32,6 +32,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "index_algorithms.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/LevelFile.h"
@@ -388,7 +389,7 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
             if (node->leaf_kind == 0) {
                 ReportBuildStatus(2, {});
                 ++leaf_count;
-                W8BoundingBox leaf_bounds;
+                srBoundingBox leaf_bounds;
                 leaf_bounds.minimum = working->m_bounds.minimum;
                 leaf_bounds.maximum = working->m_bounds.maximum;
                 FindLeafRegions(node, &leaf_bounds);
@@ -554,12 +555,11 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
    `bounds`. The list is a malloc'd run of up to 0x32 ids terminated by a zero
    slot; the first allocation reports failure through the build log. */
 // FUNCTION: WIZ8 0x004b1090
-void OctBuildPreTree::FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox* bounds)
+void OctBuildPreTree::FindLeafRegions(W8OctBuildNode* node, const srBoundingBox* bounds)
 {
     for (unsigned short region = 1; region < spatial.m_region_count; ++region) {
         if ((spatial.m_region_volumes[region].flags & 4) == 0 &&
-            BoundsInsideFrustum(spatial.m_region_volumes[region],
-                                {bounds->minimum.glmValue(), bounds->maximum.glmValue()})) {
+            BoundsInsideFrustum(spatial.m_region_volumes[region], *bounds)) {
             if (node->region_arrays[1] == 0) {
                 unsigned short* list = static_cast<unsigned short*>(malloc(50 * sizeof(*list)));
                 if (list == 0) {

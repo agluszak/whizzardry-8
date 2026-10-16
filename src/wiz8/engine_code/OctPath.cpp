@@ -2088,7 +2088,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         }
     }
 
-    srVector2i root_cell;
+    glm::ivec2 root_cell;
     const auto converted_cell = pathCell(start.glmValue());
     root_cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     unsigned int root_key = converted_cell.key;
@@ -2728,7 +2728,7 @@ std::optional<glm::vec3> W8PathingService::neighborSlideDirection(const glm::vec
     std::unordered_multimap<unsigned int, unsigned int>* index;
     int range;
     int height;
-    srVector2i cell;
+    glm::ivec2 cell;
     unsigned int key;
     unsigned int value;
 
@@ -3110,8 +3110,6 @@ W8PathingService::W8PathingService()
 {
     grid_scale = 0;
     span = 0;
-    level_bounds.minimum.SetZero();
-    level_bounds.maximum.SetZero();
     file_path_nodes = 0;
     path_node_count = 0;
     edge_node_count = 0;
@@ -3222,7 +3220,7 @@ unsigned int W8PathingService::FindPathCell(srVector3T<float>* position, glm::uv
                                             bool adjust)
 {
     int path_height = static_cast<int>((position->y - level_bounds.minimum.y) / span) + 1;
-    srVector2i source_cell;
+    glm::ivec2 source_cell;
     const auto converted_cell = pathCell(position->glmValue());
     source_cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     unsigned int key = converted_cell.key;
@@ -3325,7 +3323,7 @@ bool W8PathingService::FindNearbyPathCell(srVector3T<float>* position, bool snap
     const unsigned int height =
         static_cast<unsigned int>(static_cast<int>((position->y - level_bounds.minimum.y) / span)) +
         1;
-    srVector2i cell;
+    glm::ivec2 cell;
     const auto converted_cell = pathCell(position->glmValue());
     cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     const unsigned int key = converted_cell.key;
@@ -3391,7 +3389,7 @@ bool W8PathingService::SnapToLowerPathCell(srVector3T<float>* position, bool all
     unsigned int height = static_cast<unsigned int>(
                               static_cast<int>(((position->y - level_bounds.minimum.y) / span))) +
                           1;
-    srVector2i cell;
+    glm::ivec2 cell;
     const auto converted_cell = pathCell(position->glmValue());
     cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     unsigned int key = converted_cell.key;
@@ -3545,10 +3543,10 @@ void W8PathingService::BuildPathGridWalk(const glm::vec2* from, const glm::vec2*
                                          const glm::vec2* origin, W8PathGridWalk* walk)
 {
     int cell_size = static_cast<int>(grid_scale);
-    srVector2i coordinate;
-    srVector2i destination;
-    srVector2i step;
-    srVector2i absolute_delta;
+    glm::ivec2 coordinate;
+    glm::ivec2 destination;
+    glm::ivec2 step;
+    glm::ivec2 absolute_delta;
     glm::vec2 boundary_offset;
     glm::vec2 signed_delta;
     int major_axis = 0;
@@ -3621,7 +3619,7 @@ bool W8PathingService::ProbeWaypointSegment(const srVector3T<float>* from,
         return true;
     }
 
-    srVector2i cell;
+    glm::ivec2 cell;
     glm::vec2 walk_from;
     glm::vec2 walk_to;
     glm::vec2 origin;
@@ -3632,7 +3630,7 @@ bool W8PathingService::ProbeWaypointSegment(const srVector3T<float>* from,
     cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     walk_from = from->xz();
     walk_to = to->xz();
-    origin = level_bounds.minimum.xz();
+    origin = glm::vec2(level_bounds.minimum.x, level_bounds.minimum.z);
     BuildPathGridWalk(&walk_from, &walk_to, &origin, &walk);
     GetPathGridStepDirections(&walk, directions);
 
@@ -3739,7 +3737,7 @@ bool W8PathingService::ProbeWaypointSegment(const srVector3T<float>* from,
    permits those directions to be tested. As in retail, an entirely open set
    of eight neighbors is represented by zero rather than 0xff. */
 // FUNCTION: WIZ8 0x004667a0
-unsigned int W8PathingService::ComputeWaypointNeighborMask(const srVector2i* cell,
+unsigned int W8PathingService::ComputeWaypointNeighborMask(const glm::ivec2* cell,
                                                            unsigned int path_value)
 {
     unsigned int source_directions = 0;
@@ -3752,7 +3750,7 @@ unsigned int W8PathingService::ComputeWaypointNeighborMask(const srVector2i* cel
     for (direction = 0; direction < 8; ++direction) {
         if ((path_value & W8_PATH_CELL_HAS_DIRECTIONS) == 0 ||
             (source_directions & 1 << (direction & 0x1f)) != 0) {
-            srVector2i neighbor;
+            glm::ivec2 neighbor;
             neighbor.x = cell->x;
             neighbor.y = cell->y;
 
@@ -3820,7 +3818,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
     }
 
     span_blocked = false;
-    srVector2i cell;
+    glm::ivec2 cell;
     const auto converted_cell = pathCell(source->glmValue());
     cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     unsigned int cell_key = converted_cell.key;
@@ -3864,7 +3862,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
     int directions[2];
     walk_source = source->xz();
     walk_destination = destination->xz();
-    origin = level_bounds.minimum.xz();
+    origin = glm::vec2(level_bounds.minimum.x, level_bounds.minimum.z);
     BuildPathGridWalk(&walk_source, &walk_destination, &origin, &walk);
     GetPathGridStepDirections(&walk, directions);
 
@@ -3879,7 +3877,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         const unsigned int key = previous_key == 0 ? current_key : previous_key;
         const unsigned int value = previous_key == 0 ? current_value : previous_value;
         if (previous_key != 0 || current_key != 0) {
-            srVector2i cell;
+            glm::ivec2 cell;
             cell.x = key & 0xffff;
             cell.y = key >> 16;
             m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&cell, value);
@@ -4041,7 +4039,7 @@ float W8PathingService::CompareDirectionalClearance(const srVector3T<float>* pos
         }
     }
 
-    srVector2i cell;
+    glm::ivec2 cell;
     const auto converted_cell = pathCell(position->glmValue());
     cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     unsigned int height = static_cast<unsigned int>(
@@ -4057,7 +4055,7 @@ float W8PathingService::CompareDirectionalClearance(const srVector3T<float>* pos
    stepping; every crossed cell must carry a vertically compatible record whose
    explicit direction mask, when present, permits the same direction. */
 // FUNCTION: WIZ8 0x0045ac70
-float W8PathingService::MeasureDirectionalPath(const srVector2i* cell, int direction,
+float W8PathingService::MeasureDirectionalPath(const glm::ivec2* cell, int direction,
                                                unsigned int height, float distance)
 {
     int step_x;
@@ -4675,7 +4673,7 @@ void W8PathingService::DrawPathPosition(const glm::vec3& position, unsigned char
         return;
     }
 
-    srVector2i root_cell;
+    glm::ivec2 root_cell;
     const auto converted_cell = pathCell(position);
     root_cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     unsigned int root_key = converted_cell.key;
