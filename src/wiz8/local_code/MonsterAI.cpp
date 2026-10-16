@@ -2375,7 +2375,7 @@ short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
     if (effect == 0) {
         return 0;
     }
-    visual = effect->spell_visuals[0];
+    visual = effect->spell_visuals[0].get();
     if (visual == 0) {
         return 0;
     }

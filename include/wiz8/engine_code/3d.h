@@ -25,9 +25,8 @@ struct W8OctRegionVolume;
 struct W8Plane;
 
 void SetSceneAmbientLightWhite(srScene* scene);
-void RemoveMonsterFromWorldList(W8World*, W8Monster* monster);
 void AddMonsterToWorld(W8World*, W8Monster* monster);
-void AddItemToWorld(W8World*, W8Item* item);
+void AddItemToWorld(W8World*, std::unique_ptr<W8Item> item);
 void RemoveItemFromWorld(W8World*, W8Item* item);
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
 std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance);

@@ -64,10 +64,10 @@ void UpdateWorldMonsters(W8World* world)
     glm::vec3 position;
     position = glm::vec3(camera_location);
 
-    unsigned int count = world->plsMonsters.size();
+    unsigned int count = world->active_monsters.size();
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Monster* monster = world->plsMonsters[index];
+        W8Monster* monster = world->active_monsters[index];
         if (monster != 0) {
             monster->DetachRepresentation(world);
             monster->SelectLOD(&position);
@@ -87,7 +87,7 @@ void DetachWorldItemMeshes(W8World* world)
     }
     unsigned int count = world->plsItems.size();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Item* item = world->plsItems[index];
+        W8Item* item = world->plsItems[index].get();
         if (item != 0) {
             item->DetachMesh(world);
             item->UpdateAnimation();
@@ -428,19 +428,19 @@ void WorldUpdateLights(W8World* world)
 // FUNCTION: WIZ8 0x0046e580
 void AddMonsterToWorld(W8World*, W8Monster* monster)
 {
-    g_world->plsMonsters.push_back(monster);
+    g_world->active_monsters.push_back(monster);
 }
 
 // FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World*, W8Item* item)
+void AddItemToWorld(W8World* world, std::unique_ptr<W8Item> item)
 {
-    g_world->plsItems.push_back(item);
+    world->plsItems.push_back(std::move(item));
 }
 
 // FUNCTION: WIZ8 0x0046e5e0
-void RemoveItemFromWorld(W8World*, W8Item* item)
+void RemoveItemFromWorld(W8World* world, W8Item* item)
 {
-    wiz8::erase_first(g_world->plsItems, item);
+    std::erase_if(world->plsItems, [item](const auto& owner) { return owner.get() == item; });
 }
 
 /* How many props the world holds, and the one at a position - both answers
@@ -610,12 +610,6 @@ double WorldGetFarClip(W8World* world)
 {
     if (world != nullptr && world->camera != nullptr) return world->camera->getClipRange().second;
     return 0;
-}
-
-// FUNCTION: WIZ8 0x0046E5A0
-void RemoveMonsterFromWorldList(W8World*, W8Monster* monster)
-{
-    wiz8::erase_first(g_world->plsMonsters, monster);
 }
 
 // FUNCTION: WIZ8 0x0046DC90

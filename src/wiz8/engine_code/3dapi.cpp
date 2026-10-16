@@ -387,13 +387,14 @@ static void UnregisterWorld(W8World* world)
 static void DestroyWorldResources(W8World* world)
 {
     world->monster_generators.clear();
-    wiz8::remove_all_and_delete_in_order(world->plsMonsters);
-    wiz8::remove_all_and_delete_in_order(world->plsItems);
+    world->active_monsters.clear();
+    world->monsters.clear();
+    world->plsItems.clear();
     world->plsProps.clear();
     DestroyAllWorldTriggers(world);
     world->plsAmbientSounds.clear();
-    DestroyAllMissiles(world);
-    DestroyAllSpellVisuals(world);
+    world->missiles.clear();
+    world->spell_visuals.clear();
     // Destroying cycles can retire their still-active particles. Drain those
     // owners while their scene and spatial index are still alive.
     world->particles.clear();

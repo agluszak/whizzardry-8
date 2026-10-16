@@ -321,19 +321,20 @@ static void EnsureMonsterBaseSkin(W8Monster* monster, const char* monster_name, 
    movement settings, visual flags, sound/shake events, skin stages, lights,
    and the list of binary .mon cycles. */
 // FUNCTION: WIZ8 0x004c0300
-unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
-                                       const char* monster_name, W8Monster** monster,
-                                       int load_value, int location_id)
+static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
+                                                           const char* monster_name, int load_value,
+                                                           int location_id)
 {
+    std::unique_ptr<W8Monster> monster;
     W8Monster* shared = static_cast<W8Monster*>(FindFirstGrCycleByName(monster_name));
     if (shared != 0) {
-        *monster = new W8Monster(*shared);
-        if (*monster == 0) {
+        monster = std::make_unique<W8Monster>(*shared);
+        if (!monster) {
             srAssertFail("*ppMonster", MONSTER_CPP, 0x4d3, 0);
         }
-        (*monster)->RandomizeAppearanceAndMotion();
-        RegisterGrCycle(monster_name, *monster);
-        return 1;
+        monster->RandomizeAppearanceAndMotion();
+        RegisterGrCycle(monster_name, monster.get());
+        return monster;
     }
 
     PauseSharedGameTimers();
@@ -396,7 +397,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     if (handle == 0) {
         srAssertFail("hFile", MONSTER_CPP, 0x50f, fmt::format("Couldn't open {}", path));
     }
-    *monster = 0;
+    monster = std::make_unique<W8Monster>();
+    monster->id = AllocateGrObjectId();
+    monster->m_pRep->current_cycle = -1;
 
     {
         std::istringstream input(handle->read_text());
@@ -484,7 +487,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
             } else if (SDL_strcasecmp(command.c_str(), "animscript") == 0) {
             } else if (SDL_strcasecmp(command.c_str(), "script") == 0) {
                 fields >> argument;
-                (*monster)->SetScript(argument.c_str(), true);
+                monster->SetScript(argument.c_str(), true);
             } else if (SDL_strcasecmp(command.c_str(), "opacity") == 0) {
                 fields >> opacity;
             } else if (SDL_strcasecmp(command.c_str(), "glow") == 0) {
@@ -509,19 +512,19 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 has_light = true;
             } else if (SDL_strcasecmp(command.c_str(), "skin") == 0) {
                 fields >> argument;
-                EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
+                EnsureMonsterBaseSkin(monster.get(), monster_name, damage_stage, skins_started);
                 if (SDL_strcasecmp(argument.c_str(), "default") != 0) {
                     ++skin_stage;
-                    damage_stage = (*monster)->AddDamageStage(monster_name, skin_stage);
+                    damage_stage = monster->AddDamageStage(monster_name, skin_stage);
                 }
             } else if (SDL_strcasecmp(command.c_str(), "skinswap") == 0) {
                 std::string old_name;
                 std::string new_name;
                 /* 0x004C0FA8..0x004C1070: a SKINSWAP with no SKIN before it
                    creates the base stage first, then swaps into that stage. */
-                EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
+                EnsureMonsterBaseSkin(monster.get(), monster_name, damage_stage, skins_started);
                 fields >> old_name >> new_name;
-                if (damage_stage != -1 && !(*monster)->ReplaceSkinTexture(
+                if (damage_stage != -1 && !monster->ReplaceSkinTexture(
                                               damage_stage, old_name.c_str(), new_name.c_str())) {
                     ShutdownWithErrorBox(fmt::format("The skin texture {} not found in monster {}!",
                                                      old_name, monster_name));
@@ -539,28 +542,25 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         if (GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) == 0) {
                             cycle = NormalizeMonsterCycle(cycle);
                         }
-                        if (*monster == 0 ||
-                            (*monster)->IsCycleSupported(static_cast<signed char>(cycle)) == 0 ||
+                        if (!monster ||
+                            monster->IsCycleSupported(static_cast<signed char>(cycle)) == 0 ||
                             GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) != 0) {
                             float animation_scale = -1.0f;
                             fields >> animation_scale;
-                            W8GrCycle* loaded = *monster;
-                            success = LoadGrCycle(context, argument.c_str(), &loaded, cycle,
+
+                            success = LoadGrCycle(context, argument.c_str(), monster.get(), cycle,
                                                   load_value, "data\\monsters", 0);
-                            *monster = static_cast<W8Monster*>(loaded);
-                            if (!(*monster)->particles.empty()) {
+                            if (!monster->particles.empty()) {
                                 for (int index = 0;
-                                     index < static_cast<int>((*monster)->particles.size());
-                                     ++index) {
-                                    W8GrCycleParticleAttachment* event =
-                                        &(*monster)->particles[index];
+                                     index < static_cast<int>(monster->particles.size()); ++index) {
+                                    W8GrCycleParticleAttachment* event = &monster->particles[index];
                                     if (event->cycle == cycle && event->subcycle == -1) {
-                                        event->subcycle = (*monster)->m_pRep->current_subcycle;
+                                        event->subcycle = monster->m_pRep->current_subcycle;
                                     }
                                 }
                             }
                             if (animation_scale > 0.0f) {
-                                W8MonsterRep* rep = (*monster)->m_pRep;
+                                W8MonsterRep* rep = monster->m_pRep;
                                 int current = rep->current_subcycle;
                                 /* 0x004C128A: a missing subcycle is fatal, as in
                                    every other retail cycle lookup. */
@@ -570,10 +570,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                                     rep->name, g_cycle_names[cycle].name, current));
                                 }
                                 W8AnimObj* animation =
-                                    (*monster)->m_pRep->animations[cycle][current].get();
+                                    monster->m_pRep->animations[cycle][current].get();
                                 animation->playback_scale = animation_scale;
-                                (*monster)->m_pRep->animation_scales[cycle][current] =
-                                    animation_scale;
+                                monster->m_pRep->animation_scales[cycle][current] = animation_scale;
                             }
                         }
                     }
@@ -607,7 +606,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                             SDL_strcasecmp(loop_name.c_str(), "LOOP") == 0);
                         last_sound = sound.get();
                         if (last_sound != nullptr) {
-                            (*monster)->AddSoundEvent(std::move(sound));
+                            monster->AddSoundEvent(std::move(sound));
                             last_sound->location_id = location_id;
                             last_sound->volume_min =
                                 sound_type == W8_SOUND_EVENT_FOOTSTEP ? 0x23 : 0x7f;
@@ -635,7 +634,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         effect.frame = frame;
                         effect.cycle = shake_cycle;
                         effect.subcycle = subcycle - 1;
-                        (*monster)->AddShakeEffect(effect);
+                        monster->AddShakeEffect(effect);
                     } else {
                         srAssertFail("FALSE", MONSTER_CPP, 0x636,
                                      fmt::format("Monster::ReadAllCycles: ERROR - Unrecognized MLS "
@@ -649,7 +648,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         handle.reset();
     }
 
-    W8MonsterRep* representation = (*monster)->m_pRep;
+    W8MonsterRep* representation = monster->m_pRep;
     representation->name = monster_name ? monster_name : "";
     if (scale_range_start != -1.0f && scale_range_end != -1.0f) {
         representation->minimum_scale = scale_range_start;
@@ -662,14 +661,14 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     /* The world scale follows the largest radius any monster reaches. */
     if (walk_radius != 0.0f) {
         walk_radius *= kWorldScale;
-        (*monster)->movement.collision_radius = walk_radius;
+        monster->movement.collision_radius = walk_radius;
         if (g_runtime_world_scale < walk_radius) {
             g_runtime_world_scale = walk_radius;
         }
     }
     if (fight_radius != 0.0f) {
         fight_radius *= kWorldScale;
-        (*monster)->movement.alternate_radius = fight_radius;
+        monster->movement.alternate_radius = fight_radius;
         if (g_runtime_world_scale < fight_radius) {
             g_runtime_world_scale = fight_radius;
         }
@@ -677,10 +676,10 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     if (target_height != 0.0f) {
         target_height *= kWorldScale;
         if (target_height < 250.0f) target_height = 250.0f;
-        (*monster)->movement.height_offset = target_height;
+        monster->movement.height_offset = target_height;
     }
     if (camera_height != 0.0f) {
-        (*monster)->movement.secondary_height_offset = camera_height * kWorldScale;
+        monster->movement.secondary_height_offset = camera_height * kWorldScale;
     }
 
     if (!random_idle_range) {
@@ -698,54 +697,54 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         representation->random_idle_fps_min = idle_fps_start;
         representation->random_idle_fps_max = idle_fps_end;
     }
-    if (missile_start > 0) (*monster)->missile_frame = missile_start;
-    if (spell_start > 0) (*monster)->spell_frame = spell_start;
+    if (missile_start > 0) monster->missile_frame = missile_start;
+    if (spell_start > 0) monster->spell_frame = spell_start;
     if (has_lod_range) {
         representation->lod_near = lod_range_start * kWorldScale;
         representation->lod_far = lod_range_end * kWorldScale;
     }
     if (opacity >= 0.0f && opacity < 1.0f) {
-        (*monster)->scale = opacity;
+        monster->scale = opacity;
     }
     if (glow > 0.0f) {
         std::vector<stModelInstance*> instances;
-        (*monster)->CollectModelInstances(instances);
+        monster->CollectModelInstances(instances);
         for (stModelInstance* instance : instances) {
             instance->emissive_override_enabled = true;
             instance->emissive_override = glow;
         }
     }
 
-    (*monster)->hover_base_min = hover_range_start;
-    (*monster)->hover_base_max = hover_range_end;
-    (*monster)->bob_amplitude_min = bob_range_start;
-    (*monster)->bob_amplitude_max = bob_range_end;
+    monster->hover_base_min = hover_range_start;
+    monster->hover_base_max = hover_range_end;
+    monster->bob_amplitude_min = bob_range_start;
+    monster->bob_amplitude_max = bob_range_end;
     if (shadow_width != 0.0f) {
         if (shadow_width < 0.0f) {
-            shadow_width = (*monster)->movement.collision_radius * 0.002f;
+            shadow_width = monster->movement.collision_radius * 0.002f;
         }
         if (shadow_depth == 0.0f) shadow_depth = shadow_width;
-        (*monster)->CreateGroundShadow(shadow_width * kWorldScale, shadow_depth * kWorldScale);
+        monster->CreateGroundShadow(shadow_width * kWorldScale, shadow_depth * kWorldScale);
     }
     representation->left_handed = left_handed;
     representation->special_movement = (flies || swims || full_transition) ? 1 : 0;
 
     if (has_light && representation->monster_light == 0) {
         representation->monster_light = std::make_unique<MonsterLight>(
-            g_world->dynamic_scene, light_pulsing, (*monster)->movement.collision_radius * 3.0f,
+            g_world->dynamic_scene, light_pulsing, monster->movement.collision_radius * 3.0f,
             &light_first, &light_second);
-        representation->monster_light->m_vertical_offset = (*monster)->movement.height_offset;
+        representation->monster_light->m_vertical_offset = monster->movement.height_offset;
     }
 
     representation->current_subcycle = 0;
-    (*monster)->SetCycle(1);
-    (*monster)->SetSubCycle(0);
-    const auto bounds = (*monster)->GetAnimationBounds();
-    if (!bounds) return false;
-    (*monster)->SetBounds(*bounds);
+    monster->SetCycle(1);
+    monster->SetSubCycle(0);
+    const auto bounds = monster->GetAnimationBounds();
+    if (!bounds) return nullptr;
+    monster->SetBounds(*bounds);
     if (movement_rate < 0.1f) movement_rate = 2.0f;
-    (*monster)->SetMovementScale(movement_rate);
-    (*monster)->SetTurnRate(rotation_rate * static_cast<float>(kMotionFullTurnRadians));
+    monster->SetMovementScale(movement_rate);
+    monster->SetTurnRate(rotation_rate * static_cast<float>(kMotionFullTurnRadians));
 
     int navigation_mode = 1;
     if (flies)
@@ -756,20 +755,20 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         navigation_mode = 5;
     else if (crawls)
         navigation_mode = 6;
-    (*monster)->SetNavigationMode(navigation_mode);
+    monster->SetNavigationMode(navigation_mode);
     if (spice_monster) {
         /* 0x004C1CC5..0x004C1CD7: byte stores to +0x332, +0xa0 (navigator
            active) and +0x14e (movement boundary_enabled). */
-        (*monster)->hostility_preserved = true;
-        (*monster)->active = false;
-        (*monster)->movement.boundary_enabled = false;
+        monster->hostility_preserved = true;
+        monster->active = false;
+        monster->movement.boundary_enabled = false;
     }
 
-    (*monster)->RandomizeAppearanceAndMotion();
-    RegisterGrCycle(monster_name, *monster);
+    monster->RandomizeAppearanceAndMotion();
+    RegisterGrCycle(monster_name, monster.get());
     ResumeSharedGameTimers();
     ReleaseReadMeshScratch();
-    return success;
+    return success ? std::move(monster) : nullptr;
 }
 
 /* Select one of the four directional states without immediately repeating the
@@ -4272,41 +4271,27 @@ void NotifyMonsterHighlight(int party_slot, int location_id, int on)
     SetMonsterPartySlotMarker(party_slot, location_id, on);
 }
 
-/* The public forwarding boundary preserves the loader's AL result. Both
-   MonsterManager callers assert that result immediately after this call. */
-// FUNCTION: WIZ8 0x004c58e0
-unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context,
-                                   std::string_view monster_name, W8Monster** monster,
-                                   int load_value, int location_id)
+std::unique_ptr<W8Monster> MonsterReadAllCycles(const W8GrCycleLoadContext* context,
+                                                std::string_view monster_name, int load_value,
+                                                int location_id)
 {
-    return ReadOrCloneMonsterCycles(context, std::string(monster_name).c_str(), monster, load_value,
+    return ReadOrCloneMonsterCycles(context, std::string(monster_name).c_str(), load_value,
                                     location_id);
 }
 
-/* Load one monster cycle through GrCycle's polymorphic factory boundary, then
-   fill in any particle event whose cycle matches but whose subcycle was left
-   at the -1 sentinel.  The factory accepts the base-class output slot; object
-   type zero is what proves the resulting object is a W8Monster here. */
-// FUNCTION: WIZ8 0x004C5910
-unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
-                               W8Monster** monster, int cycle, int value)
+std::unique_ptr<W8Monster> LoadMonsterCycle(const W8GrCycleLoadContext* context,
+                                            const char* mon_name, int cycle, int value)
 {
-    W8GrCycle* loaded = *monster;
-    bool success = LoadGrCycle(context, mon_name, &loaded, cycle, value, "data\\monsters", 0);
-    *monster = static_cast<W8Monster*>(loaded);
-
-    if (!(*monster)->particles.empty()) {
-        int count = static_cast<int>((*monster)->particles.size());
-        if (count != 0) {
-            for (int index = 0; index < count; ++index) {
-                W8GrCycleParticleAttachment* event = &(*monster)->particles[index];
-                if (event->cycle == cycle && event->subcycle == -1) {
-                    event->subcycle = (*monster)->m_pRep->current_subcycle;
-                }
-            }
-        }
+    auto monster = std::make_unique<W8Monster>();
+    monster->id = AllocateGrObjectId();
+    monster->m_pRep->current_cycle = -1;
+    if (!LoadGrCycle(context, mon_name, monster.get(), cycle, value, "data\\monsters", 0))
+        return nullptr;
+    for (auto& event : monster->particles) {
+        if (event.cycle == cycle && event.subcycle == -1)
+            event.subcycle = monster->m_pRep->current_subcycle;
     }
-    return success;
+    return monster;
 }
 
 /* Two whole-body tail calls. Neither wrapper takes an argument and neither
@@ -4962,11 +4947,10 @@ void ApplyMonsterRepresentationScale(W8Monster* target)
 }
 
 // FUNCTION: WIZ8 0x004C5860
-void DeleteMonster(W8Monster* monster)
+void DestroyWorldMonster(W8World* world, W8Monster* monster)
 {
-    if (monster != nullptr) {
-        delete monster;
-    }
+    std::erase(world->active_monsters, monster);
+    std::erase_if(world->monsters, [monster](const auto& owner) { return owner.get() == monster; });
 }
 
 // FUNCTION: WIZ8 0x004C59C0

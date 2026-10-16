@@ -343,17 +343,14 @@ public:
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
-unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
-                                       const char* monster_name, W8Monster** monster,
-                                       int load_value, int location_id);
-unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context,
-                                   std::string_view monster_name, W8Monster** monster,
-                                   int load_value, int location_id);
+std::unique_ptr<W8Monster> MonsterReadAllCycles(const W8GrCycleLoadContext* context,
+                                                std::string_view monster_name, int load_value,
+                                                int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
-unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
-                               W8Monster** monster, int cycle, int value);
+std::unique_ptr<W8Monster> LoadMonsterCycle(const W8GrCycleLoadContext* context,
+                                            const char* mon_name, int cycle, int value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
 glm::vec3 MonsterGetLocation(const W8Monster* monster);
@@ -414,7 +411,7 @@ void MonsterClearMovement(W8Monster* monster);
 void MonsterSetRuntimeBehaviour(W8Monster* monster, signed char behaviour);
 void MonsterSubmitTargetValue(W8Monster* monster);
 void DetachMonsterRepresentation(W8Monster* monster, W8World* world);
-void DeleteMonster(W8Monster* monster);
+void DestroyWorldMonster(W8World* world, W8Monster* monster);
 void RefreshMonsterStandingHeight(W8Monster* monster);
 void MonsterSetLocationId(W8Monster* monster, int value);
 void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position);

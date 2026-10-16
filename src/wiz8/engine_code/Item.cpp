@@ -211,11 +211,10 @@ W8Item::W8Item()
 }
 
 // FUNCTION: WIZ8 0x0049F4A0
-bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** output,
-                      bool anonymous_mesh)
+std::unique_ptr<W8Item> LoadItemFromFile(const W8ReadLevelInfo* context, const char* name,
+                                         bool anonymous_mesh)
 try {
-    W8Item* item = 0;
-    if (name == 0 || output == 0) {
+    if (name == 0) {
         srAssertFail("pacName && ppItem", ITEM_CPP, 0x11a, 0);
     }
     const auto filename = fmt::format("data/items3d/{}.itm", name);
@@ -228,7 +227,7 @@ try {
     }();
     if (file == 0) {
         ShutdownWithErrorBox(fmt::format("Couldn't load {}", filename));
-        return false;
+        return nullptr;
     }
 
     W8ReadLevelInfo info;
@@ -237,20 +236,15 @@ try {
     info.bitmap_folder = context->bitmap_folder;
     info.mesh_filename = name;
     unsigned char version;
-    bool success = false;
-    if ((file->read(&version, 1).bytes == static_cast<std::size_t>(1)) && version == 2 &&
-        ReadItemFromFile(&info, &item, anonymous_mesh)) {
-        *output = item;
-        success = true;
-    }
-    return success;
+    if (file->read(&version, 1).bytes != 1 || version != 2) return nullptr;
+    return ReadItemFromFile(&info, anonymous_mesh);
 } catch (const std::exception&) {
-    return false;
+    return nullptr;
 }
 
 /* Decode into temporary ownership and publish only a complete item. */
 // FUNCTION: WIZ8 0x0049F5D0
-bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** output, bool anonymous_mesh)
+std::unique_ptr<W8Item> ReadItemFromFile(W8ReadLevelInfo* info, bool anonymous_mesh)
 {
     if (info == 0) {
         srAssertFail("pInfo", ITEM_CPP, 0x15d, 0);
@@ -261,10 +255,7 @@ bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** output, bool anonymous_mes
     }
     bool success =
         static_cast<W8ItemRep*>(item->m_pRep)->ReadFromFile(info, item.get(), anonymous_mesh);
-    if (success) {
-        *output = item.release();
-    }
-    return success;
+    return success ? std::move(item) : nullptr;
 }
 
 // FUNCTION: WIZ8 0x0049F730

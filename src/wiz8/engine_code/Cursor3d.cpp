@@ -115,7 +115,9 @@ void InitializeWorldCursor(void)
         gp3DCursor->dragged_info = 0;
         context.directory = "Data\\Monsters";
         context.world = g_world;
-        LoadMonsterCycle(&context, "3DCursor", &gp3DCursor->monster, -1, 1);
+        auto monster = LoadMonsterCycle(&context, "3DCursor", -1, 1);
+        gp3DCursor->monster = monster.get();
+        g_world->monsters.push_back(std::move(monster));
         MonsterSetCycle(gp3DCursor->monster, 0);
         gp3DCursor->last_published = glm::vec3(-100000000.0f);
         gp3DCursor->position = glm::vec3(0);
@@ -127,7 +129,7 @@ void InitializeWorldCursor(void)
         gp3DCursor->input_delta.z = 0;
         position = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
-        g_world->plsMonsters.push_back(gp3DCursor->monster);
+        g_world->active_monsters.push_back(gp3DCursor->monster);
         UpdateCycleRepresentation(gp3DCursor->monster, g_world);
         MonsterSetActive(gp3DCursor->monster, false);
         gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
@@ -216,9 +218,8 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     g_cursor_projection_distance = glm::length(delta);
 
-    wiz8::erase_first(g_world->plsMonsters, cursor->monster);
     DetachMonsterRepresentation(cursor->monster, g_world);
-    DeleteMonster(cursor->monster);
+    DestroyWorldMonster(g_world, cursor->monster);
     ReleaseRendererObject(cursor->particle);
     ReleaseRendererObject(g_cursor_value);
     if (cursor->light != 0) {
@@ -254,7 +255,7 @@ void ShowWorldCursor(void)
     if (gp3DCursor != 0 && !gp3DCursor->enabled) {
         UpdateMonster(gp3DCursor->monster);
         UpdateCycleRepresentation(gp3DCursor->monster, g_world);
-        g_world->plsMonsters.push_back(gp3DCursor->monster);
+        g_world->active_monsters.push_back(gp3DCursor->monster);
         gp3DCursor->enabled = true;
         if (gp3DCursor->particle != 0) {
             gp3DCursor->particle->SetActive(1);
@@ -279,7 +280,7 @@ void HideWorldCursor(void)
     }
     monster = cursor->monster;
     world = g_world;
-    wiz8::erase_first(world->plsMonsters, monster);
+    wiz8::erase_first(world->active_monsters, monster);
     DetachMonsterRepresentation(monster, world);
     cursor->enabled = false;
     if (cursor->particle != 0) {

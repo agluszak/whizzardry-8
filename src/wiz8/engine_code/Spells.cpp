@@ -334,8 +334,8 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 
 static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
 {
-    wiz8::erase_first(world->spell_visuals, visual);
-    delete visual;
+    std::erase_if(world->spell_visuals,
+                  [visual](const auto& owner) { return owner.get() == visual; });
 }
 
 /* Step every live spell visual and drop the finished ones.
@@ -353,7 +353,7 @@ void UpdateWorldSpellVisuals(W8World* world)
     int index = 0;
     int count = static_cast<int>(world->spell_visuals.size());
     while (index < count) {
-        W8SpellVisual* visual = world->spell_visuals[index];
+        W8SpellVisual* visual = world->spell_visuals[index].get();
         if (visual != 0) {
             visual->DetachRepresentation(world);
             if (!visual->finished || !visual->auto_release) {
@@ -415,21 +415,20 @@ static int FindSpellCycleByName(const char* name)
    requested group loads its bitmaps, SOUND_FRAME/SOUND_CYCLE rows attach timed
    sound events, and SHAKE_FRAME rows attach camera-shake effects. */
 // FUNCTION: WIZ8 0x004ab580
-bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* name,
-                             W8SpellVisualMode group, W8SpellVisual** visual, int)
+std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(const W8GrCycleLoadContext* context,
+                                                       const char* name, W8SpellVisualMode group)
 {
     W8SpellVisual* shared = static_cast<W8SpellVisual*>(FindFirstGrCycleByName(name));
     if (shared != 0 && shared->mode == group) {
-        W8SpellVisual* spell = new W8SpellVisual(*shared);
+        auto spell = std::make_unique<W8SpellVisual>(*shared);
         if (spell == 0) {
             srAssertFail("pSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x406, 0);
         }
-        *visual = spell;
-        if (*visual == 0) {
+        if (!spell) {
             srAssertFail("*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x2f8, 0);
         }
-        RegisterGrCycle(name, *visual);
-        return true;
+        RegisterGrCycle(name, spell.get());
+        return spell;
     }
 
     PauseSharedGameTimers();
@@ -443,7 +442,8 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             return std::unique_ptr<wiz8::File>{};
         }
     }();
-    *visual = 0;
+    auto visual = std::make_unique<W8SpellVisual>();
+    visual->host->current_cycle = -1;
     if (handle == 0) {
         success = false;
     } else {
@@ -461,12 +461,11 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
                         success = false;
                         break;
                     }
-                    W8GrCycle* loaded = *visual;
-                    success = LoadGrCycle(context, resource.c_str(), &loaded, cycle, 1,
+
+                    success = LoadGrCycle(context, resource.c_str(), visual.get(), cycle, 1,
                                           "Data\\Spells", 2, 0);
                     if (success) {
-                        *visual = static_cast<W8SpellVisual*>(loaded);
-                        RegisterGrCycle(resource.c_str(), *visual);
+                        RegisterGrCycle(resource.c_str(), visual.get());
                     }
                 }
                 continue;
@@ -484,7 +483,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
                 effect.cycle = FindSpellCycleByName(cycle_name.c_str());
                 effect.frame = frame;
                 effect.subcycle = 0;
-                (*visual)->AddShakeEffect(effect);
+                visual->AddShakeEffect(effect);
                 continue;
             }
             W8SoundEventKind kind;
@@ -501,24 +500,24 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             }
             fields >> loop;
             const auto sound_cycle = FindSpellCycleByName(cycle_name.c_str());
-            if (*visual && (*visual)->IsCycleSupported(static_cast<signed char>(sound_cycle))) {
+            if (visual && visual->IsCycleSupported(static_cast<signed char>(sound_cycle))) {
                 const auto wave = fmt::format("data/spells/sounds/{}.WAV", resource);
-                (*visual)->AddSoundEvent(
+                visual->AddSoundEvent(
                     std::make_unique<W8SoundEvent>(kind, sound_cycle, frame, 0, wave.c_str(),
                                                    SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
             }
         }
-        if (*visual == 0) {
+        if (!visual) {
             srAssertFail(
                 "*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,
                 fmt::format("Spell {} missing cycle of type {:d}", name, fmt::underlying(group)));
         }
-        (*visual)->host->billboard = false;
-        (*visual)->host->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
+        visual->host->billboard = false;
+        visual->host->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
     }
 
     ResumeSharedGameTimers();
-    return success;
+    return success ? std::move(visual) : nullptr;
 }
 
 // FUNCTION: WIZ8 0x004ABBB0
@@ -542,18 +541,7 @@ W8SpellVisual::~W8SpellVisual()
     SetLights(0);
     delete host;
 
-    wiz8::erase_first(g_world->spell_visuals, this);
     UnregisterGrCycle(this);
-}
-
-/* Delete every spell visual owned by a world. Its light list is first handed
-   back through the world light boundary, exactly as the retail teardown does. */
-// FUNCTION: WIZ8 0x004ac3d0
-void DestroyAllSpellVisuals(W8World* world)
-{
-    while (!world->spell_visuals.empty()) {
-        DestroySpellVisual(world, world->spell_visuals.front());
-    }
 }
 
 /* Tick the visual's animation, but only while the host is live. When the
@@ -623,21 +611,22 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
     context.world = g_world;
     context.directory = "Data\\Spells\\Bitmaps";
     const auto load = [&](std::string_view resource) -> W8SpellVisual* {
-        W8SpellVisual* visual = nullptr;
-        if (!LoadSpellVisualResource(&context, std::string(resource).c_str(), mode, &visual, 1)) {
+        auto owner = LoadSpellVisualResource(&context, std::string(resource).c_str(), mode);
+        auto* visual = owner.get();
+        if (!visual) {
             return nullptr;
         }
         visual->SetNavigationMode(4);
         visual->active = false;
         visual->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals.push_back(visual);
+        g_world->spell_visuals.push_back(std::move(owner));
         return visual;
     };
 
     W8SpellVisual* visual = name.empty() ? nullptr : load(name);
     int cycle = visual ? visual->FindSupportedCycle(mode, power_level - 1) : -1;
     if (visual && cycle == -1) {
-        delete visual;
+        DestroySpellVisual(g_world, visual);
         visual = nullptr;
     }
     if (!visual) {
@@ -955,7 +944,6 @@ void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add
             entry = icons.erase(entry);
             if (item) {
                 item->DetachMesh(g_world);
-                wiz8::erase_first(g_world->plsItems, item);
                 delete item;
             }
         }
@@ -1100,7 +1088,6 @@ void ClearMonsterSpellIcons(W8Monster* monster)
     for (const auto& entry : monster->m_pRep->spell_icons) {
         if (entry.psrBMO) {
             entry.psrBMO->DetachMesh(g_world);
-            wiz8::erase_first(g_world->plsItems, entry.psrBMO);
             delete entry.psrBMO;
         }
     }

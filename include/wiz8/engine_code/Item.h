@@ -83,10 +83,10 @@ struct W8Item : public W8GrObject {
 /* 0x0049F350 allocates the 0x94-byte representation; 0x0049F5D0 allocates
    the 0x20-byte item. */
 
-bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** item, bool anonymous_mesh);
+std::unique_ptr<W8Item> ReadItemFromFile(W8ReadLevelInfo* info, bool anonymous_mesh);
 /* Run the item's trigger, if any, and report its action state. */
 unsigned char RunItemTrigger(W8Item* item); /* 0x004A0070 */
 std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item);
 
-bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** item,
-                      bool anonymous_mesh);
+std::unique_ptr<W8Item> LoadItemFromFile(const W8ReadLevelInfo* context, const char* name,
+                                         bool anonymous_mesh);

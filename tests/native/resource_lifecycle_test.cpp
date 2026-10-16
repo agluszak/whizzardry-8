@@ -493,7 +493,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
         std::make_unique<ObservedParticle>(*retiring_world, destroyed, scene_alive);
-    retiring_world->spell_visuals.push_back(visual.release());
+    retiring_world->spell_visuals.push_back(std::move(visual));
 
     DestroyWorld(retiring_world.release());
     SetCurrentWorld(&world);
