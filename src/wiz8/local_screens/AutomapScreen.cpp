@@ -1542,13 +1542,16 @@ void CreateAutomapMarkerSprites(void)
         }
     }
     if (g_automap_friendly_marker == 0) {
-        g_automap_friendly_marker = CreateAutomapMarkerSprite("Data\\Automap\\map_monsterfriendly_a.tga");
+        g_automap_friendly_marker =
+            CreateAutomapMarkerSprite("Data\\Automap\\map_monsterfriendly_a.tga");
     }
     if (g_automap_neutral_marker == 0) {
-        g_automap_neutral_marker = CreateAutomapMarkerSprite("Data\\Automap\\map_monsterneutral_a.tga");
+        g_automap_neutral_marker =
+            CreateAutomapMarkerSprite("Data\\Automap\\map_monsterneutral_a.tga");
     }
     if (g_automap_hostile_marker == 0) {
-        g_automap_hostile_marker = CreateAutomapMarkerSprite("Data\\Automap\\map_monsterhostile_a.tga");
+        g_automap_hostile_marker =
+            CreateAutomapMarkerSprite("Data\\Automap\\map_monsterhostile_a.tga");
     }
     if (g_automap_text_marker == 0) {
         g_automap_text_marker = CreateAutomapMarkerSprite("Data\\Automap\\map_textmarker_a.tga");
@@ -1581,7 +1584,8 @@ void RenderAutomapMarkers(void)
         }
         unsigned short width = g_automap_party_marker->GetScaledWidth();
         unsigned short height = g_automap_party_marker->GetScaledHeight();
-        PositionToolTipNode(g_automap_party_marker.get(), x - (width >> 1), y - (height >> 1), false);
+        PositionToolTipNode(g_automap_party_marker.get(), x - (width >> 1), y - (height >> 1),
+                            false);
         g_automap_party_marker->setRotation(0.0, 0.0, -static_cast<double>(GetCameraYawRadians()));
         g_automap_party_marker->clearFlag(srNode::FLAG_DISABLE);
         g_automap_party_marker->setParent(0, 1);
