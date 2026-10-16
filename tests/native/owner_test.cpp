@@ -1230,18 +1230,17 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
     REQUIRE(g_ui.captured == 0);
 }
 
-TEST_CASE("Modal layers block underlying input and restore valid capture", "[owner][ui-layer]")
+TEST_CASE("Modal layers block underlying input and cancel a held press", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
     int releases = 0;
     UiLayer screen;
     auto& target = screen.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up) ++releases;
+        if (event.action == UiPointerAction::Up && event.captured_buttons) ++releases;
         return UiResult::Handled;
     });
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    const auto captured = g_ui.captured;
-    REQUIRE(captured != 0);
+    REQUIRE(g_ui.captured == &target);
     {
         UiLayer modal(UiLayerMode::Modal);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
@@ -1253,28 +1252,14 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
             REQUIRE(g_ui.captured == 0);
         }
     }
-    REQUIRE(g_ui.captured == captured);
-    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
-    REQUIRE(releases == 1);
-
-    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    {
-        UiLayer modal(UiLayerMode::Modal);
-        SECTION("A disabled target cannot regain suspended capture")
-        {
-            target.setEnabled(false);
-        }
-        SECTION("A disabled layer cannot regain suspended capture")
-        {
-            screen.setEnabled(false);
-        }
-        SECTION("A removed target cannot regain suspended capture")
-        {
-            screen.remove(target);
-        }
-    }
+    // The press the modal interrupted stays cancelled after it closes.
     REQUIRE(g_ui.captured == 0);
     REQUIRE(g_ui.hover == 0);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(releases == 0);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(releases == 1);
 }
 
 TEST_CASE("Split fields share editing and restore focus after rejecting excessive amounts",

@@ -109,10 +109,6 @@ struct UiState {
         if (g_ui.hover == &target) g_ui.hover = nullptr;
         if (g_ui.captured == &target) g_ui.captured = nullptr;
         target.captured_buttons_ = 0;
-        for (auto* layer : layers) {
-            if (layer->saved_hover_ == &target) layer->saved_hover_ = nullptr;
-            if (layer->saved_capture_ == &target) layer->saved_capture_ = nullptr;
-        }
     }
     UiResult send(HitTarget& target, const InputEvent& input, UiPointerAction action,
                   UiPointerButton button = UiPointerButton::None)
@@ -341,37 +337,17 @@ void UiLayer::setModal(bool modal)
     const UiTransaction transaction;
     auto& state = State();
     modal_ = modal;
+    // Opening or closing a modal cancels any press in progress; hover is
+    // re-established by the next pointer refresh.
     if (modal) {
-        saved_hover_ = g_ui.hover;
-        saved_capture_ = g_ui.captured;
-        saved_buttons_ = saved_capture_ ? saved_capture_->captured_buttons_ : 0;
         state.leave(PointerMotion(g_ui.pointer));
-        if (g_ui.captured) g_ui.captured->captured_buttons_ = 0;
-        g_ui.ClearPointer();
         state.modals.push_back(this);
-        return;
-    }
-    const auto pos = std::ranges::find(state.modals, this);
-    if (pos == state.modals.end()) return;
-    const bool top = pos + 1 == state.modals.end();
-    if (!top) {
-        auto* child = *(pos + 1);
-        child->saved_hover_ = saved_hover_;
-        child->saved_capture_ = saved_capture_;
-        child->saved_buttons_ = saved_buttons_;
-    }
-    state.modals.erase(pos);
-    if (top) {
+    } else {
         state.hideTooltip();
-        ReleaseUiCapture();
-        g_ui.ClearPointer();
-        if (state.live(saved_capture_)) {
-            g_ui.captured = saved_capture_;
-            saved_capture_->captured_buttons_ = saved_buttons_;
-        }
-        if (state.live(saved_hover_)) g_ui.hover = saved_hover_;
+        std::erase(state.modals, this);
     }
-    saved_hover_ = saved_capture_ = nullptr;
+    ReleaseUiCapture();
+    g_ui.ClearPointer();
 }
 
 HitTarget* UiTargetAt(SDL_Point point)

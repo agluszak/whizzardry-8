@@ -150,8 +150,6 @@ private:
     std::optional<int> owner_; // Empty for shared layers.
     bool enabled_ = true, modal_ = false;
     std::vector<std::unique_ptr<HitTarget>> targets_;
-    HitTarget *saved_hover_ = nullptr, *saved_capture_ = nullptr;
-    SDL_MouseButtonFlags saved_buttons_ = 0;
 };
 
 // A UI transaction spans one step of input handling: pointer dispatch,
