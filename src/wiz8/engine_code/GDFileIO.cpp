@@ -16,8 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include <fmt/format.h>
-
 #include "asset_paths.h"
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"

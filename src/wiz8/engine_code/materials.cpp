@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -40,7 +39,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srStatisticsManager.h"
@@ -49,7 +47,6 @@
 #include "surrender/srVertexPipe.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"

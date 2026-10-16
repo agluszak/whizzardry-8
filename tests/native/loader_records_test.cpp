@@ -1327,12 +1327,12 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     append(bytes, first);
     append(bytes, second);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
-    auto file = wiz8::open_file("items.bin");
+    auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
     REQUIRE_FALSE(LoadItem(*file));
     REQUIRE(g_searchables.size() == registered);
     file.reset();
     store("items.bin", bytes);
-    file = wiz8::open_file("items.bin");
+    file = wiz8::open_file(wiz8::asset_path("items.bin"));
     auto group = LoadItem(*file);
     REQUIRE(group);
     REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
@@ -1342,10 +1342,11 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     REQUIRE(detached->runtime_id == 29);
     REQUIRE_FALSE(group->next);
     ItemInfoAddToGroup(group.get(), std::move(detached));
-    auto output = wiz8::open_file("items-roundtrip.bin", wiz8::OpenMode::replace);
+    const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
+    auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
     REQUIRE(SaveItemFile(*output, group.get()));
     output.reset();
-    auto encoded = wiz8::open_file("items-roundtrip.bin");
+    auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
     encoded->read_exact(roundtrip.data(), roundtrip.size());
     REQUIRE(roundtrip.size() == bytes.size());

@@ -12,8 +12,8 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
-#include "glm/ext/vector_float3.hpp"
 #include "asset_paths.h"
+#include "glm/ext/vector_float3.hpp"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"

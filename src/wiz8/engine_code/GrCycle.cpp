@@ -15,8 +15,8 @@
 #include <vector>
 
 #include <fmt/format.h>
-#include <glm/geometric.hpp>
 #include <glm/ext/matrix_float3x3.hpp>
+#include <glm/geometric.hpp>
 
 #include "Emitter.h"
 #include "Navigator.h"

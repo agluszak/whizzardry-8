@@ -11,8 +11,8 @@
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
-#include <glm/geometric.hpp>
 #include <glm/common.hpp> // NOLINT(misc-include-cleaner)
+#include <glm/geometric.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/trigonometric.hpp> // NOLINT(misc-include-cleaner)
 
