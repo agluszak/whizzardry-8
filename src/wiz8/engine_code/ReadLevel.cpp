@@ -642,8 +642,8 @@ try {
                 item_id = FindItemRecordByName(record.item_name);
             }
             if (item_id >= 0) {
-                world_item = SpawnItem(item_id, &record.position,
-                                       W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
+                world_item = AddWorldItem(SpawnItem(item_id, &record.position,
+                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                 if (world_item != 0) {
                     success = 1;
                     ActivateItem(world_item);

@@ -982,7 +982,7 @@ unsigned char HandleMipeItemCreateKey(SDL_Keycode key)
                 flags =
                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE | W8_ITEM_ENTITY_HIGHLIGHT_BLUE;
             }
-            spawned = SpawnItem(item_index & 0xffff, &anchor, flags, true);
+            spawned = AddWorldItem(SpawnItem(item_index & 0xffff, &anchor, flags));
             if (g_mipe_item_hidden) {
                 SetItemFlags(spawned, W8_WORLD_ITEM_HIDDEN, true);
                 RegisterSearchableWorldItem(spawned);

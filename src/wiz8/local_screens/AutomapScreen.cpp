@@ -650,7 +650,7 @@ unsigned char AutomapScreenEnter(void)
         W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->p3D) monster->p3D->DetachRepresentation(g_world);
     }
-    for (W8WorldItem* item = GetNextWorldItem(true); item; item = GetNextWorldItem(false)) {
+    for (const auto& item : gXStatus.world_items) {
         if (item->p3D) item->p3D->DetachMesh(g_world);
     }
     SetMouseMoveEventsEnabled(1);
@@ -1621,8 +1621,7 @@ void RenderAutomapMarkers(void)
             Position2DNodeUnsnapped(marker, x, y);
         }
     }
-    for (W8WorldItem* world_item = GetNextWorldItem(true); world_item != 0;
-         world_item = GetNextWorldItem(false)) {
+    for (const auto& world_item : gXStatus.world_items) {
         W8Item* item = world_item->p3D;
         if (item == 0) {
             continue;

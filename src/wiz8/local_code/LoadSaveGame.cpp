@@ -614,9 +614,6 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
     SavedMonsterOrders::Capture(monster).Write(chunk);
 }
 
-/* World item allocations are still shared with the C-style item manager. */
-template<class T> using MallocPtr = std::unique_ptr<T, decltype(&free)>;
-
 void WriteWorldItems(W8Chunk& chunks)
 {
     const unsigned int count = gXStatus.world_items.size();
@@ -649,10 +646,13 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
         ApplyDefaultMonsterGroupSounds();
         break;
     }
-    case W8_CHUNK_WORLD_ITEMS:
-        for (auto count = ReadWorldItemCount(chunk); count > 0; --count)
-            RequireSection(LoadItem(file, true) != nullptr, "world item");
+    case W8_CHUNK_WORLD_ITEMS: {
+        const auto count = ReadWorldItemCount(chunk);
+        gXStatus.world_items.reserve(gXStatus.world_items.size() + count);
+        for (unsigned index = 0; index < count; ++index)
+            RequireSection(AddWorldItem(LoadItem(file)) != nullptr, "world item");
         break;
+    }
     case W8_CHUNK_CURSOR_NODES:
         if (!g_level_status_loading) ReleaseWorldCursorNodes();
         LoadWorldCursorNodes(file);
@@ -1315,7 +1315,7 @@ try {
 // FUNCTION: WIZ8 0x00514be0
 bool SaveItemFile(wiz8::File& handle, W8WorldItem* item_info)
 try {
-    for (auto* item = item_info; item; item = item->next) {
+    for (auto* item = item_info; item; item = item->next.get()) {
         item->saved_marker = 1;
         if (item->fActive) {
             item->position = item->p3D->m_pRep->GetLocation();
@@ -1333,48 +1333,31 @@ try {
    follows. The whole chain is staged before it is published to the item list
    and the search registry. */
 // FUNCTION: WIZ8 0x00514c80
-W8WorldItem* LoadItem(wiz8::File& handle, bool add_to_list)
+std::unique_ptr<W8WorldItem> LoadItem(wiz8::File& handle)
 try {
-    std::vector<W8WorldItem> staged;
+    std::unique_ptr<W8WorldItem> head;
+    auto* link = &head;
     bool has_next;
+    std::vector<std::unique_ptr<W8Searchable>> searchables;
     do {
         const auto image = wiz8::retail::read_image<W8WorldItem>(handle);
         has_next = image.next != 0;
-        W8WorldItem& item = staged.emplace_back();
+        *link = std::make_unique<W8WorldItem>();
+        auto& item = **link;
         wiz8::retail::decode_image(image, item);
         item.sector_id = -2;
         item.fActive = false;
         if (g_level_status_loading) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
-    } while (has_next);
-
-    // Allocate everything that can fail before anything is published.
-    std::vector<MallocPtr<W8WorldItem>> owners;
-    std::vector<std::unique_ptr<W8Searchable>> searchables;
-    for (const auto& item : staged) {
-        auto& owner =
-            owners.emplace_back(static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem))), &free);
-        if (!owner) throw std::bad_alloc();
-        *owner = item;
-        if (ItemHasFlags(&item, W8_WORLD_ITEM_HIDDEN))
-            searchables.push_back(std::make_unique<W8Searchable>());
-    }
-    g_searchables.reserve(g_searchables.size() + searchables.size());
-    if (add_to_list) gXStatus.world_items.reserve(gXStatus.world_items.size() + 1);
-
-    std::vector<W8WorldItem*> chain;
-    chain.reserve(owners.size());
-    for (auto& owner : owners) chain.push_back(owner.release());
-    auto searchable = searchables.begin();
-    for (std::size_t index = 0; index < chain.size(); ++index) {
-        if (index + 1 < chain.size()) chain[index]->next = chain[index + 1];
-        if (ItemHasFlags(chain[index], W8_WORLD_ITEM_HIDDEN)) {
-            (*searchable)->world_item = chain[index];
-            g_searchables.push_back(searchable->release());
-            ++searchable;
+        if (ItemHasFlags(&item, W8_WORLD_ITEM_HIDDEN)) {
+            auto searchable = std::make_unique<W8Searchable>();
+            searchable->world_item = &item;
+            searchables.push_back(std::move(searchable));
         }
-    }
-    if (add_to_list) gXStatus.world_items.push_back(chain.front());
-    return chain.front();
+        link = &item.next;
+    } while (has_next);
+    g_searchables.reserve(g_searchables.size() + searchables.size());
+    for (auto& searchable : searchables) g_searchables.push_back(searchable.release());
+    return head;
 } catch (const std::exception&) {
     return nullptr;
 }
@@ -1681,7 +1664,7 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
 
 /* Load one level's world items from the current save without listing them. */
 // FUNCTION: WIZ8 0x00516070
-bool LoadSavedLevelItems(int level, std::vector<W8WorldItem*>& items)
+bool LoadSavedLevelItems(int level, std::vector<std::unique_ptr<W8WorldItem>>& items)
 try {
     W8Chunk chunk;
     if (!chunk.OpenRead(kCurrentGamePath)) return false;
@@ -1693,9 +1676,9 @@ try {
                 throw std::runtime_error("too many world items");
             items.reserve(items.size() + count);
             for (unsigned int index = 0; index < count; ++index) {
-                W8WorldItem* item = LoadItem(chunk.Stream(), false);
+                auto item = LoadItem(chunk.Stream());
                 RequireSection(item != nullptr, "world item");
-                items.push_back(item);
+                items.push_back(std::move(item));
             }
         });
     });
