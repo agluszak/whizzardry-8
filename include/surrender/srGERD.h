@@ -1,14 +1,11 @@
 #pragma once
 
-#include <condition_variable>
+#include <array>
 #include <cstdint>
-#include <list>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -242,7 +239,7 @@ public:
         srShader shader;
         w8_ulong clip_state;
         srGERD* gerd;
-        /* lockRenderer matches this against the sorted-mode enable bit;
+        /* batchRenderer matches this against the sorted-mode enable bit;
            flushSort flushes entries where it is 1, flushImmediateRenderers
            where it is 0. */
         w8_long sorted;
@@ -402,8 +399,8 @@ public:
     e_cullMode getCullMode() const;
     e_winding getWinding() const;
     void setWinding(e_winding winding);
-    Renderer* lockRenderer();
-    void unlockRenderer(Renderer* renderer, int submit);
+    // Rendering and resource updates run on the main thread.
+    Renderer& batchRenderer();
     SDL_Surface* lockBuffer();
     void unlockBuffer(bool modified = false);
     w8_ulong getVertexProcessorCount() const;
@@ -629,10 +626,6 @@ private:
         w8_ulong handle;
         Texture* texture;
     };
-    struct RendererEntry {
-        std::unique_ptr<Renderer> renderer;
-        bool busy = false;
-    };
     void setError(e_error error);
     void resetTexture();
     void assertContext() const;
@@ -675,14 +668,10 @@ private:
     void initLights();
     void initMatrices();
     void initTextureParameterMatrix();
-    void deleteDeletedRenderers();
     e_error openWindowInternal(const OpenInfo& info);
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
-    RendererEntry* createRenderer(int sorted);
-    void flushNonBusyRenderers();
     void flushSort();
-    Renderer* _lockRenderer(RendererEntry* entry);
 
     /* Texture pool: live-texture count, free-list head and owned chunks. */
     struct TexturePool {
@@ -807,12 +796,7 @@ private:
     srTriMeshPipeline mesh_pipeline;
 
     unsigned char unknown_0c_[4];
-    // Stable entries survive concurrent additions while condition-variable waits release the lock.
-    std::list<RendererEntry> renderers;
-    std::recursive_mutex renderers_section;
-    std::condition_variable_any renderers_idle;
-    mutable std::recursive_mutex state_section;
-    std::thread::id owner_thread;
+    std::array<std::unique_ptr<Renderer>, 2> renderers;
     std::uint32_t enable_flags = 0;
     enum {
         DIRTY_SWAP_INTERVAL = 0x4UL,

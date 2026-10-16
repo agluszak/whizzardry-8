@@ -1452,10 +1452,9 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     };
     srGERD renderer(srCreateSDLGPUDevice());
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    // Reuse a CPU batch as sorted without requiring a window or GPU context.
-    auto* batch = renderer.lockRenderer();
-    batch->sorted = 1;
-    renderer.unlockRenderer(batch, 0);
+    renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    auto* batch = &renderer.batchRenderer();
+    renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
     renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
     srMeshModel native(1, 3);
     stMeshModel extended(1, 3);
@@ -1486,8 +1485,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
         REQUIRE_FALSE(renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING));
         REQUIRE(renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS));
         renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-        auto* resumed = renderer.lockRenderer();
-        renderer.unlockRenderer(resumed, 0);
+        auto* resumed = &renderer.batchRenderer();
         REQUIRE(resumed == batch);
         renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
     }
@@ -2403,9 +2401,6 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     };
     srGERD renderer(srCreateSDLGPUDevice());
     renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    auto* batch = renderer.lockRenderer();
-    batch->sorted = 1;
-    renderer.unlockRenderer(batch, 0);
     auto model = std::make_shared<stMeshModel>(1, 3);
     model->getVertexLoc()[0] = {-0.5f, -0.5f, 0.5f};
     model->getVertexLoc()[1] = {0.5f, -0.5f, 0.5f};

@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <string_view>
-#include <thread>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -47,22 +46,9 @@ TEST_CASE("renderer platform")
             REQUIRE(std::string_view(driver.name) == "SDLGPU");
             REQUIRE(gerd.lockBuffer() == nullptr);
             REQUIRE(gerd.getError() == srGERD::ERROR_WINDOW_NOT_OPEN);
-            auto* renderer = gerd.lockRenderer();
-            gerd.unlockRenderer(renderer, 1);
+            auto* renderer = &gerd.batchRenderer();
+            renderer->submit();
             auto statistics = renderer->getStatistics();
-            REQUIRE(statistics.device_calls == 1);
-
-            bool reused = false;
-            std::jthread worker([&] {
-                auto* acquired = gerd.lockRenderer();
-                reused = acquired == renderer;
-                gerd.unlockRenderer(acquired, 1);
-                gerd.flushImmediateRenderers();
-                gerd.flushRenderers();
-            });
-            worker.join();
-            REQUIRE(reused);
-            statistics = renderer->getStatistics();
             REQUIRE(statistics.device_calls == 1);
 
             gerd.flushImmediateRenderers();
