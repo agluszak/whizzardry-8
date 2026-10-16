@@ -11,8 +11,7 @@
 class srModelInstance;
 class srScene;
 
-extern srModelInstance* g_cursor_node;
-extern srScene* g_cursor_scene;
+extern std::unique_ptr<srModelInstance> g_cursor_node;
 unsigned char InitializeMouseCursorScene(void);
 
 class srTextureIFace;

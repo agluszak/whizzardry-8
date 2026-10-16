@@ -137,7 +137,6 @@ void ClearNodeFlag(srNode* node);
 /* 0x00425840: rotate an srNode in degrees and invalidate the renderer mode. */
 void RotateNodeInDegrees(srNode* node, int degrees);
 /* Invalidate a 2D node's model texture and release the node. */
-void ReleaseSurfaceNode(srNode* node);
 /* 0x00427E70: surface-lock helper used while installing a drag cursor. */
 bool ClearMouseSurface(void);
 /* 0x004255F0: place a 2D node at a screen position in normalized
@@ -189,20 +188,10 @@ extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
-extern srScene* g_scene_user;
-extern srScene* g_scene_fullscreen;
-extern srScene* g_scene_permanent;
-extern srScene* g_scene_prerender0;
-extern srScene* g_scene_prerender1;
-extern srScene* g_scene_overlay0;
-extern srScene* g_scene_overlay1;
-extern srScene* g_scene_square;
 extern std::shared_ptr<SDL_Surface> g_primary_color_surface;
 void DrawColorSurface(SDL_Surface* surface, int x, int y);
 srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
                         bool additive); /* 0x00424A90 */
-extern srCamera* g_overlay_camera;
-extern srCamera* g_square_camera;
 extern bool g_texture_cache_enabled;
 extern std::unique_ptr<srGERD> g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */

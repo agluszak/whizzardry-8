@@ -7,8 +7,7 @@
 #include "surrender/srNode.h"
 
 // FUNCTION: SURRENDER 0x1004C7D0
-srIlluminator::srIlluminator(srNode* parent, Ownership ownership)
-    : srNode(static_cast<srNode*>(nullptr), ownership)
+srIlluminator::srIlluminator(srNode* parent) : srNode(static_cast<srNode*>(nullptr))
 {
     if (parent != 0) {
         setParent(parent, 0);

@@ -48,58 +48,39 @@
 namespace {
 class TestNode : public srNode {
 public:
-    explicit TestNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent)
-        : srNode(parent, ownership)
-    {
-    }
+    explicit TestNode(srNode* parent = nullptr) : srNode(parent) {}
     ~TestNode() override { ++destroyed; }
     TestNode& operator=(const TestNode&) = default;
     static inline int destroyed = 0;
 };
 
-bool recursiveSceneGraph()
+bool sceneRelationships()
 {
     TestNode first;
     TestNode second;
     first.setLocation(10, 0, 0);
     second.setLocation(-10, 0, 0);
-    auto* child = new TestNode(&first);
+    auto child = std::make_unique<TestNode>(&first);
     child->setLocation(3, 0, 0);
     const auto world = child->getWorldSpaceLocation();
-
-    srNode::lockSceneGraph();
-    srNode::lockSceneGraph();
-    REQUIRE(srNode::isSceneGraphLocked());
     REQUIRE(child->setParent(&second, 1));
     REQUIRE(child->getParent() == &second);
     REQUIRE(std::abs(child->getWorldSpaceLocation().x - world.x) < 1e-6);
-    REQUIRE(!second.setParent(child, 0));
-    REQUIRE(!child->setParent(child, 0));
-    *child = first; // assignment must also recurse through the explicit lock
-    srNode::unlockSceneGraph();
-    REQUIRE(srNode::isSceneGraphLocked());
+    REQUIRE(!second.setParent(child.get(), 0));
+    REQUIRE(!child->setParent(child.get(), 0));
+    REQUIRE(child->getParent() == &second);
+    REQUIRE(child->setParent(nullptr, 1));
+    REQUIRE(child->getParent() == nullptr);
+    REQUIRE(std::abs(child->getWorldSpaceLocation().x - world.x) < 1e-6);
+    *child = first;
+    REQUIRE(child->getParent() == nullptr);
+    REQUIRE(child->setParent(&first, 0));
 
-    std::promise<void> started;
-    std::promise<void> finished;
-    auto done = finished.get_future();
-    std::jthread worker([&] {
-        started.set_value();
-        child->setParent(&first, 0);
-        finished.set_value();
-    });
-    started.get_future().wait();
-    const bool blocked =
-        done.wait_for(std::chrono::milliseconds(20)) == std::future_status::timeout;
-    srNode::unlockSceneGraph();
-    worker.join();
-    REQUIRE((blocked && !srNode::isSceneGraphLocked()));
-    REQUIRE(child->getParent() == &first);
-
-    // Parent destruction recurses into child destruction under the same mutex.
     const int before = TestNode::destroyed;
     {
         TestNode parent;
-        new TestNode(new TestNode(&parent));
+        auto* branch = parent.adoptChild(std::make_unique<TestNode>());
+        branch->adoptChild(std::make_unique<TestNode>());
     }
     REQUIRE(TestNode::destroyed == before + 3);
     return true;
@@ -1012,9 +993,8 @@ TEST_CASE("Scene membership preserves independent node ownership")
 {
     REQUIRE(srInit());
     const int before = TestNode::destroyed;
-    const auto root_children = srCore.getRootNode()->getChildCount();
-    auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
-    REQUIRE(srCore.getRootNode()->getChildCount() == root_children);
+    auto owned = std::make_unique<TestNode>(nullptr);
+    REQUIRE(owned->getParent() == nullptr);
     {
         TestNode scene;
         REQUIRE(owned->setParent(&scene, 0));
@@ -1033,13 +1013,20 @@ TEST_CASE("Scene adoption transfers node destruction ownership")
     const int before = TestNode::destroyed;
     {
         TestNode scene;
-        auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
+        auto owned = std::make_unique<TestNode>(nullptr);
         auto* observed = scene.adoptChild(std::move(owned));
         REQUIRE_FALSE(owned);
         REQUIRE(observed->getParent() == &scene);
         REQUIRE(scene.getChildCount() == 1);
+        {
+            TestNode render_parent;
+            REQUIRE(observed->setParent(&render_parent, 0));
+            REQUIRE(scene.getChildCount() == 0);
+        }
+        REQUIRE(observed->getParent() == nullptr);
+        REQUIRE(TestNode::destroyed == before + 1);
     }
-    REQUIRE(TestNode::destroyed == before + 2);
+    REQUIRE(TestNode::destroyed == before + 3);
     REQUIRE(srExit());
 }
 
@@ -1047,7 +1034,7 @@ TEST_CASE("renderer_ownership_test")
 {
     for (int cycle = 0; cycle < 2; ++cycle) {
         REQUIRE(srInit());
-        REQUIRE(recursiveSceneGraph());
+        REQUIRE(sceneRelationships());
         REQUIRE(processorOwnership());
         REQUIRE(countedGeometryTransforms());
         REQUIRE(rendererOwnership());

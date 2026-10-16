@@ -243,7 +243,8 @@ void ControlCampAlarm(int command)
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }
-        ReleaseRendererObject(g_mt_gigas_outer_alarm_sound);
+        if (g_mt_gigas_outer_alarm_sound) g_mt_gigas_outer_alarm_sound->Stop();
+        g_mt_gigas_outer_alarm_sound = nullptr;
         g_mt_gigas_outer_alarm_sound = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Alarm1.wav",
                                                               position, 1.0f, 75.0f, true);
         if (g_mt_gigas_outer_alarm_gate != 0) {
@@ -260,7 +261,8 @@ void ControlCampAlarm(int command)
         return;
     }
     g_remove_current_master_function = true;
-    ReleaseRendererObject(g_mt_gigas_outer_alarm_sound);
+    if (g_mt_gigas_outer_alarm_sound) g_mt_gigas_outer_alarm_sound->Stop();
+    g_mt_gigas_outer_alarm_sound = nullptr;
     if (g_mt_gigas_outer_alarm_gate != 0) {
         delete g_mt_gigas_outer_alarm_gate;
     }

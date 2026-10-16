@@ -882,10 +882,6 @@ void W8Missile::StartIfHostActive()
 // FUNCTION: WIZ8 0x004a4180
 void W8Missile::DestroyMissile()
 {
-    if (m_plsLights != 0) {
-        wiz8::clear_and_dispose(*m_plsLights,
-                                [](stLight* light) { WorldRemoveLight(g_world, light); });
-    }
     delete this;
 }
 
@@ -990,7 +986,7 @@ bool W8Missile::IsCycleSupported(signed char cycle)
 // FUNCTION: WIZ8 0x004a4300
 void W8Missile::SetCycle(signed char cycle)
 {
-    std::vector<stLight*>* lights;
+    std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < 0 || cycle >= 2) {
         srAssertFail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST", MISSILE_CPP,
