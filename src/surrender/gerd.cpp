@@ -1870,6 +1870,7 @@ srGERD::Texture* srGERD::allocTexture(w8_ulong id)
 // FUNCTION: SURRENDER 0x10028FB0
 void srGERD::setTextureParameters(w8_ulong stage, const srTextureIFace::Parameters& parameters)
 {
+    static constexpr std::array<w8_ulong, 4> correction_map{0, 1, 2, 1};
     w8_ulong state = parameters.packed_state;
     float bias = parameters.mipmap_bias;
     w8_ulong packed =
@@ -1887,8 +1888,7 @@ void srGERD::setTextureParameters(w8_ulong stage, const srTextureIFace::Paramete
         (texture_state.mag_filter_map[(state >> srTextureIFace::Parameters::MAG_FILTER_SHIFT) & 7] &
          0xfffffc0f);
     packed = (packed << 4) |
-             (texture_state.correction_map[state & srTextureIFace::Parameters::CORRECTION_MASK] &
-              0xffffc00f);
+             (correction_map[state & srTextureIFace::Parameters::CORRECTION_MASK] & 0xffffc00f);
     srDD::TexParms* parms = &texture_parms[stage];
     if (packed == parms->packed && bias == parms->mipmap_bias) {
         return;
@@ -2665,10 +2665,6 @@ void srGERD::initView()
 // FUNCTION: SURRENDER 0x10027F60
 void srGERD::initTextureParameterMatrix()
 {
-    texture_state.correction_map[0] = 0;
-    texture_state.correction_map[1] = 1;
-    texture_state.correction_map[2] = 2;
-    texture_state.correction_map[3] = 1;
     texture_state.mag_filter_map[0] = 0;
     texture_state.mag_filter_map[1] = 1;
     texture_state.mag_filter_map[2] = 2;
@@ -2687,16 +2683,6 @@ void srGERD::initTextureParameterMatrix()
     texture_state.wrap_s_map[1] = 1;
     texture_state.wrap_t_map[0] = 0;
     texture_state.wrap_t_map[1] = 1;
-    texture_state.default_correction = static_cast<srTextureIFace::e_correction>(1);
-    texture_state.default_mag_filter = static_cast<srTextureIFace::e_filter>(2);
-    texture_state.default_min_filter = static_cast<srTextureIFace::e_filter>(2);
-    texture_state.default_mipmap = static_cast<srTextureIFace::e_mipmap>(1);
-    texture_state.default_texture_params[0] = 0;
-    texture_state.default_texture_params[1] = 1;
-    texture_state.default_texture_params[2] = 2;
-    texture_state.default_texture_params[3] = 3;
-    texture_state.default_texture_params[4] = 0;
-    texture_state.default_compression = static_cast<srTextureIFace::e_compression>(0);
 }
 
 // FUNCTION: SURRENDER 0x10068700

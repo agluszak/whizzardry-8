@@ -463,8 +463,6 @@ public:
     void setClipState(std::uint32_t state);
     void setAntiAlias(e_antiAlias mode);
     void setTexture(srTextureIFace* texture, w8_ulong layer);
-    void setTextureDefaultCorrection(srTextureIFace::e_correction correction);
-    void setTextureDefaultCompression(srTextureIFace::e_compression compression);
     void setTextureDefaultMagFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMinFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMipmap(srTextureIFace::e_mipmap mipmap);
@@ -509,11 +507,6 @@ public:
     w8_ulong getClearStencil() const;
     int isTextureCached(srTextureIFace* texture) const;
     int isTextureResident(srTextureIFace* texture) const;
-    srTextureIFace::e_compression getTextureDefaultCompression() const;
-    srTextureIFace::e_correction getTextureDefaultCorrection() const;
-    srTextureIFace::e_filter getTextureDefaultMagFilter() const;
-    srTextureIFace::e_filter getTextureDefaultMinFilter() const;
-    srTextureIFace::e_mipmap getTextureDefaultMipmap() const;
     w8_long getTextureReduction() const;
     w8_long getMaxTextureWidth() const;
     w8_long getMaxTextureHeight() const;
@@ -797,7 +790,6 @@ private:
     /* setTextureParameters indexes these maps from the packed texture state; filter selector 4 is a
        valid index in both filter maps. */
     struct TextureState {
-        w8_ulong correction_map[4];
         w8_ulong mag_filter_map[5];
         w8_ulong min_filter_map[5];
         /* The fourth entry doubles as the current mipmap parameter written
@@ -805,14 +797,6 @@ private:
         w8_ulong mipmap_map[4];
         w8_ulong wrap_s_map[2];
         w8_ulong wrap_t_map[2];
-        srTextureIFace::e_correction default_correction;
-        srTextureIFace::e_filter default_mag_filter;
-        srTextureIFace::e_filter default_min_filter;
-        srTextureIFace::e_mipmap default_mipmap;
-        /* Per-type default device parameters. Entry [4] doubles as the current compression
-           parameter written by setTextureDefaultCompression. */
-        w8_ulong default_texture_params[5];
-        srTextureIFace::e_compression default_compression;
     };
 
     /* pushEnvironment/popEnvironment stack plus the enable-flag stack. */
