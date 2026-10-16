@@ -2,6 +2,7 @@
 
 #include <iosfwd>
 #include <memory>
+#include <string>
 
 #include "compat/compiler.h"
 #include "surrender/srColorSurface.h"
@@ -22,8 +23,7 @@ public:
     stTextureFile(const char* file_name, int cached); /* 0x0047C630 */
     stTextureFile& operator=(const stTextureFile& other);
 
-    const char* getFileName() const { return file_name; }
-    void setFileName(const char* file_name); /* 0x0047C830 */
+    void setFileName(std::string file_name); /* 0x0047C830 */
     void setCached(int cached) { this->cached = cached; }
     int isSurfaceLoaded() const { return surface != 0; }
     srColorSurface* getSurface() const { return surface.get(); }
@@ -50,7 +50,7 @@ private:
     };
 
     int cached;
-    char* file_name;
+    std::string file_name;
     std::unique_ptr<srColorSurface> surface;
     w8_ulong frame_handle;
     bool has_alpha;
