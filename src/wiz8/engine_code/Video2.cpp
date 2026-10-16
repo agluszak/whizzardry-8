@@ -248,9 +248,6 @@ float g_frames_per_second;
 // GLOBAL: WIZ8 0x659708
 float g_seconds_per_frame;
 
-// GLOBAL: WIZ8 0x65a118
-W8RenderQuality* g_render_options;
-
 // GLOBAL: WIZ8 0x659684
 srScene* g_cursor_scene;
 // GLOBAL: WIZ8 0x65968c

@@ -1,13 +1,8 @@
 #pragma once
 
-#include "compat/compiler.h"
-
 namespace wiz8 {
 class File;
 }
-/* Engine Code\Quality.cpp. The startup constructor at 0x0047B500 asserts this
-   unit (Quality.cpp:159) where it allocates the shared render-options record. */
-
 /* Engine option ids. The UI mapping plus recovered consumers establish
    all nine user-visible entries: mip mapping calls the SR mipmap setter,
    missile lights gate spell/missile lights, mesh sky gates the separate sky
@@ -32,26 +27,7 @@ enum W8RenderOption {
     W8_RENDER_OPTION_COUNT = 17
 };
 
-/* InitializeRenderQuality's 0x34-byte allocation; SetRenderOption and the
-   save path establish the seventeen byte states starting at +0x02.
-   The other fields' roles remain unresolved. */
-struct W8RenderQuality {
-    unsigned char unknown_00[2];
-    unsigned char option_states[W8_RENDER_OPTION_COUNT];
-    unsigned char unknown_13;
-    unsigned char unknown_14;
-    unsigned char unknown_15[11];
-    unsigned int unknown_20;
-    unsigned int unknown_24;
-    unsigned char unknown_28[4];
-    unsigned int unknown_2c;
-    unsigned char unknown_30[4];
-};
-
-extern W8RenderQuality* g_render_options;
-
 void InitializeRenderQuality(void);
-void DestroyRenderQuality(void);
 void SetRenderOption(W8RenderOption option, int enabled);
 void EnableRenderOption(W8RenderOption option);
 void DisableRenderOption(W8RenderOption option);
