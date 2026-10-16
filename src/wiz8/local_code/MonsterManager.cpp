@@ -419,7 +419,7 @@ done:
                                     (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                                      monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
         ++g_combat_state->combat_result;
-        if (g_status.current_level < W8_LEVEL_COUNT) {
+        if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
             ++g_status.level_progress[g_status.current_level].monster_kill_count;
         }
         if (killer_party_slot != -1) {

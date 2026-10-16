@@ -1106,7 +1106,7 @@ void EndCombat(bool forced_cleanup)
     }
     unsigned int active = CountActiveCharacters();
     if (active != 0 && g_combat_state->experience_pool != 0) {
-        if (g_status.current_level < W8_LEVEL_COUNT) {
+        if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
             g_status.level_progress[g_status.current_level].combat_end_count += 1;
         }
         g_combat_state->experience_pool /= active;

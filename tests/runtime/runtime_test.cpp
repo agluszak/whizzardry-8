@@ -2023,6 +2023,20 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE(!g_combat_state);
+    // Awards can arrive while no level is active. Keep the party rewards, but
+    // do not index level -1 and overwrite the preceding save-header bytes.
+    const auto status_suffix = std::to_array(g_status.status_header_suffix);
+    const int level = g_status.current_level;
+    const auto gold = g_status.party_gold;
+    const auto earned_experience = fighter.experience;
+    g_status.current_level = -1;
+    AddPartyGold(1, false);
+    AwardPartyExperience(1, 0);
+    CHECK(g_status.party_gold == gold + 1);
+    CHECK(fighter.experience == earned_experience + 1);
+    CHECK(std::to_array(g_status.status_header_suffix) == status_suffix);
+    g_status.current_level = level;
+
     /* Shutting down mid-fight ends it before the interface is released, also
        while the inventory has suspended the main game and released its
        portrait controls. */
