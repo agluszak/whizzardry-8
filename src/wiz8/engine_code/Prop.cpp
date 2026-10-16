@@ -63,7 +63,7 @@ bool g_animated_prop_present;
 #define PROP_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp"
 
 // VTABLE: WIZ8 0x005ec1e0
-// class W8Prop : private NonCopyable
+// class W8Prop
 // VTABLE: WIZ8 0x005ec1c8
 // class W8PropRepresentation
 /* Prop::Prop() - GrObject base, then m_pRep / m_pTimer and two identity

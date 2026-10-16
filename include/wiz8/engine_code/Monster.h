@@ -86,7 +86,7 @@ struct W8MonsterRep : public W8EmitterHost {
     W8MonsterRep();
     W8MonsterRep(const W8MonsterRep& other);
     virtual ~W8MonsterRep() override;
-    W8MonsterRep& operator=(const W8MonsterRep&) = default;
+    W8MonsterRep& operator=(const W8MonsterRep&) = delete;
     virtual W8AnimRepBase* Clone() override; /* 0x004CA9E0 */
     virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
                                               signed char lod) override;  /* 0x004BF8C0 */

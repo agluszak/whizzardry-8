@@ -296,8 +296,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                          "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
         }
 
-        for (short mapped_meshe : mapped_meshes) {
-            if (mapped_meshe == type) {
+        for (short mapped_mesh : mapped_meshes) {
+            if (mapped_mesh == type) {
                 for (int entry = 0; entry < static_cast<int>(mapped_values->size()); ++entry) {
                     model->SetMappedVertex(mapped_vertices[entry], (*mapped_keys)[entry]);
                 }

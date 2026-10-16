@@ -42,7 +42,7 @@
 #define ITEM_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp"
 
 // VTABLE: WIZ8 0x005ECD78 W8Item
-// class W8Item : private NonCopyable
+// class W8Item
 
 // FUNCTION: WIZ8 0x0049F440
 W8Item::~W8Item()
