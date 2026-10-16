@@ -156,4 +156,3 @@ extern const char* g_footstep_names[];
 extern const char* g_footstep_surfaces[];
 /* Zeroed 128-byte ambient name image; only its first word is ever read — a
    `memcpy` of it followed by a memset seeds an empty fixed-size name. */
-extern unsigned short g_empty_ambient_name;

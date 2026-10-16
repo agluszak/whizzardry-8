@@ -30,6 +30,7 @@
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
@@ -1453,4 +1454,25 @@ TEST_CASE("Revealing searchables invalidates borrowed view entries without skipp
     next->Reveal();
     REQUIRE(g_search_view.items.empty());
     REQUIRE(g_searchables.empty());
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterminated text lines",
+                 "[loader][text]")
+{
+    const struct Restore {
+        float minimum = g_navigator_minimum_speed;
+        float swimming = g_navigator_minimum_speed_mode23;
+        ~Restore()
+        {
+            g_navigator_minimum_speed = minimum;
+            g_navigator_minimum_speed_mode23 = swimming;
+        }
+    } restore;
+    std::filesystem::create_directories(fixture_root / "data/monsters");
+    store("data/monsters/pathparms.txt", "# path tuning\r\nMIN_ANIMATION_RATE" +
+                                             std::string(2048, ' ') +
+                                             "0.75\r\nFLY_SWIM_MIN_ANIM_RATE 0.25");
+    [[maybe_unused]] W8PathParameters parameters;
+    REQUIRE(g_navigator_minimum_speed == 0.75f);
+    REQUIRE(g_navigator_minimum_speed_mode23 == 0.25f);
 }

@@ -2,12 +2,11 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <sstream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -62,7 +61,6 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/text_line.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
@@ -425,194 +423,126 @@ W8Missile* AllocateMissile(int missile_table_index)
    gravity/velocity keywords set the missile's tail flags - and the cycle
    lines load through the ordinary GrCycle path. */
 // FUNCTION: WIZ8 0x004a3550
-unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
-                               W8Missile** ppMissile, int)
+unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, W8Missile** output,
+                               int)
 {
-    W8GrCycle* found;
-    W8GrCycle* loaded_cycle;
-    W8Missile* missile;
-    W8AIMissile* ai;
-    bool loaded;
-    bool more;
-    bool gravity;
-    bool align_camera;
-    bool explode_ground;
-    bool align_explosion;
-    float velocity;
-    std::unique_ptr<wiz8::File> handle;
-    W8SoundEventKind sound_kind;
-    int frame;
-    int cycle;
-    int index;
-    float duration;
-    float seconds;
-    float intensity;
-    std::unique_ptr<W8SoundEvent> sound;
-    char path[100];
-    char line[100];
-    char pacName[52];
-    char pacFileName[52];
-    char pacToken[52];
-    char wave_path[256];
-    char pacLoop[128];
-
-    found = FindFirstGrCycleByName(name);
-    if (found != 0) {
-        missile = new W8Missile(*static_cast<W8Missile*>(found));
-        if (missile == 0) {
-            srAssertFail("pMissile", MISSILE_CPP, 0x3eb, 0);
-        }
-        ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
-        if (ai->kind != W8_AI_RECORD_MISSILE) {
-            srAssertFail("pAI->ubAIType == AI_TYPE_MISSILE", MISSILE_CPP, 0x3f1, 0);
-        }
+    if (auto* found = FindFirstGrCycleByName(name)) {
+        auto* missile = new W8Missile(*static_cast<W8Missile*>(found));
+        auto* ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
+        if (ai->kind != W8_AI_RECORD_MISSILE)
+            srAssertFail("missile AI", MISSILE_CPP, __LINE__, nullptr);
         ai->missile = missile;
-        *ppMissile = missile;
-        if (missile == 0) {
-            srAssertFail("*ppMissile", MISSILE_CPP, 0x285, 0);
-        }
-        RegisterGrCycle(name, *ppMissile);
-        return 1;
+        *output = missile;
+        RegisterGrCycle(name, missile);
+        return true;
     }
     PauseSharedGameTimers();
-    more = true;
-    loaded = true;
-    gravity = false;
-    align_camera = false;
-    explode_ground = false;
-    align_explosion = false;
-    velocity = 15000.0f;
-    snprintf(path, sizeof(path), "data\\Missiles\\%s.mls", name);
-    handle = [&]() {
+    *output = nullptr;
+    auto handle = [&] {
         try {
-            return wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(fmt::format("data/missiles/{}.mls", name)));
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }
     }();
-    *ppMissile = 0;
-    if (handle != 0) {
-        for (;;) {
-            do {
-                if (!more || !loaded) {
-                    goto close_file;
-                }
-                ReadTextLine(handle.get(), line, 100, more);
-            } while (line[0] == '#');
-            pacName[0] = 0;
-            pacFileName[0] = '\0';
-            sscanf(line, "%s %s", pacName, pacFileName);
-            if (SDL_strcasecmp("align_camera", pacName) != 0) {
-                if (SDL_strcasecmp("explode_ground", pacName) == 0) {
-                    explode_ground = true;
-                } else if (SDL_strcasecmp("align_explosion", pacName) == 0) {
-                    align_explosion = true;
-                } else if (SDL_strcasecmp("gravity", pacName) == 0) {
-                    gravity = true;
-                } else if (strcmp("velocity", pacName) == 0) {
-                    sscanf(line, "%s %f", pacName, &velocity);
-                } else {
-                    if (strlen(line) > 2) {
-                        /* Retail asserts the array address; always true. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wtautological-compare"
-                        if (pacName == 0) {
-#pragma clang diagnostic pop
-                            srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
-                        }
-                        for (index = 0; index < 2; ++index) {
-                            if (SDL_strncasecmp(pacName, g_missile_cycle_names[index],
-                                                strlen(g_missile_cycle_names[index])) == 0) {
-                                loaded_cycle = *ppMissile;
-                                loaded = LoadGrCycle(context, pacFileName, &loaded_cycle, index, 1,
-                                                     "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
-                                if (loaded) {
-                                    *ppMissile = static_cast<W8Missile*>(loaded_cycle);
-                                }
-                                goto next_line;
-                            }
-                        }
-                    }
-                    if (SDL_strcasecmp(pacName, "SOUND_FRAME") == 0) {
-                        sound_kind = W8_SOUND_EVENT_FRAME;
-                    } else {
-                        if (SDL_strcasecmp(pacName, "SOUND_CYCLE") != 0) {
-                            if (SDL_strcasecmp(pacName, "SHAKE_FRAME") == 0) {
-                                duration = 1.0f;
-                                seconds = 10.0f;
-                                intensity = 1.0f;
-                                sscanf(line, "%s %s %d %f %f %f", pacToken, pacName, &frame,
-                                       &intensity, &duration, &seconds);
-                                /* Retail asserts the array address; always
-                                   true. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wtautological-compare"
-                                if (pacName == 0) {
-#pragma clang diagnostic pop
-                                    srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
-                                }
-                                cycle = missileCycleIndex(pacName);
-                                ShakeDefinition effect(duration, true, intensity,
-                                                       seconds * kWorldScale, 0);
-                                effect.cycle = cycle;
-                                effect.frame = frame;
-                                effect.subcycle = 0;
-                                (*ppMissile)->AddShakeEffect(effect);
-                            }
-                            goto next_line;
-                        }
-                        sound_kind = W8_SOUND_EVENT_CYCLE;
-                    }
-                    memcpy(pacLoop, &g_empty_ambient_name, 2);
-                    memset(pacLoop + 2, 0, sizeof(pacLoop) - 2);
-                    sscanf(line, "%s %s %d %s %s", pacToken, pacName, &frame, pacFileName, pacLoop);
-                    /* Retail asserts the array address; always true. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wtautological-compare"
-                    if (pacName == 0) {
-#pragma clang diagnostic pop
-                        srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
-                    }
-                    cycle = missileCycleIndex(pacName);
-                    snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV",
-                             pacFileName);
-                    sound = std::make_unique<W8SoundEvent>(sound_kind, cycle, frame, 0, wave_path,
-                                                           SDL_strcasecmp(pacLoop, "LOOP") == 0);
-                    if (sound != 0) {
-                        (*ppMissile)->AddSoundEvent(std::move(sound));
-                    }
-                }
-            } else {
-                align_camera = true;
+    if (!handle) {
+        W8GrCycle* loaded = nullptr;
+        const bool success =
+            LoadGrCycle(context, name, &loaded, 0, 1, "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
+        if (success) {
+            *output = static_cast<W8Missile*>(loaded);
+            RegisterGrCycle(name, *output);
+        }
+        ResumeSharedGameTimers();
+        return success;
+    }
+    bool gravity = false, align_camera = false, explode_ground = false, align_explosion = false;
+    float velocity = 15000.0f;
+    bool success = true;
+    std::istringstream input(handle->read_text());
+    std::string line;
+    while (success && std::getline(input, line)) {
+        std::istringstream fields(line);
+        std::string command;
+        if (!(fields >> command) || command.starts_with('#')) continue;
+        if (SDL_strcasecmp(command.c_str(), "align_camera") == 0)
+            align_camera = true;
+        else if (SDL_strcasecmp(command.c_str(), "explode_ground") == 0)
+            explode_ground = true;
+        else if (SDL_strcasecmp(command.c_str(), "align_explosion") == 0)
+            align_explosion = true;
+        else if (SDL_strcasecmp(command.c_str(), "gravity") == 0)
+            gravity = true;
+        else if (command == "velocity") {
+            if (!(fields >> velocity)) {
+                success = false;
+                break;
             }
-        next_line:;
+        } else {
+            bool cycle_line = false;
+            for (int cycle = 0; cycle < 2; ++cycle) {
+                if (SDL_strncasecmp(command.c_str(), g_missile_cycle_names[cycle],
+                                    strlen(g_missile_cycle_names[cycle])) == 0) {
+                    std::string resource;
+                    if (!(fields >> resource)) {
+                        success = false;
+                        break;
+                    }
+                    W8GrCycle* loaded = *output;
+                    success = LoadGrCycle(context, resource.c_str(), &loaded, cycle, 1,
+                                          "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
+                    if (success) *output = static_cast<W8Missile*>(loaded);
+                    cycle_line = true;
+                    break;
+                }
+            }
+            if (cycle_line || !success) continue;
+            std::string cycle_name;
+            int frame = 0;
+            if (SDL_strcasecmp(command.c_str(), "SHAKE_FRAME") == 0) {
+                if (!*output || !(fields >> cycle_name >> frame)) {
+                    success = false;
+                    break;
+                }
+                float intensity = 1.0f, duration = 1.0f, distance = 10.0f;
+                fields >> intensity >> duration >> distance;
+                ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
+                effect.cycle = missileCycleIndex(cycle_name.c_str());
+                effect.frame = frame;
+                effect.subcycle = 0;
+                (*output)->AddShakeEffect(effect);
+                continue;
+            }
+            W8SoundEventKind kind;
+            if (SDL_strcasecmp(command.c_str(), "SOUND_FRAME") == 0)
+                kind = W8_SOUND_EVENT_FRAME;
+            else if (SDL_strcasecmp(command.c_str(), "SOUND_CYCLE") == 0)
+                kind = W8_SOUND_EVENT_CYCLE;
+            else
+                continue;
+            std::string resource, loop;
+            if (!*output || !(fields >> cycle_name >> frame >> resource)) {
+                success = false;
+                break;
+            }
+            fields >> loop;
+            const auto wave = fmt::format("data/missiles/sounds/{}.WAV", resource);
+            (*output)->AddSoundEvent(std::make_unique<W8SoundEvent>(
+                kind, missileCycleIndex(cycle_name.c_str()), frame, 0, wave.c_str(),
+                SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
         }
     }
-    loaded_cycle = *ppMissile;
-    loaded = LoadGrCycle(context, name, &loaded_cycle, 0, 1, "Data\\Missiles", 1,
-                         "Data\\Spells\\Bitmaps");
-    if (loaded) {
-        *ppMissile = static_cast<W8Missile*>(loaded_cycle);
-        RegisterGrCycle(name, *ppMissile);
-    }
+    if (*output) {
+        (*output)->gravity = gravity;
+        (*output)->align_camera = align_camera;
+        (*output)->explode_ground = explode_ground;
+        (*output)->align_explosion = align_explosion;
+        (*output)->lifetime = velocity * kWorldScale;
+        if (success) RegisterGrCycle(name, *output);
+    } else
+        success = false;
     ResumeSharedGameTimers();
-    return loaded;
-
-close_file:
-    if (handle) handle->close();
-    handle.reset();
-    if (*ppMissile != 0) {
-        (*ppMissile)->gravity = gravity;
-        (*ppMissile)->align_camera = align_camera;
-        (*ppMissile)->explode_ground = explode_ground;
-        (*ppMissile)->align_explosion = align_explosion;
-        (*ppMissile)->lifetime = velocity * kWorldScale;
-    }
-    if (loaded) {
-        RegisterGrCycle(name, *ppMissile);
-    }
-    ResumeSharedGameTimers();
-    return loaded;
+    return success;
 }
 
 /* Build the launch state for a fresh missile: rotate the forward direction by

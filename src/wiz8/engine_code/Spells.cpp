@@ -2,12 +2,12 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <exception>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -60,7 +60,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/text_line.h"
 
 // GLOBAL: WIZ8 0x0065BE40
 std::vector<stSound3D*> g_sound3d_instances;
@@ -435,10 +434,8 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
 
     PauseSharedGameTimers();
 
-    bool more = true;
     bool success = true;
-    char path[100];
-    snprintf(path, sizeof(path), "data\\Spells\\%s.mls", name);
+    const auto path = fmt::format("data/spells/{}.mls", name);
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
             return wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
@@ -450,80 +447,67 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
     if (handle == 0) {
         success = false;
     } else {
-        char line[100];
-        char pac_command[52];
-        char pac_name[52];
-        char pac_value[52];
-        char loop_name[128];
-        char wave_path[256];
-        int frame;
-        int index;
-        W8SoundEventKind sound_type;
-        float intensity;
-        float duration;
-        float distance;
-        std::unique_ptr<W8SoundEvent> event;
-
-        while (more && success) {
-            ReadTextLine(handle.get(), line, sizeof(line), more);
-            sscanf(line, "%s %s", pac_name, pac_value);
-            if (strlen(line) <= 2) {
-                continue;
-            }
-            index = FindSpellCycleByName(pac_name);
-            if (index != -1) {
-                if (index / SPELL_CYCLES_PER_GROUP == group) {
-                    W8GrCycle* loaded = *visual;
-                    if (LoadGrCycle(context, pac_value, &loaded, index, 1, "Data\\Spells", 2, 0)) {
-                        *visual = static_cast<W8SpellVisual*>(loaded);
-                        RegisterGrCycle(pac_value, *visual);
-                        success = true;
-                    } else {
+        std::istringstream input(handle->read_text());
+        std::string line;
+        while (success && std::getline(input, line)) {
+            std::istringstream fields(line);
+            std::string command;
+            if (!(fields >> command) || command.starts_with('#') || line.size() <= 2) continue;
+            const int cycle = FindSpellCycleByName(command.c_str());
+            if (cycle != -1) {
+                if (cycle / SPELL_CYCLES_PER_GROUP == group) {
+                    std::string resource;
+                    if (!(fields >> resource)) {
                         success = false;
+                        break;
+                    }
+                    W8GrCycle* loaded = *visual;
+                    success = LoadGrCycle(context, resource.c_str(), &loaded, cycle, 1,
+                                          "Data\\Spells", 2, 0);
+                    if (success) {
+                        *visual = static_cast<W8SpellVisual*>(loaded);
+                        RegisterGrCycle(resource.c_str(), *visual);
                     }
                 }
                 continue;
             }
-
-            sound_type = W8_SOUND_EVENT_NONE;
-            if (SDL_strcasecmp(pac_name, "SOUND_FRAME") == 0) {
-                sound_type = W8_SOUND_EVENT_FRAME;
-            } else if (SDL_strcasecmp(pac_name, "SOUND_CYCLE") == 0) {
-                sound_type = W8_SOUND_EVENT_CYCLE;
-            } else {
-                if (SDL_strcasecmp(pac_name, "SHAKE_FRAME") == 0) {
-                    intensity = 1.0f;
-                    duration = 1.0f;
-                    distance = 10.0f;
-                    sscanf(line, "%s %s %d %f %f %f", pac_command, pac_name, &frame, &intensity,
-                           &duration, &distance);
-                    index = FindSpellCycleByName(pac_name);
-                    ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
-                    effect.cycle = index;
-                    effect.frame = frame;
-                    effect.subcycle = 0;
-                    (*visual)->AddShakeEffect(effect);
+            std::string cycle_name;
+            int frame = 0;
+            if (SDL_strcasecmp(command.c_str(), "SHAKE_FRAME") == 0) {
+                if (!(fields >> cycle_name >> frame)) {
+                    success = false;
+                    break;
                 }
+                float intensity = 1.0f, duration = 1.0f, distance = 10.0f;
+                fields >> intensity >> duration >> distance;
+                ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
+                effect.cycle = FindSpellCycleByName(cycle_name.c_str());
+                effect.frame = frame;
+                effect.subcycle = 0;
+                (*visual)->AddShakeEffect(effect);
                 continue;
             }
-
-            memcpy(loop_name, &g_empty_ambient_name, 2);
-            memset(loop_name + 2, 0, sizeof(loop_name) - 2);
-            sscanf(line, "%s %s %d %s %s", pac_command, pac_name, &frame, pac_value, loop_name);
-            index = FindSpellCycleByName(pac_name);
-            if (*visual != 0 && (*visual)->IsCycleSupported(static_cast<signed char>(index))) {
-                snprintf(wave_path, sizeof(wave_path), "Data\\Spells\\Sounds\\%s.WAV", pac_value);
-                event = std::make_unique<W8SoundEvent>(sound_type, index, frame, 0, wave_path,
-                                                       SDL_strcasecmp(loop_name, "LOOP") == 0);
-                if (event != 0) {
-                    (*visual)->AddSoundEvent(std::move(event));
-                }
+            W8SoundEventKind kind;
+            if (SDL_strcasecmp(command.c_str(), "SOUND_FRAME") == 0)
+                kind = W8_SOUND_EVENT_FRAME;
+            else if (SDL_strcasecmp(command.c_str(), "SOUND_CYCLE") == 0)
+                kind = W8_SOUND_EVENT_CYCLE;
+            else
+                continue;
+            std::string resource, loop;
+            if (!(fields >> cycle_name >> frame >> resource)) {
+                success = false;
+                break;
+            }
+            fields >> loop;
+            const auto sound_cycle = FindSpellCycleByName(cycle_name.c_str());
+            if (*visual && (*visual)->IsCycleSupported(static_cast<signed char>(sound_cycle))) {
+                const auto wave = fmt::format("data/spells/sounds/{}.WAV", resource);
+                (*visual)->AddSoundEvent(
+                    std::make_unique<W8SoundEvent>(kind, sound_cycle, frame, 0, wave.c_str(),
+                                                   SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
             }
         }
-
-        if (handle) handle->close();
-
-        handle.reset();
         if (*visual == 0) {
             srAssertFail(
                 "*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,

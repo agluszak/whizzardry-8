@@ -12,39 +12,7 @@
 
 #include "asset_paths.h"
 #include "filesystem.h"
-#include "wiz8/text_line.h"
 #include "wiz8/unicode.h"
-
-/* Read one byte at a time through the virtual-file layer.  End-of-file after
-   at least one byte still returns a line, while an empty end-of-file clears
-   `more`.  The terminator is not retained and CRLF is normalised by removing
-   the CR after the loop. */
-// FUNCTION: WIZ8 0x004CEE40
-bool ReadTextLine(wiz8::File* handle, char* destination, int capacity, bool& more)
-try {
-    more = 0;
-    if (capacity <= 0) return 0;
-    destination[0] = 0;
-    if (capacity == 1) return 0;
-    more = 1;
-    int length = 0;
-    for (;;) {
-        char character;
-        if (handle->read(&character, sizeof(character)).eof) {
-            more = 0;
-            break;
-        }
-        if (character == '\n') break;
-        destination[length++] = character;
-        destination[length] = 0;
-        if (length == capacity - 1) return 0;
-    }
-    if (length != 0 && destination[length - 1] == '\r') destination[length - 1] = 0;
-    return more != 0 || length != 0;
-} catch (const std::exception&) {
-    more = 0;
-    return false;
-}
 
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()

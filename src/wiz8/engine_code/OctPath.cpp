@@ -12,6 +12,7 @@
 #include <optional>
 #include <ranges>
 #include <span>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -70,7 +71,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/navigation_math.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/text_line.h"
 #include "wiz8/utility.h"
 
 constexpr double kObstacleSlideSideThreshold = 0.2;
@@ -4724,18 +4724,16 @@ steered:
 // FUNCTION: WIZ8 0x004cccb0
 bool LoadPathParameters()
 try {
-    auto handle = wiz8::open_file(wiz8::asset_path("Data\\Monsters\\pathparms.txt"));
-    bool more = true;
-    char line[128];
-    while (more != 0) {
-        ReadTextLine(handle.get(), line, sizeof(line), more);
-        if (line[0] == '#') {
-            continue;
-        }
-        for (int index = 0; g_path_parameters[index].name != 0; ++index) {
-            if (strncmp(line, g_path_parameters[index].name,
-                        strlen(g_path_parameters[index].name)) == 0) {
-                sscanf(line, "%*s %f", g_path_parameters[index].value);
+    std::istringstream input(
+        wiz8::open_file(wiz8::asset_path("data/monsters/pathparms.txt"))->read_text());
+    std::string line;
+    while (std::getline(input, line)) {
+        std::istringstream fields(line);
+        std::string name;
+        if (!(fields >> name) || name.starts_with('#')) continue;
+        for (const auto& parameter : g_path_parameters) {
+            if (parameter.name && name == parameter.name) {
+                if (!(fields >> *parameter.value)) return false;
                 break;
             }
         }

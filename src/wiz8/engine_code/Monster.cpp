@@ -9,6 +9,7 @@
 #include <optional>
 #include <span>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -122,7 +123,6 @@
 #include "wiz8/resource_cache.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/surface_storage.h"
-#include "wiz8/text_line.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
@@ -339,7 +339,6 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
 
     PauseSharedGameTimers();
 
-    bool more = true;
     bool success = true;
     bool flies = false;
     bool swims = false;
@@ -400,160 +399,144 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     }
     *monster = 0;
 
-    if (handle == 0) {
-        W8GrCycle* loaded = 0;
-        success = LoadGrCycle(context, monster_name, &loaded, -1, load_value, "data\\monsters", 0);
-        *monster = static_cast<W8Monster*>(loaded);
-        if (!(*monster)->particles.empty()) {
-            for (int index = 0; index < static_cast<int>((*monster)->particles.size()); ++index) {
-                W8GrCycleParticleAttachment* event = &(*monster)->particles[index];
-                if (event->cycle == -1 && event->subcycle == -1) {
-                    event->subcycle = (*monster)->m_pRep->current_subcycle;
-                }
-            }
-        }
-    } else {
-        char line[250];
-        while (more) {
-            ReadTextLine(handle.get(), line, sizeof(line), more);
-            while (line[0] == '\0' && more) {
-                ReadTextLine(handle.get(), line, sizeof(line), more);
-            }
-            if (line[0] == '\0' || line[0] == '#') {
-                continue;
-            }
-
-            char command[256];
-            char argument[256];
-            command[0] = '\0';
-            argument[0] = '\0';
-            sscanf(line, "%s %s", command, argument);
-
-            if (SDL_strcasecmp(command, "movementrate") == 0) {
-                sscanf(line, "%s %f", command, &movement_rate);
-            } else if (SDL_strcasecmp(command, "RotationRate") == 0) {
-                sscanf(line, "%s %f", command, &rotation_rate);
-            } else if (SDL_strcasecmp(command, "scalefactor") == 0) {
-                sscanf(line, "%s %f", command, &scale_factor);
-            } else if (SDL_strcasecmp(command, "walkradius") == 0) {
-                sscanf(line, "%s %f", command, &walk_radius);
-            } else if (SDL_strcasecmp(command, "fightradius") == 0) {
-                sscanf(line, "%s %f", command, &fight_radius);
-            } else if (SDL_strcasecmp(command, "targetheight") == 0) {
-                sscanf(line, "%s %f", command, &target_height);
-            } else if (SDL_strcasecmp(command, "cameraheight") == 0) {
-                sscanf(line, "%s %f", command, &camera_height);
-            } else if (SDL_strcasecmp(command, "deathscale") == 0) {
-                sscanf(line, "%s %f", command, &death_scale);
-            } else if (SDL_strcasecmp(command, "scalerangestart") == 0) {
-                sscanf(line, "%s %f", command, &scale_range_start);
-            } else if (SDL_strcasecmp(command, "scalerangeend") == 0) {
-                sscanf(line, "%s %f", command, &scale_range_end);
-            } else if (SDL_strcasecmp(command, "hoverrangestart") == 0) {
-                sscanf(line, "%s %f", command, &hover_range_start);
-            } else if (SDL_strcasecmp(command, "hoverrangeend") == 0) {
-                sscanf(line, "%s %f", command, &hover_range_end);
-            } else if (SDL_strcasecmp(command, "bobrangestart") == 0) {
-                sscanf(line, "%s %f", command, &bob_range_start);
-            } else if (SDL_strcasecmp(command, "bobrangeend") == 0) {
-                sscanf(line, "%s %f", command, &bob_range_end);
-            } else if (SDL_strcasecmp(command, "missilestart") == 0) {
-                sscanf(line, "%s %d", command, &missile_start);
-            } else if (SDL_strcasecmp(command, "spellstart") == 0) {
-                sscanf(line, "%s %d", command, &spell_start);
-            } else if (SDL_strcasecmp(command, "flies") == 0) {
+    {
+        std::istringstream input(handle->read_text());
+        std::string line;
+        while (std::getline(input, line)) {
+            if (line.ends_with('\r')) line.pop_back();
+            std::istringstream fields(line);
+            std::string command, argument;
+            if (!(fields >> command) || command.starts_with('#')) continue;
+            if (SDL_strcasecmp(command.c_str(), "movementrate") == 0) {
+                fields >> movement_rate;
+            } else if (SDL_strcasecmp(command.c_str(), "RotationRate") == 0) {
+                fields >> rotation_rate;
+            } else if (SDL_strcasecmp(command.c_str(), "scalefactor") == 0) {
+                fields >> scale_factor;
+            } else if (SDL_strcasecmp(command.c_str(), "walkradius") == 0) {
+                fields >> walk_radius;
+            } else if (SDL_strcasecmp(command.c_str(), "fightradius") == 0) {
+                fields >> fight_radius;
+            } else if (SDL_strcasecmp(command.c_str(), "targetheight") == 0) {
+                fields >> target_height;
+            } else if (SDL_strcasecmp(command.c_str(), "cameraheight") == 0) {
+                fields >> camera_height;
+            } else if (SDL_strcasecmp(command.c_str(), "deathscale") == 0) {
+                fields >> death_scale;
+            } else if (SDL_strcasecmp(command.c_str(), "scalerangestart") == 0) {
+                fields >> scale_range_start;
+            } else if (SDL_strcasecmp(command.c_str(), "scalerangeend") == 0) {
+                fields >> scale_range_end;
+            } else if (SDL_strcasecmp(command.c_str(), "hoverrangestart") == 0) {
+                fields >> hover_range_start;
+            } else if (SDL_strcasecmp(command.c_str(), "hoverrangeend") == 0) {
+                fields >> hover_range_end;
+            } else if (SDL_strcasecmp(command.c_str(), "bobrangestart") == 0) {
+                fields >> bob_range_start;
+            } else if (SDL_strcasecmp(command.c_str(), "bobrangeend") == 0) {
+                fields >> bob_range_end;
+            } else if (SDL_strcasecmp(command.c_str(), "missilestart") == 0) {
+                fields >> missile_start;
+            } else if (SDL_strcasecmp(command.c_str(), "spellstart") == 0) {
+                fields >> spell_start;
+            } else if (SDL_strcasecmp(command.c_str(), "flies") == 0) {
                 flies = true;
-            } else if (SDL_strcasecmp(command, "swims") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "swims") == 0) {
                 swims = true;
-            } else if (SDL_strcasecmp(command, "crawls") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "crawls") == 0) {
                 crawls = true;
-            } else if (SDL_strcasecmp(command, "quadruped") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "quadruped") == 0) {
                 quadruped = true;
-            } else if (SDL_strcasecmp(command, "spicemonster") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "spicemonster") == 0) {
                 spice_monster = true;
-            } else if (SDL_strcasecmp(command, "randomidlefps") == 0) {
-                sscanf(line, "%s %f %f", command, &idle_fps_start, &idle_fps_end);
+            } else if (SDL_strcasecmp(command.c_str(), "randomidlefps") == 0) {
+                fields >> idle_fps_start >> idle_fps_end;
                 random_idle_range = true;
-            } else if (SDL_strcasecmp(command, "loddistance") == 0) {
-                sscanf(line, "%s %f %f", command, &lod_range_start, &lod_range_end);
+            } else if (SDL_strcasecmp(command.c_str(), "loddistance") == 0) {
+                fields >> lod_range_start >> lod_range_end;
                 has_lod_range = true;
-            } else if (SDL_strcasecmp(command, "pitch") == 0) {
-                int pitch;
+            } else if (SDL_strcasecmp(command.c_str(), "pitch") == 0) {
+                int pitch = 0;
                 if (last_sound == 0) {
                     srAssertFail("pSndEvent", MONSTER_CPP, 0x58e,
                                  "mls pitch: Must specify a sound before specifying parameters");
                 }
-                sscanf(line, "%s %d", command, &pitch);
+                fields >> pitch;
                 last_sound->pitch = pitch;
-            } else if (SDL_strcasecmp(command, "volume") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "volume") == 0) {
                 if (last_sound == 0) {
                     srAssertFail("pSndEvent", MONSTER_CPP, 0x595,
                                  "mls volume: Must specify a sound before specifying parameters");
                 }
-                sscanf(line, "%s %d %d", command, &last_sound->volume_min, &last_sound->volume_max);
-            } else if (SDL_strcasecmp(command, "sound_falloff") == 0) {
-                sscanf(line, "%s %f", command, &sound_falloff);
-            } else if (SDL_strcasecmp(command, "footstep_vol") == 0) {
-                sscanf(line, "%s %d %d", command, &footstep_volume, &footstep_combat_volume);
-            } else if (SDL_strcasecmp(command, "probability") == 0) {
-                int probability;
+                fields >> last_sound->volume_min >> last_sound->volume_max;
+            } else if (SDL_strcasecmp(command.c_str(), "sound_falloff") == 0) {
+                fields >> sound_falloff;
+            } else if (SDL_strcasecmp(command.c_str(), "footstep_vol") == 0) {
+                fields >> footstep_volume >> footstep_combat_volume;
+            } else if (SDL_strcasecmp(command.c_str(), "probability") == 0) {
+                int probability = 0;
                 if (last_sound == 0) {
                     srAssertFail(
                         "pSndEvent", MONSTER_CPP, 0x5a5,
                         "mls frequency: Must specify a sound before specifying parameters");
                 }
-                sscanf(line, "%s %d", command, &probability);
+                fields >> probability;
                 last_sound->probability = static_cast<unsigned char>(probability);
-            } else if (SDL_strcasecmp(command, "animscript") == 0) {
-            } else if (SDL_strcasecmp(command, "script") == 0) {
-                sscanf(line, "%s %s", command, argument);
-                (*monster)->SetScript(argument, true);
-            } else if (SDL_strcasecmp(command, "opacity") == 0) {
-                sscanf(line, "%s %f", command, &opacity);
-            } else if (SDL_strcasecmp(command, "glow") == 0) {
-                sscanf(line, "%s %f", command, &glow);
-            } else if (SDL_strcasecmp(command, "shadow") == 0) {
-                sscanf(line, "%s %f %f", command, &shadow_width, &shadow_depth);
-            } else if (SDL_strcasecmp(command, "lefthanded") == 0) {
-                sscanf(line, "%s %d", command, &left_handed);
-            } else if (SDL_strcasecmp(command, "fulltransition") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "animscript") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "script") == 0) {
+                fields >> argument;
+                (*monster)->SetScript(argument.c_str(), true);
+            } else if (SDL_strcasecmp(command.c_str(), "opacity") == 0) {
+                fields >> opacity;
+            } else if (SDL_strcasecmp(command.c_str(), "glow") == 0) {
+                fields >> glow;
+            } else if (SDL_strcasecmp(command.c_str(), "shadow") == 0) {
+                fields >> shadow_width >> shadow_depth;
+            } else if (SDL_strcasecmp(command.c_str(), "lefthanded") == 0) {
+                fields >> left_handed;
+            } else if (SDL_strcasecmp(command.c_str(), "fulltransition") == 0) {
                 full_transition = true;
-            } else if (SDL_strcasecmp(command, "addlight") == 0) {
-                char light_mode[256];
-                sscanf(line, "%*s %s ( %f %f %f ) ( %f %f %f )", light_mode, &light_first.x,
-                       &light_first.y, &light_first.z, &light_second.x, &light_second.y,
-                       &light_second.z);
+            } else if (SDL_strcasecmp(command.c_str(), "addlight") == 0) {
+                std::string light_mode;
+                char open1{}, close1{}, open2{}, close2{};
+                if (!(fields >> light_mode >> open1 >> light_first.x >> light_first.y >>
+                      light_first.z >> close1 >> open2 >> light_second.x >> light_second.y >>
+                      light_second.z >> close2) ||
+                    open1 != '(' || open2 != '(' || close1 != ')' || close2 != ')')
+                    throw std::runtime_error("Invalid monster light directive");
                 light_first *= static_cast<float>(g_monster_light_color_scale);
                 light_second *= static_cast<float>(g_monster_light_color_scale);
-                light_pulsing = SDL_strcasecmp(light_mode, "pulsing") == 0;
+                light_pulsing = SDL_strcasecmp(light_mode.c_str(), "pulsing") == 0;
                 has_light = true;
-            } else if (SDL_strcasecmp(command, "skin") == 0) {
+            } else if (SDL_strcasecmp(command.c_str(), "skin") == 0) {
+                fields >> argument;
                 EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
-                if (SDL_strcasecmp(argument, "default") != 0) {
+                if (SDL_strcasecmp(argument.c_str(), "default") != 0) {
                     ++skin_stage;
                     damage_stage = (*monster)->AddDamageStage(monster_name, skin_stage);
                 }
-            } else if (SDL_strcasecmp(command, "skinswap") == 0) {
-                char old_name[64];
-                char new_name[64];
+            } else if (SDL_strcasecmp(command.c_str(), "skinswap") == 0) {
+                std::string old_name;
+                std::string new_name;
                 /* 0x004C0FA8..0x004C1070: a SKINSWAP with no SKIN before it
                    creates the base stage first, then swaps into that stage. */
                 EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
-                sscanf(line, "%s %s %s", command, old_name, new_name);
-                if (damage_stage != -1 &&
-                    !(*monster)->ReplaceSkinTexture(damage_stage, old_name, new_name)) {
+                fields >> old_name >> new_name;
+                if (damage_stage != -1 && !(*monster)->ReplaceSkinTexture(
+                                              damage_stage, old_name.c_str(), new_name.c_str())) {
                     ShutdownWithErrorBox(fmt::format("The skin texture {} not found in monster {}!",
                                                      old_name, monster_name));
                 }
             } else {
                 /* 0x004C10FB: the length test is on the whole line, not the argument. */
-                if (strlen(line) <= 2) {
+                if (line.size() <= 2) {
                     continue;
                 }
+                fields >> argument;
                 signed char subcycle;
-                W8MonsterCycle cycle = ParseMonsterCycleName(command, &subcycle);
+                W8MonsterCycle cycle = ParseMonsterCycleName(command.c_str(), &subcycle);
                 if (cycle != W8_MONSTER_CYCLE_NONE) {
-                    if (SDL_strncasecmp(argument, "gib", 3) != 0 || g_monster_gib_option) {
+                    if (SDL_strncasecmp(argument.c_str(), "gib", 3) != 0 || g_monster_gib_option) {
                         if (GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) == 0) {
                             cycle = NormalizeMonsterCycle(cycle);
                         }
@@ -561,10 +544,10 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                             (*monster)->IsCycleSupported(static_cast<signed char>(cycle)) == 0 ||
                             GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) != 0) {
                             float animation_scale = -1.0f;
-                            sscanf(line, "%s %s %f", command, argument, &animation_scale);
+                            fields >> animation_scale;
                             W8GrCycle* loaded = *monster;
-                            success = LoadGrCycle(context, argument, &loaded, cycle, load_value,
-                                                  "data\\monsters", 0);
+                            success = LoadGrCycle(context, argument.c_str(), &loaded, cycle,
+                                                  load_value, "data\\monsters", 0);
                             *monster = static_cast<W8Monster*>(loaded);
                             if (!(*monster)->particles.empty()) {
                                 for (int index = 0;
@@ -597,35 +580,32 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                     }
                 } else {
                     W8SoundEventKind sound_type = W8_SOUND_EVENT_UNRECOGNIZED;
-                    if (SDL_strcasecmp(command, "SOUND_FRAME") == 0)
+                    if (SDL_strcasecmp(command.c_str(), "SOUND_FRAME") == 0)
                         sound_type = W8_SOUND_EVENT_FRAME;
-                    else if (SDL_strcasecmp(command, "SOUND_CYCLE") == 0)
+                    else if (SDL_strcasecmp(command.c_str(), "SOUND_CYCLE") == 0)
                         sound_type = W8_SOUND_EVENT_CYCLE;
-                    else if (SDL_strcasecmp(command, "SOUND_FOOTSTEP") == 0)
+                    else if (SDL_strcasecmp(command.c_str(), "SOUND_FOOTSTEP") == 0)
                         sound_type = W8_SOUND_EVENT_FOOTSTEP;
 
                     if (sound_type != W8_SOUND_EVENT_UNRECOGNIZED) {
-                        char cycle_name[256];
-                        char wave_name[256];
-                        char loop_name[64];
+                        const std::string& cycle_name = argument;
+                        std::string wave_name;
+                        std::string loop_name;
                         int frame = 0;
-                        cycle_name[0] = wave_name[0] = loop_name[0] = '\0';
                         if (sound_type == W8_SOUND_EVENT_FOOTSTEP) {
-                            sscanf(line, "%s %s %d", command, cycle_name, &frame);
+                            fields >> frame;
                         } else {
-                            sscanf(line, "%s %s %d %s %s", command, cycle_name, &frame, wave_name,
-                                   loop_name);
+                            fields >> frame >> wave_name >> loop_name;
                         }
-                        W8MonsterCycle sound_cycle = ParseMonsterCycleName(cycle_name, &subcycle);
-                        char wave_path[256];
-                        wave_path[0] = '\0';
+                        W8MonsterCycle sound_cycle =
+                            ParseMonsterCycleName(cycle_name.c_str(), &subcycle);
+                        std::string wave_path;
                         if (sound_type != W8_SOUND_EVENT_FOOTSTEP) {
-                            snprintf(wave_path, sizeof(wave_path), "Data\\Sound\\Monsters\\%s.WAV",
-                                     wave_name);
+                            wave_path = fmt::format("data/sound/monsters/{}.WAV", wave_name);
                         }
                         auto sound = std::make_unique<W8SoundEvent>(
-                            sound_type, sound_cycle, frame, subcycle - 1, wave_path,
-                            SDL_strcasecmp(loop_name, "LOOP") == 0);
+                            sound_type, sound_cycle, frame, subcycle - 1, wave_path.c_str(),
+                            SDL_strcasecmp(loop_name.c_str(), "LOOP") == 0);
                         last_sound = sound.get();
                         if (last_sound != nullptr) {
                             (*monster)->AddSoundEvent(std::move(sound));
@@ -641,17 +621,17 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                 last_sound->footstep_combat_volume = footstep_combat_volume;
                             }
                         }
-                    } else if (SDL_strcasecmp(command, "SHAKE_FRAME") == 0) {
-                        char cycle_name[256];
-                        int frame;
+                    } else if (SDL_strcasecmp(command.c_str(), "SHAKE_FRAME") == 0) {
+                        const std::string& cycle_name = argument;
+                        int frame = 0;
                         float duration = 1.0f;
                         float intensity = 1.0f;
                         float value = 10.0f;
                         /* 0x004C1569..0x004C1621: the first float is the intensity and
                            the second the duration, as in the spell and missile tables. */
-                        sscanf(line, "%s %s %d %f %f %f", command, cycle_name, &frame, &intensity,
-                               &duration, &value);
-                        W8MonsterCycle shake_cycle = ParseMonsterCycleName(cycle_name, &subcycle);
+                        fields >> frame >> intensity >> duration >> value;
+                        W8MonsterCycle shake_cycle =
+                            ParseMonsterCycleName(cycle_name.c_str(), &subcycle);
                         ShakeDefinition effect(duration, true, intensity, value * kWorldScale, 0);
                         effect.frame = frame;
                         effect.cycle = shake_cycle;
