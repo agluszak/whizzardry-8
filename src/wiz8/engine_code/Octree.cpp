@@ -559,9 +559,8 @@ unsigned int W8Octree::GetSectorForPosition(const glm::vec3* position)
     unsigned int cell[4];
     cell[0] = m_region_mask;
     for (int axis = 0; axis < 3; ++axis) {
-        int coordinate =
-            static_cast<int>(((&position->x)[axis] - m_spatial.m_bounds.minimum[axis]) /
-                             m_spatial.m_region_grid_cell);
+        int coordinate = static_cast<int>(((*position)[axis] - m_spatial.m_bounds.minimum[axis]) /
+                                          m_spatial.m_region_grid_cell);
         if (coordinate < 0 || coordinate >= m_spatial.m_region_cells_per_axis) {
             return 0;
         }
@@ -607,11 +606,11 @@ OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
     for (short level = 0; level < m_spatial.m_depth; ++level) {
         unsigned int child_index = 0;
         for (int axis = 0; axis < 3; ++axis) {
-            float edge = span + (&box_min.x)[axis];
-            if ((&location->x)[axis] < edge) {
-                (&box_max.x)[axis] = edge;
+            float edge = span + box_min[axis];
+            if ((*location)[axis] < edge) {
+                box_max[axis] = edge;
             } else {
-                (&box_min.x)[axis] = edge;
+                box_min[axis] = edge;
                 child_index |= 1 << (2 - axis);
             }
         }

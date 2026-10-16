@@ -574,7 +574,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
         }
         for (component = 0; component < 3; ++component) {
             if (success &&
-                (handle.read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+                (handle.read(&minimum[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -582,7 +582,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
         }
         for (component = 0; component < 3; ++component) {
             if (success &&
-                (handle.read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+                (handle.read(&maximum[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -604,7 +604,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
 
         for (component = 0; component < 3; ++component) {
             if (success &&
-                (handle.read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+                (handle.read(&location[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;

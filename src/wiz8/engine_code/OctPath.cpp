@@ -3445,32 +3445,32 @@ void W8PathingService::BuildPathGridWalk(const glm::vec2* from, const glm::vec2*
     int axis;
 
     for (axis = 0; axis < 2; ++axis) {
-        (&coordinate.x)[axis] = static_cast<int>((&from->x)[axis] - (&origin->x)[axis]);
-        (&destination.x)[axis] = static_cast<int>((&to->x)[axis] - (&origin->x)[axis]);
+        coordinate[axis] = static_cast<int>((*from)[axis] - (*origin)[axis]);
+        destination[axis] = static_cast<int>((*to)[axis] - (*origin)[axis]);
 
-        int delta = (&destination.x)[axis] - (&coordinate.x)[axis];
-        (&boundary_offset.x)[axis] = (&coordinate.x)[axis] % cell_size / grid_scale;
-        (&signed_delta.x)[axis] = delta;
+        int delta = destination[axis] - coordinate[axis];
+        boundary_offset[axis] = coordinate[axis] % cell_size / grid_scale;
+        signed_delta[axis] = delta;
 
         if (delta < 0) {
-            (&step.x)[axis] = -1;
+            step[axis] = -1;
             delta = -delta;
         } else {
-            (&step.x)[axis] = 1;
-            (&boundary_offset.x)[axis] = g_float_one - (&boundary_offset.x)[axis];
+            step[axis] = 1;
+            boundary_offset[axis] = g_float_one - boundary_offset[axis];
         }
         if (largest_delta < delta) {
             largest_delta = delta;
             major_axis = axis;
         }
-        (&absolute_delta.x)[axis] = delta;
+        absolute_delta[axis] = delta;
     }
 
     int minor_axis = (major_axis + 1) % 2;
-    float ratio = (&signed_delta.x)[minor_axis] / (&signed_delta.x)[major_axis];
+    float ratio = signed_delta[minor_axis] / signed_delta[major_axis];
     int error_delta = static_cast<int>((ratio < 0.0f ? -ratio : ratio) * grid_scale);
-    int error = static_cast<int>(cell_size * (&boundary_offset.x)[minor_axis] -
-                                 error_delta * (&boundary_offset.x)[major_axis]);
+    int error = static_cast<int>(cell_size * boundary_offset[minor_axis] -
+                                 error_delta * boundary_offset[major_axis]);
     int count;
 
     if (largest_delta % cell_size == 0) {
@@ -3605,12 +3605,12 @@ bool W8PathingService::ProbeWaypointSegment(const glm::vec3* from, const glm::ve
         unsigned int direction;
         if (error >= 0 || blocked) {
             direction = directions[0];
-            (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
+            cell[walk.major_axis] += walk.step[walk.major_axis];
             error -= walk.error_delta0;
         } else {
             direction = directions[1];
             --iteration;
-            (&cell.x)[walk.minor_axis0] += walk.step[walk.minor_axis0];
+            cell[walk.minor_axis0] += walk.step[walk.minor_axis0];
             error += walk.error_reset0;
         }
         if (direction_mask != 0 && (direction_mask & 1 << (direction & 0x1f)) == 0) {
@@ -3811,16 +3811,16 @@ bool W8PathingService::TestWaypointSpan(const glm::vec3* source, glm::vec3* dest
         unsigned int direction = directions[0];
         if (!diagonal_steps) {
             if (error >= 0 || blocked) {
-                (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
+                cell[walk.major_axis] += walk.step[walk.major_axis];
                 error -= walk.error_delta0;
             } else {
-                (&cell.x)[walk.minor_axis0] += walk.step[walk.minor_axis0];
+                cell[walk.minor_axis0] += walk.step[walk.minor_axis0];
                 direction = directions[1];
                 --iteration;
                 error += walk.error_reset0;
             }
         } else if (error < 0 && !blocked) {
-            (&cell.x)[walk.minor_axis0] += walk.step[walk.minor_axis0];
+            cell[walk.minor_axis0] += walk.step[walk.minor_axis0];
             error += walk.error_reset0;
             if (static_cast<unsigned int>(cell.y * 0x10000 + cell.x) == destination_key) {
                 --iteration;
@@ -3832,11 +3832,11 @@ bool W8PathingService::TestWaypointSpan(const glm::vec3* source, glm::vec3* dest
                 } else {
                     direction = (directions[0] + directions[1]) / 2;
                 }
-                (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
+                cell[walk.major_axis] += walk.step[walk.major_axis];
                 error -= walk.error_delta0;
             }
         } else {
-            (&cell.x)[walk.major_axis] += walk.step[walk.major_axis];
+            cell[walk.major_axis] += walk.step[walk.major_axis];
             error -= walk.error_delta0;
         }
 
