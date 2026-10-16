@@ -24,21 +24,19 @@ void InitializeRandom()
 {
     // Seed the random-number generator with current time so that
     // the numbers will be different every time we run.
-    srand((unsigned)time(nullptr));
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
 }
 
 // Returns a pseudo-random integer between 0 and uiRange
 // FUNCTION: WIZ8 0x0040efa0
 std::uint32_t Random(std::uint32_t uiRange)
 {
-    // Always return 0, if no range given (it's not an error)
-
-    if (uiRange == 0) return (0);
-    return ScaleRoll(rand(), uiRange);
+    if (uiRange == 0) return 0;
+    return ScaleRoll(std::rand(), uiRange);
 }
 
 // FUNCTION: WIZ8 0x0040efe0
 bool Chance(std::uint32_t uiChance)
 {
-    return (bool)(Random(100) < uiChance);
+    return Random(100) < uiChance;
 }
