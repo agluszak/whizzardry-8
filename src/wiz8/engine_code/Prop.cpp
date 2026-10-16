@@ -1290,15 +1290,14 @@ bool W8Prop::IsTriggerInView(glm::vec3* position)
 }
 
 // FUNCTION: WIZ8 0x0044bf50
-bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop_out)
+std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info)
 {
     if (!info) throw std::invalid_argument("missing prop load context");
     auto prop = std::make_unique<W8Prop>();
-    if (!prop->Rep()->LoadProp(info, prop.get())) return false;
+    if (!prop->Rep()->LoadProp(info, prop.get())) return nullptr;
     prop->timer.SetDuration(1.0f / prop->Rep()->animation_speed);
     prop->ApplyAnimationFrame();
-    *prop_out = prop.release();
-    return true;
+    return prop;
 }
 
 /* Resource loader rooted at CreateAndLoadProp.  The call site loads
@@ -1739,9 +1738,8 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
             if (prop != 0) {
                 prop->LoadAnimationState(handle);
             } else {
-                prop = new W8Prop();
-                prop->LoadAnimationState(handle);
-                delete prop;
+                W8Prop scratch;
+                scratch.LoadAnimationState(handle);
             }
         }
     } else {
@@ -1755,9 +1753,8 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
             if (prop != 0) {
                 prop->LoadAnimationState(handle);
             } else {
-                prop = new W8Prop();
-                prop->LoadAnimationState(handle);
-                delete prop;
+                W8Prop scratch;
+                scratch.LoadAnimationState(handle);
             }
         }
     }

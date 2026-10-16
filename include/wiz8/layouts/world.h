@@ -50,43 +50,46 @@ struct W8WorldCameraState {
 };
 
 /* Runtime world, not a retail disk record. Collection storage belongs to the
-   world. Cameras own their paths; raw entity pointers are destroyed by
-   DestroyWorld in three phases (stop activity, unregister borrowed indexes,
+   world. Destruction proceeds in three phases (stop activity, unregister borrowed indexes,
    destroy owned resources).
    lights_to_update and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
+    W8World();
+    ~W8World();
+    W8World(const W8World&) = delete;
+    W8World& operator=(const W8World&) = delete;
     std::shared_ptr<stMaterial> cloud_material;
     std::vector<W8Monster*> plsMonsters;
     std::vector<W8Item*> plsItems;
-    std::vector<W8Prop*> plsProps;
+    std::vector<std::unique_ptr<W8Prop>> plsProps;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
-    std::vector<W8AmbientSound*> plsAmbientSounds;
-    float environment_range_start;
-    float environment_range_end;
+    std::vector<std::unique_ptr<W8AmbientSound>> plsAmbientSounds;
+    float environment_range_start{};
+    float environment_range_end{};
     /* Third serialized environment channel (loaded from
        environment_colour.blue like the start/end fractions); never read. */
-    float environment_range_blue;
-    float view_distance;
-    float environment_intensity;
+    float environment_range_blue{};
+    float view_distance{};
+    float environment_intensity{};
     /* Snapshot of environment_intensity taken when a fade-out starts; the
        lighting transition multiplies g_light_scale by this base. */
-    float environment_base_intensity;
+    float environment_base_intensity{};
     glm::vec3 environment_colour{1.0f};
-    stLevel* level;
+    stLevel* level{};
     std::unique_ptr<srScene> static_scene;
-    srNode* dynamic_scene;
-    srCamera* camera;
+    srNode* dynamic_scene{};
+    srCamera* camera{};
     // Borrowed instances owned by the scene graph; includes the retail sentinel slot.
     std::vector<srModelInstance*> psrMeshes;
-    W8GameData* game_data;
-    W8Octree* octree;
-    stLight* camera_light;
-    bool m_loaded;
+    std::unique_ptr<W8GameData> game_data;
+    std::unique_ptr<W8Octree> octree;
+    stLight* camera_light{};
+    bool m_loaded{};
     std::unique_ptr<W8Quad> quads;
-    srModelInstance* update_mesh_source;
-    float render_range0;
-    float render_range;
+    srModelInstance* update_mesh_source{};
+    float render_range0{};
+    float render_range{};
     std::vector<srNode*> nodes_to_disable;
     // Lights created for this world (including monster-cycle copies); the world owns them.
     std::vector<std::unique_ptr<stLight>> transient_lights;
@@ -94,8 +97,8 @@ struct W8World {
     std::vector<W8Missile*> missiles;
     std::vector<stLight*> lights_to_update;
     std::vector<W8Prop*> collidable_props;
-    std::vector<MonGen*> monster_generators;
-    std::vector<Trigger*> triggers;
+    std::vector<std::unique_ptr<MonGen>> monster_generators;
+    std::vector<std::unique_ptr<Trigger>> triggers;
     // Level particles: the world owns them; the dynamic scene only attaches them.
     std::vector<std::unique_ptr<stParticle>> particles;
     // Cycle particles that outlived their cycle while still emitting.
@@ -113,7 +116,7 @@ inline W8Prop* GetWorldProp(W8World* world, int index)
     if (index < 0 || std::cmp_greater_equal(index, world->plsProps.size())) {
         return nullptr;
     }
-    return world->plsProps[index];
+    return world->plsProps[index].get();
 }
 
 inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
@@ -129,7 +132,7 @@ inline W8AmbientSound* GetWorldAmbientSound(W8World* world, int index)
     if (index < 0 || std::cmp_greater_equal(index, world->plsAmbientSounds.size())) {
         return nullptr;
     }
-    return world->plsAmbientSounds[index];
+    return world->plsAmbientSounds[index].get();
 }
 
 #endif

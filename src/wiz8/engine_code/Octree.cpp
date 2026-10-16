@@ -2351,7 +2351,7 @@ bool W8Octree::SetPathStem(const char* path)
    A null path builds an empty octree, and a level whose preprocessed files
    cannot be built runs on the LVL file alone with the same error bit set. */
 // FUNCTION: WIZ8 0x0042bc10
-W8Octree::W8Octree(const char* path, W8GameData** game_data)
+W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data)
 {
     Reset();
     if (game_data != 0) {
@@ -2533,7 +2533,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         }
         SetOctreeGameData(pGameData.get());
         if (game_data != 0) {
-            *game_data = pGameData.release();
+            *game_data = std::move(pGameData);
         }
         g_octree = this;
         m_region_links_ready = ReadRegionLinkFile(m_path_stem.c_str());

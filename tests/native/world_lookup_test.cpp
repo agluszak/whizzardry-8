@@ -22,7 +22,7 @@
 namespace {
 struct TestWorld {
     W8World world{};
-    std::vector<Trigger*>& triggers = world.triggers;
+    std::vector<std::unique_ptr<Trigger>>& triggers = world.triggers;
     std::vector<std::unique_ptr<stParticle>>& particles = world.particles;
 
     TestWorld()
@@ -40,10 +40,11 @@ struct TestWorld {
 
 Trigger* AddTrigger(TestWorld& world, const char* name)
 {
-    auto* trigger = new Trigger;
+    auto owner = std::make_unique<Trigger>();
+    auto* trigger = owner.get();
     std::strcpy(trigger->name, name);
     trigger->m_pWorld = &world.world;
-    world.triggers.push_back(trigger);
+    world.triggers.push_back(std::move(owner));
     return trigger;
 }
 
@@ -62,9 +63,8 @@ bool triggers()
     REQUIRE((FindTriggerByName("") == nullptr));
     REQUIRE((FindTriggerByName("MISSING") == nullptr));
     level.triggers.erase(level.triggers.begin() + 1);
-    delete newest;
     REQUIRE((FindTriggerByName("DOOR") == first));
-    // Destructors unregister themselves; ordered draining must tolerate this.
+    // Removing an owner also removes its borrowed lookup entry.
     DestroyAllWorldTriggers(&level.world);
     REQUIRE(level.world.triggers.empty());
     REQUIRE(FindTriggerByName("DOOR") == nullptr);

@@ -165,9 +165,9 @@ Trigger* FindTriggerByName(const char* name)
         if (world == 0) {
             continue;
         }
-        for (Trigger* trigger : world->triggers | std::views::reverse) {
+        for (const auto& trigger : world->triggers | std::views::reverse) {
             if (SDL_strcasecmp(trigger->name, name) == 0) {
-                return trigger;
+                return trigger.get();
             }
         }
     }
@@ -203,7 +203,7 @@ Trigger* FindTriggerForProp(W8World* world, W8Prop* prop)
             int trigger_count = static_cast<int>(world->triggers.size());
 
             for (int index = 0; index < trigger_count; ++index) {
-                Trigger* other = world->triggers[index];
+                Trigger* other = world->triggers[index].get();
                 Trigger* previous = trigger;
                 int hops = 0;
 
@@ -276,7 +276,7 @@ bool InsideDestinationTrigger(float x, float y, float z)
     int count = static_cast<int>(g_world->triggers.size());
 
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = g_world->triggers[index];
+        Trigger* trigger = g_world->triggers[index].get();
         if (trigger->initial_action != 0x34) {
             continue;
         }
@@ -302,7 +302,7 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring
     int restoring_value = restoring;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index];
+        Trigger* trigger = world->triggers[index].get();
         if (trigger->lock_state.lock_type != 0) {
             ++saved_count;
         }
@@ -313,7 +313,7 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring
     handle.write(&restoring_value, sizeof(restoring_value));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index];
+        Trigger* trigger = world->triggers[index].get();
         if (trigger->lock_state.lock_type != 0) {
             handle.write(trigger->name, 0x80);
             handle.write(&version, sizeof(version));
@@ -636,7 +636,7 @@ try {
             file.seek(-1, wiz8::SeekOrigin::current);
             return true;
         }
-        Trigger* trigger = world->triggers[index];
+        Trigger* trigger = world->triggers[index].get();
         if (tag == 5) {
             int trigger_id;
             char name[128];
@@ -661,7 +661,7 @@ try {
 // FUNCTION: WIZ8 0x0043C810
 void SaveWorldTriggers(W8World* world, wiz8::File& hFile)
 {
-    std::vector<Trigger*>* triggers = &world->triggers;
+    auto* triggers = &world->triggers;
 
     for (int index = 0; index < static_cast<int>(triggers->size()); ++index) {
         if (!((*triggers)[index])->Save(hFile)) {
@@ -679,7 +679,7 @@ void SaveTriggerActionData(W8World* world, wiz8::File& handle)
     int version = 1;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index];
+        Trigger* trigger = world->triggers[index].get();
         if (trigger->inline_action_data[0] != '\0') {
             ++saved_count;
         }
@@ -689,7 +689,7 @@ void SaveTriggerActionData(W8World* world, wiz8::File& handle)
     handle.write(&saved_count, sizeof(saved_count));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index];
+        Trigger* trigger = world->triggers[index].get();
         if (trigger->inline_action_data[0] != '\0') {
             handle.write(trigger->name, 0x80);
             handle.write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
@@ -770,7 +770,7 @@ void UpdateWorldTriggers(W8World* world)
     camera = cameraLocation();
     int count = static_cast<int>(world->triggers.size());
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = world->triggers[index];
+        Trigger* trigger = world->triggers[index].get();
         if ((trigger->flags & W8_TRIGGER_ITEM_PICKER) != 0 && trigger->m_pProp != 0 &&
             (trigger->m_pProp->GetAnimationState() < 2 ||
              trigger->m_pProp->Rep()->animation_playing == 0)) {
@@ -1343,7 +1343,6 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
         assignFlag(trigger->flags, W8_TRIGGER_LINK_ON_DEACTIVATE, (packed_flags & 2) != 0);
         assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, (packed_flags & 1) != 0);
-        world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1449,7 +1448,6 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
-        world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1715,7 +1713,6 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
-        world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1753,7 +1750,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         break;
     }
     }
-    return owner.release();
+    world->triggers.push_back(std::move(owner));
+    return trigger;
 }
 
 // VTABLE: WIZ8 0x005ec0e4
@@ -3346,7 +3344,6 @@ Trigger::~Trigger()
 {
     UnregisterSearchableTrigger(this);
     if (m_pEvent) wiz8::erase_first(g_timed_events, m_pEvent.get());
-    if (m_pWorld) wiz8::erase_first(m_pWorld->triggers, this);
 }
 
 // FUNCTION: WIZ8 0x00445a10
@@ -3370,7 +3367,7 @@ void DestroyAllWorldTriggers(W8World* world)
             g_timed_events.clear();
             standalone_events.clear();
         }
-        wiz8::remove_all_and_delete_in_order(world->triggers);
+        world->triggers.clear();
     }
 }
 
