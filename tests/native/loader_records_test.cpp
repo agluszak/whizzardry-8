@@ -1127,8 +1127,8 @@ TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without run
         bytes.push_back(static_cast<char>(index / 2));
     }
     for (const auto& [read, table] :
-         {std::pair{ReadEnvironmentColourTable, &g_environment_colours0},
-          std::pair{ReadLightColourTable, &g_environment_colours1}}) {
+         {std::pair{&ReadEnvironmentColourTable, &g_environment_colours0},
+          std::pair{&ReadLightColourTable, &g_environment_colours1}}) {
         store("colours.bin", bytes);
         auto file = wiz8::open_file("colours.bin");
         REQUIRE(read(file.get()));

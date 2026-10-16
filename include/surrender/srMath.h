@@ -50,7 +50,6 @@ public:
         if (glm::dot(v, v) != 0) *this = glm::normalize(v) * static_cast<T>(length);
         return this;
     }
-    srVector3T& Transform(const glm::mat<3, 3, T>& matrix);
     srVector3T* RotateAboutY(double sine, double cosine);
 
     srVector3T<T>();
@@ -230,11 +229,6 @@ using srVector3 = srVector3T<float>;
 static_assert(sizeof(srVector3) == 12 && alignof(srVector3) == 1);
 static_assert(std::is_trivially_copyable_v<srVector3>);
 
-template<class T> srVector3T<T>& srVector3T<T>::Transform(const glm::mat<3, 3, T>& matrix)
-{
-    *this = matrix * glmValue();
-    return *this;
-}
 template<class T> srVector3T<T>* srVector3T<T>::RotateAboutY(double sine, double cosine)
 {
     *this = glm::vec<3, T>(glm::angleAxis(std::atan2(sine, cosine), glm::dvec3(0, 1, 0)) *

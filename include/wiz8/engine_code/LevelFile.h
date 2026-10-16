@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -242,17 +243,17 @@ struct W8LevelFileMesh {
     int num_vertices = 0;
     int num_faces = 0;
     unsigned char flags = 0;           /* W8LevelMeshFlag; version >= 3 */
-    srVector3T<float> location{};      /* version >= 2 */
+    glm::vec3 location{0};      /* version >= 2 */
     float rotation_angle = 0;          /* version >= 2 */
-    srVector3T<float> rotation_axis{}; /* version >= 2 */
-    srVector3T<float> scale{};         /* version >= 2 */
+    glm::vec3 rotation_axis{0}; /* version >= 2 */
+    glm::vec3 scale{0};         /* version >= 2 */
     char mapping_count = 0;            /* version >= 4; at most one mapping */
     short mapped_value = 0;
     short mapped_key = 0;
     char lod_mode = 0;    /* LOD meshes */
     float lod_scale = 0;  /* short LOD meshes with lod_mode >= 2 */
-    std::vector<srVector3T<float>> vertices;
-    std::vector<std::vector<srVector3T<float>>> lods;
+    std::vector<glm::vec3> vertices;
+    std::vector<std::vector<glm::vec3>> lods;
     std::vector<std::vector<short>> lod_shorts; /* three shorts per vertex */
     std::vector<W8LevelFileCompressedFace> compressed_faces;
     std::vector<W8SerializedMeshFace> faces;

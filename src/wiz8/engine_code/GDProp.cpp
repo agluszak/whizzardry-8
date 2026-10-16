@@ -485,7 +485,7 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
                     return glm::vec3(packed[0], packed[1], packed[2]);
                 }
                 const auto& vertices = has_lods ? mesh.lods[frame] : mesh.vertices;
-                return vertices[vertex].glmValue();
+                return vertices[vertex];
             });
         m_vertex_count += mesh.num_vertices;
         AppendMeshFaces(mesh, vertex_base);
