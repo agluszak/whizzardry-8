@@ -21,7 +21,6 @@
 #include "layouts/world.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srGERD.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
