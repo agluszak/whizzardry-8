@@ -24,9 +24,6 @@ public:
 
         std::vector<srNode*> nodes;   /* 0x00 */
         std::vector<Entry> entries;   /* 0x08 */
-        /* srScene::process stores the active renderer here; srBounder::traverse
-           reads it for the child volume tests. */
-        class srGERD* renderer = nullptr; /* 0x18 */
     };
     struct ProcessInfo {
         class srGERD* renderer;
@@ -49,9 +46,9 @@ public:
         PROCESS_POP_GLOBAL = 4
     };
 
-    /* traverse omits a DISABLE node and does not walk the children of a TERMINATE node. Lights,
-       clip planes and bounders set GLOBAL. Setting IGNORE_TRANSFORM dirties the cached world
-       transform. */
+    /* traverse omits a DISABLE node and does not walk the children of a TERMINATE node.
+       Lights and clip planes set GLOBAL. Setting IGNORE_TRANSFORM dirties the cached
+       world transform. */
     enum e_flag {
         FLAG_DISABLE = 0,
         FLAG_TERMINATE = 1,
@@ -59,7 +56,7 @@ public:
         FLAG_IGNORE_TRANSFORM = 3
     };
 
-    enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
+    enum e_notify { NOTIFY_TRANSFORM_DIRTY = 1 };
 
     srNode(srNode* parent = nullptr);
     // Copies values only; hierarchy links and owned children are not copied.
@@ -72,7 +69,6 @@ public:
     virtual void traverse(TraverseInfo& info);
     virtual void process(const ProcessInfo& info, e_processType type);
     virtual BoundInfo getLocalBounds();
-    virtual void updateBounds();
 
 protected:
     enum class EffectTraversal { active, childrenOnly, skipSubtree };
@@ -99,8 +95,6 @@ protected:
 
 protected:
     virtual int processSignal(w8_ulong signal, void* value);
-    void clearNotify(e_notify notification);
-    void setNotify(e_notify notification);
     int testNotify(e_notify notification) const;
 
 public:
@@ -217,8 +211,6 @@ public:
     void setFlag(e_flag flag);
     void clearFlag(e_flag flag);
     void notifyChildren(std::uint32_t notifications);
-    void notifyDependent();
-    void notifyParents(std::uint32_t notifications);
     void signal(w8_ulong signal, void* value);
     int testFlag(e_flag flag) const;
     void yawAt(const glm::dvec3& target, double amount);

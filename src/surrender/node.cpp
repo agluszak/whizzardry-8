@@ -27,13 +27,7 @@ static void orthonormalizeRotation(glm::dmat3& rotation)
     rotation = glm::transpose(rows);
 }
 
-// FUNCTION: SURRENDER 0x10050390
-void srNode::notifyDependent()
-{
-    constexpr std::uint32_t notifications = 0xffffffffu;
-    notifyParents(notifications);
-    notifyChildren(notifications);
-}
+
 
 // FUNCTION: SURRENDER 0x100503C0
 void srNode::notifyChildren(std::uint32_t notifications)
@@ -47,30 +41,6 @@ void srNode::notifyChildren(std::uint32_t notifications)
             child->notifyChildren(pending);
         }
     }
-}
-
-// FUNCTION: SURRENDER 0x10050410
-void srNode::notifyParents(std::uint32_t notifications)
-{
-    w8_ulong pending = ~this->notifications & notifications;
-    if (pending != 0) {
-        this->notifications |= pending;
-        if (parent_ != 0) {
-            parent_->notifyParents(pending);
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x10050450
-void srNode::setNotify(e_notify notification)
-{
-    notifications |= 1 << notification;
-}
-
-// FUNCTION: SURRENDER 0x10050470
-void srNode::clearNotify(e_notify notification)
-{
-    notifications &= ~(1 << notification);
 }
 
 // FUNCTION: SURRENDER 0x10050490
@@ -98,12 +68,6 @@ void srNode::traverseEffect(TraverseInfo& info)
 // FUNCTION: SURRENDER 0x100504F0
 void srNode::process(const ProcessInfo& info, e_processType type) {}
 
-// FUNCTION: SURRENDER 0x10050500
-void srNode::updateBounds()
-{
-    clearNotify(NOTIFY_BOUNDS_DIRTY);
-}
-
 // FUNCTION: SURRENDER 0x10050510
 srNode::BoundInfo srNode::getLocalBounds()
 {
@@ -119,7 +83,7 @@ srNode& srNode::operator=(const srNode& other)
         location = other.location;
         scale = other.scale;
         rotation = other.rotation;
-        notifyDependent();
+        setWSDirty();
     }
     return *this;
 }
@@ -218,7 +182,6 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
             scale *= inverse_scale;
         }
     }
-    notifyDependent();
     setWSDirty();
     if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
         updateTransformation();
@@ -251,7 +214,7 @@ void srNode::unlink()
     previous_sibling_ = 0;
     next_sibling_ = 0;
     parent_ = 0;
-    notifyDependent();
+    setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10051370
@@ -336,12 +299,7 @@ int srNode::testFlag(e_flag flag) const
 // FUNCTION: SURRENDER 0x10051D40
 void srNode::setWSDirty()
 {
-    /* The dirty fan-out to parents and children can rewrite the notification word, so the
-       positional bit is saved first and restored after. */
-    const auto bounds_dirty = notifications & (1u << NOTIFY_BOUNDS_DIRTY);
-    notifyParents(1u << NOTIFY_BOUNDS_DIRTY);
     notifyChildren(1u << NOTIFY_TRANSFORM_DIRTY);
-    notifications = (notifications & ~(1u << NOTIFY_BOUNDS_DIRTY)) | bounds_dirty;
 }
 
 // FUNCTION: SURRENDER 0x10051DB0

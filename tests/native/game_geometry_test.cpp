@@ -34,7 +34,6 @@
 #include "surrender/model_view_scope.h"
 #include "surrender/plane_math.h"
 #include "surrender/segment_math.h"
-#include "surrender/srBounder.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
@@ -2438,47 +2437,6 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     const auto pick = renderer.popPick();
     REQUIRE(pick);
     REQUIRE(pick->triangle_index == 7);
-}
-
-TEST_CASE_METHOD(SurRenderTestFixture,
-                 "Bounds rejection restores transforms before returning or traversing children",
-                 "[geometry][rendering]")
-{
-    struct Child : srNode {
-        explicit Child(srNode& parent) : srNode(&parent) {}
-        bool visited = false;
-        glm::mat4 view{0};
-        void traverse(TraverseInfo& info) override
-        {
-            visited = true;
-            view = info.renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
-        }
-    };
-    srGERD renderer(srCreateSDLGPUDevice());
-    renderer.matrixMode(srGERD::MATRIX_PROJECTION);
-    renderer.loadIdentity();
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer.loadIdentity();
-    srBounder bounder;
-    bounder.setLocation(0.25, 0, 0);
-    Child child(bounder);
-    renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
-    srNode::TraverseInfo info;
-    info.renderer = &renderer;
-    const auto view = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
-    const std::array<srNode::BoundInfo, 3> bounds{
-        {{{-3, -1, -1}, {-2, 1, 1}, {-3, 0, 0}, 0.1f, 1}, // Sphere rejection.
-         {{-3, -1, -1}, {-2, 1, 1}, {0, 0, 0}, 4, 1}, // Box rejection.
-         {{0, -1, -1}, {1, 1, 1}, {0.5f, 0, 0}, 1, 1}}};
-    for (std::size_t i = 0; i < bounds.size(); ++i) {
-        bounder.setBounds(bounds[i]);
-        child.visited = false;
-        bounder.traverse(info);
-        REQUIRE(renderer.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
-        REQUIRE(child.visited == (i == 2));
-        if (child.visited) REQUIRE(child.view == view);
-    }
-    renderer.popClipPlane();
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture,
