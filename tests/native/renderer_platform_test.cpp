@@ -103,7 +103,7 @@ TEST_CASE("renderer platform")
             REQUIRE(gerd.getStatistics().sorted_triangles == 0);
             REQUIRE(combined.input_triangles == 7);
         }
-        REQUIRE(srGERD::getFirst() == nullptr);
+        REQUIRE(srGERD::getActive() == nullptr);
         REQUIRE((srExit() && !srCore.isInitialized()));
         REQUIRE(srExit());
     }

@@ -76,11 +76,12 @@ TEST_CASE("game graphics")
     REQUIRE(CreateWizardryWindow());
     REQUIRE(InitializePrimarySurface());
     REQUIRE(InitializeVideoDevice());
+    REQUIRE(srGERD::getActive() == g_gerd.get());
     REQUIRE(InitializeRendererSceneObjects());
     auto targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
     REQUIRE((targa && targa->getWidth() > 0 && targa->getHeight() > 0));
     REQUIRE(!srTriMeshPipeline::Get(nullptr));
-    auto pipeline = srTriMeshPipeline::Get(g_gerd);
+    auto pipeline = srTriMeshPipeline::Get(g_gerd.get());
     REQUIRE(pipeline);
     pipeline->Flush();
     const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
@@ -112,7 +113,7 @@ TEST_CASE("game graphics")
         g_gerd->clear(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH);
         g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
-        g_surface_node->DrawTiles(g_gerd);
+        g_surface_node->DrawTiles(g_gerd.get());
         RenderScene(g_cursor_scene, g_overlay_camera, nullptr, false);
         g_gerd->endFrame();
     }
@@ -198,17 +199,22 @@ TEST_CASE("game graphics")
                        1280) == 0);
     PresentMenuOverlayFrame();
 
+    // Reopening must publish the renderer again and rebuild invalidated texture caches.
+    g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
+    REQUIRE(srGERD::getActive() == nullptr);
+    REQUIRE(OpenRendererWindow());
+    REQUIRE(srGERD::getActive() == g_gerd.get());
+    PresentMenuOverlayFrame();
+
     g_screenshot_index = 0;
     SaveJpegScreenshot();
     auto screenshot = srImage::load("Wiz800000.JPG");
     REQUIRE((screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480));
     puts("retail Targa import and game JPEG screenshot round-trip");
 
-    ShutdownVideoScenes();
-    SDL_Window* window = ghWindow;
-    srExit();
-    ReleasePrimarySurface();
-    W8DestroyGameWindow(window);
+    ShutdownVideoManager();
+    REQUIRE(g_gerd == nullptr);
+    REQUIRE(srGERD::getActive() == nullptr);
 
     wiz8::clear_asset_archives();
 

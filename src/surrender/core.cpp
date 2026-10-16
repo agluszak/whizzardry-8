@@ -6,7 +6,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srFilter.h"
-#include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
@@ -64,7 +63,6 @@ int srCore::isInitialized() const
 int srExit()
 {
     if (srCore.initialized != 0) {
-        srGERD::releaseAll();
         srCore.root_node.reset();
         srCore.texture.reset();
         srCore.surface.reset();

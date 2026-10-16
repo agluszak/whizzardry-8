@@ -56,11 +56,7 @@
 class srModelInstance;
 class srVertexProcessor;
 
-// GLOBAL: SURRENDER 0x100A4780
-srGERD* srGERD::first;
-
-// GLOBAL: SURRENDER 0x100A4784
-srGERD* srGERD::firstOpen;
+srGERD* srGERD::active = nullptr;
 
 // FUNCTION: SURRENDER 0x1001EEA0
 srGERD::TexturePool::TexturePool() : count(0), free(nullptr) {}
@@ -193,35 +189,6 @@ srGERD::srGERD(srDD* device)
     initLights();
     initMatrices();
     initView();
-    srDD::e_driverID driver_id = getDriverID();
-    srGERD* node = getFirst();
-    srGERD* previous = 0;
-    if (node != 0) {
-        do {
-            if (driver_id <= node->getDriverID()) {
-                break;
-            }
-            previous = node;
-            node = node->getNext();
-        } while (node != 0);
-    }
-    if (previous != 0) {
-        prev = previous;
-        next = previous->getNext();
-    } else {
-        prev = 0;
-        next = getFirst();
-    }
-    if (prev != 0) {
-        prev->next = this;
-    } else {
-        first = this;
-    }
-    if (next != 0) {
-        next->prev = this;
-    }
-    prev_open = 0;
-    next_open = 0;
     setName(this->device.driver_info.name);
 }
 
@@ -231,15 +198,6 @@ srGERD::~srGERD()
     deleteRenderers();
     deleteContext();
     delete device.dd;
-    if (prev != 0) {
-        prev->next = next;
-    }
-    if (next != 0) {
-        next->prev = prev;
-    }
-    if (this == first) {
-        first = next;
-    }
 }
 
 // FUNCTION: SURRENDER 0x1001B010
@@ -544,33 +502,17 @@ void srGERD::setError(e_error error)
     last_error = error;
 }
 
-// FUNCTION: SURRENDER 0x1001CF80
-srGERD* srGERD::getNext() const
+srGERD* srGERD::getActive()
 {
-    return next;
-}
-
-// FUNCTION: SURRENDER 0x1001CF50
-srGERD* srGERD::getFirstOpen()
-{
-    return firstOpen;
-}
-
-// FUNCTION: SURRENDER 0x1001CF90
-srGERD* srGERD::getNextOpen() const
-{
-    return next_open;
+    return active;
 }
 
 void srGERD::unbindTexture(const srTextureIFace* texture)
 {
-    for (srGERD* gerd = getFirstOpen(); gerd != 0; gerd = gerd->getNextOpen()) {
-        std::lock_guard access(gerd->state_section);
-        for (auto*& bound : gerd->texture_iface) {
-            if (bound == texture) {
-                bound = 0;
-            }
-        }
+    if (auto* renderer = getActive()) {
+        std::lock_guard access(renderer->state_section);
+        for (auto*& bound : renderer->texture_iface)
+            if (bound == texture) bound = nullptr;
     }
 }
 
@@ -1090,12 +1032,6 @@ std::optional<srPixelConvert::PixelFormat> srGERD::getPixelFormat() const
         return std::nullopt;
     }
     return srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB32);
-}
-
-// FUNCTION: SURRENDER 0x1001D1A0
-srGERD* srGERD::getFirst()
-{
-    return first;
 }
 
 // FUNCTION: SURRENDER 0x1001D1F0
@@ -2383,11 +2319,6 @@ srGERD::e_error srGERD::createContext(w8_ulong_ptr window)
     if (srWindow::isWindow(window) == 0) {
         return ERROR_INVALID_WHANDLE;
     }
-    for (srGERD* gerd = getFirst(); gerd != 0; gerd = gerd->getNext()) {
-        if (gerd->isContextCreated() != 0 && gerd->getWindowHandle() == window) {
-            return ERROR_SHARED_CONTEXT;
-        }
-    }
     if (!getDD()->createContext(reinterpret_cast<SDL_Window*>(window))) {
         return ERROR_CONTEXT_CREATION_FAILED;
     }
@@ -2476,17 +2407,7 @@ void srGERD::closeWindow(e_closeHint hint)
         device.open_info = {};
         state_flags &= ~STATE_WINDOW_OPEN;
         device.back_buffer_type = static_cast<e_backBuffer>(0);
-        if (prev_open != 0) {
-            prev_open->next_open = next_open;
-        }
-        if (next_open != 0) {
-            next_open->prev_open = prev_open;
-        }
-        if (this == firstOpen) {
-            firstOpen = next_open;
-        }
-        prev_open = 0;
-        next_open = 0;
+        active = nullptr;
         state_flags &= ~STATE_CLOSING_WINDOW;
         shader = srShader();
         texture_iface[0] = 0;
@@ -2551,13 +2472,8 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
         if (getDD()->openWindow(info.width, info.height)) {
             device.open_info = info;
             device.back_buffer_type = BACKBUFFER_ONE;
-            prev_open = 0;
-            next_open = firstOpen;
-            if (firstOpen != 0) {
-                firstOpen->prev_open = this;
-            }
             w8_ulong flags = state_flags & ~4UL;
-            firstOpen = this;
+            active = this;
             state_flags |= STATE_WINDOW_OPEN;
             state_flags = flags | STATE_WINDOW_OPEN;
             state_flags |= STATE_FRAME_FLIPPED;
@@ -2879,14 +2795,6 @@ void srGERD::initGlobalPalette()
     }
 }
 
-// FUNCTION: SURRENDER 0x10018E60
-void srGERD::releaseAll()
-{
-    while (getFirst() != 0) {
-        delete getFirst();
-    }
-}
-
 // FUNCTION: SURRENDER 0x1001AFD0
 void srGERD::setHint(e_hint hint, e_hintMode mode)
 {
@@ -2898,46 +2806,22 @@ void srGERD::setHint(e_hint hint, e_hintMode mode)
 // FUNCTION: SURRENDER 0x1001AFF0
 const char* srGERD::getErrorString(e_error error)
 {
-    if (0 <= error && error < 10) {
+    if (0 <= error && error <= ERROR_NO_CONTEXT) {
         return errStrings[error];
     }
     return "UNKNOWN ERROR";
 }
 
 // GLOBAL: SURRENDER 0x100993A4
-const char* srGERD::errStrings[10] = {"ERROR_NONE",
-                                      "ERROR_INVALID_ENUM",
-                                      "ERROR_INVALID_VALUE",
-                                      "ERROR_WINDOW_OPEN_FAILED",
-                                      "ERROR_WINDOW_NOT_OPEN",
-                                      "ERROR_BUFFER_LOCK_FAILED",
-                                      "ERROR_INVALID_WHANDLE",
-                                      "ERROR_SHARED_CONTEXT",
-                                      "ERROR_CONTEXT_CREATION_FAILED",
-                                      "ERROR_NO_CONTEXT"};
-
-// FUNCTION: SURRENDER 0x1001B400
-w8_long srGERD::getGERDCount()
-{
-    w8_long count = 0;
-    for (srGERD* gerd = first; gerd != 0; gerd = gerd->getNext()) {
-        count++;
-    }
-    return count;
-}
-
-// FUNCTION: SURRENDER 0x1001B420
-srGERD* srGERD::getGERD(w8_ulong index)
-{
-    w8_ulong current = 0;
-    for (srGERD* gerd = first; gerd != 0; gerd = gerd->getNext()) {
-        if (current == index) {
-            return gerd;
-        }
-        current++;
-    }
-    return 0;
-}
+const char* srGERD::errStrings[9] = {"ERROR_NONE",
+                                     "ERROR_INVALID_ENUM",
+                                     "ERROR_INVALID_VALUE",
+                                     "ERROR_WINDOW_OPEN_FAILED",
+                                     "ERROR_WINDOW_NOT_OPEN",
+                                     "ERROR_BUFFER_LOCK_FAILED",
+                                     "ERROR_INVALID_WHANDLE",
+                                     "ERROR_CONTEXT_CREATION_FAILED",
+                                     "ERROR_NO_CONTEXT"};
 
 // FUNCTION: SURRENDER 0x10020DD0
 int srGERD::isBufferLocked()
@@ -3020,18 +2904,6 @@ w8_ulong srGERD::getClearStencil() const
     return clear_state.clear_values.stencil;
 }
 
-// FUNCTION: SURRENDER 0x1001CF60
-srGERD* srGERD::getPrev() const
-{
-    return prev;
-}
-
-// FUNCTION: SURRENDER 0x1001CF70
-srGERD* srGERD::getPrevOpen() const
-{
-    return prev_open;
-}
-
 // FUNCTION: SURRENDER 0x1001CFD0
 srGERD::e_hintMode srGERD::getHint(e_hint hint) const
 {
@@ -3056,12 +2928,6 @@ srGERD::e_error srGERD::getError()
 int srGERD::isFlipped() const
 {
     return (state_flags >> 3) & 1;
-}
-
-// FUNCTION: SURRENDER 0x1001D1C0
-srDD::e_driverID srGERD::getDriverID() const
-{
-    return (srDD::e_driverID)device.driver_info.driver_id;
 }
 
 // FUNCTION: SURRENDER 0x1001D1E0

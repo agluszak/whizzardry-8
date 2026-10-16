@@ -260,9 +260,8 @@ public:
         ERROR_WINDOW_NOT_OPEN = 4,
         ERROR_BUFFER_LOCK_FAILED = 5,
         ERROR_INVALID_WHANDLE = 6,
-        ERROR_SHARED_CONTEXT = 7,
-        ERROR_CONTEXT_CREATION_FAILED = 8,
-        ERROR_NO_CONTEXT = 9
+        ERROR_CONTEXT_CREATION_FAILED = 7,
+        ERROR_NO_CONTEXT = 8
     };
     enum e_closeHint {};
     /* clear() maps COLOR/DEPTH/STENCIL onto srDD::e_buffer and services
@@ -307,11 +306,8 @@ public:
     explicit srGERD(srDD* device);
     virtual ~srGERD() override;
 
-    static srGERD* getFirst();
-    srGERD* getNext() const;
-    /* Open-device list used by srTexture::invalidateFrameHandle. */
-    static srGERD* getFirstOpen();
-    srGERD* getNextOpen() const;
+    // The open native renderer, borrowed only while its window remains open.
+    static srGERD* getActive();
     e_error createContext(w8_ulong_ptr window);
     int isContextCreated() const;
     void deleteContext();
@@ -517,16 +513,10 @@ public:
     void setPolygonOffset(w8_long offset);
 
     int isBufferLocked();
-    srGERD* getPrev() const;
-    srGERD* getPrevOpen() const;
-    static w8_long getGERDCount();
-    static srGERD* getGERD(w8_ulong index);
     /* Releases every GERD on the global list. */
-    static void releaseAll();
     const char* getErrorString(e_error error);
     e_error getError();
     int isFlipped() const;
-    srDD::e_driverID getDriverID() const;
     w8_ulong getSwapInterval() const;
     e_hintMode getHint(e_hint hint) const;
     void setHint(e_hint hint, e_hintMode mode);
@@ -675,7 +665,7 @@ private:
     void deleteRenderers();
     /* getErrorString table: the ten e_error names followed by no terminator;
        out-of-range errors report "UNKNOWN ERROR". */
-    static const char* errStrings[10];
+    static const char* errStrings[9];
 
     struct TextureEntry {
         w8_long next;
@@ -759,8 +749,7 @@ private:
     };
     friend struct TexturePool;
 
-    static srGERD* first;
-    static srGERD* firstOpen;
+    static srGERD* active;
 
     struct MatrixStack {
         MatrixStack();
@@ -924,13 +913,6 @@ private:
     };
     w8_ulong state_flags;
     e_error last_error;
-    /* getPrev reads this list link; first is the global head. */
-    srGERD* prev;
-    srGERD* next;
-    /* Open-GERD list links; closeWindow splices via prev->next_open and
-       next->prev_open. */
-    srGERD* prev_open;
-    srGERD* next_open;
     Device device;
     State state;
     Display display;

@@ -165,9 +165,8 @@ bool g_screenshot_pending;
 // GLOBAL: WIZ8 0x65970f
 bool g_video_inspector_enabled;
 // GLOBAL: WIZ8 0x00659634
-srGERD* g_gerd;
+std::unique_ptr<srGERD> g_gerd;
 // GLOBAL: WIZ8 0x65971c
-srGERD* g_secondary_gerd;
 // GLOBAL: WIZ8 0x65969c
 // GLOBAL: WIZ8 0x6596a0
 // GLOBAL: WIZ8 0x6596a4
@@ -389,14 +388,7 @@ void ShutdownVideoManager(void)
     }
     if (g_gerd) {
         g_flush_pending = false;
-        g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
-        g_gerd->deleteContext();
-        g_gerd = 0;
-    }
-    if (g_secondary_gerd) {
-        g_secondary_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
-        g_secondary_gerd->deleteContext();
-        g_secondary_gerd = 0;
+        g_gerd.reset();
     }
     srExit();
     W8DestroyGameWindow(native_window);
@@ -528,16 +520,14 @@ try {
     }
 
     srInit();
-    g_gerd = new srGERD(W8CreateNativeRenderDevice());
-    if (!g_gerd) {
-        ShutdownWithErrorBox("Video device cannot be started. Please re-run 3DSetup.");
-        return 0;
-    }
+    g_gerd = std::make_unique<srGERD>(W8CreateNativeRenderDevice());
 
     // reinterpret-ok: SurRender takes the window handle as an integer
     if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
-        !OpenRendererWindow())
+        !OpenRendererWindow()) {
+        g_gerd.reset();
         return 0;
+    }
     srAssertSetFunc(AssertFailureHandler);
     s_setup_disables_audio = SDL_strncasecmp(audio_setting, "none", 4) == 0;
     return 1;
@@ -956,19 +946,15 @@ void RenderFrame(void)
 }
 
 /* Render the world into the locked frame buffer and copy the pixels onto a
-   caller-owned color surface. The secondary render device (the second Voodoo
-   board) takes over when present; `rect` selects a logical 640x480 viewport,
-   otherwise the stored game viewport globals apply. SaveGame uses it for the
-   SHOT screenshot; the automap uses it for its backdrop. */
+   caller-owned color surface. `rect` selects a logical 640x480 viewport; otherwise
+   the stored game viewport applies. Saves use this for SHOT screenshots, and
+   the automap uses it for its backdrop. */
 // FUNCTION: WIZ8 0x00426f80
 unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect,
                                    bool render_secondary)
 {
-    srGERD* gerd = g_secondary_gerd;
+    srGERD* gerd = g_gerd.get();
     EnvironmentColour clear_color;
-    if (gerd == 0) {
-        gerd = g_gerd;
-    }
     gerd->beginFrame();
     gerd->setTextureReduction(g_resident_texture_policy);
     gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
@@ -1521,7 +1507,7 @@ static void FlushUiUpload()
     const auto upload = TakeUiUpload();
     if (SDL_RectEmpty(&upload)) return;
     const auto& description = *primarySurface;
-    g_surface_node->updateRectangle(g_gerd, description.pixels, description.pitch, upload.x,
+    g_surface_node->updateRectangle(g_gerd.get(), description.pixels, description.pitch, upload.x,
                                     upload.y, upload.x + upload.w, upload.y + upload.h);
 }
 
@@ -1735,7 +1721,7 @@ void PresentMenuOverlayFrame(void)
 
     FlushUiUpload();
     g_gerd->beginFrame();
-    process.renderer = g_gerd;
+    process.renderer = g_gerd.get();
     g_surface_node->process(process, srNode::PROCESS_RENDER);
     g_gerd->flushRenderers();
     g_gerd->endFrame();
@@ -2711,7 +2697,7 @@ unsigned int MeasureNodeRender(srNode* node)
     g_gerd->resetStatistics();
     g_gerd->beginFrame();
     srNode::lockSceneGraph();
-    process.renderer = g_gerd;
+    process.renderer = g_gerd.get();
     g_world->camera->process(process, srNode::PROCESS_PUSH);
     node->process(process, srNode::PROCESS_RENDER);
     g_world->camera->process(process, srNode::PROCESS_POP);
