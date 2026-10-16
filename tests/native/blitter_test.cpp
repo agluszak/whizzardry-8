@@ -571,8 +571,10 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
             std::memcpy(static_cast<std::uint8_t*>(bitmap->pixels) + y * bitmap->pitch,
                         static_cast<const std::uint8_t*>(source->pixels) + y * blitter_pitch,
                         blitter_pitch);
-        REQUIRE(Create16BPPPalette(bitmap_palette) == palette);
-        auto indexed_surface = ConvertBitmapToFrameSurface(*bitmap);
+        // This golden describes explicit RGB565 input storage, independent
+        // of the fixed ARGB1555 UI framebuffer.
+        SDLSurfaceOwner indexed_surface{SDL_ConvertSurface(bitmap.get(), target->format),
+                                        SDL_DestroySurface};
         REQUIRE(indexed_surface);
         const SDL_Rect subrect{2, 3, static_cast<int>(width), 4};
         BlitImage(*target, 3, 2, *indexed_surface, &subrect);
