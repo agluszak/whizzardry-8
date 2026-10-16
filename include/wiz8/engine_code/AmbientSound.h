@@ -36,7 +36,6 @@ public:
     char* pacSoundName;          /* 0x000: assertion-backed at 0x47A790 */
     W8AmbientSoundConfig config; /* 0x004: wave filename; shared sounds match on it */
     unsigned char stopped;       /* 0x084: script-stopped via the ByName commands */
-    unsigned char padding_085[3];
     glm::vec3 position;  /* 0x088: emitter world position */
     unsigned int volume_min;     /* 0x094 */
     unsigned int volume_max;     /* 0x098 */
@@ -49,12 +48,10 @@ public:
     float radius;                /* 0x0b4: audible range in world units */
     unsigned char in_range;      /* 0x0b8: listener currently inside radius/region */
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
-    unsigned char padding_0ba[2];
     wiz8::sound::Playback sound_handle;      // Current playback, shared during group handoff.
     std::shared_ptr<W8RandomAmbient> random; // One-shot schedule; empty for looping sounds.
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
-    unsigned char padding_0c6[2];
     glm::vec3 region_min;    /* 0x0c8 */
     glm::vec3 region_max;    /* 0x0d4 */
     glm::vec3 region_center; /* 0x0e0 */
@@ -128,7 +125,7 @@ void BuildFootstepPath(char* path, signed char surface, signed char material, ch
 wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds(W8World* world);
-unsigned char ReadAmbientSoundListFile(char* filename);
+unsigned char ReadAmbientSoundListFile(const char* filename);
 
 void PositionAmbientSoundByName(W8World* /* unused */, const char* name);
 void StopAmbientSoundByName(W8World* /* unused */, const char* name);

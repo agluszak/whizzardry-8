@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "wiz8/retail_opaque_records.h"
+
 #include <stddef.h>
 
 #include "wiz8/difficulty.h"
@@ -113,7 +115,7 @@ struct W8GlobalStatus {
     /* Retail offset 0x242e: binding-reset grace period in effect; cleared once the sweep
        runs after the clock elapses. */
     bool binding_reset_pending;
-    unsigned char padding_242f;
+    wiz8::retail::GlobalStatusOpaque serialized;
     /* Retail offset 0x2430: one-shot gate for the NPC event pass. */
     bool npc_restore_pending;
     /* Retail offset 0x2431: raised by the .nsf quote audit while it runs; ShowNotice counts
@@ -199,7 +201,6 @@ struct W8GlobalStatus {
     bool trang_check_pending;
     bool intro_shown;
     bool flag;
-    unsigned char padding_49be[2];
     /* Retail offset 0x49c0: set when the endgame transition starts; saves carrying either
        this or flag are filtered from the load list. */
     bool endgame_started;

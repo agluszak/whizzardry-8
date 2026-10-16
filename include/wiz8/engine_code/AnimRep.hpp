@@ -47,7 +47,6 @@ struct W8ModelInstance2DRenderState {
     unsigned char display_state;
     /* 0x0d: enables the pulsing glow pass over mesh.materials[0]. */
     bool glow_enabled;
-    unsigned char padding_0e[2];
 };
 
 /* Prop.cpp writes the triples at 0x074 and 0x080 as x/y/z bounds and the word
@@ -86,7 +85,6 @@ public:
     float instance_scale;
     bool flag;
     bool apply_instance_scale;
-    unsigned char padding_062[2];
 };
 
 /* AnimRep.cpp's constructor and copy constructor extend the root through
@@ -104,7 +102,6 @@ public:
     /* Current frame/subcycle. GrCycle advances it and all derived renderers
        use it to select the live mesh, event, particle, and light state. */
     unsigned char subcycle;
-    unsigned char padding_065;
     /* 0xffff means no queued subcycle; ApplyPendingCycle consumes and clears
        this only after the pending cycle is accepted. */
     unsigned short pending_subcycle;
@@ -123,7 +120,6 @@ public:
     /* 0xff means no pending change. ApplyPendingCycle applies it to the
        selected representation, then clears the old object's slot. */
     unsigned char pending_behaviour;
-    unsigned char padding_072[2];
     /* Prop computes this pair from the animation's bounds, and stores the
        scaled extent in +0x8c. Other representation families inherit the
        storage even when their own use is not yet established. */
@@ -134,7 +130,6 @@ public:
     /* The ordered frame range GrCycle plays between. */
     unsigned char first_frame;
     unsigned char last_frame;
-    unsigned char padding_096[2];
 };
 
 extern float g_lod_range_default0;

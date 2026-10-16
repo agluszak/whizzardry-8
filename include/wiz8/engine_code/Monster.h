@@ -103,7 +103,6 @@ struct W8MonsterRep : public W8EmitterHost {
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
     unsigned char highlight_mask;
-    unsigned char padding_5bd[3];
     char* name; /* 0x5c0: owned copy */
     /* 0x5c4: number of populated party-icon entries in objects; the
        attachment layout read by UpdateAttachedObjects. */
@@ -122,7 +121,6 @@ struct W8MonsterRep : public W8EmitterHost {
     /* 0x601: flies, swims or full-transitions - suppresses the grounded
        transition check at 0x004C0000. */
     bool special_movement;
-    unsigned char padding_602[2];
     /* 0x604: the idle cycle's own playback scale, added to the per-update
        random roll. */
     float idle_playback_scale;
@@ -264,7 +262,6 @@ public:
     /* 0x1fd: the StartTalking argument; mouth texture animation only runs
        while it is set. */
     bool animate_mouth;
-    unsigned char padding_1fe[2];
     /* 0x200/0x204: the 120 ms clock and the last frame of the random mouth
        flicker used while the gap track reports the mouth closed. */
     int64_t mouth_frame_clock;
@@ -283,7 +280,6 @@ public:
     /* 0x217: suppresses rendering and radar/automap display. */
     bool disabled;
     bool nearest_to_party;
-    unsigned char padding_219[3];
     /* 0x21c/0x220: hover base-height random range (scaled by
        g_world_scale into movement.vertical_base). */
     float hover_base_min;
@@ -297,7 +293,6 @@ public:
     /* 0x22d: the missing missile-start-point warning already fired once. */
     bool missile_point_warned;
     W8MonsterRemovalState removal_state;
-    unsigned char padding_22f;
     CycleCallback cycle_callback;
     int callback_cycle;
     std::shared_ptr<stScript> script;
@@ -314,12 +309,10 @@ public:
     bool deaf;
     bool face_party;
     bool stay_home;
-    unsigned char padding_292[2];
     float patrol_distance;
     float patrol_variation;
     std::vector<glm::vec3> vector;
     signed char patrol_index;
-    unsigned char padding_2ad[3];
     float direction_x;
     float direction_y;
     float direction_z;
@@ -332,14 +325,12 @@ public:
        uninitialized, 1 lit (scale toward 0.75), 0 shadowed (toward 0). */
     W8MonsterSunlightState sunlit_state;
     bool move_dirty;
-    unsigned char padding_2d5[3];
     W8GameTimer light_scale_timer;
     float target_scale;
     float current_scale;
     /* 0x304: one-shot latch; the cycle-25 spell frame fires
        CreateAttachedSpellEffect once then clears it. */
     bool spell_effect_armed;
-    unsigned char padding_305[3];
     /* The render mesh of the world sector this monster currently occupies,
        cached by W8Octree::UpdateMonsterLocation (null while unplaced).
        IsWithinWorldRange answers from its disable flag when present.
@@ -353,7 +344,6 @@ public:
     /* 0x332: copied from the source monster; blocks hostility recompute in
        Targeting and Combat Hostility. */
     bool hostility_preserved;
-    unsigned char padding_333;
     stSound3D* sound;
     std::vector<wiz8::sound::Playback> sounds;
 };
@@ -430,7 +420,6 @@ public:
     stParticle* m_pParticles;
     unsigned char saved_behaviour;
     signed char saved_frame_method;
-    unsigned char padding_0e[2];
 };
 
 void MonsterStopAllNavigators(void);

@@ -2306,10 +2306,6 @@ W8LevelDataRecord::W8LevelDataRecord() : interval_gate()
     footstep_accumulator = -2000.0f;
     primary_contact_prop_id = -1;
     secondary_contact_prop_id = -1;
-    /* 0x0041FDEF clears the whole 12-byte group from contact_normal_scale
-       through unknown_bc in one run before raising the scale, so the scale's own
-       zero is part of that run rather than a separate dead store. */
-    memset(&contact_normal_scale, 0, sizeof(contact_normal_scale) + sizeof(unknown_bc));
     contact_normal_scale = 1.0f;
     g_level_override = false;
 }

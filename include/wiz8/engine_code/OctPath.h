@@ -136,7 +136,6 @@ struct W8PathSurface {
     unsigned short index;
     glm::vec3 position{0, 0, 0};
     unsigned short search_parent;
-    unsigned char padding_12[0x02];
     /* Monotonic visit stamp: patrol selection picks the smallest value, and
        both mover paths write elapsed game time as each waypoint is consumed. */
     unsigned int visit_stamp;
@@ -146,12 +145,10 @@ struct W8PathSurface {
     float path_cost;
     float estimated_total_cost;
     unsigned short first_edge;
-    unsigned short padding_26;
 };
 
 /* The compact surface record written to a .WPT file. It retains only the
-   persistent flags, first edge and world position from the live 0x28-byte
-   surface. */
+   persistent flags, first edge and world position from the live surface. */
 struct W8FileWaypoint {
     unsigned short flags;
     unsigned short first_edge;
@@ -408,9 +405,8 @@ public:
     unsigned int EditWaypointLinkFlags(const char* title, unsigned int* flags,
                                        unsigned int direction);
     void EditTeleportalLink(const glm::vec3* destination, const glm::vec3* source); /* 0x0045F2D0 */
-    /* Takes the size, two loose values, the bounds block out of the octree
-       header, and the level name the octree already owns. */
-    void ConfigureForLevel(int size, float grid_scale, float path_clearance,
+    /* Configure the node count, grid pitch, bounds and level name. */
+    void ConfigureForLevel(int size, float grid_scale,
                            const srBoundingBox& bounds, const char* name); /* 0x00458A50 */
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
     bool WritePathNodes(wiz8::File* handle);
@@ -430,17 +426,10 @@ public:
     /* PrePathing's CreatePathNodeArray counts edge nodes here starting from
        one, and WriteOctFile serializes it beside the node count. */
     int edge_node_count;
-    int m_unknown_014;
-    /* Incremented for each edge removed by the waypoint editor; never read. */
-    int m_removed_edge_count;
     /* The grid divisor both linking walks divide by. */
     float grid_scale; /* 0x1c */
     float span; /* 0x20 */
     short cell_count; /* 0x24 */
-    unsigned short m_padding_026;
-    /* Path probe-clearance height from the octree
-       header; only ConfigureForLevel writes it. */
-    float path_clearance; /* 0x28 */
     srBoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
     std::vector<W8FilePathNode> file_path_nodes; // Serialized cell/height-state records.
     // Zero is the sentinel in both indexed graph tables.
@@ -466,14 +455,11 @@ public:
     glm::vec3 m_probe_position; /* 0x7c */
     unsigned int m_probe_limit; /* 0x88 */
     bool m_probe_bounded; /* 0x8c */
-    unsigned char m_padding_08d[3];
     unsigned int planner_location;
     std::vector<w8_ulong> m_path_candidates;
     bool explicit_target; /* 0x9c */
-    unsigned char m_padding_09d[3];
     unsigned int m_waypoint_neighbor_mask; /* 0xa0 */
     bool m_trace_configured; /* 0xa4 */
-    unsigned char m_padding_0a5[3];
     float m_trace_max_distance;
     glm::vec3 trace_offset;
     int m_trace_mode;
@@ -488,14 +474,12 @@ public:
     bool flag2;
     bool search_visualization;
     bool waypoints_dirty;
-    unsigned char m_padding_1cd;
     unsigned short waypoint_editor_flags; /* 0x1ce: starts 4 */
     int link_flags;
     unsigned short start_waypoint;
     unsigned short destination_waypoint;
     unsigned short saved_surface;
     bool path_direction_valid;
-    unsigned char m_padding_1db;
     /* Patrol-search state laid down by BuildPatrolPath and consulted by the
        recursive FindPatrolPath: the argmin-key candidate node, the accepted
        min/max start-to-destination range, the randomized target path cost,
@@ -507,7 +491,6 @@ public:
     float m_patrol_distance;
     glm::vec3 m_patrol_start;
     glm::vec3 m_patrol_destination;
-    unsigned char m_padding_204[0x0c];
     float m_patrol_cost;
     W8PathParameters m_steering_context;
     W8NavigatorAttachment* m_linked_attachment;
@@ -518,7 +501,6 @@ public:
     std::vector<unsigned int> m_pulCondNodeKeys;
     std::vector<unsigned int> m_pulCondNodeValues;
     bool span_blocked;
-    unsigned char m_padding_23d[3];
 };
 
 /* The 8-byte record InsertConditionalNodes hangs on the cond map under a

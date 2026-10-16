@@ -64,7 +64,6 @@ public:
     glm::vec3 light_scale;
     bool diffuse_scale_enabled;
     bool emissive_override_enabled;
-    unsigned char padding_1a2[2];
     float diffuse_scale;
     float emissive_override;
     float frame_interpolation;

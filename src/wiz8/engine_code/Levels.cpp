@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -177,19 +178,13 @@ char GetLevelBand(int saved_level)
 // FUNCTION: WIZ8 0x0042b770
 void StartLevelMusic(int fade, int replace_current)
 {
-    char path[260];
-    const char* level_name = g_level_folders[g_status.current_level].level_name;
-
-    sprintf(path, "Data\\Music\\%s.MPL", level_name);
-    if ([&]() {
-            const auto status = wiz8::file_status(path);
-            return status && status->info.type == SDL_PATHTYPE_FILE;
-        }()) {
-        sprintf(path, "%s.MPL", level_name);
-        StartMusicResource(path, fade, replace_current);
-    } else {
-        StartMusicResource("Adventure.MPL", fade, replace_current);
-    }
+    const auto level = g_status.current_level;
+    const std::string playlist = level >= 0 && level < W8_LEVEL_COUNT
+        ? std::string(g_level_folders[level].level_name) + ".MPL" : "Adventure.MPL";
+    const auto path = std::filesystem::path("Data") / "Music" / wiz8::path_from_utf8(playlist);
+    const auto status = wiz8::file_status(wiz8::path_to_utf8(path));
+    StartMusicResource(status && status->info.type == SDL_PATHTYPE_FILE
+                          ? playlist.c_str() : "Adventure.MPL", fade, replace_current);
     ServiceMusicPlaylist();
 }
 
@@ -307,7 +302,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         g_loaded_sky_index = 0xff;
         ResetEnvironment();
     }
-    if (sky_index == -1) {
+    if (sky_index == -1 || info->sky_path.empty()) {
         return 1;
     }
     sky_world = CreateWorld();
@@ -315,8 +310,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     if (sky_world == 0) {
         return 0;
     }
-    if (!LoadWorld(sky_world, info->sky_file_name, info->sky_folder, info->sky_bitmap_folder,
-                   false)) {
+    if (!LoadWorld(sky_world, info->sky_path, false)) {
         return 0;
     }
 
@@ -399,8 +393,6 @@ bool g_camera_path_active;
 // GLOBAL: WIZ8 0x0068f0fd
 bool g_mipe_trigger_display;
 
-// GLOBAL: WIZ8 0x006059E0
-static char g_ambient_sound_filename[] = "SCF";
 // GLOBAL: WIZ8 0x00605880
 const char* g_sky_names[] = {
     "DefaultSky", "RapaxSky", "MountainPassSky", "RiftSky1",  "TrynnieSky1", "TrynnieSky2",
@@ -414,71 +406,52 @@ const char* g_sky_names[] = {
 // FUNCTION: WIZ8 0x0042A370
 bool LevelBuildInfoByID(int level, W8LevelInfo* info)
 {
-    char oct_path[1020];
-    char pvl_path[1020];
+    if (level < 0 || level >= 57 || info == nullptr) return false;
 
-    if (static_cast<unsigned int>(level) >= 57) {
-        srAssertFail("ulLevel < TEST_LEVEL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 237, 0);
-    }
-
+    std::filesystem::path folder = "Levels";
+    std::string level_name;
+    std::string sky_name;
     if (level < W8_LEVEL_COUNT) {
-        sprintf(info->level_folder, "%s\\%s", "Levels", g_level_folders[level].folder_name);
-        sprintf(info->level_file_name, "%s.%s", g_level_folders[level].level_name, "LVL");
-        if (g_level_folders[level].sky_index == -1) {
-            info->sky_file_name[0] = '\0';
-        } else {
-            sprintf(info->sky_file_name, "%s.%s", g_sky_names[g_level_folders[level].sky_index],
-                    "LVL");
-        }
+        const auto& row = g_level_folders[level];
+        folder /= wiz8::path_from_utf8(row.folder_name);
+        level_name = row.level_name;
+        if (row.sky_index != -1) sky_name = g_sky_names[row.sky_index];
     } else {
-        sprintf(info->level_folder, "%s\\Test", "Levels");
+        folder /= "Test";
         if (level == 56) {
-            sprintf(info->level_file_name, "DefaultLevel.%s", "LVL");
-            sprintf(info->sky_file_name, "%s.%s", g_sky_names[0], "LVL");
+            level_name = "DefaultLevel";
+            sky_name = g_sky_names[0];
         } else {
-            char test_level = static_cast<char>(level + 2);
-            sprintf(info->level_file_name, "level%c.%s", test_level, "LVL");
-            sprintf(info->sky_file_name, "sky%c.%s", test_level, "LVL");
+            const auto number = std::to_string(level - W8_LEVEL_COUNT + 1);
+            level_name = "level" + number;
+            sky_name = "sky" + number;
         }
     }
 
-    strcpy(info->sky_folder, info->level_folder);
-    sprintf(info->level_bitmap_folder, "%s\\Bitmaps", info->level_folder);
-    sprintf(info->sky_bitmap_folder, "%s\\Bitmaps", info->sky_folder);
-    sprintf(info->level_path, "%s\\%s", info->level_folder, info->level_file_name);
+    const auto is_file = [](const std::filesystem::path& path) {
+        const auto status = wiz8::file_status(wiz8::path_to_utf8(path));
+        return status && status->info.type == SDL_PATHTYPE_FILE;
+    };
+    auto level_path = folder / wiz8::path_from_utf8(level_name + ".LVL");
+    auto oct_path = level_path;
+    oct_path.replace_extension(".oct");
+    auto pvl_path = level_path;
+    pvl_path.replace_extension(".pvl");
+    if (!is_file(level_path) && (!is_file(oct_path) || !is_file(pvl_path))) return false;
 
-    strcpy(oct_path, info->level_path);
-    strcpy(oct_path + strlen(oct_path) - 3, "oct");
-    strcpy(pvl_path, info->level_path);
-    strcpy(pvl_path + strlen(pvl_path) - 3, "pvl");
-    if (![&]() { const auto status = wiz8::file_status(info->level_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() && (![&]() { const auto status = wiz8::file_status(oct_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() || ![&]() { const auto status = wiz8::file_status(pvl_path); return status && status->info.type == SDL_PATHTYPE_FILE; }())) {
-        return false;
-    }
-
-    sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
-    if (level < W8_LEVEL_COUNT) {
-        if (g_level_folders[level].sky_index != -1 && ![&]() {
-                const auto status = wiz8::file_status(info->sky_path);
-                return status && status->info.type == SDL_PATHTYPE_FILE;
-            }()) {
-            sprintf(info->sky_folder, "%s\\Test", "Levels");
-            sprintf(info->sky_file_name, "%s.%s", g_sky_names[0], "LVL");
-            sprintf(info->sky_bitmap_folder, "%s\\Bitmaps", info->sky_folder);
-            sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
-            if (![&]() {
-                    const auto status = wiz8::file_status(info->sky_path);
-                    return status && status->info.type == SDL_PATHTYPE_FILE;
-                }()) {
-                return false;
+    std::filesystem::path sky_path;
+    if (!sky_name.empty()) {
+        sky_path = folder / wiz8::path_from_utf8(sky_name + ".LVL");
+        if (!is_file(sky_path)) {
+            if (level < W8_LEVEL_COUNT) {
+                sky_path = std::filesystem::path("Levels") / "Test" / "DefaultSky.LVL";
+                if (!is_file(sky_path)) return false;
+            } else {
+                sky_path.clear();
             }
         }
-    } else if (![&]() {
-                   const auto status = wiz8::file_status(info->sky_path);
-                   return status && status->info.type == SDL_PATHTYPE_FILE;
-               }()) {
-        info->sky_file_name[0] = '\0';
     }
+    *info = {wiz8::path_to_utf8(level_path), wiz8::path_to_utf8(sky_path)};
     return true;
 }
 
@@ -493,8 +466,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     W8LevelInfo level_info;
     int previous_level;
     bool first_visit = false;
-    char path[260];
-    char music_path[260];
 
     if (level >= 57) {
         srAssertFail("iLevel < TEST_LEVEL_COUNT",
@@ -515,17 +486,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
     previous_level = g_status.current_level;
     g_status.current_level = level;
-    sprintf(music_path, "Data\\Music\\%s.MPL", g_level_folders[level].level_name);
-    if ([&]() {
-            const auto status = wiz8::file_status(music_path);
-            return status && status->info.type == SDL_PATHTYPE_FILE;
-        }()) {
-        sprintf(music_path, "%s.MPL", g_level_folders[g_status.current_level].level_name);
-        StartMusicResource(music_path, 1, 1);
-    } else {
-        StartMusicResource("Adventure.MPL", 1, 1);
-    }
-    ServiceMusicPlaylist();
+    StartLevelMusic(1, 1);
 
     if (!LoadSkyWorld(level, &level_info)) {
         return 0;
@@ -533,8 +494,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     InitializeMonsterManagerState();
     InitializeItemManagerState();
     ResetNextTriggerId();
-    if (!ForwardLoadWorld(GetWorld(), level_info.level_file_name, level_info.level_folder,
-                          level_info.level_bitmap_folder, true)) {
+    if (!LoadWorld(GetWorld(), level_info.level_path, true)) {
         /* This is the complete canonical rollback here: restore the level ID.
            The already-installed replacement world is not destroyed. */
         g_status.current_level = previous_level;
@@ -600,9 +560,9 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         first_visit = true;
     }
 
-    sprintf(path, "%s\\%s.%s", level_info.level_folder, level_info.level_file_name,
-            g_ambient_sound_filename);
-    ReadAmbientSoundListFile(path);
+    auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
+    ambient_path.replace_extension(".SCF");
+    ReadAmbientSoundListFile(wiz8::path_to_utf8(ambient_path).c_str());
     if (!g_environment_load_flag) {
         ResetCurrentEnvironment();
     }

@@ -28,3 +28,24 @@ The runtime label covers video, character creation, game start, world movement,
 quick-save, combat, save-fixture creation and save loading. These scenarios need
 WIZ8_ASSET_ROOT and a usable SDL GPU backend; CI provisions the licensed assets.
 The separate graphics/world harnesses additionally require an interactive display.
+
+## Runtime layout audit
+
+Runtime engine classes no longer carry explicit alignment fields. The audit
+checked named uses, constructors/copies, raw I/O and retail codecs:
+
+| Fields | Classification and disposition |
+| --- | --- |
+| Monster-group `unknown_2b`, `unknown_d4`; spell `unknown_040`, `unknown_055`, `unknown_11b`, `unknown_125`, `unknown_145` | Serialization only. Retained in retail opaque storage, with explicit field codecs; new groups still write 3 at 0x2b. |
+| Environment `pad_06`; global-status `padding_242f`, `padding_49be` | Serialization only. Retained in retail opaque storage, including nonzero values from loaded records. |
+| Model, mesh, light, camera, animation, navigator, monster, missile, prop, ambient-sound, emitter, octree/pathing/build-workspace padding | Unused by gameplay and serialization. Deleted from native types. This includes `stModelInstance::padding_1a2` and every `W8Octree::m_padding_*`. |
+| World padding and `m_unknown_07c`, `m_unknown_0d4`; level-motion `unknown_bc`; spell/missile representation `unknown_0b4` | No consumers; some had initialization-only writes. Deleted along with those writes. |
+| Octree `m_unknown_13c`, `m_unknown_27c`, `m_unknown_299`, `m_location_region_matched`; build-tree `unknown_138`, `unknown_13c` and their destination fields; pathing `m_unknown_014`, `m_removed_edge_count`, `path_clearance`; light `m_unknown_238` | Initialization, copying or stores only, with no gameplay or serialization consumer. Deleted, including the unused pathing argument. The octree's own clearance remains used by path building. |
+| Spell duration, radius, targeting, power, missile, book and usage fields; octree sun count, region cell/masks and geometry streams | Read by gameplay/building or emitted as identified file data. Retained. |
+| OCT header `pad_aa`, `pad_c9`; material-record `padding_105`; screenshot `padding_05` | Actual disk representations, not native object alignment. Retained with their file layouts. Other unknown save/database fields remain intact. |
+| Eight `W8LevelInfo` C buffers | Replaced by two owned UTF-8 asset paths. World loading derives bitmap and sibling file paths using filesystem components/extensions and never mutates the caller's filename. |
+
+The opaque storage types live in `retail_opaque_records.h`; their runtime owners
+carry them solely to preserve file data, independent of native member offsets.
+Regression fixtures cover nonzero opaque bytes, copies/edits, truncated group
+records, and level/sky path selection without installed assets.

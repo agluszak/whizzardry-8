@@ -20,10 +20,7 @@ void MarkRendererReady(void);
 
 W8World* CreateWorld();
 W8World* ForwardCreateWorld(void);
-unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
-                        const char* asset_folder, bool use_octree);
-unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char* level_folder,
-                               const char* asset_folder, bool use_octree);
+unsigned char LoadWorld(W8World* world, std::string_view level_path, bool use_octree);
 void ForwardDestroyWorld(W8World* world);
 void SetCurrentWorld(W8World* world);
 void DestroyWorld(W8World* world);

@@ -1,6 +1,8 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
+#include "wiz8/retail_opaque_records.h"
+
 #include <cstddef>
 #include <source_location>
 #include <span>
@@ -21,6 +23,7 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
 
 /* A live monster group. Saves store it as wiz8::retail::MonsterGroup. */
 struct W8MonsterGroup {
+    wiz8::retail::MonsterGroupOpaque serialized;
     std::span<const int> MemberIds() const { return monsters; }
 
     int MemberLocationId(std::size_t index) const
@@ -52,7 +55,6 @@ struct W8MonsterGroup {
        is live regardless of the global hostility gate; anything else has to
        pass that gate as well. */
     W8Disposition ubDisposition;
-    unsigned char unknown_2b;
     /* Selects which of the record's two name sets a member is displayed
        under. Group creation presets it for alternate-name records, and the
        wandering-group detection pass sets it once the party spots the group. */
@@ -104,7 +106,6 @@ struct W8MonsterGroup {
     /* Raised as encounter_registered is cleared - the group was an
        active encounter once. */
     bool encounter_ended;
-    unsigned char unknown_d4[0x57];
 };
 
 unsigned int

@@ -55,6 +55,7 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/IntervalGate.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
@@ -983,6 +984,7 @@ static void global_status_record()
         rows[slot].party_order_index = slot;
         rows[slot].weapon_swap_pending = slot % 2;
     }
+    status.serialized = {0xa5, {0x5a, 0x17}};
     status.party_gold = 0x12345678;
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
@@ -999,6 +1001,9 @@ static void global_status_record()
     REQUIRE((chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes)));
     const auto status_image = wiz8::retail::encode(status);
     REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
+    REQUIRE(bytes[0x242f] == 0xa5);
+    REQUIRE(bytes[0x49be] == 0x5a);
+    REQUIRE(bytes[0x49bf] == 0x17);
     unsigned gold, turns;
     memcpy(&gold, bytes + 0x19, sizeof(gold));
     memcpy(&turns, bytes + 0x19d8, sizeof(turns));
@@ -1034,6 +1039,9 @@ static void global_status_record()
     REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
     LoadGameStatus(&chunks, &restored);
     REQUIRE(restored.party_gold == status.party_gold);
+    const auto restored_image = wiz8::retail::encode(restored);
+    for (auto offset : {0x242f, 0x49be, 0x49bf})
+        REQUIRE(restored_image[offset] == status_image[offset]);
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored_rows[slot].fOccupied);
         REQUIRE(restored_rows[slot].attack_mode[0] == 100 + slot);
@@ -1455,4 +1463,63 @@ TEST_CASE_METHOD(SaveFixture, "Graphical object ownership", "[save][records]")
 TEST_CASE_METHOD(SaveFixture, "Animated mesh cache", "[save][records]")
 {
     animated_mesh_cache_contracts();
+}
+
+
+TEST_CASE("Monster group opaque disk fields survive gameplay edits and old saves", "[save][records]")
+{
+    W8MonsterGroup group{};
+    auto bytes = wiz8::retail::encode(group);
+    REQUIRE(bytes[0x2b] == std::byte{3});
+    bytes[0x2b] = std::byte{0xa5};
+    for (std::size_t i = 0xd4; i < bytes.size(); ++i) bytes[i] = std::byte(i);
+    wiz8::retail::decode<W8MonsterGroup>(bytes, group);
+    REQUIRE(wiz8::retail::encode(group) == bytes);
+    auto copy = group;
+    copy.group_id = 17;
+    auto edited = wiz8::retail::encode(copy);
+    REQUIRE(edited[0x2b] == bytes[0x2b]);
+    REQUIRE(std::equal(bytes.begin() + 0xd4, bytes.end(), edited.begin() + 0xd4));
+    REQUIRE(group.group_id == 0);
+    // A truncated historical record zero-extends absent opaque bytes.
+    wiz8::retail::decode<W8MonsterGroup>(std::span(bytes).first(0xd4), group);
+    auto old_saved = wiz8::retail::encode(group);
+    REQUIRE(old_saved[0x2b] == bytes[0x2b]);
+    REQUIRE(std::all_of(old_saved.begin() + 0xd4, old_saved.end(),
+                        [](std::byte byte) { return byte == std::byte{}; }));
+}
+
+TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[levels][filesystem]")
+{
+    SaveFixture fixture;
+    const auto touch = [&](const char* name) {
+        auto path = fixture.assets / name;
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream file(path);
+        REQUIRE(file.good());
+    };
+    W8LevelInfo info;
+    REQUIRE_FALSE(LevelBuildInfoByID(-1, &info));
+    REQUIRE_FALSE(LevelBuildInfoByID(57, &info));
+    REQUIRE_FALSE(LevelBuildInfoByID(47, &info));
+    touch("Levels/Test/level1.oct");
+    REQUIRE_FALSE(LevelBuildInfoByID(47, &info));
+    touch("Levels/Test/level1.pvl");
+    REQUIRE(LevelBuildInfoByID(47, &info));
+    REQUIRE(wiz8::path_from_utf8(info.level_path) == std::filesystem::path("Levels/Test/level1.LVL"));
+    REQUIRE(info.sky_path.empty());
+    touch("Levels/Test/sky1.LVL");
+    REQUIRE(LevelBuildInfoByID(47, &info));
+    REQUIRE(wiz8::path_from_utf8(info.sky_path) == std::filesystem::path("Levels/Test/sky1.LVL"));
+    touch("Levels/Arnika/Arnika2.LVL");
+    REQUIRE_FALSE(LevelBuildInfoByID(0, &info));
+    touch("Levels/Test/DefaultSky.LVL");
+    REQUIRE(LevelBuildInfoByID(0, &info));
+    REQUIRE(wiz8::path_from_utf8(info.sky_path) == std::filesystem::path("Levels/Test/DefaultSky.LVL"));
+    touch("Levels/Arnika/RapaxSky.LVL");
+    REQUIRE(LevelBuildInfoByID(0, &info));
+    REQUIRE(wiz8::path_from_utf8(info.sky_path) == std::filesystem::path("Levels/Arnika/RapaxSky.LVL"));
+    touch("Levels/Bayjin/Bayjin1.LVL");
+    REQUIRE(LevelBuildInfoByID(2, &info));
+    REQUIRE(info.sky_path.empty());
 }

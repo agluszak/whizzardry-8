@@ -33,13 +33,11 @@ struct W8SaveSlot {
     unsigned int game_time_ms;
     int level_id;
     bool iron_man;
-    unsigned char padding_0a5[3];
     W8SaveScreenshot screenshot;
     int version_major;
     unsigned int version_minor;
     unsigned int version_patch;
     bool dev_flagged; /* saved copy of status dev_flagged */
-    unsigned char padding_263d[3];
 };
 
 void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);

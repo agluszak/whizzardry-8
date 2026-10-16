@@ -6,6 +6,7 @@
 #include <iterator>
 #include <span>
 #include <string>
+#include <utility>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -126,11 +127,20 @@ static void record_contracts()
     spell.effect_radius = 2.5f;
     auto spell_bytes = wiz8::retail::encode(spell);
     REQUIRE(spell_bytes[0x9b] == std::byte{0xe9});
+    for (auto [offset, count] : std::array<std::pair<std::size_t, std::size_t>, 5>{
+             {{0x40, 4}, {0x55, 1}, {0x11b, 4}, {0x125, 1}, {0x145, 2}}}) {
+        for (std::size_t i = 0; i < count; ++i) spell_bytes[offset + i] = std::byte(0xa0 + i);
+    }
     W8SpellRuntimeRecord spell_copy{};
     wiz8::retail::decode<W8SpellRuntimeRecord>(spell_bytes, spell_copy);
     REQUIRE(std::string(spell_copy.display_name) == spell.display_name);
     REQUIRE((spell_copy.spell_point_cost == 17 && spell_copy.effect_radius == 2.5f));
     REQUIRE(wiz8::retail::encode(spell_copy) == spell_bytes);
+    spell_copy.duration = 42;
+    auto spell_edited = wiz8::retail::encode(spell_copy);
+    auto duration_offset = offsetof(wiz8::retail::SpellRuntimeRecord, duration);
+    std::copy_n(spell_edited.begin() + duration_offset, sizeof(int), spell_bytes.begin() + duration_offset);
+    REQUIRE(spell_edited == spell_bytes);
     W8NpcDatabaseRecord npc{};
     npc.source_name = "商人";
     npc.character.name = "é中😀";

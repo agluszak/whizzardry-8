@@ -37,7 +37,6 @@ public:
     bool Write(wiz8::File& hFile); /* 0x0049E5D0 */
 
     short version{};
-    short padding_02{};
     int m_link_index{};
     int next_link{};
     int m_material_index{};

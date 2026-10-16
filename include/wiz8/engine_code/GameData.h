@@ -18,6 +18,7 @@ struct W8OctPreTreeGeometry;
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/retail_opaque_records.h"
 #include "wiz8/ground_probe.h"
 
 namespace wiz8 {
@@ -67,7 +68,6 @@ struct W8LevelDataRecord {
     int secondary_contact_prop_id; /* 0x08 */
     signed char sound_environment;
     signed char sound_environment_alt;
-    unsigned char pad_0e[2];
     float footstep_accumulator; /* 0x10 */
     float camera_scale;         /* 0x14 */
     /* 0x18/0x1c: residual segment length and facing metric from the nearest
@@ -91,15 +91,12 @@ struct W8LevelDataRecord {
     glm::vec3 contact_motion{0};             /* 0x88 */
     glm::vec3 contact_displacement{0};       /* 0x94 */
     glm::vec3 motion_displacement{0};        /* 0xa0 */
-    /* 0xac: contact surface normal; 0xb8: scalar stored beside it (retail
-       constructor writes 1.0f). Remaining 8 bytes stay unresolved. */
+    /* Contact surface normal and scale used by camera collision. */
     glm::vec3 contact_normal{0}; /* 0xac */
     float contact_normal_scale;       /* 0xb8 */
-    unsigned char unknown_bc[8];      /* 0xbc */
     W8IntervalGate interval_gate;     /* 0xc4 */
     bool flag5;                       /* 0xec */
     bool flag6;                       /* 0xed */
-    unsigned char pad_ee[2];
     float vertical_motion; /* 0xf0 */
 
     W8LevelDataRecord(); /* 0x0041FD10 */
@@ -136,7 +133,7 @@ struct W8LevelFilePlane;
 /* One environment record: seventeen dwords mixing counters and factors. */
 struct W8EnvironRecord {
     /* Inlined in CreateGDEnviron, ReadProcessedGameData, the GameData
-       constructor and ApplyCameraMotionFlags. Airborne, scale and padding
+       constructor and ApplyCameraMotionFlags. Airborne and scale
        are deliberately left untouched. */
     W8EnvironRecord()
     {
@@ -158,7 +155,7 @@ struct W8EnvironRecord {
     int value_00;
     bool ground_latch;
     unsigned char airborne;
-    unsigned char pad_06[2];
+    wiz8::retail::EnvironOpaque serialized;
     int value_08;
     /* Per-frame scale copied from the level camera_scale; 0x00421850 multiplies
        vector by it when advancing the camera under environment load. */
@@ -283,7 +280,6 @@ struct W8GameData {
     /* Set by W8Octree::settleToGround around its TestTraceResult calls: while
        set, only flag-4 surfaces are admitted by the surface trace. */
     bool trace_flag4_gate;
-    unsigned char pad_89[3];
 
     /* Descriptive name for appending a plane's classified trigger triangle. */
     void AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2);

@@ -394,7 +394,8 @@ template<> struct Record<W8MonsterGroup> {
         value(&runtime.fInCombat, field(offsetof(Disk, fInCombat), sizeof(Disk::fInCombat)));
         value(&runtime.ubDisposition,
               field(offsetof(Disk, ubDisposition), sizeof(Disk::ubDisposition)));
-        value(&runtime.unknown_2b, field(offsetof(Disk, unknown_2b), sizeof(Disk::unknown_2b)));
+        value(&runtime.serialized.unknown_2b,
+              field(offsetof(Disk, unknown_2b), sizeof(Disk::unknown_2b)));
         value(&runtime.alternate_name,
               field(offsetof(Disk, alternate_name), sizeof(Disk::alternate_name)));
         value(&runtime.group_state, field(offsetof(Disk, group_state), sizeof(Disk::group_state)));
@@ -421,7 +422,8 @@ template<> struct Record<W8MonsterGroup> {
         value(&runtime.spawn_time, field(offsetof(Disk, spawn_time), sizeof(Disk::spawn_time)));
         value(&runtime.encounter_ended,
               field(offsetof(Disk, encounter_ended), sizeof(Disk::encounter_ended)));
-        value(&runtime.unknown_d4, field(offsetof(Disk, unknown_d4), sizeof(Disk::unknown_d4)));
+        value(&runtime.serialized.unknown_d4,
+              field(offsetof(Disk, unknown_d4), sizeof(Disk::unknown_d4)));
     }
 };
 
