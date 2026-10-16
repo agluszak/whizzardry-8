@@ -21,3 +21,10 @@ CTest runs `runtime_quick-save` as the fixture setup before
 `runtime_load-game`, which loads that same file through the menu in a fresh
 game process. The generated save tests the current writer and menu loader
 together; it does not prove compatibility with historical retail saves.
+
+`runtime_menu-save` independently creates a named save through the options UI,
+cancels and confirms overwrite and rename requests, reloads the changed character
+record, and cancels and confirms deletion. It also replaces the enumerated save
+with a directory to verify that a failed delete shows an error and leaves the
+row usable for a retry. All writable files stay in the scenario's temporary user
+root; installed assets are read-only inputs.

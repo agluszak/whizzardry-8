@@ -1622,6 +1622,130 @@ void LoadGameScenario(const fs::path& fixture)
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
 }
 
+/* Menu saving exercises name edits and confirmation callbacks, which quick-save
+   bypasses. Cancelled overwrites/deletes must leave the saved bytes intact. */
+void MenuSaveScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    const auto anchor = Settle(game, "menu-save-settle");
+    const int slot = PremadeSlot();
+    g_status.buffers.Char[slot].experience = 123;
+    const auto click = [&](const W8ButtonWidget& button) {
+        const auto bounds = button.Bounds();
+        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+    };
+    const auto open = [&](bool save) -> W8OptionsSaveLoadPanel& {
+        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            game.command(W8_MGS_COMMAND_OPTIONS);
+            game.wait_screen("save-options", W8_SCREEN_OPTIONS);
+        }
+        REQUIRE(g_options_screen);
+        click(*g_options_screen->m_menu_buttons[save ? 5 : 4]);
+        REQUIRE(g_options_screen->m_selected_panel == (save ? 5 : 4));
+        return static_cast<W8OptionsSaveLoadPanel&>(
+            *g_options_screen->m_panel[save ? 5 : 4]->m_panels.front());
+    };
+
+    auto& create = open(true);
+    REQUIRE(g_options_screen->m_text_editor);
+    game.enter_text("MenuOne");
+    click(*create.m_action_button);
+    REQUIRE((!g_options_screen || !g_options_screen->m_active_modal));
+    WaitMainGame(game, "menu-save-created");
+    auto saves = SaveFiles(game.user_root());
+    REQUIRE(saves.size() == 1);
+    auto save = saves.front();
+    REQUIRE(save.stem() == "MenuOne");
+    REQUIRE_FALSE(fs::exists(wiz8::asset_path("saves/MenuOne.SAV")));
+    const auto original_bytes = wiz8::open_file(save)->read_text();
+    REQUIRE_FALSE(original_bytes.empty());
+
+    g_status.buffers.Char[slot].experience = 456;
+    auto& overwrite = open(true);
+    click(overwrite.m_rows[1]->button);
+    REQUIRE(overwrite.m_selected == 1);
+    click(*overwrite.m_action_button);
+    REQUIRE(g_options_screen->m_active_modal);
+    game.key(SDLK_ESCAPE);
+    REQUIRE_FALSE(g_options_screen->m_active_modal);
+    REQUIRE(wiz8::open_file(save)->read_text() == original_bytes);
+    click(*overwrite.m_action_button);
+    REQUIRE(g_options_screen->m_active_modal);
+    game.key(SDLK_RETURN);
+    WaitMainGame(game, "menu-save-overwritten");
+    REQUIRE(SaveFiles(game.user_root()).size() == 1);
+    REQUIRE(wiz8::open_file(save)->read_text() != original_bytes);
+
+    // Renaming uses the same Save button while a name editor is active.
+    // Cancelling its confirmation must restore both the row and the old file.
+    auto& rename = open(true);
+    click(rename.m_rows[1]->button);
+    const auto edit_name = [&](std::string_view name) {
+        const auto bounds = rename.m_rows[1]->button.Bounds();
+        game.click_at(bounds.x + 120, bounds.y + 55);
+        REQUIRE(g_options_screen->m_text_editor);
+        const auto length = g_options_screen->m_text_editor->m_fields.Text(0).size();
+        game.key(SDLK_END);
+        for (std::size_t i = 0; i < length; ++i) game.key(SDLK_BACKSPACE);
+        game.enter_text(name);
+        click(*rename.m_action_button);
+        REQUIRE(g_options_screen->m_active_modal);
+    };
+    edit_name("MenuRenamed");
+    game.key(SDLK_ESCAPE);
+    REQUIRE(rename.m_rows[1]->m_save->name == "MenuOne");
+    REQUIRE(SaveFiles(game.user_root()).size() == 1);
+    REQUIRE(fs::exists(save));
+    edit_name("MenuRenamed");
+    game.key(SDLK_RETURN);
+    WaitMainGame(game, "menu-save-renamed");
+    REQUIRE_FALSE(fs::exists(save));
+    saves = SaveFiles(game.user_root());
+    REQUIRE(saves.size() == 1);
+    save = saves.front();
+    REQUIRE(save.stem() == "MenuRenamed");
+
+    g_status.buffers.Char[slot].experience = 999;
+    auto& load = open(false);
+    click(load.m_rows[0]->button);
+    click(*load.m_action_button);
+    WaitMainGame(game, "menu-save-loaded");
+    Settle(game, "menu-save-loaded");
+    REQUIRE(g_status.buffers.Char[slot].experience == 456);
+    ExpectAt("menu-save-loaded", anchor);
+
+    auto& remove = open(false);
+    click(remove.m_rows[0]->button);
+    const auto overwritten_bytes = wiz8::open_file(save)->read_text();
+    click(*remove.m_delete_button);
+    REQUIRE(g_options_screen->m_active_modal);
+    game.key(SDLK_ESCAPE);
+    REQUIRE_FALSE(g_options_screen->m_active_modal);
+    REQUIRE(wiz8::open_file(save)->read_text() == overwritten_bytes);
+    // A save can change after enumeration, for example during cloud sync.
+    // A failed delete must report an error and retain the displayed row.
+    const auto backup = fs::path(save.string() + ".backup");
+    fs::rename(save, backup);
+    fs::create_directory(save);
+    click(*remove.m_delete_button);
+    game.key(SDLK_RETURN);
+    REQUIRE(g_options_screen->m_active_modal);
+    REQUIRE(remove.m_rows[0]->button.IsEnabled());
+    fs::remove(save);
+    fs::rename(backup, save);
+    game.key(SDLK_RETURN); // Dismiss the delete error, then retry.
+    REQUIRE_FALSE(g_options_screen->m_active_modal);
+    click(*remove.m_delete_button);
+    game.key(SDLK_RETURN);
+    REQUIRE_FALSE(g_options_screen->m_active_modal);
+    REQUIRE(SaveFiles(game.user_root()).empty());
+    REQUIRE_FALSE(remove.m_delete_button->IsEnabled());
+    REQUIRE_FALSE(remove.m_action_button->IsEnabled());
+    game.key(SDLK_ESCAPE);
+    game.wait_screen("menu-save-return", W8_SCREEN_MAIN_GAME);
+}
+
 /* --- NPC dialogue ---------------------------------------------------------- */
 
 /* The conversation waits for the player: nothing spoken, queued or asked. */
@@ -2246,6 +2370,11 @@ TEST_CASE("random-play", "[runtime]")
         Settle(game, "settle");
         REQUIRE(Monkey(game, 300, 42) == 300);
     });
+}
+
+TEST_CASE("menu-save", "[runtime]")
+{
+    RunScenario(MenuSaveScenario);
 }
 
 TEST_CASE("script", "[.][runtime]")

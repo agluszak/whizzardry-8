@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <string>
@@ -11,6 +12,7 @@
 
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
@@ -372,9 +374,12 @@ void W8OptionsSaveLoadPanel::OnPrimary(W8ButtonWidget* control)
         return;
     }
 
-    W8OptionsTextEditor* editor = g_options_screen->m_text_editor.get();
-    FinishOptionsTextEdit(g_options_screen.get(), 0);
-    if (editor == 0 && m_current == 0 && m_selected == 0) {
+    if (g_options_screen->m_text_editor) {
+        // Completing the edit already saves or requests overwrite confirmation.
+        FinishOptionsTextEdit(g_options_screen.get(), 0);
+        return;
+    }
+    if (m_current == 0 && m_selected == 0) {
         SaveSelectedSave();
     } else {
         g_options_screen->ShowNotification(true, 0x829,
@@ -489,7 +494,14 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     std::string path;
     path = fmt::format("{}\\{}.{}", "saves", slot.name, g_save_extension);
-    if (wiz8::remove_file(wiz8::user_path(path)) == 0) {
+    bool removed = false;
+    try {
+        removed = wiz8::remove_file(wiz8::user_path(path));
+    } catch (const std::exception& error) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not delete save %s: %s", slot.name.c_str(),
+                    error.what());
+    }
+    if (!removed) {
         g_options_screen->ShowNotification(false, 0x82f,
                                            [this](bool accepted) { OnDialogClosed(accepted, 0); });
         return;
