@@ -82,7 +82,7 @@ W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
     SetOrigin(0x85, 0x69);
     SetExtent(0x177, 0x10e);
     SetBackground(g_popup_race_profession_path, 0);
-    UseInfoPopupInput(m_scroll_bar);
+    UseInfoPopup({m_text_area, m_scroll_bar, &m_button});
 }
 
 // FUNCTION: WIZ8 0x005DEC40
@@ -288,12 +288,4 @@ bool W8RaceInfoDialog::PopulateText()
         listed = true;
     }
     return true;
-}
-
-bool W8ProfRaceInfoDialogBase::TakeDirty()
-{
-    const bool text = m_text_area.TakeDirty();
-    const bool scroll = m_scroll_bar.TakeDirty();
-    const bool button = m_button.TakeDirty();
-    return W8DialogBase::TakeDirty() || text || scroll || button;
 }

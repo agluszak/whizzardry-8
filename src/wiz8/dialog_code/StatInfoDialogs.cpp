@@ -53,7 +53,7 @@ W8StatInfoDialogBase::W8StatInfoDialogBase()
     SetOrigin(0x9c, 0x69);
     SetExtent(0x14a, 0x10e);
     SetBackground(g_info_dialog_background, 0);
-    UseInfoPopupInput(scrollbar);
+    UseInfoPopup({textarea, scrollbar, &button});
 }
 
 // FUNCTION: WIZ8 0x005df9d0
@@ -172,12 +172,4 @@ W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIn
     m_title_id = g_character_description_first_ids[16 + uiIndex];
     m_detail_id = g_attr_table1[uiIndex];
     Configure();
-}
-
-bool W8StatInfoDialogBase::TakeDirty()
-{
-    const bool text = textarea.TakeDirty();
-    const bool scroll = scrollbar.TakeDirty();
-    const bool button_dirty = button.TakeDirty();
-    return W8DialogBase::TakeDirty() || text || scroll || button_dirty;
 }

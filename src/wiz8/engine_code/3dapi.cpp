@@ -10,9 +10,10 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
+
 #include "camera_motion.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -556,7 +557,7 @@ stParticle* FindParticleByName(W8World* world, const char* name)
         for (int index = 0; index < count; ++index) {
             stParticle* particle = world->particles[index].get();
 
-            if (_stricmp(particle->getName().c_str(), name) == 0) {
+            if (SDL_strcasecmp(particle->getName().c_str(), name) == 0) {
                 return particle;
             }
         }
@@ -832,7 +833,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
     if (name == 0) {
         return false;
     }
-    if (_stricmp("PARTY", name) == 0) {
+    if (SDL_strcasecmp("PARTY", name) == 0) {
         *position = cameraLocation();
         return true;
     }
@@ -840,7 +841,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
     int count = static_cast<int>(g_world->named_positions.size());
     for (int index = 0; index < count; ++index) {
         const W8NamedPosition* entry = &g_world->named_positions[index];
-        if (_stricmp(name, entry->name) == 0) {
+        if (SDL_strcasecmp(name, entry->name) == 0) {
             *position = entry->position;
             if (angle != 0) {
                 *angle = entry->angle;

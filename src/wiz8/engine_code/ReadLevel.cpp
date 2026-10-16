@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -218,7 +219,8 @@ void AssociateWorldLights(W8World* world)
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
                 W8Prop* prop = GetWorldProp(world, prop_index);
 
-                if (prop->m_name != 0 && _stricmp(prop->m_name, light->getName().c_str()) == 0) {
+                if (prop->m_name != 0 &&
+                    SDL_strcasecmp(prop->m_name, light->getName().c_str()) == 0) {
                     srModelInstance* instance = prop->ToggleRepAnimationDefault();
                     light->m_prop = prop;
                     GetModelAnimatedTexture(instance)->animation_mode = W8_TEXTURE_ANIM_MANUAL;
@@ -250,7 +252,7 @@ try {
         hFile->read_exact(&record, sizeof(record));
         if (record.version >= 2) {
             hFile->read_exact(name, sizeof(name));
-            _strupr(name);
+            SDL_strupr(name);
 
             if ((record.flags & W8_LEVEL_LIGHT_HAS_DEFINITION) != 0) {
                 definition = new stParametricLightDefinition;
@@ -320,7 +322,7 @@ try {
         }
 
         if (light != 0) {
-            if (_strnicmp(light->getName().c_str(), "Sun", 3) == 0) {
+            if (SDL_strncasecmp(light->getName().c_str(), "Sun", 3) == 0) {
                 light->diffuse = glm::vec3(0);
                 light->ambient = record.colour.glmValue();
                 light->setGroupMask(light->getGroupMask() | 4);
@@ -492,7 +494,7 @@ try {
 
         pInfo->hFile->read(name, sizeof(name));
         pInfo->hFile->read(&serialized_position, sizeof(serialized_position));
-        _strupr(name);
+        SDL_strupr(name);
         clip_plane->setName(name);
         clip_plane->setClipPlane(plane);
 
@@ -851,7 +853,7 @@ try {
         auto owned = std::make_unique<stParticle>(pScene, record.particle_count, ownership);
         particle = owned.get();
 
-        _strupr(record.name);
+        SDL_strupr(record.name);
         particle->setName(record.name);
         axis = glm::dvec3((&record.rotation_axis)->glmValue());
         particle->rotate(record.rotation_angle, axis);

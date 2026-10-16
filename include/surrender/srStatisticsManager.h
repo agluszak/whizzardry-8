@@ -18,8 +18,8 @@ public:
         w8_ulong texture_coordinate_operations;
     };
 
-    SR_DLL_IMPORT void reset();
-    SR_DLL_IMPORT Statistics getStatistics() const;
+    void reset();
+    Statistics getStatistics() const;
 
     /* SurRender's submission pipeline updates these counters directly. */
     Statistics statistics;

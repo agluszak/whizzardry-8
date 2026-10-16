@@ -9,21 +9,21 @@
 // class srFog
 class srFog : public srIlluminator {
 public:
-    SR_DLL_IMPORT srFog(srNode* parent = 0);
+    srFog(srNode* parent = 0);
 
-    SR_DLL_IMPORT void setDensity(float density);
-    SR_DLL_IMPORT float getDensity() const;
-    SR_DLL_IMPORT void setRange(double start, double end);
-    SR_DLL_IMPORT std::pair<double, double> getRange() const;
+    void setDensity(float density);
+    float getDensity() const;
+    void setRange(double start, double end);
+    std::pair<double, double> getRange() const;
 
-    virtual SR_DLL_IMPORT ~srFog() override;
+    virtual ~srFog() override;
 
     srFog& operator=(const srFog&) = default;
 
 public:
     using srIlluminator::process;
-    virtual SR_DLL_IMPORT int isActive(srVertexPipe& pipe) override;
-    virtual SR_DLL_IMPORT void process(srVertexPipe& pipe) override;
+    virtual int isActive(srVertexPipe& pipe) override;
+    virtual void process(srVertexPipe& pipe) override;
 
     double fog_start; /* 0x150 */
     double fog_end;   /* 0x158 */

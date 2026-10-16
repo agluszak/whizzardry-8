@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srTexture.h"
 
@@ -12,7 +11,7 @@ namespace wiz8 {
 class File;
 }
 
-std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*);
+std::unique_ptr<srColorSurface> LoadSurface(wiz8::File* handle, w8_long*);
 
 /* Wizardry's virtual-file-backed texture. Priority, dimensions, parameters and
    name are inherited; has_alpha records the loaded surface's alpha channel. */

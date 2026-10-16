@@ -3,7 +3,7 @@
 #include "srPixelConvert.h"
 #include "srTextureIFace.h"
 
-class SR_DLL_IMPORT srTexture : public srTextureIFace {
+class srTexture : public srTextureIFace {
 public:
     virtual ~srTexture() override;
 

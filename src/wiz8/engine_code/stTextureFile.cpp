@@ -6,13 +6,12 @@
 #include <string>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
 
-std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*)
+std::unique_ptr<srColorSurface> LoadSurface(wiz8::File* handle, w8_long*)
 {
     return handle ? srImage::loadTga(*handle) : nullptr;
 }

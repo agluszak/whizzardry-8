@@ -10,8 +10,9 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
+
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -170,7 +171,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = dynamic_cast<stLight*>(node);
-            if (!light || _strnicmp(node->getName().c_str(), "Sun", 3) == 0) continue;
+            if (!light || SDL_strncasecmp(node->getName().c_str(), "Sun", 3) == 0) continue;
             const float range = static_cast<float>(
                 g_light_range_attenuation_numerator /
                 (light->opengl_attenuation.y * g_light_range_attenuation_denominator));
@@ -642,7 +643,7 @@ W8GameData* g_octree_game_data;
 /* The octree builds read the level data through this slot; the recovered
    caller passes the W8GameData object it just read. */
 // FUNCTION: WIZ8 0x0046D7D0
-void __stdcall SetOctreeGameData(W8GameData* value)
+void SetOctreeGameData(W8GameData* value)
 {
     g_octree_game_data = value;
 }

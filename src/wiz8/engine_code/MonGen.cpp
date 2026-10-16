@@ -10,12 +10,12 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
 #include "IntervalGate.h"
 #include "Monster.h"
 #include "Octree.h"
-#include "compat/native.h"
 #include "dice.h"
 #include "difficulty.h"
 #include "layouts/encounter_tables.h"
@@ -1094,7 +1094,7 @@ void MonGen::SetEncounterTable(int index)
 {
     encounter_table_index = index;
     if (auto* table = GetEncounterTable(index);
-        table && _strnicmp(table->name, "HARASSMENT", 10) == 0) {
+        table && SDL_strncasecmp(table->name, "HARASSMENT", 10) == 0) {
         flags |= W8_MONGEN_STORY_GATED;
     }
 }
@@ -1106,7 +1106,7 @@ int FindEncounterTableByName(const char* name)
 {
     for (int index = 0; index < static_cast<int>(g_encounter_tables.size()); ++index) {
         W8EncounterTableRuntime* table = &g_encounter_tables[index];
-        if (_strnicmp(table->name, name, strlen(name)) == 0) {
+        if (SDL_strncasecmp(table->name, name, strlen(name)) == 0) {
             return index;
         }
     }

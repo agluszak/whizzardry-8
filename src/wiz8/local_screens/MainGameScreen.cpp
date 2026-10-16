@@ -285,7 +285,7 @@ static void ApplyPendingMouselook(void);
 void ApplyPendingTooltip(void);
 void UpdateCombatPortraitStatus(void);
 void UpdateKeyboardMenu(void);
-void ApplySavedRedrawInvalidates(void);
+void InvalidateRedrawRegions(unsigned int redraw_flags);
 void InvalidatePortraitPanel(void);
 
 void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
@@ -502,14 +502,6 @@ void RefreshLockInteractionControls(void)
     interaction->m_force_button->SetEnabled(static_cast<int>(figure) > -1);
     interaction->m_info_panel->RefreshInfo();
     interaction->actions_dirty = true;
-}
-
-/* Re-arm the lock tumbler and action region sets while lock interact is up. */
-void EnableLockInteractionPanels(void)
-{
-    if (g_lock_interaction) {
-        g_lock_interaction->EnablePanels(1);
-    }
 }
 
 /* Mark the lock interaction's tumbler and action panels dirty and rebuild the
@@ -1920,14 +1912,6 @@ void W8MainGameScreen::EnablePanelInput(bool enable)
     input.setEnabled(enable);
 }
 
-/* Re-arm the trap text/action panel region sets while trap interact is up. */
-void EnableTrapInteractionPanelRegions(void)
-{
-    if (g_main_game_screen) {
-        g_main_game_screen->EnablePanelInput(true);
-    }
-}
-
 void W8MainGameScreen::ApplyInspectSuccess()
 {
     int chance;
@@ -2366,7 +2350,7 @@ void RefreshFlaggedMainGameState(void)
     }
 }
 
-/* Second-pass invalidate rectangles keyed by saved_redraw_flags bits. The
+/* Invalidate rectangles keyed by redraw bits. The
    first eight entries are the portrait-slot columns (zero base rects, scaled
    by portrait_hover_x_origin and shifted by portrait_refresh_image). */
 struct W8MainGameInvalidateRect {
@@ -2424,7 +2408,7 @@ MainGameScreenState::MainGameScreenState()
     for (int slot = 0; slot < 8; ++slot) {
         const int row = slot / 2;
         const bool right = slot % 2;
-        portraits[slot] = std::make_unique<UiLayer>(PortraitSlotOrder(slot));
+        portraits[slot] = std::make_unique<UiLayer>(UiLayerOrder::PortraitSlots);
         auto& input = *portraits[slot];
         auto& targets = portrait_targets[slot];
         const auto add = [&](int index, HitShape shape, auto handler, int help = -1) {
@@ -2790,6 +2774,14 @@ update_screen:
             }
         }
     }
+    if (g_level_block->portrait_flash != 0 && TimeUntilDeadline(g_level_block->clock) == 0) {
+        g_level_block->portrait_flash = 0;
+        RequestPartySlotRedraw(g_status.selected_character);
+    }
+    if (g_status.text_box_lines_shown[g_status.text_line_cursor] <
+        g_status.text_box_lines_used[g_status.text_line_cursor]) {
+        AdvanceNoticeLine(g_status.text_line_cursor);
+    }
     if (IsScreenTransitionPending()) {
         DrawMainGameScreen();
         return;
@@ -2975,6 +2967,9 @@ render_world:
             SelectPartyCharacter(next);
         }
     }
+    if (!IsScreenTransitionPending() && (!gXStatus.world_paused || gXStatus.fCombatMode)) {
+        UpdateWorlds();
+    }
     DrawMainGameScreen();
 }
 
@@ -3113,7 +3108,6 @@ void ApplyMainGameRedrawFlags(void)
         ClearPrimarySurface();
     } else if ((redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
         g_level_block->redraw_flags = redraw_flags | W8_MAIN_REDRAW_CHROME;
-        g_level_block->saved_redraw_flags &= ~W8_MAIN_REDRAW_CHROME;
         SetOverlayRenderMode();
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) != 0) {
@@ -3185,8 +3179,7 @@ void ApplyMainGameRedrawFlags(void)
             }
         } else {
             keyboard_menu_invalidate = false;
-            if (party_slot == g_level_block->highlight_override ||
-                party_slot == g_level_block->formation_highlight_party_slot ||
+            if (g_level_block->highlight.LightsPortrait(party_slot) ||
                 party_slot == g_level_block->held_item_display) {
                 keyboard_menu_invalidate = true;
             }
@@ -3315,11 +3308,9 @@ finish_mode_overlays:
     }
 }
 
-/* Finish the main-game frame: sync facing/radar, advance notices, run the two
-   redraw passes, paint overlays, and present. Callers: MainGameScreenFrame at
-   0x0055ff1e (early exit on pending transition) and 0x00560649 (normal end).
-   The assert path that can fire just before the normal call is
-   "iNextChar != BAD_INDEX" in MainGameScreenFrame (retail line 0x1047). */
+/* Draw the main-game frame: sync facing and radar, repaint the requested
+   regions and invalidate their rectangles, paint overlays, and present.
+   MainGameScreenFrame calls it after its update and on a pending transition. */
 void DrawMainGameScreen(void)
 {
     int stopped_line;
@@ -3327,15 +3318,6 @@ void DrawMainGameScreen(void)
 
     SyncPartyFacingFromCamera();
     UpdateRadarBlips();
-    if (g_level_block->portrait_flash != 0 && TimeUntilDeadline(g_level_block->clock) == 0) {
-        g_level_block->portrait_flash = 0;
-        RequestPartySlotRedraw(g_status.selected_character);
-    }
-    if (g_status.text_box_lines_shown[g_status.text_line_cursor] <
-            g_status.text_box_lines_used[g_status.text_line_cursor] &&
-        ScreenLifecycleSuccess() != 0) {
-        AdvanceNoticeLine(g_status.text_line_cursor);
-    }
     if (g_level_block->action_panel_visible == 0 && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gXStatus.fSpellCastMode &&
         !gXStatus.fItemSelectMode) {
@@ -3346,15 +3328,19 @@ void DrawMainGameScreen(void)
             SetRendererModePair();
         }
     }
-    g_level_block->saved_redraw_flags = g_level_block->redraw_flags;
-    if (g_level_block->redraw_flags != 0) {
+    const unsigned int requested = g_level_block->redraw_flags;
+    if (requested != 0) {
         ApplyMainGameRedrawFlags();
     }
-    if (g_level_block->saved_redraw_flags != 0) {
-        ApplySavedRedrawInvalidates();
+    // A layout repaint draws the chrome panels, which invalidate themselves.
+    unsigned int invalidated = requested;
+    if (requested != W8_MAIN_REDRAW_ALL && (requested & W8_MAIN_REDRAW_LAYOUT) != 0) {
+        invalidated &= ~W8_MAIN_REDRAW_CHROME;
+    }
+    if (invalidated != 0) {
+        InvalidateRedrawRegions(invalidated);
     }
     g_level_block->redraw_flags = 0;
-    g_level_block->saved_redraw_flags = 0;
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
             g_modal_owner->RefreshModal();
@@ -3395,9 +3381,6 @@ void DrawMainGameScreen(void)
         }
         if (g_level_block->radar_map_visible != 0) {
             EnsureRadarMapOverlay();
-        }
-        if (!gXStatus.world_paused || gXStatus.fCombatMode) {
-            UpdateWorlds();
         }
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
@@ -3510,8 +3493,8 @@ void RedrawCombatMonsterList(void)
                         is_action_group = monster_group->group_id == monster_info->monster_group_id;
                     }
                     is_target_group = false;
-                    context_slot = g_level_block->tooltip_subject;
-                    if (g_level_block->tooltip_kind != 0 || context_slot == -1) {
+                    context_slot = g_level_block->pending_highlight.SlotFor(W8_HIGHLIGHT_TARGET);
+                    if (context_slot == -1) {
                         context_slot = g_status.selected_character;
                     }
                     target = GetTargetBlockForContext(context_slot, W8_TARGETING_CONTEXT_CURRENT);
@@ -3689,7 +3672,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     }
 
     g_main_game_mode = W8_MAIN_GAME_PORTRAIT_REFRESH;
-    g_level_block->highlight_override = -1;
+    if (g_level_block->highlight.kind == W8_HIGHLIGHT_TARGET) g_level_block->highlight = {};
     g_level_block->portrait_refresh_pending[party_slot] = 1;
     g_level_block->portrait_refresh_image[party_slot] = 0x69;
     RequestRedraw(1u << (party_slot & 0x1f));
@@ -4279,9 +4262,9 @@ W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
     {0, 0, 0, 0, 0, 0, 0},
 };
 
-/* Second redraw pass: invalidate each rectangle whose bit is set in
-   saved_redraw_flags, applying the mode-6 portrait layout offsets. */
-void ApplySavedRedrawInvalidates(void)
+/* Invalidate the rectangle of each requested redraw bit, placed by the
+   current portrait layout. */
+void InvalidateRedrawRegions(unsigned int redraw_flags)
 {
     unsigned char bit;
     W8MainGameInvalidateRect* entry;
@@ -4291,13 +4274,13 @@ void ApplySavedRedrawInvalidates(void)
     int bottom;
     int delta;
 
-    if (g_level_block->saved_redraw_flags == W8_MAIN_REDRAW_ALL) {
+    if (redraw_flags == W8_MAIN_REDRAW_ALL) {
         ClearVideoDirtyBlocks();
         return;
     }
 
     for (bit = 0, entry = g_main_game_invalidate_rects; bit < 23; ++bit, ++entry) {
-        if ((g_level_block->saved_redraw_flags & (1u << (bit & 0x1f))) == 0) {
+        if ((redraw_flags & (1u << (bit & 0x1f))) == 0) {
             continue;
         }
         left = entry->left;
@@ -4574,13 +4557,13 @@ void ClearPortraitRefreshSlot(int slot)
 /* Note what the pointer is hovering over. Moving to anything else restarts the
    tooltip clock; staying put leaves it running, which is what makes the four
    fields one tooltip rather than four settings. */
-void SetTooltipSubject(int kind, int subject)
+void SetTooltipSubject(W8PortraitHighlightKind kind, int subject)
 {
-    if (g_level_block->tooltip_kind != kind || g_level_block->tooltip_subject != subject) {
+    auto& pending = g_level_block->pending_highlight;
+    if (pending.kind != kind || pending.slot != subject) {
         g_level_block->tooltip_pending = true;
         g_level_block->tooltip_since = w8_get_ticks();
-        g_level_block->tooltip_subject = subject;
-        g_level_block->tooltip_kind = kind;
+        pending = {kind, subject};
     }
 }
 
@@ -4592,10 +4575,10 @@ void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable)
     unsigned int slot;
 
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetTooltipSubject(4, -1);
+        SetTooltipSubject(W8_HIGHLIGHT_VITALS, -1);
     }
     if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetTooltipSubject(0, -1);
+        SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
     }
     CloseMainGameOverlays();
     if (!enable || gXStatus.fSpellCastMode ||
@@ -4675,8 +4658,15 @@ apply_mode_tail:
         g_level_block->portrait_y_shift = 0;
     }
     RequestRedraw(W8_MAIN_REDRAW_ALL);
-    ResetUiInput();
-    SyncMainGameModeRegions();
+    SetMouseCursorHotspot(0, 0);
+    SyncSystemCursor();
+    SetViewportMode(GetMainGameViewportMode());
+    if (gXStatus.fCombatMode) {
+        g_level_block->refresh_combat_panel = 1;
+    }
+    g_level_block->refresh_party_panel = 1;
+    RequestRedrawCombatBar();
+    SyncMainGameModeInput();
 }
 
 void RetireModal(std::unique_ptr<ModalContent> owner, bool completed)
@@ -4726,87 +4716,56 @@ void RefreshPartySlotRegions(void)
     }
 }
 
-/* Re-arm the main-game region sets after ResetUiInput: pick the viewport and
-   layout band from the current mode, then re-enable whichever overlays are
-   up (combat portraits, condition buttons, spell/NPC/lock/trap/formation/
-   radar, party movement, review, keyboard menu, combat submenu). */
-void SyncMainGameModeRegions(void)
+/* Set which main-game controls take part in input for the current UI mode
+   and open view. Radar mode hides the action panel and every overlay view. */
+void SyncMainGameModeInput(void)
 {
-    SetMouseCursorHotspot(0, 0);
-    SyncSystemCursor();
-    g_main_game_state->world.setEnabled(true);
-    g_main_game_state->hud_buttons.input.setEnabled(true);
-    if (g_level_block->group_list_rows == 0) {
-        g_main_game_state->monster_list->setEnabled(false);
-    } else {
-        g_main_game_state->monster_list->setEnabled(true);
-    }
+    auto& state = *g_main_game_state;
+    const W8MainUiMode mode = g_settings.main_ui_mode;
+    const bool panels = mode != W8_MAIN_UI_MODE_RADAR;
+    const bool npc_view = gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue();
+    const bool view_open = gXStatus.fSpellCastMode || npc_view || gXStatus.fItemSelectMode ||
+                           gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode;
 
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetViewportMode(GetMainGameViewportMode());
-    } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION ||
-               g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
-        SetViewportMode(GetMainGameViewportMode());
-        g_main_game_state->edges.setEnabled(true);
-    }
-
+    state.world.setEnabled(true);
+    state.hud_buttons.input.setEnabled(true);
+    state.monster_list->setEnabled(g_level_block->group_list_rows != 0);
+    state.edges.setEnabled(mode != W8_MAIN_UI_MODE_PORTRAITS);
     RefreshPartySlotRegions();
-    if (!gXStatus.fCombatMode) {
-        g_main_game_state->combat.setEnabled(false);
-        EnablePortraitAdvanceRegions();
-    } else {
-        g_main_game_state->combat.setEnabled(true);
+    state.combat.setEnabled(gXStatus.fCombatMode);
+    if (gXStatus.fCombatMode) {
         DisablePortraitControls();
+    } else {
+        EnablePortraitAdvanceRegions();
     }
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
         DisableConditionButtons();
     } else {
         EnableConditionButtons();
     }
 
-    if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) {
+    // Spell and item views always raise the text box; otherwise it follows the action panel.
+    const bool spell_text_box = gXStatus.fSpellCastMode || (!npc_view && gXStatus.fItemSelectMode);
+    if (panels && spell_text_box) {
+        RestoreSpellCastingRegions();
+    } else if (panels && g_level_block->action_panel_visible != 0) {
         EnableActionPanelRegions();
-        if (gXStatus.fSpellCastMode) {
-            if (gpSCSV) gpSCSV->input.setEnabled(true);
-            RestoreSpellCastingRegions();
-        } else if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
-            SetNpcDialogueInputEnabled(2, true);
-        } else if (gXStatus.fItemSelectMode) {
-            EnableUseItemSelectInput();
-            RestoreSpellCastingRegions();
-        } else if (gXStatus.fLockInteractMode) {
-            EnableLockInteractionPanels();
-        } else if (gXStatus.fTrapInteractMode) {
-            EnableTrapInteractionPanelRegions();
-        } else {
-            if (g_level_block->formation_board_visible) {
-                g_main_game_state->formation.setEnabled(true);
-            }
-            if (g_level_block->radar_map_visible != 0) {
-                g_main_game_state->radar.setEnabled(true);
-            }
-        }
+    } else {
+        SetTextBoxEnabled(false);
     }
+    if (gXStatus.fSpellCastMode && gpSCSV) gpSCSV->input.setEnabled(panels);
+    if (npc_view) SetNpcDialogueInputEnabled(2, panels);
+    if (gXStatus.fItemSelectMode) SetUseItemSelectInputEnabled(panels);
+    if (gXStatus.fLockInteractMode) g_lock_interaction->EnablePanels(panels);
+    if (gXStatus.fTrapInteractMode) g_main_game_screen->EnablePanelInput(panels);
+    state.formation.setEnabled(panels && !view_open && g_level_block->formation_board_visible);
+    state.radar.setEnabled(panels && !view_open && g_level_block->radar_map_visible != 0);
 
     if (gXStatus.fPartyMovementUi && !gXStatus.world_update_blocked) {
         UpdatePartyMovementPanel();
+    } else {
+        DisablePartyMovementRegions();
     }
-    if (gXStatus.fReviewCharacterMode) {
-        EnableFormationInput();
-    }
-    if (g_level_block->keyboard_menu_open) {
-        EnableKeyboardMenuInput();
-    }
-    if (g_level_block->combat_end_notification != -1) {
-        EnableSubMenuRegions();
-    }
-    if (g_level_block != 0) {
-        if (gXStatus.fCombatMode) {
-            g_level_block->refresh_combat_panel = 1;
-        }
-        g_level_block->refresh_party_panel = 1;
-    }
-    RequestRedrawCombatBar();
 }
 
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
@@ -5012,7 +4971,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
 
                     g_level_block->portrait_right_hold_armed = false;
                     if (IsNpcDialogueCursorActive() == 0) {
-                        SetTooltipSubject(0, slot);
+                        SetTooltipSubject(W8_HIGHLIGHT_TARGET, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                             UpdateSlotMonsterHighlights(slot, true);
                             return UiResult::Pass;
@@ -5022,7 +4981,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
             } else {
                 g_level_block->portrait_right_hold_armed = false;
                 if (IsNpcDialogueCursorActive() == 0) {
-                    SetTooltipSubject(0, -1);
+                    SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
                     SetTargetCursor(GetTargetingCursorForState(0));
                     if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                         UpdateSlotMonsterHighlights(slot, false);
@@ -5065,7 +5024,8 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
 template<class Effect>
 static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget& target, int id,
                                          Effect W8Character::* effect, Effect none,
-                                         int W8LevelRuntimeBlock::* selection, int tooltip_kind)
+                                         int W8LevelRuntimeBlock::* selection,
+                                         W8PortraitHighlightKind tooltip_kind)
 {
     int slot = id;
     W8Character* character = &g_status.buffers.Char[slot];
@@ -5131,18 +5091,18 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
    enter drives tooltip kind 1 and region help. */
 UiResult PortraitConditionOrbInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
-    return DispatchPortraitOrbInput(event, target, id, &W8Character::highest_condition,
-                                    W8_CONDITION_NONE,
-                                    &W8LevelRuntimeBlock::condition_orb_party_slot, 1);
+    return DispatchPortraitOrbInput(
+        event, target, id, &W8Character::highest_condition, W8_CONDITION_NONE,
+        &W8LevelRuntimeBlock::condition_orb_party_slot, W8_HIGHLIGHT_CONDITION);
 }
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
 UiResult PortraitEnchantmentOrbInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
-    return DispatchPortraitOrbInput(event, target, id, &W8Character::enchantment_top,
-                                    W8_ENCHANTMENT_NONE,
-                                    &W8LevelRuntimeBlock::enchantment_orb_party_slot, 2);
+    return DispatchPortraitOrbInput(
+        event, target, id, &W8Character::enchantment_top, W8_ENCHANTMENT_NONE,
+        &W8LevelRuntimeBlock::enchantment_orb_party_slot, W8_HIGHLIGHT_ENCHANTMENT);
 }
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
@@ -5204,10 +5164,10 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
         if (event.action != UiPointerAction::Leave) {
             if (event.action == UiPointerAction::Enter) {
 
-                SetTooltipSubject(5, slot);
+                SetTooltipSubject(W8_HIGHLIGHT_ASSAY, slot);
             }
         } else {
-            SetTooltipSubject(5, -1);
+            SetTooltipSubject(W8_HIGHLIGHT_ASSAY, -1);
             return UiResult::Pass;
         }
         return UiResult::Pass;
@@ -5257,13 +5217,13 @@ UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& targe
                     return UiResult::Pass;
                 }
 
-                SetTooltipSubject(4, slot);
+                SetTooltipSubject(W8_HIGHLIGHT_VITALS, slot);
                 if (!IsLeftButtonHeld()) {
                     return UiResult::Pass;
                 }
                 g_level_block->portrait_overlay_party_slot = slot;
             } else {
-                SetTooltipSubject(4, -1);
+                SetTooltipSubject(W8_HIGHLIGHT_VITALS, -1);
                 if (g_level_block->portrait_overlay_party_slot == -1) {
                     return UiResult::Pass;
                 }
@@ -5924,81 +5884,25 @@ static void ApplyPendingMouselook(void)
    redraw them), then park the pending subject on the slot its kind selects. */
 void ApplyPendingTooltip(void)
 {
-    bool refresh_formation = false;
-
-    if (!g_level_block->tooltip_pending) {
+    if (!g_level_block->tooltip_pending || w8_get_ticks() - g_level_block->tooltip_since < 0x33) {
         return;
     }
-    if (w8_get_ticks() - g_level_block->tooltip_since < 0x33) {
-        return;
+    const W8PortraitHighlight previous = std::exchange(g_level_block->highlight, {});
+    const W8PortraitHighlight next =
+        std::exchange(g_level_block->pending_highlight, W8PortraitHighlight{});
+    g_level_block->tooltip_pending = false;
+    if (previous.slot != -1 &&
+        (!previous.IsFormation() || g_current_screen_state.id == W8_SCREEN_MAIN_GAME)) {
+        RequestRedraw(1u << (previous.slot & 0x1f));
     }
-    if (g_level_block->highlight_override != -1) {
-        RequestRedraw(1u << (g_level_block->highlight_override & 0x1f));
-        g_level_block->highlight_override = -1;
+    if (next.slot != -1) {
+        RequestRedraw(1u << (next.slot & 0x1f));
+        g_level_block->highlight = next;
     }
-    if (g_level_block->condition_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->condition_hover_party_slot & 0x1f));
-        g_level_block->condition_hover_party_slot = -1;
-    }
-    if (g_level_block->enchantment_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->enchantment_hover_party_slot & 0x1f));
-        g_level_block->enchantment_hover_party_slot = -1;
-    }
-    if (g_level_block->name_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->name_hover_party_slot & 0x1f));
-        g_level_block->name_hover_party_slot = -1;
-    }
-    if (g_level_block->vitals_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->vitals_hover_party_slot & 0x1f));
-        g_level_block->vitals_hover_party_slot = -1;
-    }
-    if (g_level_block->assay_hover_party_slot != -1) {
-        RequestRedraw(1u << (g_level_block->assay_hover_party_slot & 0x1f));
-        g_level_block->assay_hover_party_slot = -1;
-    }
-    if (g_level_block->formation_highlight_party_slot != -1) {
-        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
-            RequestRedraw(1u << (g_level_block->formation_highlight_party_slot & 0x1f));
-        }
-        g_level_block->formation_highlight_party_slot = -1;
-        refresh_formation = true;
-    }
-    if (g_level_block->tooltip_subject != -1) {
-        RequestRedraw(1u << (g_level_block->tooltip_subject & 0x1f));
-        switch (g_level_block->tooltip_kind) {
-        case 0:
-            g_level_block->highlight_override = g_level_block->tooltip_subject;
-            break;
-        case 1:
-            g_level_block->condition_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 2:
-            g_level_block->enchantment_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 3:
-            g_level_block->name_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 4:
-            g_level_block->vitals_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 5:
-            g_level_block->assay_hover_party_slot = g_level_block->tooltip_subject;
-            break;
-        case 6:
-            g_level_block->formation_highlight_party_slot = g_level_block->tooltip_subject;
-            refresh_formation = true;
-            break;
-        case 7:
-            g_level_block->formation_highlight_party_slot = g_level_block->tooltip_subject;
-            break;
-        }
-    }
-    if (refresh_formation) {
+    if ((previous.slot != -1 && previous.IsFormation()) ||
+        (next.slot != -1 && next.kind == W8_HIGHLIGHT_FORMATION_BOARD)) {
         RefreshFormationBoard();
     }
-    g_level_block->tooltip_pending = false;
-    g_level_block->tooltip_subject = -1;
-    g_level_block->tooltip_kind = -1;
 }
 
 static void PositionSelectionToolTip(SDL_Point point)
@@ -6704,10 +6608,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
 /* The viewport mode the screen falls back to after a raised overlay drops:
    full-3d while every overlay flag is clear and no main-game mode override is
    set, the plain mode when any of the board, radar or combat latches is still
-   down, and otherwise the override field's own mapping.
-   Retail expands this body (sign-extending the short result) in the
-   radar/action-panel/formation-board setters and in SyncMainGameModeRegions
-   and calls it elsewhere in this unit. All consumers use this canonical helper. */
+   down, and otherwise the override field's own mapping. */
 short GetMainGameViewportMode(void)
 {
     if (!gXStatus.fSpellCastMode && (!gXStatus.fNpcDialogueMode || CanOpenNpcDialogue()) &&

@@ -10,7 +10,7 @@ extern W8MainUiMode g_use_item_select_return_mode;
 extern W8ItemInstance* g_use_item_selected;
 extern W8ItemInstance* g_use_item_select_override_item;
 
-void EnableUseItemSelectInput();
+void SetUseItemSelectInputEnabled(bool enabled);
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Text-box body callback while use-item select is active. */

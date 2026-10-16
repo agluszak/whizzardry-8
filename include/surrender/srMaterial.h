@@ -5,7 +5,7 @@
 #include "srVertexPipe.h"
 
 // VTABLE: SURRENDER 0x10075538 srMaterial
-class SR_DLL_IMPORT srMaterial : public srMaterialIFace {
+class srMaterial : public srMaterialIFace {
 public:
     /* Bit indices, not masks. */
     enum e_oper {

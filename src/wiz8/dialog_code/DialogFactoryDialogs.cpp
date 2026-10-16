@@ -32,7 +32,6 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -1051,7 +1050,7 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         }
         W8WorldItem* world_item = entries[item_index].item;
         W8ItemInstance* item = &world_item->item;
-        DrawSprite(target, g_item_video_objects.Sprites(item->iItemNo), 0, button->Bounds().x + 2,
+        DrawSprite(target, *ItemSprites(item->iItemNo), 0, button->Bounds().x + 2,
                    button->Bounds().y + 2);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);

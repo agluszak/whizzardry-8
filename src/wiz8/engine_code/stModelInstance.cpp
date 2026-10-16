@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
+
 #include "AnimRep.hpp"
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
@@ -57,7 +59,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
             for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
                 auto* animation = dynamic_cast<stTextureAnim*>(textures[polygon].get());
                 if (animation != nullptr &&
-                    _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
+                    SDL_strncasecmp(animation->getName().c_str(), "mouth", 5) == 0) {
                     return animation;
                 }
             }
@@ -160,7 +162,7 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
                 continue;
             }
 
-            if (_stricmp(texture->getName().c_str(), old_name) == 0) {
+            if (SDL_strcasecmp(texture->getName().c_str(), old_name) == 0) {
                 replaced = true;
                 while (polygon < mesh->polygon_count && textures[polygon].get() == texture) {
                     textures[polygon] = replacement;
@@ -522,7 +524,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || first_pass) {
                 if (mesh.poly_textures[0][0] != 0 ||
                     ((mesh.textures[0][0] != 0) &&
-                     (_strnicmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
+                     (SDL_strncasecmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
                     g_vertex_scratch.resize(mesh.vertex_count);
 
                     std::span<const glm::vec3> poly_normals;

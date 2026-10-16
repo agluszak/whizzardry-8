@@ -6,7 +6,6 @@ struct srBoundingBox;
 #include <memory>
 #include <span>
 
-#include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 
 class W8Monster;
@@ -93,4 +92,4 @@ void WorldRemoveLight(W8World* world, stLight* light); /* 0x0046E250 */
 void DestroyWorldLights(W8World* world);
 void DetachWorldItemMeshes(W8World* world);
 extern W8GameData* g_octree_game_data;
-void __stdcall SetOctreeGameData(W8GameData* value); /* 0x0046D7D0 */
+void SetOctreeGameData(W8GameData* value); /* 0x0046D7D0 */
