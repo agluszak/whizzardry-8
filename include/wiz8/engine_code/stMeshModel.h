@@ -15,7 +15,7 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMeshModel.h"
 
-class srTextureIFace;
+class srTexture;
 
 /* Engine Code\stMeshModel.cpp. Compressed frame bytes retain their asset format;
    float caches and render scratch are owned independently of the base mesh. */
@@ -64,7 +64,7 @@ public:
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
-    std::shared_ptr<srTextureIFace>* GetTextureTable(int table); /* 0x00473720 */
+    std::shared_ptr<srTexture>* GetTextureTable(int table); /* 0x00473720 */
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin or automap filter is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
@@ -145,7 +145,7 @@ public:
     struct Skin {
         int id;
         std::string name;
-        std::vector<std::shared_ptr<srTextureIFace>> textures;
+        std::vector<std::shared_ptr<srTexture>> textures;
         // An absent selection draws all polygons; an engaged empty selection
         // draws none. The checked bit distinguishes that from a pending scan.
         std::optional<std::vector<w8_ulong>> active_polygons;

@@ -19,8 +19,7 @@
 #include "surrender/lighting_math.h"
 #include "surrender/srARGB.h"
 #include "surrender/srBoundingSphere.h"
-#include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
-#include "surrender/srMaterialIFace.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
@@ -183,7 +182,7 @@ void srVertexPipe::processVertexBuffer()
 }
 
 // FUNCTION: SURRENDER 0x1002AE90
-void srVertexPipe::setMaterial(srMaterialIFace* material)
+void srVertexPipe::setMaterial(srMaterial* material)
 {
     if (material == 0) {
         material = &default_material;
@@ -239,11 +238,11 @@ void srVertexPipe::process(const Input& input)
                 setMaterial(record->material);
                 processVertexBuffer();
             } else {
-                srMaterialIFace* material = record->materials[avt[0]].get();
+                srMaterial* material = record->materials[avt[0]].get();
                 setMaterial(material);
                 sub_batch_offset = 0;
                 while (sub_batch_offset < batch_count) {
-                    srMaterialIFace* next = record->materials[avt[sub_batch_offset]].get();
+                    srMaterial* next = record->materials[avt[sub_batch_offset]].get();
                     if (next != material) {
                         setMaterial(next);
                         material = next;

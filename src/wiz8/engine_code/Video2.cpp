@@ -36,7 +36,7 @@
 #include "layouts/world.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/surface_storage.h"
@@ -52,8 +52,8 @@
 #include "image.h"
 #include "input.h"
 #include "sprite.h"
+#include "surrender/SDLGPUDevice.h"
 #include "surrender/srCamera.h"
-#include "surrender/srDD.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srMaterial.h"
@@ -61,8 +61,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
-#include "surrender/srTexture.h"
-#include "surrender/srTextureMap.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
@@ -456,7 +454,7 @@ try {
         }
     }
 
-    g_gerd = std::make_unique<srGERD>(W8CreateNativeRenderDevice());
+    g_gerd = std::make_unique<srGERD>();
 
     if (g_gerd->createContext(ghWindow) != srGERD::ERROR_NONE || !OpenRendererWindow()) {
         g_gerd.reset();
@@ -749,7 +747,7 @@ void RenderFrame(void)
         w8_ulong width = g_gerd->getWidth();
         const auto rect = ToSurfaceRect(g_viewport, width, height);
         g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-        g_gerd->clear(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH);
+        g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
         g_gerd->setScissor(0, 0, width, height);
     }
     }
@@ -888,7 +886,7 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
     if (g_inverted_depth_render) {
         gerd->setClearDepth(0.0);
     }
-    gerd->clear(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH);
+    gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
     if (render_secondary && g_render_mesh_sky && g_secondary_world != 0) {
         g_secondary_world->static_scene->render(*gerd, g_secondary_world->camera);
     }
@@ -1016,18 +1014,15 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<SDL_Surface> s
     if (!surface) {
         shader.value &= ~srShader::MASK_TEXTURING;
     } else {
-        auto texture = std::make_shared<srTextureMap>();
+        auto texture = std::make_shared<srTexture>();
         texture->setName("Video2DMakePolygonBrush");
         texture->setSurfacePtr(surface);
-        texture->setCorrection(srTextureIFace::CORRECTION_FASTEST);
-        texture->setMagFilter(srTextureIFace::FILTER_BEST);
-        texture->setMinFilter(srTextureIFace::FILTER_BEST);
-        texture->setMipmap(srTextureIFace::MIPMAP_NONE);
-        texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-        texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-        texture->enableHint(overlay ? srTextureIFace::HINT_ONE_BIT_ALPHA
-                                    : srTextureIFace::HINT_NO_ALPHA);
-        texture->enableHint(srTextureIFace::HINT_NO_MIPMAPS);
+        texture->setMagFilter(srTexture::FILTER_BEST);
+        texture->setMinFilter(srTexture::FILTER_BEST);
+        texture->setMipmap(srTexture::MIPMAP_NONE);
+        texture->setWrapS(srTexture::WRAP_CLAMP);
+        texture->setWrapT(srTexture::WRAP_CLAMP);
+
         model->setMaterial(g_blit_material, 0, srMeshModel::SIDE_FRONT);
         model->setTexture(std::move(texture), 0, 0);
     }
@@ -1042,7 +1037,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<SDL_Surface> s
 }
 
 // FUNCTION: WIZ8 0x00425190
-stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width,
+stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, double width,
                                            double height, bool keep_aspect, bool overlay)
 {
     srShader shader;
@@ -1133,8 +1128,8 @@ bool ResizeMouseCursorSurface(int width, int height)
     g_cursor_model->setSortBias(-100000.0f);
     g_cursor_model->setName("Mouse Cursor Mesh");
     g_cursor_texture = std::static_pointer_cast<srTexture>(g_cursor_model->textures[0][0]);
-    g_cursor_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-    g_cursor_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
+    g_cursor_texture->setWrapS(srTexture::WRAP_CLAMP);
+    g_cursor_texture->setWrapT(srTexture::WRAP_CLAMP);
     return true;
 }
 
@@ -1365,8 +1360,8 @@ unsigned char InitializeMouseCursorScene(void)
         g_cursor_model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
         g_cursor_model->setSortBias(-100000.0f);
         g_cursor_texture = std::static_pointer_cast<srTexture>(g_cursor_model->textures[0][0]);
-        g_cursor_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-        g_cursor_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
+        g_cursor_texture->setWrapS(srTexture::WRAP_CLAMP);
+        g_cursor_texture->setWrapT(srTexture::WRAP_CLAMP);
         PositionMouseCursor(640, 480, true);
     }
     return 1;
@@ -1591,19 +1586,12 @@ void VideoRemoveToolTip(void)
 srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
                         bool additive)
 {
-    srTextureIFace::e_hint hint;
-    auto texture = std::make_shared<srTextureMap>();
+    auto texture = std::make_shared<srTexture>();
     texture->setMipmapBias(-8.0f);
     texture->setName("VideoMakePoster");
     texture->setSurfacePtr(surface);
-    texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-    texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-    if (!additive) {
-        hint = srTextureIFace::HINT_NO_ALPHA;
-    } else {
-        hint = srTextureIFace::HINT_ONE_BIT_ALPHA;
-    }
-    texture->enableHint(hint);
+    texture->setWrapS(srTexture::WRAP_CLAMP);
+    texture->setWrapT(srTexture::WRAP_CLAMP);
     return MakePosterQuad(std::move(texture), width, height, additive);
 }
 
@@ -1843,7 +1831,7 @@ void SetRendererModePair(void)
 /* Install a texture (often an stTextureAnim) on the mouse-cursor mesh. A null
    argument reuses the current cursor texture. */
 // FUNCTION: WIZ8 0x00429170
-void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture)
+void SetMouseCursorTexture(std::shared_ptr<srTexture> texture)
 {
     if (texture == 0) {
         texture = g_cursor_texture;
@@ -2486,19 +2474,17 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
             }
             SDL_FillSurfaceRect(surface.get(), nullptr, 0);
             if (BlitVideoObjectToColorSurface(sprites, frame, *surface, 0, 0)) {
-                auto texture = std::make_shared<srTextureMap>();
+                auto texture = std::make_shared<srTexture>();
                 texture->setName("VideoVObjecttoTextureAnim");
                 texture->setMipmapBias(-8.0f);
                 texture->setSurfacePtr(surface);
-                texture->setCorrection(srTextureIFace::CORRECTION_FASTEST);
-                texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-                texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-                texture->setMagFilter(srTextureIFace::FILTER_NONE);
-                texture->setMinFilter(srTextureIFace::FILTER_NONE);
-                texture->enableHint(srTextureIFace::HINT_NO_MIPMAPS);
-                texture->setMipmap(srTextureIFace::MIPMAP_NONE);
-                texture->enableHint(use_argb1555 ? srTextureIFace::HINT_ONE_BIT_ALPHA
-                                                 : srTextureIFace::HINT_NO_ALPHA);
+                texture->setWrapS(srTexture::WRAP_CLAMP);
+                texture->setWrapT(srTexture::WRAP_CLAMP);
+                texture->setMagFilter(srTexture::FILTER_NONE);
+                texture->setMinFilter(srTexture::FILTER_NONE);
+
+                texture->setMipmap(srTexture::MIPMAP_NONE);
+
                 animation->AddTexture(std::move(texture));
             }
         }
@@ -2535,7 +2521,7 @@ void BeginRenderProbe(void)
     g_gerd->setAmbientLight(1.0f, 1.0f, 1.0f, 1.0f);
     g_gerd->beginFrame();
     g_gerd->setScissor(0, 0, g_gerd->getWidth(), g_gerd->getHeight());
-    g_gerd->clear(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH);
+    g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
     g_gerd->endFrame();
 }
 
@@ -2570,11 +2556,10 @@ void EndRenderProbe(void)
 }
 
 // FUNCTION: WIZ8 0x00424BA0
-srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
-                       bool additive)
+srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float height, bool additive)
 {
     srShader shader;
-    srTextureIFace::Dimensions dimensions;
+    srTexture::Dimensions dimensions;
     dimensions.width = 64;
     dimensions.height = 64;
 

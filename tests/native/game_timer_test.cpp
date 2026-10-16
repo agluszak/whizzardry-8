@@ -3,7 +3,6 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
@@ -136,7 +135,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
 TEST_CASE_METHOD(TimerFixture, "Renderer statistics measure elapsed seconds without a clock owner",
                  "[timers][renderer]")
 {
-    srGERD renderer(srCreateSDLGPUDevice());
+    srGERD renderer;
     renderer.resetStatistics();
     advance(250'000);
     REQUIRE(renderer.getStatistics().elapsed == Catch::Approx(0.25));

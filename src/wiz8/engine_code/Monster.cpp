@@ -57,7 +57,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "texture_animation.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
@@ -5014,8 +5014,8 @@ void W8Monster::ApplyRepresentationScale()
 W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
 {
     auto texture = std::make_shared<stTextureFile>(path, 0);
-    texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-    texture->setWrapT(srTextureIFace::WRAP_CLAMP);
+    texture->setWrapS(srTexture::WRAP_CLAMP);
+    texture->setWrapT(srTexture::WRAP_CLAMP);
     texture->loadSurface();
     auto* instance = static_cast<stModelInstance*>(MakePosterQuad(texture, 500.0f, 0.0f, true));
     const glm::vec3 offset(0.0f, 250.0f, 0.0f);

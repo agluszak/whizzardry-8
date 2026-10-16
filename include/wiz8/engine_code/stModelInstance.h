@@ -16,7 +16,7 @@
 class srGERD;
 class srMaterial;
 class stMaterial;
-class srTextureIFace;
+class srTexture;
 class stTextureAnim;
 class srNode;
 
@@ -46,7 +46,7 @@ public:
     int AddExistingDamageStage(const char* name);
     int FindDamageStage(const char* name);
     unsigned char ReplaceDamageStageTexture(int stage, const char* old_name,
-                                            const std::shared_ptr<srTextureIFace>& replacement);
+                                            const std::shared_ptr<srTexture>& replacement);
 
 public:
     w8_ulong overlay_scene_flag;

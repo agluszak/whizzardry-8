@@ -10,30 +10,18 @@
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/texture_animation.h"
 
-class srMaterialIFace;
+class srMaterial;
 class srMeshModel;
 class srModelInstance;
 class srTexture;
-class srTextureIFace;
+class srTexture;
 class stTextureAnim;
 template<class T> class ResourceCache;
 
 /* Combinable flags in level materials; distinct from srShader's packed word. */
 enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
 
-/* The materials.cpp assertions name the pointer ppstMaterial. The constructor
-   at 0x004925B0 has unresolved TU ownership and registers the class with
-   SurRender's registry under the literal "stMaterial" and the class id
-   0x10002, whose parent chain the same body spells out: srMaterialIFace
-   0x2200, then srMaterial 0x2210, then this. So the name is the original's
-   own, not a descriptive one.
-
-   The vtable at 0x005ECB6C lines up with srMaterial's slot for slot: slots 3,
-   4, 6 and 8 through 12 are import thunks into SR.DLL, and the four overridden
-   here plus the destructor are the five SurRender does not export. The object
-   is 0x7C bytes, which is what the constructor's callers allocate through
-   srHeap, and the only field past srMaterial's extent is at 0x78. */
-// VTABLE: WIZ8 0x005ECB38 stMaterial
+// Applies the game's per-draw material overrides before CPU lighting.
 class stMaterial : public srMaterial {
 public:
     stMaterial();
@@ -89,8 +77,8 @@ extern ResourceCache<stTextureAnim> g_texture_animations;
 
 /* A level material's shared render state. */
 struct W8MeshMaterial {
-    std::shared_ptr<srMaterialIFace> material;
-    std::shared_ptr<srTextureIFace> texture;
+    std::shared_ptr<srMaterial> material;
+    std::shared_ptr<srTexture> texture;
     srShader render_flags;
 };
 
@@ -104,8 +92,8 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame);
 stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance);
 
 W8MeshMaterial CreateDefaultMaterial();
-std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
-                                                    const W8MaterialRecord* source, bool required);
+std::shared_ptr<srTexture> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
+                                               bool required);
 
 struct W8OctPreTreeVertex;
 struct W8OctRegionPolygon;

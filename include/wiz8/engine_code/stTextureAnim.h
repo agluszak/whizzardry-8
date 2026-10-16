@@ -5,7 +5,6 @@
 
 #include "compat/compiler.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTextureIFace.h"
 #include "wiz8/texture_animation.h"
 
 enum W8TextureTriggerMode {
@@ -19,16 +18,11 @@ public:
     stTextureAnim();                           /* 0x00484BE0 */
     stTextureAnim(const stTextureAnim& other); /* 0x00485070 */
 
-    virtual w8_ulong getTextureFrameHandle() override;               /* 0x004856F0 */
-    Dimensions getDimensions() override;          /* 0x00484D80 */
-    virtual void getMipmapData(const MultiRequest& request) override;           /* 0x00484DB0 */
-    virtual void getMipmapLevelPartial(PartialRequest& request) override; /* 0x00484DE0 */
-    Parameters getParameters() override;        /* 0x00484E10 */
-    virtual const char* getTextureName() override;                        /* 0x00484E40 */
+    srTexture* resolve() override;               /* 0x004856F0 */
     virtual void invalidate() override;                                   /* 0x004023A0 */
 
     void SetFrame(int frame);
-    void AddTexture(std::shared_ptr<srTextureIFace> texture);
+    void AddTexture(std::shared_ptr<srTexture> texture);
     int IsFinished() const;
     unsigned char Prepare();
     virtual void setupDefaultValues() override; /* 0x00485760 */
@@ -37,7 +31,7 @@ public:
     stTextureAnim& operator=(const stTextureAnim&) = default;
     void UpdateFrame();
 
-    std::vector<std::shared_ptr<srTextureIFace>> textures;
+    std::vector<std::shared_ptr<srTexture>> textures;
     int frame = 0;
     int direction = 1;
     W8TextureAnimationMode animation_mode = W8_TEXTURE_ANIM_LOOP;
@@ -49,5 +43,5 @@ public:
     bool running = false;
 
 private:
-    srTextureIFace& current() { return *textures[frame]; }
+    srTexture& current() { return *textures[frame]; }
 };

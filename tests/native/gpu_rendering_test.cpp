@@ -2,42 +2,45 @@
 #include <cstring>
 #include <memory>
 
+#include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
+#include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
-#include "surrender/srDD.h"
-#include "surrender/srDD_SDLGPU.h"
+#include "surrender/SDLGPUDevice.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 
 namespace {
 struct Fixture {
-    std::unique_ptr<srDD> device;
+    std::unique_ptr<SDLGPUDevice> device;
     Fixture()
     {
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         REQUIRE(SDL_Init(SDL_INIT_VIDEO));
-        device.reset(srCreateSDLGPUDevice());
+        device = std::make_unique<SDLGPUDevice>();
         REQUIRE(device->createContext(nullptr));
         REQUIRE(device->openWindow(64, 64));
         device->setProjectionMatrix(glm::mat4(1));
         device->setClearValues({{0, 0, 0, 1}, 1, 0});
-        device->clearBuffers(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH);
+        device->clearBuffers(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
     }
     ~Fixture()
     {
         device.reset();
         SDL_Quit();
     }
-    void triangle(float depth, const std::array<float, 4>& color, float u = 0, float v = 0)
+    void triangle(float depth, const std::array<float, 4>& color, float u = 0, float v = 0,
+                  float weight = 1)
     {
         const float positions[]{-1, -1, depth, 1, 3, -1, depth, 1, -1, 3, depth, 1};
         const float uv[]{u, v, 1, u, v, 1, u, v, 1};
         const std::array colors{color, color, color};
+        const std::array weights{weight, weight, weight};
         srRendererDefs::VertexArrayInfo arrays{};
         arrays.mask = (1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
                       (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE) |
@@ -47,6 +50,7 @@ struct Fixture {
         arrays.arrays[0] = positions;
         arrays.arrays[1] = colors.data();
         arrays.arrays[4] = uv;
+        arrays.texture_weights[0] = weights.data();
         device->setVertexArrayInfo(&arrays);
         device->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
     }
@@ -92,13 +96,16 @@ TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
                    srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     // U clamps to the green column, V repeats into the top row.
-    fixture.device->setTextureParameters(0, {(1 << 4) | (1 << 6) | (1 << 10), 0});
+    fixture.device->setTextureParameters(0, {.wrap_s = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE});
     fixture.triangle(0, {1, 1, 1, 1}, 1.25f, 1.25f);
     // Change the live state before queued commands are replayed.
-    fixture.device->setTextureParameters(0, {(1 << 4) | (1 << 6) | (1 << 12), 0});
+    fixture.device->setTextureParameters(0, {.wrap_t = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE});
     REQUIRE(fixture.pixel() == 0x00ff00);
     fixture.triangle(0, {1, 1, 1, 1}, 1.25f, 1.25f);
     REQUIRE(fixture.pixel() == 0x0000ff);
+    // Separate Q weights must survive submission and perspective texture division.
+    fixture.triangle(0, {1, 1, 1, 1}, 0.75f, 0.25f, 2.0f);
+    REQUIRE(fixture.pixel() == 0xff0000);
     fixture.device->deleteTexture(texture);
 }
 
@@ -118,7 +125,7 @@ TEST_CASE("Texture uploads copy pitched regions before CPU storage changes and d
         {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 24);
     pixels.fill(0xff0000ff);
     fixture.device->bindTexture(0, texture);
-    fixture.device->setTextureParameters(0, {(1 << 4) | (1 << 6), 0});
+    fixture.device->setTextureParameters(0, {});
     srShader shader;
     shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
                    srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
@@ -138,4 +145,69 @@ TEST_CASE("SDL framebuffer edits upload only when explicitly marked modified")
     REQUIRE(SDL_FillSurfaceRect(surface, &pixel, 0xffffffff));
     fixture.device->unlockBuffer(true);
     REQUIRE(fixture.pixel() == 0xffffff);
+}
+
+TEST_CASE("Indexed draws reuse corners and snapshot mutable source streams")
+{
+    Fixture fixture;
+    const std::array<std::array<float, 4>, 4> positions{
+        {{-1, -1, 0, 1}, {-1, 1, 0, 1}, {1, -1, 0, 1}, {1, 1, 0, 1}}};
+    std::array<std::array<float, 4>, 4> colors;
+    colors.fill({1, 0, 0, 1});
+    const std::array<w8_ulong, 6> indices{0, 1, 2, 2, 1, 3};
+    srRendererDefs::VertexArrayInfo arrays{};
+    arrays.mask =
+        (1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) | (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE);
+    arrays.components[0] = arrays.components[1] = 4;
+    arrays.arrays[0] = positions.data();
+    arrays.arrays[1] = colors.data();
+    fixture.device->setVertexArrayInfo(&arrays);
+    srShader shader;
+    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    fixture.device->setShader(shader);
+    fixture.device->setScissor({0, 0, 32, 64});
+    fixture.device->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES, indices);
+    colors.fill({0, 0, 1, 1});
+    fixture.device->setScissor({32, 0, 64, 64});
+    fixture.device->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES, indices);
+    auto* surface = fixture.device->lockBuffer();
+    unsigned left = 0, right = 0;
+    const auto* row = static_cast<const unsigned char*>(surface->pixels) + 32 * surface->pitch;
+    std::memcpy(&left, row + 16 * 4, 4);
+    std::memcpy(&right, row + 48 * 4, 4);
+    fixture.device->unlockBuffer();
+    REQUIRE((left & 0xffffff) == 0xff0000);
+    REQUIRE((right & 0xffffff) == 0x0000ff);
+}
+
+TEST_CASE("Texture updates preserve pixels sampled by earlier queued draws")
+{
+    Fixture fixture;
+    auto texture = fixture.device->createTexture(1, 1, 1);
+    const auto update = [&](unsigned pixel) {
+        fixture.device->uploadTexture(
+            texture, 0, {0, 0, 1, 1},
+            {reinterpret_cast<const unsigned char*>(&pixel), sizeof(pixel)}, sizeof(pixel));
+    };
+    update(0xffff0000);
+    fixture.device->bindTexture(0, texture);
+    srShader shader;
+    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
+                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    fixture.device->setShader(shader);
+    fixture.device->setScissor({0, 0, 32, 64});
+    fixture.triangle(0, {1, 1, 1, 1});
+    update(0xff00ff00);
+    fixture.device->setScissor({32, 0, 64, 64});
+    fixture.triangle(0, {1, 1, 1, 1});
+    auto* surface = fixture.device->lockBuffer();
+    unsigned left = 0, right = 0;
+    const auto* row = static_cast<const unsigned char*>(surface->pixels) + 32 * surface->pitch;
+    std::memcpy(&left, row + 16 * 4, 4);
+    std::memcpy(&right, row + 48 * 4, 4);
+    fixture.device->unlockBuffer();
+    REQUIRE((left & 0xffffff) == 0xff0000);
+    REQUIRE((right & 0xffffff) == 0x00ff00);
+    fixture.device->deleteTexture(texture);
 }

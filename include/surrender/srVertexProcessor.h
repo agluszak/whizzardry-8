@@ -3,7 +3,7 @@
 #include "srMath.h"
 #include "srShader.h"
 
-class srMaterialIFace;
+class srMaterial;
 class srVertexPipe;
 
 struct srVertexArray {

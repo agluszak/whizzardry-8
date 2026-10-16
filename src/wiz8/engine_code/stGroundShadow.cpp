@@ -18,7 +18,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTextureIFace.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/engine_code/Octree.h"
@@ -92,9 +91,9 @@ stGroundShadow::stGroundShadow(srNode* parent) : srNode(static_cast<srNode*>(0))
     if (g_ground_shadow_texture == 0) {
         g_ground_shadow_texture =
             LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "Shadow.tga", true);
-        g_ground_shadow_texture->setMipmap(srTextureIFace::MIPMAP_NONE);
-        g_ground_shadow_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
-        g_ground_shadow_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
+        g_ground_shadow_texture->setMipmap(srTexture::MIPMAP_NONE);
+        g_ground_shadow_texture->setWrapS(srTexture::WRAP_CLAMP);
+        g_ground_shadow_texture->setWrapT(srTexture::WRAP_CLAMP);
 
         g_ground_shadow_material = std::make_shared<srMaterial>();
         g_ground_shadow_material->setMapper(&g_ground_shadow_material_parameters);

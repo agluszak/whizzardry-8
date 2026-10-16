@@ -73,8 +73,8 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
 
-class srMaterialIFace;
-class srTextureIFace;
+class srMaterial;
+class srTexture;
 
 // GLOBAL: WIZ8 0x00652da8
 unsigned int* g_level_flags;
@@ -1243,10 +1243,10 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
     }
     mesh->flags &= ~W8_MESH_SORTED_RENDERING;
     glm::ivec3* poly_vertices = mesh->getPolyVertex();
-    std::shared_ptr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTexture>* poly_textures = mesh->getPolyTexture(0, 0, 1);
     glm::vec3* vertex_locs = mesh->getVertexLoc();
     glm::vec2* texcoords = mesh->getVertexTexCoords(0, 0, 1);
-    std::shared_ptr<srMaterialIFace>* vertex_materials =
+    std::shared_ptr<srMaterial>* vertex_materials =
         mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = mesh->getVertexShadeIndex(1);
     int vertex = 0;

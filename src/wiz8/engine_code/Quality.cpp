@@ -4,7 +4,7 @@
 #include <exception>
 
 #include "surrender/srGERD.h"
-#include "surrender/srTextureIFace.h"
+#include "surrender/srTexture.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
 
@@ -55,16 +55,15 @@ void SetRenderOption(W8RenderOption option, int enabled)
         g_render_missile_lights = enabled != 0;
         break;
     case W8_RENDER_OPTION_TEXTURE_MAG_FILTER:
-        g_gerd->setTextureDefaultMagFilter(enabled ? srTextureIFace::FILTER_BEST
-                                                   : srTextureIFace::FILTER_NONE);
+        g_gerd->setTextureDefaultMagFilter(enabled ? srTexture::FILTER_BEST
+                                                   : srTexture::FILTER_NONE);
         break;
     case W8_RENDER_OPTION_TEXTURE_MIN_FILTER:
-        g_gerd->setTextureDefaultMinFilter(enabled ? srTextureIFace::FILTER_BEST
-                                                   : srTextureIFace::FILTER_NONE);
+        g_gerd->setTextureDefaultMinFilter(enabled ? srTexture::FILTER_BEST
+                                                   : srTexture::FILTER_NONE);
         break;
     case W8_RENDER_OPTION_MIP_MAPPING:
-        g_gerd->setTextureDefaultMipmap(enabled ? srTextureIFace::MIPMAP_BEST
-                                                : srTextureIFace::MIPMAP_NONE);
+        g_gerd->setTextureDefaultMipmap(enabled ? srTexture::MIPMAP_BEST : srTexture::MIPMAP_NONE);
         break;
     case W8_RENDER_OPTION_MESH_SKY:
         g_render_mesh_sky = enabled != 0;
