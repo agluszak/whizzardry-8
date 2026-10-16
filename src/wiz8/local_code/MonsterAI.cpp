@@ -19,7 +19,6 @@
 #include "random.h"
 #include "sight_state.h"
 #include "surrender/srDebug.h"
-#include "wiz8/application.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/3d.h"
