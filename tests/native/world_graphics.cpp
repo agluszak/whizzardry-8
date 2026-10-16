@@ -91,12 +91,17 @@ TEST_CASE("world graphics")
     std::string temporary;
     bool have_user_directory = false;
 
-    REQUIRE(character_name); // Character basename under installed Saves/Characters.
+    REQUIRE(
+        character_name); // Host path to a character fixture to install in the temporary user root.
     temporary = make_temporary_directory("wiz8-world");
     have_user_directory = true;
     auto roots = w8_native::path_roots();
     roots.user = temporary;
     w8_native::configure_paths(roots);
+    const auto character_file = std::filesystem::path(character_name);
+    wiz8::create_directory(wiz8::user_path("saves/characters"));
+    std::filesystem::copy_file(character_file,
+                               wiz8::user_path("saves/characters") / character_file.filename());
     wiz8::create_directory(wiz8::user_path("config"));
     auto config = wiz8::open_file(wiz8::user_path("config/3dvideo.cfg"), wiz8::OpenMode::replace);
     const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
@@ -107,7 +112,7 @@ TEST_CASE("world graphics")
     application = std::make_unique<wiz8::Application>(arguments);
     ResetForNewGame();
     W8Character character{};
-    REQUIRE(LoadCharacter(character_name, &character, -1));
+    REQUIRE(LoadCharacter(character_file.filename().string(), &character, -1));
     REQUIRE(AddCharacterToParty(character, -1) == 2);
     RunNewGameOpeningSequence(false, {});
     // Bypass only the opening movie; use the normal new-game loading screen.
