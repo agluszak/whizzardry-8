@@ -1,16 +1,20 @@
 #include "wiz8/engine_code/Trigger.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <iterator>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <source_location>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,6 +41,7 @@
 #include "surrender/srCamera.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMath.h"
+#include "wiz8/chunk.h"
 #include "wiz8/containers.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -109,12 +114,14 @@ bool g_trigger_action_active;
 glm::vec3 g_trigger_action_scene_offset;
 // GLOBAL: WIZ8 0x00659908
 static char g_trigger_parse_buffer[0x88];
-// GLOBAL: WIZ8 0x006598E0
-std::vector<int> g_location_variable_levels;
-// GLOBAL: WIZ8 0x006598F8
-std::vector<char*> g_location_variable_names;
-// GLOBAL: WIZ8 0x00659990
-std::vector<int> g_location_variable_values;
+namespace {
+struct LocationVariable {
+    std::string name;
+    int value;
+    int level;
+};
+std::vector<LocationVariable> location_variables;
+}
 
 // GLOBAL: WIZ8 0x00606994
 bool g_trigger_feedback = true;
@@ -1182,29 +1189,12 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
     }
 }
 
-/* Set a location variable by name when it belongs to the current level. An
-   unknown name fails the lookup assertion; the value only lands while the
-   value list still covers the found index. */
 // FUNCTION: WIZ8 0x00444030
 void SetTriggerVariableByName(const char* name, int value)
 {
-    int count = static_cast<int>(g_location_variable_names.size());
-    int index;
-
-    for (index = 0; index < count; ++index) {
-        if (SDL_strcasecmp(g_location_variable_names[index], name) == 0 &&
-            g_location_variable_levels[index] == g_status.current_level) {
-            break;
-        }
-    }
-    if (index >= count) {
-        index = -1;
-        srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
-                     0x10c9, 0);
-    }
-    if (index < static_cast<int>(g_location_variable_values.size())) {
-        g_location_variable_values[index] = value;
-    }
+    const int index = GetLocationVarIDByName(name);
+    if (index < 0) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
+    location_variables[index].value = value;
 }
 
 // VTABLE: WIZ8 0x005ec138
@@ -2139,12 +2129,12 @@ void Trigger::CommitActionResult(bool apply_state_changes)
             state_value = 0;
         } else if (state_mod_mode == 3) {
             state_id = FindModifiedLocationVar(m_pacStateToMod, 4317);
-            state_value = g_location_variable_values[state_id] == 0;
+            state_value = location_variables[state_id].value == 0;
             state_id = FindModifiedLocationVar(m_pacStateToMod, 4297);
         } else {
             goto show_action_message;
         }
-        g_location_variable_values[state_id] = state_value;
+        location_variables[state_id].value = state_value;
     }
 
 show_action_message:
@@ -3382,7 +3372,7 @@ bool Trigger::SelectAction()
                 srAssertFail("iVar != BAD_INDEX",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4317, 0);
             }
-            if (g_location_variable_values[state_id] == 0) {
+            if (location_variables[state_id].value == 0) {
                 action = fallback_action;
                 action_state = 4;
                 fallback_selected = true;
@@ -3414,7 +3404,7 @@ bool Trigger::SelectAction()
                     srAssertFail("iVar != BAD_INDEX",
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4317, 0);
                 }
-                if (g_location_variable_values[state_id] == 0) {
+                if (location_variables[state_id].value == 0) {
                     action = fallback_action;
                     action_state = 4;
                     fallback_selected = true;
@@ -3584,147 +3574,88 @@ void DestroyAllWorldTriggers(W8World* world)
 // FUNCTION: WIZ8 0x00444170
 int GetLocationVarIDByName(const char* name)
 {
-    int variable_count = static_cast<int>(g_location_variable_names.size());
-    int variable_id;
-
-    for (variable_id = 0; variable_id < variable_count; ++variable_id) {
-        if (SDL_strcasecmp(g_location_variable_names[variable_id], name) == 0) {
-            if (g_location_variable_levels[variable_id] == g_status.current_level) {
-                return variable_id;
-            }
-        }
-    }
-    return -1;
+    const auto found = std::find_if(location_variables.begin(), location_variables.end(),
+                                    [name](const auto& variable) {
+                                        return variable.level == g_status.current_level &&
+                                               SDL_strcasecmp(variable.name.c_str(), name) == 0;
+                                    });
+    return found == location_variables.end() ? -1
+                                             : static_cast<int>(found - location_variables.begin());
 }
 
-/* Create a location variable for the current level unless one with this name
-   already exists. */
 // FUNCTION: WIZ8 0x00443dc0
 void CreateLocationVar(const char* name, int value)
 {
-    int index;
-    int variable_count;
-    char* copy;
-
-    if (name == 0) {
-        srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1094, 0);
-    }
-    variable_count = static_cast<int>(g_location_variable_names.size());
-    for (index = 0; index < variable_count; ++index) {
-        if (SDL_strcasecmp(g_location_variable_names[index], name) == 0 &&
-            g_location_variable_levels[index] == g_status.current_level) {
-            break;
-        }
-    }
-    if (index == variable_count) {
-        index = -1;
-    }
-    if (index != -1) {
-        return;
-    }
-    copy = new char[strlen(name) + 1];
-    if (copy == 0) {
-        srAssertFail("pacVariableName", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
-                     0x109c, 0);
-    }
-    strcpy(copy, name);
-    g_location_variable_names.push_back(copy);
-    g_location_variable_values.push_back(value);
-    g_location_variable_levels.push_back(g_status.current_level);
+    if (!name) throw std::invalid_argument("null location variable name");
+    if (GetLocationVarIDByName(name) >= 0) return;
+    if (location_variables.size() >= std::numeric_limits<std::int32_t>::max())
+        throw std::length_error("Too many location variables");
+    location_variables.push_back({name, value, g_status.current_level});
 }
 
-/* The current level's value of the named location variable; asserts when the
-   name is unknown. */
 // FUNCTION: WIZ8 0x004440d0
 int GetLocationVarValueByName(const char* name)
 {
-    int index;
-    int variable_count;
-
-    variable_count = static_cast<int>(g_location_variable_names.size());
-    for (index = 0; index < variable_count; ++index) {
-        if (SDL_strcasecmp(g_location_variable_names[index], name) == 0 &&
-            g_location_variable_levels[index] == g_status.current_level) {
-            break;
-        }
-    }
-    if (index == variable_count) {
-        index = -1;
-    }
-    if (index == -1) {
-        srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
-                     0x10dd, 0);
-    }
-    return g_location_variable_values[index];
+    const int index = GetLocationVarIDByName(name);
+    if (index < 0) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
+    return location_variables[index].value;
 }
 
-/* Write the count then each location variable's value, name and level. */
+// Retail records contain a four-byte value, a 128-byte C string, and a four-byte level.
 // FUNCTION: WIZ8 0x004441e0
 void SaveLocationVariables(wiz8::File& handle)
 {
-    const int variable_count = static_cast<int>(g_location_variable_names.size());
-    handle.write(&variable_count, sizeof(variable_count));
-    for (int index = 0; index < variable_count; ++index) {
-        const int value = g_location_variable_values[index];
-        const int level = g_location_variable_levels[index];
+    const auto count = static_cast<std::int32_t>(location_variables.size());
+    handle.write(&count, sizeof(count));
+    for (const auto& variable : location_variables) {
+        const std::int32_t value = variable.value;
+        const std::int32_t level = variable.level;
         handle.write(&value, sizeof(value));
-        handle.write_padded(g_location_variable_names[index], 0x80);
+        handle.write_padded(variable.name, 128);
         handle.write(&level, sizeof(level));
     }
 }
 
-/* Read the location-variable count then each value/name/level record,
-   appending a heap copy of the name to the variable vectors. */
+// Append only after the complete section has been decoded and validated.
 // FUNCTION: WIZ8 0x00444310
-bool LoadLocationVariables(wiz8::File& handle)
+bool LoadLocationVariables(W8Chunk& chunk)
 try {
-    /* Retail read these uninitialised when a FileRead short-circuited; the recovery keeps that
-       read. */
-    int variable_count;
-    int index;
-    bool read_ok;
-
-    read_ok = (handle.read(&variable_count, sizeof(variable_count)).bytes ==
-               static_cast<std::size_t>(sizeof(variable_count))) != 0;
-    for (index = 0; index < variable_count; ++index) {
-        int value;
-        char name[0x80];
-        int level = 0;
-        char* copy;
-
-        if (!read_ok) {
-            break;
-        }
-        read_ok =
-            (handle.read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value))) &&
-            (handle.read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name))) &&
-            (handle.read(&level, sizeof(level)).bytes == static_cast<std::size_t>(sizeof(level)));
-        copy = new char[strlen(name) + 1];
-        if (copy == 0) {
-            srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1143,
-                         0);
-        }
-        strcpy(copy, name);
-        g_location_variable_names.push_back(copy);
-        g_location_variable_values.push_back(value);
-        g_location_variable_levels.push_back(level);
+    std::int32_t count;
+    chunk.ReadBytes(&count, sizeof(count));
+    constexpr std::int64_t record_bytes = 4 + 128 + 4;
+    const auto remaining = chunk.RemainingBytes();
+    if (count < 0 || remaining < 0 || count > remaining / record_bytes ||
+        std::cmp_greater(location_variables.size(),
+                         std::numeric_limits<std::int32_t>::max() - count))
+        return false;
+    std::vector<LocationVariable> loaded;
+    loaded.reserve(count);
+    for (std::int32_t index = 0; index < count; ++index) {
+        std::int32_t value, level;
+        std::array<char, 128> name;
+        chunk.ReadBytes(&value, sizeof(value));
+        chunk.ReadBytes(name.data(), name.size());
+        chunk.ReadBytes(&level, sizeof(level));
+        const auto terminator = std::find(name.begin(), name.end(), '\0');
+        if (terminator == name.end()) return false;
+        loaded.push_back({std::string(name.begin(), terminator), value, level});
     }
-    return read_ok;
+    location_variables.insert(location_variables.end(), std::make_move_iterator(loaded.begin()),
+                              std::make_move_iterator(loaded.end()));
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004445b0
-void ReleaseAllTriggers(void)
+bool HasLocationVariables()
 {
-    int index;
+    return !location_variables.empty();
+}
 
-    for (index = 0; index < static_cast<int>(g_location_variable_names.size()); ++index) {
-        delete[] g_location_variable_names[index];
-    }
-    g_location_variable_values.clear();
-    g_location_variable_names.clear();
-    g_location_variable_levels.clear();
+// FUNCTION: WIZ8 0x004445b0
+void ClearLocationVariables()
+{
+    location_variables.clear();
 }
 
 /* Index of the prop whose trigger last tested in view; -1 until a prop

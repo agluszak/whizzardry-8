@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <string>
@@ -26,6 +27,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
@@ -42,6 +44,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"
@@ -49,6 +52,7 @@
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Search.h"
+#include "wiz8/location_variables.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/retail_geometry_records.h"
@@ -1475,4 +1479,109 @@ TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterm
     [[maybe_unused]] W8PathParameters parameters;
     REQUIRE(g_navigator_minimum_speed == 0.75f);
     REQUIRE(g_navigator_minimum_speed_mode23 == 0.25f);
+}
+struct LocationVariableFixture : LoaderFixture {
+    int previous_level = g_status.current_level;
+    LocationVariableFixture() { ClearLocationVariables(); }
+    bool load_variables(const std::string& bytes, bool inject_failure = false)
+    {
+        const auto path = wiz8::asset_path("section.bin");
+        W8Chunk chunk;
+        REQUIRE(chunk.OpenWrite(path));
+        chunk.WriteChunk(W8ChunkId("VARS"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
+        // A following chunk must never supply bytes missing from this section.
+        chunk.WriteChunk(W8ChunkId("NEXT"), [&] { chunk.WriteValue(std::array<char, 256>{}); });
+        chunk.Close();
+        REQUIRE(chunk.OpenRead(path));
+        REQUIRE(chunk.OpenChunk(0, 0));
+        FileFaults fault(inject_failure ? 5 : 0);
+        const bool loaded = LoadLocationVariables(chunk);
+        if (inject_failure) REQUIRE(FileFaults::fired);
+        return loaded;
+    }
+    ~LocationVariableFixture()
+    {
+        ClearLocationVariables();
+        g_status.current_level = previous_level;
+    }
+};
+
+TEST_CASE_METHOD(LocationVariableFixture,
+                 "Location variables retain level-scoped names and retail records",
+                 "[loader][records]")
+{
+    REQUIRE_FALSE(HasLocationVariables());
+    g_status.current_level = 3;
+    CreateLocationVar("Switch", 17);
+    CreateLocationVar("SWITCH", 99);
+    REQUIRE(GetLocationVarValueByName("switch") == 17);
+    SetTriggerVariableByName("switch", 23);
+    g_status.current_level = 4;
+    REQUIRE(GetLocationVarIDByName("Switch") == -1);
+    CreateLocationVar("Switch", -7);
+    REQUIRE(HasLocationVariables());
+
+    std::string expected;
+    append(expected, std::int32_t{2});
+    for (const auto [value, level] : {std::pair{23, 3}, std::pair{-7, 4}}) {
+        append(expected, std::int32_t{value});
+        std::array<char, 128> name{};
+        std::strcpy(name.data(), "Switch");
+        append(expected, name);
+        append(expected, std::int32_t{level});
+    }
+    {
+        auto file = wiz8::open_file(wiz8::asset_path("variables.bin"), wiz8::OpenMode::replace);
+        SaveLocationVariables(*file);
+    }
+    std::ifstream saved(fixture_root / "variables.bin", std::ios::binary);
+    REQUIRE(std::string(std::istreambuf_iterator<char>(saved), {}) == expected);
+    ClearLocationVariables();
+    REQUIRE(load_variables(expected));
+    REQUIRE(GetLocationVarValueByName("SWITCH") == -7);
+    g_status.current_level = 3;
+    REQUIRE(GetLocationVarValueByName("switch") == 23);
+}
+
+TEST_CASE_METHOD(LocationVariableFixture,
+                 "Invalid location variable sections leave existing state intact",
+                 "[loader][records]")
+{
+    g_status.current_level = 5;
+    CreateLocationVar("Existing", 42);
+    std::string bytes;
+    append(bytes, std::int32_t{2});
+    for (const char* name : {"First", "Second"}) {
+        append(bytes, std::int32_t{9});
+        std::array<char, 128> disk_name{};
+        std::strcpy(disk_name.data(), name);
+        append(bytes, disk_name);
+        append(bytes, std::int32_t{5});
+    }
+    bool inject_failure = false;
+    SECTION("Short count")
+    {
+        bytes.resize(2);
+    }
+    SECTION("Truncated second record")
+    {
+        bytes.pop_back();
+    }
+    SECTION("Negative count")
+    {
+        bytes.clear();
+        append(bytes, std::int32_t{-1});
+    }
+    SECTION("Unterminated second name")
+    {
+        bytes.replace(4 + 136 + 4, 128, 128, 'x');
+    }
+    SECTION("Read failure after first record")
+    {
+        inject_failure = true;
+    }
+    REQUIRE_FALSE(load_variables(bytes, inject_failure));
+    REQUIRE(GetLocationVarValueByName("Existing") == 42);
+    REQUIRE(GetLocationVarIDByName("First") == -1);
+    REQUIRE(GetLocationVarIDByName("Second") == -1);
 }

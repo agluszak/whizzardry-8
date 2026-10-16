@@ -965,7 +965,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     auto& file = chunks.Stream();
     chunks.WriteChunk(W8_CHUNK_MESSAGE_STORAGE,
                       [&] { RequireSection(SaveMessageStorage(file), "message storage"); });
-    if (!g_location_variable_values.empty())
+    if (HasLocationVariables())
         chunks.WriteChunk(W8_CHUNK_LOCATION_VARIABLES, [&] { SaveLocationVariables(file); });
     chunks.WriteChunk(W8_CHUNK_NPC_TRANSCRIPT,
                       [&] { RequireSection(SaveNpcDialogueTranscript(file), "NPC transcript"); });
@@ -1294,7 +1294,7 @@ void ResetLiveSessionForLoad(void)
     ClearNpcMessageQueue();
     ResetMainScreenStateBlock();
     g_spell_effects.clear();
-    ReleaseAllTriggers();
+    ClearLocationVariables();
     ResetGameplayStatusBlock();
 }
 
@@ -1721,13 +1721,13 @@ try {
             LoadGameStatus(&chunks, &g_status);
             break;
         case W8_CHUNK_MESSAGE_STORAGE:
-            LoadMessageStorage(file);
+            RequireSection(LoadMessageStorage(file), "message storage");
             break;
         case W8_CHUNK_LOCATION_VARIABLES:
-            LoadLocationVariables(file);
+            RequireSection(LoadLocationVariables(chunks), "location variables");
             break;
         case W8_CHUNK_NPC_TRANSCRIPT:
-            LoadNpcDialogueTranscript(file);
+            RequireSection(LoadNpcDialogueTranscript(file), "NPC transcript");
             break;
         case W8_CHUNK_NPC_STATES:
             LoadNpcStates(file);
