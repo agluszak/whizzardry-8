@@ -962,12 +962,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     stMeshModel* mesh;
     W8PathAI* path;
     srNode* node;
-    srVector3T<float> position;
-    srVector3T<float> current;
-    srVector3T<float> next_pos;
-    srVector3T<float> current_scale;
-    srVector3T<float> next_scale;
-    srVector3T<float> scale_vector;
+    glm::vec3 position(0);
+    glm::vec3 current(0);
+    glm::vec3 next_pos(0);
+    glm::vec3 current_scale(0);
+    glm::vec3 next_scale(0);
+    glm::vec3 scale_vector(0);
     srVector3T<float> rep_position;
     glm::dvec3 location;
     glm::dvec3 scale_location;
@@ -1043,19 +1043,19 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             node = instance->first_child_;
             if (node == 0) {
                 instance->setRotation(rotation);
-                location = glm::dvec3(position.glmValue());
+                location = glm::dvec3(position);
                 instance->setLocation(location);
                 if (has_scales) {
-                    scale_location = glm::dvec3(scale_vector.glmValue());
+                    scale_location = glm::dvec3(scale_vector);
                     instance->setScale(scale_location);
                 }
             } else {
                 do {
                     node->setRotation(rotation);
-                    location = glm::dvec3(position.glmValue());
+                    location = glm::dvec3(position);
                     node->setLocation(location);
                     if (has_scales) {
-                        scale_location = glm::dvec3(scale_vector.glmValue());
+                        scale_location = glm::dvec3(scale_vector);
                         node->setScale(scale_location);
                     }
                     node = node->next_sibling_;
@@ -1088,12 +1088,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             rep_rotation = Rep()->GetRotation();
             node = instance->first_child_;
             if (node == 0) {
-                location = glm::dvec3(rep_position.glmValue());
+                location = glm::dvec3(rep_position);
                 instance->setLocation(location);
                 instance->setRotation(rep_rotation);
             } else {
                 do {
-                    location = glm::dvec3(rep_position.glmValue());
+                    location = glm::dvec3(rep_position);
                     node->setLocation(location);
                     node->setRotation(rep_rotation);
                     node = node->next_sibling_;

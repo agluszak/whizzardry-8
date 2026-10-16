@@ -1391,8 +1391,8 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
             std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::make_unique<W8PathAI>();
-        PathAIAddPoint(*path, srVector3(100, 200, 300));
-        PathAIAddPoint(*path, srVector3(400, 500, 600));
+        PathAIAddPoint(*path, glm::vec3(100, 200, 300));
+        PathAIAddPoint(*path, glm::vec3(400, 500, 600));
         path->rotations.resize(path->nodes.size(), glm::mat3(1));
         PathAISetValue(path.get(), 0.75f);
         animation.paths[0].push_back(std::move(path));
