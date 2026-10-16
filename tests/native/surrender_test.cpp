@@ -115,19 +115,12 @@ static bool transforms()
                             glm::normalize(glm::vec3(world[column]))) < 1e-6f);
     }
 
-    // Each axis operation must invalidate the already-cached child transform.
-    const std::array movements{&srNode::moveRight, &srNode::moveLeft,    &srNode::moveUp,
-                               &srNode::moveDown,  &srNode::moveForward, &srNode::moveBackward};
-    for (unsigned index = 0; index < movements.size(); ++index) {
-        const auto before = child.getWorldSpaceLocation();
-        const auto axis = parent.getRotation()[index / 2];
-        const double distance = index % 2 == 0 ? 2 : -2;
-        (parent.*movements[index])(2);
-        REQUIRE(glm::length(child.getWorldSpaceLocation() - before - axis * distance) < 1e-12);
-    }
-    parent.setLocationX(8);
-    parent.setLocationY(5);
-    parent.setLocationZ(-3);
+    // Live movement APIs must invalidate the already-cached child transform.
+    const auto before = child.getWorldSpaceLocation();
+    const auto axis = parent.getRotation()[0];
+    parent.move(glm::dvec3(2, 0, 0));
+    REQUIRE(glm::length(child.getWorldSpaceLocation() - before - axis * 2.0) < 1e-12);
+    parent.setLocation(8, 5, -3);
     REQUIRE(glm::length(child.getWorldSpaceLocation() - glm::dvec3(2, 7, 9)) < 1e-12);
     parent.setLocation(4, -2, 1);
 
@@ -136,20 +129,6 @@ static bool transforms()
     world = child.getWorldSpaceMatrix<glm::dmat4>();
     for (int column = 0; column < 4; ++column)
         REQUIRE(glm::length(world[column] - desired[column]) < 1e-12);
-
-    Node aiming;
-    aiming.setLocation(4, -2, 1);
-    aiming.yawAt(glm::dvec3(5, -2, 1), 1);
-    REQUIRE(glm::length(aiming.getWorldSpaceDOF() - glm::dvec3(1, 0, 0)) < 1e-12);
-    aiming.setRotation(glm::dmat3(1));
-    aiming.pitchAt(glm::dvec3(4, -1, 1), 1);
-    REQUIRE(glm::length(aiming.getWorldSpaceDOF() - glm::dvec3(0, 1, 0)) < 1e-12);
-    aiming.setRotation(glm::dmat3(1));
-    aiming.rollAt(glm::dvec3(1, 1, 0), .5);
-    const auto roll =
-        glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8, glm::dvec3(0, 0, 1)));
-    for (int column = 0; column < 3; ++column)
-        REQUIRE(glm::length(aiming.getRotation()[column] - roll[column]) < 1e-12);
 
     const glm::mat4 transform =
         glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(2, 3, 4));

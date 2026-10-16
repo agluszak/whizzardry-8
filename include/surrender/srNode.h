@@ -94,7 +94,6 @@ protected:
     }
 
 protected:
-    virtual int processSignal(w8_ulong signal, void* value);
     int testNotify(e_notify notification) const;
 
 public:
@@ -117,12 +116,10 @@ public:
     // FUNCTION: SURRENDER 0x10051A40 SYMBOL
     // RECOMP: ?getParent@srNode@@QBEPAV1@XZ
     srNode* getParent() const { return parent_; }
-    srNode* getPrev() const;
     int isChildOf(const srNode& node) const;
     int isParentOf(const srNode& node) const;
 
     [[nodiscard]] srModelViewScope scopedWorldSpaceMatrix(class srGERD& renderer) const;
-    double getDistance(const srNode& node) const;
     glm::dvec3 getLocation() const;
     double getLocationX() const;
     double getLocationY() const;
@@ -171,18 +168,8 @@ public:
     }
     glm::dvec3 getWorldSpaceScale() const;
     void move(const glm::dvec3& offset);
-    void moveBackward(double distance);
-    void moveDown(double distance);
-    void moveForward(double distance);
-    void moveLeft(double distance);
-    void moveRight(double distance);
-    void moveUp(double distance);
     void offsetLocation(const glm::dvec3& offset);
     void offsetLocation(double x, double y, double z);
-    void pitchAt(const glm::dvec3& target, double amount);
-    void pitchAt(const srNode* target, double amount);
-    void rollAt(const glm::dvec3& target, double amount);
-    void rollAt(const srNode* target, double amount);
     void rollUp(double amount);
     void rotate(const glm::dmat3& rotation);
     void rotate(double angle, const glm::dvec3& axis);
@@ -194,9 +181,6 @@ public:
     int setParent(srNode* parent, int preserve_world_transform);
     void setLocation(const glm::dvec3& location);
     void setLocation(double x, double y, double z);
-    void setLocationX(double x);
-    void setLocationY(double y);
-    void setLocationZ(double z);
     void setRotation(const glm::mat3& rotation);
     void setRotation(const glm::dmat3& rotation);
     void setRotation(const glm::dvec3& first, const glm::dvec3& second, double amount);
@@ -211,10 +195,7 @@ public:
     void setFlag(e_flag flag);
     void clearFlag(e_flag flag);
     void notifyChildren(std::uint32_t notifications);
-    void signal(w8_ulong signal, void* value);
     int testFlag(e_flag flag) const;
-    void yawAt(const glm::dvec3& target, double amount);
-    void yawAt(const srNode* target, double amount);
 
     // Explicit ownership for subtrees whose lifetime belongs to this node.
     // Reparenting an adopted node changes only its borrowed scene membership.
@@ -229,12 +210,8 @@ public:
 
 private:
     std::vector<std::unique_ptr<srNode>> owned_children_;
-    void moveAlongAxis(unsigned axis, double distance);
-    void setLocationComponent(unsigned component, double value);
-    void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
     void checkTransformation() const;
     void setWSDirty();
-    void signalInternal(w8_ulong signal, void* value);
     void unlink();
     void updateTransformation() const;
 
