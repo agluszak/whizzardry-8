@@ -1,7 +1,6 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 
 #include <cstdarg>
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>

@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <string>
@@ -1345,6 +1344,9 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     auto output = wiz8::open_file("items-roundtrip.bin", wiz8::OpenMode::replace);
     REQUIRE(SaveItemFile(*output, group.get()));
     output.reset();
-    std::ifstream encoded(fixture_root / "items-roundtrip.bin", std::ios::binary);
-    REQUIRE(std::string(std::istreambuf_iterator<char>(encoded), {}) == bytes);
+    auto encoded = wiz8::open_file("items-roundtrip.bin");
+    std::string roundtrip(encoded->size(), '\0');
+    encoded->read_exact(roundtrip.data(), roundtrip.size());
+    REQUIRE(roundtrip.size() == bytes.size());
+    REQUIRE(std::equal(roundtrip.begin(), roundtrip.end(), bytes.begin()));
 }
