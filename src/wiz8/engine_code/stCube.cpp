@@ -28,7 +28,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srModeler.h"
 #include "surrender/srNode.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srShader.h"
@@ -81,16 +80,14 @@ const double g_world_cursor_scale = 0.002;
 /* 0x0048D070 is a bare JMP to CreateWorldCursorCube: a tail-jump thunk
    with no distinct source entity. */
 
-/* Build the numbered cube the world cursor table holds: a 500-unit modeller
+/* Build the numbered cube the world cursor table holds: a 500-unit
    cube, a translucent white material, and a 32x32 texture the label painter
    later fills. */
 
 // FUNCTION: WIZ8 0x0048d080
 W8WorldCursorNode* CreateWorldCursorCube(void)
 {
-    srModeler modeller;
-    srModeler::Polygon polygon(4);
-    auto model = std::make_shared<stMeshModel>(0, 0);
+    auto model = std::make_shared<stMeshModel>(12, 24);
     stModelInstance* instance = new stModelInstance(0);
     W8WorldCursorNode* entry = new W8WorldCursorNode;
     const std::array<glm::vec3, 8> corners{{{-0.5f, 1, 0.5f},
@@ -104,12 +101,19 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     const std::array<std::array<int, 4>, 6> faces{
         {{0, 1, 2, 3}, {4, 6, 0, 3}, {6, 5, 1, 0}, {5, 7, 2, 1}, {7, 4, 3, 2}, {7, 5, 6, 4}}};
     const std::array<glm::vec2, 4> uv{{{1, 1}, {0, 1}, {0, 0}, {1, 0}}};
-    for (const auto& face : faces) {
-        for (int i = 0; i < 4; ++i) {
-            polygon.vertices[i].position = corners[face[i]];
-            polygon.vertices[i].uv[0] = uv[i];
+    // Keep a UV seam on every face, but share normal accumulation at each corner.
+    model->vertex_locations.resize(24);
+    model->texcoords[0][0].resize(24);
+    model->vertex_shade_indices.resize(24);
+    for (int face = 0; face < 6; ++face) {
+        const int base = face * 4;
+        for (int corner = 0; corner < 4; ++corner) {
+            model->vertex_locations[base + corner] = corners[faces[face][corner]] * 500.0f;
+            model->texcoords[0][0][base + corner] = uv[corner];
+            model->vertex_shade_indices[base + corner] = faces[face][corner];
         }
-        modeller.addPolygon(polygon);
+        model->poly_vertices.emplace_back(base + 3, base, base + 1);
+        model->poly_vertices.emplace_back(base + 3, base + 1, base + 2);
     }
 
     auto material = std::make_shared<srMaterial>();
@@ -127,11 +131,11 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     material->parms.diffuse.w = 0.35f;
     material->parms.shininess = 1.0f;
     material->dirty = 1;
-    modeller.setMaterial(std::move(material), 0, srMeshModel::SIDE_FRONT);
+    model->setMaterial(std::move(material), 0, srMeshModel::SIDE_FRONT);
 
     srShader shader;
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
-    modeller.setShader(shader, 0);
+    model->setShader(shader, 0);
 
     auto surface =
         std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
@@ -153,8 +157,6 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     texture->setSurfacePtr(surface);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);
 
-    modeller.scale(glm::vec3(500));
-    modeller.convert(*model, 1);
     model->setTexture(std::move(texture), 0, 0);
 
     model->setDirty(srMeshModel::DIRTY_TRI_MESH);

@@ -1,6 +1,6 @@
 #pragma once
 
-/* A shader is one 32-bit packed word. The modeler/mesh default 0x0100241b is PASS_LEQUAL, depth and
+/* A shader is one 32-bit packed word. The mesh default 0x0100241b is PASS_LEQUAL, depth and
    color write, DSTBLEND_ZERO, FOG_DISABLE, GRADIENT_MODULATE, SRCBLEND_ONE, TEXTURING_DISABLE,
    DITHER_ENABLE. */
 class srShader {

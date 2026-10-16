@@ -179,7 +179,6 @@ void EndRenderProbe(void);
 void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 
 class srCamera;
-class srModeler;
 class srGERD;
 class srMaterial;
 class srScene;
@@ -192,7 +191,6 @@ extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
-extern srModeler* g_modeler;
 extern srScene* g_scene_user;
 extern srScene* g_scene_fullscreen;
 extern srScene* g_scene_permanent;
