@@ -31,8 +31,6 @@
 #include "surrender/srDebug.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -44,7 +42,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
@@ -62,7 +59,6 @@ MonGen::MonGen()
     custom_spawn_chance = 100;
     custom_interval_seconds = 100;
     unknown_08 = 0xffff;
-    marker_item = 0;
     encounter_table_index = -1;
     m_pTimer = 0;
     generation_enabled = 1;
@@ -424,7 +420,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     float distance;
 
     if (g_generator_save_flag != 0 || gXStatus.world_update_blocked || gXStatus.fCombatMode ||
-        gXStatus.fNpcDialogueMode || IsMipeActive() || generation_enabled == 0) {
+        gXStatus.fNpcDialogueMode || generation_enabled == 0) {
         return false;
     }
 
@@ -590,28 +586,6 @@ void CullExpiredEncounters(void)
             }
         }
     }
-}
-
-/* How many monster generators the loaded world carries. */
-// FUNCTION: WIZ8 0x0048bd80
-int GetMonsterGeneratorCount(void)
-{
-    return static_cast<int>(g_world->monster_generators.size());
-}
-
-/* One of them by index. Out of range answers null, which is why the bounds test
-   appears twice: once here, rejecting the index outright, and once inside the
-   vector's own bounds-checked read, which would otherwise fall back to element
-   zero. */
-// FUNCTION: WIZ8 0x0048bd90
-MonGen* GetMonsterGenerator(int index)
-{
-    std::vector<MonGen*>* generators = &g_world->monster_generators;
-
-    if (index >= static_cast<int>(generators->size())) {
-        return 0;
-    }
-    return (*generators)[index];
 }
 
 /* One loaded encounter table by index. */
@@ -883,18 +857,6 @@ try {
     return false;
 }
 
-/* Removes one generator from the world's list by identity and destroys it. The
-   search stops at the first match and the tail is shifted down over it; a
-   generator that is not in the list is left alone entirely, so this is safe to
-   call on one that has already been removed. */
-// FUNCTION: WIZ8 0x0048beb0
-void RemoveMonsterGenerator(MonGen* generator)
-{
-    if (wiz8::erase_first(g_world->monster_generators, generator)) {
-        delete generator;
-    }
-}
-
 /* Rearms the generator's timer, creating it on first use. The delay is the
    configured interval jittered by a uniform draw over twice its jitter
    fraction, so the mean is the interval itself. Bit 3 selects the shared
@@ -919,52 +881,6 @@ void MonGen::Reset()
     m_pTimer->SetDuration(static_cast<float>(Random(static_cast<int>(jitter) * 2 + 1)) + interval -
                           jitter);
     m_pTimer->Arm();
-}
-
-/* Loads the generator's marker from Data\\Items3D\\Bitmaps and hands it over.
-   Written once because the arm path and the reload below both compile it. */
-static void LoadMonsterGeneratorMarker(MonGen* generator)
-{
-    W8ReadLevelInfo context;
-    W8Item* marker = 0;
-
-    context.world = g_world;
-    context.hFile = 0;
-    context.bitmap_folder = "Data\\Items3D\\Bitmaps";
-    context.mesh_filename = 0;
-    if (!LoadItemFromFile(&context, "mongen", &marker, false)) {
-        srAssertFail("fSuccess", MON_GEN_CPP, 0x309, "Couldn't load mongen.itm");
-    }
-    generator->marker_item = marker;
-    if (marker != 0) {
-        marker->SetLocation(&generator->spawn_position);
-        marker->ApplyRepTransform();
-    }
-}
-
-/* Arms or disarms the generator. Arming loads its marker from
-   Data\\Items3D\\Bitmaps the first time and hands the caller's node over;
-   disarming drops the flag and notifies the world. Both directions are no-ops
-   when the flag already reads as asked. */
-// FUNCTION: WIZ8 0x0048b770
-void MonGen::SetActive(unsigned char active, W8Item* node)
-{
-    (void)node;
-    if (((flags >> 2) & 1) == active) {
-        return;
-    }
-    if (active == 0) {
-        flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
-        if (marker_item != 0) {
-            marker_item->DetachMesh(g_world);
-        }
-        return;
-    }
-    flags |= W8_MONGEN_ARMED;
-    if (marker_item == 0) {
-        LoadMonsterGeneratorMarker(this);
-    }
-    marker_item->AttachMesh(g_world);
 }
 
 /* Writes the encounter subsystem's own state to a save, ahead of the generator
@@ -1039,53 +955,9 @@ void SetMonsterGeneratorDurationScale(float scale)
     }
 }
 
-/* Releases what a generator hangs off itself. The world is notified only when
-   the generator was still holding the armed bit, which is why that clear sits
-   inside the first node's guard rather than beside it. The generator's own
-   storage is not freed here - the callers do that. */
-// FUNCTION: WIZ8 0x0048a6c0
 MonGen::~MonGen()
 {
-    if (marker_item != 0) {
-        if ((flags >> 2 & 1) != 0) {
-            flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
-            marker_item->DetachMesh(g_world);
-        }
-        delete marker_item;
-    }
     delete m_pTimer;
-}
-
-/* Moves the generator. The scene is only told when the generator has a marker. */
-// FUNCTION: WIZ8 0x0048b730
-void MonGen::SetState(const glm::vec3* state)
-{
-    spawn_position = *state;
-    if (marker_item != 0) {
-        marker_item->SetLocation(state);
-        marker_item->ApplyRepTransform();
-    }
-}
-
-/* Reloads the generator's marker and then applies an armed state to it. The
-   marker load is unconditional here - unlike the arm path, which only loads one
-   when the generator has none - so this is what replaces a marker rather than
-   what installs the first. SetActive then applies the requested state, including its own conditional
-   second load. */
-// FUNCTION: WIZ8 0x0048b850
-void MonGen::Reload(int, bool active)
-{
-    LoadMonsterGeneratorMarker(this);
-    /* SetActive never reads its second argument. Its value at this retail
-       expansion is unrecoverable; zero represents the unused argument. */
-    SetActive(active, 0);
-}
-
-// FUNCTION: WIZ8 0x0048cc30
-void MonGen::SetName(const char* new_name)
-{
-    strncpy(name, new_name, sizeof(name));
-    name[sizeof(name) - 1] = '\0';
 }
 
 /* Store the table index and mark HARASSMENT tables with bit 5. Retail never

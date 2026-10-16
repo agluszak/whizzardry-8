@@ -174,7 +174,6 @@ struct W8LevelRuntimeBlock {
     /* Text box visible; toggled by the keyboard shortcut and raised
        by spell/item/dialogue screens that need it. */
     bool text_box_visible;
-    bool mipe_editing;
     uint64_t tick;
     int pending_level;
     int pending_entry_id;

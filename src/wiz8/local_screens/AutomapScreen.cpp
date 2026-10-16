@@ -80,7 +80,6 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/surface_storage.h"
@@ -96,9 +95,7 @@
 static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
 
 // GLOBAL: WIZ8 0x0068f104
-bool g_mipe_menu_active;
 // GLOBAL: WIZ8 0x0068f105
-bool g_mipe_active;
 
 /* Lifecycle record 8's own state, all of it released by the finalizer below and
    nothing here naming what any of it holds. The note list is created by this record's initializer at 0x0057E5D0. */
@@ -436,22 +433,6 @@ bool AutomapHasCellAt(const glm::vec3* position)
         }
     }
     return false;
-}
-
-bool CanUseCurrentAutomapTool(void)
-{
-    if (g_mipe_active) {
-        switch (g_mipe_mode) {
-        case 6:
-        case 7:
-        case 15:
-        case 18:
-        case 23:
-        case 29:
-            return false;
-        }
-    }
-    return true;
 }
 
 void RestoreAutomapCameraPosition(void)

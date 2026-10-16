@@ -34,10 +34,7 @@ struct W8MonsterGroup;
 struct MonGen;
 
 /* MonGen.cpp's generator registry accessors. */
-int GetMonsterGeneratorCount(void);                    /* 0x0048BD80 */
-MonGen* GetMonsterGenerator(int index);                /* 0x0048BD90 */
 void AddMonsterGenerator(MonGen* generator);           /* 0x0048BE30 */
-void RemoveMonsterGenerator(MonGen* generator);        /* 0x0048BEB0 */
 W8EncounterTableRuntime* GetEncounterTable(int index); /* 0x0048AD00 */
 int FindEncounterTableByName(const char* name);        /* 0x0048CCA0 */
 

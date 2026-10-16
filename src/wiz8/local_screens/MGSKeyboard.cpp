@@ -66,7 +66,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -210,8 +209,8 @@ void ResetMGSKeyboardBindings()
 }
 
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
-   box consume key presses first; the MIPE editor and the record-mode console
-   gate on their flags; everything else resolves to a bound MGS command.
+   box consume key presses first; the record-mode console gates on its flag;
+   everything else resolves to a bound MGS command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
 // FUNCTION: WIZ8 0x00591890
 unsigned char HandleMainGameInputEvent(const InputEvent* input)
@@ -229,9 +228,7 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
         gXStatus.fTrapInteractMode && TextBoxHandleKey(input) != 0) {
         return 1;
     }
-    if (IsMipeActive() && HandleMipeKey(input) != 0) {
-        return 1;
-    }
+
     if (IsRecordModeActive()) {
         if (((GetInputState().modifiers & CTRL_DOWN) == 0) &&
             HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {

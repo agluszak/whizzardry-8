@@ -357,7 +357,6 @@ unsigned char g_environment_load_flag = 1;
 bool g_camera_path_active;
 
 // GLOBAL: WIZ8 0x0068f0fd
-bool g_mipe_trigger_display;
 
 // GLOBAL: WIZ8 0x00605880
 const char* g_sky_names[] = {
@@ -536,7 +535,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     InitializeLevelEnvironment();
     InitializeLevelMasterFunctions(level);
     RebindNpcLevelTriggers();
-    SetWorldCursorNodesVisible(g_mipe_trigger_display);
+    SetWorldCursorNodesVisible(false);
     RebuildPartyEffectBlock();
 
     if (!restoring_game) {

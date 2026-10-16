@@ -8,7 +8,6 @@
 
 struct W8EncounterTableRuntime;
 struct W8EncounterEntry;
-struct W8Item;
 struct W8MonsterRecord;
 struct MonGen {
     unsigned int flags;
@@ -17,7 +16,6 @@ struct MonGen {
     short unknown_08;                /* persisted, initialized to -1 */
     /* World position, saved as three dwords and handed to GenerateEncounter. */
     glm::vec3 spawn_position;
-    W8Item* marker_item;       /* loaded Data\Items3D\Bitmaps\mongen.itm marker */
     int encounter_table_index; /* index into g_encounter_tables, -1 means none */
     W8IntervalGate* m_pTimer;
     char name[32];
@@ -34,19 +32,11 @@ struct MonGen {
     const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTableRuntime& table);
     /* Difficulty-aware group-size roll for one monster database record. */
     int RollEncounterGroupSize(W8MonsterRecord* record);
-    /* Arms or disarms the generator, loading its marker on the way in. */
-    void SetActive(unsigned char active, W8Item* node);
     /* The save pair. Both are __thiscall in the image. */
     void Save(wiz8::File& handle);
     unsigned char Load(wiz8::File& handle);
     /* The MONG chunk loader. */
     static unsigned char LoadAll(wiz8::File& save_handle);
-    /* Moves the generator, notifying the scene when the generator has a marker. */
-    void SetState(const glm::vec3* state);
-    /* Loads the marker unconditionally, then applies the armed state. */
-    void Reload(int, bool active);
-    /* Strncpy into the fixed 32-byte name member. */
-    void SetName(const char* name);
     /* Select one loaded encounter table and apply its HARASSMENT flag. */
     void SetEncounterTable(int index);
     ~MonGen();

@@ -111,3 +111,24 @@ The standalone tool pins [SDL_shadercross](https://github.com/libsdl-org/SDL_sha
 SPIRV-Cross and DXC. Linux CI regenerates both formats and compares the outputs.
 Linux runtime scenarios exercise Vulkan; native Metal/D3D12 shader compilation
 and game rendering still need platform verification.
+
+## Gameplay ownership and runtime assets
+
+Spell records are decoded into temporary owned storage and published only after
+validated header and record reads. NPC active/retired registries and searchable
+registries own their records; dialogue callbacks retain borrowed pointers, and
+replaced NPC states remain alive until the registry is reset. Cycle particle
+attachments and monster spell-icon entries are value collections; particle
+retirement and world icon removal retain their existing world lifetimes.
+World cursor state has a normal C++ owner and no retail-layout padding.
+
+Recompilation-era addressable numeric constants have been replaced with literals
+and semantic constexpr parameters. Runtime tuning values remain mutable. The
+sprite font uses a fixed compile-time translation table. ASCII asset loaders use
+strings and line streams; UTF-16LE credit/input text decoding remains explicit.
+
+The MIPE editor and its generator marker UI are removed. Its activation flag was
+only enabled inside the editor; production input only dispatched to it while
+already active, and the sole external toggle closed it on screen exit. Gameplay
+encounter generation, script-driven table selection, compiled geometry readers,
+and serialized generator/cube fields remain supported.
