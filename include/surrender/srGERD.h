@@ -754,6 +754,7 @@ private:
         w8_ulong enable_depth;
     };
 
+    Device device;
     srTriMeshPipeline mesh_pipeline;
 
     unsigned char unknown_0c_[4];
@@ -792,7 +793,6 @@ private:
     };
     w8_ulong state_flags;
     e_error last_error;
-    Device device;
     State state;
     Display display;
     PickState pick;

@@ -58,11 +58,11 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD(srDD* device)
-    : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{}, clear_state{},
-      texture_slots{}, texture_parms{}, texture_state{}, polygon_mode(POLYGON_FILL),
-      polygon_offset(0), texture_default(nullptr), texture_reduction(0), vertex_arrays_dirty(0)
+    : device{.dd = std::unique_ptr<srDD>(device)}, dirty(0), state_flags(0), state{},
+      frame_statistics{}, statistics{}, clear_state{}, texture_slots{}, texture_parms{},
+      texture_state{}, polygon_mode(POLYGON_FILL), polygon_offset(0), texture_default(nullptr),
+      texture_reduction(0), vertex_arrays_dirty(0)
 {
-    this->device.dd.reset(device);
     this->device.window = 0;
     this->device.back_buffer_type = static_cast<e_backBuffer>(0);
     vertex_arrays_dirty = 0xffffffff;
