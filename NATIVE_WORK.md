@@ -67,3 +67,23 @@ runtime octree. `W8OctBuildTree` remains the gameplay collision index built from
 loaded game data; its queries are exercised independently of the removed editor.
 Reader fixtures cover both retail waypoint edge layouts and truncated-input
 rollback without invoking a production writer.
+
+## Native runtime contracts
+
+All game randomness uses the explicitly seeded MSVC 32-bit sequence with
+15-bit draws; C library RNG state and platform-dependent RAND_MAX are gone.
+Loot and NPC theft retain their shared-stream reseeding and draw order.
+The software UI framebuffer is fixed ARGB1555. Asset/video inputs can still use
+other SDL formats, including RGB565, and palette/TGA/STI decoding stays explicit.
+
+SDL_image reads ordinary images from the existing file stream. The duplicate
+JPEG parser and whole-file copy are removed; decoded dimensions remain bounded.
+The save-space threshold, inert capture/CD modes, octree trace visualization,
+inverted-depth branches, debug allocator-pointer checks and unused inverse
+civil-time conversion are removed. PrintScreen and the video inspector remain.
+A legacy monster-leader sentinel is normalized by its retail record decoder.
+
+SDL GPU can select SPIR-V, Metal or Direct3D 12 shaders. MSL and DXIL are produced
+offline with pinned SDL_shadercross tools and embedded at build time. CI checks
+regeneration and compiles MSL with Apple's compiler; native Metal/D3D12 gameplay
+still needs runtime verification on those platforms.

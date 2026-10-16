@@ -24,7 +24,11 @@
 #include "glm/ext/vector_int4.hpp"
 #include "glm/fwd.hpp"
 #include "glm/matrix.hpp"
+#include "sr_fragment.dxil.h"
+#include "sr_fragment.msl.h"
 #include "sr_fragment.spv.h"
+#include "sr_vertex.dxil.h"
+#include "sr_vertex.msl.h"
 #include "sr_vertex.spv.h"
 #include "surrender/SDLGPUDevice.h"
 #include "surrender/srRendererDefs.h"
@@ -297,7 +301,9 @@ void SDLGPUDevice::uploadTexture(const Texture& texture, w8_ulong level, Texture
 bool SDLGPUDevice::createContext(SDL_Window* target_window)
 {
     window = target_window;
-    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, SDL_getenv("WIZ8_GPU_DEBUG") != 0, 0);
+    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL |
+                                     SDL_GPU_SHADERFORMAT_DXIL,
+                                 SDL_getenv("WIZ8_GPU_DEBUG") != 0, 0);
     if (device == 0) {
         SDL_Log("SDL GPU: device: %s", SDL_GetError());
         return false;
@@ -317,10 +323,8 @@ bool SDLGPUDevice::createContext(SDL_Window* target_window)
                                                 SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)
                        ? SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT
                        : SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
-    vertex_shader =
-        createShader(sr_vertex_spv, sizeof(sr_vertex_spv), SDL_GPU_SHADERSTAGE_VERTEX, 0);
-    fragment_shader =
-        createShader(sr_fragment_spv, sizeof(sr_fragment_spv), SDL_GPU_SHADERSTAGE_FRAGMENT, 2);
+    vertex_shader = createShader(SDL_GPU_SHADERSTAGE_VERTEX, 0);
+    fragment_shader = createShader(SDL_GPU_SHADERSTAGE_FRAGMENT, 2);
     const auto white = createTexture(1, 1, 1);
     white_texture = white.handle;
     const uint32_t pixel = 0xffffffffu;
@@ -399,14 +403,31 @@ void SDLGPUDevice::setPolygonOffset(w8_long offset)
     polygon_offset = offset;
 }
 
-SDL_GPUShader* SDLGPUDevice::createShader(const uint32_t* code, size_t size,
-                                          SDL_GPUShaderStage stage, uint32_t sampler_count)
+SDL_GPUShader* SDLGPUDevice::createShader(SDL_GPUShaderStage stage, uint32_t sampler_count)
 {
     SDL_GPUShaderCreateInfo info = {};
-    info.code_size = size;
-    info.code = reinterpret_cast<const Uint8*>(code);
-    info.entrypoint = "main";
-    info.format = SDL_GPU_SHADERFORMAT_SPIRV;
+    const bool vertex = stage == SDL_GPU_SHADERSTAGE_VERTEX;
+    const auto formats = SDL_GetGPUShaderFormats(device);
+    if (formats & SDL_GPU_SHADERFORMAT_SPIRV) {
+        info.format = SDL_GPU_SHADERFORMAT_SPIRV;
+        info.code = vertex ? reinterpret_cast<const Uint8*>(sr_vertex_spv)
+                           : reinterpret_cast<const Uint8*>(sr_fragment_spv);
+        info.code_size = vertex ? sizeof(sr_vertex_spv) : sizeof(sr_fragment_spv);
+        info.entrypoint = "main";
+    } else if (formats & SDL_GPU_SHADERFORMAT_MSL) {
+        info.format = SDL_GPU_SHADERFORMAT_MSL;
+        info.code = vertex ? sr_vertex_msl : sr_fragment_msl;
+        info.code_size = vertex ? sizeof(sr_vertex_msl) - 1 : sizeof(sr_fragment_msl) - 1;
+        info.entrypoint = "main0";
+    } else if (formats & SDL_GPU_SHADERFORMAT_DXIL) {
+        info.format = SDL_GPU_SHADERFORMAT_DXIL;
+        info.code = vertex ? sr_vertex_dxil : sr_fragment_dxil;
+        info.code_size = vertex ? sizeof(sr_vertex_dxil) - 1 : sizeof(sr_fragment_dxil) - 1;
+        info.entrypoint = "main";
+    } else {
+        SDL_SetError("No embedded shader format for this SDL GPU backend");
+        return nullptr;
+    }
     info.stage = stage;
     info.num_samplers = sampler_count;
     info.num_uniform_buffers = 1;

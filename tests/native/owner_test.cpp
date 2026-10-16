@@ -114,8 +114,6 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
 void initialize_test_framebuffer()
 {
     ResetFontRendering();
-    g_pixel_format = 9;
-    Initialize16BitPixelFormatMasks();
     REQUIRE(InitializePrimarySurface());
 }
 

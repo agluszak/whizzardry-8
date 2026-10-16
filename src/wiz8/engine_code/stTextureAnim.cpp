@@ -8,6 +8,7 @@
 #include <SDL3/SDL_pixels.h>
 
 #include "compat/native.h"
+#include "random.h"
 #include "surrender/srTexture.h"
 #include "texture_animation.h"
 #include "wiz8/engine_code/GrCycle.h"
@@ -51,14 +52,14 @@ void stTextureAnim::UpdateFrame()
     }
 
     if (trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
-        if (rand() / static_cast<float>(RAND_MAX) < probability) {
-            frame = static_cast<int>(rand() / static_cast<float>(RAND_MAX) * count);
+        if (Random15() / static_cast<float>(0x7fff) < probability) {
+            frame = static_cast<int>(Random15() / static_cast<float>(0x7fff) * count);
         }
         return;
     }
 
     if (trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_START) {
-        if (!running && rand() / static_cast<float>(RAND_MAX) < probability) {
+        if (!running && Random15() / static_cast<float>(0x7fff) < probability) {
             running = true;
             direction = 0;
             frame = 0;

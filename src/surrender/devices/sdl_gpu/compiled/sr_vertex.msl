@@ -1,0 +1,44 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct VertexState
+{
+    float4x4 projection;
+};
+
+struct main0_out
+{
+    float4 out_diffuse [[user(locn0)]];
+    float4 out_specular [[user(locn1)]];
+    float3 out_texcoord0 [[user(locn2)]];
+    float3 out_texcoord1 [[user(locn3)]];
+    float out_fog [[user(locn4)]];
+    float4 gl_Position [[position]];
+};
+
+struct main0_in
+{
+    float4 in_position [[attribute(0)]];
+    float4 in_diffuse [[attribute(1)]];
+    float4 in_specular [[attribute(2)]];
+    float3 in_texcoord0 [[attribute(3)]];
+    float3 in_texcoord1 [[attribute(4)]];
+    float in_fog [[attribute(5)]];
+};
+
+vertex main0_out main0(main0_in in [[stage_in]], constant VertexState& _13 [[buffer(0)]])
+{
+    main0_out out = {};
+    float4 clip = _13.projection * in.in_position;
+    clip.z = (clip.z + clip.w) * 0.5;
+    out.gl_Position = clip;
+    out.out_diffuse = in.in_diffuse;
+    out.out_specular = in.in_specular;
+    out.out_texcoord0 = in.in_texcoord0;
+    out.out_texcoord1 = in.in_texcoord1;
+    out.out_fog = in.in_fog;
+    return out;
+}
+

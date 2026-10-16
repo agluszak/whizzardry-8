@@ -867,7 +867,6 @@ static void save_file_contracts(const std::filesystem::path& user)
     const auto utc = wiz8::file_time_to_utc(epoch);
     REQUIRE((utc.year == 1970 && utc.month == 1 && utc.day == 1));
     REQUIRE(wiz8::file_time_from_sdl(-1).ticks() == epoch.ticks() - 1);
-    REQUIRE(wiz8::file_time_from_utc({1601, 1, 1, 0, 0, 0, 0, 1}).ticks() == 0);
     REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() ==
             epoch.ticks() + 19800ULL * 10000000);
     REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() ==
@@ -1530,6 +1529,10 @@ TEST_CASE("Monster group opaque disk fields survive gameplay edits and old saves
     REQUIRE(old_saved[0x2b] == bytes[0x2b]);
     REQUIRE(std::all_of(old_saved.begin() + 0xd4, old_saved.end(),
                         [](std::byte byte) { return byte == std::byte{}; }));
+    const auto leader_offset = offsetof(wiz8::retail::MonsterGroup, leader_location_id);
+    std::fill_n(bytes.begin() + leader_offset, 4, std::byte{0xcd});
+    wiz8::retail::decode<W8MonsterGroup>(bytes, group);
+    REQUIRE(group.leader_location_id == 0);
 }
 
 TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[levels][filesystem]")

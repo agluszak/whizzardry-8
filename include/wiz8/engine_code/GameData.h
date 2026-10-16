@@ -222,8 +222,6 @@ struct W8GameData {
        trigger in the crossing direction unless the bit sets already hold
        it. */
     void ProcessCrossedSurface(W8GDSurface* surface); /* 0x0041C770 */
-    /* Builds the octree trace mesh and answers its model instance. */
-    std::unique_ptr<stModelInstance> CreateTraceModel(); /* 0x0041c930 */
     CameraRotation cameraRotation(unsigned int flags, const glm::mat3& rotation);
     CameraMotion cameraMotion(unsigned int flags, const glm::vec3& position,
                               const glm::mat3& movement_basis);

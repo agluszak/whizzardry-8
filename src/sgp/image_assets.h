@@ -10,7 +10,7 @@
 
 #include "himage.h"
 
-// Path-keyed decoded images packed in g_sgp_pixel_format; a format change discards them.
+// Path-keyed decoded images packed in the fixed ARGB1555 framebuffer format.
 class ImageAssets {
 public:
     std::shared_ptr<const SpriteSheet> sprites(std::string_view path);
@@ -18,9 +18,6 @@ public:
     void clear();
 
 private:
-    void useSessionFormat();
-
-    SDL_PixelFormat format_ = SDL_PIXELFORMAT_UNKNOWN;
     std::unordered_map<std::string, std::shared_ptr<const SpriteSheet>> sprites_;
     std::unordered_map<std::string, std::shared_ptr<SDL_Surface>> bitmaps_;
 };

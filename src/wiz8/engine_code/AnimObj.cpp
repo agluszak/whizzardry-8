@@ -12,7 +12,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
-#include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -455,9 +454,7 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
     }
     if (!animation->path_lists) {
         entry = animation->entries[list_index].get();
-        // reinterpret-ok: VC6 debug CRT freed-block poison is compared as a pointer; never
-        // dereferenced.
-        if (entry != reinterpret_cast<W8AniMesh*>(WIZ8_DEBUG_FREED_HEAP_PATTERN) && entry != 0) {
+        if (entry != nullptr) {
             entry->list_index = list_index;
             return GetAniMeshFrame(entry, value);
         }

@@ -20,7 +20,6 @@
 #include <vector>
 
 #include <SDL3/SDL_error.h>
-#include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
@@ -35,8 +34,6 @@
 
 // Nonblack colors that pack to 0 are nudged to 1 so they stay opaque.
 constexpr std::uint32_t kBlackSubstitute = 0x0001;
-
-SDL_PixelFormat g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
 
 namespace {
 constexpr std::size_t max_image_bytes = 256 * 1024 * 1024;
@@ -91,68 +88,27 @@ BitmapImage bitmap_from_pixels(int width, int height, SDL_PixelFormat format,
     return surface;
 }
 
-bool valid_image_header(const std::vector<std::uint8_t>& bytes, ImageFormat format)
-{
-    if (format == ImageFormat::pcx) {
-        if (bytes.size() < 128 || bytes[0] != 10 || bytes[2] > 1) return false;
-        const auto left = little_word(bytes.data() + 4), top = little_word(bytes.data() + 6);
-        const auto right = little_word(bytes.data() + 8), bottom = little_word(bytes.data() + 10);
-        const auto stride = little_word(bytes.data() + 66);
-        return right >= left && bottom >= top && right < 32768 && bottom < 32768 &&
-               safe_dimensions(right - left + 1, bottom - top + 1) && bytes[3] == 8 &&
-               (bytes[65] == 1 || bytes[65] == 3) && stride >= right - left + 1 && stride < 32768;
-    }
-    if (format == ImageFormat::tga) {
-        if (bytes.size() < 18) return false;
-        if ((bytes[2] == 1 || bytes[2] == 9) &&
-            little_word(bytes.data() + 3) + little_word(bytes.data() + 5) > 256)
-            return false;
-        return (bytes[16] == 8 || bytes[16] == 16 || bytes[16] == 24) &&
-               safe_dimensions(little_word(bytes.data() + 12), little_word(bytes.data() + 14));
-    }
-    if (format == ImageFormat::jpeg) {
-        if (bytes.size() < 2 || bytes[0] != 0xff || bytes[1] != 0xd8) return false;
-        std::size_t position = 2;
-        while (position < bytes.size()) {
-            if (bytes[position++] != 0xff) return false;
-            while (position < bytes.size() && bytes[position] == 0xff) ++position;
-            if (position == bytes.size()) return false;
-            const auto marker = bytes[position++];
-            if (marker == 0xda || marker == 0xd9) return false;
-            if (marker == 1 || (marker >= 0xd0 && marker <= 0xd8)) continue;
-            if (bytes.size() - position < 2) return false;
-            const std::size_t length = (unsigned(bytes[position]) << 8) | bytes[position + 1];
-            if (length < 2 || length > bytes.size() - position) return false;
-            if (marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 &&
-                marker != 0xcc) {
-                if (length < 8) return false;
-                const auto height = (unsigned(bytes[position + 3]) << 8) | bytes[position + 4];
-                const auto width = (unsigned(bytes[position + 5]) << 8) | bytes[position + 6];
-                return safe_dimensions(width, height);
-            }
-            position += length;
-        }
-    }
-    return false;
-}
-
 BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
 {
     const auto size = file.size();
     if (size <= 0 || std::uint64_t(size) > max_image_bytes)
         throw std::runtime_error("Invalid image file size");
-    std::vector<std::uint8_t> bytes(size);
-    file.read_exact(bytes.data(), bytes.size());
-    if (!valid_image_header(bytes, format)) throw std::runtime_error("Invalid image header");
-
-    // Give SDL an independent cursor for image decoding.
-    std::unique_ptr<SDL_IOStream, decltype(&SDL_CloseIO)> stream(
-        SDL_IOFromConstMem(bytes.data(), bytes.size()), SDL_CloseIO);
-    if (!stream) throw std::runtime_error(SDL_GetError());
+    unsigned first_color = 0;
+    if (format == ImageFormat::tga) {
+        std::array<std::uint8_t, 18> header;
+        const auto position = file.tell();
+        file.read_exact(header.data(), header.size());
+        file.seek(position, wiz8::SeekOrigin::begin);
+        if (header[2] == 1 || header[2] == 9) {
+            first_color = little_word(header.data() + 3);
+            if (first_color + little_word(header.data() + 5) > 256)
+                throw std::runtime_error("Invalid TGA palette range");
+        }
+    }
     const char* type = format == ImageFormat::pcx   ? "PCX"
                        : format == ImageFormat::tga ? "TGA"
                                                     : "JPG";
-    BitmapImage surface(IMG_LoadTyped_IO(stream.get(), false, type), SDL_DestroySurface);
+    BitmapImage surface(IMG_LoadTyped_IO(file.io(), false, type), SDL_DestroySurface);
     if (!surface) throw std::runtime_error(SDL_GetError());
     if (!safe_dimensions(surface->w, surface->h))
         throw std::runtime_error("Invalid image dimensions");
@@ -164,9 +120,6 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
         // Colour-mapped TGA palettes start at their declared first entry.
         Palette8 colors{};
         colors.fill({0, 0, 0, SDL_ALPHA_OPAQUE});
-        const unsigned first_color = format == ImageFormat::tga && (bytes[2] == 1 || bytes[2] == 9)
-                                         ? little_word(bytes.data() + 3)
-                                         : 0;
         std::transform(palette->colors,
                        palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
                        colors.begin() + first_color, [](const SDL_Color& color) {
@@ -384,7 +337,7 @@ Palette16 Create16BPPPaletteShaded(const Palette8& palette, std::uint32_t rscale
 // Convert from RGB to 16 bit value
 std::uint16_t Get16BPPColor(SDL_Color color)
 {
-    const auto* details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+    const auto* details = SDL_GetPixelFormatDetails(kFramePixelFormat);
     if (!details) throw std::runtime_error("Unsupported 16-bit pixel format");
     const std::uint16_t pixel = SDL_MapRGB(details, nullptr, color.r, color.g, color.b) &
                                 (details->Rmask | details->Gmask | details->Bmask);

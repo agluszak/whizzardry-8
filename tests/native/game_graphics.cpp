@@ -83,7 +83,6 @@ TEST_CASE("game graphics")
 
     GetInputState() = {};
     g_fullscreen = 0;
-    Initialize16BitPixelFormatMasks();
     REQUIRE(CreateWizardryWindow());
     REQUIRE(InitializePrimarySurface());
     REQUIRE(InitializeVideoDevice());

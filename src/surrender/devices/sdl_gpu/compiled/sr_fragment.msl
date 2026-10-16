@@ -1,0 +1,104 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct FragmentState
+{
+    float4 fog_color;
+    int4 mode;
+    float4 alpha;
+};
+
+struct main0_out
+{
+    float4 out_color [[color(0)]];
+};
+
+struct main0_in
+{
+    float4 in_diffuse [[user(locn0)]];
+    float4 in_specular [[user(locn1)]];
+    float3 in_texcoord0 [[user(locn2)]];
+    float in_fog [[user(locn4)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant FragmentState& _17 [[buffer(0)]], texture2d<float> texture0 [[texture(0)]], sampler texture0Smplr [[sampler(0)]])
+{
+    main0_out out = {};
+    float4 color = in.in_diffuse;
+    if (_17.mode.x != 0)
+    {
+        float4 texel = texture0.sample(texture0Smplr, (in.in_texcoord0.xy / float2(in.in_texcoord0.z)));
+        if (_17.mode.y == 0)
+        {
+            color = texel;
+        }
+        else
+        {
+            if (_17.mode.y == 1)
+            {
+                color = texel * in.in_diffuse;
+            }
+            else
+            {
+                color = float4(texel.xyz + in.in_diffuse.xyz, texel.w * in.in_diffuse.w);
+            }
+        }
+    }
+    if (_17.mode.z != 0)
+    {
+        float4 _89 = color;
+        float3 _91 = _89.xyz + in.in_specular.xyz;
+        color.x = _91.x;
+        color.y = _91.y;
+        color.z = _91.z;
+    }
+    if (_17.mode.w == 1)
+    {
+        float4 _103 = color;
+        float3 _112 = mix(_103.xyz, _17.fog_color.xyz, float3(in.in_fog));
+        color.x = _112.x;
+        color.y = _112.y;
+        color.z = _112.z;
+    }
+    else
+    {
+        if (_17.mode.w == 3)
+        {
+            float4 _126 = color;
+            float3 _132 = mix(_126.xyz, float3(1.0), float3(in.in_fog));
+            color.x = _132.x;
+            color.y = _132.y;
+            color.z = _132.z;
+        }
+        else
+        {
+            if (_17.mode.w == 2)
+            {
+                float4 _148 = color;
+                float3 _150 = _148.xyz * (1.0 - in.in_fog);
+                color.x = _150.x;
+                color.y = _150.y;
+                color.z = _150.z;
+            }
+        }
+    }
+    bool _161 = _17.alpha.x != 0.0;
+    bool _169;
+    if (_161)
+    {
+        _169 = color.w <= _17.alpha.y;
+    }
+    else
+    {
+        _169 = _161;
+    }
+    if (_169)
+    {
+        discard_fragment();
+    }
+    out.out_color = fast::clamp(color, float4(0.0), float4(1.0));
+    return out;
+}
+

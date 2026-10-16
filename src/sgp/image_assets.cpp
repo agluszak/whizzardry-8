@@ -30,17 +30,8 @@ std::string cache_key(std::string_view path)
 
 ImageAssets g_image_assets;
 
-void ImageAssets::useSessionFormat()
-{
-    if (format_ != g_sgp_pixel_format) {
-        clear();
-        format_ = g_sgp_pixel_format;
-    }
-}
-
 std::shared_ptr<const SpriteSheet> ImageAssets::sprites(std::string_view path)
 {
-    useSessionFormat();
     const auto key = cache_key(path);
     if (const auto found = sprites_.find(key); found != sprites_.end()) return found->second;
 
@@ -56,7 +47,6 @@ std::shared_ptr<const SpriteSheet> ImageAssets::sprites(std::string_view path)
 
 std::shared_ptr<SDL_Surface> ImageAssets::bitmap(std::string_view path)
 {
-    useSessionFormat();
     const auto key = cache_key(path);
     if (const auto found = bitmaps_.find(key); found != bitmaps_.end()) return found->second;
 

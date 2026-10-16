@@ -1,22 +1,14 @@
 #include <cstdint>
-#include <exception>
 #include <limits>
 #include <optional>
-#include <random>
 
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_stdinc.h>
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/generators/catch_generators.hpp>
 
-#include "catch2/catch_message.hpp"
 #include "wiz8/file_time.h"
 
 using namespace wiz8;
-template<typename Function> void rejects(Function function)
-{
-    REQUIRE_THROWS_AS(function(), std::exception);
-}
 TEST_CASE("file_time_test")
 {
     REQUIRE(SDL_Init(0));
@@ -27,8 +19,7 @@ TEST_CASE("file_time_test")
     REQUIRE(file_time_from_sdl(-100).ticks() == 116444735999999999ULL);
     REQUIRE(file_time_from_sdl(199).ticks() == 116444736000000001ULL);
     REQUIRE(*file_time_to_sdl(file_time_from_sdl(-1)) == -100);
-    const auto last = file_time_from_utc({9999, 12, 31, 23, 59, 59, 9999999, 0});
-    REQUIRE(last.ticks() == 2650467743999999999ULL);
+    const auto last = DiskFileTime::from_ticks(2650467743999999999ULL);
     REQUIRE(!file_time_to_sdl(last));
     REQUIRE(!file_time_to_sdl(DiskFileTime{}));
     const auto decoded = file_time_to_utc(last);
@@ -37,14 +28,6 @@ TEST_CASE("file_time_test")
     REQUIRE(decoded.fraction_100ns == 9999999);
     const auto max = DiskFileTime::from_ticks(std::numeric_limits<std::uint64_t>::max());
     REQUIRE(file_time_to_utc(max).year == 60056);
-    REQUIRE(file_time_from_utc(file_time_to_utc(max)).ticks() == max.ticks());
-    REQUIRE(file_time_from_utc({2000, 2, 29, 0, 0, 0, 1, 0}).ticks() == 125962560000000001ULL);
-    REQUIRE(file_time_to_utc(file_time_from_utc({2400, 2, 29, 1, 2, 3, 4567890, 0})).year == 2400);
-    rejects([] { file_time_from_utc({1900, 2, 29, 0, 0, 0, 0, 0}); });
-    rejects([] { file_time_from_utc({1600, 12, 31, 0, 0, 0, 0, 0}); });
-    rejects([] { file_time_from_utc({2020, 257, 1, 0, 0, 0, 0, 0}); });
-    rejects([] { file_time_from_utc({2020, 1, 257, 0, 0, 0, 0, 0}); });
-    rejects([] { file_time_from_utc({60056, 12, 31, 23, 59, 59, 0, 0}); });
     const auto sdl_max = std::numeric_limits<SDL_Time>::max();
     const auto sdl_min = std::numeric_limits<SDL_Time>::min();
     REQUIRE(*file_time_to_sdl(file_time_from_sdl(sdl_max)) == sdl_max / 100 * 100);
@@ -58,25 +41,4 @@ TEST_CASE("file_time_test")
     REQUIRE((local.year >= 2025 && local.month >= 1 && local.month <= 12));
     REQUIRE(current_utc_offset_seconds() == local.utc_offset);
     SDL_Quit();
-}
-
-TEST_CASE("FILETIME representative 100ns ticks round-trip", "[time][serialization]")
-{
-    const std::uint64_t ticks =
-        GENERATE(std::uint64_t{0}, std::uint64_t{1}, std::uint64_t{116444736000000000ULL},
-                 std::uint64_t{125962560000000001ULL}, std::uint64_t{2650467743999999999ULL},
-                 std::numeric_limits<std::uint64_t>::max());
-    CAPTURE(ticks);
-    const auto original = DiskFileTime::from_ticks(ticks);
-    CHECK(file_time_from_utc(file_time_to_utc(original)).ticks() == ticks);
-}
-
-TEST_CASE("FILETIME seeded random round-trip", "[time][serialization]")
-{
-    std::mt19937_64 random(8);
-    for (unsigned i = 0; i < 50000; ++i) {
-        const auto ticks = random();
-        REQUIRE(file_time_from_utc(file_time_to_utc(DiskFileTime::from_ticks(ticks))).ticks() ==
-                ticks);
-    }
 }

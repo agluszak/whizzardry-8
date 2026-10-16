@@ -7,7 +7,7 @@
 #include <array>
 #include <cstdint>
 
-// Maps every packed g_sgp_pixel_format pixel to its darkened pixel.
+// Maps every packed kFramePixelFormat pixel to its darkened pixel.
 extern std::array<std::uint16_t, 65536> ShadeTable;
 
 // Rebuilds ShadeTable for the current pixel format; call after it is selected.

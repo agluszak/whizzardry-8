@@ -5,6 +5,10 @@
 #include <cstdint>
 
 void InitializeRandom();
+// MSVC-compatible 32-bit state and 15-bit output, shared by all game randomness.
+void SeedRandom(std::uint32_t seed);
+std::uint32_t Random15();
+// Returns [0, range); an empty range returns zero without consuming a draw.
 std::uint32_t Random(std::uint32_t range);
-// Chance(74) succeeds 74% of the time; values >= 100 always succeed.
+// Still consumes a draw when chance >= 100, preserving the shared sequence.
 bool Chance(std::uint32_t chance);

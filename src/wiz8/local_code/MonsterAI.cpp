@@ -625,7 +625,7 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
 {
     W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
     if (monster_group->encounter_registered) {
-        if (g_dev_mode && gfCapturingVideo == 0) {
+        if (g_dev_mode) {
             DebugMessage(
                 0, fmt::format(
                        "Monster {:d} and associated monsters killed because it couldn't patrol",
@@ -633,7 +633,7 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
         }
         MarkMonsterGroupForRemoval(monster_info->monster_group_id);
     } else {
-        if (g_dev_mode && gfCapturingVideo == 0) {
+        if (g_dev_mode) {
             DebugMessage(0, fmt::format("{} {:d} can't path!", GetMonsterName(monster_info, 0, 0),
                                         monster_info->location_id));
         }

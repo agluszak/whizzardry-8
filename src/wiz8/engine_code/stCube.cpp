@@ -300,54 +300,6 @@ void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale)
    box through the world camera, bail if any corner is off-screen, then paint
    the twelve edges into the primary GERD's back buffer. */
 // FUNCTION: WIZ8 0x0048DF30
-void DrawWorldBox(W8World* world, glm::vec3 minimum, glm::vec3 maximum, w8_ulong color)
-{
-    if (world == 0) {
-        return;
-    }
-
-    glm::vec3 corners[8];
-    corners[0] = glm::vec3(minimum.x, minimum.y, minimum.z);
-    corners[1] = glm::vec3(minimum.x, minimum.y, maximum.z);
-    corners[2] = glm::vec3(maximum.x, minimum.y, maximum.z);
-    corners[3] = glm::vec3(maximum.x, minimum.y, minimum.z);
-    corners[4] = glm::vec3(minimum.x, maximum.y, minimum.z);
-    corners[5] = glm::vec3(minimum.x, maximum.y, maximum.z);
-    corners[6] = glm::vec3(maximum.x, maximum.y, maximum.z);
-    corners[7] = glm::vec3(maximum.x, maximum.y, minimum.z);
-
-    const auto viewport = GetScaledViewportBounds();
-    float viewport_width = viewport.maximum.x - viewport.minimum.x;
-    float viewport_height = viewport.maximum.y - viewport.minimum.y;
-
-    w8_long screen[8][2];
-    for (int index = 0; index < 8; ++index) {
-        const auto projection = world->camera->project(glm::dvec3(corners[index]));
-        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) return;
-        const auto projected = projection.position;
-        screen[index][0] =
-            static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);
-        screen[index][1] =
-            static_cast<w8_long>((projected.y * viewport_height + viewport.minimum.y) * 480.0f);
-        if (screen[index][0] < 0 || screen[index][0] > 640 || screen[index][1] < 0 ||
-            screen[index][1] > 480) {
-            return;
-        }
-    }
-
-    DrawBufferLine(screen[0][0], screen[0][1], screen[1][0], screen[1][1], &color);
-    DrawBufferLine(screen[1][0], screen[1][1], screen[2][0], screen[2][1], &color);
-    DrawBufferLine(screen[2][0], screen[2][1], screen[3][0], screen[3][1], &color);
-    DrawBufferLine(screen[3][0], screen[3][1], screen[0][0], screen[0][1], &color);
-    DrawBufferLine(screen[4][0], screen[4][1], screen[5][0], screen[5][1], &color);
-    DrawBufferLine(screen[5][0], screen[5][1], screen[6][0], screen[6][1], &color);
-    DrawBufferLine(screen[6][0], screen[6][1], screen[7][0], screen[7][1], &color);
-    DrawBufferLine(screen[7][0], screen[7][1], screen[4][0], screen[4][1], &color);
-    DrawBufferLine(screen[0][0], screen[0][1], screen[4][0], screen[4][1], &color);
-    DrawBufferLine(screen[1][0], screen[1][1], screen[5][0], screen[5][1], &color);
-    DrawBufferLine(screen[2][0], screen[2][1], screen[6][0], screen[6][1], &color);
-    DrawBufferLine(screen[3][0], screen[3][1], screen[7][0], screen[7][1], &color);
-}
 
 /* The three label parameters double as generic per-node parameters; the world
    cursor and the master-function table index into them by slot. */

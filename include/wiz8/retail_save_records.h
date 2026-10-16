@@ -403,6 +403,12 @@ template<> struct Record<W8MonsterGroup> {
               field(offsetof(Disk, highlighted_member), sizeof(Disk::highlighted_member)));
         value(&runtime.leader_location_id,
               field(offsetof(Disk, leader_location_id), sizeof(Disk::leader_location_id)));
+        // Retail saves can contain VC6's uninitialized leader word. No live
+        // object uses allocator sentinels; zero lets loaded members select a leader.
+        if constexpr (!std::is_const_v<Runtime>) {
+            if (static_cast<std::uint32_t>(runtime.leader_location_id) == 0xcdcdcdcdu)
+                runtime.leader_location_id = 0;
+        }
         value(&runtime.leader_group_id,
               field(offsetof(Disk, leader_group_id), sizeof(Disk::leader_group_id)));
         value(&runtime.allied_group_ids,

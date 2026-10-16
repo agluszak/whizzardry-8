@@ -24,17 +24,14 @@
 #include "wiz8/key_bindings.h"
 
 SDL_Window* ghWindow = nullptr;
-static int screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;
+static int screenshots = 0, suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
 static std::vector<int> clock_actions;
 void PrintScreen()
 {
     ++screenshots;
 }
-void VideoCaptureToggle()
-{
-    ++captures;
-}
+
 bool VideoInspectorIsEnabled()
 {
     return false;
@@ -238,7 +235,7 @@ TEST_CASE("events_test")
     key(SDL_EVENT_KEY_UP, SDLK_PRINTSCREEN, SDL_KMOD_LCTRL);
     key(SDL_EVENT_KEY_UP, SDLK_LCTRL);
     drain_events();
-    REQUIRE((screenshots == 1 && captures == 1 && input().empty()));
+    REQUIRE((screenshots == 2 && input().empty()));
 
     key(SDL_EVENT_KEY_DOWN, SDLK_A, SDL_KMOD_LSHIFT);
     key(SDL_EVENT_KEY_UP, SDLK_A, SDL_KMOD_LSHIFT);

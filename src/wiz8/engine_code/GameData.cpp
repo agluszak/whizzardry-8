@@ -1,7 +1,6 @@
 #include "wiz8/engine_code/GameData.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -20,7 +19,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtx/projection.hpp"
 #include "glm/matrix.hpp"
@@ -33,8 +31,6 @@
 #include "surrender/segment_math.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMath.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srShader.h"
 #include "surrender/triangle_projection.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -45,7 +41,6 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -53,8 +48,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/ground_probe.h"
@@ -1215,73 +1208,6 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
    normal (flattened to point straight up when it tilts below 0.5), unmarked
    vertices get a scaled/biased horizontal direction renormalized to 0.3. */
 // FUNCTION: WIZ8 0x0041c930
-std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
-{
-    std::vector<bool> selected(SurfacesCount() * 3 + 10);
-    auto mesh = std::make_shared<stMeshModel>(SurfacesCount(), SurfacesCount() * 3);
-    if (mesh == 0) {
-        srAssertFail("pstMeshModel", "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x56d,
-                     "ModelGameData::Read -- Could not create pstMeshModel.\n");
-    }
-    mesh->flags &= ~W8_MESH_SORTED_RENDERING;
-    glm::ivec3* poly_vertices = mesh->getPolyVertex();
-    std::shared_ptr<srTexture>* poly_textures = mesh->getPolyTexture(0, 0, 1);
-    glm::vec3* vertex_locs = mesh->getVertexLoc();
-    glm::vec2* texcoords = mesh->getVertexTexCoords(0, 0, 1);
-    std::shared_ptr<srMaterial>* vertex_materials =
-        mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
-    w8_ulong* shade_indices = mesh->getVertexShadeIndex(1);
-    int vertex = 0;
-    for (int index = 0; index < SurfacesCount(); ++index) {
-        W8GDSurface* surface = m_pSurfaces.data() + index;
-        poly_textures[index] = g_oct_mesh_default.texture;
-        const std::array corners{&poly_vertices[index].x, &poly_vertices[index].y,
-                                 &poly_vertices[index].z};
-        for (unsigned corner = 0; corner < corners.size(); ++corner) {
-            const auto destination = vertex + corner;
-            if ((surface->flags & W8_GD_SURFACE_WALKABLE) != 0) selected[destination] = true;
-            texcoords[destination] = glm::vec2(0);
-            vertex_materials[destination] = g_oct_mesh_default.material;
-            *corners[corner] = destination;
-            shade_indices[destination] = destination;
-            vertex_locs[destination] = m_pVertices[surface->vertex_indices[corner]];
-        }
-        vertex += 3;
-    }
-    mesh->setShader(g_oct_mesh_default.render_flags, 0);
-    mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);
-    glm::vec3* normals = mesh->getVertexNormal();
-    glm::vec3* dig = mesh->getVertexDIG(0, 1);
-    for (int i = 0; i < vertex; ++i) {
-        if (selected[i]) {
-            dig[i] = normals[i];
-            if (dig[i].y < g_float_half) {
-                dig[i].y = 0.0f;
-                dig[i] = normalizedOrZero(dig[i]);
-                dig[i].y = 1.0f;
-                dig[i] = normalizedOrZero(dig[i]);
-            }
-        } else {
-            dig[i] = glm::vec3(
-                normals[i].x * g_float_fifteen_hundredths + g_float_fifteen_hundredths, 0.0f,
-                normals[i].z * g_float_fifteen_hundredths + g_float_fifteen_hundredths);
-            float length = glm::length(dig[i]);
-            if (g_double_one_ten_thousandth <= length) {
-                if (length < 0.3) {
-                    dig[i] = normalizedOrZero(dig[i]) * 0.3f;
-                }
-            } else {
-                dig[i].x = 0.15f;
-                dig[i].z = 0.15f;
-            }
-        }
-    }
-    mesh->setName("GameData Mesh");
-    mesh->flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
-    auto instance = CreateModelInstance(mesh);
-    instance->setName("GameData Mesh");
-    return instance;
-}
 
 // GLOBAL: WIZ8 0x005ebc80
 const float g_collision_fraction_floor = -0.1f;
