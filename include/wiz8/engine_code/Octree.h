@@ -170,8 +170,7 @@ struct W8OctPreTreeLeaf {
     w8_ulong kind_offsets[6];
 };
 
-/* Native camera snapshot and visibility frustum; level-file planes retain
-   their packed W8Plane representation independently. */
+/* Native camera snapshot and visibility frustum. */
 class srCamera;
 struct W8OctreeView {
     glm::vec3 camera_location{0};
