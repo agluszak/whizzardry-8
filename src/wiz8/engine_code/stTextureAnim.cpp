@@ -172,7 +172,6 @@ void stTextureAnim::setupDefaultValues()
     } else {
         texture_dimensions_.width = 1;
         texture_dimensions_.height = 1;
-        texture_dimensions_.palette = 0;
     }
 }
 

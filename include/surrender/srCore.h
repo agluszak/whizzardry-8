@@ -5,7 +5,7 @@
 #include "srClock.h"
 #include "srStatisticsManager.h"
 
-class srColorSurfaceIFace;
+struct SDL_Surface;
 class srMaterial;
 class srNode;
 class srPalette;
@@ -24,7 +24,7 @@ public:
     // FUNCTION: SURRENDER 0x100156B0
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
     srStatisticsManager* getStatisticsManager() const { return statistics_manager.get(); }
-    srColorSurfaceIFace* getSurface() const;
+    SDL_Surface* getSurface() const;
     srTexture* getTexture() const;
     // FUNCTION: SURRENDER 0x100156C0
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
@@ -42,7 +42,7 @@ private:
     static int initialized;
 
     std::unique_ptr<srClock> timer;
-    std::shared_ptr<srColorSurfaceIFace> surface;
+    std::shared_ptr<SDL_Surface> surface;
     std::unique_ptr<srStatisticsManager> statistics_manager;
     std::shared_ptr<srPalette> palette;
     std::unique_ptr<srNode> root_node;

@@ -6,14 +6,12 @@
 #include <memory>
 #include <vector>
 
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
 #include "compat/native.h"
 #include "native/movie_audio.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
 #include "wiz8/engine_code/Video2.h"
@@ -72,11 +70,10 @@ struct W8NativeVideo::State {
     std::unique_ptr<w8_native::MovieAudio> voice;
     std::deque<Frame> queued;
     Frame current{};
-    std::shared_ptr<srColorSurface> presentation_surface;
-    stSurface2D* presentation_tiles = nullptr;
+    std::shared_ptr<SDL_Surface> presentation_surface;
+    std::unique_ptr<stSurface2D> presentation_tiles;
     ~State()
     {
-        if (presentation_tiles) delete presentation_tiles;
         voice.reset();
         swr_free(&resample);
         sws_freeContext(scale);
@@ -317,18 +314,14 @@ void W8NativeVideo::present(SDL_Surface* target)
 {
     if (!g_gerd || !g_surface_node) return;
     const auto& description = *target;
-    if (!state->presentation_surface) {
-        state->presentation_surface = std::make_shared<srColorSurface>(
-            SDL_PIXELFORMAT_XRGB1555, description.w, description.h);
-        state->presentation_tiles = new stSurface2D(state->presentation_surface, description.w,
-                                                    description.h, nullptr, 128);
+    if (!state->presentation_surface || state->presentation_surface.get() != target) {
+        ++target->refcount;
+        state->presentation_surface = std::shared_ptr<SDL_Surface>(target, SDL_DestroySurface);
+        state->presentation_tiles = std::make_unique<stSurface2D>(
+            state->presentation_surface, description.w, description.h, nullptr, 128);
         state->presentation_tiles->setAlphaTestEnabled(false);
     }
     if (!description.pixels) throw std::runtime_error("Movie presentation surface has no pixels");
-    for (int y = 0; y < description.h; ++y)
-        state->presentation_surface->setPixelRowRaw(
-            static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
-            description.w);
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.
     state->presentation_tiles->updateRectangle(g_gerd.get(), description.pixels, description.pitch,

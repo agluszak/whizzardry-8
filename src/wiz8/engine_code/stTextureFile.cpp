@@ -9,15 +9,9 @@
 
 #include "asset_paths.h"
 #include "compat/compiler.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
-
-std::unique_ptr<srColorSurface> LoadSurface(wiz8::File* handle, w8_long*)
-{
-    return handle ? srImage::loadTga(*handle) : nullptr;
-}
 
 // VTABLE: WIZ8 0x005EC5F8
 // class stTextureFile
@@ -108,10 +102,6 @@ stTextureFile::~stTextureFile()
 // FUNCTION: WIZ8 0x0047BBF0
 void stTextureFile::loadSurface()
 {
-    /* The second LoadSurface argument is an out-pointer the callee ignores;
-       the caller still initializes the dword it passes. */
-    w8_long unused = 0;
-
     if (surface != 0) {
         invalidate();
     }
@@ -131,7 +121,7 @@ void stTextureFile::loadSurface()
         }
     }();
     if (handle != 0) {
-        surface = LoadSurface(handle.get(), &unused);
+        surface = srImage::loadTga(*handle);
         if (handle) handle->close();
         handle.reset();
     }
@@ -144,7 +134,7 @@ void stTextureFile::loadSurface()
     setupDefaultValues();
     /* Retail reads the alpha channel count straight out of the surface's
        pixel format (unsigned SETA): the authored comparison is `> 0`. */
-    has_alpha = (SDL_ISPIXELFORMAT_ALPHA(surface->getPixelFormat()));
+    has_alpha = (SDL_ISPIXELFORMAT_ALPHA(surface->format));
 }
 
 // FUNCTION: WIZ8 0x0047CA50

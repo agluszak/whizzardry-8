@@ -1,10 +1,14 @@
+#include <array>
+#include <cstring>
 #include <memory>
+#include <stdexcept>
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
 
 #include "surrender/srClock.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
@@ -15,6 +19,7 @@
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
+#include "wiz8/surface_storage.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
 void _srLibraryInit(void)
@@ -39,11 +44,16 @@ int srInit()
         srCore.root_node->setName("SurRender root node");
         srCore.material = std::make_unique<srMaterial>();
         srCore.material->setName("SurRender default material");
-        srCore.surface = std::make_shared<srColorSurface>(SDL_PIXELFORMAT_INDEX8, 0x40, 0x40);
-        srCore.surface->setName("SurRender default surface");
-        for (int i = 0; i < 0x1000; ++i) {
-            srCore.surface->setPixelRaw(i & 0x3f, i / 64, srLogo[i]);
-        }
+        srCore.surface = std::shared_ptr<SDL_Surface>(
+            CreateCpuStorage(64, 64, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
+        std::array<SDL_Color, 256> gray;
+        for (unsigned i = 0; i < gray.size(); ++i) gray[i] = {Uint8(i), Uint8(i), Uint8(i), 255};
+        if (!SDL_SetPaletteColors(SDL_GetSurfacePalette(srCore.surface.get()), gray.data(), 0, 256))
+            throw std::runtime_error(SDL_GetError());
+        for (int y = 0; y < 64; ++y)
+            std::memcpy(static_cast<unsigned char*>(srCore.surface->pixels) +
+                            y * srCore.surface->pitch,
+                        srLogo + y * 64, 64);
         srCore.texture = std::make_unique<srTextureMap>(srCore.surface);
         srCore.texture->setName("SurRender default texture");
         srCore.initialized = 1;
@@ -77,7 +87,7 @@ int srExit()
 }
 
 // FUNCTION: SURRENDER 0x10015a70
-srColorSurfaceIFace* srCore::getSurface() const
+SDL_Surface* srCore::getSurface() const
 {
     return surface.get();
 }

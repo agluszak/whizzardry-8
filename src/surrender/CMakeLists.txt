@@ -6,7 +6,6 @@ set(SURRENDER_SOURCES
     debug.cpp
     fog.cpp
     vertex_pipe.cpp
-    color_surface.cpp
     gerd.cpp
     gerd_filters.cpp
     huffman.cpp

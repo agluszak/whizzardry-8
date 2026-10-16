@@ -1,6 +1,11 @@
 #include "wiz8/surface2d.h"
 
 #include <memory>
+#include <stdexcept>
+
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
@@ -40,15 +45,20 @@ w8_ulong stTexture2D::getTextureFrameHandle()
 void stTexture2D::getMipmapData(const MultiRequest& request)
 {
     if (request.destinations.empty() || !request.destinations.front()) return;
-    request.destinations.front()->blit(0, 0, *surface, left, top, right, bottom);
+    SDL_Rect source{left, top, right - left, bottom - top};
+    if (!SDL_BlitSurface(surface.get(), &source, request.destinations.front(), nullptr))
+        throw std::runtime_error(SDL_GetError());
 }
 
 // FUNCTION: WIZ8 0x0047E740
 void stTexture2D::getMipmapLevelPartial(PartialRequest& request)
 {
-    request.destination->blit(request.destination_x, request.destination_y, *surface,
-                              left + request.destination_x, top + request.destination_y,
-                              left + request.source_right, top + request.source_bottom);
+    SDL_Rect source{left + request.destination_x, top + request.destination_y,
+                    request.source_right - request.destination_x,
+                    request.source_bottom - request.destination_y};
+    SDL_Rect destination{request.destination_x, request.destination_y, source.w, source.h};
+    if (!SDL_BlitSurface(surface.get(), &source, request.destination, &destination))
+        throw std::runtime_error(SDL_GetError());
 }
 
 // FUNCTION: WIZ8 0x0047DE40
@@ -61,15 +71,14 @@ void stTexture2D::invalidate()
 void stTexture2D::setupDefaultValues()
 {
     if (surface) {
-        texture_dimensions_.format = surface->getPixelFormat();
-        texture_dimensions_.palette = 0;
+        texture_dimensions_.format = surface->format;
     }
     texture_flags_ &= ~(1UL << FLAG_DIRTY_DEFAULTS);
 }
 
 // FUNCTION: WIZ8 0x0047DAE0
-stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width,
-                         int source_height, srNode* parent, int tile_extent)
+stSurface2D::stSurface2D(std::shared_ptr<SDL_Surface> source, int source_width, int source_height,
+                         srNode* parent, int tile_extent)
     : srNode(static_cast<srNode*>(0)),
       vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0), shader_bits(0x100a017),
       tile_size(tile_extent), columns((source_width + tile_extent - 1) / tile_extent),

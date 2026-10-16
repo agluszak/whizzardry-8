@@ -4,9 +4,9 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"
+#include "wiz8/surface_storage.h"
 
 class srGERD;
 
@@ -30,7 +30,7 @@ public:
     int right;                    /* 0x5c */
     int bottom;                   /* 0x60 */
     w8_ulong frame_handle;   /* 0x64 */
-    std::shared_ptr<srColorSurfaceIFace> surface; /* 0x68 */
+    std::shared_ptr<SDL_Surface> surface; /* 0x68 */
 };
 
 // VTABLE: WIZ8 0x005EC748 stSurface2D
@@ -38,7 +38,7 @@ class stSurface2D : public srNode {
 public:
     enum { UPDATE_FULL_TILE = 1 };
 
-    stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent,
+    stSurface2D(std::shared_ptr<SDL_Surface> surface, int width, int height, srNode* parent,
                 int tile_size);
 
     virtual void traverse(TraverseInfo& info) override;

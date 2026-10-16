@@ -13,13 +13,14 @@
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 
+#include "surface_pixels.h"
+
 /* Installed character and level assets through the recovered game loop. */
 #include <SDL3/SDL_surface.h>
 
 #include "image.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -60,7 +61,7 @@ static std::vector<unsigned int> ReadFrame()
     std::vector<unsigned int> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH; ++x)
-            pixels[y * SCREEN_WIDTH + x] = surface->getPixel(x, y);
+            pixels[y * SCREEN_WIDTH + x] = ReadARGB(*surface, x, y);
     g_gerd->unlockBuffer();
     return pixels;
 }
@@ -193,8 +194,8 @@ TEST_CASE("world graphics")
         REQUIRE(surface);
         for (int y = 0; y < g_help_box_height; ++y)
             for (int x = 0; x < g_help_box_width; ++x)
-                REQUIRE((surface->getPixelRaw(x + 1, y + 1) & 0x8000) != 0);
-        REQUIRE((surface->getPixelRaw(g_help_box_width + 2, 2) & 0x8000) == 0);
+                REQUIRE((ReadARGB(*surface, x + 1, y + 1) & 0xff000000) != 0);
+        REQUIRE((ReadARGB(*surface, g_help_box_width + 2, 2) & 0xff000000) == 0);
         const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
         const std::string ui_output =
             std::string(output ? output : "/tmp/wiz8-native-world.ppm") + ".ui.ppm";

@@ -24,10 +24,9 @@ bool copy(const W8NativeVideo::Frame& frame, SDL_Surface* target)
         format->Gmask != 0x3e0 || format->Bmask != 0x1f)
         return false;
     if (!target->pixels) return false;
-    for (int y = 0; y < frame.height; ++y)
-        memcpy(static_cast<unsigned char*>(target->pixels) + y * target->pitch,
-               frame.pixels.data() + y * frame.width, frame.width * 2);
-    return true;
+    return SDL_ConvertPixels(frame.width, frame.height, SDL_PIXELFORMAT_XRGB1555,
+                             frame.pixels.data(), frame.width * 2, target->format, target->pixels,
+                             target->pitch);
 }
 
 } // namespace
