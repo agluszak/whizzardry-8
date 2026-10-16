@@ -3,7 +3,6 @@
 #include "soundman.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -42,7 +41,6 @@ struct AudioPlayback {
     // Track destruction synchronizes with mixing before closing its input.
     Clip clip;
     w8_native::AudioInput input;
-    std::atomic<bool> stopped = false;
     w8_native::Track track;
     std::function<void()> on_finished;
     Group group = Group::effects;
@@ -74,7 +72,6 @@ void finish(const Playback& playback)
 {
     if (!playback || !playback->track) return;
     auto callback = std::exchange(playback->on_finished, {});
-    MIX_SetTrackStoppedCallback(playback->track.get(), nullptr, nullptr);
     playback->track.reset();
     playback->input.reset();
     playback->clip.reset();
@@ -88,7 +85,9 @@ void finish_stopped()
 {
     const auto playing = service_state.active;
     for (const auto& playback : playing)
-        if (playback->stopped.load(std::memory_order_acquire)) finish(playback);
+        if (playback->track && !MIX_TrackPlaying(playback->track.get()) &&
+            !MIX_TrackPaused(playback->track.get()))
+            finish(playback);
 }
 
 std::string resolve_path(std::string_view path)
@@ -134,15 +133,7 @@ Playback create_playback(Group group)
     playback->group = group;
     playback->owner = w8_native::retain_audio_mixer();
     playback->track.reset(MIX_CreateTrack(playback->owner.get()));
-    if (!playback->track ||
-        !MIX_SetTrackStoppedCallback(
-            playback->track.get(),
-            [](void* data, MIX_Track*) {
-                // The mixer thread must not dispatch game callbacks or destroy inputs.
-                static_cast<AudioPlayback*>(data)->stopped.store(true, std::memory_order_release);
-            },
-            playback.get()))
-        return {};
+    if (!playback->track) return {};
     return playback;
 }
 
