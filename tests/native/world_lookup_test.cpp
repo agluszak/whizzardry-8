@@ -11,7 +11,6 @@
 #include "layouts/world.h"
 #include "sr_api.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srClock.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
@@ -137,8 +136,6 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
 
-    srClock clock;
-    g_shared_timer_base = &clock;
     auto* gas = level.particles
                     .emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1,
                                                                srNode::Ownership::independent))
@@ -163,7 +160,6 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
-    g_shared_timer_base = 0;
 
     SetCurrentWorld(0);
     SetSecondaryWorld(0);

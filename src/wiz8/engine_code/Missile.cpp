@@ -28,7 +28,6 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "retail_records.h"
-#include "surrender/srClock.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -114,7 +113,7 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
         return 1;
     }
     position = missile->GetPosition();
-    count = g_shared_timer_base->milliseconds() >> 1;
+    count = GameClockMilliseconds() >> 1;
     delta = count - record->last_half_tick;
     if (delta > 0xfa) {
         delta = 0xfa;
@@ -676,7 +675,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
         ai->speed_per_step = flight_speed * g_float_one_thousandth;
         ai->gravity = missile->gravity;
         ai->limit = limit;
-        ai->last_half_tick = g_shared_timer_base->milliseconds() >> 1;
+        ai->last_half_tick = GameClockMilliseconds() >> 1;
         ai->missile = missile;
         missile->m_pAI.reset(ai);
         ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * g_float_one_thousandth);
