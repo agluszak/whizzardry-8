@@ -89,6 +89,7 @@
 #include "wiz8/packed_bits.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"

@@ -44,7 +44,8 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/octree_walk.h"
-#include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_geometry_records.h" // IWYU pragma: keep - W8OctRegionVolume codec specialization.
+#include "wiz8/retail_text_records.h"
 #include "wiz8/sr_api.h"
 
 #define OCTPRETREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPreTree.cpp"
@@ -433,7 +434,7 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
         if (m_spatial.submesh_count > 1) {
             W8OctSubmeshBuild* record = records + 1;
             W8OctSubmesh* submesh = m_pSubmeshes.data() + 1;
-                    /* Retail writes models from index 0: records[1..] and
+            /* Retail writes models from index 0: records[1..] and
                        submeshes[1..] are one-based, but the model cursor
                        starts at models[0]. */
             OctMeshModel* model = models.data();
@@ -544,7 +545,7 @@ std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geom
                 }
             }
         }
-                /* Verified retail behavior: submesh_count was just overwritten
+        /* Verified retail behavior: submesh_count was just overwritten
                    with model_index, so the cleanup frees records[0..model_index)
                    and leaks the final record's vertex/polygon id arrays. */
         FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
