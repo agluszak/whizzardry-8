@@ -975,9 +975,11 @@ void srColorSurface::copyNoScaling(srColorSurfaceIFace& source)
             pixel_format.blue_bits == 8 && pixel_format.alpha_bits == 8 &&
             pixel_format.red_shift == 0x10 && pixel_format.green_shift == 8 &&
             pixel_format.blue_shift == 0 && pixel_format.alpha_shift == 0x18) {
-            unsigned char* dest = (unsigned char*)getDataPtr();
+            auto* dest = static_cast<unsigned char*>(getDataPtr());
+            std::vector<w8_ulong> pixels(width);
             for (w8_long row = 0; row < height; ++row) {
-                source.getPixelRow((w8_ulong*)dest, row, 0, width);
+                source.getPixelRow(pixels.data(), row, 0, width);
+                std::memcpy(dest, pixels.data(), pixels.size() * sizeof(pixels.front()));
                 dest += pitch;
             }
             return;

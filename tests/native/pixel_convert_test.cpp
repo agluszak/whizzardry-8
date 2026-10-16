@@ -210,7 +210,11 @@ TEST_CASE("Surface copies and blits respect virtual pixels across dynamic types"
 {
     SurRenderTestFixture runtime;
     struct VirtualPixels : srColorSurface {
-        VirtualPixels() : srColorSurface(srPixelConvert::SURFACE_BGRA32, 2, 2) { fill(0xff000000); }
+        explicit VirtualPixels(srPixelConvert::e_surfaceType type = srPixelConvert::SURFACE_BGRA32)
+            : srColorSurface(type, 2, 2)
+        {
+            fill(0xff000000);
+        }
         void getPixelRow(w8_ulong* pixels, w8_long, w8_long begin, w8_long end) override
         {
             for (w8_long x = begin; x < end; ++x) pixels[x - begin] = 0xff123456;
@@ -225,6 +229,10 @@ TEST_CASE("Surface copies and blits respect virtual pixels across dynamic types"
     destination.fill(0xff000000);
     destination.blit(0, 0, source, 0, 0, 2, 2);
     REQUIRE(destination.getPixel(1, 1) == 0xff123456);
+    VirtualPixels packed_source(srPixelConvert::SURFACE_RGB565);
+    VirtualPixels converted;
+    converted.copy(packed_source);
+    REQUIRE(converted.getPixel(1, 1) == 0xff123456);
 }
 
 TEST_CASE("generic rounded RGB conversion remains exact")
@@ -313,6 +321,11 @@ TEST_CASE_METHOD(SurRenderTestFixture,
         colors[index].alpha = index ^ 0xa5;
     }
     srPalette palette(colors.data(), colors.size());
+    REQUIRE(palette.matchPalette(colors.data(), colors.size()));
+    auto different_alpha = colors;
+    different_alpha[17].alpha ^= 1;
+    REQUIRE_FALSE(palette.matchPalette(different_alpha.data(), different_alpha.size()));
+    REQUIRE_FALSE(palette.matchPalette(colors.data(), colors.size() - 1));
     for (auto type :
          {srPixelConvert::SURFACE_AL44, srPixelConvert::SURFACE_AL88, srPixelConvert::SURFACE_L8,
           srPixelConvert::SURFACE_AP44, srPixelConvert::SURFACE_AP88}) {

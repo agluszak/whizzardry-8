@@ -3,7 +3,6 @@
 #include <string_view>
 
 #include <SDL3/SDL_events.h>
-#include <SDL3/SDL_video.h>
 
 #include "input.h"
 #include "wiz8/application.h"
@@ -46,14 +45,13 @@ void HandleGameEvent(const SDL_Event& event)
         return;
     }
     if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && ghWindow &&
-        SDL_GetWindowFromEvent(&event) == reinterpret_cast<SDL_Window*>(ghWindow)) {
+        SDL_GetWindowFromEvent(&event) == ghWindow) {
         gfProgramIsRunning = false;
         return;
     }
     if (gfIgnoreMessages) return;
     HandleInputEvent(event);
-    if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow))
-        return;
+    if (!ghWindow || SDL_GetWindowFromEvent(&event) != ghWindow) return;
     switch (event.type) {
     case SDL_EVENT_WINDOW_RESIZED:
         if (event.window.data1 > 0 && event.window.data2 > 0) VideoResizeWindow();
