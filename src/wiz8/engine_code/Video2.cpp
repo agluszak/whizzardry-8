@@ -680,25 +680,6 @@ unsigned char ClearPrimarySurface(void)
 
 void UpdateRenderElapsedTime(void);
 
-/* Saturate the three components of a renderer colour in place.
-   The reviewed body performs these three scalar saturations in order. */
-// FUNCTION: WIZ8 0x004299b0
-void SaturateColor(glm::vec3* color)
-{
-    if (color->x <= 0.0f)
-        color->x = 0.0f;
-    else if (color->x >= 1.0f)
-        color->x = 1.0f;
-    if (color->y <= 0.0f)
-        color->y = 0.0f;
-    else if (color->y >= 1.0f)
-        color->y = 1.0f;
-    if (color->z <= 0.0f)
-        color->z = 0.0f;
-    else if (color->z >= 1.0f)
-        color->z = 1.0f;
-}
-
 /* Render one scene into either the full output or a logical 640x480 viewport.
    Scene fog follows the current world's static scene for ordinary overlays;
    the world passes retain their own fog by selecting preserve_fog. */
@@ -787,7 +768,7 @@ void RenderFrame(void)
     if (!g_flush_pending) {
         return;
     }
-    glm::vec3 clear_color{1.0f};
+    glm::vec3 clear_color(0);
     srVector3T<float> saved_world_position;
     srVector3T<float> shifted_world_position;
     unsigned int next_page;
@@ -799,8 +780,6 @@ void RenderFrame(void)
     srScene* retire_prerender;
     srScene* retire_overlay;
 
-    clear_color = glm::vec3(0);
-    SaturateColor(&clear_color);
     if (!g_video_active) {
         return;
     }

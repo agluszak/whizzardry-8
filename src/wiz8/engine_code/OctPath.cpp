@@ -5612,8 +5612,8 @@ static void appendFlagNames(char* line, unsigned int value, const FlagName (&nam
 unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned int* flags,
                                                      unsigned int direction)
 {
-    glm::vec3 colour_saved{1.0f};
-    glm::vec3 colour_backup{1.0f};
+    glm::vec3 colour_saved(0);
+    glm::vec3 colour_backup(0);
     char* lines[9];
     char* wide[9];
     char groups[32];
@@ -5626,8 +5626,6 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     char pending = 0;
     short length;
 
-    colour_saved = glm::vec3(0);
-    colour_backup = glm::vec3(0);
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);

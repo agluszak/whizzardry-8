@@ -368,16 +368,7 @@ void srGERD::setSwapInterval(w8_ulong interval)
 // FUNCTION: SURRENDER 0x1001AEE0
 void srGERD::setGamma(const glm::vec3& gamma)
 {
-    glm::vec3 adjusted = gamma;
-    if (adjusted.x < 0.0f) {
-        adjusted.x = 0.0f;
-    }
-    if (adjusted.y < 0.0f) {
-        adjusted.y = 0.0f;
-    }
-    if (adjusted.z < 0.0f) {
-        adjusted.z = 0.0f;
-    }
+    const auto adjusted = glm::max(gamma, glm::vec3(0));
     if (!(adjusted == display.gamma)) {
         display.gamma = adjusted;
         dirty |= DIRTY_GAMMA;

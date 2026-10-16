@@ -257,7 +257,6 @@ SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const glm::vec3* direction);
 void GetWorldColour(glm::vec3* colour); /* 0x00427290 */
-void SaturateColor(glm::vec3* color);
 void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);

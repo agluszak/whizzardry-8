@@ -12,6 +12,7 @@
 #include "AnimRep.hpp"
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -475,7 +476,6 @@ static float ApplyWorldLightingIntensity(W8World* world, float intensity)
     }
     if (world->static_scene == 0) {
         colour = glm::vec3(0);
-        SaturateColor(&colour);
         ApplyEnvironmentColour(world, intensity, &colour);
     } else {
         ApplyEnvironmentColour(world, intensity, &world->environment_colour);
@@ -516,7 +516,7 @@ void BeginWorldLightingFade(float duration)
         }
 
         direction = g_light_direction;
-        SaturateColor(&direction);
+        direction = glm::clamp(direction, 0.0f, 1.0f);
         PublishLightDirection(&direction);
         return;
     }
@@ -575,7 +575,7 @@ void UpdateEnvironmentLighting(void)
 
     direction = g_light_direction;
     direction *= scale;
-    SaturateColor(&direction);
+    direction = glm::clamp(direction, 0.0f, 1.0f);
     PublishLightDirection(&direction);
 
     if (intensity == g_float_zero) {
@@ -736,17 +736,14 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* co
         srAssertFail("pWorld", ENVIRONMENT_CPP, 0x2b0, 0);
     }
     if (world->static_scene != 0) {
-        glm::vec3 ambient = *colour * intensity;
-
-        SaturateColor(&ambient);
+        const auto ambient = glm::clamp(*colour * intensity, 0.0f, 1.0f);
         world->static_scene->setAmbientLight(ambient);
         world->environment_colour = *colour;
         world->environment_intensity = intensity;
     }
     for (stLight* light : g_environment_lights) {
         glm::vec3 scaled(glm::dvec3(*colour) * static_cast<double>(intensity));
-        SaturateColor(&scaled);
-        light->ambient = scaled;
+        light->ambient = glm::clamp(scaled, 0.0f, 1.0f);
     }
     {
         if (auto material = g_materials.find("AnimatedCloudMaterial")) {

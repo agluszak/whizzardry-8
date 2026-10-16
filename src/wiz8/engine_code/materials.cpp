@@ -1741,8 +1741,8 @@ static void ToggleOption(bool& option, char* label)
 void W8Octree::OctBuildOptions(char* stem)
 {
     bool done = g_build_level_links;
-    glm::vec3 colour_saved{1.0f};
-    glm::vec3 colour_backup{1.0f};
+    glm::vec3 colour_saved(0);
+    glm::vec3 colour_backup(0);
     std::string lines[7];
     char log_state[8];
     char rename_state[8];
@@ -1754,8 +1754,6 @@ void W8Octree::OctBuildOptions(char* stem)
     int edit_mode;
     int line;
 
-    colour_saved = glm::vec3(0);
-    colour_backup = glm::vec3(0);
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
