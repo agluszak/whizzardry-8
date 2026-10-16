@@ -11,6 +11,7 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
@@ -21,7 +22,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 

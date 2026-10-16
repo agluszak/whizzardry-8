@@ -29,6 +29,7 @@
 #include "particle_modes.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
@@ -46,7 +47,6 @@
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 
 // GLOBAL: WIZ8 0x005ebc60
 const float g_float_one_five_hundredth = 0.0020000000949949026f;

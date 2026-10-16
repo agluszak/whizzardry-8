@@ -30,6 +30,7 @@
 #include "retail_records.h"
 #include "soundman.h"
 #include "spell_ids.h"
+#include "surrender/srDebug.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "wiz8/containers.h"
@@ -59,7 +60,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/text_line.h"
 
 // GLOBAL: WIZ8 0x0065BE40

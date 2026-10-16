@@ -13,6 +13,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
 #include "layouts/gameplay_databases.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -59,7 +60,6 @@
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/save_game.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
 
 /* The world-cursor node the party is standing in, tracked across the

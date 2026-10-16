@@ -20,6 +20,7 @@
 #include "layouts/targeting.h"
 #include "random.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/combat_state.h"
@@ -29,7 +30,6 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/sr_api.h"
 
 #define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
 

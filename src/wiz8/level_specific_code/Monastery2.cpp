@@ -4,10 +4,10 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "soundman.h"
+#include "surrender/srDebug.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/item_spawning.h"
-#include "wiz8/sr_api.h"
 
 /* Level Specific Code\Monastery2.cpp (level 9).
 

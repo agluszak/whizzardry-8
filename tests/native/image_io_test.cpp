@@ -13,10 +13,9 @@
 
 #include "compat/compiler.h"
 #include "surface_pixels.h"
-#include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
@@ -184,10 +183,7 @@ static void CheckErrors()
 
 TEST_CASE("image_io_test")
 {
-    REQUIRE(srExit());
-    for (int cycle = 0; cycle < 3; ++cycle) {
-        REQUIRE((srInit() && srCore.isInitialized()));
-        REQUIRE(srInit());
+    {
         for (bool top : {false, true})
             for (bool rle : {false, true}) CheckImage("test.TGA", Targa(top, rle, false));
         auto alpha = Targa(true, false, true);
@@ -206,8 +202,6 @@ TEST_CASE("image_io_test")
             auto stream = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
             REQUIRE(!srImage::load(name, stream.get()));
         }
-        REQUIRE((srExit() && !srCore.isInitialized()));
-        REQUIRE(srExit());
     }
-    puts("ok: direct image loading, JPEG export and SurRender reinitialization");
+    puts("ok: direct image loading and JPEG export without renderer initialization");
 }

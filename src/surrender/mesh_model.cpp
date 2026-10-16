@@ -29,7 +29,6 @@
 
 #include "surrender/mesh_math.h"
 #include "surrender/mesh_submission.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
@@ -759,7 +758,7 @@ void srTriMeshPipeline::Reset(srGERD* renderer)
     shader.value = 0x0100241b;
     texture0 = 0;
     texture1 = 0;
-    material = srCore.getMaterial();
+    material = nullptr;
 
     PrepareSlot();
 }

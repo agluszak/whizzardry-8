@@ -12,8 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include "surrender/srDebug.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/sr_api.h"
 
 #define CHUNK_CPP "C:\\Projects\\Wizardry 8\\Local Code\\chunk.cpp"
 

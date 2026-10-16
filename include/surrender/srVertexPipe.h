@@ -7,6 +7,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "srBoundingSphere.h"
+#include "srMaterial.h"
 #include "srMath.h"
 #include "srVertexProcessor.h"
 
@@ -189,6 +190,7 @@ private:
     w8_ulong vertex_count; /* 0x88 */
     w8_ulong batch_count; /* 0x8c */
 private:
+    srMaterial default_material;
     using SetupChannel = void (srVertexPipe::*)();
     template<class T, std::size_t Count>
     std::span<const T> scratchChannel(const T (&values)[Count], w8_ulong ready, SetupChannel setup)

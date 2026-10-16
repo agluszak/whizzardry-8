@@ -22,7 +22,6 @@
 #include "glm/matrix.hpp"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srCore.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
 #include "surrender/srModelInstance.h"
@@ -230,14 +229,12 @@ static bool interfaces()
 
         srIlluminator illuminator;
     }
-    REQUIRE(srExit() == 1);
 
     return true;
 }
 
 TEST_CASE("surrender_test")
 {
-    REQUIRE(srInit() == 1);
     REQUIRE(rotations<float>());
     REQUIRE(rotations<double>());
     REQUIRE(transforms());

@@ -28,6 +28,7 @@
 #include "random.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -51,7 +52,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/xstatus.h"
 
 /* Reset before the world Prop update; set when a Prop whose animation

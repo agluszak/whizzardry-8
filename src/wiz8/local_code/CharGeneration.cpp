@@ -7,6 +7,7 @@
 #include "layouts/game_status.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
+#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/layouts/character.h"
@@ -17,7 +18,6 @@
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 
 #define CHAR_GENERATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\CharGeneration.cpp"

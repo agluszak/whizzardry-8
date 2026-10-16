@@ -20,7 +20,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srCore.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
@@ -57,13 +56,12 @@
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern SDLSurfaceOwner g_automap_surface;
 
-static void shutdown_survivors()
+static void source_resource_owners()
 {
-    REQUIRE((srInit()));
     auto model = std::make_shared<stMeshModel>(0, 1);
     model->InitializeVertexFrames(1);
     model->GetVertexLocations(0, true, 0.0f);
-    // A model whose owner survives srExit() is destroyed after reinitialization.
+    // The model remains alive while an interrupted scene releases its adopted instance.
     auto survivor = model;
     std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(SDL_CreatePalette(256),
                                                                         SDL_DestroyPalette);
@@ -88,17 +86,14 @@ static void shutdown_survivors()
     }
 
     // These are the actual global owners used by mouse and automap rendering.
-    REQUIRE((srExit()));
     REQUIRE(SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 17));
     REQUIRE(*static_cast<unsigned char*>(g_mouse_surface->pixels) == 17);
-    g_automap_surface.reset(); // Destruction after renderer shutdown.
-    REQUIRE((srInit()));
+    g_automap_surface.reset();
     model.reset();
     survivor.reset();
     g_mouse_surface.reset();
     palette.reset();
     REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
-    REQUIRE((srExit()));
 }
 
 static void npc_script_teardown()
@@ -144,8 +139,8 @@ static void queued_state_teardown()
 TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization",
           "[resources][lifecycle]")
 {
-    shutdown_survivors();
-    shutdown_survivors();
+    source_resource_owners();
+    source_resource_owners();
 }
 
 TEST_CASE("NPC script owns nested quotes until release", "[resources][lifecycle]")
@@ -215,7 +210,6 @@ struct SpellVisualFixture {
 
     SpellVisualFixture()
     {
-        REQUIRE(srInit());
         octree = std::make_unique<W8Octree>(nullptr, nullptr);
         g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
@@ -230,7 +224,6 @@ struct SpellVisualFixture {
         octree.reset();
         g_octree = previous_octree;
         SetCurrentWorld(previous_world);
-        srExit();
     }
 };
 

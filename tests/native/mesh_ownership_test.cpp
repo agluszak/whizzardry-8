@@ -9,7 +9,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
@@ -282,11 +281,9 @@ static bool pipelineSlots()
 TEST_CASE("mesh_ownership_test")
 {
     REQUIRE(defaults());
-    REQUIRE(srInit());
     REQUIRE(zeroNormals());
     REQUIRE(lazyTables());
     REQUIRE(uvGrowth());
     REQUIRE(reset());
     REQUIRE(pipelineSlots());
-    REQUIRE(srExit());
 }

@@ -22,6 +22,7 @@
 #include "layouts/world.h"
 #include "resource_cache.h"
 #include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -59,7 +60,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"

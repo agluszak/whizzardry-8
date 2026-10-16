@@ -9,8 +9,8 @@
 
 #include "filesystem.h"
 #include "layouts/world.h"
-#include "sr_api.h"
 #include "surrender/srClipPlane.h"
+#include "surrender/srDebug.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
@@ -166,7 +166,6 @@ bool nodes(const std::filesystem::path& directory)
 
 TEST_CASE("world_lookup_test")
 {
-    REQUIRE(srInit());
     const std::filesystem::path directory = make_temporary_directory("wiz8-world-lookup");
     const bool passed = triggers() && nodes(directory);
     // Empty worlds need no collection initialization and can be torn down
@@ -181,7 +180,6 @@ TEST_CASE("world_lookup_test")
         DestroyWorld(world);
     }
     std::filesystem::remove_all(directory);
-    srExit();
     REQUIRE(passed);
     std::puts("ok: world trigger, light, clip plane and particle lookups");
 }

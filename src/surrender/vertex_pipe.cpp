@@ -19,7 +19,6 @@
 #include "surrender/lighting_math.h"
 #include "surrender/srARGB.h"
 #include "surrender/srBoundingSphere.h"
-#include "surrender/srCore.h"
 #include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
@@ -187,7 +186,7 @@ void srVertexPipe::processVertexBuffer()
 void srVertexPipe::setMaterial(srMaterialIFace* material)
 {
     if (material == 0) {
-        material = srCore.getMaterial();
+        material = &default_material;
     }
     if (material != this->material) {
         this->material = material;

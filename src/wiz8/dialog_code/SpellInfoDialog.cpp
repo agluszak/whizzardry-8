@@ -15,6 +15,7 @@
 #include "game_timer.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
+#include "surrender/srDebug.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Spells.h"
@@ -22,7 +23,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
 
 // GLOBAL: WIZ8 0x0064fccc

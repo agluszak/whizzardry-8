@@ -15,6 +15,7 @@
 #include "local_code/ControlsRect.h"
 #include "local_code/HealthStaminaMana.h"
 #include "local_code/TextBuffer.h"
+#include "surrender/srDebug.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/fonts.h"
@@ -23,7 +24,6 @@
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/ui_layer.h"
 
 // GLOBAL: WIZ8 0x00648c90

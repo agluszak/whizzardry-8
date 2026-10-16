@@ -18,6 +18,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
+#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -26,7 +27,6 @@
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 

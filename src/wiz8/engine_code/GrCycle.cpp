@@ -30,6 +30,7 @@
 #include "particle_modes.h"
 #include "random.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srDebug.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "wiz8/containers.h"
@@ -55,7 +56,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/ground_shadow.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/unicode.h"
 
 // GLOBAL: WIZ8 0x005ebc3c

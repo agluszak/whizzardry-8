@@ -24,6 +24,7 @@
 #include "surrender/plane_math.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
+#include "surrender/srDebug.h"
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
@@ -47,7 +48,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/geometry.h"
-#include "wiz8/sr_api.h"
 
 #define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
 

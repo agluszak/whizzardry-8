@@ -23,7 +23,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "surface_pixels.h"
-#include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srFog.h"
 #include "surrender/srGERD.h"
@@ -38,7 +37,6 @@
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
-#include "surrender_test_fixture.h"
 #include "wiz8/surface_storage.h"
 
 namespace {
@@ -927,7 +925,6 @@ bool countedGeometryTransforms()
 
 TEST_CASE("Scene membership preserves independent node ownership")
 {
-    REQUIRE(srInit());
     const int before = TestNode::destroyed;
     auto owned = std::make_unique<TestNode>(nullptr);
     REQUIRE(owned->getParent() == nullptr);
@@ -940,12 +937,10 @@ TEST_CASE("Scene membership preserves independent node ownership")
     REQUIRE(owned->getParent() == nullptr);
     owned.reset();
     REQUIRE(TestNode::destroyed == before + 2);
-    REQUIRE(srExit());
 }
 
 TEST_CASE("Scene adoption transfers node destruction ownership")
 {
-    REQUIRE(srInit());
     const int before = TestNode::destroyed;
     {
         TestNode scene;
@@ -963,13 +958,11 @@ TEST_CASE("Scene adoption transfers node destruction ownership")
         REQUIRE(TestNode::destroyed == before + 1);
     }
     REQUIRE(TestNode::destroyed == before + 3);
-    REQUIRE(srExit());
 }
 
 TEST_CASE("renderer_ownership_test")
 {
     for (int cycle = 0; cycle < 2; ++cycle) {
-        REQUIRE(srInit());
         REQUIRE(sceneRelationships());
         REQUIRE(processorOwnership());
         REQUIRE(countedGeometryTransforms());
@@ -981,14 +974,12 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(pipelineRecordTexcoords());
         REQUIRE(rendererTextureStages());
         REQUIRE(rendererCornerRemapping());
-        REQUIRE(srExit());
         REQUIRE(srGERD::getActive() == nullptr);
     }
 }
 
 TEST_CASE("Counted mipmap chains copy adjacent levels and stop at missing destinations")
 {
-    SurRenderTestFixture runtime;
     constexpr w8_ulong color = 0xff102030;
     const auto source = [] {
         auto pixels = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_BGRA32);
@@ -1015,7 +1006,6 @@ TEST_CASE("Counted mipmap chains copy adjacent levels and stop at missing destin
 
 TEST_CASE("Picking honors counted selections, direct indices, nearest depth and atomic validation")
 {
-    SurRenderTestFixture runtime;
     srGERD renderer(srCreateSDLGPUDevice());
     srModelInstance selected;
     renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));

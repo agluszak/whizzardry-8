@@ -36,7 +36,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srClip.h"
-#include "surrender/srCore.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
@@ -63,6 +62,14 @@ srGERD::srGERD(srDD* device)
       texture_state{}, polygon_mode(POLYGON_FILL), polygon_offset(0), texture_default(nullptr),
       texture_reduction(0), vertex_arrays_dirty(0)
 {
+    auto missing = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_BGRA32);
+    SDL_Rect square{0, 0, 4, 4};
+    SDL_FillSurfaceRect(missing.get(), nullptr, 0xff000000);
+    SDL_FillSurfaceRect(missing.get(), &square, 0xffff00ff);
+    square.x = square.y = 4;
+    SDL_FillSurfaceRect(missing.get(), &square, 0xffff00ff);
+    fallback_texture.setSurfacePtr(std::shared_ptr<SDL_Surface>(std::move(missing)));
+    fallback_texture.setName("Missing texture");
     this->device.window = 0;
     this->device.back_buffer_type = static_cast<e_backBuffer>(0);
     vertex_arrays_dirty = 0xffffffff;
@@ -1558,7 +1565,7 @@ void srGERD::changeTexture(srTextureIFace* texture, w8_ulong stage, int apply_pa
         }
     }
     found = texture_default;
-    texture = srCore.getTexture();
+    texture = &fallback_texture;
 bound:
     if (apply_parms == 0) {
         return;
@@ -1830,7 +1837,7 @@ void srGERD::closeTexCache()
 void srGERD::initTexCache()
 {
     closeTexCache();
-    texture_default = createNewTexture(srCore.getTexture());
+    texture_default = createNewTexture(&fallback_texture);
 }
 
 // FUNCTION: SURRENDER 0x10028B80
