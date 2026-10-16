@@ -1,323 +1,71 @@
 # Whizzardry 8
 
-Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang and C++23.
-The build uses SDL3 GPU rendering and CPU surfaces, SDL3_image with JPEG,
-SDL3_mixer with MP3, FFmpeg video decoding and zlib.
-Game data comes from an existing retail installation and is not distributed here.
+Whizzardry 8 is a work-in-progress port of [Wizardry 8](https://en.wikipedia.org/wiki/Wizardry_8) to modern, 64-bit Linux, macOS and Windows.
 
-## Build
+It builds on the recovered source code from [Wizardry 8 Decomp](https://github.com/agluszak/wizardry-8-decomp), but has a different goal: **keep the game, replace the outdated machinery**. Instead of reproducing the original executable, we're simplifying the code and using C++23, SDL3 and other cross-platform libraries.
 
-Install Clang 22, CMake, Ninja, Python 3 and Conan 2. The native C/C++
-libraries and glslang are provided through Conan; you do not need distro
-SDL, FFmpeg, JPEG or zlib development packages. A host Vulkan driver is still
-required for graphics.
+Linux is the only platform currently tested in CI. macOS and Windows builds are not yet verified, and the game is still under development.
 
-On Linux x86-64:
+This repository does **not** include game assets. You'll need your own retail copy of Wizardry 8.
+
+## Build on Linux
+
+You'll need Clang 22, CMake, Ninja, Python 3, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
+
+From the repository root:
 
 ```sh
 python3 -m pip install 'conan==2.33.0'
 conan profile detect
+
 CC=clang-22 CXX=clang++-22 conan install . \
     -pr:h conan/profiles/linux-clang22 -pr:b default \
     -s:h build_type=Release --build=missing -of build/linux/conan
+
 . build/linux/conan/conanbuild.sh
 cmake --preset linux \
     -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
     -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 cmake --build --preset linux
 . build/linux/conan/conanrun.sh
+```
+
+The first build may take a while because Conan needs to build some dependencies.
+
+## Play
+
+First, prepare the data from your retail installation:
+
+```sh
+build/linux/wiz8_prepare_assets /path/to/prepared-assets /path/to/retail-install
+```
+
+Choose a **new directory** for `prepared-assets`, outside the retail installation. The preparation tool extracts the game data and applies the installed patches.
+
+Then launch the game:
+
+```sh
+WIZ8_ASSET_ROOT=/path/to/prepared-assets ./run.sh
+```
+
+Saves, settings and logs go into the system's per-user application directory, separate from the game assets. Set `WIZ8_USER_ROOT` if you'd rather choose that directory yourself.
+
+## Contributing
+
+This is a modernization project, not an exercise in preserving the original engine's structure. We aim to remove obsolete code and unnecessary abstractions while keeping Wizardry 8's gameplay, content and file compatibility.
+
+For the current technical direction, see [AGENTS.md](AGENTS.md), [remaining native work](NATIVE_WORK.md) and [UI modernization](UI_MODERNIZATION.md).
+
+After building, run the tests with:
+
+```sh
 ctest --preset linux
 ```
 
-Run `conan install` again with `-s:h build_type=Debug` for `linux-dev`
-or `-s:h build_type=RelWithDebInfo` for `linux-asan`, using the
-corresponding `build/<preset>/conan` output directory and toolchain file.
-Do not reuse Conan dependencies from a different build configuration.
-
-SDL_mixer 3.2.4 and utf8proc 2.10.0 are still downloaded at
-CMake configure time from verified release archives; Catch2 is pinned to an
-exact Git commit. ConanCenter does not currently have the required
-SDL_mixer and utf8proc versions. The committed `conan.lock` pins Conan recipe revisions for the validated Linux
-dependency graph. The FetchContent sources remain separately pinned by their
-archive hashes or exact Git commits.
-
-The macOS and Windows CMake presets remain available, but their Conan host
-profiles and builds have not yet been verified. The initial Conan integration
-is validated through Linux CI only. Windows still requires Visual Studio and
-the Windows SDK with a compatible Clang frontend.
-
-The native targets include `Wiz8Native` and statically linked SurRender and
-the SDL-backed filesystem and runtime, sharing one SDL state.
-A Vulkan-capable SDL3 GPU backend is required for graphics checks.
-Texture caching and high texture detail/cache settings default to enabled. Blurred-text
-correction defaults to disabled; these graphics options remain user-configurable.
-Native defaults do not depend on renderer names or the old 64 MiB memory tiers.
-
-## Include analysis
-
-Install [include-what-you-use](https://include-what-you-use.org/) built for the
-same Clang major version as the project compiler. With Homebrew:
+Some runtime tests also need prepared retail assets:
 
 ```sh
-brew install include-what-you-use
-cmake --preset linux
-./tools/run-iwyu.sh
+WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
 ```
 
-The script analyzes `src/` and `tests/` using the preset's compile commands,
-excluding downloaded dependencies. It writes raw suggestions to
-`build/linux/iwyu-report.txt`; review them before applying changes.
-`tools/iwyu.imp` maps dependency implementation headers to their public entry
-points. Required formatter specializations and declarations use narrowly scoped
-`IWYU pragma: keep` comments where the analyzer suggests removing them.
-Pass a build directory and optional report path to analyze another preset.
-Set `IWYU_JOBS` to change the default four concurrent processes.
-
-Clang-tidy enforces missing and unused includes, include cycles, duplicate and
-suspicious includes, and deprecated C headers. The selected checks are errors
-in `.clang-tidy`; the native CI runs the full first-party scan with Clang 22
-after building the generated headers. To use the same analyzer locally:
-
-```sh
-CLANG_TIDY=clang-tidy-22 RUN_CLANG_TIDY=run-clang-tidy-22 ./tools/run-clang-tidy.sh
-```
-
-The runner accepts a build directory followed by `run-clang-tidy` options.
-`CLANG_TIDY_JOBS` controls concurrency; `CLANG_TIDY` and `RUN_CLANG_TIDY`
-select the executables for other installations.
-
-The normal `.clang-tidy` scan also reports a focused set of lifetime and
-memory-safety diagnostics. For a broader, non-blocking audit of C++23
-modernization opportunities, run:
-
-```sh
-CLANG_TIDY_CONFIG=.clang-tidy-modernization \
-  CLANG_TIDY=clang-tidy-22 RUN_CLANG_TIDY=run-clang-tidy-22 \
-  ./tools/run-clang-tidy.sh build/linux-tidy
-```
-
-Review suggested fixes in context; a diagnostic is not, by itself, a reason to
-preserve a decomp-era class or abstraction.
-
-## Run
-
-Prepare the retail installation once, then point the launcher at the result:
-
-```sh
-build/linux/wiz8_prepare_assets /path/to/prepared /path/to/retail-install
-WIZ8_ASSET_ROOT=/path/to/prepared ./run.sh
-```
-
-The output directory must be new and outside the input trees. Optional additional
-input directories supply content from the original CDs; the installation wins
-loose-file conflicts. Preparation extracts the six retail libraries, applies
-`Patches/Patch.000` through `Patch.049` in order, then overlays loose files.
-Filenames and separators are normalized to lowercase and forward slashes. Unsafe
-archive names, duplicate normalized filenames and symlinks are rejected.
-SLF archives, patches, disc markers and old saves/configuration are omitted from
-the output. Preparation preserves source modification times. Keep the original
-installation if you want to prepare again after installing a patch or mod.
-
-Runtime assets are ordinary read-only files under `WIZ8_ASSET_ROOT`. There is no
-drive mapping, archive mounting, current-directory state or writable asset overlay.
-Writable data lives in SDL's preference directory for `Whizzardry/whizzardry8`:
-`saves/`, `config/` and `logs/`. `WIZ8_USER_ROOT` can explicitly select another
-user directory for tests or a portable installation. Legacy locations are not
-searched; copy wanted saves into the chosen user directory explicitly, using lowercase directory names (`saves/`,
-`saves/characters/`) and retaining the original save/character filenames.
-The launcher queries the engine's user root and writes `logs/launch.log` there.
-It accepts an optional `.env` and passes arguments to the game.
-
-## Native tests
-
-CI runs the asset-backed startup, character creation, movement, world rendering,
-save/load and combat runtime scenarios when
-the `WIZ8_INPUTS_TOKEN` and `WIZ8_CACHE_KEY` repository secrets are configured.
-The token must read the private `wiz8-ci-inputs` release; the cache key can
-be any strong passphrase (for example, generated by `openssl rand -hex 32`).
-The installer is hash-checked, and only encrypted game files are stored in the
-Actions cache. Fork PRs without those secrets run the public tests only.
-
-Run these scenarios locally without a window:
-
-```sh
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 ctest --preset linux -L runtime --output-on-failure
-```
-
-World-render validation also uses the checked-in character; character creation and
-party-screen startup remain covered by their dedicated runtime scenarios.
-
-The save/load and combat scenarios start with the checked-in character in
-`tests/runtime/fixtures`. CTest generates a shared saved game before the menu
-load test; each scenario uses its own temporary writable user directory.
-Quick-load checks position, level and restored character experience. Combat
-checks a completed defended round, lethal damage, kill credit, experience and
-combat teardown. The lethal hit calls the game's damage function directly;
-this does not cover weapon targeting or hit rolls. Set
-`WIZ8_RUNTIME_KEEP_USER_ROOT=1` to keep a scenario's files for debugging.
-
-The CTest suite covers native files, asset preparation, SDL events/timers,
-CRT and pointer semantics, serialization, compression, image decoding and stream
-transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
-typed ownership/lifetimes, fatal assertions, movie decoding and SurRender interfaces.
-GPU tests need a working
-display/Vulkan driver; `native_events` uses SDL's dummy driver.
-The `linux-asan` configure/build/test presets run the same suite with AddressSanitizer
-and leak detection. CI runs both presets with the encrypted licensed-asset workflow.
-The `resource-lifecycle` runtime scenario loads a retail level, renders linked meshes
-and animated textures, evicts and recreates resident textures, quick-loads once,
-and shuts down with resources resident. Asset-independent fixtures also load serialized
-linked meshes and test interrupted initialization and destruction after `srExit()`.
-
-CI builds Linux with native Clang; the first-party host-width wide-string import
-check runs only on Unix. macOS, Windows and interactive graphics/gameplay remain
-unverified in CI.
-
-With installed game assets, run the focused graphics and world harnesses:
-
-```sh
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 build/linux/native_game_graphics
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 build/linux/native_world_graphics party.CHR \
-    "$PWD/build/linux/world.ppm"
-```
-
-The world harness accepts additional `save`, `kill` and `angles` modes for
-its respective focused checks. The movie fixture can be regenerated with
-`tests/native/generate_movie.sh`.
-
-## Formatting
-
-The project uses clang-format 22 and the root `.clang-format` configuration.
-Function definitions have opening braces on their own lines; control-flow braces
-are attached (`if (...) {`, `} else {`). A one-statement body may stay on the
-same line as its condition without braces (`if (x < 0) return;`); a body on its
-own line uses braces. The formatter keeps short `if`, `for`, and `while`
-statements on one line when they fit but does not add or remove braces, so
-brace multi-line bodies by hand. Short function bodies defined inside a class
-may stay on one line. Class/struct braces stay attached, and access labels
-(`public:`, `private:`, `protected:`) are not indented.
-
-CI checks every C and C++ file under `include`, `src`, and `tests`, so format
-files before pushing:
-
-```sh
-clang-format-22 -i path/to/file.cpp
-```
-
-## Catch2 test cases
-
-Small, independent Catch2 test cases are registered individually with CTest.
-Use `ctest --preset linux -R 'native_save_records/'` or
-`ctest --preset linux -R 'native_owners/'` to select a subsystem;
-individual cases appear in `ctest --preset linux -N`.
-
-The save, audio and ownership tests have per-case fixtures instead of relying
-on setup from earlier test cases. Catch2 generators exercise multiple serialized
-record versions and edge values. Manual device diagnostics and intentional
-assertion-abort checks remain explicit; the asset-backed runtime scenarios
-retain their named CTest entries and save/load fixture dependencies.
-
-## Source and format conventions
-
-Use `std::string` for owning text (UTF-8 for Unicode), `std::string_view` for
-borrowed read-only text, and `std::filesystem::path` for native host paths.
-Pass `.c_str()` at C-string boundaries. Runtime game, UI and SGP text is UTF-8;
-retail text is UTF-16LE, decoded explicitly through `wiz8/unicode.h`. Host
-`wchar_t` keeps its native width; no short-wchar flags or wide CRT substitutions
-are used. Localized tables are `std::vector<std::string>`. Format source literals
-with `fmt::format`; use `fmt::sprintf` only for the retail localization tables
-whose patterns use printf syntax. Drawing and notice APIs accept plain
-`std::string_view`, with formatting explicit at the call site.
-utf8proc supplies UTF-8 conversion, traversal, grapheme boundaries and character classification. Editable
-controls own strings and use byte offsets at grapheme boundaries. Font rendering
-decodes UTF-8 at its boundary; retail fonts still limit the available glyphs.
-
-The original game has a 32-bit data model, two-byte strings and packed binary
-records. Native storage may use 64-bit pointers, but saved pointer words and
-format-defined sizes must preserve their serialized layout. `w8_long` and
-`w8_ulong` name historical 32-bit fields; `W8_PTR32` represents disk-size
-pointer slots. `wiz8/retail_records.h` defines independent fixed-size disk records;
-`wiz8/retail_text_records.h` translates their named fields to runtime objects
-that own strings. Native records use natural compiler layout, with no packing
-scopes or historical runtime size assertions. Packing is confined to disk types
-and invariant, trivially copyable format payloads. GSTA party slots retain their
-0x106-byte stride; missile database rows retain their 0x1e5-byte payload. Shared
-item numeric payloads are declared once and copied independently of owned text.
-Unknown binary fields remain byte arrays and are preserved. Packed UTF-16LE is read and written
-through byte spans, including character names at offset 5 and spell names at
-offset 0x9b. UTF-16 uses `char16_t`/`std::u16string` in conversion code; no
-unaligned typed text pointers are dereferenced. Malformed Unicode becomes
-U+FFFD, and bounded writes do not split UTF-8 sequences or surrogate pairs.
-
-There is no Wine runner, 32-bit target or legacy fallback.
-The filesystem helpers in `src/platform/` own SDL3 streams and atomic save
-staging. Callers choose explicit asset or user paths; host imports use native
-filesystem paths. SLF parsing is confined to `tools/assets/`.
-The remaining `src/compat/` CRT code
-contains narrow spelling and clock helpers. Localization, quotes, credits and
-saved transcripts use explicit UTF-16LE codecs; native printf formatting
-receives UTF-8, including names used to build character filenames.
-
-SLF and save timestamps keep their packed low/high FILETIME codec. Save ordering
-uses native modification time; the iron-man mask records the metadata snapshot
-queried while writing. SDL's POSIX creation field is ctime (metadata-change time),
-not true birth time, and can change on close/rewrite. Windows birth time and
-POSIX ctime are not interchangeable persistent identities; no loader-side
-iron-man timestamp validator currently exists. Cross-host birth-time identity
-and a full iron-man save/load roundtrip remain unverified.
-
-SurRender keeps its scene graph, mesh/material data and rendering pipeline.
-Objects have ordinary C++ owners: scene nodes are owned by their parents,
-meshes by their model head, and shared materials, textures, models, palettes
-and surfaces by `std::shared_ptr`. Surface pixels live in SDL surfaces.
-Loaded materials, textures, monster scripts and level meshes are reused through
-name-keyed weak caches. Scene lookups use names and C++ runtime types, visiting
-the level world before the sky world. Names are case-sensitive and may be shared;
-child lookup checks a node, its siblings, then its children, while iteration
-visits children before proceeding to siblings. The named base owns its string,
-and copying scene resources preserves names and unnamed state. Runtime type
-queries use C++ RTTI; there is no class registry or registration protocol.
-The unused object update callback scheduler, device-call profiling
-wrapper and video importer manager have been removed; game movies use the
-existing FFmpeg decoder.
-
-Gameplay and UI collections use typed standard vectors. Gameplay status owns
-its vectors directly, and collection-building APIs use references.
-Shared container helpers express first-match removal and owning teardown;
-they unlink before destruction so callbacks can safely remove other entries.
-Pointer vectors retain stable pointee addresses across slot reallocation.
-Combat fumble candidates are local vectors of values with automatic cleanup.
-Encounter tables own entry records instead of parallel vectors; selectors return
-the chosen record. Keyword files and journals own their data by value. Monster
-visibility uses a location-keyed map with stable record addresses. NPC slots
-remain stable across reuse, with shared lookup and teardown routines.
-Monster script conditions use addressable bytes rather than `std::vector<bool>` proxies.
-Journal loading resizes live entries before reading their unchanged file records;
-packed NPC/group pointer codecs retain their four-byte format fields.
-
-Third-party source licenses, including the SGP license, remain with
-their respective sources.
-
-## Duplication scans
-
-Use jscpd 5.4.1 or newer. `.jscpd.json` scans first-party source, ignores comments,
-normalizes identifiers and literals, joins gaps of up to two lines, and compares
-function structure at 0.8 similarity. Findings are review candidates; repeated
-tables and similar code with different behavior should be triaged before merging.
-
-```sh
-jscpd
-```
-
-The experimental semantic matcher runs CodeRankEmbed locally. Download its model
-once, then start with a subsystem to keep the first embedding pass bounded.
-Unchanged functions reuse cached embeddings on subsequent scans. The configuration
-uses the model's calibrated 0.6375 threshold for comparisons within one language.
-
-```sh
-jscpd --semantic-download
-jscpd --semantic src/surrender/material.cpp src/surrender/vertex_pipe.cpp
-```
-
-AI and JSON reports go to `build/jscpd`. Semantic matching is opt-in so ordinary
-scans remain fast.
+C and C++ changes should use the repository's `.clang-format` configuration (clang-format 22).
