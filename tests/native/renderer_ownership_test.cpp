@@ -1050,7 +1050,7 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(rendererTextureStages());
         REQUIRE(rendererCornerRemapping());
         REQUIRE(srExit());
-        REQUIRE(srGERD::getFirst() == nullptr);
+        REQUIRE(srGERD::getActive() == nullptr);
     }
 }
 

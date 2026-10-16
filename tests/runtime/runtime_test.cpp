@@ -1191,7 +1191,13 @@ void ResourceLifecycleScenario()
 {
     Game game(false);
     StartPremadeGame(game);
-    // Rendering and resource recycling use the same live world and GPU session.
+    REQUIRE(g_gerd);
+    REQUIRE(srGERD::getActive() == g_gerd.get());
+    g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
+    REQUIRE(srGERD::getActive() == nullptr);
+    REQUIRE(OpenRendererWindow());
+    REQUIRE(srGERD::getActive() == g_gerd.get());
+    // Rendering must rebuild texture residency after reopening the same device.
     CheckWorldRender(game);
     CheckGameplayUi(game);
     // Automap buttons own their sprite sheets. Re-entering the screen must
@@ -1641,6 +1647,8 @@ void RunScenario(Scenario scenario)
 {
     RequireAssets();
     scenario();
+    REQUIRE(g_gerd == nullptr);
+    REQUIRE(srGERD::getActive() == nullptr);
     CheckGameErrors();
 }
 

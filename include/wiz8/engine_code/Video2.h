@@ -206,9 +206,8 @@ srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float widt
 extern srCamera* g_overlay_camera;
 extern srCamera* g_square_camera;
 extern bool g_texture_cache_enabled;
-extern srGERD* g_gerd;
+extern std::unique_ptr<srGERD> g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
-extern srGERD* g_secondary_gerd;
 extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
