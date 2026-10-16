@@ -8,8 +8,6 @@ class srTexture : public srTextureIFace {
 public:
     virtual ~srTexture() override;
 
-    /* Copies share the palette stored in Dimensions. */
-
     srTexture& operator=(const srTexture& other);
     virtual w8_ulong getTextureFrameHandle() override;
     virtual float getPriority() override;

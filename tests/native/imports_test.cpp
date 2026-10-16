@@ -75,7 +75,7 @@ static int shared_model_lifetimes()
     return 0;
 }
 
-// Maps share their source surface; copies of dimensions also keep the palette alive.
+// Maps share their SDL source surface.
 static int shared_surface_lifetimes()
 {
     struct Map : srTextureMap {

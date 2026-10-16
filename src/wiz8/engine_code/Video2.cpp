@@ -1467,9 +1467,8 @@ static void FlushUiUpload()
 {
     const auto upload = TakeUiUpload();
     if (SDL_RectEmpty(&upload)) return;
-    const auto& description = *primarySurface;
-    g_surface_node->updateRectangle(g_gerd.get(), description.pixels, description.pitch, upload.x,
-                                    upload.y, upload.x + upload.w, upload.y + upload.h);
+    g_surface_node->updateRectangle(g_gerd.get(), upload.x, upload.y, upload.x + upload.w,
+                                    upload.y + upload.h);
 }
 
 void SetScaledViewport(const DesignRect& bounds)

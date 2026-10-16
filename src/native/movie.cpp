@@ -324,8 +324,7 @@ void W8NativeVideo::present(SDL_Surface* target)
     if (!description.pixels) throw std::runtime_error("Movie presentation surface has no pixels");
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.
-    state->presentation_tiles->updateRectangle(g_gerd.get(), description.pixels, description.pitch,
-                                               0, 0, description.w, description.h);
+    state->presentation_tiles->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);

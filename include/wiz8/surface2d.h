@@ -6,7 +6,8 @@
 #include "compat/compiler.h"
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"
-#include "wiz8/surface_storage.h"
+
+struct SDL_Surface;
 
 class srGERD;
 
@@ -52,8 +53,7 @@ public:
     void enableTextureUpdateFlags(unsigned int flag);
     void setAlphaTestEnabled(bool enabled);
     void invalidateTiles();
-    void updateRectangle(srGERD* renderer, void* pixels, w8_long pitch, int left, int top,
-                         int right, int bottom);
+    void updateRectangle(srGERD* renderer, int left, int top, int right, int bottom);
 
     int vertex_array_mask;               /* 0x13c */
     unsigned int shader_bits;            /* 0x140 */

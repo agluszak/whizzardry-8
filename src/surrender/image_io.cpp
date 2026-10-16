@@ -13,7 +13,6 @@
 
 #include "asset_paths.h"
 #include "jpeg_validate.h"
-#include "surrender/srCore.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/filesystem.h"

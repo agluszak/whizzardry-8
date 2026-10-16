@@ -16,9 +16,6 @@
 // VTABLE: WIZ8 0x005EC5F8
 // class stTextureFile
 
-// VTABLE: WIZ8 0x005EC5D8
-// class srClientSupport<srPalette,10496>
-
 // FUNCTION: WIZ8 0x0047BBD0
 void stTextureFile::releaseSurface()
 {

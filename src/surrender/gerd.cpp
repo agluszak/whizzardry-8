@@ -37,7 +37,6 @@
 #include "surrender/model_view_scope.h"
 #include "surrender/picking_math.h"
 #include "surrender/plane_math.h"
-#include "surrender/srARGB.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srClip.h"
@@ -47,7 +46,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
-#include "surrender/srPalette.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
@@ -132,9 +130,6 @@ srGERD::srGERD(srDD* device)
     state.project_clip_near = glm::mat4(0);
     state.modelview_scale_type = static_cast<srRendererDefs::e_scaleType>(0);
     state.max_modelview_scale = 0.0f;
-    for (auto& color : global_palette) {
-        color.blue = color.green = color.red = color.alpha = 0;
-    }
     pick.pick_key = 0;
     exclusion_mask = 0;
     enable_flags = (1u << ENABLE_AUTO_FLIP) | (1u << ENABLE_CLEAR_ON_OPEN);
@@ -977,14 +972,6 @@ int srGERD::isWindowOpen() const
 }
 
 // FUNCTION: SURRENDER 0x1001D030
-std::optional<SDL_PixelFormat> srGERD::getPixelFormat() const
-{
-    if (isWindowOpen() == 0) {
-        return std::nullopt;
-    }
-    return SDL_PIXELFORMAT_BGRA32;
-}
-
 // FUNCTION: SURRENDER 0x1001D1F0
 void srGERD::pushEnable()
 {
@@ -2043,7 +2030,6 @@ srGERD::e_error srGERD::createContext(SDL_Window* window)
     }
     device.window = window;
     initDDInfo();
-    initGlobalPalette();
     resetStatistics();
     state_flags |= STATE_CONTEXT_CREATED;
     return ERROR_NONE;
@@ -2436,21 +2422,6 @@ w8_long srGERD::getMaxTextureAspectRatio() const
 }
 
 // FUNCTION: SURRENDER 0x10017960
-void srGERD::setGlobalPalette(const srPalette& palette)
-{
-    std::lock_guard access(state_section);
-    if (palette.matchPalette(global_palette, 0x100) != 0) {
-        return;
-    }
-    w8_ulong count = palette.getPaletteSize();
-    if (count > 0x100) {
-        count = 0x100;
-    }
-    for (w8_ulong i = 0; i < count; ++i) {
-        global_palette[i] = palette.getColor(i);
-    }
-}
-
 // FUNCTION: SURRENDER 0x10017AA0
 w8_long srGERD::getTextureReduction() const
 {
@@ -2485,19 +2456,6 @@ int srGERD::isTextureResident(srTextureIFace* texture) const
 }
 
 // FUNCTION: SURRENDER 0x10029600
-void srGERD::initGlobalPalette()
-{
-    float level = 0.0f;
-    for (w8_long i = 0; i < 0x100; ++i) {
-        unsigned char gray = (unsigned char)srFloatToInt(level * 255.0);
-        global_palette[i].blue = gray;
-        global_palette[i].green = gray;
-        global_palette[i].red = gray;
-        global_palette[i].alpha = 0xff;
-        level += 0.003921569f;
-    }
-}
-
 // FUNCTION: SURRENDER 0x1001AFD0
 void srGERD::setHint(e_hint hint, e_hintMode mode)
 {
