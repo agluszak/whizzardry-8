@@ -1,5 +1,6 @@
 #include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <mutex>
 
 #include <glm/ext/matrix_transform.hpp>
