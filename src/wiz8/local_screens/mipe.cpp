@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -21,7 +20,6 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/world.h"
 #include "surrender/srDebug.h"
-#include "utf8/checked.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -1986,7 +1984,7 @@ void EditMonsterGeneratorName(const InputEvent& event)
                ((event.text >= U'0' && event.text <= U'9') || IsUppercaseCharacter(event.text) ||
                 IsLowercaseCharacter(event.text))) {
         std::string inserted;
-        utf8::append(event.text, std::back_inserter(inserted));
+        wiz8::text::append(inserted, event.text);
         if (name.size() + inserted.size() <= 31) name += inserted;
     }
     wiz8::text::write_utf8_field(name, g_mipe_state->generator->name);

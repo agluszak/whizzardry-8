@@ -17,7 +17,6 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/srClass.h"
-#include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
@@ -73,93 +72,6 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
     }
 }
 
-// Keep raw integer write exceptions and vector diagnostics distinct. Both
-// release their source only after successful I/O, in the field's disk order.
-template<class T>
-static void WriteAndConsumeMeshArray(wiz8::File& file, std::vector<T>& values, int count, int line,
-                                     const char* message)
-{
-    static_assert(std::is_trivially_copyable_v<T>);
-    const auto write = [&] {
-        if (count < 0 || std::cmp_greater(count, values.size()))
-            throw std::runtime_error("Invalid mesh record count");
-        const auto records = std::span<const T>(values).first(count);
-        if constexpr (std::is_same_v<T, glm::ivec3>) {
-            std::vector<std::array<std::int32_t, 3>> packed(records.size());
-            std::ranges::transform(records, packed.begin(), [](const auto& triangle) {
-                return std::array<std::int32_t, 3>{triangle.x, triangle.y, triangle.z};
-            });
-            file.write(packed.data(), packed.size() * sizeof(packed.front()));
-        } else if constexpr (std::is_same_v<T, glm::vec2> || std::is_same_v<T, glm::vec3> ||
-                             std::is_same_v<T, glm::vec4>) {
-            std::vector<std::array<float, T::length()>> packed(records.size());
-            for (std::size_t i = 0; i < records.size(); ++i)
-                for (int component = 0; component < T::length(); ++component)
-                    packed[i][component] = records[i][component];
-            file.write(packed.data(), packed.size() * sizeof(packed.front()));
-        } else {
-            file.write(records.data(), records.size_bytes());
-        }
-    };
-    if constexpr (std::is_same_v<T, int>) {
-        write();
-    } else {
-        try {
-            write();
-        } catch (const std::exception&) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", line,
-                         message);
-        }
-    }
-    std::vector<T>{}.swap(values);
-}
-
-// FUNCTION: WIZ8 0x0049E5D0
-bool OctMeshModel::Write(wiz8::File& hFile)
-{
-    m_packed_header |= static_cast<unsigned int>(version) << 8;
-    hFile.write(&m_packed_header, 4);
-    hFile.write(&m_vertex_count, 4);
-    hFile.write(&m_map_count, 4);
-    hFile.write(&m_polygon_count, 4);
-    hFile.write(&m_link_index, 4);
-    hFile.write(&next_link, 4);
-    hFile.write(&m_material_index, 4);
-
-    WriteAndConsumeMeshArray(hFile, m_vertex_locations, m_vertex_count, 0x109,
-                             "OctMeshModel::Write -- Could not write m_psrVertLoc.\n");
-    WriteAndConsumeMeshArray(hFile, m_vertex_map, m_map_count, 0x10f,
-                             "OctMeshModel::Write -- Could not write m_psrMap.\n");
-    if (m_material_index < 0) {
-        WriteAndConsumeMeshArray(hFile, m_vertex_materials, m_vertex_count, 0x116,
-                                 "OctMeshModel::Write -- Could not write m_plVertMats.\n");
-    } else {
-        m_vertex_materials.clear();
-    }
-    WriteAndConsumeMeshArray(hFile, m_poly_uv_index, m_polygon_count, 0x11f,
-                             "OctMeshModel::Write -- Could not write m_psrPolyUVIndex.\n");
-    WriteAndConsumeMeshArray(hFile, m_poly_vertices, m_polygon_count, 0x125,
-                             "OctMeshModel::Write -- Could not write m_psrPolyVertex.\n");
-    WriteAndConsumeMeshArray(hFile, m_poly_textures, m_polygon_count, 0x12a,
-                             "OctMeshModel::Write -- Could not write m_plPolyTextures.\n");
-    WriteAndConsumeMeshArray(hFile, m_vertex_normals, m_vertex_count, 0x130,
-                             "OctMeshModel::Write -- Could not write m_pVertNorms.\n");
-    WriteAndConsumeMeshArray(hFile, m_vertex_lights, m_vertex_count, 0x136,
-                             "OctMeshModel::Write -- Could not write m_pVertLights.\n");
-    WriteAndConsumeMeshArray(hFile, m_poly_equations, m_polygon_count, 0x13c,
-                             "OctMeshModel::Write -- Could not write m_psrPolyEqtns.\n");
-
-    if (version != 0) {
-        hFile.write(m_sun_lights[0].data(), m_vertex_count * sizeof(float));
-    }
-    std::vector<std::vector<float>>{}.swap(m_sun_lights);
-
-    int terminator = -1;
-    hFile.write(&terminator, 4);
-    return true;
-}
-
-// FUNCTION: WIZ8 0x0049E9A0
 std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
                                                 const std::vector<W8MeshMaterial>& materials)
 {

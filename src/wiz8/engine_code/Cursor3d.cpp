@@ -446,7 +446,6 @@ void ApplyWorldCursorInput(void)
         }
         gp3DCursor->last_published = gp3DCursor->position;
     }
-    g_octree->UpdatePathVisualization();
 }
 
 // FUNCTION: WIZ8 0x004914C0

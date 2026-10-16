@@ -113,6 +113,7 @@ extern const float g_float_thirty_five_hundredths;
 extern float g_search_radius;
 /* Search: the full facing cone the collector tests before line of sight. */
 extern float g_search_cone_angle;
+extern const float g_float_three;
 extern const float g_float_three_quarters;
 /* 0x005EC340: 1.25, the fast magic-recovery trait's spell-point regen scale. */
 extern const float g_fast_magic_recovery_scale;

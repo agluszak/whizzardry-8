@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -12,33 +11,36 @@
 
 #include <utf8proc.h>
 
-#include "utf8/checked.h"
-
 namespace wiz8::text {
 char32_t next(std::string_view text, std::size_t& offset)
 {
     if (offset >= text.size()) return 0;
-    auto it = text.begin() + offset;
-    try {
-        const auto cp = utf8::next(it, text.end());
-        offset = it - text.begin();
-        return cp;
-    } catch (const utf8::exception&) {
-        ++offset;
-        return 0xfffd;
-    }
+    utf8proc_int32_t cp;
+    const auto count =
+        utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(text.data() + offset),
+                         static_cast<utf8proc_ssize_t>(text.size() - offset), &cp);
+    offset += count > 0 ? count : 1;
+    return count > 0 ? static_cast<char32_t>(cp) : U'\ufffd';
 }
 std::size_t previous(std::string_view text, std::size_t offset)
 {
-    auto it = text.begin() + std::min(offset, text.size());
-    if (it == text.begin()) return 0;
-    const auto end = it;
-    try {
-        utf8::prior(it, text.begin());
-    } catch (const utf8::exception&) {
-        it = end - 1;
-    }
-    return it - text.begin();
+    offset = std::min(offset, text.size());
+    if (!offset) return 0;
+    auto start = offset - 1;
+    while (start && offset - start < 4 && (static_cast<unsigned char>(text[start]) & 0xc0) == 0x80)
+        --start;
+    auto end = start;
+    next(text, end);
+    return end == offset ? start : offset - 1;
+}
+void append(std::string& text, char32_t character)
+{
+    utf8proc_uint8_t bytes[4];
+    const auto cp = utf8proc_codepoint_valid(static_cast<utf8proc_int32_t>(character))
+                        ? static_cast<utf8proc_int32_t>(character)
+                        : 0xfffd;
+    const auto count = utf8proc_encode_char(cp, bytes);
+    text.append(reinterpret_cast<const char*>(bytes), count);
 }
 std::size_t byte_prefix(std::string_view text, std::size_t byte_limit)
 {
@@ -97,29 +99,40 @@ void write_utf8_field(std::string_view text, std::span<char> field)
 std::string from_utf16(std::u16string_view text)
 {
     std::string out;
-    auto it = text.begin();
-    while (it != text.end() && *it) {
-        const auto start = it;
-        char32_t cp;
-        try {
-            cp = utf8::next16(it, text.end());
-        } catch (const utf8::exception&) {
+    for (std::size_t i = 0; i < text.size() && text[i]; ++i) {
+        char32_t cp = text[i];
+        if (cp >= 0xd800 && cp <= 0xdbff && i + 1 < text.size() && text[i + 1] >= 0xdc00 &&
+            text[i + 1] <= 0xdfff) {
+            cp = 0x10000 + ((cp - 0xd800) << 10) + (text[++i] - 0xdc00);
+        } else if (cp >= 0xd800 && cp <= 0xdfff) {
             cp = 0xfffd;
         }
-        if (it == start) {
-            ++it;
-            cp = 0xfffd;
-        }
-        utf8::append(cp, std::back_inserter(out));
+        append(out, cp);
     }
     return out;
 }
 std::u16string to_utf16(std::string_view text)
 {
-    std::string valid;
-    utf8::replace_invalid(text.begin(), text.end(), std::back_inserter(valid));
     std::u16string out;
-    utf8::utf8to16(valid.begin(), valid.end(), std::back_inserter(out));
+    for (std::size_t offset = 0; offset < text.size();) {
+        const auto start = offset;
+        auto cp = next(text, offset);
+        // Retail conversion replaces an invalid multibyte sequence once;
+        // traversal's next() deliberately still advances one byte on error.
+        const auto lead = static_cast<unsigned char>(text[start]);
+        if (cp == 0xfffd && offset == start + 1 && lead >= 0xc0 && lead <= 0xf7) {
+            while (offset < text.size() &&
+                   (static_cast<unsigned char>(text[offset]) & 0xc0) == 0x80)
+                ++offset;
+        }
+        if (cp <= 0xffff) {
+            out += static_cast<char16_t>(cp);
+        } else {
+            cp -= 0x10000;
+            out += static_cast<char16_t>(0xd800 + (cp >> 10));
+            out += static_cast<char16_t>(0xdc00 + (cp & 0x3ff));
+        }
+    }
     return out;
 }
 std::string from_utf16le(std::span<const std::byte> bytes, bool encoded)

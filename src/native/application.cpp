@@ -84,8 +84,6 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         for (const auto* directory :
              {"config", "logs", "saves/characters", "saves/npcs", "saves/import"})
             wiz8::create_directory(wiz8::user_path(directory));
-        gfIgnoreMessages = false;
-        gzErrorMsg.clear();
         const auto options = ParseArguments(arguments);
         gfLoadAtStartup = options.load_at_startup;
         gfCapturingVideo = options.capture;
@@ -132,11 +130,7 @@ void wiz8::Application::shutdown() noexcept
     const bool complete = gfGameInitialized;
     if (complete) {
         try {
-            bool release_screens = true;
-#ifdef _DEBUG
-            release_screens = !gfIgnoreMessages;
-#endif
-            GameloopExit(release_screens);
+            GameloopExit();
         } catch (const std::exception& failure) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Leaving game: %s", failure.what());
         }

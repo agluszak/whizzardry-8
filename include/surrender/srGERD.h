@@ -252,8 +252,6 @@ public:
         ERROR_NO_CONTEXT = 8
     };
     enum e_closeHint {};
-    /* One, two or three buffers for blit, double or triple buffering. */
-    enum e_backBuffer { BACKBUFFER_NONE = 1, BACKBUFFER_ONE = 2, BACKBUFFER_TWO = 3 };
     /* applyRenderState translates each value to the same SDLGPUDevice mode. */
     /* 0 selects the model-view stack and 1 the projection stack. */
     enum e_matrixMode { MATRIX_MODELVIEW = 0, MATRIX_PROJECTION = 1 };
@@ -270,8 +268,6 @@ public:
     };
     enum e_winding { WINDING_POSITIONAL_0 = 0, WINDING_POSITIONAL_1 = 1 };
     enum e_visibility { VISIBILITY_OUTSIDE = 0 };
-    enum e_hint {};
-    enum e_hintMode {};
     srGERD();
     virtual ~srGERD() override;
 
@@ -294,7 +290,6 @@ public:
     e_error openWindow();
     e_error openWindow(w8_long width, w8_long height);
     void closeWindow(e_closeHint hint);
-    e_backBuffer getBackBufferType() const;
     int isWindowOpen() const;
     e_error beginFrame();
     void endFrame();
@@ -471,12 +466,7 @@ public:
     void setPolygonOffset(w8_long offset);
 
     /* Releases every GERD on the global list. */
-    const char* getErrorString(e_error error);
     e_error getError();
-    int isFlipped() const;
-    w8_ulong getSwapInterval() const;
-    e_hintMode getHint(e_hint hint) const;
-    void setHint(e_hint hint, e_hintMode mode);
     void disable(e_enable option);
     void enable(e_enable option);
     srShader getShader() const;
@@ -597,9 +587,6 @@ private:
        edge-function triangle test against the pick ray. */
     void performPickTest(const PickInput& input);
     void deleteRenderers();
-    /* getErrorString table: the ten e_error names followed by no terminator;
-       out-of-range errors report "UNKNOWN ERROR". */
-    static const char* errStrings[9];
 
     void setError(e_error error);
     void resetTexture();
@@ -645,14 +632,9 @@ private:
 
     struct Device {
         SDLGPUDevice gpu;
-        /* setHint/getHint index this by e_hint. */
-        e_hintMode hints[1];
         SDL_Window* window;
         /* Current window and backbuffer dimensions. */
         OpenInfo open_info;
-        /* e_backBuffer result of SDLGPUDevice::openWindow; getBackBufferType reads
-           it. */
-        e_backBuffer back_buffer_type;
     };
 
     struct State {

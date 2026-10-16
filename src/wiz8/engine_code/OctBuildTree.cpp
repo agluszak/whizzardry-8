@@ -4,11 +4,11 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "OctPreTree.h"
 #include "compat/compiler.h"
 #include "geometry.h"
 #include "glm/common.hpp"
@@ -18,8 +18,7 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/swept_bounds.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/oct_build_traversal.h"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/float_constants.h"
 
 #define OCT_BUILD_TREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctBuildTree.cpp"
@@ -35,19 +34,9 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
     : spatial(0)
 {
     spatial.Reset();
-    leaf_polygon_count = 0;
-    gd_surface_count = 0;
-    leaf_count = 0;
-    max_leaf_regions = 0;
-    unknown_ae = 0;
-    region_assignments = 0;
-    unknown_b5[0] = 0;
-    unknown_b5[1] = 0;
-    unknown_b5[2] = 0;
-    deepest_link_list = 0;
 
     if (leaf_size < g_float_one_thousand) {
-        ReportBuildStatus(7, "Leaf Size too small--try a larger leaf size!\n");
+        throw std::invalid_argument("Leaf Size too small--try a larger leaf size!\n");
     }
     spatial.flags = 0;
     spatial.m_item_limit = item_limit;
@@ -85,7 +74,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
                 ++spatial.m_depth;
             }
             if (spatial.m_depth > 6) {
-                ReportBuildStatus(7, "Leaf Size too small--try a larger leaf size!\n");
+                throw std::invalid_argument("Leaf Size too small--try a larger leaf size!\n");
             }
             spatial.m_extent = spatial.m_cell_size;
         } else {
@@ -167,30 +156,26 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
         child.m_cell_size = working->m_cell_size;
         child.m_depth = working->m_depth + 1;
 
-        inserted = InsertBuildSurfaceChildren(
-            working, child, half_extent,
-            [&](W8OctSpatialState& candidate) {
-                return triangleIntersectsBox(
-                    candidate.bounds(),
-                    std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3), planeNormal);
-            },
-            [] { return std::make_unique<W8OctBuildNode>(); },
-            [&](W8OctSpatialState& candidate) {
-                candidate.m_triangle_vertices = working->m_triangle_vertices;
-                return InsertSurfaceRecursive(&candidate, surface, planeNormal, mode);
-            });
+        for (unsigned octant = 0; octant < 8; ++octant) {
+            child.setChildBounds(*working, octant, half_extent);
+            if (!triangleIntersectsBox(
+                    child.bounds(), std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3),
+                    planeNormal))
+                continue;
+            auto& node = working->m_root->children[octant];
+            if (!node) node = std::make_unique<W8OctBuildNode>();
+            child.m_root = node.get();
+            child.m_triangle_vertices = working->m_triangle_vertices;
+            if (InsertSurfaceRecursive(&child, surface, planeNormal, mode)) inserted = true;
+        }
     }
     return inserted;
 }
 
-/* Append to the leaf's surface bank and update the build statistics. */
+/* Append to the leaf's surface bank in insertion order. */
 // FUNCTION: WIZ8 0x00446d00
 void W8OctBuildTree::AppendLink(W8OctBuildNode* node, void* payload, short kind)
 {
-    ++node->leaf_kind;
-    if (deepest_link_list < node->leaf_kind) {
-        deepest_link_list = node->leaf_kind;
-    }
     node->surfaces.at(kind - 2).push_back(payload);
 }
 
@@ -279,9 +264,13 @@ void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBo
         collectLeaf(state.m_root, state.m_depth, kind, collector);
     } else if (verdict == 1) {
         W8OctSpatialState child(&state);
-        visitBuildChildren(state, child, [&](W8OctSpatialState& candidate, unsigned) {
-            collectRecursive(candidate, bounds, kind, collector);
-        });
+        for (unsigned octant = 0; octant < 8; ++octant) {
+            if (const auto& node = state.m_root->children[octant]) {
+                child.setChildBounds(state, octant, child.m_extent);
+                child.m_root = node.get();
+                collectRecursive(child, bounds, kind, collector);
+            }
+        }
     }
 }
 

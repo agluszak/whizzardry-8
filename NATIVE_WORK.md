@@ -53,3 +53,17 @@ The opaque storage types live in `retail_opaque_records.h`; their runtime owners
 carry them solely to preserve file data, independent of native member offsets.
 Regression fixtures cover nonzero opaque bytes, copies/edits, truncated group
 records, and level/sky path selection without installed assets.
+
+## Unicode and compiled-level boundary
+
+utf8proc now supplies UTF-8 decoding/encoding as well as categories and grapheme
+boundaries, leaving one Unicode dependency. Retail UTF-16LE field codecs
+remain explicit, including malformed-input replacement and fixed-field limits.
+
+The native application only reads compiled OCT/WPT/PVL geometry. The unreachable
+level compiler, mesh and waypoint writers, waypoint editor/visualization and
+interactive build-log UI are removed. Shared spatial operations live with the
+runtime octree. `W8OctBuildTree` remains the gameplay collision index built from
+loaded game data; its queries are exercised independently of the removed editor.
+Reader fixtures cover both retail waypoint edge layouts and truncated-input
+rollback without invoking a production writer.

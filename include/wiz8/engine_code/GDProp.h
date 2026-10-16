@@ -38,17 +38,12 @@ class GDProp {
     /* W8Octree's AABB occupancy test and W8GameData's prop-surface trace read
        the geometry members directly in retail. */
     friend class W8Octree;
-    /* TestPathPropBounds/CreatePathProps read m_flags and call the bound
-       helpers on GDPreProp elements. */
-    friend class OctPreTree;
     friend struct W8GameData;
     /* The sector item lists are built by the GDProp.cpp free helpers. */
     friend void AddItemToSector(int sector, W8WorldItem* item);
     friend void RemoveItemFromSector(int sector, W8WorldItem* item);
 
 public:
-    /* The zero-initializing default used by GDPreProp; retail only emits it
-       inlined inside the derived ctor at 0x004B7BC0. */
     GDProp()
     {
         Flags initial_flags = {false, false, false, false, 0, 0};
@@ -70,12 +65,9 @@ public:
     void BindTrigger(Trigger* owner);
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
     bool HasSupportedItems();
-    /* Rebuilds m_pVertices/m_pGDSurfaces for the given animation frame of the
-       level prop's transforms. */
-    void ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim);
     /* Rebuild the cached vertex and path bounds and return the complete box. */
     srBoundingBox computeBounds();
-    /* Box-vs-bound test used by the pre-tree path obstruction pass. */
+    /* Box overlap used by path obstruction checks. */
     bool boundsOverlap(const srBoundingBox& box);
     std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
     std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
@@ -92,11 +84,6 @@ private:
                     unsigned char footstep_surface,
                     unsigned char footstep_material); /* 0x004B7060 */
     void PrepareGeometry(srModelInstance* instance);
-    void AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base);
-    /* Appends the mesh's vertices/faces transformed by one animation path
-       record (position/angle/axis/scale floats); called once per transform
-       channel by ApplyAnimFrame. */
-    void appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh);
 
     Flags m_flags;                        /* 0x00 */
     unsigned short m_prop_number;         /* 0x02 */
@@ -106,32 +93,14 @@ private:
     std::vector<W8GDSurface> m_pGDSurfaces;
     std::vector<glm::vec3> m_pVertices;
     Trigger* m_trigger;                   /* 0x24: installed by 0x004B7470 */
-    W8PathVerticalRange m_path_range;     /* 0x28 */
-    /* Vertex AABB cached by computeBounds and tested by
+    W8PathVerticalRange m_path_range;     /* Vertex AABB cached by computeBounds and tested by
        boundsOverlap. */
     glm::vec3 m_bound_min{0.0f};  /* 0x34 */
     glm::vec3 m_bound_max{0.0f};  /* 0x40 */
-    W8PathGridBounds m_path_bounds; /* 0x4c */
-    /* Owns the list buffer; item records belong to the world item list. */
+    W8PathGridBounds
+        m_path_bounds; /* Owns the list buffer; item records belong to the world item list. */
     std::vector<W8WorldItem*> m_supported_items; /* 0x54 */
 }; /* 0x58 */
-
-/* OctPreTree.cpp's per-prop path record element: the GDProp plus the frame
-   index 0x0046C0F0 writes at +0x58 and W8PathingService::LinkCollideableProps
-   reads back. */
-class GDPreProp : public GDProp {
-public:
-    // Stop-mesh elements start with an empty collision representation.
-    GDPreProp();
-    unsigned short last_frame; /* 0x58 */
-}; /* 0x5c */
-
-// Build-time pathing records own their stop meshes; spatial tables borrow them.
-struct W8PreProp {
-    char name[0x40]{};
-    unsigned short first_prop_number{};
-    std::vector<GDPreProp> stop_meshes;
-};
 
 void AddItemToSector(int sector, W8WorldItem* item);      /* 0x004B7AD0 */
 void RemoveItemFromSector(int sector, W8WorldItem* item); /* 0x004B7B50 */

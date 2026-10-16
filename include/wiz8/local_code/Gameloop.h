@@ -8,7 +8,7 @@
 
 void ShutdownGame(size_t initialized_screens, bool save_configuration);
 void GameLoop(void);
-void GameloopExit(unsigned char unload_screens);
+void GameloopExit();
 
 /* Local Code\Gameloop.cpp's screen-state machine storage. */
 extern W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT];

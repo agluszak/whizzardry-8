@@ -97,16 +97,12 @@ function(wiz8_system_headers)
             INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${directories}")
     endforeach()
 endfunction()
-set(UTF8_TESTS OFF CACHE BOOL "" FORCE)
 set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(utf8cpp
-    URL https://codeload.github.com/nemtrif/utfcpp/tar.gz/refs/tags/v4.0.6
-    URL_HASH SHA256=6920a6a5d6a04b9a89b2a89af7132f8acefd46e0c2a7b190350539e9213816c0)
 FetchContent_Declare(utf8proc
     URL https://codeload.github.com/JuliaStrings/utf8proc/tar.gz/refs/tags/v2.10.0
     URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136)
-FetchContent_MakeAvailable(utf8cpp utf8proc)
-wiz8_system_headers(fmt::fmt utf8cpp utf8proc)
+FetchContent_MakeAvailable(utf8proc)
+wiz8_system_headers(fmt::fmt utf8proc)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
@@ -116,7 +112,7 @@ add_library(wiz8_filesystem STATIC
     src/platform/unicode.cpp
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8cpp utf8proc)
+target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8proc)
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
 # SLF knowledge is confined to installation tooling, never linked into the game.
 add_library(wiz8_asset_preparation STATIC tools/assets/prepare.cpp)

@@ -201,7 +201,7 @@ void GameLoop(void)
 }
 
 // FUNCTION: WIZ8 0x004e34b0
-void GameloopExit(unsigned char release_screens)
+void GameloopExit()
 {
     // Complete voice events before leaving gameplay unloads its UI.
     if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();
@@ -214,9 +214,6 @@ void GameloopExit(unsigned char release_screens)
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
     g_options_detail_font.resetPalette();
-    if (!release_screens) {
-        return;
-    }
     // Discard the current screen, then every suspended one without
     // re-entering it: a full leave releases what a suspended screen retains.
     if (g_current_screen_state.id != W8_SCREEN_NONE) {

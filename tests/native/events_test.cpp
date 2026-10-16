@@ -129,7 +129,6 @@ static void expect(const InputEvent& atom, InputEventType kind, SDL_Keycode para
 TEST_CASE("events_test")
 {
     gfProgramIsRunning = gfApplicationActive = true;
-    gfIgnoreMessages = false;
     /* No GPU is needed to validate events and timers. */
     REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     SDL_Window* window = SDL_CreateWindow("Whizzardry input test", 1280, 960, SDL_WINDOW_HIDDEN);
@@ -409,18 +408,17 @@ TEST_CASE("events_test")
             expect(events[i], i % 2 ? InputEventType::KeyUp : InputEventType::KeyDown, SDLK_F24);
         REQUIRE_FALSE(IsKeyHeld(SDLK_F24));
     }
-    gfIgnoreMessages = true;
     key(SDL_EVENT_KEY_DOWN, SDLK_Q);
     focus(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
     drain_events();
-    REQUIRE((!gfProgramIsRunning && input().empty()));
+    REQUIRE(!gfProgramIsRunning);
+    input();
     gfProgramIsRunning = true;
     SDL_Event quit{};
     quit.type = SDL_EVENT_QUIT;
     push(quit);
     drain_events();
     REQUIRE(!gfProgramIsRunning);
-    gfIgnoreMessages = false;
     // Both normal button events retain SDL click counts after a full input burst.
     for (unsigned i = 0; i < 300; ++i)
         PostInputEvent({.type = InputEventType::MouseMove, .position = {int(i), 0}});

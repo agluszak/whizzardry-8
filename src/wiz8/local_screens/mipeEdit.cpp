@@ -1,5 +1,4 @@
 #include <cmath>
-#include <iterator>
 #include <string>
 #include <string_view>
 
@@ -8,7 +7,6 @@
 
 #include "input.h"
 #include "surrender/srDebug.h"
-#include "utf8/checked.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
@@ -211,7 +209,7 @@ void HandleMipeEditPropText(char32_t character)
         return;
     auto& field = state.edit_fields[state.edit_selection];
     if (field.type != 6) return;
-    utf8::append(character, std::back_inserter(field.text));
+    wiz8::text::append(field.text, character);
     MIPE_REDRAW_EDIT_FIELDS();
 }
 

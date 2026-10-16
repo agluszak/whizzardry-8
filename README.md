@@ -34,7 +34,7 @@ or `-s:h build_type=RelWithDebInfo` for `linux-asan`, using the
 corresponding `build/<preset>/conan` output directory and toolchain file.
 Do not reuse Conan dependencies from a different build configuration.
 
-SDL_mixer 3.2.4, utfcpp 4.0.6 and utf8proc 2.10.0 are still downloaded at
+SDL_mixer 3.2.4 and utf8proc 2.10.0 are still downloaded at
 CMake configure time from verified release archives; Catch2 is pinned to an
 exact Git commit. ConanCenter does not currently have the required
 SDL_mixer and utf8proc versions. The committed `conan.lock` pins Conan recipe revisions for the validated Linux
@@ -228,8 +228,7 @@ are used. Localized tables are `std::vector<std::string>`. Format source literal
 with `fmt::format`; use `fmt::sprintf` only for the retail localization tables
 whose patterns use printf syntax. Drawing and notice APIs accept plain
 `std::string_view`, with formatting explicit at the call site.
-utf8cpp supplies conversion and traversal;
-utf8proc supplies grapheme boundaries and character classification. Editable
+utf8proc supplies UTF-8 conversion, traversal, grapheme boundaries and character classification. Editable
 controls own strings and use byte offsets at grapheme boundaries. Font rendering
 decodes UTF-8 at its boundary; retail fonts still limit the available glyphs.
 

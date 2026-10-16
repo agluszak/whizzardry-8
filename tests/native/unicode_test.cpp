@@ -42,6 +42,18 @@ static void conversion_contracts()
     const std::u16string invalid = {0xd800, u'A', 0xdc00};
     REQUIRE(wiz8::text::from_utf16(invalid) == "�A�");
     REQUIRE(wiz8::text::to_utf16(std::string("\xf0\x80\x80\x80", 4)) == u"�");
+    std::string encoded;
+    for (char32_t cp : {U'é', U'中', U'😀', char32_t{0xd800}, char32_t{0x110000}})
+        wiz8::text::append(encoded, cp);
+    REQUIRE(encoded == "é中😀��");
+    const std::string malformed = "A\xf0\x80\x80\x80";
+    std::size_t offset = 1;
+    REQUIRE(wiz8::text::next(malformed, offset) == 0xfffd);
+    REQUIRE(offset == 2); // Traversal always makes progress one byte on invalid input.
+    REQUIRE(wiz8::text::previous("é中😀", 9) == 5);
+    REQUIRE(wiz8::text::previous("é中😀", 5) == 2);
+    REQUIRE(wiz8::text::previous("é中😀", 2) == 0);
+    REQUIRE(wiz8::text::previous(malformed, 2) == 1);
     REQUIRE(wiz8::text::codepoint_prefix("é中😀", 1) == 2);
     REQUIRE(wiz8::text::codepoint_prefix("é中😀", 2) == 5);
     const std::string clusters = "é👩‍👩‍👧‍👦中";

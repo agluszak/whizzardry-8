@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include <iterator>
 #include <memory>
 #include <span>
 #include <string>
@@ -26,7 +25,6 @@
 #include "AnimRep.hpp"
 #include "Font.h"
 #include "Item.h"
-#include "OctPreTree.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -50,7 +48,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srTexture.h"
-#include "utf8/checked.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
@@ -64,6 +61,7 @@
 #include "wiz8/engine_code/UpdateMesh.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -1853,7 +1851,7 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
     if (key >= SDLK_SPACE && key <= 0x10ffff &&
         wiz8::text::to_utf16(text).size() + (key > 0xffff ? 2 : 1) <= 40) {
         std::string inserted;
-        utf8::append(key, std::back_inserter(inserted));
+        wiz8::text::append(inserted, key);
         text.insert(last, inserted);
         g_automap_redraw = true;
     } else {

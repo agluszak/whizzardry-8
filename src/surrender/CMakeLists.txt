@@ -14,7 +14,6 @@ set(SURRENDER_SOURCES
     material.cpp
     mesh_model.cpp
     triangle_culler.cpp
-    model.cpp
     model_instance.cpp
     node.cpp
     scene.cpp

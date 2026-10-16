@@ -21,17 +21,11 @@ bool gfApplicationActive = false;
 bool gfProgramIsRunning = false;
 // GLOBAL: WIZ8 0x006505a9
 bool gfGameInitialized = false;
-// GLOBAL: WIZ8 0x006505ac
-std::string gzErrorMsg;
-// GLOBAL: WIZ8 0x00650dac
-bool gfIgnoreMessages = false;
 
 // FUNCTION: WIZ8 0x00401920
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message)
 {
-    gzErrorMsg = message;
-    gfIgnoreMessages = true;
-    throw std::runtime_error(gzErrorMsg);
+    throw std::runtime_error(std::string(message));
 }
 
 namespace {
@@ -49,7 +43,6 @@ void HandleGameEvent(const SDL_Event& event)
         gfProgramIsRunning = false;
         return;
     }
-    if (gfIgnoreMessages) return;
     HandleInputEvent(event);
     if (!ghWindow || SDL_GetWindowFromEvent(&event) != ghWindow) return;
     switch (event.type) {

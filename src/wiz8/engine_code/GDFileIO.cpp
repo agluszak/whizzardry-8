@@ -7,12 +7,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include <filesystem>
 #include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -27,18 +25,14 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/LevelFile.h"
-#include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/index_algorithms.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/surface_geometry.h"
 
 class Trigger;
 
@@ -51,13 +45,9 @@ const float g_float_one_and_one_hundredth = 1.0099999904632568f;
 // GLOBAL: WIZ8 0x005ec1a0
 const float g_surface_flat_normal_threshold = 0.9959999918937683f;
 // GLOBAL: WIZ8 0x005ec1ac
-const float g_vertex_sort_x_weight = 3000.0f;
 // GLOBAL: WIZ8 0x005ec1b0
-const float g_vertex_sort_y_weight = 60000.0f;
 // GLOBAL: WIZ8 0x005ec1b4
-const float g_vertex_sort_z_weight = 900000.0f;
 // GLOBAL: WIZ8 0x005ff56c
-static char g_string[] = "\n";
 
 // GLOBAL: WIZ8 0x00659a58
 static int g_integrated_trigger_count;
@@ -75,11 +65,8 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
 static W8GameData* ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary)
 {
     auto game_data = std::make_unique<W8GameData>(nullptr, secondary);
-    const auto got_polygons = game_data->ReadWGDList(*file, 0);
-    const auto got_vertices = game_data->ReadWGDList(*file, 1);
-    if (got_vertices == 0 && got_polygons == 0) {
-        ReportBuildStatus(7, "ReadGameData: No polygons or vertices in GameData!\n");
-    }
+    game_data->ReadWGDList(*file, 0);
+    game_data->ReadWGDList(*file, 1);
     return game_data.release();
 }
 
@@ -94,18 +81,7 @@ W8GameData* ReadGameData(const char* path, bool secondary)
     }
     try {
         return ReadGeometry(std::move(file), secondary);
-    } catch (const std::exception& error) {
-        ReportBuildStatus(7, error.what());
-        return 0;
-    }
-}
-
-W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary)
-{
-    try {
-        return ReadGeometry(wiz8::open_file(path), secondary);
-    } catch (const std::exception& error) {
-        ReportBuildStatus(7, error.what());
+    } catch (const std::exception&) {
         return 0;
     }
 }
@@ -375,33 +351,6 @@ void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* tri
                        TrigVerticesCount() - 4);
 }
 
-/* Registers a level-file plane's two triangles (vertices 0,1,2 and 2,3,0) as
-   a trigger-surface pair under the auto-numbered trigger index. */
-// FUNCTION: WIZ8 0x004485F0
-void W8GameData::AddLevelPlane(const W8LevelFilePlane& plane)
-{
-    int index;
-    const auto* vertices = plane.vertices;
-
-    if (TrigSurfacesCount() >= 500) {
-        srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x2cc, 0);
-    }
-    for (index = 0; index < 4; ++index) {
-        m_pTrigVertices.emplace_back(vertices[index].x * g_world_scale,
-                                     vertices[index].y * g_world_scale,
-                                     vertices[index].z * g_world_scale);
-    }
-
-    AddTriggerTriangle(m_iNumTriggers, TrigVerticesCount() - 4, TrigVerticesCount() - 3,
-                       TrigVerticesCount() - 2);
-
-    AddTriggerTriangle(m_iNumTriggers, TrigVerticesCount() - 2, TrigVerticesCount() - 1,
-                       TrigVerticesCount() - 4);
-    ++m_iNumTriggers;
-    m_ppTriggers.push_back(nullptr);
-}
-
 // FUNCTION: WIZ8 0x00448840
 void W8GameData::IntegrateTriggers()
 {
@@ -424,90 +373,8 @@ void W8GameData::IntegrateTriggers()
     active_trigger_bits.assign(m_iNumTriggers, false);
 }
 
-/* The CompileGameData counterpart of IntegrateTriggers: folds the
-   trigger banks into the main vertex and surface arrays without rebuilding
-   the spatial index. */
-// FUNCTION: WIZ8 0x00448A60
-void W8GameData::IntegrateTriggerGeometry()
-{
-    if (TrigVerticesCount() != 0) {
-        m_pVertices.insert(m_pVertices.end(), m_pTrigVertices.begin(), m_pTrigVertices.end());
-        m_pSurfaces.insert(m_pSurfaces.end(), m_pTrigSurfaces.begin(), m_pTrigSurfaces.end());
-
-        integrated_surface_count = TrigSurfacesCount();
-        m_pTrigVertices.clear();
-        m_pTrigSurfaces.clear();
-    }
-}
-
-/* Registers the linked record's vertices as twelve trigger surfaces. */
-// FUNCTION: WIZ8 0x00448BF0
-void W8GameData::AddLinkedRecord(const glm::vec3* vertices, float value, float scalar,
-                                 const signed char* face)
-{
-    AddTriggerPlane(vertices, value, scalar, face);
-}
-
-/* Appends a linked record's vertices to the trigger bank, scaled by
-   g_double_five_hundred, and emits twelve consecutive trigger surfaces under the
-   current environment index. The surface numbered `*face` also grows an
-   environment record scaled by `value`/`scalar`. */
-// FUNCTION: WIZ8 0x00448C60
-void W8GameData::AddTriggerPlane(const glm::vec3* vertices, float value, float scalar,
-                                 const signed char* face)
-{
-    const int environment_id = EnvironsCount();
-    if (!face || *face < 0 || *face >= 12)
-        throw std::runtime_error("invalid linked environment face");
-    int index;
-    int vertex_base;
-
-    if (TrigSurfacesCount() >= 500) {
-        srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x3b9, 0);
-    }
-    vertex_base = TrigVerticesCount();
-    for (index = 0; index < 36; ++index) {
-        m_pTrigVertices.emplace_back(static_cast<float>(vertices[index].x * g_double_five_hundred),
-                                     static_cast<float>(vertices[index].y * g_double_five_hundred),
-                                     static_cast<float>(vertices[index].z * g_double_five_hundred));
-    }
-    for (index = 0; index < 12; ++index) {
-        const auto ordinal = m_pTrigSurfaces.size();
-        m_pTrigSurfaces.emplace_back();
-        W8GDSurface* surface = &m_pTrigSurfaces.back();
-        surface->flags = W8_GD_SURFACE_CROSSING_MASK;
-        surface->index = int(ordinal) + SurfacesCount();
-        surface->trigger_index = environment_id;
-        surface->vertex_indices[0] = vertex_base;
-        surface->vertex_indices[1] = vertex_base + 1;
-        surface->vertex_indices[2] = vertex_base + 2;
-        surface->contact_margin = 0.0f;
-        vertex_base += 3;
-        ClassifySurfacePlane(m_pTrigVertices.data(), surface);
-        if (index == *face) {
-            CreateGDEnviron(surface, value);
-            W8EnvironRecord* environ_record = m_ppEnvirons.back().get();
-            environ_record->forward_scale *= scalar;
-            environ_record->motion_limit =
-                environ_record->forward_scale * environ_record->momentum_scale * 2.0f;
-        }
-        surface->vertex_indices[0] += VerticesCount();
-        surface->vertex_indices[1] += VerticesCount();
-        surface->vertex_indices[2] += VerticesCount();
-    }
-}
-
 /* Append an owned environment derived from the linked surface plane. */
 // FUNCTION: WIZ8 0x00448E60
-void W8GameData::CreateGDEnviron(const W8GDSurface* surface, float scale)
-{
-    m_ppEnvirons.push_back(std::make_unique<W8EnvironRecord>());
-    m_ppEnvirons.back()->gravity_x = g_navigator_gravity * surface->plane.normal.x * scale;
-    m_ppEnvirons.back()->gravity_y =
-        (scale * surface->plane.normal.y - g_float_one) * g_navigator_gravity;
-    m_ppEnvirons.back()->gravity_z = g_navigator_gravity * surface->plane.normal.z * scale;
-}
 
 struct W8ProcessedGameDataHeader {
     unsigned int version;
@@ -677,9 +544,6 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     }
 }
 
-/* Builds the processed game-data record in place: zeroed storage, bound
-   extremes, the shared engine-time object on first use, a default
-   environment bank, and the previous level-data teardown. */
 /* 0x0044902E is the constructor's shared body entry: the SEH wrapper at
    0x00449010 zeroes EBX and falls through into the code below. */
 // FUNCTION: WIZ8 0x00449010
@@ -807,278 +671,4 @@ W8GameData::~W8GameData()
     m_iNumTriggers = 0;
 
     SetOctreeGameData(0);
-}
-
-bool ShareSurfaceEdge(W8GDSurface* first, W8GDSurface* second, glm::vec3* vertices);
-static void LinkSurfaceEdge(int polygon, int edge,
-                            std::unordered_multimap<unsigned int, int>* table,
-                            W8GDSurface* surfaces, unsigned int multiplier, glm::vec3* vertices);
-
-/* Welds duplicate vertices through a spatial hash, repacks the surface array
-   collision-flag faces first, fills the shared build vertex/polygon arrays
-   and stitches polygon edge links. */
-static void InitializeCompiledSurface(W8GDSurface* compiled, const W8GDSurface* surface,
-                                      int polygon_count, W8OctPreTreeGeometry& geometry)
-{
-    *compiled = *surface;
-    compiled->edge_link[2] = -1;
-    compiled->edge_link[1] = -1;
-    compiled->edge_link[0] = -1;
-    compiled->hit_plane = 0;
-    W8OctRegionPolygon* polygon = geometry.m_polygons.data() + polygon_count;
-    polygon->ordinal = polygon_count;
-    polygon->plane = compiled->plane;
-    polygon->degenerate = 0;
-    polygon->visited = false;
-    polygon->vertices[0] = geometry.m_vertices.data() + compiled->vertex_indices[0];
-    polygon->vertices[1] = geometry.m_vertices.data() + compiled->vertex_indices[1];
-    polygon->vertices[2] = geometry.m_vertices.data() + compiled->vertex_indices[2];
-}
-
-// FUNCTION: WIZ8 0x00449D10
-W8OctPreTreeGeometry W8GameData::CompileGameData()
-{
-    std::unordered_map<unsigned int, int> weld_table;
-    std::unordered_multimap<unsigned int, int> edge_table;
-    char message[1024];
-    int i;
-    int j;
-    unsigned int progress = 0;
-    int redundant = 0;
-    int weld_count = 0;
-    bool announce = false;
-    bool found;
-
-    ReportStartupMessage(g_string);
-    ReportStartupMessage("Processing GameData geometry...\n");
-    IntegrateTriggerGeometry();
-    if (VerticesCount() == 0 || SurfacesCount() == 0) {
-        return {};
-    }
-
-    std::vector<W8OctPreTreeVertex> weld_storage(VerticesCount());
-    auto* weld_records = weld_storage.data();
-    W8OctPreTreeGeometry geometry{};
-    geometry.m_vertices.resize(VerticesCount());
-    std::vector<int> cond_polys(CondPolysCount());
-    std::vector<glm::vec3> compiled_vertices(VerticesCount());
-    auto* new_vertices = compiled_vertices.data();
-
-    if (!m_pVertices.empty() && 0 < VerticesCount()) {
-        W8OctPreTreeVertex* vertex = weld_records;
-        const glm::vec3* source = m_pVertices.data();
-        glm::vec3* new_vertex = new_vertices;
-        W8OctPreTreeVertex* gd_vertex = geometry.m_vertices.data();
-        for (i = 0; i < VerticesCount(); ++i) {
-            vertex->position = *source;
-            unsigned int percent =
-                static_cast<unsigned int>(i * g_octree_cell_scale / VerticesCount());
-            if (progress + 10 < percent) {
-                announce = true;
-                progress += 10;
-            }
-            found = false;
-            unsigned int key = static_cast<unsigned int>(
-                vertex->position.z * g_float_one_five_hundredth * g_vertex_sort_z_weight +
-                vertex->position.y * g_float_one_five_hundredth * g_vertex_sort_y_weight +
-                vertex->position.x * g_float_one_five_hundredth * g_vertex_sort_x_weight);
-            int linked = LookupIndexValue(weld_table, key);
-            if (linked == 0) {
-                int vertex_id = i + 1;
-                weld_table.insert_or_assign(key, vertex_id);
-            } else {
-                int last = 0;
-                while (linked != 0) {
-                    if (found) {
-                        break;
-                    }
-                    int candidate_index = linked - 1;
-                    W8OctPreTreeVertex* candidate = weld_records + candidate_index;
-                    if (fabs(vertex->position.x - candidate->position.x) >= g_camera_snap_epsilon ||
-                        fabs(vertex->position.y - candidate->position.y) >= g_camera_snap_epsilon ||
-                        fabs(vertex->position.z - candidate->position.z) >= g_camera_snap_epsilon) {
-                        last = candidate_index;
-                        linked = candidate->m_kind;
-                    } else {
-                        vertex->m_vertex_index = candidate->m_vertex_index;
-                        ++redundant;
-                        found = true;
-                        linked = candidate_index;
-                    }
-                }
-                if (!found) {
-                    weld_records[last].m_kind = weld_count + 1;
-                }
-            }
-            if (!found) {
-                *new_vertex = *source;
-                vertex->m_vertex_index = weld_count;
-                *gd_vertex = *vertex;
-                ++weld_count;
-                ++gd_vertex;
-                ++new_vertex;
-            }
-            if (announce) {
-                sprintf(message, "  %d%% Complete:  %d Redundant Vertices  \r", progress,
-                        redundant);
-                ReportStartupMessage(message);
-            }
-            vertex->m_visited = false;
-            ++vertex;
-            ++source;
-            announce = false;
-        }
-    }
-
-    for (i = 0; i < SurfacesCount(); ++i) {
-        W8GDSurface* surface = m_pSurfaces.data() + i;
-        for (j = 0; j < 3; ++j) {
-            surface->vertex_indices[j] = weld_records[surface->vertex_indices[j]].m_vertex_index;
-        }
-    }
-    compiled_vertices.resize(weld_count);
-    unsigned int multiplier =
-        weld_count < 0xffff ? 0xffff : 0xffffffffu / static_cast<unsigned int>(weld_count);
-
-    geometry.m_polygons.resize(SurfacesCount());
-    std::vector<W8GDSurface> compiled_surfaces(SurfacesCount());
-    auto* new_surfaces = compiled_surfaces.data();
-
-    int polygon_count = 0;
-    const auto order = surfaceGeometry::compilationOrder(m_pSurfaces);
-    for (const auto old_index : order.indices) {
-        auto& surface = m_pSurfaces[old_index];
-        surface.index = polygon_count;
-        if (!(surface.flags & W8_GD_SURFACE_WALKABLE)) surface.slope = 0;
-        InitializeCompiledSurface(new_surfaces + polygon_count, &surface, polygon_count, geometry);
-        for (int edge = 0; edge < 3; ++edge)
-            LinkSurfaceEdge(polygon_count, edge, &edge_table, new_surfaces, multiplier,
-                            new_vertices);
-        for (int conditional = 0; conditional < CondPolysCount(); ++conditional)
-            if (m_piCondPolys[conditional] == old_index) cond_polys[conditional] = polygon_count;
-        ++polygon_count;
-    }
-    const int walkable_count = order.walkable_count;
-    trigger_surface_count = polygon_count - walkable_count;
-    trigger_surface_base = walkable_count;
-    compiled_surfaces.resize(polygon_count);
-
-    m_pVertices.swap(compiled_vertices);
-    m_pSurfaces.swap(compiled_surfaces);
-
-    m_piCondPolys.swap(cond_polys);
-    sprintf(message, "GameData:  %d Polygons,  \t%d Vertices.\n\n", polygon_count, weld_count);
-    ReportBuildStatus(6, message);
-    return geometry;
-}
-
-/* Tests two polygons for a shared vertex pair; when they share an edge the
-   matching corner slot on each surface is linked to the other's index. */
-// FUNCTION: WIZ8 0x0044A970
-bool ShareSurfaceEdge(W8GDSurface* first, W8GDSurface* second, glm::vec3* vertices)
-{
-    int first_slot = -1;
-    int second_slot = -1;
-    int last_first = -1;
-    int last_second = -1;
-    int* first_index = first->vertex_indices;
-    for (int i = 0; i < 3; ++i) {
-        int* second_index = second->vertex_indices;
-        for (int j = 0; j < 3; ++j) {
-            if (*first_index == *second_index) {
-                if (first_slot < 0) {
-                    second_slot = j;
-                    first_slot = i;
-                } else {
-                    last_first = i;
-                    last_second = j;
-                }
-            }
-            ++second_index;
-        }
-        ++first_index;
-    }
-    if (last_first < 0) {
-        return false;
-    }
-    if ((last_first < first_slot && last_first - first_slot < 2) ||
-        (first_slot < last_first && 1 < last_first - first_slot)) {
-        first_slot = last_first;
-    }
-    if ((last_second < second_slot && last_second - second_slot < 2) ||
-        (second_slot < last_second && 1 < last_second - second_slot)) {
-        second_slot = last_second;
-    }
-    first->edge_link[first_slot] = second->index;
-    second->edge_link[second_slot] = first->index;
-    return true;
-}
-
-/* Registers one triangle edge in the edge hash under its undirected vertex
-   pair key; when an earlier polygon carries the same key the pair is handed
-   to ShareSurfaceEdge to link. */
-// FUNCTION: WIZ8 0x0044A7D0
-static void LinkSurfaceEdge(int polygon, int edge,
-                            std::unordered_multimap<unsigned int, int>* table,
-                            W8GDSurface* surfaces, unsigned int multiplier, glm::vec3* vertices)
-{
-    W8GDSurface* surface = surfaces + polygon;
-    int next = (edge + 1) % 3;
-    int low = edge;
-    int high = next;
-    if (surface->vertex_indices[next] < surface->vertex_indices[edge]) {
-        low = next;
-        high = edge;
-    }
-    unsigned int key = surface->vertex_indices[low] * multiplier + surface->vertex_indices[high];
-    const auto [first, last] = table->equal_range(key);
-    for (auto candidate = first; candidate != last; ++candidate) {
-        if (candidate->second != 0 &&
-            ShareSurfaceEdge(surfaces + candidate->second, surface, vertices)) {
-            return;
-        }
-    }
-    InsertIndexValue(*table, key, polygon);
-}
-
-// FUNCTION: WIZ8 0x0044aa40
-unsigned char W8GameData::WriteGameData(wiz8::File* handle)
-{
-    W8ProcessedGameDataHeader header;
-    int index;
-
-    header.version = 1;
-    header.minimum = minimum;
-    header.maximum = maximum;
-    header.vertex_count = VerticesCount();
-    header.surface_count = SurfacesCount();
-    header.trigger_surface_base = trigger_surface_base;
-    header.trigger_surface_count = trigger_surface_count;
-    header.integrated_surface_count = integrated_surface_count;
-    header.interface_count = InterfacesCount();
-    header.state_count = StatesCount();
-    header.trigger_count = m_iNumTriggers;
-    header.cond_poly_count = CondPolysCount();
-    header.environ_count = EnvironsCount();
-    memset(header.reserved, 0, sizeof(header.reserved));
-
-    if (handle == 0) {
-        ReportBuildStatus(7, "WriteGameData: File not open.\n");
-        return 0;
-    }
-    handle->write(&header, sizeof(header));
-    std::vector<wiz8::retail::Vec3f> vertex_images;
-    vertex_images.reserve(m_pVertices.size());
-    for (const auto& point : m_pVertices) vertex_images.push_back({point.x, point.y, point.z});
-    handle->write(vertex_images.data(), vertex_images.size() * sizeof(wiz8::retail::Vec3f));
-    for (const auto& surface : m_pSurfaces) wiz8::retail::write(*handle, surface);
-    handle->write(m_pInterfaces.data(),
-                  static_cast<std::size_t>(InterfacesCount()) * sizeof(W8GDInterface));
-    handle->write(m_pStates.data(),
-                  static_cast<std::size_t>(StatesCount()) * sizeof(W8GDInterfaceState));
-    handle->write(m_piCondPolys.data(), static_cast<std::size_t>(CondPolysCount()) * sizeof(int));
-    for (index = 0; index < EnvironsCount(); ++index) {
-        wiz8::retail::write(*handle, *m_ppEnvirons[index]);
-    }
-    return 1;
 }

@@ -4,22 +4,15 @@
 #include <cstring>
 #include <span>
 
-#include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/quaternion.hpp>
-
 #include "geometry.h"
-#include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "navigation_flags.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srDebug.h"
-#include "surrender/srMath.h"
 #include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/surface_geometry.h"
@@ -27,13 +20,12 @@
 
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/world.h"
@@ -344,112 +336,3 @@ bool GDProp::HasSupportedItems()
 {
     return !m_supported_items.empty();
 }
-
-/* Stop meshes begin with empty base geometry and frame zero. */
-// FUNCTION: WIZ8 0x004b7bc0
-GDPreProp::GDPreProp()
-{
-    last_frame = 0;
-}
-
-/* Rebuild the collision geometry for one animation frame. The frame index is
-   clamped against every transform channel's path count and stored as the
-   conditional frame number. */
-// FUNCTION: WIZ8 0x004b7c00
-void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim)
-{
-    frame = anim.ClampFrame(frame);
-    m_prop_number = frame;
-
-    std::size_t surface_count = 0, vertex_count = 0;
-    for (const auto& transform : anim.transforms) {
-        const auto& mesh = transform.frames.front().mesh;
-        if (mesh.HasLods()) {
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0x355,
-                         "Transform prop made collideable!!!");
-            surface_count += mesh.LodCount() * mesh.num_faces;
-            vertex_count += mesh.LodCount() * mesh.num_vertices;
-        } else {
-            surface_count += mesh.num_faces;
-            vertex_count += mesh.num_vertices;
-        }
-    }
-
-    m_pVertices.clear();
-    m_pGDSurfaces.clear();
-    m_pVertices.reserve(vertex_count);
-    m_pGDSurfaces.reserve(surface_count);
-
-    for (const auto& transform : anim.transforms)
-        appendMeshGeometry(transform.pathAI.Node(frame), transform.frames.front().mesh);
-}
-
-void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
-{
-    for (int face = 0; face < mesh.num_faces; ++face) {
-        auto& surface = m_pGDSurfaces.emplace_back();
-        for (unsigned corner = 0; corner < 3; ++corner)
-            surface.vertex_indices[corner] =
-                vertex_base + (mesh.HasCompressedFaces()
-                                   ? mesh.compressed_faces[face].vertex_indices[corner]
-                                   : mesh.faces[face].vertices[corner]);
-    }
-}
-
-/* Append one transform channel's geometry under the path record's affine
-   transform: position and scale convert through the world scale (LOD meshes
-   carry their own compression factor), the axis/angle supplies the rotation,
-   and every appended surface then receives its plane, dominant axis and slope
-   classification. */
-// FUNCTION: WIZ8 0x004b7e50
-void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh)
-{
-    const auto surface_base = m_pGDSurfaces.size();
-
-    const auto axis = node.path.axis;
-    glm::mat3 rotation(1);
-    if (node.path.angle != g_double_zero)
-        rotation *= glm::mat3_cast(glm::angleAxis(
-            float(std::atan2(sin(node.path.angle), cos(node.path.angle))), normalizedOrZero(axis)));
-    const auto translation = glm::vec3(glm::dvec3(node.path.position) * g_double_five_hundred);
-    float factor;
-
-    if ((mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 &&
-        (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
-        factor = mesh.lod_scale * g_world_scale;
-    } else {
-        factor = static_cast<float>(g_double_five_hundred);
-    }
-    const auto scale = node.scale * factor;
-
-    glm::mat4x3 matrix(rotation);
-    matrix[3] = translation;
-    for (int column = 0; column < 3; ++column) matrix[column] *= scale[column];
-
-    const bool has_lods = (mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
-    const bool compressed = has_lods && (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
-    const int frame_count = has_lods ? mesh.LodCount() : 1;
-    for (int frame = 0; frame < frame_count; ++frame) {
-        const int vertex_base = static_cast<int>(m_pVertices.size());
-        m_pVertices.resize(vertex_base + mesh.num_vertices, glm::vec3(0));
-        surfaceGeometry::transformPositions(
-            {m_pVertices.data() + vertex_base, static_cast<std::size_t>(mesh.num_vertices)}, matrix,
-            [&](std::size_t vertex) {
-                if (compressed) {
-                    const auto* packed = &mesh.lod_shorts[frame][vertex * 3];
-                    return glm::vec3(packed[0], packed[1], packed[2]);
-                }
-                const auto& vertices = has_lods ? mesh.lods[frame] : mesh.vertices;
-                return vertices[vertex];
-            });
-        AppendMeshFaces(mesh, vertex_base);
-    }
-
-    for (std::size_t index = surface_base; index < m_pGDSurfaces.size(); ++index) {
-        W8GDSurface* surface = &m_pGDSurfaces[index];
-        surfaceGeometry::initializePropSurface(*surface, m_pVertices);
-    }
-}
-
-/* glm::mat4x3::SetTranslation/Scale emitted for this TU by
-   appendMeshGeometry; the primary templates live in srMath.h. */

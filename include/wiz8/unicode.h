@@ -16,6 +16,8 @@ void to_utf16le(std::string_view text, std::span<std::byte> bytes);
 // Fixed-size disk fields are zero-padded and NUL terminated.
 void write_utf8_field(std::string_view text, std::span<char> field);
 
+// Append one Unicode scalar; invalid values become U+FFFD.
+void append(std::string& text, char32_t character);
 // Advances over one complete UTF-8 scalar; malformed input advances one byte.
 char32_t next(std::string_view text, std::size_t& offset);
 std::size_t previous(std::string_view text, std::size_t offset);

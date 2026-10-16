@@ -20,10 +20,6 @@
 
 class stModelInstance;
 class GDProp;
-class GDPreProp;
-class OctPrePathLog;
-struct CondPathNode;
-class OctPreTree;
 class W8Monster;
 struct W8LevelFile;
 struct W8LevelFileNamedPosition;
@@ -46,8 +42,6 @@ struct W8ConditionalPathHeader {
     unsigned int node_count;
     unsigned int flags;
 };
-
-struct W8PreProp;
 
 struct W8NavigatorMovementState;
 
@@ -294,9 +288,6 @@ public:
     void CheckConditionalLinkStatus(std::span<const unsigned short> edges);
     void SetConditionalPathFrame(unsigned int path_handle, unsigned short frame);
     unsigned int FindConditionalPathValue(unsigned int key, unsigned int value);
-    void LinkCollideableProps(
-        std::span<const W8PreProp> preprops,
-        const std::unordered_multimap<unsigned int, CondPathNode>& values); /* 0x004CE510 */
     unsigned char HandlePathEdgeTransition(W8NavigatorMovementState* movement);
     void ReduceWaypointCosts(unsigned int waypoint, float amount);
     bool AdvanceAttachmentWaypoint(const glm::vec3* source,
@@ -332,15 +323,6 @@ public:
     void SnapPathHeight(glm::vec3* position);
     void GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal);
     void ActivateMovementTrigger(W8NavigatorMovementState* movement, bool use_path_edge);
-    void UpdatePathVisualization(const glm::vec3& source, const glm::vec3& destination);
-    void DrawPathPosition(const glm::vec3& position, unsigned char mode);
-    void BuildSearchVisualization();
-    stModelInstance* BuildPathVisualization();
-    stModelInstance* EnsurePathVisualization();
-    glm::vec3 waypointVisualizationColor(unsigned short waypoint) const;
-    short CollectPathVisualization(const glm::vec3& position);
-    bool PreparePathVisualization(const glm::vec3& source, const glm::vec3& direction);
-    void AddWaypoint(const glm::vec3* position);
     unsigned int ClassifyWaypoint(const glm::vec3* position);
     bool FindNearbyPathCell(glm::vec3* position, bool snap_to_cell, bool require_active,
                             unsigned int* packed_out);
@@ -387,11 +369,6 @@ public:
                                  float distance);
     float CompareDirectionalClearance(const glm::vec3* position, const glm::vec3* direction,
                                       float distance);
-    void SetWaypointLinkFlags(unsigned short waypoint, unsigned int direction);
-    void RemoveWaypointLink(unsigned short edge);
-    void AddWaypointLink(unsigned short source, unsigned short destination, unsigned int flags);
-    bool UpdateWaypointLink(unsigned short source, unsigned short destination, unsigned int flags);
-    bool HasDirectionalWaypointLink(unsigned short source, unsigned short destination);
     bool TestWaypointSpan(const glm::vec3* source, glm::vec3* destination, bool adjust_destination,
                           bool diagonal_steps);
     /* `range` carries the walk budget in and the path cost back out; `hops`
@@ -402,18 +379,12 @@ public:
        conditional edge whose segment box holds a door prop - and that prop's
        door-trigger action data is a type-10 record with flag bit0 clear. */
     bool TestAttachmentHopDoor(W8NavigatorAttachment* attachment); /* 0x00460680 */
-    unsigned int EditWaypointLinkFlags(const char* title, unsigned int* flags,
-                                       unsigned int direction);
     void EditTeleportalLink(const glm::vec3* destination, const glm::vec3* source); /* 0x0045F2D0 */
     /* Configure the node count, grid pitch, bounds and level name. */
     void ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
                            const char* name); /* 0x00458A50 */
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
-    bool WritePathNodes(wiz8::File* handle);
-    unsigned char SaveWaypointSnapshot(bool force);
-    unsigned char WriteWaypointFile(std::span<const W8FileWaypoint> snapshot);
     unsigned char ReadWaypointFile();
-    void BuildWaypointFileData();
     /* Owning destructor: releases owned tables and bit sets. Single caller
        destroys the service at octree teardown. */
     ~W8PathingService(); /* 0x00457B10 */
@@ -435,11 +406,9 @@ public:
     // Zero is the sentinel in both indexed graph tables.
     std::vector<W8PathSurface> m_waypoints;
     std::vector<W8PathEdge> m_pEdges;
-    std::unique_ptr<stModelInstance> m_path_visualization;
     std::vector<std::uint16_t> m_path_scratch;
     std::vector<bool> m_marked_path_nodes;
     std::vector<bool> m_visited_path_nodes;
-    std::vector<bool> m_collected_path_nodes;
     /* Two hash indexes the loader builds and 0x00457B10 destroys. The path
        value words are bitfields (height in the low half, state flags in the
        high bits), so 0x64 takes unsigned values; 0x74 is the visited-cell set
@@ -469,16 +438,7 @@ public:
     std::vector<W8PathSearchNode> m_search_nodes;
     unsigned int m_path_probe_count;
     W8PathProbeVolume m_path_probes[10];
-    bool m_waypoint_editing; /* 0x1c8 */
-    bool draw_waypoints;
-    bool flag2;
-    bool search_visualization;
-    bool waypoints_dirty;
-    unsigned short waypoint_editor_flags; /* 0x1ce: starts 4 */
-    int link_flags;
     unsigned short start_waypoint;
-    unsigned short destination_waypoint;
-    unsigned short saved_surface;
     bool path_direction_valid;
     /* Patrol-search state laid down by BuildPatrolPath and consulted by the
        recursive FindPatrolPath: the argmin-key candidate node, the accepted
@@ -501,75 +461,6 @@ public:
     std::vector<unsigned int> m_pulCondNodeKeys;
     std::vector<unsigned int> m_pulCondNodeValues;
     bool span_blocked;
-};
-
-/* The 8-byte record InsertConditionalNodes hangs on the cond map under a
-   (frame << 16 | preprop index + 1) key: the node's serialized flag word
-   (height level + 1 in the low half, |0x02000000 when it came from the
-   blocker run) and its packed cell.  LinkCollideableProps drains the map into
-   the serialized key/value tables.  The name is the
-   original spelling from the allocation-failure assertion text. */
-struct CondPathNode {
-    unsigned int value; /* 0x00 */
-    unsigned int cell; /* 0x04 */
-};
-
-/* The 0x10-byte build-time path-node record PrePathing::GetPathNode hands out
-   of its 1000-record chunks: floor index in the low bits plus link, clearance
-   and state flags; the packed cell; world height; and the same-cell chain. */
-struct W8PrePathNode {
-    unsigned int level_flags; /* 0x00 */
-    unsigned int cell; /* 0x04: z << 16 | x */
-    float y; /* 0x08 */
-    W8PrePathNode* next; /* 0x0c: allocation order, same-cell runs */
-};
-
-enum { W8_PREPATH_NODES_PER_CHUNK = 1000 };
-
-/* Build-only mark removed before path cells are serialized. */
-enum { W8_PREPATH_NODE_PRUNED = 0x40000000u };
-
-/* OctPrePath.cpp's 0x1204-byte build-time pathing service ("PrePathing" in its
-   own assertions): its constructor runs the W8PathingService constructor then
-   initialises scratch state through +0x1200, and the pre-tree stores it at
-   +0x2a0. */
-class PrePathing : public W8PathingService {
-public:
-    PrePathing(); /* 0x004CCFD0 */
-    ~PrePathing(); /* 0x004CD030 */
-
-    /* Copies each named position (scaled to world units) into +0x250 and
-       snaps it to the ground through `octree`. */
-    int SnapNamedPositions(std::span<const W8LevelFileNamedPosition> positions,
-                           unsigned int min_component_percent, OctPreTree* octree);
-    /* Hands out the next path-node record, allocating a new chunk when the
-       current one fills. */
-    W8PrePathNode* GetPathNode();
-    unsigned char BuildPathList(W8PrePathNode* nodes,
-                                std::unordered_map<unsigned int, int>* cell_map);
-    W8PrePathNode* FindAdjacentPathNode(const W8PrePathNode* node, int direction);
-    unsigned char LinkPathNodes();
-    void PropagatePathNodeClearance(W8PrePathNode* node, unsigned int depth);
-    unsigned int DeleteUnreachableAreas();
-    int CreatePathNodeArray();
-    unsigned char CreateAutomapNodes(W8LevelFile& level);
-
-    W8PrePathNode** path_node_list; /* path_node_count entries */
-    OctPrePathLog* path_log;
-    /* A malloc'd buffer the destructor `free`s; no surviving writer. */
-    void* owned_248;
-    int named_position_count;
-    glm::vec3* named_positions;
-    std::unordered_map<unsigned int, int>* cell_map;
-    /* Embedded chunk table: each slot is a malloc'd run of
-       W8_PREPATH_NODES_PER_CHUNK path-node records. The constructor fills slot 0, and the
-       destructor frees every slot through chunk_index inclusive. */
-    W8PrePathNode* node_chunks[0x3e8];
-    int chunk_index;
-    int chunk_node_count;
-    /* Components smaller than this percent of the node count get deleted
-       while linking; capped at 50. */
-    unsigned int min_component_percent;
 };
 
 /* Move an integer path cell one compass step; directions outside the

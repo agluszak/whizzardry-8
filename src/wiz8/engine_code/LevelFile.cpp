@@ -9,15 +9,12 @@
 #include <limits>
 #include <memory>
 #include <optional>
-#include <span>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
-
-#include <fmt/format.h>
 
 #include "glm/ext/vector_float3.hpp"
 #include "materials.h"
@@ -26,7 +23,6 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/evidence/LevelFile_layout.inc"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 
 #define LEVELFILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\LevelFile.cpp"
@@ -249,13 +245,9 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
         ValidateRecordCount(mesh.num_vertices, 6 * sizeof(float), io.file);
         ValidateRecordCount(mesh.num_faces, 2 * sizeof(W8SerializedMeshFace), io.file);
         if (mesh.num_vertices <= 0 || mesh.num_vertices > kMaxMeshVertices) {
-            ReportBuildStatus(7, fmt::format("Invalid number of vertices in mesh ({} vertices).\n",
-                                             mesh.num_vertices));
             throw LevelError("invalid mesh vertex count");
         }
         if (mesh.num_faces <= 0 || mesh.num_faces > kMaxMeshFaces) {
-            ReportBuildStatus(
-                7, fmt::format("Invalid number of faces in mesh ({} faces).\n", mesh.num_faces));
             throw LevelError("invalid mesh face count");
         }
     }
@@ -393,14 +385,10 @@ template<class IO, class Switch> void TransferSwitch(IO& io, Switch& trigger)
     io.text(trigger.name);
     io.text(trigger.recipients);
     io.field(trigger.sound);
-    if constexpr (IO::reading)
-        ReportBuildStatus(5, fmt::format("Switch Trigger: {}, recipients: {}\n", trigger.name,
-                                         trigger.recipients));
+
     if (trigger.version > 1) {
         io.field(trigger.minimum_range);
         io.text(trigger.surface_id);
-        if constexpr (IO::reading)
-            ReportBuildStatus(5, fmt::format("Switch Trigger name: {}\n", trigger.surface_id));
     }
     if (trigger.version > 2) {
         io.field(trigger.has_door_trigger);
@@ -423,9 +411,7 @@ template<class IO, class Invisible> void TransferInvisible(IO& io, Invisible& tr
     io.field(trigger.enabled);
     io.text(trigger.name);
     io.text(trigger.recipients);
-    if constexpr (IO::reading)
-        ReportBuildStatus(5, fmt::format("Invisible Trigger: {}, recipients: {}\n", trigger.name,
-                                         trigger.recipients));
+
     if (trigger.version > 1) {
         io.field(trigger.plane_flag);
         io.field(io.present(trigger.plane));
@@ -473,8 +459,6 @@ template<class IO, class Sound> void TransferSound(IO& io, Sound& trigger)
     }
     if (trigger.version > 3) {
         io.field(trigger.name);
-        if constexpr (IO::reading)
-            ReportBuildStatus(5, fmt::format("Sound Trigger: {}\n", trigger.name));
     }
     if (trigger.version > 4) io.field(trigger.shared);
 }
@@ -500,9 +484,7 @@ template<class IO, class Super> void TransferSuper(IO& io, Super& trigger)
     io.field(trigger.price);
     io.field(trigger.door_kind);
     io.field(trigger.animation);
-    if constexpr (IO::reading)
-        ReportBuildStatus(5, fmt::format("Super Trigger: {}, recipients: {}\n", trigger.name,
-                                         trigger.recipients));
+
     if (trigger.version >= 2) {
         io.field(trigger.size);
         io.field(trigger.direction);
@@ -607,9 +589,6 @@ template<class IO, class Frames> void TransferFrames(IO& io, Frames& frames, int
         io.field(texture_count);
         if constexpr (IO::reading) {
             if (kind == FrameKind::transform && texture_count > kMaxTransformMaterials) {
-                ReportBuildStatus(
-                    7, fmt::format("Invalid number of materials in mesh ({} materials).\n",
-                                   texture_count));
                 throw LevelError("too many frame materials");
             }
         }
@@ -682,7 +661,6 @@ template<class IO, class Prop> void TransferProp(IO& io, Prop& prop)
     if (prop.version >= 6) io.field(prop.flags);
     if (prop.version >= 7) {
         io.field(prop.name);
-        if constexpr (IO::reading) ReportBuildStatus(5, fmt::format("Prop: {}\n", prop.name));
     }
     if (prop.version >= 8) TransferArray<char>(io, prop.frame_positions);
     TransferAnimObj(io, prop.anim_obj);
@@ -710,12 +688,6 @@ template<class IO, class System> void TransferParticleSystem(IO& io, System& sys
     if (system.version > 3) {
         io.field(particle.start_frame);
         io.field(particle.end_frame);
-    }
-    if constexpr (IO::reading) {
-        ReportBuildStatus(5, fmt::format("Particle System: {}, Position {:f}, {:f}, {:f}\n",
-                                         particle.name, particle.location.x * g_world_scale,
-                                         particle.location.y * g_world_scale,
-                                         particle.location.z * g_world_scale));
     }
 }
 
@@ -831,9 +803,6 @@ try {
     TransferArray<int>(io, level->named_positions);
     for (const auto& position : level->named_positions) {
         if (!std::memchr(position.name, '\0', sizeof(position.name))) return nullptr;
-        ReportBuildStatus(5, fmt::format("Named Position: {} ({:f}, {:f}, {:f})\n", position.name,
-                                         position.position.x, position.position.y,
-                                         position.position.z));
     }
     io.field(level->unknown_6b9);
     level->read_end_position = static_cast<int>(file.tell());
@@ -851,72 +820,6 @@ try {
    the source mesh, every other level section separated by the texture count,
    then the rest of the source file copied unchanged. */
 // FUNCTION: WIZ8 0x004D07C0
-bool WriteLevelFile(wiz8::File& file, wiz8::File& remainder, const W8LevelFile& level,
-                    std::span<OctMeshModel> models, int mesh_count)
-try {
-    LevelWriter io{file};
-    io.field(DiskCount<unsigned int>(models.size()));
-    io.field(mesh_count);
-    const short texture_count = DiskCount<short>(level.textures.size());
-    io.field(texture_count);
-    if (texture_count == 0) return false;
-    for (const auto& material : level.textures) TransferMaterial(io, material);
-    const int separator = texture_count;
-    io.field(separator);
-
-    for (auto& model : models) model.Write(file);
-    io.field(separator);
-    TransferRecords<short>(io, level.lights,
-                           [](auto& io, auto& light) { TransferLight(io, light); });
-    io.field(separator);
-    TransferRecords<int>(io, level.monsters,
-                         [](auto& io, auto& monster) { TransferMonster(io, monster); });
-    io.field(separator);
-    TransferArray<int>(io, level.items);
-    io.field(separator);
-    io.field(level.missile_count);
-    io.field(separator);
-    TransferRecords<int>(io, level.props, [](auto& io, auto& prop) { TransferProp(io, prop); });
-    io.field(separator);
-    TransferRecords<int>(io, level.bitmaps, [](auto& io, auto& prop) { TransferProp(io, prop); });
-    io.field(separator);
-    TransferRecords<int>(io, level.cameras,
-                         [](auto& io, auto& camera) { TransferCamera(io, camera); });
-    io.field(separator);
-    io.field(level.has_block);
-    if (level.has_block != 0) TransferBlock(io, level.block);
-    io.field(separator);
-    TransferRecords<int>(io, level.triggers,
-                         [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
-    io.field(separator);
-    io.field(level.camera_mode);
-    io.field(DiskCount<int>(level.clipping_planes.size()));
-    if (!level.clipping_planes.empty()) {
-        io.field(level.clipping_plane_version);
-        io.array(level.clipping_planes, static_cast<std::int64_t>(level.clipping_planes.size()));
-    }
-    io.field(separator);
-    io.field(level.environment_offset);
-    TransferRecords<int>(io, level.particle_systems,
-                         [](auto& io, auto& system) { TransferParticleSystem(io, system); });
-    io.field(separator);
-    TransferArray<int>(io, level.named_positions);
-    io.field(separator);
-    io.field(GetAutomapGridCellSize());
-    TransferArray<int>(io, level.automap_nodes);
-    io.field(separator);
-    io.field(level.unknown_6b9);
-
-    char buffer[0x400];
-    for (;;) {
-        const auto copied = remainder.read(buffer, sizeof(buffer)).bytes;
-        file.write(buffer, copied);
-        if (copied < sizeof(buffer)) break;
-    }
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
 
 // FUNCTION: WIZ8 0x004D1110
 bool ReadMeshFile(wiz8::File& file, W8LevelFileMesh& mesh)

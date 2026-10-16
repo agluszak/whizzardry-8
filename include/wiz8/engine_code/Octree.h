@@ -14,8 +14,8 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/mesh_links.h"
+#include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/geometry.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/octree_walk.h"
@@ -42,12 +42,10 @@ class File;
 typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 
 class W8PathingService;
-class PrePathing;
 class OctMeshModel;
 struct CondPathNode;
 struct W8LevelFile;
 struct W8LevelFileAnimObj;
-struct W8PreProp;
 struct W8World;
 struct W8GameData;
 struct W8NavigatorMovementState;
@@ -191,7 +189,6 @@ public:
     W8Octree(const char* path, W8GameData** game_data);
     /* Preprocessing calls retain this receiver even when a body uses only
        global build state. */
-    void OctBuildOptions(char* stem);
     void Reset();
     void Initialize(const W8OctFileHeader* header);
     ~W8Octree();
@@ -245,7 +242,6 @@ public:
     short TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trace_world,
                            int from_location_id, int to_location_id, bool visit_octree,
                            int trace_mode);
-    void AdjustPortalDestination(glm::vec3* destination, const glm::vec3* source);
     W8OctreeWalk cellWalk(const glm::vec3& from, const glm::vec3& to) const;
     /* Reset the shared buffer and collect one cell's leaf object ids. */
     int ProbeCellForTrace(const glm::ivec3& cell); /* 0x00435B00 */
@@ -312,7 +308,6 @@ public:
     std::vector<w8_ulong> nearbyLocations(const glm::vec3& position, float spacing);
     /* Refresh the pathing service's debug preview from the world cursor,
        falling back to the camera eye when the cursor is unset. */
-    void UpdatePathVisualization(); /* 0x00434170 */
     void UpdateCameraVisibility();
     void UpdateVisibility();
     unsigned char UpdateWorldTrace();
@@ -451,76 +446,7 @@ public:
     unsigned short m_sun_count;
 };
 
-class OctPreTree : public W8Octree {
-public:
-    OctPreTree();
-    ~OctPreTree();
-    OctPreTree(const OctPreTree&) = delete;
-    OctPreTree& operator=(const OctPreTree&) = delete;
-
-    /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
-       verify passes walk to bound-check each automesh's vertices. */
-    std::unordered_multimap<unsigned short, w8_ulong> automesh_cells;
-    std::unique_ptr<PrePathing> pre_pathing;
-    /* The path-node scratch block BuildPathLists/PathNodeObstructed fill:
-       created-node count, then the runs of registered prop ids the node
-       rests on (supports) and that overlap its clearance box (blocks).
-       m_lNumSupports/m_lNumBlocks are the original names from the
-       PathNodeObstructed assertion text.  Both appends write the slot before
-       the `> 29` assertion runs, so a 30th entry overruns the array exactly
-       like retail. */
-    int path_node_count;
-    int m_lNumSupports;
-    int m_lNumBlocks;
-    int m_lSupports[30];
-    int m_lBlocks[30];
-    w8_ulong polygon_cursor;
-    W8OctPreTreeGeometry* game_data;
-    w8_ulong deepest_link_list;
-    /* Path-node grid pitch: BuildPathLists sets it to m_region_cell * 2. */
-    float path_node_extent;
-    /* The registered prop objects the path-bounds test collides against;
-       0x0046BEC0 reads m_surface_count and the collidable flag on each. */
-    std::vector<GDProp*> props;
-
-    /* Walks the `from`-`to` segment through the leaf grid, collecting each
-       visited leaf's region-polygon ids and plane/slab-testing them. Answers
-       whether the segment is unobstructed; the light-visibility callers
-       accumulate its result. */
-    bool SegmentClear(const glm::vec3& from, const glm::vec3& to);
-    /* Resets the collected-id run and appends every not-yet-seen polygon id
-       the leaf under `cell` lists. */
-    void CollectLeafPolygons(const glm::ivec3& cell);
-    /* Tests the collected region polygons' planes against the trace segment;
-       a polygon blocks only when the ray pierces at least 5.0f past its plane
-       (or starts within 1.0f in front) and the contact lands inside it. */
-    bool TestCollectedPolygons(W8OctreeTrace* trace);
-    /* Serializes the finished octree to NewLevel.oct. */
-    unsigned char WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameData* game_data);
-    /* Partitions the geometry into submesh records, emits the OctMeshModel
-       array and fills m_pSubmeshes/m_aulPolyLookup. */
-    std::vector<OctMeshModel> CreateSubMeshes(W8OctPreTreeGeometry* geometry);
-    w8_ulong SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBuild* records);
-    w8_ulong AllocateSubMesh(W8OctSubmeshBuild* records);
-    w8_ulong SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry* geometry);
-    void VerifyPolygonRegions();
-    void VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBuild* records);
-    unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile& level,
-                                 unsigned int min_component_percent);
-    char PathNodeObstructed(const glm::vec3* node_position);
-    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode>& nodes,
-                                         unsigned int cell, unsigned int node,
-                                         std::span<const W8PreProp> preprops);
-    /* Tests the bounds box against static surfaces and registered props;
-       0 clear, 1 blocked, 3 clear but prop ids were recorded in m_lBlocks. */
-    char TestPathPropBounds(const srBoundingBox& bounds);
-    std::vector<W8PreProp> CreatePathProps(const W8LevelFile& level);
-    char PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first,
-                          unsigned short last);
-};
-
 extern W8Octree* g_octree;
-extern OctPreTree* g_oct_pre_tree;
 
 /* The SGP /NOOCT startup switch sets this flag; an Octree-unit body reads it. */
 void NoOct(void);

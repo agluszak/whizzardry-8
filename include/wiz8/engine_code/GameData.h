@@ -1,7 +1,5 @@
 #pragma once
 
-struct W8OctPreTreeGeometry;
-
 #include <memory>
 #include <optional>
 #include <span>
@@ -207,15 +205,10 @@ struct W8GameData {
     W8GameData(wiz8::File* handle, bool secondary); /* 0x00449010 */
     ~W8GameData();                          /* 0x00449BB0 */
     void ReadProcessedGameData(wiz8::File* handle); /* 0x00449240 */
-    /* Writes the game-data block WriteOctFile appends after the terminator. */
-    unsigned char WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
     unsigned char ReadWGDList(wiz8::File& file, int poly_type);
-    /* Builds m_pInterfaces/m_pStates/m_piCondPolys from the {interface id,
-       surface index, group} triples collected by ReadWGDList. */
-
     /* Release the level-data record, game-time accumulator and companion
        level-data globals; runs first in ~W8GameData. */
     void ReleaseLevelData();
@@ -285,37 +278,15 @@ struct W8GameData {
     void AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2);
     void IntegrateTriggers();
     void AddTriggerPlane(const glm::vec3* vertices, Trigger* trigger);
-    /* Registers a linked record's twelve generated surfaces; the `face`-indexed
-       surface also spawns an environment record scaled by `value`. */
-    void AddTriggerPlane(const glm::vec3* vertices, float value, float scalar,
-                         const signed char* face); /* 0x00448C60 */
-    /* Grows the environment bank by tens and appends a record whose motion
-       derives from the linked surface's scaled plane. */
-    void CreateGDEnviron(const W8GDSurface* surface, float scale);
-    /* Folds the trigger vertex/surface banks into the main arrays without
-       rebuilding the spatial index; the CompileGameData path. */
-    void IntegrateTriggerGeometry();
     /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
     int FindPointerByName(const char* name); /* 0x004482A0 */
-    /* Registers one invisible-plane record; the OctBuild driver feeds it the
-       level file's plane table. */
-    void AddLevelPlane(const W8LevelFilePlane& plane); /* 0x004485F0 */
-    /* Copies the linked record's 0x1b0-byte payload into a scratch entry and
-       forwards to the 0x00448C60 helper. Retail call sites pass record + 1
-       (the payload), the +0x1b3 float, the +0x1b7 scalar and a pointer to the
-       +0x1b1 face byte. */
-    void AddLinkedRecord(const glm::vec3* vertices, float value, float scalar,
-                         const signed char* face); /* 0x00448BF0 */
-    /* Compiles the read game data into the shared build arrays. */
-    W8OctPreTreeGeometry CompileGameData(); /* 0x00449D10 */
-
     /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */
     int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
                          char gate); /* 0x0041C0D0 */
     /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
        into this context, traces in prop-local space through the prop's
-       position delta when no pre-tree exists (reseeding the caller's record
+       position delta (reseeding the caller's record
        to the world-space hit), and restores the arrays. `gate` skips flag-4
        props when set. */
     bool TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate); /* 0x0041C140 */
