@@ -12,12 +12,12 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
+#include "glm/ext/vector_float3.hpp"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "random.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -277,7 +277,7 @@ void CompleteTrapDisarm(Trigger* trigger)
 }
 
 // FUNCTION: WIZ8 0x005E3800
-static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned int power_level,
+static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power_level,
                                int num_targets)
 {
     int index;
@@ -330,8 +330,8 @@ void ResolveSprungTrap(Trigger* trigger)
     int power;
     std::string result;
     std::string text;
-    srVector3T<float> point;
-    srVector3T<float> camera;
+    glm::vec3 point;
+    glm::vec3 camera;
 
     devices = trigger->lock_state.difficulty;
     ClampInteger(&devices, 1, 7);

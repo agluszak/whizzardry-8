@@ -178,9 +178,9 @@ static bool g_status_scroll = true;
 static bool g_status_buffers_freed = true;
 
 // GLOBAL: WIZ8 0x0065BAB0
-static srVector3T<float> g_weld_min;
+static glm::vec3 g_weld_min;
 // GLOBAL: WIZ8 0x0065BACC
-static srVector3T<float> g_weld_max;
+static glm::vec3 g_weld_max;
 // GLOBAL: WIZ8 0x0065BADC
 static std::string g_log_path;
 // GLOBAL: WIZ8 0x0065BCDC
@@ -341,8 +341,8 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
 {
     char message[1024];
     char name[20];
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
+    glm::vec3 minimum;
+    glm::vec3 maximum;
     W8OctPreTreeGeometry geometry;
     std::vector<W8LevelFileLight> lights;
     int* sun_map;
@@ -389,13 +389,13 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
             static_cast<W8OctPreTreeVertex*>(malloc(mesh->num_vertices * 2 * sizeof(*vertices)));
         if (vertices != 0) {
             memset(vertices, 0, mesh->num_vertices * 2 * sizeof(*vertices));
-            minimum = 1e7f;
-            maximum = -1e7f;
+            minimum = glm::vec3(1e7f);
+            maximum = glm::vec3(-1e7f);
             redundant = 0;
             for (i = 1; i < mesh->num_vertices; ++i) {
-                const srVector3T<float>& source = mesh->vertices[i - 1];
-                vertices[i].position = source.glmValue() * g_world_scale;
-                vertices[i].m_original_position = source.glmValue();
+                const glm::vec3& source = mesh->vertices[i - 1];
+                vertices[i].position = source * g_world_scale;
+                vertices[i].m_original_position = source;
                 vertices[i].m_visited = false;
                 for (j = 0; j < 3; ++j) {
                     float v = (&vertices[i].position.x)[j];
@@ -462,9 +462,9 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                     }
                 }
                 ReportBuildStatus(6, "\nBuilding OctBuildPreTree ---------------------\n");
-                build_tree = new OctBuildPreTree(
-                    g_option_min_leaf_size, srBoundingBox{minimum.glmValue(), maximum.glmValue()},
-                    g_option_max_path_nodes, g_option_max_leaf_count, 0);
+                build_tree =
+                    new OctBuildPreTree(g_option_min_leaf_size, srBoundingBox{minimum, maximum},
+                                        g_option_max_path_nodes, g_option_max_leaf_count, 0);
                 if (build_tree != 0) {
                     build_tree->LoadRegionFile(stem);
                     if (!g_option_mesh_linking) {
@@ -615,8 +615,7 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                         return 0;
                     }
                     tree->SetPathStem(stem);
-                    tree->m_spatial.setWorkingBounds(
-                        {g_weld_min.glmValue(), g_weld_max.glmValue()});
+                    tree->m_spatial.setWorkingBounds({g_weld_min, g_weld_max});
                     tree->m_alpha_polygon_count = alpha_polys;
                     value->octree = tree;
                     snprintf(message, sizeof(message), "Poly List Len: %d\n",
@@ -1394,7 +1393,7 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
         const auto& light = lights[index];
         const bool is_sun = sun_map && sun_map[index] != 0;
         if (light.version >= 2 && (light.create != 0 || light.visible == 0)) continue;
-        const glm::vec3 delta = light.position.glmValue() - vertex->position;
+        const glm::vec3 delta = light.position - vertex->position;
         // NOLINTNEXTLINE(misc-include-cleaner)
         const float distance = glm::length(delta);
         if (distance >= light.range && !is_sun) continue;
@@ -1402,16 +1401,14 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
         const float dot = glm::dot(delta / distance, vertex->m_normal);
         if (dot <= g_float_zero) continue;
         ++g_lights_facing;
-        if (g_option_shadow_test &&
-            !tree->SegmentClear(light.position.glmValue(), vertex->position))
-            continue;
+        if (g_option_shadow_test && !tree->SegmentClear(light.position, vertex->position)) continue;
         ++g_lights_unblocked;
         ++lit;
         if (is_sun) {
             *vertex->m_sun_lights = dot * light.intensity + *vertex->m_sun_lights;
         } else {
             float scale = dot * light.intensity * (g_float_one - distance / light.range);
-            srLightingMath::accumulateLight(std::span{&vertex->m_light, 1}, light.colour.glmValue(),
+            srLightingMath::accumulateLight(std::span{&vertex->m_light, 1}, light.colour,
                                             std::span{&scale, 1});
         }
     }
@@ -1425,11 +1422,12 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
 static unsigned char PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& prop,
                                        const W8LevelFileLight& light)
 {
-    const auto origin = light.position.glmValue();
-    if (tree->SegmentClear(origin, prop.position.glmValue() * g_world_scale)) return 1;
+    const auto origin = light.position;
+    if (tree->SegmentClear(origin, prop.position * g_world_scale)) return 1;
     for (const auto& box : prop.anim_obj.bounds) {
-        const srBoundingBox bounds{box.minimum.glmValue() * g_world_scale,
-                                   box.maximum.glmValue() * g_world_scale};
+        const srBoundingBox bounds{
+            glm::vec3(box.minimum.x, box.minimum.y, box.minimum.z) * g_world_scale,
+            glm::vec3(box.maximum.x, box.maximum.y, box.maximum.z) * g_world_scale};
         // Bounding-box corners retain the original x/y/z probe order.
         for (unsigned corner = 0; corner < 8; ++corner)
             if (tree->SegmentClear(origin, bounds.corner(corner))) return 1;

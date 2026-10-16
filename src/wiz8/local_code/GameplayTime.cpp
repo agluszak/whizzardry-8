@@ -5,16 +5,17 @@
 #include <vector>
 
 #include <fmt/printf.h>
+#include <glm/geometric.hpp>
 
 #include "compat/native.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "monster_actions.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
@@ -903,7 +904,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 }
 
 /* Moves a monster group to a position, then each allied group that exists. */
-static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, srVector3T<float>* position, float yaw)
+static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, glm::vec3* position, float yaw)
 {
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
     for (const int ally_id : group->allied_group_ids) {
@@ -936,9 +937,9 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
     }
     monster = monster_info->p3D;
     if (monster->stay_home) {
-        srVector3T<float> location;
-        srVector3T<float> last_seen;
-        srVector3T<float> delta;
+        glm::vec3 location;
+        glm::vec3 last_seen;
+        glm::vec3 delta;
 
         location = MonsterGetLocation(monster);
         if (monster->formation.x == g_float_zero && monster->formation.y == g_float_zero &&
@@ -947,15 +948,14 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         }
         last_seen = monster->formation;
         delta = last_seen - location;
-        if (delta.Length() > 500.0f) {
-            srVector3T<float> probe = last_seen;
-            srVector3T<float> camera;
+        if (glm::length(delta) > 500.0f) {
+            glm::vec3 probe = last_seen;
+            glm::vec3 camera;
 
             probe.y += g_float_one_thousand;
             camera = cameraLocation();
-            if (projectsToCamera(probe.glmValue()) == 0 &&
-                !g_octree->HasLineOfSight(&camera, &probe, true)) {
-                srVector3T<float> notify_position = last_seen;
+            if (projectsToCamera(probe) == 0 && !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                glm::vec3 notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
                 MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
@@ -968,9 +968,9 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
     }
     if ((monster->linked_navigator == 0 && !monster->halted) &&
         (monster_info->movement_stall_ticks > 1 || !monster->movement_stopped)) {
-        srVector3T<float> location;
-        srVector3T<float> previous;
-        srVector3T<float> delta;
+        glm::vec3 location;
+        glm::vec3 previous;
+        glm::vec3 delta;
         unsigned char cycle;
 
         location = MonsterGetLocation(monster);
@@ -987,8 +987,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             if (static_cast<signed char>(cycle) < 4) {
                 bool cleared = false;
 
-                if (delta.Length() < 500.0f) {
-                    srVector3T<float> navigator_position = monster->GetPosition();
+                if (glm::length(delta) < 500.0f) {
+                    glm::vec3 navigator_position = monster->GetPosition();
 
                     /* Retail resets the AI mode and pathing cooldown only once the
                        short-move test passes; a long move leaves both alone. */
@@ -996,20 +996,20 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
                     if (!g_pathing->SnapWaypointPosition(&navigator_position, false) &&
                         !monster_info->party_threat.visible_to_player) {
-                        srVector3T<float> next_position;
+                        glm::vec3 next_position;
 
                         next_position = monster->movement.attachment->GetNextPosition();
-                        if (next_position.Length() == static_cast<float>(g_double_zero)) {
+                        if (glm::length(next_position) == static_cast<float>(g_double_zero)) {
                             next_position = monster->GetPosition();
                         }
                         {
-                            srVector3T<float> camera;
-                            srVector3T<float> probe = next_position;
+                            glm::vec3 camera;
+                            glm::vec3 probe = next_position;
 
                             camera = cameraLocation();
-                            if (projectsToCamera(probe.glmValue()) == 0 &&
+                            if (projectsToCamera(probe) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
-                                srVector3T<float> notify_position = next_position;
+                                glm::vec3 notify_position = next_position;
                                 W8MonsterGroup* group =
                                     FindMonsterGroup(monster_info->monster_group_id);
 
@@ -1022,9 +1022,9 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 }
                 cycle_cleared = cleared;
             } else {
-                srVector3T<float> camera;
-                srVector3T<float> probe;
-                srVector3T<float> location2;
+                glm::vec3 camera;
+                glm::vec3 probe;
+                glm::vec3 location2;
 
                 camera = cameraLocation();
                 location2 = monster->GetPosition();
@@ -1032,7 +1032,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 probe.y += g_float_one_thousand;
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
-                if (projectsToCamera(location.glmValue()) == 0 &&
+                if (projectsToCamera(location) == 0 &&
                     !g_octree->HasLineOfSight(&camera, &probe, true)) {
                     if (monster->formation.x == g_float_zero &&
                         monster->formation.y == g_float_zero &&
@@ -1041,7 +1041,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     }
                     probe = monster->formation;
                     probe.y += g_float_one_thousand;
-                    if (projectsToCamera(location.glmValue()) == 0 &&
+                    if (projectsToCamera(location) == 0 &&
                         !g_octree->HasLineOfSight(&camera, &probe, true)) {
                         if (monster->formation.x == g_float_zero &&
                             monster->formation.y == g_float_zero &&
@@ -1049,7 +1049,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             monster->formation = monster->GetPosition();
                         }
                         {
-                            srVector3T<float> notify_position = monster->formation;
+                            glm::vec3 notify_position = monster->formation;
                             W8MonsterGroup* group =
                                 FindMonsterGroup(monster_info->monster_group_id);
 

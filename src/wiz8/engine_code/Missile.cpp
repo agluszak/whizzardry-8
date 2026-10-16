@@ -13,6 +13,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
@@ -27,7 +28,6 @@
 #include "random.h"
 #include "retail_records.h"
 #include "surrender/srClock.h"
-#include "surrender/srMath.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -84,8 +84,8 @@ std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
 unsigned char UpdateMissileAI(W8AIMissile* record)
 {
     W8Missile* missile;
-    srVector3T<float> position;
-    srVector3T<float> out;
+    glm::vec3 position;
+    glm::vec3 out;
     float advance;
     float remaining;
     float pitch;
@@ -166,13 +166,13 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
    flags the record when a prop blocks the path and fires the prop's
    missile trigger. Returns the distance the step covered. */
 // FUNCTION: WIZ8 0x004a50a0
-float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int steps)
+float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
 {
     W8MissileRep* representation;
     W8Missile* missile;
     W8Prop* prop;
-    srVector3T<float> direction;
-    srVector3T<float> position;
+    glm::vec3 direction;
+    glm::vec3 position;
     glm::mat3 rotation;
     float advance;
     float pitch;
@@ -187,11 +187,10 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
     direction = record->missile->GetVelocity();
     *out = direction;
     position = record->missile->GetPosition();
-    out->Set(position.x + direction.x * advance, position.y + direction.y * advance,
-             position.z + direction.z * advance);
+    (*out) = glm::vec3(position.x + direction.x * advance, position.y + direction.y * advance,
+                       position.z + direction.z * advance);
     if (g_world->octree != 0) {
-        if (const auto hit =
-                g_world->octree->traceProps(position.glmValue(), out->glmValue(), 0, 0)) {
+        if (const auto hit = g_world->octree->traceProps(position, (*out), 0, 0)) {
             *out = hit->position;
             record->limit = 1.0f;
             prop = g_world->collidable_props[hit->prop_id];
@@ -304,16 +303,16 @@ bool W8Missile::BlocksEndingCombat()
 }
 
 // FUNCTION: WIZ8 0x004A57B0
-void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position)
+void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position)
 {
-    srVector3 camera = cameraLocation();
+    glm::vec3 camera = cameraLocation();
     const glm::vec3 offset((character_index & 1) ? -75.0f : 75.0f,
                            g_character_projectile_height -
                                character_index * g_float_half * g_character_projectile_height_step,
                            0);
     const auto yaw = GetCameraYawRadians() - g_monster_rotation_offset;
     const auto pitch = -GetCameraPitchRadians();
-    *position = camera.glmValue() + glm::rotateY(glm::rotateX(offset, pitch), yaw);
+    *position = camera + glm::rotateY(glm::rotateX(offset, pitch), yaw);
 }
 
 // VTABLE: WIZ8 0x005ecde0 W8MissileRep
@@ -378,9 +377,9 @@ void UpdateWorldMissiles(W8World* world)
 /* Derive the two launch angles from the source and target, then forward the
    remaining launch values to the missile factory. */
 // FUNCTION: WIZ8 0x004A2D30
-W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* source,
-                       srVector3T<float>* target, float flight_speed, unsigned int trace_mask,
-                       unsigned int block_released, float duration)
+W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm::vec3* target,
+                       float flight_speed, unsigned int trace_mask, unsigned int block_released,
+                       float duration)
 {
     return CreateMissile(missile_table_index, source, GetHeadingAngle(source, target),
                          GetElevationAngle(source, target), flight_speed, trace_mask,
@@ -625,15 +624,15 @@ close_file:
    octree for an early-impact limit, and attach the kind-3 AI record that
    drives the flight. */
 // FUNCTION: WIZ8 0x004A28D0
-W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* source, float heading,
+W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
                          float pitch, float flight_speed, unsigned int trace_mask,
                          unsigned char block_released, float duration)
 {
     W8Missile* missile;
     W8Octree* octree;
     W8AIMissile* ai;
-    srVector3T<float> direction(0.0f, 0.0f, 1.0f);
-    srVector3T<float> end;
+    glm::vec3 direction(0.0f, 0.0f, 1.0f);
+    glm::vec3 end;
     glm::mat3 rotation;
     glm::mat3 aim;
     float limit = -1.0f;
@@ -648,7 +647,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(heading), glm::vec3(0, 1, 0)));
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
-        direction = rotation * direction.glmValue();
+        direction = rotation * direction;
         missile->SetVelocity(&direction);
         missile->SetCyclePosition(source);
         aim = glm::mat3(1);
@@ -659,11 +658,11 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
         missile->SetPitch(pitch);
         octree = g_world->octree;
         if (octree != 0) {
-            end.Set(direction.x * duration, direction.y * duration, direction.z * duration);
+            end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;
             if (octree->TraceLineOfSight(source, &end, false, -3, -3, true, 0) != 0) {
                 end -= *source;
-                limit = end.Length();
+                limit = glm::length(end);
                 if (limit < g_float_one) {
                     limit = 1.0f;
                 }
@@ -1038,7 +1037,7 @@ void W8Missile::DetonateMissileSpell()
 {
     W8TargetSource source;
     W8CombatSlot target;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (m_Source.iType != W8_TARGET_SOURCE_CHARACTER) {
         srAssertFail("m_Source.iType == SOURCE_TYPE_CHAR", MISSILE_CPP, 0x6c5, 0);
@@ -1094,12 +1093,12 @@ void W8Missile::EnterImpactCycle()
     if (IsCycleSupported(1)) {
         if (GetAnimationState(6) != 1) {
             W8MissileRep* representation = m_pRep;
-            srVector3T<float> position = representation->location;
+            glm::vec3 position = representation->location;
             representation->pending_cycle = 1;
             representation->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
             impacting = true;
             if (explode_ground) {
-                representation->location.y = probeGround(position.glmValue()).position.y;
+                representation->location.y = probeGround(position).position.y;
             }
         }
     } else {

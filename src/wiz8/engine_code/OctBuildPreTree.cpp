@@ -42,6 +42,7 @@
 #include "wiz8/engine_code/mesh_links.h"
 #include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/retail_geometry_types.h"
 
 // GLOBAL: WIZ8 0x0065be60
 int g_build_node_instances;
@@ -460,7 +461,7 @@ struct W8CubRegionRecord {
     w8_ulong value_00;
     unsigned char pad_04[2];
     w8_ulong value_06;
-    srVector3T<float> corners[8];
+    wiz8::retail::Vec3f corners[8];
 };
 #pragma pack(pop)
 static_assert(sizeof(W8CubRegionRecord) == 0x6a, "W8CubRegionRecord_must_be_0x6a");
@@ -528,8 +529,10 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
         volume->m_region_bit = region;
         volume->m_points[0] = glm::vec3(0);
         for (int corner = 0; corner != 8; ++corner) {
-            volume->m_points[corner + 1] = record.corners[corner].glmValue() * g_world_scale;
-            volume->m_points[0] += record.corners[corner].glmValue() * g_world_scale * 0.125f;
+            const auto& point = record.corners[corner];
+            const glm::vec3 position(point.x, point.y, point.z);
+            volume->m_points[corner + 1] = position * g_world_scale;
+            volume->m_points[0] += position * g_world_scale * 0.125f;
         }
         volume->value_18 = record.value_06;
         std::array<glm::vec3, 8> points;
@@ -1404,7 +1407,9 @@ OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem>
 
         ++particle_number;
         short particle_value = static_cast<short>(particle_number);
-        const glm::vec3 position = particle.location.glmValue() * g_world_scale;
+        const glm::vec3 position =
+            glm::vec3(particle.location.x, particle.location.y, particle.location.z) *
+            g_world_scale;
 
         bool mapped = assignPointToVolumes(position, particle_value, particle_regions);
         if (mapped) {
@@ -1415,10 +1420,14 @@ OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem>
             glm::vec3 extent(0);
             bool has_bounds = false;
             if (particle.bounds_mode == 1) {
-                extent = particle.bounds_extent.glmValue() * g_startup_near_limit;
+                extent = glm::vec3(particle.bounds_extent.x, particle.bounds_extent.y,
+                                   particle.bounds_extent.z) *
+                         g_startup_near_limit;
                 has_bounds = true;
             } else if (particle.bounds_mode == 2 && particle.bounds_radius > g_float_zero) {
-                extent = particle.bounds_origin.glmValue() * g_world_scale;
+                extent = glm::vec3(particle.bounds_origin.x, particle.bounds_origin.y,
+                                   particle.bounds_origin.z) *
+                         g_world_scale;
                 has_bounds = true;
             }
 
@@ -1462,8 +1471,9 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(std::span<const W8LevelFileP
 
         srBoundingBox aggregate{glm::vec3(1000000.0f), glm::vec3(-1000000.0f)};
         for (const auto& stored : record.anim_obj.bounds) {
-            const srBoundingBox bounds{stored.minimum.glmValue() * g_world_scale,
-                                       stored.maximum.glmValue() * g_world_scale};
+            const srBoundingBox bounds{
+                glm::vec3(stored.minimum.x, stored.minimum.y, stored.minimum.z) * g_world_scale,
+                glm::vec3(stored.maximum.x, stored.maximum.y, stored.maximum.z) * g_world_scale};
             aggregate.include(bounds);
             for (unsigned corner = 0; corner < 8; ++corner)
                 if (assignPointToVolumes(bounds.corner(corner), value, prop_regions)) mapped = true;

@@ -1,12 +1,13 @@
 #include "wiz8/engine_code/PolyPick.h"
 
+#include <glm/geometric.hpp>
+
 #include "AnimRep.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
@@ -19,49 +20,40 @@ const float g_negative_quarter_turn = -1.570796012878418f;
 
 /* Heading from source to target in the x/z plane. */
 // FUNCTION: WIZ8 0x004BE420
-float GetHeadingAngle(const srVector3T<float>* source, const srVector3T<float>* target)
+float GetHeadingAngle(const glm::vec3* source, const glm::vec3* target)
 {
-    return directionAngles(target->glmValue() - source->glmValue()).yaw;
+    return directionAngles((*target) - (*source)).yaw;
 }
 
 /* Pitch from source to target against the horizontal. */
 // FUNCTION: WIZ8 0x004BE490
-float GetElevationAngle(const srVector3T<float>* source, const srVector3T<float>* target)
+float GetElevationAngle(const glm::vec3* source, const glm::vec3* target)
 {
-    return directionAngles(target->glmValue() - source->glmValue()).pitch;
+    return directionAngles((*target) - (*source)).pitch;
 }
 
 /* 0x004BE520: GetElevationAngle evaluated from the camera to the target;
    the demo string pool names it ElevationToTargetCPP. */
 // FUNCTION: WIZ8 0x004BE520
-float ElevationToTargetCPP(const srVector3T<float>* target)
+float ElevationToTargetCPP(const glm::vec3* target)
 {
-    srVector3 position = cameraLocation();
+    glm::vec3 position = cameraLocation();
     return GetElevationAngle(target, &position);
 }
 
 // FUNCTION: WIZ8 0x004BE5C0
-float GetCameraFacingYaw(const srVector3T<float>* position)
+float GetCameraFacingYaw(const glm::vec3* position)
 {
-    srVector3 camera = cameraLocation();
+    glm::vec3 camera = cameraLocation();
     return GetHeadingAngle(position, &camera);
 }
 
 /* 0x004BE650: GetHeadingAngle evaluated from the camera to the target; the
    sibling of ElevationToTargetCPP. */
 // FUNCTION: WIZ8 0x004BE650
-float HeadingToTargetCPP(const srVector3T<float>* target)
+float HeadingToTargetCPP(const glm::vec3* target)
 {
     return GetCameraFacingYaw(target);
-}
-
-/* Euclidean distance between two world-space points. The retail callers at
-   0x004F7577 and 0x004F759D are both in the ItemManager.cpp interval. */
-// FUNCTION: WIZ8 0x004BE6D0
-float DistanceBetweenPoints(const srVector3T<float>* first, const srVector3T<float>* second)
-{
-    srVector3T<float> delta = *first - *second;
-    return delta.Length();
 }
 
 /* The monster twin of W8Item::DistanceToCamera - animation bounds for the Z
@@ -75,11 +67,11 @@ float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
         return -1.0f;
     }
     glm::dvec3 camera = world->camera->getLocation();
-    srVector3T<float> camera_location;
+    glm::vec3 camera_location;
     camera_location = glm::vec3(camera);
-    srVector3T<float> center = monster->m_pRep->location;
+    glm::vec3 center = monster->m_pRep->location;
     center.z += (bounds->maximum.z - bounds->minimum.z) * 0.5f;
-    return (camera_location - center).Length();
+    return glm::length((camera_location - center));
 }
 
 /* The free-function twin of W8Item::DistanceToCamera - same bounds lookup and
@@ -90,18 +82,17 @@ float ItemDistanceToCamera(W8World* world, W8Item* item)
 {
     const auto bounds = item->GetCachedLocalBounds();
     glm::dvec3 camera = world->camera->getLocation();
-    srVector3T<float> camera_location;
+    glm::vec3 camera_location;
     camera_location = glm::vec3(camera);
-    srVector3T<float> center = item->m_pRep->location;
+    glm::vec3 center = item->m_pRep->location;
     center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
-    return (camera_location - center).Length();
+    return glm::length((camera_location - center));
 }
 
 // FUNCTION: WIZ8 0x004BE870
-bool PointInsideBounds(const srVector3T<float>* point, const srVector3T<float>* minimum,
-                       const srVector3T<float>* maximum)
+bool PointInsideBounds(const glm::vec3* point, const glm::vec3* minimum, const glm::vec3* maximum)
 {
-    return srBoundingBox{minimum->glmValue(), maximum->glmValue()}.contains(point->glmValue());
+    return srBoundingBox{(*minimum), (*maximum)}.contains((*point));
 }
 
 /* Project one world point through the active world's camera and report

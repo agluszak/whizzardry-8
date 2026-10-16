@@ -15,12 +15,14 @@
 #include <fmt/format.h>
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "application.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
 #include "layouts/world.h"
 #include "random.h"
@@ -78,8 +80,8 @@ W8Prop::W8Prop()
     id = AllocateGrObjectId();
     m_pRep = new W8PropRepresentation();
     m_pTimer = new W8GameTimer();
-    animation_position.SetZero();
-    previous_animation_position.SetZero();
+    animation_position = glm::vec3(0);
+    previous_animation_position = glm::vec3(0);
     previous_animation_rotation = glm::mat3(1);
     animation_rotation = glm::mat3(1);
     m_gd_prop = 0;
@@ -175,7 +177,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
 }
 
 // FUNCTION: WIZ8 0x0044e2c0
-srVector3T<float> W8Prop::GetPosition() const
+glm::vec3 W8Prop::GetPosition() const
 {
     if (AnimationIsRunning(Rep()->animation) == 1) {
         return animation_position;
@@ -254,10 +256,10 @@ void W8Prop::SetActivationState(unsigned char value)
 }
 
 // FUNCTION: WIZ8 0x0044d5f0
-std::optional<srVector3T<float>> W8Prop::GetCenterPosition()
+std::optional<glm::vec3> W8Prop::GetCenterPosition()
 {
     return GetFrameBounds().transform(
-        [](const auto& bounds) { return srVector3T<float>(bounds.center()); });
+        [](const auto& bounds) { return glm::vec3(bounds.center()); });
 }
 
 // GLOBAL: WIZ8 0x00659A60
@@ -307,7 +309,7 @@ bool W8Prop::IsPickedProp(W8World* world)
 bool ResolvePickedProp(W8World* world)
 {
     srModelInstance* selected;
-    srVector3T<float> camera_position;
+    glm::vec3 camera_position;
     unsigned int prop_count;
     int prop_index;
     bool valid;
@@ -373,7 +375,7 @@ bool ResolvePickedProp(W8World* world)
                 representation->active != 0) {
                 if (const auto bounds = prop->GetFrameBounds()) {
                     const float distance =
-                        (srVector3T<float>(bounds->center()) - camera_position).Length();
+                        glm::length((glm::vec3(bounds->center()) - camera_position));
                     if (trigger->range_minimum <= distance) {
                         g_selected_prop_index = prop_index;
                         if (distance <= trigger->range_maximum) continue;
@@ -658,7 +660,7 @@ void W8Prop::ApplyAnimationPaths(W8World* world)
             }
             path = AnimObjListEntry(Rep()->animation, 2, static_cast<signed char>(index));
             if (path != 0) {
-                srVector3T<float> location;
+                glm::vec3 location;
 
                 PathAIApply(path, mesh);
                 location = glm::vec3(static_cast<srNode*>(mesh)->getLocation());
@@ -839,7 +841,7 @@ char W8Prop::NextAnimationValue()
 /* A single-frame step moves by the difference between the position snapshots;
    discontinuous animation changes contribute no motion. */
 // FUNCTION: WIZ8 0x0044e130
-srVector3T<float> W8Prop::GetDelta()
+glm::vec3 W8Prop::GetDelta()
 {
     unsigned char next = static_cast<unsigned char>(NextAnimationValue());
 
@@ -930,7 +932,7 @@ void W8Prop::ApplyAnimationFrame()
         path = AnimObjListEntry(static_cast<W8PropRepresentation*>(m_pRep)->animation, 2,
                                 static_cast<signed char>(index));
         if (path != 0) {
-            srVector3T<float> location;
+            glm::vec3 location;
 
             PathAISetValue(
                 path, static_cast<float>(static_cast<W8PropRepresentation*>(m_pRep)->subcycle));
@@ -968,7 +970,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     glm::vec3 current_scale(0);
     glm::vec3 next_scale(0);
     glm::vec3 scale_vector(0);
-    srVector3T<float> rep_position;
+    glm::vec3 rep_position;
     glm::dvec3 location;
     glm::dvec3 scale_location;
     glm::mat3 rotation;
@@ -1088,12 +1090,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             rep_rotation = Rep()->GetRotation();
             node = instance->first_child_;
             if (node == 0) {
-                location = glm::dvec3(rep_position.glmValue());
+                location = glm::dvec3(rep_position);
                 instance->setLocation(location);
                 instance->setRotation(rep_rotation);
             } else {
                 do {
-                    location = glm::dvec3(rep_position.glmValue());
+                    location = glm::dvec3(rep_position);
                     node->setLocation(location);
                     node->setRotation(rep_rotation);
                     node = node->next_sibling_;
@@ -1275,7 +1277,7 @@ void W8Prop::RunMissileTrigger(W8AIMissile* record)
    the position is stored in animation_position, otherwise it goes through the rep
    node's own location. */
 // FUNCTION: WIZ8 0x0044e310
-void W8Prop::SetPosition(srVector3T<float>* position)
+void W8Prop::SetPosition(glm::vec3* position)
 {
     if (AnimationIsRunning(Rep()->animation) == 1) {
         animation_position = *position;
@@ -1301,7 +1303,7 @@ bool W8Prop::TriggerRequiresItem()
    frame's bounds and the centre, minimum or maximum has to project
    on-screen through the active world's camera. */
 // FUNCTION: WIZ8 0x0044e3a0
-bool W8Prop::IsTriggerInView(srVector3T<float>* position)
+bool W8Prop::IsTriggerInView(glm::vec3* position)
 {
     const auto* trigger = this->trigger;
     if (!trigger || (trigger->flags & W8_TRIGGER_ENABLED) == 0 ||
@@ -1309,8 +1311,8 @@ bool W8Prop::IsTriggerInView(srVector3T<float>* position)
         return false;
     const auto bounds = GetFrameBounds();
     if (!bounds) return false;
-    const srVector3T<float> center(bounds->center());
-    const float distance = (center - *position).Length();
+    const glm::vec3 center(bounds->center());
+    const float distance = glm::length((center - *position));
     if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance)) return false;
     const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
     return g_world->camera->projectsAny(points);

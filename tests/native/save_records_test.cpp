@@ -11,7 +11,6 @@
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "retail_records.h"
-#include "surrender/srMath.h"
 #include "unicode.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -986,7 +985,7 @@ static void global_status_record()
     }
     status.party_gold = 0x12345678;
     status.uiTurnsElapsed = 0x87654321;
-    status.pending_move_location.position.Set(1, 2, 3);
+    status.pending_move_location.position = glm::vec3(1, 2, 3);
     char path[] = "C:\\gsta.bin";
     W8Chunk chunks;
     REQUIRE(chunks.OpenWrite(path));

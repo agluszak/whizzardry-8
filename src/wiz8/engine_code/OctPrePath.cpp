@@ -10,11 +10,11 @@
 #include <utility>
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
 #include "index_algorithms.h"
 #include "navigation_flags.h"
 #include "packed_bits.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctPath.h"
@@ -43,7 +43,7 @@ public:
     int width;
     int rows;
     float scale;
-    srVector3T<float> m_minimum;
+    glm::vec3 m_minimum;
     char** m_pPathStrings;
     char** m_pLinkStrings;
 };
@@ -148,11 +148,11 @@ int PrePathing::SnapNamedPositions(std::span<const W8LevelFileNamedPosition> pos
     this->min_component_percent = min_component_percent;
     named_position_count = static_cast<int>(positions.size());
     if (named_position_count != 0) {
-        named_positions = new srVector3T<float>[named_position_count];
+        named_positions = new glm::vec3[named_position_count];
         for (int i = 0; i < named_position_count; ++i) {
-            named_positions[i].Set(positions[i].position.x * g_world_scale,
-                                   positions[i].position.y * g_world_scale,
-                                   positions[i].position.z * g_world_scale);
+            named_positions[i] = glm::vec3(positions[i].position.x * g_world_scale,
+                                           positions[i].position.y * g_world_scale,
+                                           positions[i].position.z * g_world_scale);
             octree->SnapToGround(&named_positions[i], 0);
         }
     }
@@ -532,10 +532,10 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
             last_percent = percent;
         }
         W8PrePathNode* node = path_node_list[i];
-        srVector3T<float> position;
-        position.Set((node->cell & 0xffff) * grid_scale,
-                     (node->level_flags & W8_PATH_CELL_HEIGHT_MASK) * span,
-                     (node->cell >> 0x10) * grid_scale);
+        glm::vec3 position;
+        position = glm::vec3((node->cell & 0xffff) * grid_scale,
+                             (node->level_flags & W8_PATH_CELL_HEIGHT_MASK) * span,
+                             (node->cell >> 0x10) * grid_scale);
         unsigned int key = AutomapNodeKey(&position);
         if (!used_keys.contains(key)) {
             node_keys.push_back(key);

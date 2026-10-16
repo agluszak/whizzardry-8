@@ -1,6 +1,6 @@
 #pragma once
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 
@@ -69,7 +69,7 @@ void CharacterDies(int party_slot);
 void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* result, int announce);
 /* Roll the dice once for every live monster within the radius of
    a point and apply each roll as damage. */
-void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const W8Dice* dice,
+void DamageMonstersInRadius(const glm::vec3& center, float radius, const W8Dice* dice,
                             struct W8TargetSource* source, W8SpellEffectResult* result);
 void RestorePartyStaminaByDice(unsigned char count, unsigned char sides, short base);
 void HealPartyByDice(unsigned char count, unsigned char sides, short base);

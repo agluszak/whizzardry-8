@@ -1,10 +1,9 @@
 #ifndef WIZ8_LOCAL_CODE_NOISE_H
+#include "glm/ext/vector_float3.hpp"
 #define WIZ8_LOCAL_CODE_NOISE_H
 
-template<class T> class srVector3T;
-
 /* Local Code\Noise.cpp. */
-void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, int flag);
+void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag);
 void AlertWorldNoise(void);
 void AlertCombatNoise(bool large_radius);
 /* radius - 25000 * hops - cost: whether a heard noise is still loud enough to

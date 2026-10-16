@@ -3,7 +3,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/float_constants.h"
@@ -38,7 +37,7 @@ void ClearTextForBarTrigger(void)
 // FUNCTION: WIZ8 0x004DC910
 bool OnRoachTriggerActivated(Trigger* trigger)
 {
-    srVector3T<float> positions[3];
+    glm::vec3 positions[3];
 
     if (GetLocationVarIDByName("RoachesSpawned") != -1) {
         return false;
@@ -67,7 +66,7 @@ bool OnRoachTriggerActivated(Trigger* trigger)
 // FUNCTION: WIZ8 0x004DCA20
 bool OnSpiderTriggerActivated(Trigger* trigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("spiderman", &position, 0, 0)) {
         SpawnMonsters(0x19c, 6, &position, 1, false, false, false);
@@ -93,7 +92,7 @@ bool OnBarTriggerActivated(Trigger* trigger)
 // FUNCTION: WIZ8 0x004DCA60
 bool OnCoffinlideActivated(Trigger* trigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (GetLocationVarIDByName("HeadSpawned") == -1 && FindEntityByName("Head", &position, 0, 0)) {
         SpawnMonsters(0x12d, 1, &position, 1, true, false, false);
@@ -107,7 +106,7 @@ bool OnCoffinlideActivated(Trigger* trigger)
 // FUNCTION: WIZ8 0x004DCAC0
 bool OnCoffinlidgActivated(Trigger* trigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     position = glm::vec3(GetWorld()->camera->getLocation());
     PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);

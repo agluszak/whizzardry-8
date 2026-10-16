@@ -23,7 +23,6 @@
 #include "random.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -73,7 +72,7 @@ void W8Item::DetachMesh(W8World* world)
 // FUNCTION: WIZ8 0x0049faa0
 void W8Item::ApplyRepTransform()
 {
-    srVector3T<float> location;
+    glm::vec3 location;
     glm::dvec3 widened;
     glm::mat3 rotation;
     srNode* mesh;
@@ -84,7 +83,7 @@ void W8Item::ApplyRepTransform()
     }
     mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     location = m_pRep->GetLocation();
-    widened = glm::dvec3(location.glmValue());
+    widened = glm::dvec3(location);
     mesh->setLocation(widened);
     rotation = m_pRep->GetRotation();
     mesh->setRotation(rotation);
@@ -95,7 +94,7 @@ void W8Item::AttachMesh(W8World* world)
 {
     srNode* mesh;
     srNode* child;
-    srVector3T<float> location;
+    glm::vec3 location;
     glm::dvec3 widened;
     glm::mat3 rotation;
 
@@ -117,13 +116,13 @@ void W8Item::AttachMesh(W8World* world)
     rotation = m_pRep->GetRotation();
     child = mesh->first_child_;
     if (child == 0) {
-        widened = glm::dvec3(location.glmValue());
+        widened = glm::dvec3(location);
         mesh->setLocation(widened);
         mesh->setRotation(rotation);
         return;
     }
     do {
-        widened = glm::dvec3(location.glmValue());
+        widened = glm::dvec3(location);
         child->setLocation(widened);
         child->setRotation(rotation);
         child = child->next_sibling_;
@@ -148,7 +147,7 @@ unsigned int W8ItemRep::SetFlags(unsigned int mask, bool enabled)
 }
 
 // FUNCTION: WIZ8 0x0049F720
-void W8Item::SetLocation(const srVector3T<float>* location)
+void W8Item::SetLocation(const glm::vec3* location)
 {
     m_pRep->SetLocation(location);
 }
@@ -336,7 +335,7 @@ float W8Item::GetBoundsRadius() const
 static const float g_item_bounds_vertical_factor = 0.66f;
 
 // FUNCTION: WIZ8 0x0049FBA0
-srVector3T<float> W8Item::GetSearchPosition() const
+glm::vec3 W8Item::GetSearchPosition() const
 {
     const auto bounds = GetCachedLocalBounds();
     auto location = m_pRep->GetLocation();
@@ -395,13 +394,13 @@ float W8Item::DistanceToCamera(W8World* world)
 {
     const auto bounds = GetCachedLocalBounds();
     glm::dvec3 camera = world->camera->getLocation();
-    srVector3T<float> camera_location;
+    glm::vec3 camera_location;
     camera_location = glm::vec3(camera);
-    srVector3T<float> center = m_pRep->location;
+    glm::vec3 center = m_pRep->location;
     /* Unlike the selection-point helper, retail offsets Z by half the Z
        extent here, not Y by 0.66 of the Y extent. */
     center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
-    return (camera_location - center).Length();
+    return glm::length((camera_location - center));
 }
 
 // FUNCTION: WIZ8 0x004A0030
@@ -439,7 +438,7 @@ std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item)
     }
     auto bounds = item->GetCachedLocalBounds();
     const auto location = item->m_pRep->GetLocation();
-    bounds.minimum += location.glmValue();
-    bounds.maximum += location.glmValue();
+    bounds.minimum += location;
+    bounds.maximum += location;
     return bounds;
 }

@@ -18,7 +18,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/srClass.h"
 #include "surrender/srMaterialIFace.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "wiz8/binary_reader.h"
@@ -29,7 +28,6 @@
 #include "wiz8/sr_api.h"
 
 class srTextureIFace;
-template<class T> class srVector3T;
 
 /* Engine Code\OctSubMesh.cpp. Read at 0x0049E9A0 asserts this unit
    (lines 0x1ad and 0x1d2); the constructor and destructor immediately before
@@ -73,10 +71,9 @@ static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values, const
                             const char* read_message)
 {
     if (!values.data()) ShutdownWithErrorBox(get_message);
-    std::vector<srVector3> records(values.size());
+    std::vector<glm::vec3> records(values.size());
     ReadMeshArray(file, std::span(records), get_message, read_message);
-    std::ranges::transform(records, values.begin(),
-                           [](const srVector3& value) { return value.glmValue(); });
+    std::ranges::transform(records, values.begin(), [](const glm::vec3& value) { return value; });
 }
 
 template<class T>

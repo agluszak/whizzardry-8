@@ -1,6 +1,6 @@
 #pragma once
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/dice.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -69,8 +69,7 @@ unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition con
 /* Heading from a world point toward the nearest live monster, or
    the camera-facing yaw for a hostile disposition - also the fallback when
    no monster is near. */
-float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposition,
-                                  int exclusion);
+float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, int exclusion);
 
 /* Eight bytes per effect id; the leading dword names the HUD
    effect icon and the second the monster visual resource, -1 means none. */

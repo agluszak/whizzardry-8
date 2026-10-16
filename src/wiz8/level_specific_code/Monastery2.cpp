@@ -1,9 +1,9 @@
 #include "wiz8/level_specific_code/Monastery2.h"
 
 #include "Item.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/item_spawning.h"
@@ -57,10 +57,10 @@ bool Monastery2BellButton(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004dc880
 bool Monastery2MicroDoor2(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8WorldItem* item;
 
-    position.Set(13085.0f, -80.0f, -49440.0f);
+    position = glm::vec3(13085.0f, -80.0f, -49440.0f);
     item = AddWorldItem(SpawnItem(0x2d7, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     if (item != 0) {
         ActivateItem(item);

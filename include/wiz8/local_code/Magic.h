@@ -3,8 +3,8 @@
 
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
 #include "spell_ids.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -53,7 +53,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
    condition 0x0c gates it, a trait save can avoid it. */
 void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* target);
 void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8CombatSlot* target);
-int PointCastSpell(srVector3T<float> position, int spell_id, unsigned int power_level);
+int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level);
 
 bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item);
 

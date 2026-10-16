@@ -19,11 +19,11 @@
 #include "equipment_slots.h"
 #include "float_constants.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "random.h"
 #include "retail_records.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
@@ -80,7 +80,7 @@
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 
-static bool ProbeNpcPlacementNearParty(int party_slot, int mode, srVector3T<float>* position_out);
+static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* position_out);
 static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
 static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
@@ -191,7 +191,7 @@ unsigned char GetNpcDispositionBand(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0050b2d0
 bool CanPlaceNpcNearParty(int party_slot)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     return ProbeNpcPlacementNearParty(party_slot, 0, &position);
 }
@@ -466,9 +466,9 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     if (row->npc_index == -1) {
         return 0;
     }
-    srVector3T<float> position;
+    glm::vec3 position;
     if (!skip_spawn) {
-        srVector3T<float> placement;
+        glm::vec3 placement;
         ProbeNpcPlacementNearParty(party_slot, 1, &placement);
         position = placement;
     }
@@ -535,7 +535,7 @@ void UpdateNpcPartyMember(int party_slot)
 {
     W8NpcState* npc = GetNpcState(g_status.buffers.XChar[party_slot].npc_index);
     W8Character* character = &g_status.buffers.Char[party_slot];
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d4], character->name));
@@ -1067,7 +1067,7 @@ static void SelectStartNpcGreeting(void)
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     unsigned char value;
-    srVector3T<float> head;
+    glm::vec3 head;
 
     value = GetFact(W8_FACT_VIRGIN);
     if (value != 0) {
@@ -1091,9 +1091,9 @@ static void SelectStartNpcGreeting(void)
                 return;
             }
             monster = monster_info->p3D;
-            head.Set(monster->movement.position.x,
-                     monster->movement.position.y + monster->movement.height_offset,
-                     monster->movement.position.z);
+            head = glm::vec3(monster->movement.position.x,
+                             monster->movement.position.y + monster->movement.height_offset,
+                             monster->movement.position.z);
             g_gd_camera->LookAt(&head, false);
             return;
         }
@@ -1869,18 +1869,17 @@ const float g_targeting_quarter_pi = 0.7853981256484985f;
 /* Probe the navigator from the party eye at three height bands, reporting
    whether any band reaches. */
 // FUNCTION: WIZ8 0x0050B2F0
-static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/,
-                                       srVector3T<float>* position_out)
+static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::vec3* position_out)
 {
-    srVector3T<float> party_position;
+    glm::vec3 party_position;
     float yaw;
 
     party_position = cameraLocation();
     party_position.y -= g_default_world_height;
     yaw = GetCameraYawRadians() + g_targeting_quarter_pi;
     for (const int mode : {10, 20, 30}) {
-        const auto placement = g_octree->navigatorPositions(party_position.glmValue(), yaw, 1000.0f,
-                                                            1, true, false, true, mode, false);
+        const auto placement = g_octree->navigatorPositions(party_position, yaw, 1000.0f, 1, true,
+                                                            false, true, mode, false);
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();
@@ -1897,10 +1896,10 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/,
 // FUNCTION: WIZ8 0x0050D480
 void TriggerBelaVoice(W8Monster* monster)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     monster->runtime_flags |= W8_MONSTER_PARKED;
-    position.SetZero();
+    position = glm::vec3(0);
     monster->SetPosition(&position);
 
     W8NpcState* npc = 0;
@@ -2191,8 +2190,8 @@ void ReleaseNpcMonsterByKind(int kind)
 // FUNCTION: WIZ8 0x0050c560
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
 {
-    srVector3T<float> position;
-    srVector3T<float> copied;
+    glm::vec3 position;
+    glm::vec3 copied;
 
     if (!npc->has_monster) {
         W8MonsterRecord* records = 0;
@@ -2257,7 +2256,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
         SetFact(W8_FACT_INTRO_VI_DISAPPEARS, 0, false);
     }
     if (npc->name_style == ')' && g_status.current_level == 0xd) {
-        srVector3T<float> position;
+        glm::vec3 position;
 
         if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
             GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
@@ -2286,7 +2285,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
         }
     }
     if (npc->name_style == W8_NPC_GLUMPH && GetFact(W8_FACT_UMISSION_SCUBA_DONE) == 0) {
-        srVector3T<float> position;
+        glm::vec3 position;
 
         monster_info = GetNpcMonsterInfo(npc);
         if (monster_info != 0) {

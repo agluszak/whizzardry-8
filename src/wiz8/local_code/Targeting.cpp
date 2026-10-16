@@ -10,11 +10,13 @@
 
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
+#include <glm/geometric.hpp>
 
 #include "Navigator.h"
 #include "Types.h"
 #include "conditions.h"
 #include "equipment_slots.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
@@ -23,7 +25,6 @@
 #include "spell_ids.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Cursor3d.h"
@@ -426,7 +427,7 @@ void AimAtCharacterIndirect(int actor, int character_slot, W8TargetingContext co
 void AimAtPlace(int actor)
 {
     W8CombatSlot target;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
@@ -441,7 +442,7 @@ void AimAtPlace(int actor)
 void AimAtGroundTarget(int party_slot)
 {
     W8CombatSlot target;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
@@ -558,14 +559,14 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
 // FUNCTION: WIZ8 0x00539870
 unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
 {
-    srVector3T<float> eye;
+    glm::vec3 eye;
 
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo", TARGETING_CPP, 2040, 0);
     }
     eye = cameraLocation();
     const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
-    return bounds && targetMarkerVisible(eye.glmValue(), *bounds);
+    return bounds && targetMarkerVisible(eye, *bounds);
 }
 
 /* Whether a recorded target is of the kind a caller needs. Each needed kind
@@ -938,7 +939,7 @@ static int CompareMonsterTargetCandidates(const void* left, const void* right)
 // FUNCTION: WIZ8 0x0053c630
 bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
 {
-    srVector3T<float> point;
+    glm::vec3 point;
     W8Monster* monster;
 
     if (target->iType == W8_TARGET_KIND_PARTY || target->iType == W8_TARGET_KIND_CHARACTER) {
@@ -1275,7 +1276,7 @@ enum { W8_SIDE_ANY = 3 };
    range is taken without looking, and with it off nothing is tinted and a
    monster in range still has to be visible from the given eye point. */
 // FUNCTION: WIZ8 0x00539e70
-void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector3T<float>* eye,
+void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
                                  std::vector<int>& found, float radius, char side,
                                  char highlighting)
 {
@@ -1289,7 +1290,7 @@ void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         W8Monster* monster = monster_info->p3D;
         W8MonsterRecord* record;
-        srVector3T<float> position;
+        glm::vec3 position;
 
         if (!monster_info->fActive || monster_info->hp_current == 0 ||
             monster_info->uiCondition[W8_CONDITION_REACHABLE_WHEN_DOWN] != 0) {
@@ -1304,7 +1305,7 @@ void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector
         }
 
         position = monster->GetPosition();
-        if (radius < (*centre - position).Length() - monster->radius) {
+        if (radius < glm::length((*centre - position)) - monster->radius) {
             if (highlighting != 0) {
                 glm::vec4 block;
                 block = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1536,7 +1537,7 @@ void SetTargetingMode(W8TargetNeed state)
     if (cursor != gXStatus.iCurrentCursor) {
         SetTargetCursor(cursor);
     }
-    gXStatus.target_position.SetZero();
+    gXStatus.target_position = glm::vec3(0);
     RequestRefreshPartyState();
     if (state == W8_TARGET_NEED_CONE) {
         SetTargetConeEnabled(true);
@@ -1791,7 +1792,7 @@ void RefreshCombatTargetHighlights(int party_slot, W8CombatSlot* target)
 // FUNCTION: WIZ8 0x0053B310
 void RefreshSpellTargetHighlightsAtRange(void)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterInfo* monster_info;
 
     GetCameraForwardPoint(GetGroundTargetRange(), &position);
@@ -1856,7 +1857,7 @@ void HighlightSpellTargetsAtCachedPosition(void)
    combat action and one world point. When the chosen action carries no
    spell-like id, the marker vector is left empty. */
 // FUNCTION: WIZ8 0x0053B660
-void PopulateTargetMarkerForCurrentAction(const srVector3T<float>* position,
+void PopulateTargetMarkerForCurrentAction(const glm::vec3* position,
                                           std::vector<int>& marker_vector, int enabled)
 {
     int party_slot = g_status.selected_character;
@@ -1914,7 +1915,7 @@ void ClearTargetMarker(void)
 // FUNCTION: WIZ8 0x0053B170
 void RefreshTargetMarker(void)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     GetWorldCursorTargetPosition(&position);
     if (!(position == gXStatus.target_position)) {
@@ -2390,7 +2391,7 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
 {
     unsigned int count = static_cast<unsigned int>(candidates.size());
     std::vector<W8GroupMemberByAngle> sorted(count);
-    srVector3T<float> party;
+    glm::vec3 party;
     unsigned int index;
     int result;
 
@@ -2402,7 +2403,7 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
     for (index = 0; index < count; ++index) {
         int location_id = candidates[static_cast<int>(index)];
         W8MonsterInfo* monster_info = FindMonster(location_id);
-        srVector3T<float> position = monster_info->p3D->GetPosition();
+        glm::vec3 position = monster_info->p3D->GetPosition();
 
         sorted[index].location_id = location_id;
         /* Whole degrees: sorting on the radian heading would leave seven buckets. */
@@ -2723,7 +2724,7 @@ void RefreshAllPartyTargets(void)
 // FUNCTION: WIZ8 0x005398D0
 void RefreshMonsterTargetCounts(void)
 {
-    srVector3T<float> camera;
+    glm::vec3 camera;
     unsigned int group_index;
 
     for (group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
@@ -2748,7 +2749,7 @@ void RefreshMonsterTargetCounts(void)
             }
             camera = cameraLocation();
             const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
-            if (bounds && targetMarkerVisible(camera.glmValue(), *bounds) != 0) {
+            if (bounds && targetMarkerVisible(camera, *bounds) != 0) {
                 on_screen_count += 1;
             }
             if (g_status.selected_character == -1 ||
@@ -2770,7 +2771,7 @@ void RefreshMonsterTargetCounts(void)
    elevated centre or either animation-bound corner still projects on the world
    camera. `position` is unused; the distance is measured to the player. */
 // FUNCTION: WIZ8 0x0053A060
-bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>* position,
+bool IsMonsterVisibleWithinDistance(W8Monster* monster, const glm::vec3* position,
                                     float max_distance)
 {
     if (!(monster->GetDistanceToPlayer() < max_distance)) return false;
@@ -2778,7 +2779,7 @@ bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>*
     if (!bounds) return false;
     auto center = monster->movement.position;
     center.y += monster->movement.height_offset;
-    const std::array points{center.glmValue(), bounds->minimum, bounds->maximum};
+    const std::array points{center, bounds->minimum, bounds->maximum};
     return g_world->camera->projectsAny(points);
 }
 
@@ -2787,7 +2788,7 @@ bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>*
 // FUNCTION: WIZ8 0x0053A1D0
 bool AnyMonsterVisible(void)
 {
-    srVector3T<float> camera;
+    glm::vec3 camera;
     float limit;
     int count;
     int index;
@@ -2823,7 +2824,7 @@ bool AnyMonsterVisible(void)
 void UpdateTargetMarkerHighlight(void)
 {
     glm::vec4 block;
-    srVector3T<float> point;
+    glm::vec3 point;
     if (static_cast<int>(gXStatus.target_markers.size()) <= 0) {
         return;
     }
@@ -3005,9 +3006,8 @@ unsigned char SourceCanSeeMonster(const W8TargetSource* source, W8MonsterInfo* m
 /* Whether `target` is inside the aim cone: within `bonus` + `eye_radius` of
    `eye`, and within the heading and elevation arc bounds. */
 // FUNCTION: WIZ8 0x00539b70
-bool TargetInRangeAndArcs(const srVector3T<float>* target, float bonus,
-                          const srVector3T<float>* eye, float eye_radius, float heading,
-                          float elevation)
+bool TargetInRangeAndArcs(const glm::vec3* target, float bonus, const glm::vec3* eye,
+                          float eye_radius, float heading, float elevation)
 {
     float dx = target->x - eye->x;
     float dy = target->y - eye->y;
@@ -3032,9 +3032,9 @@ bool TargetInRangeAndArcs(const srVector3T<float>* target, float bonus,
    `found`. `disposition` filters ubDisposition, with 3 admitting every
    disposition; `sight_flag` picks the visibility flag the source must have. */
 // FUNCTION: WIZ8 0x00539ca0
-int CollectConeMonsterTargets(const W8TargetSource* source, const srVector3T<float>* eye,
-                              float heading, float elevation, std::vector<int>& found,
-                              unsigned char disposition, int sight_flag)
+int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye, float heading,
+                              float elevation, std::vector<int>& found, unsigned char disposition,
+                              int sight_flag)
 {
     int start_count = static_cast<int>(found.size());
     float radius;
@@ -3054,10 +3054,10 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const srVector3T<flo
             if (record->untargetable == 0 &&
                 (monster_info->ubDisposition == disposition || disposition == 3)) {
                 W8Monster* monster = monster_info->p3D;
-                srVector3T<float> point;
-                point.Set(monster->movement.position.x,
-                          monster->movement.position.y + monster->movement.height_offset,
-                          monster->movement.position.z);
+                glm::vec3 point;
+                point = glm::vec3(monster->movement.position.x,
+                                  monster->movement.position.y + monster->movement.height_offset,
+                                  monster->movement.position.z);
                 if (TargetInRangeAndArcs(&point, monster->radius, eye, radius, heading,
                                          elevation) &&
                     SourceCanSeeMonster(source, monster_info, 1, sight_flag) != 0) {
@@ -3143,7 +3143,7 @@ aim_done:
     if (cursor != gXStatus.iCurrentCursor) {
         SetTargetCursor(cursor);
     }
-    gXStatus.target_position.SetZero();
+    gXStatus.target_position = glm::vec3(0);
     RequestRefreshPartyState();
     if (needed_kind == W8_TARGET_NEED_CONE) {
         SetTargetConeEnabled(true);
@@ -3191,7 +3191,7 @@ void ClearSlotTargeting(int party_slot)
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
         SetTargetCursor(W8_CURSOR_NONE);
     }
-    gXStatus.target_position.SetZero();
+    gXStatus.target_position = glm::vec3(0);
     RequestRefreshPartyState();
     SetTargetConeEnabled(false);
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {

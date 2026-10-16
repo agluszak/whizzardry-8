@@ -5,8 +5,8 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srGERD.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
@@ -133,7 +133,7 @@ void stSurface2D::process(const ProcessInfo& info, e_processType)
 // FUNCTION: WIZ8 0x0047E100
 void stSurface2D::DrawTiles(srGERD* renderer)
 {
-    srVector3T<float> location;
+    glm::vec3 location;
     int row;
     int column;
     int index = 0;

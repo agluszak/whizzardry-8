@@ -10,6 +10,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/retail_geometry_types.h"
 
 namespace wiz8::retail {
 // Format-defined storage only. Text fields are bytes so odd UTF-16 offsets
@@ -27,6 +28,30 @@ inline constexpr std::size_t kPartySlotBytes = 0x106;
 inline constexpr std::size_t kMissileTableRecordBytes = 0x1e5;
 
 #pragma pack(push, 1)
+struct CameraState {
+    Vec3f position;
+    float pitch[6], yaw[6];
+};
+static_assert(sizeof(CameraState) == 0x3c);
+struct TargetSource {
+    W8TargetSourceKind iType;
+    int iChar;
+    int iMonsterID;
+    Vec3f point;
+    unsigned char auto_cast;
+    unsigned char name_known;
+    bool aim_resolved;
+    bool fReflection;
+    bool fBackfire;
+    unsigned char point_source;
+    unsigned char target_diverted;
+    unsigned char spell_difficulty;
+    unsigned char unknown_20;
+    unsigned char item_cast;
+    unsigned char unknown_22[0x12];
+};
+static_assert(sizeof(TargetSource) == 0x34);
+
 struct CombatTarget {
     std::int32_t iType, iChar, iMonsterID, iGroupID;
     float point[3];
@@ -620,7 +645,7 @@ struct Character {
     /* 0x17d7: the CamPos record cameraState writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
        W8GlobalStatus::pending_move_location. */
-    W8WorldCameraState saved_location; /* 0x17d7 */
+    CameraState saved_location; /* 0x17d7 */
     /* 0x1813: which level that anchor belongs to. The recall compares it
        against g_status.current_level and takes a different path when they differ. */
     int saved_level;                          /* 0x1813 */
@@ -678,7 +703,7 @@ struct GlobalStatus {
     unsigned char unknown_2013[0x294];
     /* 0x22a7: CamPos staged by recall when the anchor is on another level;
        LoadLevel restores it after the new world exists. */
-    W8WorldCameraState pending_move_location;
+    CameraState pending_move_location;
     /* 0x22e3: the party-wide modifier block the effect rebuild clears and
        refills. Its +0x4a flag is the light gate the monster-sight threshold
        pass reads. */

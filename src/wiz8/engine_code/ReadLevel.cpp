@@ -66,6 +66,8 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/retail_geometry_types.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/sr_api.h"
 
 class srTextureIFace;
@@ -175,23 +177,26 @@ namespace {
 
 struct W8LevelItemRecord {
     int positional0;
-    srVector3T<float> position;
+    glm::vec3 position;
     int positional2;
     int positional3;
     int positional4;
     char item_name[20];
 };
 
+#pragma pack(push, 1)
 struct W8LevelLightRecord {
     short version;
     unsigned char create;
     bool visible;
     unsigned int flags;
-    srVector3T<float> location;
-    srVector3T<float> colour;
+    wiz8::retail::Vec3f location;
+    wiz8::retail::Vec3f colour;
     float intensity;
     float range;
 };
+#pragma pack(pop)
+static_assert(sizeof(W8LevelLightRecord) == 40);
 
 } // namespace
 
@@ -324,11 +329,11 @@ try {
         if (light != 0) {
             if (SDL_strncasecmp(light->getName().c_str(), "Sun", 3) == 0) {
                 light->diffuse = glm::vec3(0);
-                light->ambient = record.colour.glmValue();
+                light->ambient = {record.colour.x, record.colour.y, record.colour.z};
                 light->setGroupMask(light->getGroupMask() | 4);
                 AddEnvironmentLight(light);
             } else {
-                light->diffuse = record.colour.glmValue();
+                light->diffuse = {record.colour.x, record.colour.y, record.colour.z};
                 light->ambient = glm::vec3(0);
             }
 
@@ -350,10 +355,11 @@ unsigned char ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try {
     /* Retail read these uninitialised when a FileRead chain short-circuited;
        natively the scalars start at zero. */
-    srVector3T<float> environment_range;
+    glm::vec3 environment_range;
     glm::vec3 white{1.0f};
-    srVector3T<float> position;
-    srVector3T<float> axis;
+    glm::vec3 position{0.0f};
+    wiz8::retail::Vec3f stored_position{};
+    glm::vec3 axis;
     glm::mat3 rotation;
     float intensity = 0.0f;
     float view_distance = 0.0f;
@@ -381,14 +387,15 @@ try {
                static_cast<std::size_t>(sizeof(camera_mode)));
 
     if (camera_mode == 1) {
-        success = success && (pInfo->hFile->read(&position, sizeof(position)).bytes ==
-                              static_cast<std::size_t>(sizeof(position)));
-        position *= g_world_scale;
+        success = success && (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
+                              static_cast<std::size_t>(sizeof(stored_position)));
+        position =
+            glm::vec3(stored_position.x, stored_position.y, stored_position.z) * g_world_scale;
         SetWorldScenePosition(pWorld, &position);
     } else if (camera_mode == 2) {
         success = success &&
-                  (pInfo->hFile->read(&position, sizeof(position)).bytes ==
-                   static_cast<std::size_t>(sizeof(position))) &&
+                  (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
+                   static_cast<std::size_t>(sizeof(stored_position))) &&
                   (pInfo->hFile->read(&angle, sizeof(angle)).bytes ==
                    static_cast<std::size_t>(sizeof(angle))) &&
                   (pInfo->hFile->read(&axis.x, sizeof(axis.x)).bytes ==
@@ -397,14 +404,14 @@ try {
                    static_cast<std::size_t>(sizeof(axis.y))) &&
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
-        position *= g_world_scale;
+        position =
+            glm::vec3(stored_position.x, stored_position.y, stored_position.z) * g_world_scale;
         SetWorldScenePosition(GetWorld(), &position);
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
-            rotation *=
-                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                              normalizedOrZero(glm::vec3(axis.glmValue()))));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                      normalizedOrZero(glm::vec3(axis))));
         }
         ApplyCameraRotation(&rotation);
     }
@@ -618,7 +625,7 @@ try {
         success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes ==
                    static_cast<std::size_t>(sizeof(record.item_name)));
         if (success) {
-            pInfo->hFile->read(&record.position, sizeof(record.position));
+            wiz8::retail::read_exact(*pInfo->hFile, record.position);
             record.position *= g_world_scale;
             pInfo->hFile->read(&record.positional0, sizeof(int));
             pInfo->hFile->read(&record.positional2, sizeof(int));
@@ -674,8 +681,8 @@ try {
     char monster_name[20];
     char options[12];
     char* separator;
-    srVector3T<float> origin;
-    srVector3T<float> camera_position;
+    glm::vec3 origin;
+    glm::vec3 camera_position;
     W8MonsterGroup* group;
     int monster_id;
     int location_id;
@@ -696,7 +703,7 @@ try {
         return 1;
     }
 
-    origin.SetZero();
+    origin = glm::vec3(0);
     for (index = 0; index < count; ++index) {
         update_representation = true;
         active = true;
@@ -855,9 +862,9 @@ try {
 
         SDL_strupr(record.name);
         particle->setName(record.name);
-        axis = glm::dvec3((&record.rotation_axis)->glmValue());
+        axis = glm::dvec3(record.rotation_axis.x, record.rotation_axis.y, record.rotation_axis.z);
         particle->rotate(record.rotation_angle, axis);
-        location = glm::dvec3((&record.location)->glmValue());
+        location = glm::dvec3(record.location.x, record.location.y, record.location.z);
         location *= g_world_scale;
         particle->setLocation(location);
         particle->rotateX(1.5707963);
@@ -867,14 +874,20 @@ try {
             record.bounds_origin.x = 0.0f;
         }
         if (record.bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
-            const auto center = record.bounds_origin.glmValue() * g_world_scale;
-            const auto extent = record.bounds_extent.glmValue() * 250.0f;
+            const auto center =
+                glm::vec3(record.bounds_origin.x, record.bounds_origin.y, record.bounds_origin.z) *
+                g_world_scale;
+            const auto extent =
+                glm::vec3(record.bounds_extent.x, record.bounds_extent.y, record.bounds_extent.z) *
+                250.0f;
             particle->bounds_mode = W8_PARTICLE_BOUNDS_BOX;
             particle->lifetime_minimum = center - extent;
             particle->lifetime_maximum = center + extent;
         } else if (record.bounds_mode == W8_PARTICLE_BOUNDS_SPHERE && record.bounds_radius > 0.0f) {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
-            particle->bounds_origin = record.bounds_origin.glmValue() * g_world_scale;
+            particle->bounds_origin =
+                glm::vec3(record.bounds_origin.x, record.bounds_origin.y, record.bounds_origin.z) *
+                g_world_scale;
             particle->bounds_radius = record.bounds_radius * g_world_scale;
         } else {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_NONE;
@@ -894,7 +907,9 @@ try {
 
         if (record.has_acceleration != 0) {
             particle->has_acceleration = 1;
-            particle->acceleration = record.acceleration.glmValue() * g_world_scale;
+            particle->acceleration =
+                glm::vec3(record.acceleration.x, record.acceleration.y, record.acceleration.z) *
+                g_world_scale;
         }
 
         if (record.emission_mode == W8_PARTICLE_EMISSION_NONE) {
@@ -918,7 +933,8 @@ try {
             if (record.rotation_angle != 0.0f) {
                 rotation *= glm::mat3_cast(glm::angleAxis(
                     float(std::atan2(sin(record.rotation_angle), cos(record.rotation_angle))),
-                    normalizedOrZero(glm::vec3(record.rotation_axis.glmValue()))));
+                    normalizedOrZero(glm::vec3(record.rotation_axis.x, record.rotation_axis.y,
+                                               record.rotation_axis.z))));
             }
             rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
@@ -1030,7 +1046,7 @@ unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
 try {
     W8ReadLevelInfo info;
     std::unique_ptr<stModelInstance> level_mesh;
-    srVector3T<float> environment_offset;
+    glm::vec3 environment_offset;
     char error_message[512];
     int section_end;
     int section_count;
@@ -1172,7 +1188,7 @@ try {
     success = success && ReadAutomapNodes(handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
-    g_environment_offset = environment_offset.glmValue();
+    g_environment_offset = environment_offset;
     prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);

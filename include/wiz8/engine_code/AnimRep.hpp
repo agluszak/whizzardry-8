@@ -3,8 +3,8 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srMath.h"
 
 /* Direction state at AnimRep+0x6e. Props record completion at either
    endpoint; GrCycle advances only the two running directions. Byte storage
@@ -66,16 +66,16 @@ public:
     virtual ~W8AnimRepBase() {}
     virtual W8AnimRepBase* Clone();
 
-    void SetLocation(const srVector3T<float>* location);
-    srVector3T<float> GetLocation() const;
-    srVector3T<float> GetLocalLocation() const;
+    void SetLocation(const glm::vec3* location);
+    glm::vec3 GetLocation() const;
+    glm::vec3 GetLocalLocation() const;
     void SetRotation(const glm::mat3* rotation);
     glm::mat3 GetRotation() const;
 
 public:
-    srVector3T<float> location;
-    srVector3T<float> local_location;
-    srVector3T<float> parent_location;
+    glm::vec3 location;
+    glm::vec3 local_location;
+    glm::vec3 parent_location;
     glm::mat3 rotation;
     /* RGBA highlight colour; GrCycle copies it into the 3D mesh instance,
        which renders it as its highlight material's emissive colour. */
@@ -127,8 +127,8 @@ public:
     /* Prop computes this pair from the animation's bounds, and stores the
        scaled extent in +0x8c. Other representation families inherit the
        storage even when their own use is not yet established. */
-    srVector3T<float> bounds_min;
-    srVector3T<float> bounds_max;
+    glm::vec3 bounds_min;
+    glm::vec3 bounds_max;
     float bounds_extent;
     unsigned int value;
     /* The ordered frame range GrCycle plays between. */

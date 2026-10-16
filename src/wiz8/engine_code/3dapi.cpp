@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
 
 #include "camera_motion.h"
 #include "compat/compiler.h"
@@ -22,7 +23,6 @@
 #include "layouts/world.h"
 #include "named_position.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "wiz8/containers.h"
@@ -445,7 +445,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     static glm::vec3 s_last_automap_refresh_position(0);
     static glm::mat3 s_saved_camera_rotation(1);
     glm::vec3 camera_position;
-    srVector3T<float> navigator_position;
+    glm::vec3 navigator_position;
     glm::dvec3 render_position;
     glm::mat3 path_rotation;
     W8CameraPath* camera_path;
@@ -478,9 +478,9 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 world->game_data->cameraMotion(flags, camera_position, orientation.movement_basis);
             if (motion.moved) {
                 camera_position += motion.displacement;
-                navigator_position.Set(camera_position.x,
-                                       camera_position.y - g_default_world_height,
-                                       camera_position.z);
+                navigator_position =
+                    glm::vec3(camera_position.x, camera_position.y - g_default_world_height,
+                              camera_position.z);
                 if (world->camera_light != 0) {
                     render_position = glm::dvec3(camera_position);
                     static_cast<srNode*>(world->camera_light)->setLocation(render_position);
@@ -492,7 +492,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 if (glm::dot(refresh_offset, refresh_offset) > g_automap_refresh_distance_squared) {
                     s_last_automap_refresh_position = camera_position;
                     camera_position.y -= g_default_world_height;
-                    const srVector3T<float> automap_position = camera_position;
+                    const glm::vec3 automap_position = camera_position;
                     if (AutomapHasCellAt(&automap_position)) {
                         SetWorldMeshVertexLightTable(g_world, 1);
                         UpdateAutomapBounds();
@@ -518,7 +518,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 PathAIApply(path, world->camera);
                 {
                     glm::dvec3 location = world->camera->getLocation();
-                    srVector3T<float> party_point;
+                    glm::vec3 party_point;
                     party_point = glm::vec3(location);
                     PlacePartyAtPoint(&party_point);
                 }
@@ -585,9 +585,9 @@ glm::vec3 cameraLocationOrZero(const W8World& world)
    follows the camera, while only the camera move publishes the new game-space
    position. */
 // FUNCTION: WIZ8 0x004511D0
-void SetWorldScenePosition(W8World* world, const srVector3T<float>* location)
+void SetWorldScenePosition(W8World* world, const glm::vec3* location)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     glm::dvec3 render_position;
 
     if (!world) {
@@ -596,12 +596,12 @@ void SetWorldScenePosition(W8World* world, const srVector3T<float>* location)
 
     position = *location;
     if (world->camera != 0) {
-        render_position = glm::dvec3(position.glmValue());
+        render_position = glm::dvec3(position);
         static_cast<srNode*>(world->camera)->setLocation(render_position);
         PlacePartyAtPoint(&position);
     }
     if (world->camera_light != 0) {
-        render_position = glm::dvec3(position.glmValue());
+        render_position = glm::dvec3(position);
         static_cast<srNode*>(world->camera_light)->setLocation(render_position);
     }
 }
@@ -652,7 +652,7 @@ glm::mat3 cameraRotation(const W8World& world)
 /* Moves the camera and its camera light together. Only the camera's move
    notifies the level; the light simply follows the view. */
 // FUNCTION: WIZ8 0x00450420
-void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
+void WorldSetCameraLocation(W8World* world, const glm::vec3* location)
 {
     glm::dvec3 position;
 
@@ -660,12 +660,12 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
     if (world->camera != 0) {
-        position = glm::dvec3(location->glmValue());
+        position = glm::dvec3((*location));
         world->camera->setLocation(position);
         PlacePartyAtPoint(location);
     }
     if (world->camera_light != 0) {
-        position = glm::dvec3(location->glmValue());
+        position = glm::dvec3((*location));
         world->camera_light->setLocation(position);
     }
 }
@@ -676,7 +676,7 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
 // FUNCTION: WIZ8 0x004504B0
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
-    srVector3T<float> location;
+    glm::vec3 location;
     glm::dvec3 position;
     glm::mat3 rotation;
 
@@ -688,12 +688,12 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
         }
         location = state->position;
         if (world->camera != 0) {
-            position = glm::dvec3(location.glmValue());
+            position = glm::dvec3(location);
             ((srNode*)world->camera)->setLocation(position);
             PlacePartyAtPoint(&location);
         }
         if (world->camera_light != 0) {
-            position = glm::dvec3(location.glmValue());
+            position = glm::dvec3(location);
             ((srNode*)world->camera_light)->setLocation(position);
         }
         rotation = world->camera->getRotation<glm::mat3>();
@@ -715,7 +715,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 // FUNCTION: WIZ8 0x00450610
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
-    srVector3T<float> navigator_position;
+    glm::vec3 navigator_position;
 
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
@@ -827,8 +827,7 @@ W8World* ForwardCreateWorld(void)
 
 /* Resolve the PARTY alias or a named position stored with the current world. */
 // FUNCTION: WIZ8 0x004512C0
-bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,
-                      srVector3T<float>* direction)
+bool FindEntityByName(const char* name, glm::vec3* position, float* angle, glm::vec3* direction)
 {
     if (name == 0) {
         return false;
@@ -858,20 +857,23 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
 /* Push a candidate position clear of static geometry, then reject it when it
    overlaps another world item or monster. */
 // FUNCTION: WIZ8 0x00451390
-unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
-                                           bool check_items, bool check_monsters)
+unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
+                                           bool check_monsters)
 {
     float threshold = radius * g_path_endpoint_scale;
     float angle = 0.0f;
 
     do {
-        srVector3T<float> first(0.0f, 0.0f, radius);
-        first.RotateAboutY(sin(angle), cos(angle));
+        glm::vec3 first(0.0f, 0.0f, radius);
+        first = glm::vec3(glm::angleAxis(std::atan2(sin(angle), cos(angle)), glm::dvec3(0, 1, 0)) *
+                          glm::dvec3(first));
         first += *position;
 
         double opposite_angle = angle + g_camera_pi;
-        srVector3T<float> second(0.0f, 0.0f, radius);
-        second.RotateAboutY(sin(opposite_angle), cos(opposite_angle));
+        glm::vec3 second(0.0f, 0.0f, radius);
+        second = glm::vec3(glm::angleAxis(std::atan2(sin(opposite_angle), cos(opposite_angle)),
+                                          glm::dvec3(0, 1, 0)) *
+                           glm::dvec3(second));
         second += *position;
 
         g_octree->TraceLineOfSight(position, &first, true, -3, -3, true, 0);
@@ -879,15 +881,20 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 
         first -= *position;
         second -= *position;
-        float first_distance = first.Length();
-        if (first_distance < threshold && second.Length() < threshold) {
+        float first_distance = glm::length(first);
+        if (first_distance < threshold && glm::length(second) < threshold) {
             return 0;
         }
         if (first_distance < threshold) {
-            first.SetLength(radius - first_distance);
+            first = glm::dot(first, first) == 0
+                        ? first
+                        : glm::normalize(first) * static_cast<float>(radius - first_distance);
             *position -= first;
         } else {
-            second.SetLength(radius - second.Length());
+            second =
+                glm::dot(second, second) == 0
+                    ? second
+                    : glm::normalize(second) * static_cast<float>(radius - glm::length(second));
             *position -= second;
         }
         angle += 0.7853981256484985f;
@@ -897,11 +904,11 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
         for (const auto& item : gXStatus.world_items) {
             W8Item* owner = item->p3D;
             if (owner != 0) {
-                srVector3T<float> center;
+                glm::vec3 center;
                 center = owner->GetSearchPosition();
                 const auto other_radius = owner->GetBoundsRadius();
-                srVector3T<float> delta = center - *position;
-                if (delta.Length() < other_radius + radius) {
+                glm::vec3 delta = center - *position;
+                if (glm::length(delta) < other_radius + radius) {
                     return 0;
                 }
             }
@@ -916,7 +923,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                 const auto center = monster->GetAnimationCenter();
                 float other_radius;
                 if (center && monster->GetAnimationRadius(&other_radius) &&
-                    (*center - *position).Length() < other_radius + radius) {
+                    glm::length((*center - *position)) < other_radius + radius) {
                     return 0;
                 }
             }
@@ -929,10 +936,10 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 /* Try the requested point first, then the two retail half-turn probe points
    around it; only an unobstructed probe is handed to the overlap resolver. */
 // FUNCTION: WIZ8 0x00451800
-unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
+unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
                                      bool check_monsters)
 {
-    srVector3T<float> candidate = *position;
+    glm::vec3 candidate = *position;
     if (AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
         *position = candidate;
         return 1;
@@ -941,10 +948,11 @@ unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, 
     float angle = 0.0f;
     float diameter = radius + radius;
     do {
-        srVector3T<float> offset(0.0f, 0.0f, diameter);
-        offset.RotateAboutY(sin(angle), cos(angle));
+        glm::vec3 offset(0.0f, 0.0f, diameter);
+        offset = glm::vec3(glm::angleAxis(std::atan2(sin(angle), cos(angle)), glm::dvec3(0, 1, 0)) *
+                           glm::dvec3(offset));
         candidate = offset + *position;
-        srVector3T<float> unblocked = candidate;
+        glm::vec3 unblocked = candidate;
 
         g_octree->TraceLineOfSight(position, &candidate, true, -3, -3, true, 0);
         if (candidate == unblocked &&

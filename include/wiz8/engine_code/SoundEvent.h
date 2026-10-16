@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
 
 /* Engine Code\SoundEvent.cpp. The unit's assertion-backed interval starts at
@@ -32,7 +32,7 @@ public:
     W8SoundEvent& operator=(const W8SoundEvent&) = delete;
     ~W8SoundEvent();
 
-    bool Play(const srVector3T<float>& position, int cycle);
+    bool Play(const glm::vec3& position, int cycle);
 
     W8SoundEventKind kind = W8_SOUND_EVENT_NONE;
     int cycle = -1;
@@ -52,8 +52,8 @@ public:
 };
 
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
-                       const srVector3T<float>& position, unsigned int event_mask, int cycle,
-                       int frame, int subcycle);
+                       const glm::vec3& position, unsigned int event_mask, int cycle, int frame,
+                       int subcycle);
 
 /* Reports the ground height, surface and material at one position through the
    level's game data: settles a probe with settleToGround and reads the hit

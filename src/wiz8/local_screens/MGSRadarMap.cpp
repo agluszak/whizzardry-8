@@ -4,9 +4,11 @@
 #include <numbers>
 #include <vector>
 
+#include <glm/geometric.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "AnimRep.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/gameplay_databases.h"
@@ -14,7 +16,6 @@
 #include "layouts/party_formation.h"
 #include "sight_state.h"
 #include "sprite.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "wiz8/catalog_artwork.h"
@@ -98,7 +99,7 @@ const float g_radar_center_x = 75.0f;
 const float g_radar_max_marker_scale = 38.0f;
 
 static stModelInstance2D* AcquireRadarBlip(int sector, bool lit);
-static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool lit);
+static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit);
 
 static void ResetRadarBlips()
 {
@@ -267,11 +268,11 @@ void RefreshRadarMap(void)
 // FUNCTION: WIZ8 0x005a2800
 void UpdateRadarBlips(void)
 {
-    srVector3T<float> camera;
-    srVector3T<float> position;
-    srVector3T<float> delta;
-    srVector3T<float> center;
-    srVector3T<float> party;
+    glm::vec3 camera;
+    glm::vec3 position;
+    glm::vec3 delta;
+    glm::vec3 center;
+    glm::vec3 party;
     bool detect_all;
 
     ResetRadarBlips();
@@ -302,7 +303,7 @@ void UpdateRadarBlips(void)
                 delta = position - party;
                 if ((detect_all || (rep->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
                      HasCameraLineOfSight(&position)) &&
-                    delta.Length() <= g_radar_outer_radius) {
+                    glm::length(delta) <= g_radar_outer_radius) {
                     if (PlaceRadarBlip(&delta, 4, item->IsRadarBlipLit()) != 0) {
                         rep->flags |= W8_ITEM_ENTITY_RADAR_SEEN;
                     }
@@ -336,7 +337,7 @@ void UpdateRadarBlips(void)
                     position = center + info->party_threat.own_position;
                     party = g_startup_world->GetPosition();
                     delta = position - party;
-                    float distance = delta.Length();
+                    float distance = glm::length(delta);
                     if (distance - monster->radius < g_radar_outer_radius) {
                         distance = (distance - monster->radius) / distance;
                         delta.x *= distance;
@@ -344,7 +345,7 @@ void UpdateRadarBlips(void)
                         PlaceRadarBlip(&delta, 3, hostile);
                     } else {
                         delta.y = 0.0f;
-                        distance = delta.Length();
+                        distance = glm::length(delta);
                         if (distance - monster->radius > g_radar_outer_radius) {
                             distance = g_radar_outer_radius / (distance - monster->radius);
                             delta.x *= distance;
@@ -364,7 +365,7 @@ void UpdateRadarBlips(void)
                 position = center + party;
                 party = g_startup_world->GetPosition();
                 delta = position - party;
-                float distance = delta.Length();
+                float distance = glm::length(delta);
                 if (distance - monster->radius < g_radar_outer_radius) {
                     distance = (distance - monster->radius) / distance;
                     delta.x *= distance;
@@ -372,7 +373,7 @@ void UpdateRadarBlips(void)
                     PlaceRadarBlip(&delta, g_radar_disposition_class[info->ubDisposition], hostile);
                 } else {
                     delta.y = 0.0f;
-                    distance = delta.Length();
+                    distance = glm::length(delta);
                     if (distance - monster->radius > g_radar_outer_radius) {
                         distance = g_radar_outer_radius / (distance - monster->radius);
                         delta.x *= distance;
@@ -399,7 +400,7 @@ void UpdateRadarBlips(void)
             position = center + party;
             party = g_startup_world->GetPosition();
             delta = position - party;
-            if (delta.Length() < g_radar_outer_radius) {
+            if (glm::length(delta) < g_radar_outer_radius) {
                 PlaceRadarBlip(&delta, 5, false);
             }
         }
@@ -409,7 +410,7 @@ void UpdateRadarBlips(void)
 }
 
 // FUNCTION: WIZ8 0x005a3060
-static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool lit)
+static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
 {
     int ring = 0;
     int left;
@@ -425,10 +426,10 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
 
     const float angle =
         static_cast<float>(360 - g_status.party_facing) * (std::numbers::pi_v<float> / 180.0f);
-    *delta = glm::rotateY(delta->glmValue(), angle);
+    *delta = glm::rotateY((*delta), angle);
     delta->y = 0.0f;
 
-    float distance = delta->Length();
+    float distance = glm::length((*delta));
     if (distance <= g_radar_inner_radius) {
         float scale;
 

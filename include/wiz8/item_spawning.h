@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -25,7 +25,7 @@ struct W8WorldItem {
     W8Item* p3D; // Scene entity, deactivated before removing the world record.
     bool fActive;        /* 0x08: assertion-proven pItemInfo->fActive */
     W8ItemInstance item; /* 0x09 */
-    srVector3T<float> position; /* 0x15 */
+    glm::vec3 position; /* 0x15 */
     unsigned char unknown_21[4];
     /* Saved W8ItemRep flag word; level restore clears RADAR_SEEN. */
     int entity_flags;
@@ -43,12 +43,11 @@ struct W8WorldItem {
     unsigned char unknown_3d[0x70];
 };
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item,
-                                             const srVector3T<float>* position, int entity_flags);
+std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
+                                             int entity_flags);
 W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item);
 unsigned char SettleWorldItem(W8WorldItem* item);
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const srVector3T<float>* position,
-                                       int entity_flags);
+std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags);
 
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);

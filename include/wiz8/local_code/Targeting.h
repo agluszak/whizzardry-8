@@ -2,12 +2,12 @@
 
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;
-template<class T> class srVector3T;
 struct W8ItemInstance;
 
 void ResetCombatSlot(W8CombatSlot* slot);
@@ -114,7 +114,7 @@ void UpdateTargetMarkerHighlight(void);
 /* Fill `found` with the location ids of monsters within `radius`
    of `centre` that are visible from `eye` (unless highlighting is on, which
    takes them without the sight check and tints instead). */
-void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector3T<float>* eye,
+void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
                                  std::vector<int>& found, float radius, char side,
                                  char highlighting);
 
@@ -122,7 +122,7 @@ class W8Monster;
 
 /* Whether `monster` is within `max_distance` of the player and
    still projects on screen. `position` is unused. */
-bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>* position,
+bool IsMonsterVisibleWithinDistance(W8Monster* monster, const glm::vec3* position,
                                     float max_distance);
 /* Pick the next targetable member of `group` and paint it with the
    `color` highlight (0 clears, 1 green, 2 red). */
@@ -132,19 +132,18 @@ void HighlightPickedGroupMember(int party_slot, W8MonsterGroup* group, W8TargetH
 void ModifyGroupColor(int group_id, W8TargetHighlight color);
 /* Whether `target` lies within the combined radii of `eye` and
    `bonus`, inside the heading and elevation arcs. */
-bool TargetInRangeAndArcs(const srVector3T<float>* target, float bonus,
-                          const srVector3T<float>* eye, float eye_radius, float heading,
-                          float elevation);
+bool TargetInRangeAndArcs(const glm::vec3* target, float bonus, const glm::vec3* eye,
+                          float eye_radius, float heading, float elevation);
 /* Append the location ids of live targetable monsters inside the
    aim cone to `found`, filtered by disposition (3 admits all); returns how many
    were added. */
-int CollectConeMonsterTargets(const W8TargetSource* source, const srVector3T<float>* eye,
-                              float heading, float elevation, std::vector<int>& found,
-                              unsigned char disposition, int sight_flag);
+int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye, float heading,
+                              float elevation, std::vector<int>& found, unsigned char disposition,
+                              int sight_flag);
 /* Whether the pending item use needs a target picked. */
 bool ItemUseNeedsTarget(int party_slot);
 void RefreshSpellTargetHighlightsAtRange(void);
-void PopulateTargetMarkerForCurrentAction(const srVector3T<float>* position,
+void PopulateTargetMarkerForCurrentAction(const glm::vec3* position,
                                           std::vector<int>& marker_vector, int enabled);
 W8TargetingContext GetCombatActionContext(int party_slot);
 void ReconcilePartyEquipmentAfterCombat(void);

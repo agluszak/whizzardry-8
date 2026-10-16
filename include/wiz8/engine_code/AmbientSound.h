@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
 #include "wiz8/engine_code/game_timer.h"
 
@@ -23,9 +23,9 @@ public:
     W8AmbientSound(); /* 0x00479040 */
 
     /* 0x004790D0: true when listener is inside the rotated/scaled min-max region */
-    bool IsInsideRegion(const srVector3T<float>* listener);
+    bool IsInsideRegion(const glm::vec3* listener);
     /* 0x00479350: listener-relative range test, group handoff, 3D re-aim, fade retarget */
-    void UpdatePosition(const srVector3T<float>* listener);
+    void UpdatePosition(const glm::vec3* listener);
     /* 0x00479970: per-frame service while in range; 'entered' forces an immediate roll */
     void Service(bool entered);
     /* 0x0047A310: step the 1.5-second shared-group volume fade */
@@ -37,7 +37,7 @@ public:
     W8AmbientSoundConfig config; /* 0x004: wave filename; shared sounds match on it */
     unsigned char stopped;       /* 0x084: script-stopped via the ByName commands */
     unsigned char padding_085[3];
-    srVector3T<float> position;  /* 0x088: emitter world position */
+    glm::vec3 position;  /* 0x088: emitter world position */
     unsigned int volume_min;     /* 0x094 */
     unsigned int volume_max;     /* 0x098 */
     unsigned int target_volume;  /* 0x09c: fade endpoint */
@@ -55,12 +55,12 @@ public:
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     unsigned char padding_0c6[2];
-    srVector3T<float> region_min;    /* 0x0c8 */
-    srVector3T<float> region_max;    /* 0x0d4 */
-    srVector3T<float> region_center; /* 0x0e0 */
+    glm::vec3 region_min;    /* 0x0c8 */
+    glm::vec3 region_max;    /* 0x0d4 */
+    glm::vec3 region_center; /* 0x0e0 */
     float region_angle;              /* 0x0ec: rotation about region_axis, radians */
-    srVector3T<float> region_axis;   /* 0x0f0 */
-    srVector3T<float> region_scale;  /* 0x0fc: per-axis region scale */
+    glm::vec3 region_axis;   /* 0x0f0 */
+    glm::vec3 region_scale;  /* 0x0fc: per-axis region scale */
     W8GameTimer fade_timer;          /* 0x108 */
 };
 
@@ -135,14 +135,13 @@ void StopAmbientSoundByName(W8World* /* unused */, const char* name);
 void ToggleAmbientSoundByName(W8World* /* unused */, const char* name);
 void DestroyAmbientSound(W8AmbientSound* ambient);
 unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
-                              const srVector3T<float>* position,
-                              const srVector3T<float>* region_min,
-                              const srVector3T<float>* region_max, int volume_min, int volume_max,
+                              const glm::vec3* position, const glm::vec3* region_min,
+                              const glm::vec3* region_max, int volume_min, int volume_max,
                               int time_min, int time_max, int speed_min, int speed_max,
                               float radius, bool looping, unsigned char bounded,
-                              const srVector3T<float>* region_center, float region_angle,
-                              const srVector3T<float>* region_axis,
-                              const srVector3T<float>* region_scale, unsigned char shared);
+                              const glm::vec3* region_center, float region_angle,
+                              const glm::vec3* region_axis, const glm::vec3* region_scale,
+                              unsigned char shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
 void LoadAmbientSoundList(wiz8::File& handle);

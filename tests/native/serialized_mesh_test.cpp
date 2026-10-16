@@ -20,13 +20,13 @@
 #include "file_faults.h"
 #include "filesystem.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "layouts/world.h"
 #include "materials.h"
 #include "quad.h"
 #include "surrender/srCore.h"
-#include "surrender/srMath.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -46,8 +46,8 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
 {
     const std::array<int, 7> header{0, 3, 3, 1, predecessor, -1, 0};
     Write(file, header);
-    const std::array<srVector3T<float>, 3> locations{
-        srVector3T<float>(0, 0, 0), srVector3T<float>(1, 0, 0), srVector3T<float>(0, 1, 0)};
+    const std::array<glm::vec3, 3> locations{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
+                                             glm::vec3(0, 1, 0)};
     Write(file, locations);
     const std::array<glm::vec2, 3> uv{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(0, 1)};
     Write(file, uv);
@@ -55,8 +55,8 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
     Write(file, triangle); // UV indices.
     Write(file, triangle); // Vertex indices.
     Write(file, texture_index); // Texture index.
-    const std::array<srVector3T<float>, 3> normals{
-        srVector3T<float>(0, 0, 1), srVector3T<float>(0, 0, 1), srVector3T<float>(0, 0, 1)};
+    const std::array<glm::vec3, 3> normals{glm::vec3(0, 0, 1), glm::vec3(0, 0, 1),
+                                           glm::vec3(0, 0, 1)};
     Write(file, normals);
     Write(file, locations); // Static vertex lighting.
     const glm::vec4 equation(0, 0, 1, 0);
@@ -292,8 +292,8 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                 if (transform) Write(*file, char{1}); // Transform count.
                 Write(*file, char{0}); // Channel.
                 Write(*file, char{2}); // Frame count, including frames inside the LOD mesh.
-                const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
-                                                        srVector3(0, 1, 0)};
+                const std::array<glm::vec3, 3> vertices{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
+                                                        glm::vec3(0, 1, 0)};
                 const int serialized_frames = !transform && lod ? 1 : 2;
                 for (int frame = 0; frame < serialized_frames; ++frame) {
                     Write(*file, static_cast<unsigned char>(frame));
@@ -349,18 +349,17 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
     ScopedTemporaryDirectory directory{"wiz8-octmesh-writer"};
     const auto expected_path = directory.path / "expected.bin";
     const auto output_path = directory.path / "output.bin";
-    const std::array<srVector3T<float>, 3> locations{
-        srVector3T<float>(1, 2, 3), srVector3T<float>(4, 5, 6), srVector3T<float>(7, 8, 9)};
+    const std::array<glm::vec3, 3> locations{glm::vec3(1, 2, 3), glm::vec3(4, 5, 6),
+                                             glm::vec3(7, 8, 9)};
     const std::array<glm::vec2, 3> uv{glm::vec2(1, 2), glm::vec2(3, 4), glm::vec2(5, 6)};
     const std::array<int, 3> materials{2, 3, 5};
     const std::array<glm::ivec3, 1> uv_indices{glm::ivec3(0, 2, 1)};
     const std::array<glm::ivec3, 1> vertices{glm::ivec3(2, 1, 0)};
     const std::array<int, 1> textures{7};
-    const std::array<srVector3T<float>, 3> normals{
-        srVector3T<float>(0, 0, 1), srVector3T<float>(0, 1, 0), srVector3T<float>(1, 0, 0)};
-    const std::array<srVector3T<float>, 3> lights{srVector3T<float>(.1f, .2f, .3f),
-                                                  srVector3T<float>(.4f, .5f, .6f),
-                                                  srVector3T<float>(.7f, .8f, .9f)};
+    const std::array<glm::vec3, 3> normals{glm::vec3(0, 0, 1), glm::vec3(0, 1, 0),
+                                           glm::vec3(1, 0, 0)};
+    const std::array<glm::vec3, 3> lights{glm::vec3(.1f, .2f, .3f), glm::vec3(.4f, .5f, .6f),
+                                          glm::vec3(.7f, .8f, .9f)};
     const std::array<glm::vec4, 1> equations{glm::vec4(1, 2, 3, 4)};
     const std::array<float, 3> sun{.25f, .5f, .75f};
     auto copy = []<class T, std::size_t N>(const std::array<T, N>& source) {

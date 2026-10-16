@@ -12,6 +12,7 @@
 #include "GrCycle.h"
 #include "SpellVisual.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srClock.h"
@@ -220,7 +221,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
     generic.host->resources.cycles[first_cycle + 1].animation = std::make_unique<W8AnimObj>();
     RegisterGrCycle("Named", &named);
     RegisterGrCycle("Generic", &generic);
-    const srVector3T<float> position{11, 22, 33};
+    const glm::vec3 position{11, 22, 33};
 
     // Missing resources and resources without a supported cycle both use Generic.
     for (const char* name : {"Missing", "Named"}) {
@@ -247,7 +248,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
 
 TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resources][spell]")
 {
-    srVector3T<float> position{1, 2, 3};
+    glm::vec3 position{1, 2, 3};
     glm::mat3 rotation{1};
     REQUIRE(SpawnSpellEffect(&position, "Missing", 1, 0, 0) == nullptr);
     REQUIRE(SpawnCameraSpellEffect("Missing", 1, 0, 0) == nullptr);

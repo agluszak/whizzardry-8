@@ -60,12 +60,12 @@ static bool defaults()
 
 static bool zeroNormals()
 {
-    std::array<srVector3, 2> normals;
-    normals[0].Set(0, 0, 0);
-    normals[1].Set(0, 0, 2);
-    for (auto& normal : normals) normal.Normalize();
-    REQUIRE(normals[0] == srVector3(0, 0, 0));
-    REQUIRE(normals[1] == srVector3(0, 0, 1));
+    std::array<glm::vec3, 2> normals;
+    normals[0] = glm::vec3(0, 0, 0);
+    normals[1] = glm::vec3(0, 0, 2);
+    for (auto& normal : normals) normal = normalizedOrZero(normal);
+    REQUIRE(normals[0] == glm::vec3(0, 0, 0));
+    REQUIRE(normals[1] == glm::vec3(0, 0, 1));
     return true;
 }
 

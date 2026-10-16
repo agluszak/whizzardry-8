@@ -6,13 +6,13 @@
 #include <vector>
 
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
@@ -52,8 +52,8 @@ static int g_previous_footstep_variant;
    repeating the previous choice for as long as a second candidate exists. */
 // FUNCTION: WIZ8 0x004d5890
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
-                       const srVector3T<float>& position, unsigned int event_mask, int cycle,
-                       int frame, int subcycle)
+                       const glm::vec3& position, unsigned int event_mask, int cycle, int frame,
+                       int subcycle)
 {
     std::vector<W8SoundEvent*> candidates;
     for (unsigned int bit = 1; bit != 0; bit <<= 1) {
@@ -84,7 +84,7 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
    the event's own routing, rotate the listener offset into the camera frame,
    and let the ground/step branch rebuild the wave name before the play. */
 // FUNCTION: WIZ8 0x004d5a10
-bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
+bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
 {
     W8Monster* monster = 0;
     bool track_sound = false;
@@ -94,9 +94,9 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
     }
     float angle = -GetCameraYawRadians();
     unsigned int base_volume = 0x78;
-    srVector3T<float> camera_position = cameraLocation();
-    srVector3T<float> camera_offset = camera_position - position;
-    if (camera_offset.Length() < falloff) {
+    glm::vec3 camera_position = cameraLocation();
+    glm::vec3 camera_offset = camera_position - position;
+    if (glm::length(camera_offset) < falloff) {
         if (kind == W8_SOUND_EVENT_FOOTSTEP || wave_name.contains("step") ||
             (location_id != 0 && cycle == 4)) {
             base_volume = footstep_volume;
@@ -121,10 +121,10 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
-        srVector3T<float> offset = position - camera_position;
-        srVector3T<float> transformed = rotation * offset.glmValue();
+        glm::vec3 offset = position - camera_position;
+        glm::vec3 transformed = rotation * offset;
         unsigned int event_volume = static_cast<unsigned int>(
-            (g_float_one - camera_offset.Length() / falloff) * base_volume);
+            (g_float_one - glm::length(camera_offset) / falloff) * base_volume);
         event_volume = (GetSoundEffectsVolume() * event_volume) / 0x7f;
         if (event_volume != 0) {
 
@@ -141,7 +141,7 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 g_previous_footstep_variant = variant;
 
                 char path[260];
-                const auto ground = groundSurfaceInfo(position.glmValue());
+                const auto ground = groundSurfaceInfo(position);
                 /* Retail hardcodes the surface to OutdoorsFlat here: the query
                    result that matters for the path is the material. */
                 BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, ground.material,
@@ -152,7 +152,7 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 wave_name, {.volume = event_volume,
                             .loops = looping ? 0u : 1u,
                             .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
-                            .position = transformed.glmValue()});
+                            .position = transformed});
             if (sound_handle == nullptr) {
                 return false;
             }

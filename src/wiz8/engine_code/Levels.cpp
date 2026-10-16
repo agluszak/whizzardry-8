@@ -559,20 +559,19 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             trigger = FindTriggerByName(trigger_name);
         }
         if (trigger != 0 && ((trigger->flags & W8_TRIGGER_POSITIONED) != 0)) {
-            srVector3T<float> trigger_position;
-            srVector3T<float> position;
+            glm::vec3 trigger_position;
+            glm::vec3 position;
 
             trigger->GetPosition(&trigger_position);
             position = trigger_position;
-            position.y =
-                probeGround(trigger_position.glmValue()).position.y + g_default_world_height;
+            position.y = probeGround(trigger_position).position.y + g_default_world_height;
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
             SetWorldScenePosition(GetWorld(), &position);
 
             if (trigger->trigger_kind == 2) {
-                srVector3T<float> axis;
+                glm::vec3 axis;
                 glm::mat3 rotation;
 
                 axis = trigger->direction;
@@ -580,14 +579,14 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
                 if (trigger->angle != 0.0f) {
                     rotation *= glm::mat3_cast(
                         glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
-                                       normalizedOrZero(glm::vec3(axis.glmValue()))));
+                                       normalizedOrZero(glm::vec3(axis))));
                 }
                 ApplyCameraRotation(&rotation);
             }
         } else {
-            srVector3T<float> position;
+            glm::vec3 position;
 
-            position.Set(0.0f, g_default_world_height, 0.0f);
+            position = glm::vec3(0.0f, g_default_world_height, 0.0f);
             SetWorldScenePosition(GetWorld(), &position);
         }
     } else {
@@ -730,7 +729,7 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
 {
     W8CameraAngleRecord saved_angle;
     W8CameraAngleRecord saved_pitch;
-    srVector3T<float> saved_position;
+    glm::vec3 saved_position;
     bool restore = false;
 
     if (entrance == -1 && level == g_status.current_level) {

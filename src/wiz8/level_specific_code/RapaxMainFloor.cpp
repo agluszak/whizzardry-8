@@ -1,7 +1,7 @@
 #include "wiz8/level_specific_code/RapaxMainFloor.h"
 
 #include "Item.h"
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/item_spawning.h"
@@ -38,7 +38,7 @@ static void SetRamTriggerEnabled(const char* name, bool enabled)
 // FUNCTION: WIZ8 0x004DA3C0
 bool RapaxMainFloorAltarBox(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     int var_id;
 
     if (!g_status.rpc_active) {
@@ -63,8 +63,8 @@ bool RapaxMainFloorAltarBox(Trigger* pTrigger)
 /* Spawns a pulsing, rotating item at a named entity and activates it, if the entity exists. */
 static void SpawnActivatedItemAt(const char* entity, int item_id)
 {
-    srVector3T<float> entity_position;
-    srVector3T<float> position;
+    glm::vec3 entity_position;
+    glm::vec3 position;
     W8WorldItem* world_item;
 
     if (FindEntityByName(entity, &entity_position, 0, 0)) {

@@ -6,6 +6,7 @@
 
 #include "conditions.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/party_formation.h"
@@ -14,7 +15,6 @@
 #include "monster_actions.h"
 #include "random.h"
 #include "sight_state.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
@@ -190,10 +190,9 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
             }
         }
     } else if (target->iType == W8_TARGET_KIND_PLACE) {
-        srVector3T<float> camera;
-        srVector3T<float> camera_top;
-        srVector3T<float> point;
-        W8TargetSource source;
+        glm::vec3 camera;
+        glm::vec3 camera_top;
+        glm::vec3 point;
         float distance;
         bool trace;
 
@@ -1051,7 +1050,7 @@ void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8Mon
         }
     }
 
-    srVector3T<float> position;
+    glm::vec3 position;
     monster_info->has_projectile_origin =
         best_range > W8_RANGE_SHORT && monster_info->p3D->GetProjectilePosition(&position);
 
@@ -1180,12 +1179,12 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
    monster's height offset, shifted by the delta between its navigator
    position and the muzzle/hand point when that point resolves. */
 // FUNCTION: WIZ8 0x0051b320
-void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, srVector3T<float>* out)
+void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out)
 {
-    out->Set(0.0f, monster->movement.height_offset, 0.0f);
+    (*out) = glm::vec3(0.0f, monster->movement.height_offset, 0.0f);
     if (kind == 1) {
         if (monster->GetProjectilePosition(out)) {
-            srVector3T<float> position = monster->GetPosition();
+            glm::vec3 position = monster->GetPosition();
             *out -= position;
             return;
         }
@@ -1194,7 +1193,7 @@ void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, srVector3T<float
             return;
         }
         if (monster->GetSpellPosition(out)) {
-            srVector3T<float> position = monster->GetPosition();
+            glm::vec3 position = monster->GetPosition();
             *out -= position;
             return;
         }

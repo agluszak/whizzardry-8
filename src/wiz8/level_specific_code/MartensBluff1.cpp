@@ -3,12 +3,13 @@
 #include <string>
 #include <vector>
 
+#include <glm/geometric.hpp>
+
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "random.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/dice.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
@@ -61,8 +62,8 @@ static W8IntervalGate* g_transport_gate;
 // FUNCTION: WIZ8 0x004DEB40
 void MartensBluff1Setup(void)
 {
-    srVector3T<float> position;
-    srVector3T<float> trigger_position;
+    glm::vec3 position;
+    glm::vec3 trigger_position;
     Trigger* pTrigger;
     stParticle* particle;
     int dial_state;
@@ -83,7 +84,7 @@ void MartensBluff1Setup(void)
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
-        if ((trigger_position - position).Length() < g_double_five_hundred) {
+        if (glm::length((trigger_position - position)) < g_double_five_hundred) {
             FindTriggerByName("Lift2Marten2");
             if (GetLocationVarIDByName("LiftArrived") == -1) {
                 CreateLocationVar("LiftArrived", 1);
@@ -227,7 +228,7 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEFB0
 bool MartensBluff1JDoorController(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     stParticle* particle;
     int state;
 
@@ -283,8 +284,8 @@ bool MartensBluff1Controller(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DF160
 bool MartensBluff1TransportSpawn(void)
 {
-    srVector3T<float> position_a;
-    srVector3T<float> position_b;
+    glm::vec3 position_a;
+    glm::vec3 position_b;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;

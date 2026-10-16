@@ -15,6 +15,7 @@
 #include <fmt/format.h>
 
 #include "dice.h"
+#include "glm/ext/vector_float3.hpp"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/main_game_screen.h"
@@ -200,7 +201,7 @@ void ToggleMipePanel(void)
     }
 
     g_mipe_state = std::make_unique<W8MipeState>();
-    g_mipe_state->drag_anchor.SetZero();
+    g_mipe_state->drag_anchor = glm::vec3(0);
     g_mipe_state->monster_ids.reserve(10);
 
     g_mipe_state->selecting = 0;
@@ -652,8 +653,8 @@ unsigned char HandleMipeMonsterCreateKey(SDL_Keycode key)
     int index;
     int visible;
     unsigned int monster_index;
-    srVector3T<float> anchor;
-    srVector3T<float> formation;
+    glm::vec3 anchor;
+    glm::vec3 formation;
     W8MonsterRecord record;
 
     if (!g_mipe_category_list) {
@@ -908,7 +909,7 @@ unsigned char HandleMipeItemCreateKey(SDL_Keycode key)
     unsigned int item_index;
     unsigned int spawned_index;
     bool show_invisible;
-    srVector3T<float> anchor;
+    glm::vec3 anchor;
 
     if (!g_mipe_category_list) {
         g_mipe_category_list = std::make_unique<std::vector<W8MipeCategoryEntry>>();
@@ -1089,8 +1090,8 @@ void HandleMonsterDebugKey(SDL_Keycode key)
     W8World* world;
     signed char cycle;
     float scale;
-    srVector3T<float> position;
-    srVector3T<float> location;
+    glm::vec3 position;
+    glm::vec3 location;
 
     switch (key) {
     case SDLK_1:
@@ -1272,7 +1273,7 @@ void HandleWaypointKey(SDL_Keycode key)
 {
     W8Monster* monster;
     W8World* world;
-    srVector3T<float> position;
+    glm::vec3 position;
     W8GrCycleLoadContext context;
 
     if (key == SDLK_C) {
@@ -1414,8 +1415,8 @@ static void ShowMipeCubeMenu()
 int HandleCubeMenuKey(SDL_Keycode key)
 {
     const char* prompt;
-    srVector3T<float> position;
-    srVector3T<float> anchor;
+    glm::vec3 position;
+    glm::vec3 anchor;
     std::string name;
     int serial;
     char scale_planes[4];
@@ -1429,7 +1430,7 @@ int HandleCubeMenuKey(SDL_Keycode key)
     case SDLK_1:
         g_mipe_cube = CreateWorldCursorCube();
         GetCameraForwardPointCopy(2500.0f, &position);
-        position.y = probeGround(position.glmValue()).position.y;
+        position.y = probeGround(position).position.y;
         MoveWorldCursorNode(g_mipe_cube, &position);
         AttachWorldCursorNode(g_mipe_cube, true);
         SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 1.0f, 0.0f);
@@ -1639,8 +1640,8 @@ static int HandleMonsterGeneratorKey(SDL_Keycode key)
 {
     MonGen* generator;
     MonGen* other;
-    srVector3T<float> anchor;
-    srVector3T<float> position;
+    glm::vec3 anchor;
+    glm::vec3 position;
     std::string name;
     int index;
     int count;
@@ -2860,26 +2861,26 @@ void UpdateMipeSelection(void)
    delta from the drag anchor. */
 void DragSelectionWithCursor(void)
 {
-    srVector3T<float> cursor;
-    srVector3T<float> position;
-    srVector3T<float> moved;
+    glm::vec3 cursor;
+    glm::vec3 position;
+    glm::vec3 moved;
     W8MonsterInfo* info;
     int index;
 
     GetWorldCursorPosition(&cursor);
     if (g_mipe_state->trigger != 0) {
         g_mipe_state->trigger->GetPosition(&position);
-        moved.Set(cursor.x - g_mipe_state->drag_anchor.x + position.x,
-                  cursor.y - g_mipe_state->drag_anchor.y + position.y,
-                  cursor.z - g_mipe_state->drag_anchor.z + position.z);
+        moved = glm::vec3(cursor.x - g_mipe_state->drag_anchor.x + position.x,
+                          cursor.y - g_mipe_state->drag_anchor.y + position.y,
+                          cursor.z - g_mipe_state->drag_anchor.z + position.z);
         g_mipe_state->trigger->SetPosition(&moved);
     } else {
         for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
             info = FindMonster(g_mipe_state->monster_ids[index]);
             position = MonsterGetLocalLocation(info->p3D);
-            moved.Set(cursor.x - g_mipe_state->drag_anchor.x + position.x,
-                      cursor.y - g_mipe_state->drag_anchor.y + position.y,
-                      cursor.z - g_mipe_state->drag_anchor.z + position.z);
+            moved = glm::vec3(cursor.x - g_mipe_state->drag_anchor.x + position.x,
+                              cursor.y - g_mipe_state->drag_anchor.y + position.y,
+                              cursor.z - g_mipe_state->drag_anchor.z + position.z);
             info->p3D->SetCyclePosition(&moved);
         }
     }
@@ -2965,7 +2966,7 @@ bool MipeWorldViewEvent(InputEventType event, const SDL_Point* point)
             } else if (g_mipe_mode == 0x11) {
                 result = true;
                 if (g_mipe_cube != 0) {
-                    srVector3T<float> position;
+                    glm::vec3 position;
 
                     GetWorldCursorAnchor(&position);
                     MoveWorldCursorNode(g_mipe_cube, &position);
@@ -2990,7 +2991,7 @@ static int g_last_reachable_mongen_marker = -1;
    250000), resuming the scan at the last match. */
 bool AnyMonsterGeneratorMarkerWithinReach(void)
 {
-    srVector3T<float> camera;
+    glm::vec3 camera;
     int count;
     int index;
     MonGen* generator;

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+
+#include "glm/ext/vector_float3.hpp"
 struct W8CombatSlot;
 
 #include "wiz8/attack_modes.h"
@@ -14,7 +16,6 @@ struct W8SpellEffectDefinition;
 struct W8SpellEffectResult;
 struct W8TargetSource;
 class W8Missile;
-template<class T> class srVector3T;
 
 /* The five character hit locations, in the order gubLocalACPercent and the
    per-location armour classes use them. */
@@ -47,8 +48,7 @@ void ClearAttackBlock(W8SpellEffectDefinition* block);
 W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
                                      W8SpellEffectDefinition* attack, bool use_default_accuracy,
                                      W8RangeCategory range_category, int accuracy);
-void ScatterMissileAimPoint(const srVector3T<float>* from, srVector3T<float>* to, int accuracy,
-                            bool blind);
+void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, bool blind);
 
 /* A physical missile reached its combat target - announce the
    hit, roll penetration against the target's armour and apply the damage.

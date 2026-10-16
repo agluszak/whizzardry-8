@@ -2,10 +2,10 @@
 
 #include "AnimRep.hpp"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -103,7 +103,7 @@ bool MtGigas1Lift2(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DBBD0
 bool MtGigas1PressurePlate(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (g_plate_prop == 0) {
         return false;
@@ -143,7 +143,7 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DBE30
 bool MtGigas1MudWall(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("NP_BadassMonster", &position, 0, 0)) {
         SpawnMonsters(0x157, 1, &position, 1, true, false, false);

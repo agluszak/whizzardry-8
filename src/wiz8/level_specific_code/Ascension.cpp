@@ -3,13 +3,14 @@
 #include <string>
 #include <vector>
 
+#include <glm/geometric.hpp>
+
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
 #include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -71,7 +72,7 @@ int CountAscensionPeakItems(void)
 // FUNCTION: WIZ8 0x004DF870
 unsigned char AscensionPeakInit(void)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     int count = CountAscensionPeakItems();
 
     if (count > 1) {
@@ -122,7 +123,7 @@ unsigned char AscensionPeakInit(void)
 /* Spawns one Alfie monster at a named entity, if the entity is present. */
 static void spawnAlfieAt(const char* entity, int monster_id)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName(entity, &position, 0, 0)) {
         SpawnMonsters(monster_id, 1, &position, 0, true, false, false);
@@ -155,7 +156,7 @@ unsigned char SpawnAlfieLife(int)
 // FUNCTION: WIZ8 0x004DFB80
 unsigned char SpawnAlfieKnow(int)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("NP_AlfieKnow", &position, 0, 0)) {
         SpawnMonsters(0xb0, 1, &position, 0, true, false, false);
@@ -171,17 +172,17 @@ void AscensionAvalanche(bool command)
 {
     RunNamedTrigger("Avalanche", -1);
     if (command) {
-        srVector3T<float> position;
-        srVector3T<float> trigger_position;
+        glm::vec3 position;
+        glm::vec3 trigger_position;
 
         position = glm::vec3(GetWorld()->camera->getLocation());
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
-        if ((position - trigger_position).Length() < g_double_twenty_five_hundred) {
+        if (glm::length((position - trigger_position)) < g_double_twenty_five_hundred) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);
             SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 0, false);
         } else {
             FindTriggerByName("ASC30")->GetPosition(&trigger_position);
-            if ((position - trigger_position).Length() < g_double_twenty_five_hundred) {
+            if (glm::length((position - trigger_position)) < g_double_twenty_five_hundred) {
                 SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 0, false);
                 SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
             }
@@ -219,7 +220,7 @@ void AscensionLandShaker(int command)
 // FUNCTION: WIZ8 0x004DFE60
 bool AscensionRampUp(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("NP_DarkSavant", &position, 0, 0)) {
         SpawnMonsters(0x18d, 1, &position, 0, true, false, false);
@@ -232,7 +233,7 @@ bool AscensionRampUp(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DFEA0
 unsigned char SpawnAscensionAmbush(void)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("NP_Rapax02", &position, 0, 0)) {
         SpawnMonsters(0xc3, 3, &position, 0, true, false, false);
@@ -354,7 +355,7 @@ bool AscensionKnowATrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E02F0
 bool AscensionDarkSavantSpawn(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("NP_DSavant", &position, 0, 0)) {
         SpawnMonsters(0xc2, 1, &position, 0, true, false, false);

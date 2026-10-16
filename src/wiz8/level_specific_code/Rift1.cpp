@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
@@ -27,7 +27,7 @@
 // FUNCTION: WIZ8 0x004DAFD0
 bool Rift1Sexspawn(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterInfo* monster_info;
 
     if (GetFact(W8_FACT_TEMPLAR) != 0) {
@@ -53,7 +53,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB090
 bool Rift1Hotstuff(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterGroup* group;
     W8Monster* monster;
 
@@ -76,7 +76,7 @@ bool Rift1Hotstuff(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB120
 bool Rift1Fireantspawn(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("Fireantspawn", &position, 0, 0)) {
         SpawnMonsters(0x12b, 6, &position, 1, false, false, false);
@@ -96,7 +96,7 @@ bool Rift1Gate(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB180
 bool Rift1AshLock(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (FindEntityByName("NP_Hotstuff3", &position, 0, 0)) {
         SpawnMonsters(0x222, 1, &position, 1, true, false, false);

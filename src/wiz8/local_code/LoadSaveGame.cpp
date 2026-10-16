@@ -24,6 +24,7 @@
 #include "compat/native.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
+#include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"
@@ -36,7 +37,6 @@
 #include "retail_records.h"
 #include "soundman.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srMath.h"
 #include "surrender/srPixelConvert.h"
 #include "timer.h"
 #include "wiz8/character_event_queue.h"
@@ -95,6 +95,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
@@ -348,7 +349,6 @@ void ApplyStatusHeader(const W8StatusHeader& header)
    pointer-list vectors and the result state are rebuilt, not saved. */
 template<class Entry, class Field> void ForEachMonsterControlField(Entry& effect, Field&& field)
 {
-    static_assert(sizeof(W8TargetSource) == 0x34);
     field(effect.kind);
     field(effect.turns_remaining);
     field(effect.Source);
@@ -425,8 +425,8 @@ struct SavedMonsterScript {
 struct SavedMonsterMovement {
     float minimum_height = 0;
     float maximum_height = 0;
-    srVector3T<float> patrol_home{};
-    srVector3T<float> target{};
+    glm::vec3 patrol_home{0.0f};
+    glm::vec3 target{0.0f};
 
     static SavedMonsterMovement Capture(const W8Monster& monster)
     {
@@ -437,16 +437,16 @@ struct SavedMonsterMovement {
     {
         chunk.WriteValue(minimum_height);
         chunk.WriteValue(maximum_height);
-        chunk.WriteValue(patrol_home);
-        chunk.WriteValue(target);
+        wiz8::retail::write(chunk, patrol_home);
+        wiz8::retail::write(chunk, target);
     }
     static SavedMonsterMovement Read(W8Chunk& chunk)
     {
         SavedMonsterMovement movement;
         chunk.ReadValue(movement.minimum_height);
         chunk.ReadValue(movement.maximum_height);
-        chunk.ReadValue(movement.patrol_home);
-        chunk.ReadValue(movement.target);
+        wiz8::retail::read_exact(chunk, movement.patrol_home);
+        wiz8::retail::read_exact(chunk, movement.target);
         return movement;
     }
     void Apply(W8Monster& monster) const
@@ -479,8 +479,8 @@ struct SavedMonsterOrders {
     float patrol_distance = 0;
     float patrol_variation = 0;
     signed char patrol_index = 0;
-    std::vector<srVector3T<float>> points;
-    std::optional<srVector3T<float>> direction;
+    std::vector<glm::vec3> points;
+    std::optional<glm::vec3> direction;
     std::optional<bool> face_party;
     std::optional<bool> stay_home;
 
@@ -495,8 +495,8 @@ struct SavedMonsterOrders {
         orders.patrol_variation = monster.patrol_variation;
         orders.patrol_index = monster.patrol_index;
         orders.points = monster.vector;
-        srVector3T<float> direction;
-        direction.Set(monster.direction_x, monster.direction_y, monster.direction_z);
+        glm::vec3 direction;
+        direction = glm::vec3(monster.direction_x, monster.direction_y, monster.direction_z);
         orders.direction = direction;
         orders.face_party = monster.face_party;
         orders.stay_home = monster.stay_home;
@@ -512,8 +512,8 @@ struct SavedMonsterOrders {
         chunk.WriteValue(patrol_variation);
         chunk.WriteValue(patrol_index);
         chunk.WriteValue(static_cast<int>(points.size()));
-        chunk.WriteBytes(points.data(), points.size() * sizeof(points[0]));
-        chunk.WriteValue(direction.value());
+        for (const auto& point : points) wiz8::retail::write(chunk, point);
+        wiz8::retail::write(chunk, direction.value());
         chunk.WriteValue(face_party.value());
         chunk.WriteValue(stay_home.value());
     }
@@ -528,11 +528,11 @@ struct SavedMonsterOrders {
         chunk.ReadValue(orders.patrol_variation);
         chunk.ReadValue(orders.patrol_index);
         const auto count = chunk.ReadValue<int>();
-        if (count < 0 || count > chunk.RemainingBytes() / std::int64_t{sizeof(srVector3T<float>)})
+        if (count < 0 || count > chunk.RemainingBytes() / std::int64_t{sizeof(wiz8::retail::Vec3f)})
             throw std::runtime_error("invalid monster patrol points");
         orders.points.resize(count);
-        chunk.ReadBytes(orders.points.data(), orders.points.size() * sizeof(orders.points[0]));
-        if (version >= 4) orders.direction = chunk.ReadValue<srVector3T<float>>();
+        for (auto& point : orders.points) wiz8::retail::read_exact(chunk, point);
+        if (version >= 4) wiz8::retail::read_exact(chunk, orders.direction.emplace(0.0f));
         if (version >= 6) orders.face_party = chunk.ReadValue<unsigned char>() != 0;
         if (version >= 7) orders.stay_home = chunk.ReadValue<unsigned char>() != 0;
         return orders;
@@ -593,7 +593,7 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
     W8Monster& monster = *info->p3D;
     if (info->fActive) {
         info->position = MonsterGetLocation(&monster);
-        info->position.y = probeGround(info->position.glmValue()).position.y;
+        info->position.y = probeGround(info->position).position.y;
         info->derived = MonsterGetYaw(&monster);
     }
     chunk.WriteValue(kMonsterRecordVersion);
@@ -1540,7 +1540,7 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
     W8SpellEffectEntry* lure = FindMonsterControlSpellEffect();
     if (!lure) srAssertFail("pLure", LOADSAVEGAME_CPP, 0xdb3, 0);
     ForEachMonsterControlField(*lure, [&]<class Field>(const Field& field) {
-        if constexpr (std::is_same_v<Field, W8CombatSlot>)
+        if constexpr (std::is_same_v<Field, W8CombatSlot> || std::is_same_v<Field, W8TargetSource>)
             wiz8::retail::write(*chunks, field);
         else
             chunks->WriteValue(field);
@@ -1765,7 +1765,7 @@ void LoadMonsterControlSpellEffect(W8Chunk* chunks)
 {
     auto effect = std::make_unique<W8SpellEffectEntry>();
     ForEachMonsterControlField(*effect, [&]<class Field>(Field& field) {
-        if constexpr (std::is_same_v<Field, W8CombatSlot>)
+        if constexpr (std::is_same_v<Field, W8CombatSlot> || std::is_same_v<Field, W8TargetSource>)
             wiz8::retail::read_exact(*chunks, field);
         else
             chunks->ReadValue(field);

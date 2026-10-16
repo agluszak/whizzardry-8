@@ -95,7 +95,7 @@ void MartensBluff2Setup(void)
     Trigger* pTrigger;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    srVector3T<float> position;
+    glm::vec3 position;
     int quest_state;
     int location_id;
     int value;
@@ -156,22 +156,21 @@ void MartensBluff2Setup(void)
 
 static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
 {
-    srVector3T<float> position;
-    srVector3T<float> offset;
-    srVector3T<float> direction;
+    glm::vec3 position;
+    glm::vec3 offset;
+    glm::vec3 direction;
     glm::mat3 rotation;
     float angle;
     W8Missile* missile;
 
     if (FindEntityByName(name, &position, &angle, &direction)) {
-        offset.Set(0.0, 0.0, 15000.0);
+        offset = glm::vec3(0.0, 0.0, 15000.0);
         rotation = glm::mat3(1);
         if (angle != 0.0) {
-            rotation *=
-                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                              normalizedOrZero(glm::vec3(direction.glmValue()))));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                      normalizedOrZero(glm::vec3(direction))));
         }
-        offset = position + srVector3T<float>{rotation * offset.glmValue()};
+        offset = position + glm::vec3{rotation * offset};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -185,9 +184,9 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
 bool TriggerArrowTrap(Trigger* pTrigger)
 {
     W8SpellEffectDefinition effect;
-    srVector3T<float> position;
-    srVector3T<float> offset;
-    srVector3T<float> direction;
+    glm::vec3 position;
+    glm::vec3 offset;
+    glm::vec3 direction;
     glm::mat3 rotation;
     float angle;
     W8Missile* missile;
@@ -200,11 +199,11 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     FireTrapLauncher("Arrowlauncher2", &effect);
     FireTrapLauncher("Arrowlauncher3", &effect);
     if (FindEntityByName("Arrowlauncher4", &position, &angle, &direction)) {
-        offset.Set(0.0, 0.0, 15000.0);
+        offset = glm::vec3(0.0, 0.0, 15000.0);
         rotation = glm::mat3(1);
-        rotation *= glm::mat3_cast(
-            glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(direction.glmValue()))));
-        offset = rotation * offset.glmValue() + position.glmValue();
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(direction))));
+        offset = rotation * offset + position;
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(&effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -231,9 +230,9 @@ bool MartensBluff2Spikeballtrigger(Trigger* pTrigger)
 void MartensBluff2Spikeball(int command)
 {
     W8SpellEffectDefinition effect;
-    srVector3T<float> position;
-    srVector3T<float> offset;
-    srVector3T<float> direction;
+    glm::vec3 position;
+    glm::vec3 offset;
+    glm::vec3 direction;
     glm::mat3 rotation;
     float angle;
     W8Missile* missile;
@@ -278,14 +277,14 @@ void MartensBluff2Spikeball(int command)
             FireTrapLauncher("Spikeball-launcher2", &effect);
             FireTrapLauncher("Spikeball-launcher3", &effect);
             if (FindEntityByName("Spikeball-launcher4", &position, &angle, &direction)) {
-                offset.Set(0.0, 0.0, 15000.0);
+                offset = glm::vec3(0.0, 0.0, 15000.0);
                 rotation = glm::mat3(1);
                 if (angle != 0.0) {
-                    rotation *= glm::mat3_cast(
-                        glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                       normalizedOrZero(glm::vec3(direction.glmValue()))));
+                    rotation *=
+                        glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                      normalizedOrZero(glm::vec3(direction))));
                 }
-                offset = rotation * offset.glmValue() + position.glmValue();
+                offset = rotation * offset + position;
                 missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
                 missile->SetEffectDefinition(&effect);
                 CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position,
@@ -349,7 +348,7 @@ bool MartensBluff2Dummy(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DDDC0
 bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
@@ -433,13 +432,13 @@ void MartensBluff2MonsterCrusher(int command)
 {
     /* The bounds box the octree query below sweeps; function-local statics,
        with the compiler's atexit destructor thunks at 0x004DE500/0x004DE510. */
-    static srVector3T<float> crusher_upper;
-    static srVector3T<float> crusher_lower;
+    static glm::vec3 crusher_upper;
+    static glm::vec3 crusher_lower;
     Trigger* pTrigger;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-    srVector3T<float> centre;
-    srVector3T<float> position;
+    glm::vec3 lower;
+    glm::vec3 upper;
+    glm::vec3 centre;
+    glm::vec3 position;
     std::vector<w8_ulong> location_ids;
     unsigned int count;
     unsigned int i;
@@ -485,9 +484,9 @@ void MartensBluff2MonsterCrusher(int command)
             crusher_upper.x = upper.x;
             g_crusher_excluded = 0;
             g_crusher_excluded_flag = false;
-            centre.Set((crusher_lower.x + crusher_upper.x) * g_double_half,
-                       (crusher_lower.y + crusher_upper.y) * g_double_half,
-                       (crusher_lower.z + crusher_upper.z) * g_double_half);
+            centre = glm::vec3((crusher_lower.x + crusher_upper.x) * g_double_half,
+                               (crusher_lower.y + crusher_upper.y) * g_double_half,
+                               (crusher_lower.z + crusher_upper.z) * g_double_half);
             if (command != 2) {
                 g_crusher_sound =
                     CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Hydraulics Squisher Loop.wav",
@@ -548,8 +547,7 @@ void MartensBluff2MonsterCrusher(int command)
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
     right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
-    location_ids =
-        g_octree->locationsInBox({crusher_lower.glmValue(), crusher_upper.glmValue()}, 0);
+    location_ids = g_octree->locationsInBox({crusher_lower, crusher_upper}, 0);
     count = location_ids.size();
     if (count == 0) {
         return;

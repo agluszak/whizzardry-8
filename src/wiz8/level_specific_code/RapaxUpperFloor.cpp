@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "Item.h"
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
@@ -40,8 +40,8 @@ static void RunTreasureDoor()
 // FUNCTION: WIZ8 0x004DA110
 bool RapaxUpperFloorAirBox(Trigger* pTrigger)
 {
-    srVector3T<float> entity_position;
-    srVector3T<float> position;
+    glm::vec3 entity_position;
+    glm::vec3 position;
     W8WorldItem* world_item;
     int item_id;
     int var_id;
@@ -99,8 +99,8 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DA2E0
 bool RapaxUpperFloorDoorDone(Trigger* pTrigger)
 {
-    srVector3T<float> entity_position;
-    srVector3T<float> position;
+    glm::vec3 entity_position;
+    glm::vec3 position;
     W8WorldItem* world_item;
     int item_id;
 

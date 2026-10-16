@@ -1,4 +1,4 @@
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
@@ -65,10 +65,10 @@ void CosmicCircleSetup(void)
        a missing monster is skipped. */
     W8MonsterInfo* pMonsterInfoDs = nullptr;
     W8MonsterInfo* pMonsterInfoAltheides = nullptr;
-    srVector3T<float> positionAltheides;
-    srVector3T<float> positionDs;
-    srVector3T<float> positionBela;
-    srVector3T<float> positionPhoonzang;
+    glm::vec3 positionAltheides;
+    glm::vec3 positionDs;
+    glm::vec3 positionBela;
+    glm::vec3 positionPhoonzang;
     W8MonsterGroup* group;
     Trigger* pTrigger;
     int uiMonsterID;

@@ -6,15 +6,16 @@
 
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <glm/geometric.hpp>
 
 #include "attack_modes.h"
 #include "dice.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
@@ -297,22 +298,21 @@ char g_poison_suffix[] = "POISON ";
 /* Roll the dice once for every live monster inside the radius of a point and
    apply each roll as damage through the monster-side effect pass. */
 // FUNCTION: WIZ8 0x0052BA80
-void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const W8Dice* dice,
+void DamageMonstersInRadius(const glm::vec3& center, float radius, const W8Dice* dice,
                             W8TargetSource* source, W8SpellEffectResult* result)
 {
     unsigned int index;
     int damage;
     W8MonsterInfo* monster_info;
-    srVector3T<float> location;
-    srVector3T<float> offset;
+    glm::vec3 location;
+    glm::vec3 offset;
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive) {
             location = MonsterGetLocation(monster_info->p3D);
-            offset = srVector3T<float>(center.x - location.x, center.y - location.y,
-                                       center.z - location.z);
-            if (offset.Length() <= radius) {
+            offset = glm::vec3(center.x - location.x, center.y - location.y, center.z - location.z);
+            if (glm::length(offset) <= radius) {
                 damage = RollDice(dice);
                 ApplyDamageToMonster(monster_info, damage, source, false, 1, 0, result, false);
             }

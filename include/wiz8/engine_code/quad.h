@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "glm/ext/vector_float2.hpp"
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 
 class srModelInstance;
 
@@ -23,8 +23,8 @@ struct W8Quad {
     }
 };
 
-std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const srVector3T<float>& minimum,
-                                       const srVector3T<float>& maximum);
+std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const glm::vec3& minimum,
+                                       const glm::vec3& maximum);
 
 /* Pick-angle helpers (GetHeadingAngle, GetElevationAngle, HeadingToTargetCPP,
    ElevationToTargetCPP) are declared in wiz8/engine_code/PolyPick.h. */

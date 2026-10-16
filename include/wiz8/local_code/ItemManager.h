@@ -8,7 +8,6 @@ struct W8Item;
 struct W8WorldItem;
 struct W8ItemInstance;
 struct W8MonsterInfo;
-template<class T> class srVector3T;
 
 /* When set, world items flagged invisible are not activated;
    MIPE's item-create 'A' key toggles it ("hidden" versus "blue"). */
@@ -33,7 +32,7 @@ extern int g_world_item_cursor;
 void DropHeldItem(int);
 void UpdateNearbyWorldItems(void);
 unsigned char AdvanceFallingWorldItem(W8WorldItem* item);
-bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float radius);
+bool IsWorldItemWithinReach(W8Item* owner, const glm::vec3* from, float radius);
 bool AnyWorldItemVisible(void);
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value);
 

@@ -3,8 +3,8 @@
 #include <source_location>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srClass.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/sr_api.h"
 
@@ -85,7 +85,7 @@ public:
         jammed = false;
         item = -1;
         type = W8_TRIGGER_PAYLOAD_DOOR;
-        position.SetZero();
+        position = glm::vec3(0);
         linked_trigger[0] = 0;
     }
 
@@ -101,7 +101,7 @@ public:
     bool has_position : 1;
     short item; /* key item id; -1 for none */
     char linked_trigger[0x80];
-    srVector3T<float> position;
+    glm::vec3 position;
 };
 
 /* Type 6 (built for action 17) owns a copy of the trigger's action string. */
@@ -204,9 +204,9 @@ public:
     bool Save(wiz8::File& hFile);
     bool Load(wiz8::File& hFile, char version);
     void RunLinkedTriggers();
-    void SetPosition(srVector3T<float>* position);
+    void SetPosition(glm::vec3* position);
     void FinishAction();
-    void GetPosition(srVector3T<float>* position) const;
+    void GetPosition(glm::vec3* position) const;
     bool CanRunLinkedTriggers();
     /* flags: loaded from the level record's message packed flag; gates
        the m_lData1..3 action message at the end of Run. */
@@ -245,14 +245,14 @@ public:
     int m_lData3;
     unsigned short searchable;
     unsigned char unknown_0ca[2];
-    srVector3T<float> representation_vectors[4];
+    glm::vec3 representation_vectors[4];
     float angle;
-    srVector3T<float> direction;
+    glm::vec3 direction;
     unsigned char m_bRepType;
     unsigned char unknown_10d[3];
     W8Prop* m_pProp;
     W8Item* rep_item;
-    srVector3T<float> position;
+    glm::vec3 position;
     W8World* m_pWorld;
     char action_data[0x80];
     char alternate_action_data[0x80];
@@ -312,11 +312,11 @@ bool LoadTriggerActionData(wiz8::File& handle);
 
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */
-extern srVector3T<float> g_trigger_camera;
+extern glm::vec3 g_trigger_camera;
 /* Trigger's action camera offset, added to the world scene position while an
    action is active, and the flag that says one is. */
 extern bool g_trigger_action_active;
-extern srVector3T<float> g_trigger_action_scene_offset;
+extern glm::vec3 g_trigger_action_scene_offset;
 extern int g_container_event_alt;
 extern int g_trap_notice_event;
 extern int g_lock_notice_event;

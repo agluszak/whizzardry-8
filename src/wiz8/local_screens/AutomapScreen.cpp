@@ -48,7 +48,6 @@
 #include "surrender/srClipPlane.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srFilter.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -229,23 +228,23 @@ int g_automap_saved_texture_policy;
 // GLOBAL: WIZ8 0x0068f1a8
 std::vector<srClipPlane*> g_automap_layers;
 // GLOBAL: WIZ8 0x0068f1b8
-srVector3T<float> g_automap_bounds_max;
+glm::vec3 g_automap_bounds_max;
 // GLOBAL: WIZ8 0x0068f1c8
-srVector3T<float> g_automap_grid_max;
+glm::vec3 g_automap_grid_max;
 // GLOBAL: WIZ8 0x0068f1d8
-srVector3T<float> g_automap_grid_min;
+glm::vec3 g_automap_grid_min;
 // GLOBAL: WIZ8 0x0068f1e8
-srVector3T<float> g_automap_position;
+glm::vec3 g_automap_position;
 // GLOBAL: WIZ8 0x0068f1f8
-srVector3T<float> g_automap_grid_center;
+glm::vec3 g_automap_grid_center;
 // GLOBAL: WIZ8 0x0068f204
 float g_automap_top_y;
 // GLOBAL: WIZ8 0x0068f210
-srVector3T<float> g_automap_bounds_min;
+glm::vec3 g_automap_bounds_min;
 // GLOBAL: WIZ8 0x0068f230
 DesignRect g_automap_viewport;
 // GLOBAL: WIZ8 0x0068f240
-srVector3T<float> g_automap_grid_origin;
+glm::vec3 g_automap_grid_origin;
 // GLOBAL: WIZ8 0x0068f250
 int g_automap_tool;
 // GLOBAL: WIZ8 0x0068f254
@@ -283,15 +282,15 @@ unsigned char ZoomAutomapIn(const glm::vec2* point);
 
 static glm::vec2 AutomapWorldPosition(const glm::vec2& cursor)
 {
-    return g_automap_position.xz() +
+    return glm::vec2(g_automap_position.x, g_automap_position.z) +
            (cursor - g_float_half) * glm::vec2(g_automap_zoom, -g_automap_zoom);
 }
-void SetAutomapCameraPoint(srVector3T<float>* position);
+void SetAutomapCameraPoint(glm::vec3* position);
 void SetAutomapButtonMode(int update);
 void RenderAutomapFrame(void);
 void UpdateAutomapPageButtons(void);
 void ResetAutomapLighting(void);
-void LightAutomapCell(const srVector3T<float>* position);
+void LightAutomapCell(const glm::vec3* position);
 unsigned int LightPendingAutomapCells(unsigned int max_count);
 int RestoreAutomapRect(DesignRect* rect);
 void SetAutomapLayer(int layer);
@@ -377,16 +376,17 @@ void ResetAutomapView(void)
         g_automap_range = 10000.0f;
     }
     if (g_octree == 0) {
-        g_automap_grid_min = -250000.0f;
-        g_automap_grid_max = 250000.0f;
+        g_automap_grid_min = glm::vec3(-250000.0f);
+        g_automap_grid_max = glm::vec3(250000.0f);
     } else {
         const auto bounds = g_octree->m_spatial.GetClippedBounds();
         g_automap_grid_min = bounds.minimum;
         g_automap_grid_max = bounds.maximum;
     }
     g_automap_grid_origin = g_automap_grid_min;
-    g_automap_grid_center.Set((g_automap_grid_min.x + g_automap_grid_max.x) * g_float_half, 0.0f,
-                              (g_automap_grid_min.z + g_automap_grid_max.z) * g_float_half);
+    g_automap_grid_center =
+        glm::vec3((g_automap_grid_min.x + g_automap_grid_max.x) * g_float_half, 0.0f,
+                  (g_automap_grid_min.z + g_automap_grid_max.z) * g_float_half);
     g_automap_bounds_dirty = true;
     float span_x = g_automap_grid_max.x - g_automap_grid_min.x;
     float span_z = g_automap_grid_max.z - g_automap_grid_min.z;
@@ -399,8 +399,8 @@ void ResetAutomapView(void)
     g_automap_position_initialized = false;
     g_automap_layer = 0;
 
-    srVector3T<float> camera = cameraLocation();
-    srVector3T<float> relative = camera - g_automap_grid_origin;
+    glm::vec3 camera = cameraLocation();
+    glm::vec3 relative = camera - g_automap_grid_origin;
     SDL_Keycode key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(g_automap_cell_index, key);
     if (cell > 1) {
@@ -418,9 +418,9 @@ void ResetAutomapView(void)
 /* Pack `position` into a cell key (retrying one cell higher on miss). When the
    record table knows the cell, mark it visited and return 1 only if that bit
    was newly raised — used by the world camera update to gate automap lighting. */
-bool AutomapHasCellAt(const srVector3T<float>* position)
+bool AutomapHasCellAt(const glm::vec3* position)
 {
-    srVector3T<float> relative = *position - g_automap_grid_origin;
+    glm::vec3 relative = *position - g_automap_grid_origin;
     SDL_Keycode key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(g_automap_cell_index, key);
     if (cell > 1) {
@@ -502,7 +502,7 @@ static void ZoomAutomapOut()
     if (g_automap_position.y < g_automap_top_y) {
         if (g_automap_zoom_mode == 1) {
             g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
-            srVector3T<float> position = (g_automap_bounds_max + g_automap_bounds_min) / 2.0;
+            glm::vec3 position = (g_automap_bounds_max + g_automap_bounds_min) / 2.0f;
             position.y = g_automap_top_y;
             SetAutomapCameraPoint(&position);
             SetAutomapToolCursor(g_automap_tool);
@@ -734,7 +734,7 @@ unsigned char AutomapScreenEnter(void)
     if (!g_automap_position_initialized) {
         g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
         g_automap_position_initialized = true;
-        srVector3T<float> position = (g_automap_bounds_min + g_automap_bounds_max) / 2.0;
+        glm::vec3 position = (g_automap_bounds_min + g_automap_bounds_max) / 2.0f;
         position.y = g_automap_top_y;
         SetAutomapCameraPoint(&position);
         SetAutomapToolCursor(g_automap_tool);
@@ -820,13 +820,12 @@ void AutomapScreenFrame(void)
                         if (previous) ShowAutomapNoteTooltip(previous);
                         RenderAutomapMarkers();
                     }
-                    srVector3 point;
+                    glm::vec3 point;
                     if (GetAutomapPositionUnderCursor(&point)) {
                         point.y = 0.0f;
-                        srVector3T<float> distance(point.x - g_automap_saved_camera.position.x,
-                                                   0.0f,
-                                                   point.z - g_automap_saved_camera.position.z);
-                        if (distance.Length() < g_automap_zoom * 0.05f && g_automap_tool == 0 &&
+                        glm::vec3 distance(point.x - g_automap_saved_camera.position.x, 0.0f,
+                                           point.z - g_automap_saved_camera.position.z);
+                        if (glm::length(distance) < g_automap_zoom * 0.05f && g_automap_tool == 0 &&
                             g_automap_zoom_mode != 2) {
                             DisableCursorScene();
                             glm::dvec3 scale(0.44f, 0.44f, 0.44f);
@@ -968,9 +967,9 @@ float GetAutomapGridCellSize(void)
 }
 /* Park the automap camera over the requested point with its xz clamped into
    the explored bounds, reselect the layer underneath and refresh the mesh. */
-void SetAutomapCameraPoint(srVector3T<float>* position)
+void SetAutomapCameraPoint(glm::vec3* position)
 {
-    srVector3T<float> clamped;
+    glm::vec3 clamped;
     clamped.x = g_automap_bounds_min.x <= position->x ? position->x : g_automap_bounds_min.x;
     clamped.x = clamped.x < g_automap_bounds_max.x
                     ? (g_automap_bounds_min.x <= position->x ? position->x : g_automap_bounds_min.x)
@@ -1025,10 +1024,10 @@ void SetAutomapLayer(int layer)
 void ResetAutomapZoom(void)
 {
     g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
-    srVector3T<float> position;
-    position.Set((g_automap_bounds_min.x + g_automap_bounds_max.x) * 0.5,
-                 (g_automap_bounds_min.y + g_automap_bounds_max.y) * 0.5,
-                 (g_automap_bounds_min.z + g_automap_bounds_max.z) * 0.5);
+    glm::vec3 position;
+    position = glm::vec3((g_automap_bounds_min.x + g_automap_bounds_max.x) * 0.5,
+                         (g_automap_bounds_min.y + g_automap_bounds_max.y) * 0.5,
+                         (g_automap_bounds_min.z + g_automap_bounds_max.z) * 0.5);
     position.y = g_automap_top_y;
     SetAutomapCameraPoint(&position);
     SetAutomapToolCursor(g_automap_tool);
@@ -1040,9 +1039,9 @@ void ResetAutomapZoom(void)
 unsigned char ZoomAutomapIn(const glm::vec2* point)
 {
     const auto location = AutomapWorldPosition(*point);
-    srVector3 position(location.x, g_automap_top_y, location.y);
-    srVector3 from(location.x, g_automap_top_y + g_world_scale, location.y);
-    srVector3 to(location.x, g_automap_grid_min.y, location.y);
+    glm::vec3 position(location.x, g_automap_top_y, location.y);
+    glm::vec3 from(location.x, g_automap_top_y + g_world_scale, location.y);
+    glm::vec3 to(location.x, g_automap_grid_min.y, location.y);
 
     float ground;
     if (g_octree_game_data->octree->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
@@ -1094,16 +1093,16 @@ void ResetAutomapLighting(void)
     std::ranges::fill(g_automap_lit_cells, false);
 }
 
-static srVector3T<float> GetAutomapCellPosition(unsigned int index)
+static glm::vec3 GetAutomapCellPosition(unsigned int index)
 {
-    srVector3T<float> cell;
-    cell.SetZero();
+    glm::vec3 cell;
+    cell = glm::vec3(0);
     if (index < g_automap_cell_keys.size()) {
         SDL_Keycode key = g_automap_cell_keys[index];
         float half = g_automap_grid_cell_size * g_float_half;
-        cell.Set((key >> 0x15) * g_automap_grid_cell_size + half,
-                 (key & 0x3ff) * g_automap_grid_cell_size + half,
-                 ((key >> 10) & 0x7ff) * g_automap_grid_cell_size + half);
+        cell = glm::vec3((key >> 0x15) * g_automap_grid_cell_size + half,
+                         (key & 0x3ff) * g_automap_grid_cell_size + half,
+                         ((key >> 10) & 0x7ff) * g_automap_grid_cell_size + half);
     }
     return cell + g_automap_grid_origin;
 }
@@ -1121,7 +1120,7 @@ unsigned int LightPendingAutomapCells(unsigned int max_count)
                 return lit;
             }
             if (TestBit(g_automap_visited_cells, bit)) {
-                srVector3T<float> position = GetAutomapCellPosition(bit);
+                glm::vec3 position = GetAutomapCellPosition(bit);
                 if (!TestBit(g_automap_lit_cells, bit)) {
                     SetBit(g_automap_lit_cells, bit);
                     LightAutomapCell(&position);
@@ -1167,7 +1166,7 @@ void UpdateAutomapBounds(void)
         if (g_automap_cell_count != 0) {
             do {
                 if (TestBit(g_automap_visited_cells, bit)) {
-                    srVector3T<float> position = GetAutomapCellPosition(bit);
+                    glm::vec3 position = GetAutomapCellPosition(bit);
                     if (position.x <= g_automap_bounds_min.x) {
                         g_automap_bounds_min.x = position.x;
                     }
@@ -1204,9 +1203,9 @@ void UpdateAutomapBounds(void)
    near the cell position, then for every linked mesh either flood its
    vertex-light table with 1.0 when the whole bounding box is inside the query
    range, or compute per-vertex distances and fill only the in-range runs. */
-void LightAutomapCell(const srVector3T<float>* position)
+void LightAutomapCell(const glm::vec3* position)
 {
-    const auto center = position->glmValue();
+    const auto center = (*position);
     const auto instances = g_world->octree->modelsNearPoint(center, g_automap_range, 0, false);
     for (auto* instance : instances) {
         if (!instance) continue;
@@ -1432,7 +1431,7 @@ try {
 /* Convert the cursor position to an automap world position on the layer
    below the current one, defaulting the height to the grid minimum when no
    clip plane exists there. */
-unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position)
+unsigned char GetAutomapPositionUnderCursor(glm::vec3* position)
 {
     glm::vec2 point;
 
@@ -1557,8 +1556,7 @@ void RenderAutomapMarkers(void)
     bool detect_all = PartyHasCondition(0x40);
     ClearAutomapMarkers();
     float left = g_automap_position.x - g_automap_zoom * g_float_half;
-    srVector3T<float> point(g_automap_saved_camera.position.x, 1.0f,
-                            g_automap_saved_camera.position.z);
+    glm::vec3 point(g_automap_saved_camera.position.x, 1.0f, g_automap_saved_camera.position.z);
     float top = g_automap_position.z - g_automap_zoom * g_float_half;
     if (point.x < left || left + g_automap_zoom < point.x || point.z < top ||
         top + g_automap_zoom < point.z) {
@@ -1587,8 +1585,7 @@ void RenderAutomapMarkers(void)
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
         W8Monster* monster = info->p3D;
-        srVector3T<float> location;
-        location = 0.0f;
+        glm::vec3 location;
         location = monster->m_pRep->GetLocation();
         FindAutomapLayerAtHeight(location.y);
         if (g_automap_show_all_monsters || detect_all ||
@@ -1626,7 +1623,7 @@ void RenderAutomapMarkers(void)
         if (item == 0) {
             continue;
         }
-        srVector3T<float> location;
+        glm::vec3 location;
         location = item->GetSearchPosition();
         int layer = FindAutomapLayerAtHeight(location.y);
         if ((static_cast<W8ItemRep*>(item->m_pRep)->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
@@ -1919,7 +1916,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
         if (g_automap_position.y < g_automap_top_y) {
             if (g_automap_zoom_mode == 1) {
                 g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
-                srVector3T<float> position = (g_automap_bounds_max + g_automap_bounds_min) / 2.0;
+                glm::vec3 position = (g_automap_bounds_max + g_automap_bounds_min) / 2.0f;
                 position.y = g_automap_top_y;
                 SetAutomapCameraPoint(&position);
                 SetAutomapToolCursor(g_automap_tool);
@@ -1962,10 +1959,10 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     case SDLK_HOME: {
         g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
         {
-            srVector3T<float> center(g_automap_bounds_min.x + g_automap_bounds_max.x,
-                                     g_automap_bounds_max.y + g_automap_bounds_min.y,
-                                     g_automap_bounds_min.z + g_automap_bounds_max.z);
-            srVector3T<float> position = center / 2.0;
+            glm::vec3 center(g_automap_bounds_min.x + g_automap_bounds_max.x,
+                             g_automap_bounds_max.y + g_automap_bounds_min.y,
+                             g_automap_bounds_min.z + g_automap_bounds_max.z);
+            glm::vec3 position = center / 2.0f;
             position.y = g_automap_top_y;
             SetAutomapCameraPoint(&position);
         }
@@ -2003,10 +2000,10 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             UpdateAutomapBounds();
             g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
             {
-                srVector3T<float> center(g_automap_bounds_min.x + g_automap_bounds_max.x,
-                                         g_automap_bounds_max.y + g_automap_bounds_min.y,
-                                         g_automap_bounds_min.z + g_automap_bounds_max.z);
-                srVector3T<float> position = center / 2.0;
+                glm::vec3 center(g_automap_bounds_min.x + g_automap_bounds_max.x,
+                                 g_automap_bounds_max.y + g_automap_bounds_min.y,
+                                 g_automap_bounds_min.z + g_automap_bounds_max.z);
+                glm::vec3 position = center / 2.0f;
                 position.y = g_automap_top_y;
                 SetAutomapCameraPoint(&position);
             }
@@ -2097,7 +2094,7 @@ try {
 
 /* Pack a world position into an automap node key: eleven bits of z, then
    eleven of x, then ten of y, each scaled to grid cells. */
-unsigned int AutomapNodeKey(const srVector3T<float>* position)
+unsigned int AutomapNodeKey(const glm::vec3* position)
 {
     return ((static_cast<unsigned int>(position->z / g_automap_grid_cell_size) & 0x7ff) |
             static_cast<unsigned int>(position->x / g_automap_grid_cell_size) << 11)

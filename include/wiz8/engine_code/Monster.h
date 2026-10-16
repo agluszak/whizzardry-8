@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/audio_resources.h"
@@ -19,7 +20,6 @@ struct W8World;
 #include <string>
 #include <vector>
 
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -171,9 +171,9 @@ public:
     virtual W8AniMesh* GetCurrentAniMesh() override;
     virtual void Update();
     virtual void SetCurrentAnimationScale(float scale);
-    virtual void GetMappedPosition(srVector3T<float>* position);
-    virtual std::optional<srVector3T<float>> GetAnimationCenter();
-    virtual void SetPosition(const srVector3T<float>* position) override;
+    virtual void GetMappedPosition(glm::vec3* position);
+    virtual std::optional<glm::vec3> GetAnimationCenter();
+    virtual void SetPosition(const glm::vec3* position) override;
 
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
     void SetForcedSubcycle(signed char value);   /* 0x004C6C00 */
@@ -203,18 +203,18 @@ public:
     void StartTalking(bool animate_mouth);
     void StopTalking();
     void SetCycleCallback(int cycle, CycleCallback callback);
-    bool GetPatrolPoint(srVector3T<float>* point);
+    bool GetPatrolPoint(glm::vec3* point);
     void TrackSound(wiz8::sound::Playback playback);
     float GetDistanceToPlayer();
-    float GetPointDistanceToPlayer(srVector3T<float> point);
+    float GetPointDistanceToPlayer(glm::vec3 point);
     float GetDistanceToMonster(W8Monster* monster);
-    float GetPointDistanceToMonster(W8Monster* monster, srVector3T<float> point);
+    float GetPointDistanceToMonster(W8Monster* monster, glm::vec3 point);
     bool SetScript(std::string script_name, bool reset_orders);
     void ProcessScript();
-    bool ResolveScriptPosition(const char* name, srVector3T<float>* position);
-    bool GetProjectilePosition(srVector3T<float>* position);
-    bool GetSpellPosition(srVector3T<float>* position);
-    bool GetCycleMappedPosition(signed char cycle, int mapped_index, srVector3T<float>* position);
+    bool ResolveScriptPosition(const char* name, glm::vec3* position);
+    bool GetProjectilePosition(glm::vec3* position);
+    bool GetSpellPosition(glm::vec3* position);
+    bool GetCycleMappedPosition(signed char cycle, int mapped_index, glm::vec3* position);
     bool EvaluateScriptCondition(std::string_view expression);
     bool CanContinueScript();
     bool SetScriptLabel(const char* label);
@@ -223,11 +223,10 @@ public:
     bool CheckLineOfSightToPlayer();
     void GetPlayerSightFlags(bool* primary, bool* secondary);
     bool IsVisibleToPlayer(bool use_bounds);
-    void GetPlayerToMonsterSightFlags(bool* primary, bool* secondary,
-                                      const srVector3T<float>* source);
+    void GetPlayerToMonsterSightFlags(bool* primary, bool* secondary, const glm::vec3* source);
     bool HasLineOfSightToMonster(W8Monster* monster);
     void GetMonsterSightFlags(W8Monster* monster, bool* primary, bool* secondary);
-    bool HasLineOfSightFromPoint(srVector3T<float> point);
+    bool HasLineOfSightFromPoint(glm::vec3 point);
     int IsFacingMonster(W8Monster* monster);
     int IsFacingPlayer();
     void ApplyRepresentationScale();
@@ -308,7 +307,7 @@ public:
     W8GameTimer script_delay_timer;
     Trigger* trigger;
     int registry_weight;
-    srVector3T<float> formation;
+    glm::vec3 formation;
     bool defining_orders;
     bool orders_finished;
     W8MonsterOrderMode order_mode;
@@ -318,7 +317,7 @@ public:
     unsigned char padding_292[2];
     float patrol_distance;
     float patrol_variation;
-    std::vector<srVector3T<float>> vector;
+    std::vector<glm::vec3> vector;
     signed char patrol_index;
     unsigned char padding_2ad[3];
     float direction_x;
@@ -326,7 +325,7 @@ public:
     float direction_z;
     /* 0x2bc: the direction the real-time AI moves the monster along, added to
        its position to pick the aim point (mode 0xa). */
-    srVector3T<float> move_direction;
+    glm::vec3 move_direction;
     int look_frequency;
     int look_duration;
     /* 0x2d0: sun-visibility state for the model light-scale lerp: -1
@@ -373,10 +372,10 @@ unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* 
                                W8Monster** monster, int cycle, int value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
-srVector3T<float> MonsterGetLocation(const W8Monster* monster);
+glm::vec3 MonsterGetLocation(const W8Monster* monster);
 /* Expose the first Navigator angle through the enclosing Monster. */
 float MonsterGetYaw(W8Monster* monster); /* 0x004C5770 */
-srVector3T<float> MonsterGetLocalLocation(const W8Monster* monster);
+glm::vec3 MonsterGetLocalLocation(const W8Monster* monster);
 void UpdateMonster(W8Monster* monster);
 bool MonsterIsCycleSupported(W8Monster* monster, signed char cycle);
 unsigned char MonsterReplacePath(W8Monster* monster, W8PathAI* path);
@@ -387,15 +386,15 @@ void MonsterSetMirrorX(W8Monster* monster, bool state);
 float MonsterGetScale(W8Monster* monster);
 void MonsterSetScale(W8Monster* monster, float scale);
 void MonsterGetScaleRange(W8Monster* monster, float* minimum, float* maximum);
-void MonsterSetAdjustedPosition(W8Monster* monster, const srVector3T<float>* position);
+void MonsterSetAdjustedPosition(W8Monster* monster, const glm::vec3* position);
 unsigned short MonsterApproachStartupNavigator(W8Monster* monster, double separation);
 unsigned char MonsterLinkToStartupNavigator(W8Monster* monster);
 unsigned short MonsterConfigureMovementToPlayer(W8Monster* monster, float separation,
-                                                float maximum_distance, srVector3T<float> position,
+                                                float maximum_distance, glm::vec3 position,
                                                 int trace_mode, unsigned char* probe_result);
 unsigned short MonsterConfigureMovementToMonster(W8Monster* monster, W8Monster* target,
                                                  float separation, float maximum_distance,
-                                                 srVector3T<float> position, int trace_mode,
+                                                 glm::vec3 position, int trace_mode,
                                                  unsigned char* probe_result);
 void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate);
 void MonsterSetCycle(W8Monster* monster, signed char cycle);
@@ -451,7 +450,7 @@ void DetachMonsterRepresentation(W8Monster* monster, W8World* world);
 void DeleteMonster(W8Monster* monster);
 void RefreshMonsterStandingHeight(W8Monster* monster);
 void MonsterSetLocationId(W8Monster* monster, int value);
-void MonsterSelectLOD(W8Monster* monster, const srVector3T<float>* position);
+void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position);
 /* The shared forwarder four call sites use to advance a cycle's
    representation; it stays free because its callers pass the object on the
    stack. */
@@ -460,11 +459,10 @@ void MonsterSetNavigatorHalted(W8Monster* monster, bool value);
 W8AIRecord* MonsterGetAIRecord(W8Monster* monster);                     /* 0x004C5B30 */
 void MonsterSetNavigatorMovementScale(W8Monster* monster, float value); /* 0x004C5F50 */
 float MonsterGetNavigatorMovementScale(W8Monster* monster);             /* 0x004C5F70 */
-unsigned char
-MonsterConfigureMovementToPosition(W8Monster* monster,
-                                   const srVector3T<float>* position);           /* 0x004C5F90 */
-void MonsterAddPathPoint(W8Monster* monster, const srVector3T<float>* argument); /* 0x004C5FB0 */
-void MonsterSetPathLooping(W8Monster* monster, char value);                      /* 0x004C5FD0 */
+unsigned char MonsterConfigureMovementToPosition(W8Monster* monster,
+                                                 const glm::vec3* position); /* 0x004C5F90 */
+void MonsterAddPathPoint(W8Monster* monster, const glm::vec3* argument); /* 0x004C5FB0 */
+void MonsterSetPathLooping(W8Monster* monster, char value); /* 0x004C5FD0 */
 void MonsterResumeAllNavigators(void);
 
 void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);

@@ -65,7 +65,7 @@ stLight::stLight(srNode* parent, Ownership ownership)
     m_direction = 1;
     m_path_index = 0;
     m_path_direction = 1;
-    m_position.SetZero();
+    m_position = glm::vec3(0);
     m_level = 0;
     m_definition = 0;
     m_unknown_238 = 0;
@@ -160,7 +160,7 @@ void stLight::SetDefinitionTime(float time)
    ping-ponging at the ends. */
 glm::vec3 stParametricLightDefinition::GetInterpolatedColor(float blend) const
 {
-    return glm::min(glm::mix(color.glmValue(), color_to.glmValue(), blend), glm::vec3(1));
+    return glm::min(glm::mix(color, color_to, blend), glm::vec3(1));
 }
 
 // FUNCTION: WIZ8 0x0049C960
@@ -206,8 +206,7 @@ void stLight::Update()
             index = definition->keyframe_index;
             const auto& color_to = definition->key_colors[index + 1];
             const auto& color_from = definition->key_colors[index];
-            diffuse =
-                glm::min(glm::mix(color_from.glmValue(), color_to.glmValue(), blend), glm::vec3(1));
+            diffuse = glm::min(glm::mix(color_from, color_to, blend), glm::vec3(1));
             return;
         }
         intensity = g_float_zero;
@@ -285,7 +284,7 @@ void stLight::Update()
             }
         }
         if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-            diffuse = definition->color.glmValue();
+            diffuse = definition->color;
         }
         if (testFlag(FLAG_DISABLE) == 0) {
             setFlag(FLAG_DISABLE);
@@ -352,7 +351,7 @@ void stLight::Reset()
                 static_cast<stParametricLightDefinition*>(m_definition);
             intensity = definition->intensity;
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-                diffuse = definition->color.glmValue();
+                diffuse = definition->color;
             }
         }
     }

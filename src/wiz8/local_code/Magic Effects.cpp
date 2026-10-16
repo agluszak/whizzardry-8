@@ -12,6 +12,7 @@
 
 #include "compat/compiler.h"
 #include "dice.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/character.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
@@ -24,7 +25,6 @@
 #include "monster_spell_icons.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/3d.h"
@@ -653,13 +653,13 @@ W8EnchantmentSlot GetConditionDisplaySlot(int spell_id)
    camera-facing yaw for a hostile disposition - which is also the fallback
    when the extreme-range box query turns up no monster at all. */
 // FUNCTION: WIZ8 0x0054ff20
-float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposition, int exclusion)
+float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, int exclusion)
 {
     W8Monster* nearest;
     W8Monster* monster;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-    srVector3T<float> position;
+    glm::vec3 lower;
+    glm::vec3 upper;
+    glm::vec3 position;
     std::vector<w8_ulong> location_ids;
     double nearest_distance;
     float distance;
@@ -682,8 +682,7 @@ float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposi
     upper.y += range;
     upper.z += range;
 
-    location_ids = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()},
-                                            static_cast<unsigned short>(exclusion));
+    location_ids = g_octree->locationsInBox({lower, upper}, static_cast<unsigned short>(exclusion));
     count = location_ids.size();
     if (count == 0) {
         return HeadingToTargetCPP(&point);
@@ -879,7 +878,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
 void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
 {
     W8Character* caster;
-    srVector3T<float> point;
+    glm::vec3 point;
 
     if (!TargetSourceIsCharacter(&pQueue->Source, 0)) {
         srAssertFail("SourceIsCharacter(&(pQueue->Source))", MAGIC_EFFECTS_CPP, 2685, 0);
@@ -2363,10 +2362,10 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
     W8CombatSlot target;
-    srVector3T<float> center;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-    srVector3T<float> eye;
+    glm::vec3 center;
+    glm::vec3 lower;
+    glm::vec3 upper;
+    glm::vec3 eye;
     std::vector<w8_ulong> location_ids;
     unsigned int count;
     unsigned int index;
@@ -2375,10 +2374,10 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     far_clip = static_cast<float>(WorldGetFarClip(GetWorld()));
     center = effect->target.point;
     center.y += g_default_world_height * g_float_half;
-    lower.Set(center.x - far_clip, center.y - far_clip, center.z - far_clip);
-    upper.Set(center.x + far_clip, center.y + far_clip, center.z + far_clip);
+    lower = glm::vec3(center.x - far_clip, center.y - far_clip, center.z - far_clip);
+    upper = glm::vec3(center.x + far_clip, center.y + far_clip, center.z + far_clip);
 
-    location_ids = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, 0);
+    location_ids = g_octree->locationsInBox({lower, upper}, 0);
     count = location_ids.size();
     for (index = 0; index < count; ++index) {
         monster_info = FindMonster(location_ids[index]);
@@ -2753,7 +2752,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
                 float radius = g_startup_world->radius;
-                srVector3T<float> centre = g_startup_world->GetPosition();
+                glm::vec3 centre = g_startup_world->GetPosition();
                 CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1, 0);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
@@ -3041,7 +3040,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 {
     W8WorldCameraState* camera_state;
     W8World* world;
-    srVector3T<float> point;
+    glm::vec3 point;
     std::string sound_name;
     std::string path;
     unsigned char

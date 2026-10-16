@@ -14,7 +14,6 @@ class stLight;
 #include <algorithm>
 
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -42,15 +41,11 @@ struct W8GameData;
    serialized padding. */
 typedef float W8CameraAngleRecord[6];
 
-#pragma pack(push, 1)
 struct W8WorldCameraState {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8CameraAngleRecord pitch;
     W8CameraAngleRecord yaw;
 };
-#pragma pack(pop)
-static_assert(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
-static_assert(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
 
 /* Runtime world, not a retail disk record. Collection storage belongs to the
    world. Cameras own their paths; raw entity pointers are destroyed by

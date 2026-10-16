@@ -5,6 +5,7 @@
 #include <optional>
 #include <string_view>
 
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 
 /* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
@@ -15,7 +16,6 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -51,11 +51,11 @@ void DestroyLightVector(std::vector<stLight*>* vector); /* 0x004A8C50 */
 // neither the definition nor its caller owns a running instance.
 struct ShakeDefinition {
     ShakeDefinition(float duration, bool preset, float intensity, float distance_cap,
-                    const srVector3T<float>* position);
+                    const glm::vec3* position);
     float duration;
     float intensity;
     float distance_cap;
-    srVector3T<float> position{0, 0, 0};
+    glm::vec3 position{0, 0, 0};
     bool limit_distance = false;
     bool quadratic_falloff = false;
     bool fade_out = false;
@@ -73,7 +73,7 @@ public:
     void Start(const ShakeDefinition&, const ShakeDefinition* key = nullptr);
     void Stop(const ShakeDefinition& key);
     bool IsActive(const ShakeDefinition& key) const;
-    float Update(const srVector3T<float>& camera);
+    float Update(const glm::vec3& camera);
 
 private:
     struct Instance {
@@ -81,7 +81,7 @@ private:
         ShakeDefinition definition;
         W8GameTimer timer;
         const ShakeDefinition* key;
-        bool Evaluate(const srVector3T<float>& camera, float& amount);
+        bool Evaluate(const glm::vec3& camera, float& amount);
     };
     std::vector<std::unique_ptr<Instance>> active;
 };
@@ -101,7 +101,7 @@ public:
     signed char subcycle;
     unsigned char padding_05[3];
     std::unique_ptr<stParticle> m_pstParticles;
-    srVector3T<float> position;
+    glm::vec3 position;
     /* 0x004A7E50 composes this into the model instance's own rotation with
        MultiplyBy, which is what makes it a matrix rather than 0x24
        opaque bytes. */
@@ -126,7 +126,7 @@ public:
        This typed view supplies animation, particles, lights, and model state;
        neither base constructs or deletes that pointer. */
     virtual W8EmitterHost* GetRepresentation() = 0;
-    void SetCyclePosition(srVector3T<float>* position);
+    void SetCyclePosition(glm::vec3* position);
     /* Registry-wide lookups answered from this cycle's identity. */
     const char* GetRegisteredName() const;     /* 0x004A8650 */
     bool IsSoleRegisteredCycleForName() const; /* 0x004A8700 */
@@ -150,7 +150,7 @@ public:
     /* Runs at the end of every representation update; its own body is the
        shake/particle event walk. */
     void UpdateParticleAttachments();
-    void SelectLOD(const srVector3T<float>* position); /* 0x004A7BE0 */
+    void SelectLOD(const glm::vec3* position); /* 0x004A7BE0 */
     void UpdateLights();
     srModelInstance* SelectCycleFrameLod(signed char cycle, signed char frame, signed char lod);
     srModelInstance* GetCurrentModelInstance();
@@ -175,7 +175,7 @@ public:
     /* 0x1bf: m_axis holds an aim point; mode-3 particles orient along it. */
     bool aim_set;
     /* The axis 0x004A7E50 aims a mode-three particle along. */
-    srVector3T<float> m_axis;
+    glm::vec3 m_axis;
     float scale;
     stGroundShadow* m_ground_shadow; /* 0x1d0: typed runtime class stGroundShadow */
     /* Fractional frame progress after TickAnimation consumes whole frames.

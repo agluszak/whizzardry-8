@@ -8,6 +8,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/geometry.h"
+#include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 
 struct W8EnvironRecord;
@@ -17,9 +18,6 @@ namespace wiz8::retail {
 
 #pragma pack(push, 1)
 // These records contain values only. Live GLM vectors never enter raw transfers.
-struct Vec3f {
-    float x, y, z;
-};
 struct Plane {
     Vec3f normal;
     float w;
@@ -97,17 +95,6 @@ template<> struct Record<W8GDSurface> {
               field(offsetof(Disk, contact_margin), sizeof(Disk::contact_margin)));
         value(&runtime.chance, field(offsetof(Disk, chance), sizeof(Disk::chance)));
         value(&runtime.slope, field(offsetof(Disk, slope), sizeof(Disk::slope)));
-    }
-};
-
-template<> struct Record<glm::vec3> {
-    using Disk = Vec3f;
-    template<class Runtime, class Bytes, class Value, class Text>
-    static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
-    {
-        value(&runtime.x, bytes.subspan(0, 4));
-        value(&runtime.y, bytes.subspan(4, 4));
-        value(&runtime.z, bytes.subspan(8, 4));
     }
 };
 

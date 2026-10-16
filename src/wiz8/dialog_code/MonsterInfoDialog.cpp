@@ -9,6 +9,7 @@
 
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
+#include <glm/geometric.hpp>
 
 #include "Font.h"
 #include "character_skills.h"
@@ -20,7 +21,6 @@
 #include "layouts/character.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
-#include "surrender/srMath.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -419,7 +419,7 @@ bool W8MonsterInfoDialog::PopulateText()
             "Range (Combat/Ground)",
             fmt::format(
                 "{:5.2f} / {:5.2f} M", combat_range * g_float_one_five_hundredth,
-                (monster_info->p3D->GetPosition() - g_startup_world->GetPosition()).Length() *
+                glm::length((monster_info->p3D->GetPosition() - g_startup_world->GetPosition())) *
                     g_world_cursor_scale),
             5, 0xf, 0);
         leader_info = FindMonster(leader_location_id);

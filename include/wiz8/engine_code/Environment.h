@@ -23,7 +23,6 @@ namespace wiz8 {
 class File;
 }
 struct W8World;
-template<class T> class srVector3T;
 
 /* Environment.cpp. The vertex processor that scrolls the first texture
    coordinate set of the sky's AnimatedCloudMaterial by a fixed per-frame
@@ -152,7 +151,7 @@ extern W8Prop* g_sun_prop;
 extern std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
 /* Midpoint of the Sun and Moon, which the active prop orbits and the inactive
    one rests at. */
-extern srVector3T<float> g_celestial_origin;
+extern glm::vec3 g_celestial_origin;
 
 /* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
    The vector count occupies 0x0065B99C. */

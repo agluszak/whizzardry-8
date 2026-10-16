@@ -20,6 +20,7 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/float_constants.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/sr_api.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
@@ -101,8 +102,8 @@ try {
         handle->read_exact(&frames, 1);
         animation->frame_bounds.resize(frames);
         for (auto& bounds : animation->frame_bounds) {
-            handle->read_exact(&bounds.minimum, sizeof(bounds.minimum));
-            handle->read_exact(&bounds.maximum, sizeof(bounds.maximum));
+            wiz8::retail::read_exact(*handle, bounds.minimum);
+            wiz8::retail::read_exact(*handle, bounds.maximum);
             bounds.minimum *= static_cast<float>(g_double_five_hundred);
             bounds.maximum *= static_cast<float>(g_double_five_hundred);
             bounds.known = true;
@@ -111,20 +112,20 @@ try {
 
     if (version > 7) {
         unsigned char light_count;
-        srVector3T<float> color(1.0f, 1.0f, 1.0f);
+        glm::vec3 color(1.0f, 1.0f, 1.0f);
         handle->read_exact(&light_count, 1);
         for (index = 0; index < static_cast<signed char>(light_count); ++index) {
             unsigned char light_version;
             unsigned char definition_kind = 0;
             unsigned char ignored;
-            srVector3T<float> position;
+            glm::vec3 position;
             float range;
             float intensity;
             std::unique_ptr<stLightDefinition> definition;
 
             handle->read_exact(&light_version, 1);
-            handle->read_exact(&position, sizeof(position));
-            handle->read_exact(&color, sizeof(color));
+            wiz8::retail::read_exact(*handle, position);
+            wiz8::retail::read_exact(*handle, color);
             handle->read_exact(&intensity, 4);
             handle->read_exact(&range, 4);
             position *= static_cast<float>(g_double_five_hundred);
@@ -138,7 +139,7 @@ try {
                 auto typed = std::make_unique<stParametricLightDefinition>();
                 handle->read_exact(&typed->flags, 4);
                 handle->read_exact(&typed->flicker_chance, 4);
-                handle->read_exact(&typed->color, 12);
+                wiz8::retail::read_exact(*handle, typed->color);
                 handle->read_exact(&typed->color_to.x, 4);
                 handle->read_exact(&typed->color_to.y, 4);
                 handle->read_exact(&typed->color_to.z, 4);
@@ -161,11 +162,11 @@ try {
                 for (key = 0; key < 6; ++key) {
                     int frame;
                     float value;
-                    srVector3T<float> vector;
+                    glm::vec3 vector;
 
                     handle->read_exact(&frame, 4);
                     handle->read_exact(&value, 4);
-                    handle->read_exact(&vector, sizeof(vector));
+                    wiz8::retail::read_exact(*handle, vector);
                     if (frame < previous) {
                         frame = previous + 1;
                     }
@@ -190,7 +191,7 @@ try {
                              "AnimObjReadFromFile: Where is the light list?");
             } else {
                 std::unique_ptr<stLight> light(CreateWorldLight(0, "MonsterLight"));
-                light->diffuse = color.glmValue();
+                light->diffuse = color;
                 light->specular = glm::vec3(0);
                 ConfigureWorldLight(light.get(), range * g_world_scale);
                 light->intensity = intensity;
@@ -352,7 +353,7 @@ std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char 
     frame &= 0xff;
     if (frame < animation->frame_bounds.size() && animation->frame_bounds[frame].known) {
         const auto& bounds = animation->frame_bounds[frame];
-        return srBoundingBox{bounds.minimum.glmValue(), bounds.maximum.glmValue()};
+        return srBoundingBox{bounds.minimum, bounds.maximum};
     }
     if (!animation->path_lists) return GetAniMeshBounds(animation->entries[list_index].get());
     if (frame >= animation->frame_count) return std::nullopt;
@@ -388,14 +389,12 @@ std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char 
    infinite box, which is why the loop carries the is-first test instead of
    pre-filling. */
 // FUNCTION: WIZ8 0x004a1df0
-void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation,
-                     const srVector3T<float>* scale, srVector3T<float>* minimum,
-                     srVector3T<float>* maximum)
+void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
+                     const glm::vec3* scale, glm::vec3* minimum, glm::vec3* maximum)
 {
-    const srBoundingBox bounds{minimum->glmValue(), maximum->glmValue()};
-    const auto transformed = bounds.transformedBy([&](const glm::vec3& point) {
-        return (*rotation * point + translation->glmValue()) * scale->glmValue();
-    });
+    const srBoundingBox bounds{(*minimum), (*maximum)};
+    const auto transformed = bounds.transformedBy(
+        [&](const glm::vec3& point) { return (*rotation * point + (*translation)) * (*scale); });
     *maximum = transformed.maximum;
     *minimum = transformed.minimum;
 }

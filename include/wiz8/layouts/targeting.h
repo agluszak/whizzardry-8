@@ -1,7 +1,7 @@
 #ifndef WIZ8_LAYOUTS_TARGETING_H
 #define WIZ8_LAYOUTS_TARGETING_H
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 
 struct W8ItemInstance;
 struct W8MonsterInfo;
@@ -28,7 +28,7 @@ struct W8TargetSource {
        somebody. Note that this is not where the combat slot keeps its own
        point - that one has a group id at 0x0c and the point at 0x10 - so the
        two blocks are related but not the same shape. */
-    srVector3T<float> point;
+    glm::vec3 point;
     /* 0x18: system-driven cast (retaliation/AI/trap): skips the backfire
        check and counts as already reported. */
     unsigned char auto_cast;
@@ -103,7 +103,7 @@ struct W8CombatSlot {
     int iChar;      /* -1 when empty */
     int iMonsterID; /* -1 when empty */
     int iGroupID;   /* -1 when empty */
-    srVector3T<float> point;
+    glm::vec3 point;
     /* The item aimed at, for the one kind that aims at one. */
     W8ItemInstance* pPCItem;
 

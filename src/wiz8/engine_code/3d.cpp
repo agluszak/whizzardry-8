@@ -64,7 +64,7 @@ void UpdateWorldMonsters(W8World* world)
     }
 
     glm::dvec3 camera_location = world->camera->getLocation();
-    srVector3T<float> position;
+    glm::vec3 position;
     position = glm::vec3(camera_location);
 
     unsigned int count = world->plsMonsters.size();
@@ -257,10 +257,10 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
 // FUNCTION: WIZ8 0x0046F820
 bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
-    const srVector3 from(eye);
+    const glm::vec3 from(eye);
     for (const auto& sample : bounds.visibilitySamples()) {
         if (!projectsToCamera(sample)) continue;
-        srVector3 point(sample);
+        glm::vec3 point(sample);
         if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
@@ -269,9 +269,9 @@ bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 // FUNCTION: WIZ8 0x0046FAF0
 bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
 {
-    const srVector3 from(origin);
+    const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
-        srVector3 point(sample);
+        glm::vec3 point(sample);
         if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
     }
     return false;
@@ -280,9 +280,9 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& boun
 // FUNCTION: WIZ8 0x0046FD70
 bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
 {
-    const srVector3 from(origin);
+    const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
-        srVector3 point(sample);
+        glm::vec3 point(sample);
         if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;

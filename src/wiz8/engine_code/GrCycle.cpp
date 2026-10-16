@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <glm/geometric.hpp>
 
 #include "Emitter.h"
 #include "Navigator.h"
@@ -77,7 +78,7 @@ const float g_float_two_hundred_fifty = 250.0f;
 // GLOBAL: WIZ8 0x0060da88
 static bool g_camera_shake_enabled = true;
 ShakeDefinition::ShakeDefinition(float duration, bool preset, float intensity, float distance_cap,
-                                 const srVector3T<float>* position)
+                                 const glm::vec3* position)
     : duration(duration), intensity(intensity), distance_cap(distance_cap), limit_distance(preset),
       quadratic_falloff(preset), fade_out(preset)
 {
@@ -123,7 +124,7 @@ bool ShakeSystem::IsActive(const ShakeDefinition& key) const
                                [&key](const auto& instance) { return instance->key == &key; });
 }
 
-bool ShakeSystem::Instance::Evaluate(const srVector3T<float>& camera, float& amount)
+bool ShakeSystem::Instance::Evaluate(const glm::vec3& camera, float& amount)
 {
     if (definition.duration <= 0.0f) {
         return false;
@@ -151,7 +152,7 @@ bool ShakeSystem::Instance::Evaluate(const srVector3T<float>& camera, float& amo
     return true;
 }
 
-float ShakeSystem::Update(const srVector3T<float>& camera)
+float ShakeSystem::Update(const glm::vec3& camera)
 {
     float intensity = 0.0f;
     std::vector<void (*)()> callbacks;
@@ -176,7 +177,7 @@ float ShakeSystem::Update(const srVector3T<float>& camera)
 }
 
 static void TriggerShakeEvents(std::deque<ShakeDefinition>& events, int cycle, unsigned int frame,
-                               int subcycle, const srVector3T<float>& position)
+                               int subcycle, const glm::vec3& position)
 {
     for (auto& event : events) {
         if (event.cycle == cycle && event.frame == static_cast<int>(frame) &&
@@ -513,7 +514,7 @@ W8GrCycle::~W8GrCycle()
 }
 
 // FUNCTION: WIZ8 0x004a6df0
-void W8GrCycle::SetCyclePosition(srVector3T<float>* position)
+void W8GrCycle::SetCyclePosition(glm::vec3* position)
 
 {
     W8EmitterHost* representation = GetRepresentation();
@@ -555,7 +556,7 @@ void W8GrCycle::TickAnimation(float scale)
             frame_fraction = progress - frames;
 
             if (frames != 0) {
-                srVector3T<float> position;
+                glm::vec3 position;
 
                 representation->timer += static_cast<int>(frames * g_float_one_thousand / rate);
                 wrapped = false;
@@ -620,7 +621,7 @@ unsigned char W8GrCycle::ApplyPendingCycle()
             representation->pending_behaviour = W8_ANIMATION_NO_PENDING_BEHAVIOUR;
         }
 
-        srVector3T<float> position = GetPosition();
+        glm::vec3 position = GetPosition();
         UpdateSoundEvents(sound_events, position,
                           W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_CYCLE | W8_SOUND_EVENT_FOOTSTEP,
                           representation->current_cycle, representation->subcycle,
@@ -801,7 +802,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     W8AnimObj* animation;
     glm::mat3 rotation;
     glm::dvec3 location;
-    srVector3T<float> vecPos;
+    glm::vec3 vecPos;
     int index;
 
     if (pWorld == 0) {
@@ -840,7 +841,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
                 PathAIApply(path, psrMesh);
             }
             vecPos = movement.position;
-            location = glm::dvec3(vecPos.glmValue());
+            location = glm::dvec3(vecPos);
             location.y += movement.vertical_offset;
             psrMesh->setLocation(location);
             rotation = pRep->GetRotation();
@@ -868,7 +869,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             }
         }
         vecPos = movement.position;
-        location = glm::dvec3(vecPos.glmValue());
+        location = glm::dvec3(vecPos);
         location.y += movement.vertical_offset;
         rotation = pRep->GetRotation();
         child = psrMesh->first_child_;
@@ -889,9 +890,9 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     }
     UpdateParticleAttachments();
     if (m_ground_shadow != 0) {
-        srVector3T<float> position = GetPosition();
+        glm::vec3 position = GetPosition();
 
-        location = glm::dvec3(position.glmValue());
+        location = glm::dvec3(position);
         m_ground_shadow->setLocation(location);
         m_ground_shadow->angle = GetYaw();
         m_ground_shadow->clearFlag(srNode::FLAG_TERMINATE);
@@ -899,7 +900,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
-        srVector3T<float> origin;
+        glm::vec3 origin;
 
         if (AnimationIsRunning(animation) == 1) {
             origin = pRep->GetLocation();
@@ -911,10 +912,10 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         rotation = pRep->GetRotation();
         for (index = 0; index < count; ++index) {
             stLight* light = (*m_plsLights)[index];
-            srVector3T<float> offset = light->m_position;
+            glm::vec3 offset = light->m_position;
 
-            srVector3T<float> placed = rotation * offset.glmValue() + origin.glmValue();
-            location = glm::dvec3(placed.glmValue());
+            glm::vec3 placed = rotation * offset + origin;
+            location = glm::dvec3(placed);
             light->setLocation(location);
         }
     }
@@ -986,8 +987,8 @@ void W8GrCycle::UpdateParticleAttachments()
     glm::dvec3 axis;
     glm::mat3 combined;
     glm::dmat3 world;
-    srVector3T<float> offset;
-    srVector3T<float> placed;
+    glm::vec3 offset;
+    glm::vec3 placed;
     int vertex;
     float scale_x;
     float scale_y;
@@ -1068,15 +1069,15 @@ void W8GrCycle::UpdateParticleAttachments()
         offset.x *= scale_x;
         offset.y *= scale_y;
         offset.z *= scale_z;
-        placed = rotation * offset.glmValue();
+        placed = rotation * offset;
         location = current_model_instance->getLocation();
-        srVector3T<float> anchor;
+        glm::vec3 anchor;
         anchor = glm::vec3(location);
         placed += anchor;
 
         if (aim_set && particle->direction_mode == W8_PARTICLE_DIRECTION_CONE) {
-            target = glm::dvec3(placed.glmValue());
-            axis = glm::dvec3(m_axis.glmValue());
+            target = glm::dvec3(placed);
+            axis = glm::dvec3(m_axis);
             particle->setRotation(axis, target, 0.0);
         } else if (particle->direction_mode != W8_PARTICLE_DIRECTION_RANDOM) {
             combined = rotation;
@@ -1084,7 +1085,7 @@ void W8GrCycle::UpdateParticleAttachments()
             world = glm::dmat3(combined);
             particle->setWorldSpaceRotation(world);
         }
-        location = glm::dvec3(placed.glmValue());
+        location = glm::dvec3(placed);
         particle->setLocation(location);
     }
 }
@@ -1099,11 +1100,11 @@ void W8GrCycle::UpdateParticleAttachments()
    override the distance choice in either direction, but only towards a LOD the
    cycle has. */
 // FUNCTION: WIZ8 0x004a7be0
-void W8GrCycle::SelectLOD(const srVector3T<float>* position)
+void W8GrCycle::SelectLOD(const glm::vec3* position)
 {
     W8EmitterHost* pRep = GetRepresentation();
-    srVector3T<float> delta = pRep->location - *position;
-    float distance = delta.Length();
+    glm::vec3 delta = pRep->location - *position;
+    float distance = glm::length(delta);
     bool has_lod_2 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 2) != 0;
     bool has_lod_1 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 1) != 0;
     bool has_lod_0 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 0) != 0;

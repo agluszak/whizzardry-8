@@ -20,6 +20,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "Emitter.h"
@@ -141,7 +142,7 @@ float g_monster_light_scale = 1.0f;
 
 // GLOBAL: WIZ8 0x0065970C
 unsigned char g_monster_shadow_updates_enabled;
-/* Layout-compatible with srVector3T<float> but POD so VC6 emits static .data
+/* Layout-compatible with glm::vec3 but POD so VC6 emits static .data
    instead of a dynamic initializer into .bss. */
 struct W8AttachmentOffset {
     float x;
@@ -382,8 +383,8 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     int spell_start = -1;
     int footstep_volume = 0;
     int footstep_combat_volume = 0;
-    srVector3T<float> light_first;
-    srVector3T<float> light_second;
+    glm::vec3 light_first;
+    glm::vec3 light_second;
     W8SoundEvent* last_sound = 0;
     int damage_stage = -1;
     int skin_stage = 0;
@@ -1172,7 +1173,7 @@ W8Monster::W8Monster()
       sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE), target_highlighted(false),
       hostility_preserved(false), sound(0)
 {
-    formation.SetZero();
+    formation = glm::vec3(0);
     kind = 1;
 
     m_pRep = new W8MonsterRep;
@@ -1212,7 +1213,7 @@ W8Monster::W8Monster(const W8Monster& rhs)
       trigger(0), registry_weight(rhs.registry_weight), spell_effect_armed(0), sector_mesh(0),
       sound(0)
 {
-    formation.SetZero();
+    formation = glm::vec3(0);
     fade_state = W8_MONSTER_FADE_IDLE;
     target_highlighted = false;
     hostility_preserved = rhs.hostility_preserved;
@@ -1272,7 +1273,7 @@ W8Monster::~W8Monster()
 /* Navigator is W8Monster's second base at +0x18. VC6 places this override in
    that secondary table and emits the adjusted entry form at 0x004CA840. */
 // FUNCTION: WIZ8 0x004ca840
-void W8Monster::SetPosition(const srVector3T<float>* position)
+void W8Monster::SetPosition(const glm::vec3* position)
 {
     GetRepresentation()->SetLocation(position);
     m_pRep->SetLocation(position);
@@ -1288,8 +1289,8 @@ void W8Monster::SetPosition(const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x004c2100
 void W8Monster::Update()
 {
-    srVector3T<float> party_position;
-    srVector3T<float> monster_position;
+    glm::vec3 party_position;
+    glm::vec3 monster_position;
     W8MonsterInfo* monster_info = 0;
     float distance;
     int cycle;
@@ -1301,10 +1302,10 @@ void W8Monster::Update()
 
     party_position = cameraLocation();
     {
-        srVector3T<float> position = GetPosition();
+        glm::vec3 position = GetPosition();
         monster_position = position;
     }
-    distance = (monster_position - party_position).Length();
+    distance = glm::length((monster_position - party_position));
 
     if (sunlit_state == W8_MONSTER_SUNLIGHT_UNKNOWN || g_monster_light_scale < g_float_one) {
         current_scale = 0.75f;
@@ -1326,9 +1327,9 @@ void W8Monster::Update()
         if (distance < WorldGetRenderRange(g_world)) {
             srNode* sun = FindWorldNode<srNode>("SUN");
             if (sun != 0) {
-                srVector3T<float> mapped_position;
+                glm::vec3 mapped_position;
                 glm::dvec3 sun_location = sun->getLocation();
-                srVector3T<float> sun_position;
+                glm::vec3 sun_position;
 
                 GetMappedPosition(&mapped_position);
                 sun_position = glm::vec3(sun_location);
@@ -1575,9 +1576,9 @@ void W8Monster::Update()
     InitializeAnimatedTexture();
 
     if (sound != 0) {
-        srVector3T<float> position = GetPosition();
+        glm::vec3 position = GetPosition();
         glm::dvec3 location;
-        location = glm::dvec3(position.glmValue());
+        location = glm::dvec3(position);
         sound->setLocation(location);
     }
 }
@@ -1599,8 +1600,8 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
     }
 
     if (CompareTextIgnoreAsciiCase(name.substr(0, 9), "PARTYNEAR") == 0) {
-        srVector3T<float> party_position;
-        srVector3T<float> monster_position;
+        glm::vec3 party_position;
+        glm::vec3 monster_position;
 
         party_position = cameraLocation();
         if (!parameter) {
@@ -1610,10 +1611,10 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
             return false;
         }
 
-        srVector3T<float> current_position = GetPosition();
+        glm::vec3 current_position = GetPosition();
         monster_position = current_position;
         if (!g_status.world_suspended &&
-            (party_position - monster_position).Length() < *parameter * g_world_scale &&
+            glm::length((party_position - monster_position)) < *parameter * g_world_scale &&
             FindMonster(location_id)->player_visibility.line_of_sight != 0) {
             return true;
         }
@@ -1664,7 +1665,7 @@ bool W8Monster::SetScript(std::string script_name, bool reset_orders)
 }
 
 // FUNCTION: WIZ8 0x004C77F0
-bool W8Monster::GetProjectilePosition(srVector3T<float>* position)
+bool W8Monster::GetProjectilePosition(glm::vec3* position)
 {
     signed char cycle;
     bool result;
@@ -1703,7 +1704,7 @@ bool W8Monster::GetProjectilePosition(srVector3T<float>* position)
 /* Cycle 25 mapping six is the spell launch vertex. Missing mappings warn at
    most once per Monster, while the result reports whether a launch position was found. */
 // FUNCTION: WIZ8 0x004c78e0
-bool W8Monster::GetSpellPosition(srVector3T<float>* position)
+bool W8Monster::GetSpellPosition(glm::vec3* position)
 {
     bool found;
 
@@ -1723,8 +1724,7 @@ bool W8Monster::GetSpellPosition(srVector3T<float>* position)
 }
 
 // FUNCTION: WIZ8 0x004C7960
-bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
-                                       srVector3T<float>* position)
+bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::vec3* position)
 {
     srModelInstance* current_model = GetCurrentModelInstance();
     std::vector<W8AnimObj*>* animations;
@@ -1772,12 +1772,12 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
             glm::vec3* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
             if (vertices != 0 && current_model != 0) {
                 auto rotation = current_model->getWorldSpaceRotation<glm::mat3>();
-                srVector3T<float> local = vertices[vertex] * m_pRep->scale;
-                srVector3T<float> rotated = rotation * local.glmValue();
-                srVector3T<float> owner_position = GetPosition();
-                position->Set(rotated.x + owner_position.x,
-                              rotated.y + owner_position.y + movement.vertical_base,
-                              rotated.z + owner_position.z);
+                glm::vec3 local = vertices[vertex] * m_pRep->scale;
+                glm::vec3 rotated = rotation * local;
+                glm::vec3 owner_position = GetPosition();
+                (*position) = glm::vec3(rotated.x + owner_position.x,
+                                        rotated.y + owner_position.y + movement.vertical_base,
+                                        rotated.z + owner_position.z);
                 return true;
             }
         }
@@ -1785,7 +1785,7 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
     return false;
 }
 
-bool W8Monster::ResolveScriptPosition(const char* name, srVector3T<float>* position)
+bool W8Monster::ResolveScriptPosition(const char* name, glm::vec3* position)
 {
     if (SDL_strcasecmp(name, "home") == 0) {
         *position = formation;
@@ -1866,7 +1866,7 @@ void W8Monster::ProcessScript()
             continue;
         }
 
-        const auto resolveNamedPosition = [&](srVector3T<float>& position) {
+        const auto resolveNamedPosition = [&](glm::vec3& position) {
             if (ResolveScriptPosition(token.c_str(), &position)) return true;
             ShutdownWithErrorBox(fmt::format("MonScript {} Line {:d}: Unknown location {}",
                                              script->getName(),
@@ -1889,7 +1889,7 @@ void W8Monster::ProcessScript()
                 break;
             }
             case MONSCR_WALKTO: {
-                srVector3T<float> position;
+                glm::vec3 position;
                 tokens >> token;
                 if (!tokens) {
                     break;
@@ -1911,7 +1911,7 @@ void W8Monster::ProcessScript()
                 break;
             }
             case MONSCR_FACE: {
-                srVector3T<float> position;
+                glm::vec3 position;
                 tokens >> token;
                 if (!tokens) {
                     break;
@@ -1983,8 +1983,8 @@ void W8Monster::ProcessScript()
                 break;
             }
             case MONSCR_SHOOT: {
-                srVector3T<float> source;
-                srVector3T<float> target;
+                glm::vec3 source;
+                glm::vec3 target;
                 tokens >> token;
                 if (!tokens) {
                     break;
@@ -2013,7 +2013,7 @@ void W8Monster::ProcessScript()
                 }
                 break;
             case MONSCR_TELEPORT: {
-                srVector3T<float> position;
+                glm::vec3 position;
                 tokens >> token;
                 if (tokens) {
                     if (!resolveNamedPosition(position)) {
@@ -2103,7 +2103,7 @@ void W8Monster::ProcessScript()
                 }
                 break;
             case MONSCR_PATROL: {
-                srVector3T<float> home;
+                glm::vec3 home;
                 float distance;
                 float variation;
                 tokens >> token;
@@ -2113,8 +2113,8 @@ void W8Monster::ProcessScript()
                 if (!tokens) break;
                 variation = static_cast<float>(atof(token.c_str())) * g_world_scale;
                 home = formation;
-                if (IsZeroVector(&home) != 0) {
-                    srVector3T<float> current = GetPosition();
+                if (home == glm::vec3(0)) {
+                    glm::vec3 current = GetPosition();
                     home = current;
                     formation = home;
                 }
@@ -2187,7 +2187,7 @@ void W8Monster::ProcessScript()
                         if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
                         monster_info = FindMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
-                            srVector3T<float> party = cameraLocation();
+                            glm::vec3 party = cameraLocation();
                             AimAtPosition(&party);
                         }
                     }
@@ -2206,7 +2206,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) break;
                 sound = new stSound3D(token.c_str(), 0);
                 if (sound != 0) {
-                    srVector3T<float> position = GetPosition();
+                    glm::vec3 position = GetPosition();
                     sound->volume = value;
                     sound->setLocation(static_cast<double>(position.x),
                                        static_cast<double>(position.y),
@@ -2284,7 +2284,7 @@ void W8Monster::ProcessScript()
                    orders_finished is left alone. No token: nothing changes. */
                 tokens >> token;
                 if (tokens) {
-                    srVector3T<float> position;
+                    glm::vec3 position;
                     if (!resolveNamedPosition(position)) {
                         break;
                     }
@@ -2296,7 +2296,7 @@ void W8Monster::ProcessScript()
             case MONSCR_POINTPATROL:
             case MONSCR_RANDOMPOINTPATROL: {
                 while (tokens >> token) {
-                    srVector3T<float> position;
+                    glm::vec3 position;
                     if (!resolveNamedPosition(position)) {
                         continue;
                     }
@@ -2447,11 +2447,12 @@ bool W8Monster::IsWithinWorldRange()
         return sector_mesh->testFlag(srNode::FLAG_DISABLE) == 0;
     } else {
         double far_clip = WorldGetFarClip(GetWorld());
-        srVector3T<float> position = GetPosition();
-        srVector3T<float> reference = g_startup_world->GetPosition();
-        srVector3T<float> delta = reference - position;
+        glm::vec3 position = GetPosition();
+        glm::vec3 reference = g_startup_world->GetPosition();
+        glm::vec3 delta = reference - position;
 
-        return delta.LengthSquared() <= static_cast<float>(far_clip) * static_cast<float>(far_clip);
+        return glm::dot(delta, delta) <=
+               static_cast<float>(far_clip) * static_cast<float>(far_clip);
     }
 }
 
@@ -2460,8 +2461,8 @@ bool W8Monster::IsWithinWorldRange()
 // FUNCTION: WIZ8 0x004c4810
 bool W8Monster::CheckLineOfSightToPlayer()
 {
-    srVector3T<float> monster_position;
-    srVector3T<float> player_position;
+    glm::vec3 monster_position;
+    glm::vec3 player_position;
 
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
@@ -2475,8 +2476,8 @@ bool W8Monster::CheckLineOfSightToPlayer()
 // FUNCTION: WIZ8 0x004c4870
 void W8Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
 {
-    srVector3T<float> monster_position;
-    srVector3T<float> player_position;
+    glm::vec3 monster_position;
+    glm::vec3 player_position;
     short result;
 
     monster_position = movement.position;
@@ -2502,23 +2503,23 @@ void W8Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
 // FUNCTION: WIZ8 0x004c4920
 bool W8Monster::IsVisibleToPlayer(bool use_bounds)
 {
-    srVector3T<float> player_position = cameraLocation();
+    glm::vec3 player_position = cameraLocation();
     if (use_bounds) {
         const auto bounds = MonsterGetWorldAnimationBounds(this);
-        return bounds && hasLineOfSightToBounds(player_position.glmValue(), *bounds);
+        return bounds && hasLineOfSightToBounds(player_position, *bounds);
     }
 
-    srVector3T<float> monster_position = movement.position;
+    glm::vec3 monster_position = movement.position;
     monster_position.y += movement.height_offset;
     return g_octree->HasLineOfSight(&player_position, &monster_position, true);
 }
 
 // FUNCTION: WIZ8 0x004c4a20
 void W8Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary,
-                                             const srVector3T<float>* source)
+                                             const glm::vec3* source)
 {
-    srVector3T<float> monster_position;
-    srVector3T<float> player_position;
+    glm::vec3 monster_position;
+    glm::vec3 player_position;
     short result;
 
     monster_position = movement.position;
@@ -2545,8 +2546,8 @@ void W8Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary,
 // FUNCTION: WIZ8 0x004c4af0
 bool W8Monster::HasLineOfSightToMonster(W8Monster* monster)
 {
-    srVector3T<float> from;
-    srVector3T<float> to;
+    glm::vec3 from;
+    glm::vec3 to;
 
     from = movement.position;
     from.y += movement.height_offset;
@@ -2558,8 +2559,8 @@ bool W8Monster::HasLineOfSightToMonster(W8Monster* monster)
 // FUNCTION: WIZ8 0x004c4b70
 void W8Monster::GetMonsterSightFlags(W8Monster* monster, bool* primary, bool* secondary)
 {
-    srVector3T<float> from;
-    srVector3T<float> to;
+    glm::vec3 from;
+    glm::vec3 to;
     short result;
 
     from = movement.position;
@@ -2581,9 +2582,9 @@ void W8Monster::GetMonsterSightFlags(W8Monster* monster, bool* primary, bool* se
 }
 
 // FUNCTION: WIZ8 0x004c4c40
-bool W8Monster::HasLineOfSightFromPoint(srVector3T<float> point)
+bool W8Monster::HasLineOfSightFromPoint(glm::vec3 point)
 {
-    srVector3T<float> monster_position;
+    glm::vec3 monster_position;
 
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
@@ -2595,8 +2596,8 @@ int W8Monster::IsFacingMonster(W8Monster* monster)
 {
     float bearing;
     float facing;
-    srVector3T<float> from;
-    srVector3T<float> to;
+    glm::vec3 from;
+    glm::vec3 to;
 
     if (monster == 0) {
         srAssertFail("pMonsterB", MONSTER_CPP, 3812, 0);
@@ -2613,8 +2614,8 @@ int W8Monster::IsFacingPlayer()
 {
     float bearing;
     float facing;
-    srVector3T<float> from;
-    srVector3T<float> to;
+    glm::vec3 from;
+    glm::vec3 to;
 
     if (g_startup_world == 0) {
         srAssertFail("pPlayer", MONSTER_CPP, 3838, 0);
@@ -2782,14 +2783,14 @@ void W8Monster::SetCycleCallback(int cycle, CycleCallback callback)
 }
 
 // FUNCTION: WIZ8 0x004ca360
-bool W8Monster::GetPatrolPoint(srVector3T<float>* point)
+bool W8Monster::GetPatrolPoint(glm::vec3* point)
 {
     if (!orders_finished || patrol_index < 0) {
         return false;
     }
     if (vector.empty()) {
-        if (IsZeroVector(&formation) != 0) {
-            srVector3T<float> position = GetPosition();
+        if (formation == glm::vec3(0)) {
+            glm::vec3 position = GetPosition();
             formation = position;
         }
         vector.push_back(formation);
@@ -2813,7 +2814,7 @@ std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster)
     if (!monster) return std::nullopt;
     auto bounds = monster->GetAnimationBounds();
     if (bounds) {
-        const auto position = monster->GetPosition().glmValue();
+        const auto position = monster->GetPosition();
         bounds->minimum += position;
         bounds->maximum += position;
     }
@@ -2836,7 +2837,7 @@ void W8Monster::TrackSound(wiz8::sound::Playback playback)
 // FUNCTION: WIZ8 0x004ca570
 void UpdateNearestMonsterGroupMembers()
 {
-    srVector3T<float> player_position;
+    glm::vec3 player_position;
     unsigned int group_index;
 
     player_position = cameraLocation();
@@ -2852,8 +2853,8 @@ void UpdateNearestMonsterGroupMembers()
                 W8MonsterInfo* member = FindMonster(group->MemberLocationId(member_index));
 
                 if (member != 0 && member->p3D != 0) {
-                    srVector3T<float> position = member->p3D->GetPosition();
-                    float distance = (position - player_position).Length();
+                    glm::vec3 position = member->p3D->GetPosition();
+                    float distance = glm::length((position - player_position));
 
                     if (distance < g_monster_group_nearest_range && distance < nearest_distance) {
                         nearest_distance = distance;
@@ -2873,19 +2874,19 @@ void UpdateNearestMonsterGroupMembers()
 // FUNCTION: WIZ8 0x004c7cb0
 float W8Monster::GetDistanceToPlayer()
 {
-    srVector3T<float> position = GetPosition();
+    glm::vec3 position = GetPosition();
     return GetPointDistanceToPlayer(position);
 }
 
 // FUNCTION: WIZ8 0x004c7d50
-float W8Monster::GetPointDistanceToPlayer(srVector3T<float> point)
+float W8Monster::GetPointDistanceToPlayer(glm::vec3 point)
 {
-    srVector3T<float> player_position;
+    glm::vec3 player_position;
     float distance;
 
     player_position = cameraLocation();
     player_position.y -= g_default_world_height;
-    distance = (point - player_position).Length() - movement.alternate_radius -
+    distance = glm::length((point - player_position)) - movement.alternate_radius -
                g_startup_world->movement.alternate_radius;
     if (distance < g_float_zero) {
         distance = g_float_zero;
@@ -2896,9 +2897,9 @@ float W8Monster::GetPointDistanceToPlayer(srVector3T<float> point)
 // FUNCTION: WIZ8 0x004c7dd0
 float W8Monster::GetDistanceToMonster(W8Monster* monster)
 {
-    srVector3T<float> position = GetPosition();
-    srVector3T<float> other_position = monster->GetPosition();
-    float distance = (position - other_position).Length() - movement.alternate_radius -
+    glm::vec3 position = GetPosition();
+    glm::vec3 other_position = monster->GetPosition();
+    float distance = glm::length((position - other_position)) - movement.alternate_radius -
                      monster->movement.alternate_radius;
 
     if (distance < g_float_zero) {
@@ -2908,10 +2909,10 @@ float W8Monster::GetDistanceToMonster(W8Monster* monster)
 }
 
 // FUNCTION: WIZ8 0x004c7e80
-float W8Monster::GetPointDistanceToMonster(W8Monster* monster, srVector3T<float> point)
+float W8Monster::GetPointDistanceToMonster(W8Monster* monster, glm::vec3 point)
 {
-    srVector3T<float> position = monster->GetPosition();
-    float distance = (point - position).Length() - movement.alternate_radius -
+    glm::vec3 position = monster->GetPosition();
+    float distance = glm::length((point - position)) - movement.alternate_radius -
                      monster->movement.alternate_radius;
 
     if (distance < g_float_zero) {
@@ -3011,7 +3012,7 @@ bool W8Monster::IsCycleInterruptable(signed char cycle)
 // FUNCTION: WIZ8 0x004c50f0
 void W8Monster::ApplyRemovalStateEffects()
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     switch (removal_state) {
     case W8_MONSTER_REMOVAL_RETURN_BALBRAK_HOME:
@@ -3070,7 +3071,7 @@ W8AniMesh* W8MonsterRep::GetEmitterAniMesh(signed char cycle)
 // FUNCTION: WIZ8 0x004c2e60
 void W8Monster::UpdateRepresentation(W8World* world)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     glm::mat3 rotation;
     srModelInstance* model;
     stTextureAnim* mouth;
@@ -3350,7 +3351,7 @@ void W8Monster::SetCycle(signed char cycle)
 
     {
         glm::dvec3 camera_location = g_world->camera->getLocation();
-        srVector3T<float> listener;
+        glm::vec3 listener;
         listener = glm::vec3(camera_location);
         SelectLOD(&listener);
     }
@@ -3466,7 +3467,7 @@ unsigned char W8Monster::GetAnimationRadius(float* arg_radius)
 static const float g_monster_bounds_vertical_factor = 0.66f;
 
 // FUNCTION: WIZ8 0x004c3e60
-std::optional<srVector3T<float>> W8Monster::GetAnimationCenter()
+std::optional<glm::vec3> W8Monster::GetAnimationCenter()
 {
     return GetAnimationBounds().transform([this](const auto& bounds) {
         auto center = GetPosition();
@@ -3486,8 +3487,8 @@ void W8Monster::UpdateAttachedObjects()
         (representation->spell_icons ? representation->spell_icons->size() : 0);
     int poster_count = static_cast<int>(representation->linked_runtime_objects.size());
     glm::mat3 camera_rotation;
-    srVector3T<float> base_position;
-    srVector3T<float> party_position;
+    glm::vec3 base_position;
+    glm::vec3 party_position;
     float distance_scale;
     unsigned int elapsed;
     int index;
@@ -3503,7 +3504,7 @@ void W8Monster::UpdateAttachedObjects()
 
     party_position = cameraLocation();
     party_position -= base_position;
-    distance_scale = party_position.Length() * g_monster_attachment_distance_scale;
+    distance_scale = glm::length(party_position) * g_monster_attachment_distance_scale;
     if (!target_highlighted && distance_scale > g_float_one) {
         distance_scale = g_float_one;
     }
@@ -3521,15 +3522,15 @@ void W8Monster::UpdateAttachedObjects()
             if (item != 0) {
                 const W8AttachmentOffset& raw =
                     g_monster_attachment_offsets[attachment_layout - 1][placed];
-                srVector3T<float> source(raw.x, raw.y, raw.z);
-                srVector3T<float> offset;
-                srVector3T<float> location;
+                glm::vec3 source(raw.x, raw.y, raw.z);
+                glm::vec3 offset;
+                glm::vec3 location;
                 srNode* mesh;
                 float mesh_scale;
                 glm::dvec3 widened_scale;
 
                 offset = source * distance_scale;
-                srVector3T<float> rotated = camera_rotation * offset.glmValue();
+                glm::vec3 rotated = camera_rotation * offset;
                 location = base_position + rotated;
                 location.y += representation->standing_height +
                               distance_scale * g_monster_attachment_vertical_scale;
@@ -3569,16 +3570,16 @@ void W8Monster::UpdateAttachedObjects()
                 W8Item* item = entry->psrBMO;
                 const W8AttachmentOffset& raw =
                     g_monster_attachment_offsets[chunk_count - 1][chunk_index];
-                srVector3T<float> source(raw.x, raw.y, raw.z);
-                srVector3T<float> offset;
-                srVector3T<float> location;
+                glm::vec3 source(raw.x, raw.y, raw.z);
+                glm::vec3 offset;
+                glm::vec3 location;
                 srNode* mesh;
                 float mesh_scale;
                 glm::dvec3 widened;
 
                 offset = source * distance_scale;
                 offset.y += group_height * distance_scale;
-                srVector3T<float> rotated = camera_rotation * offset.glmValue();
+                glm::vec3 rotated = camera_rotation * offset;
                 location = base_position + rotated;
                 location.y += representation->standing_height +
                               distance_scale * g_monster_linked_vertical_scale;
@@ -3588,7 +3589,7 @@ void W8Monster::UpdateAttachedObjects()
                 mesh_scale = distance_scale * g_monster_attachment_scales[chunk_count - 1];
                 widened = glm::dvec3(mesh_scale);
                 mesh->setScale(widened);
-                widened = glm::dvec3(location.glmValue());
+                widened = glm::dvec3(location);
                 mesh->setLocation(widened);
                 if ((runtime_flags & W8_MONSTER_FADED_OUT) == 0) {
                     mesh->clearFlag(srNode::FLAG_DISABLE);
@@ -3601,7 +3602,7 @@ void W8Monster::UpdateAttachedObjects()
     }
 
     if (poster_count != 0) {
-        srVector3T<float> mapped_position;
+        glm::vec3 mapped_position;
         float vertical_offset = elapsed * g_monster_poster_vertical_rate;
         int poster_index = 0;
 
@@ -3609,13 +3610,13 @@ void W8Monster::UpdateAttachedObjects()
         while (poster_index < poster_count) {
             stModelInstance* poster = representation->linked_runtime_objects[poster_index];
             glm::dvec3 location = poster->getLocation();
-            srVector3T<float> poster_position(static_cast<float>(location.x),
-                                              static_cast<float>(location.y) + vertical_offset,
-                                              static_cast<float>(location.z));
+            glm::vec3 poster_position(static_cast<float>(location.x),
+                                      static_cast<float>(location.y) + vertical_offset,
+                                      static_cast<float>(location.z));
 
-            if ((poster_position - mapped_position).Length() <=
+            if (glm::length((poster_position - mapped_position)) <=
                 static_cast<float>(g_monster_poster_max_distance)) {
-                location = glm::dvec3(poster_position.glmValue());
+                location = glm::dvec3(poster_position);
                 poster->setLocation(location);
                 ++poster_index;
             } else {
@@ -4007,13 +4008,13 @@ bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle)
 }
 
 // FUNCTION: WIZ8 0x004c5730
-srVector3T<float> MonsterGetLocation(const W8Monster* monster)
+glm::vec3 MonsterGetLocation(const W8Monster* monster)
 {
     return monster->m_pRep->GetLocation();
 }
 
 // FUNCTION: WIZ8 0x004c5750
-srVector3T<float> MonsterGetLocalLocation(const W8Monster* monster)
+glm::vec3 MonsterGetLocalLocation(const W8Monster* monster)
 {
     return monster->m_pRep->GetLocalLocation();
 }
@@ -4228,7 +4229,7 @@ bool W8Monster::IsDying()
    space. Models without that mapping use the Navigator position plus the
    Monster's vertical offset. */
 // FUNCTION: WIZ8 0x004c72a0
-void W8Monster::GetMappedPosition(srVector3T<float>* position)
+void W8Monster::GetMappedPosition(glm::vec3* position)
 {
     srModelInstance* instance = GetCurrentModelInstance();
 
@@ -4249,8 +4250,7 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
 
                     *position = vertices[index];
                     matrix = instance->getWorldSpaceMatrix<glm::mat4>();
-                    *position =
-                        srVector3T<float>{glm::vec3(matrix * glm::vec4(position->glmValue(), 1))};
+                    *position = glm::vec3{glm::vec3(matrix * glm::vec4((*position), 1))};
                     return;
                 }
             }
@@ -4269,12 +4269,12 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
 /* Keep the position copy through the shared double-argument vector setter:
    retail 0x004C5A4F-0x004C5A63 round-trips each component through the FPU. */
 // FUNCTION: WIZ8 0x004c5a40
-void MonsterSelectLOD(W8Monster* monster, const srVector3T<float>* position)
+void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position)
 {
-    srVector3T<float> local;
+    glm::vec3 local;
 
     if (monster != 0) {
-        local.Set(position->x, position->y, position->z);
+        local = glm::vec3(position->x, position->y, position->z);
         monster->SelectLOD(&local);
     }
 }
@@ -4448,8 +4448,7 @@ float MonsterGetNavigatorMovementScale(W8Monster* monster)
 }
 
 // FUNCTION: WIZ8 0x004c5f90
-unsigned char MonsterConfigureMovementToPosition(W8Monster* monster,
-                                                 const srVector3T<float>* position)
+unsigned char MonsterConfigureMovementToPosition(W8Monster* monster, const glm::vec3* position)
 {
     if (monster != 0) {
         return monster->ConfigureMovementToPosition(position);
@@ -4458,7 +4457,7 @@ unsigned char MonsterConfigureMovementToPosition(W8Monster* monster,
 }
 
 // FUNCTION: WIZ8 0x004c5fb0
-void MonsterAddPathPoint(W8Monster* monster, const srVector3T<float>* argument)
+void MonsterAddPathPoint(W8Monster* monster, const glm::vec3* argument)
 {
     if (monster != 0) {
         monster->AddPathPoint(argument);
@@ -4476,12 +4475,12 @@ void MonsterSetPathLooping(W8Monster* monster, char value)
 /* Pass a copied position through Navigator's collision adjustment and install
    the adjusted result on the Monster's ordinary Navigator base. */
 // FUNCTION: WIZ8 0x004c5f00
-void MonsterSetAdjustedPosition(W8Monster* monster, const srVector3T<float>* position)
+void MonsterSetAdjustedPosition(W8Monster* monster, const glm::vec3* position)
 {
-    srVector3T<float> current;
-    srVector3T<float> adjusted;
-    srVector3T<float>* adjusted_position;
-    srVector3T<float> result;
+    glm::vec3 current;
+    glm::vec3 adjusted;
+    glm::vec3* adjusted_position;
+    glm::vec3 result;
 
     current = *position;
     adjusted_position = monster->AdjustPosition(&adjusted, &current, &current);
@@ -4517,7 +4516,7 @@ unsigned char MonsterLinkToStartupNavigator(W8Monster* monster)
 
 // FUNCTION: WIZ8 0x004c6070
 unsigned short MonsterConfigureMovementToPlayer(W8Monster* monster, float separation,
-                                                float maximum_distance, srVector3T<float> position,
+                                                float maximum_distance, glm::vec3 position,
                                                 int trace_mode, unsigned char* probe_result)
 {
     if (monster != 0) {
@@ -4532,7 +4531,7 @@ unsigned short MonsterConfigureMovementToPlayer(W8Monster* monster, float separa
 // FUNCTION: WIZ8 0x004c60d0
 unsigned short MonsterConfigureMovementToMonster(W8Monster* monster, W8Monster* target,
                                                  float separation, float maximum_distance,
-                                                 srVector3T<float> position, int trace_mode,
+                                                 glm::vec3 position, int trace_mode,
                                                  unsigned char* probe_result)
 {
     if (monster != 0 && target != 0) {
@@ -4564,7 +4563,7 @@ void MonsterSetNavigatorHalted(W8Monster* monster, bool value)
 void MonsterForwardReferencePosition(W8Monster* monster, char alternate)
 {
     W8MonsterInfo* monster_info;
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (monster != 0) {
         monster_info = FindMonster(monster->location_id);
@@ -4586,8 +4585,8 @@ void MonsterForwardReferencePosition(W8Monster* monster, char alternate)
 void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate)
 {
     W8MonsterInfo* monster_info;
-    srVector3T<float> target_position;
-    srVector3T<float> position;
+    glm::vec3 target_position;
+    glm::vec3 position;
 
     if (monster != 0 && target != 0) {
         monster_info = FindMonster(monster->location_id);
@@ -4795,9 +4794,9 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
     unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
     if (data != 0) {
         std::string text;
-        srVector3T<float> position;
-        srVector3T<float> camera_position;
-        srVector3T<float> facing;
+        glm::vec3 position;
+        glm::vec3 camera_position;
+        glm::vec3 facing;
         glm::dvec3 location;
         glm::vec4 colour;
         glm::mat3 rotation;
@@ -4831,7 +4830,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         yaw = HeadingToTargetCPP(&facing);
         OffsetPositionByYawPitch(500.0f, &position, yaw, pitch);
         camera_position = cameraLocation();
-        distance = (position - camera_position).Length();
+        distance = glm::length((position - camera_position));
         if (distance > g_float_fifty_thousand) {
             distance = g_float_fifty_thousand;
         }
@@ -4839,7 +4838,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         poster = static_cast<stModelInstance*>(VideoMakePoster(surface, scale, scale, true));
         if (poster != 0) {
             poster->alignment_flags |= 1u;
-            location = glm::dvec3(position.glmValue());
+            location = glm::dvec3(position);
             poster->setLocation(location);
             poster->setParent(g_world->dynamic_scene, 1);
             m_pRep->linked_runtime_objects.push_back(poster);
@@ -4873,7 +4872,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             particle->release_when_done = true;
             particle->bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
             particle->bounds_radius = 1000.0f;
-            location = glm::dvec3(position.glmValue());
+            location = glm::dvec3(position);
             particle->setLocation(location);
             rotation = GetCurrentModelInstance()->getRotation<glm::mat3>();
             rotation *= glm::mat3_cast(glm::angleAxis(float(g_camera_pi), glm::vec3(0, 1, 0)));
@@ -4966,7 +4965,7 @@ void W8Monster::RefreshStandingHeight()
     signed char previous_cycle = representation->current_cycle;
     SetCycle(1);
     SetSubCycle(0);
-    srVector3T<float> camera_location;
+    glm::vec3 camera_location;
     camera_location = glm::vec3(g_world->camera->getLocation());
     SelectLOD(&camera_location);
     if (const auto bounds = GetAnimationBounds())

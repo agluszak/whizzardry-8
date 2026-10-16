@@ -11,8 +11,6 @@
 #include "wiz8/dice.h"
 #include "wiz8/local_code/ControlsRect.h"
 
-template<class T> class srVector3T;
-
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);
 int RollDice(const W8Dice* dice);
 int RollDice(const W8Dice* dice, unsigned int rolls);

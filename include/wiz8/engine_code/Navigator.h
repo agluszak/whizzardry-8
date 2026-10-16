@@ -9,7 +9,8 @@ struct srBoundingBox;
 
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 
 class srNode;
 struct W8PathAI;
@@ -49,13 +50,13 @@ struct W8NavigatorAttachment {
     unsigned short path_position_index;
     unsigned short follow_offset;
     unsigned short padding_0e;
-    srVector3T<float> segment_start;
-    srVector3T<float> path_destination;
-    srVector3T<float> start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
-    srVector3T<float> path_length_origin;
-    srVector3T<float> recorded_position;
+    glm::vec3 segment_start;
+    glm::vec3 path_destination;
+    glm::vec3 start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
+    glm::vec3 path_length_origin;
+    glm::vec3 recorded_position;
     struct PathEntry {
-        srVector3T<float> position{};
+        glm::vec3 position{0.0f};
         unsigned short value = 0;
     };
     std::vector<PathEntry> path;
@@ -69,8 +70,7 @@ struct W8NavigatorAttachment {
     /* The from/to form 0x004604B0 constructs on the stack: both endpoints of
        the segment are seeded as recorded positions and path_length holds the
        straight-line distance. */
-    W8NavigatorAttachment(const srVector3T<float>* from,
-                          const srVector3T<float>* to); /* 0x00456280 */
+    W8NavigatorAttachment(const glm::vec3* from, const glm::vec3* to); /* 0x00456280 */
     /* Lazily sums the stored segment lengths into path_length, skipping
        entries whose preceding path value carries bit 0x2. */
     float MeasurePathLength(); /* 0x00456B00 */
@@ -78,14 +78,14 @@ struct W8NavigatorAttachment {
     /* Also expanded in OctPath.cpp at 0x00465F63, 0x0046400A and
        0x00464820: set the recorded flag before copying the three components. */
     // FUNCTION: WIZ8 0x00456ae0
-    void RecordPosition(const srVector3T<float>* position)
+    void RecordPosition(const glm::vec3* position)
     {
         flags |= W8_NAV_ATTACHMENT_POSITION_RECORDED;
         recorded_position = *position;
     }
     void GrowPathStorage();
     /* Append a waypoint and its value, reserving a spare endpoint slot. */
-    void AppendPathPosition(const srVector3T<float>* position, unsigned short value)
+    void AppendPathPosition(const glm::vec3* position, unsigned short value)
     {
         const auto saved_position = *position;
         if (path.size() <= static_cast<unsigned int>(path_position_index + 1)) {
@@ -97,12 +97,12 @@ struct W8NavigatorAttachment {
     }
 
     void CopyPathFrom(const W8NavigatorAttachment* other);
-    srVector3T<float> GetNextPosition() const;
-    void InitializeSegment(const srVector3T<float>* source, const srVector3T<float>* destination);
+    glm::vec3 GetNextPosition() const;
+    void InitializeSegment(const glm::vec3* source, const glm::vec3* destination);
     /* Step `position` forward along the recorded route by the 2-D `distance`,
        consuming waypoints the step covers; returns zero once the route's last
        waypoint is reached. */
-    bool AdvanceAlongPathPositions(float distance, srVector3T<float>* position); /* 0x00456830 */
+    bool AdvanceAlongPathPositions(float distance, glm::vec3* position); /* 0x00456830 */
     /* Whether `position`'s plan-view distance to the hop leaving the current
        index stays under the path height interpolated along that segment. */
     bool checkPositionHopHeight(const glm::vec3& position) const; /* 0x00456CB0 */
@@ -112,19 +112,18 @@ struct W8NavigatorAttachment {
     /* Move `position` toward the route's next waypoint by up to `distance`,
        spilling into the following segment; returns nonzero once `distance`
        exceeded the remainder of the live segment. */
-    bool AdvancePositionTowardWaypoint(srVector3T<float>* position,
-                                       float distance); /* 0x00456F60 */
+    bool AdvancePositionTowardWaypoint(glm::vec3* position, float distance); /* 0x00456F60 */
     /* Trims the recorded route to end at the sphere of `radius` around
        `target`: walks stored positions while they stay inside, interpolates
        the boundary point into path_destination and the route slot, moves the end
        index there, and clears flag 0x400000. One when a boundary point was
        installed. */
-    bool TruncatePathAtRadius(const srVector3T<float>* target, float radius); /* 0x004566C0 */
+    bool TruncatePathAtRadius(const glm::vec3* target, float radius); /* 0x004566C0 */
     /* Advances `position` along the recorded route by `distance`, writing the
        unit direction toward the current waypoint into `direction`; one once
        the final waypoint is reached. */
-    bool AdvancePositionWithDirection(srVector3T<float>* position, float distance,
-                                      srVector3T<float>* direction); /* 0x00457150 */
+    bool AdvancePositionWithDirection(glm::vec3* position, float distance,
+                                      glm::vec3* direction); /* 0x00457150 */
 
 private:
     bool withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const;
@@ -163,9 +162,9 @@ struct W8NavigatorMovementState {
     float roll;
     float target_roll;
     float unknown_030;
-    srVector3T<float> velocity;
-    srVector3T<float> position;
-    srVector3T<float> target_position;
+    glm::vec3 velocity;
+    glm::vec3 position;
+    glm::vec3 target_position;
     float callback_threshold;
     float callback_progress;
     float movement_scale;
@@ -231,13 +230,13 @@ public:
        body as W8GrCycle::CanEnterCycle at 0x004A7140; /OPT:NOICF emits this
        copy. */
     virtual bool OnCollision(W8Navigator*) { return true; }
-    virtual void SetPosition(const srVector3T<float>* position); /* 0x00456020 */
+    virtual void SetPosition(const glm::vec3* position); /* 0x00456020 */
 
     /* The missile homing step scales this snapshot of movement.velocity
        by its step count to predict the next position. */
-    srVector3T<float> GetVelocity() const; /* 0x004534F0 */
+    glm::vec3 GetVelocity() const; /* 0x004534F0 */
     /* movement.velocity = *velocity - the launch direction step. */
-    void SetVelocity(const srVector3T<float>* velocity); /* 0x00453520 */
+    void SetVelocity(const glm::vec3* velocity); /* 0x00453520 */
     /* movement.target_yaw = NormalizeAngle(angle). */
     void SetTargetYaw(float angle); /* 0x004538D0 */
     /* movement.target_pitch = NormalizeAngle(angle). */
@@ -245,16 +244,16 @@ public:
     /* The navigator a from->to trace runs into: the startup world, a monster's
        navigator, or null. `include_target` lets the trace report the tracked
        movement target instead of skipping its location id. */
-    W8Navigator* ResolveBlockingNavigator(const srVector3T<float>* from, srVector3T<float>* to,
+    W8Navigator* ResolveBlockingNavigator(const glm::vec3* from, glm::vec3* to,
                                           bool include_target); /* 0x00453230 */
     /* Copies this navigator's movement state into a scratch probe, asks the
        octree to route toward `target`, and returns the measured path length or
        -1 when no route inside `max_range` exists. */
-    double MeasurePathDistance(const srVector3T<float>* target, float max_range,
+    double MeasurePathDistance(const glm::vec3* target, float max_range,
                                int location_id); /* 0x00453300 */
     /* Find the navigator occupying `to`; the move collides when both sides'
        OnCollision accept it. */
-    bool CheckNavigatorCollision(const srVector3T<float>* from, const srVector3T<float>* to);
+    bool CheckNavigatorCollision(const glm::vec3* from, const glm::vec3* to);
 
     /* No retail emission: the startup world and the copy constructor expand
        both setters in place. */
@@ -271,7 +270,7 @@ public:
         movement.secondary_height_offset = far_depth;
     }
 
-    srVector3T<float> GetPosition();
+    glm::vec3 GetPosition();
     bool UpdateTrackedPosition();                               /* 0x00454950 */
     void UpdateNavigation(unsigned char value, bool condition); /* 0x004553A0 */
     void SetAngles(float angle);                                /* 0x004538F0 */
@@ -285,7 +284,7 @@ public:
     void SetMovementScale(float value);                                           /* 0x00453C50 */
     float GetMovementScale();                                                     /* 0x00453C60 */
     void SetMonsterTurnSpeed(float speed);                                        /* 0x00453C70 */
-    unsigned char ConfigureMovementToPosition(const srVector3T<float>* position); /* 0x00452630 */
+    unsigned char ConfigureMovementToPosition(const glm::vec3* position); /* 0x00452630 */
     /* Point the movement target at another navigator's position and enter the
        moving mode; the result is nonzero once the target was accepted. */
     unsigned short SetMovementTargetToNavigator(W8Navigator* target,
@@ -299,17 +298,16 @@ public:
     void ResetMovementAndGroupState();               /* 0x00452C90 */
     void SetPitchRollEnabled(bool pitch, bool roll); /* 0x00453CA0 */
     unsigned short ConfigureMovementToNavigator(W8Navigator* target, float separation,
-                                                float maximum_distance, srVector3T<float> position,
+                                                float maximum_distance, glm::vec3 position,
                                                 int trace_mode, float facing,
                                                 unsigned char* probe_result); /* 0x004529A0 */
-    void AddPathPoint(const srVector3T<float>* position);                     /* 0x00453690 */
-    void SetPositionInternal(const srVector3T<float>* position);
+    void AddPathPoint(const glm::vec3* position);                     /* 0x00453690 */
+    void SetPositionInternal(const glm::vec3* position);
     void SetPathLooping(char value);                                       /* 0x004537C0 */
     unsigned char LinkToNavigator(W8Navigator* target, double separation); /* 0x004527A0 */
-    void SetFacingToward(const srVector3T<float>* position);               /* 0x00454040 */
-    void AimAtPosition(const srVector3T<float>* position);                 /* 0x00453F30 */
-    bool StartPatrol(const srVector3T<float>* home, float distance,
-                     float variation); /* 0x00453CC0 */
+    void SetFacingToward(const glm::vec3* position);               /* 0x00454040 */
+    void AimAtPosition(const glm::vec3* position);                 /* 0x00453F30 */
+    bool StartPatrol(const glm::vec3* home, float distance, float variation); /* 0x00453CC0 */
     /* Stores each non-negative bound as the minimum and maximum height. */
     void SetHeightRange(float minimum, float maximum); /* 0x00453EF0 */
     void SetHalted(bool value);                        /* 0x004531F0 */
@@ -324,10 +322,9 @@ public:
     void PropagateGroupPosition();                        /* 0x00454C80 */
     void UpdateAngles();                                  /* 0x00453990 */
     bool ConfigureMovement(float minimum, float maximum); /* 0x00453D20 */
-    unsigned char SetMovementTarget(const srVector3T<float>* target,
-                                    bool propagate); /* 0x00454170 */
-    srVector3T<float>* AdjustPosition(srVector3T<float>* result, const srVector3T<float>* current,
-                                      const srVector3T<float>* previous); /* 0x00454440 */
+    unsigned char SetMovementTarget(const glm::vec3* target, bool propagate); /* 0x00454170 */
+    glm::vec3* AdjustPosition(glm::vec3* result, const glm::vec3* current,
+                              const glm::vec3* previous); /* 0x00454440 */
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator();                                         /* 0x00454D70 */
     bool UpdateLinkedPosition();
@@ -346,7 +343,7 @@ public:
     unsigned int flags;
     double collision_margin;
     /* Current 3D movement target. */
-    srVector3T<float> movement_target;
+    glm::vec3 movement_target;
     /* Set when the navigator's movement has stopped - the constructors raise
        it, SetMovementStopped raises it when motion halts (levelling
        pitch unless the navigation mode banks), and a successful
@@ -360,20 +357,20 @@ public:
     bool halted;
     bool movement_complete;
     bool unknown_027;
-    srVector3T<float> position2;
+    glm::vec3 position2;
     float minimum_height;
     float maximum_height;
-    srVector3T<float> patrol_home;
+    glm::vec3 patrol_home;
     unsigned int unknown_048;
     W8Navigator* target_navigator;
-    srVector3T<float> target_last_position;
+    glm::vec3 target_last_position;
     W8Navigator* linked_navigator;
     unsigned int unknown_060;
     unsigned int unknown_064;
     W8PathAI* path_ai;
     /* 0x00451EC0 fills these as -500 and +500 triples. */
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
+    glm::vec3 minimum;
+    glm::vec3 maximum;
     float radius;
     /* Whether the navigator participates in world queries: cleared when the
        owner deactivates (monster despawn, cursor teardown), restored on
@@ -394,7 +391,7 @@ public:
     bool reactivated;
     unsigned char padding_09e[2];
     std::unique_ptr<W8NavigatorOwned0A0> owned_object;
-    srVector3T<float> tracked_position;
+    glm::vec3 tracked_position;
     float tracked_distance;
     bool tracked_dirty;
     unsigned char padding_0b5[3];

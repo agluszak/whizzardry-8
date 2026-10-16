@@ -10,6 +10,7 @@
 
 #include <SDL3/SDL_rect.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
@@ -23,7 +24,6 @@
 #include "particle_modes.h"
 #include "soundman.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
@@ -110,8 +110,8 @@ const float g_cursor_ground_step_threshold = 83.333335876464844f;
 void InitializeWorldCursor(void)
 {
     W8GrCycleLoadContext context;
-    srVector3T<float> position;
-    srVector3T<float> camera_position;
+    glm::vec3 position;
+    glm::vec3 camera_position;
     glm::vec4 colour;
     srShader shader;
 
@@ -141,9 +141,9 @@ void InitializeWorldCursor(void)
             context.world = g_world;
             LoadMonsterCycle(&context, "3DCursor", &gp3DCursor->monster, -1, 1);
             MonsterSetCycle(gp3DCursor->monster, 0);
-            gp3DCursor->last_published = -100000000.0f;
-            gp3DCursor->position.SetZero();
-            gp3DCursor->cam_rel_offset.SetZero();
+            gp3DCursor->last_published = glm::vec3(-100000000.0f);
+            gp3DCursor->position = glm::vec3(0);
+            gp3DCursor->cam_rel_offset = glm::vec3(0);
             gp3DCursor->monster->inactive = true;
             WarpSystemCursor(0x140, 0xf0);
             gp3DCursor->input_delta.x = 0;
@@ -204,13 +204,13 @@ void InitializeWorldCursor(void)
             const auto& [minimum, maximum] = *bounds;
             gp3DCursor->probe_center = bounds->center();
             gp3DCursor->probe_offsets[0] = maximum;
-            gp3DCursor->probe_offsets[1].Set(minimum.x, maximum.y, maximum.z);
-            gp3DCursor->probe_offsets[2].Set(minimum.x, maximum.y, minimum.z);
-            gp3DCursor->probe_offsets[3].Set(maximum.x, maximum.y, minimum.z);
-            gp3DCursor->probe_offsets[4].Set(maximum.x, minimum.y, maximum.z);
-            gp3DCursor->probe_offsets[5].Set(minimum.x, minimum.y, maximum.z);
+            gp3DCursor->probe_offsets[1] = glm::vec3(minimum.x, maximum.y, maximum.z);
+            gp3DCursor->probe_offsets[2] = glm::vec3(minimum.x, maximum.y, minimum.z);
+            gp3DCursor->probe_offsets[3] = glm::vec3(maximum.x, maximum.y, minimum.z);
+            gp3DCursor->probe_offsets[4] = glm::vec3(maximum.x, minimum.y, maximum.z);
+            gp3DCursor->probe_offsets[5] = glm::vec3(minimum.x, minimum.y, maximum.z);
             gp3DCursor->probe_offsets[6] = minimum;
-            gp3DCursor->probe_offsets[7].Set(maximum.x, minimum.y, minimum.z);
+            gp3DCursor->probe_offsets[7] = glm::vec3(maximum.x, minimum.y, minimum.z);
             UpdateWorldCursorPlacement();
             if (g_dev_mode && (((GetInputState().modifiers & SHIFT_DOWN) != 0) ||
                                ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
@@ -229,8 +229,8 @@ void InitializeWorldCursor(void)
 void ReleaseWorldCursor(void)
 {
     W8WorldCursorState* cursor = gp3DCursor;
-    srVector3T<float> camera;
-    srVector3T<float> delta;
+    glm::vec3 camera;
+    glm::vec3 delta;
 
     if (cursor == 0) {
         return;
@@ -239,7 +239,7 @@ void ReleaseWorldCursor(void)
     camera.y = 0.0f;
     cursor->position.y = 0.0f;
     delta = cursor->position - camera;
-    g_cursor_projection_distance = delta.Length();
+    g_cursor_projection_distance = glm::length(delta);
 
     wiz8::erase_first(g_world->plsMonsters, cursor->monster);
     DetachMonsterRepresentation(cursor->monster, g_world);
@@ -261,12 +261,12 @@ void ReleaseWorldCursor(void)
 
 /* The tracked cursor position, or the origin while there is no cursor. */
 // FUNCTION: WIZ8 0x00490BF0
-void GetWorldCursorPosition(srVector3T<float>* position)
+void GetWorldCursorPosition(glm::vec3* position)
 {
     if (gp3DCursor != 0) {
         *position = gp3DCursor->position;
     } else {
-        position->SetZero();
+        (*position) = glm::vec3(0);
     }
 }
 
@@ -315,12 +315,12 @@ void HideWorldCursor(void)
 }
 
 // FUNCTION: WIZ8 0x00490C20
-void GetWorldCursorAnchor(srVector3T<float>* position)
+void GetWorldCursorAnchor(glm::vec3* position)
 {
     if (gp3DCursor != 0) {
         *position = gp3DCursor->position;
     } else {
-        position->SetZero();
+        (*position) = glm::vec3(0);
     }
 }
 
@@ -337,10 +337,10 @@ void ApplyWorldCursorInput(void)
 {
     glm::mat3 rotation;
     glm::dvec3 node_location;
-    srVector3T<float> camera;
-    srVector3T<float> delta;
-    srVector3T<float> lifted;
-    srVector3T<float> clamped;
+    glm::vec3 camera;
+    glm::vec3 delta;
+    glm::vec3 lifted;
+    glm::vec3 clamped;
     float saved_y = gp3DCursor->position.y;
 
     if (gp3DCursor == 0) {
@@ -349,8 +349,9 @@ void ApplyWorldCursorInput(void)
     if (!gp3DCursor->enabled) {
         srAssertFail("gp3DCursor->fEnabled", CURSOR3D_CPP, 0x189, 0);
     }
-    delta.Set(gp3DCursor->input_delta.x * g_float_ten, gp3DCursor->input_delta.y * g_float_ten,
-              gp3DCursor->input_delta.z * g_float_ten);
+    delta =
+        glm::vec3(gp3DCursor->input_delta.x * g_float_ten, gp3DCursor->input_delta.y * g_float_ten,
+                  gp3DCursor->input_delta.z * g_float_ten);
     gp3DCursor->input_delta.x = 0;
     gp3DCursor->input_delta.y = 0;
     gp3DCursor->input_delta.z = 0;
@@ -368,15 +369,17 @@ void ApplyWorldCursorInput(void)
         }
     }
     if (!gp3DCursor->detached) {
-        lifted.Set(delta.x, delta.y + g_float_one_thousand, delta.z);
-        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < lifted.Length()) {
-            delta.SetLength(gp3DCursor->range);
+        lifted = glm::vec3(delta.x, delta.y + g_float_one_thousand, delta.z);
+        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < glm::length(lifted)) {
+            delta = glm::dot(delta, delta) == 0
+                        ? delta
+                        : glm::normalize(delta) * static_cast<float>(gp3DCursor->range);
         }
         rotation = g_world->dynamic_scene->getRotation<glm::mat3>();
         gp3DCursor->cam_rel_offset += delta;
-        gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
+        gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset);
         node_location = g_world->dynamic_scene->getLocation();
-        srVector3T<float> scene_location;
+        glm::vec3 scene_location;
         scene_location = glm::vec3(node_location);
         gp3DCursor->position += scene_location;
         if (gp3DCursor->track_ground) {
@@ -384,23 +387,28 @@ void ApplyWorldCursorInput(void)
                 gp3DCursor->position.y = saved_y;
             }
             gp3DCursor->position =
-                g_octree->settleToGround(gp3DCursor->position.glmValue(), true, 500).position;
+                g_octree->settleToGround(gp3DCursor->position, true, 500).position;
         }
     } else {
         camera = cameraLocation();
         camera.y -= g_default_world_height;
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
-        delta = rotation * delta.glmValue();
+        delta = rotation * delta;
         delta += gp3DCursor->position;
-        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < (camera - delta).Length()) {
+        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < glm::length((camera - delta))) {
             clamped = delta - camera;
-            clamped.SetLength(gp3DCursor->range);
+            clamped = glm::dot(clamped, clamped) == 0
+                          ? clamped
+                          : glm::normalize(clamped) * static_cast<float>(gp3DCursor->range);
             delta = camera + clamped;
         }
-        if ((camera - delta).Length() < g_monster_poster_max_distance) {
+        if (glm::length((camera - delta)) < g_monster_poster_max_distance) {
             clamped = delta - camera;
-            clamped.SetLength(g_monster_poster_max_distance);
+            clamped =
+                glm::dot(clamped, clamped) == 0
+                    ? clamped
+                    : glm::normalize(clamped) * static_cast<float>(g_monster_poster_max_distance);
             delta = camera + clamped;
         }
         if (gp3DCursor->march_enabled) {
@@ -413,19 +421,19 @@ void ApplyWorldCursorInput(void)
         lifted = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &lifted);
         if (g_cursor_node0 != 0) {
-            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
+            node_location = glm::dvec3((*(&gp3DCursor->position)));
             g_cursor_node0->setLocation(node_location);
         }
         if (g_cursor_value != 0) {
-            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
+            node_location = glm::dvec3((*(&gp3DCursor->position)));
             g_cursor_value->setLocation(node_location);
         }
         if (gp3DCursor->particle != 0) {
-            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
+            node_location = glm::dvec3((*(&gp3DCursor->position)));
             gp3DCursor->particle->setLocation(node_location);
         }
         if (gp3DCursor->light != 0) {
-            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
+            node_location = glm::dvec3((*(&gp3DCursor->position)));
             gp3DCursor->light->setLocation(node_location);
         }
         if (gp3DCursor->dragged_info != 0) {
@@ -455,7 +463,7 @@ bool IsWorldCursorVisible(void)
 // FUNCTION: WIZ8 0x004914E0
 void BindCursorMonsterToGroup(void)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8MonsterGroup* monster_group;
     W8MonsterInfo* monster_info;
 
@@ -468,7 +476,7 @@ void BindCursorMonsterToGroup(void)
             gp3DCursor->particle->emission_interval = 300;
         }
         if (gp3DCursor == 0) {
-            position.SetZero();
+            position = glm::vec3(0);
         } else {
             position = gp3DCursor->position;
         }
@@ -518,7 +526,7 @@ void SetWorldCursorRange(float distance)
             distance = g_float_fifty_thousand;
         }
         gp3DCursor->range = distance;
-        gp3DCursor->last_published = -100000000.0f;
+        gp3DCursor->last_published = glm::vec3(-100000000.0f);
     }
 }
 
@@ -563,12 +571,12 @@ void ToggleWorldCursor(void)
 void UpdateWorldCursor(void)
 {
     SDL_Point cursor_point;
-    srVector3T<float> camera;
-    srVector3T<float> old_position;
-    srVector3T<float> position;
-    srVector3T<float> resolved;
-    srVector3T<float> box_min;
-    srVector3T<float> box_max;
+    glm::vec3 camera;
+    glm::vec3 old_position;
+    glm::vec3 position;
+    glm::vec3 resolved;
+    glm::vec3 box_min;
+    glm::vec3 box_max;
 
     if (gp3DCursor == 0 || !gp3DCursor->enabled) {
         return;
@@ -603,7 +611,7 @@ void UpdateWorldCursor(void)
     if (gp3DCursor != 0) {
         position = gp3DCursor->position;
     } else {
-        position.SetZero();
+        position = glm::vec3(0);
     }
     if (!IsLeftButtonHeld()) {
         if (gp3DCursor->left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
@@ -637,16 +645,16 @@ void UpdateWorldCursor(void)
 }
 
 // FUNCTION: WIZ8 0x004919E0
-char MarchWorldCursorTarget(srVector3T<float>* target)
+char MarchWorldCursorTarget(glm::vec3* target)
 {
-    srVector3T<float> trace_from;
-    srVector3T<float> origin;
-    srVector3T<float> last_valid;
-    srVector3T<float> step_pos;
-    srVector3T<float> end_pos;
-    srVector3T<float> dir;
-    srVector3T<float> scaled;
-    srVector3T<float> probe;
+    glm::vec3 trace_from;
+    glm::vec3 origin;
+    glm::vec3 last_valid;
+    glm::vec3 step_pos;
+    glm::vec3 end_pos;
+    glm::vec3 dir;
+    glm::vec3 scaled;
+    glm::vec3 probe;
     double dist;
     double step;
     float lower_best = -1e+10f;
@@ -658,7 +666,7 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
 
     trace_from = *target + gp3DCursor->probe_center;
     origin = gp3DCursor->position;
-    dist = (*target - origin).Length();
+    dist = glm::length((*target - origin));
     if (dist == g_double_zero) {
         return 0;
     }
@@ -676,14 +684,16 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
             }
             dir = *target - origin;
             scaled = dir;
-            scaled.SetLength(step);
+            scaled = glm::dot(scaled, scaled) == 0
+                         ? scaled
+                         : glm::normalize(scaled) * static_cast<float>(step);
             step_pos = origin + scaled;
             end_pos = step_pos;
             for (i = 4; i < 8; i++) {
                 probe = gp3DCursor->probe_offsets[i];
                 probe *= g_cursor_probe_shrink_scale;
                 probe += step_pos;
-                const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 500.0f);
+                const auto ground_probe = g_octree->settleToGround(probe, 1, 500.0f);
                 probe = ground_probe.position;
                 ground = ground_probe.position.y;
                 if (ground <= step_pos.y) {
@@ -733,15 +743,15 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
 // FUNCTION: WIZ8 0x00491EC0
 void UpdateWorldCursorPlacement(void)
 {
-    srVector3T<float> camera(0.0f, 1.0f, 0.0f);
-    srVector3T<float> target;
+    glm::vec3 camera(0.0f, 1.0f, 0.0f);
+    glm::vec3 target;
     W8WorldCursorState* cursor;
     camera = cameraLocation();
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
-    cursor->last_published = -100000000.0f;
-    target = camera.glmValue() +
-             glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), g_gd_camera->m_yaw);
+    cursor->last_published = glm::vec3(-100000000.0f);
+    target =
+        camera + glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), g_gd_camera->m_yaw);
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {
@@ -760,7 +770,7 @@ void UpdateWorldCursorPlacement(void)
 /* Arm the world cursor's footprint mode and install the two fixed probe
    offsets the target resolver probes in place of the probe box. */
 // FUNCTION: WIZ8 0x00492190
-void SetWorldCursorExtents(const srVector3T<float>* minimum, const srVector3T<float>* maximum)
+void SetWorldCursorExtents(const glm::vec3* minimum, const glm::vec3* maximum)
 {
     if (gp3DCursor == 0) {
         return;
@@ -776,13 +786,13 @@ void SetWorldCursorExtents(const srVector3T<float>* minimum, const srVector3T<fl
    and their crossed corner combinations are probed instead, and a settled
    height too far from the input height fails the resolution. */
 // FUNCTION: WIZ8 0x004921E0
-int ResolveWorldCursorTarget(srVector3T<float>* position)
+int ResolveWorldCursorTarget(glm::vec3* position)
 {
     W8WorldCursorState* cursor = gp3DCursor;
     float best = g_cursor_ground_height_sentinel;
 
     if (cursor == 0) {
-        position->SetZero();
+        (*position) = glm::vec3(0);
     } else {
         *position = cursor->position;
     }
@@ -792,14 +802,14 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
     for (int corner = 0; corner < 4; ++corner) {
         glm::vec3 offset;
         if (!cursor->footprint_mode) {
-            offset = cursor->probe_offsets[corner + 4].glmValue();
+            offset = cursor->probe_offsets[corner + 4];
         } else {
             switch (corner) {
             case 0:
-                offset = cursor->extent_min.glmValue();
+                offset = cursor->extent_min;
                 break;
             case 1:
-                offset = cursor->extent_max.glmValue();
+                offset = cursor->extent_max;
                 break;
             case 2:
                 offset = {cursor->extent_min.x, 0, cursor->extent_max.z};
@@ -809,7 +819,7 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
                 break;
             }
         }
-        const auto ground = g_octree->settleToGround(position->glmValue() + offset, true, 500);
+        const auto ground = g_octree->settleToGround((*position) + offset, true, 500);
         if (best <= ground.position.y) best = ground.position.y;
     }
     if (cursor->footprint_mode &&
@@ -822,9 +832,9 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
 }
 
 // FUNCTION: WIZ8 0x00492500
-void GetWorldCursorTargetPosition(srVector3T<float>* position)
+void GetWorldCursorTargetPosition(glm::vec3* position)
 {
-    srVector3T<float> resolved;
+    glm::vec3 resolved;
 
     ResolveWorldCursorTarget(&resolved);
     *position = resolved;

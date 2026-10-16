@@ -1,6 +1,6 @@
 #pragma once
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;
@@ -25,7 +25,7 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
    comes off perception_attribute in the base factor. penalty_modifier applies
    a -10 or -5 penalty per unit depending on
    skip_field_of_view, and sight_override forces full range. */
-float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<float> target_position,
+float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_position,
                             float observer_yaw, unsigned int perception_attribute,
                             unsigned char ranged_bonus, bool blinded, bool extended_sight_active,
                             int penalty_source, int penalty_modifier, int skip_field_of_view,

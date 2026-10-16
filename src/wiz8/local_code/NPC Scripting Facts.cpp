@@ -6,12 +6,12 @@
 
 #include "Item.h"
 #include "conditions.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "message_box.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srMath.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GameData.h"
@@ -81,7 +81,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     Trigger* trigger;
     stParticle* particle;
     W8MonsterInfo* monster_info;
-    srVector3T<float> position;
+    glm::vec3 position;
     unsigned char fact_value;
     unsigned int added;
     int location_id;
@@ -591,7 +591,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        position.Set(53550.0f, 3516.0f, 36936.0f);
+        position = glm::vec3(53550.0f, 3516.0f, 36936.0f);
         CameraLookAt(&position);
         fact_value = GetFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED);
         if (fact_value == 0) {

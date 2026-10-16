@@ -23,7 +23,6 @@ struct W8Item;
 struct W8GameData;
 struct W8OctRegionVolume;
 struct W8Plane;
-template<class T> class srVector3T;
 
 void SetSceneAmbientLightWhite(srScene* scene);
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster);

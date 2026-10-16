@@ -3,10 +3,11 @@
 
 #include <memory>
 
+#include "glm/ext/vector_float3.hpp"
+
 struct W8World;
 struct W8PathAI;
 struct W8MonsterInfo;
-template<class T> class srVector3T;
 
 /* Runtime camera entry. The world owns the entry, which owns its path data;
    the level file's fixed-width camera record is decoded separately. */
@@ -29,6 +30,6 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active);
    tracking-mode gate, animate chooses the eased transition over the snap. */
 void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate);
 /* 0x0048F800: the position-taking variant of the camera orientation helper. */
-void PointCameraAtTarget(srVector3T<float>* position, bool force, bool animate);
+void PointCameraAtTarget(glm::vec3* position, bool force, bool animate);
 
 #endif

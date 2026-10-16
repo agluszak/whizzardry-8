@@ -5,7 +5,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "surrender/srCamera.h"
-#include "surrender/srMath.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Prop.h"
@@ -78,7 +77,7 @@ void ProcessFlagPosition(void)
 // FUNCTION: WIZ8 0x004DBEC0
 bool OnCrankTriggerActivated(Trigger* trigger)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     W8NpcState* npc;
     Trigger* pFlagTrigger;
     W8Prop* prop;
@@ -131,7 +130,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
 // FUNCTION: WIZ8 0x004DC080
 void ControlLiftGate(int command)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
     Trigger* pFlagTrigger;
     float progress;
     int value;
@@ -234,7 +233,7 @@ bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate
 // FUNCTION: WIZ8 0x004DC3D0
 void ControlCampAlarm(int command)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (PrepareUmpaniAlarmCommand(command, "UmpaniCampAlarm", g_mt_gigas_outer_alarm_gate)) {
         return;

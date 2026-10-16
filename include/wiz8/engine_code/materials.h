@@ -4,8 +4,8 @@
 #include <string_view>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMaterial.h"
-#include "surrender/srMath.h"
 #include "surrender/srShader.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/texture_animation.h"
@@ -54,10 +54,10 @@ struct W8MaterialRecord {
     unsigned char version;                 /* 0x000 */
     char texture_name[0x28];               /* 0x001 */
     char texture_names[4][0x28];           /* 0x029 */
-    srVector3T<float> ambient;             /* 0x0c9 */
-    srVector3T<float> diffuse;             /* 0x0d5 */
-    srVector3T<float> emissive_colour;     /* 0x0e1 */
-    srVector3T<float> specular;            /* 0x0ed */
+    glm::vec3 ambient;             /* 0x0c9 */
+    glm::vec3 diffuse;             /* 0x0d5 */
+    glm::vec3 emissive_colour;     /* 0x0e1 */
+    glm::vec3 specular;            /* 0x0ed */
     float shininess;                       /* 0x0f9 */
     float opacity;                         /* 0x0fd */
     float emission;                        /* 0x101 */

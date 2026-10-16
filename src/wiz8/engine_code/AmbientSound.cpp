@@ -12,6 +12,7 @@
 
 #include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "compat/native.h"
@@ -140,7 +141,7 @@ W8AmbientSound::W8AmbientSound()
       bounded(0), region_angle(0)
 {
     config.wave_name[0] = 0;
-    position.SetZero();
+    position = glm::vec3(0);
     pacSoundName = 0;
     stopped = 0;
 }
@@ -149,9 +150,9 @@ W8AmbientSound::W8AmbientSound()
    listener into region-center space, un-apply the per-axis scale, rotate back
    around the configured axis, then test against the min/max bounds. */
 // FUNCTION: WIZ8 0x004790d0
-bool W8AmbientSound::IsInsideRegion(const srVector3T<float>* listener)
+bool W8AmbientSound::IsInsideRegion(const glm::vec3* listener)
 {
-    srVector3T<float> relative;
+    glm::vec3 relative;
     float scale_x;
     float scale_y;
     float scale_z;
@@ -173,11 +174,10 @@ bool W8AmbientSound::IsInsideRegion(const srVector3T<float>* listener)
 
         rotation = glm::mat3(1);
         if (angle != g_double_zero) {
-            rotation *=
-                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                              normalizedOrZero(glm::vec3(region_axis.glmValue()))));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                      normalizedOrZero(glm::vec3(region_axis))));
         }
-        relative = rotation * relative.glmValue();
+        relative = rotation * relative;
     }
     return PointInsideBounds(&relative, &region_min, &region_max);
 }
@@ -189,7 +189,7 @@ bool W8AmbientSound::IsInsideRegion(const srVector3T<float>* listener)
    volume up inside the inner 40% of the radius. Shared sounds retarget the
    fade at the bus-scaled maximum. */
 // FUNCTION: WIZ8 0x00479350
-void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
+void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
 {
     bool handed_off = false;
 
@@ -197,8 +197,8 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
         return;
     }
     {
-        srVector3T<float> to_listener = *listener - position;
-        float distance = to_listener.Length();
+        glm::vec3 to_listener = *listener - position;
+        float distance = glm::length(to_listener);
         unsigned char inside = IsInsideRegion(listener);
 
         if (radius <= distance || (bounded != 0 && inside == 0)) {
@@ -211,9 +211,9 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
                             return;
                         }
                         {
-                            srVector3T<float> to_match = *listener - match->position;
+                            glm::vec3 to_match = *listener - match->position;
                             unsigned char match_inside = match->IsInsideRegion(listener);
-                            if (to_match.Length() < match->radius &&
+                            if (glm::length(to_match) < match->radius &&
                                 (match->bounded == 0 || match_inside != 0) &&
                                 match->sound_handle == nullptr) {
                                 match->in_range = 1;
@@ -265,14 +265,14 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
             if (sound_handle != nullptr) {
                 float angle = -GetCameraYawRadians();
                 glm::mat3 rotation;
-                srVector3T<float> transformed;
+                glm::vec3 transformed;
                 unsigned int volume;
 
                 rotation = glm::mat3(1);
                 rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-                srVector3T<float> offset = position - *listener;
-                transformed = rotation * offset.glmValue();
-                wiz8::sound::set_position(sound_handle, transformed.glmValue());
+                glm::vec3 offset = position - *listener;
+                transformed = rotation * offset;
+                wiz8::sound::set_position(sound_handle, transformed);
                 if (radius * g_navigator_mode3_scale <= distance) {
                     volume = current_volume;
                 } else {
@@ -328,11 +328,11 @@ void W8AmbientSound::Service(bool entered)
             if (!gXStatus.fCombatMode && should_play != 0 &&
                 g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 float angle = -GetCameraYawRadians();
-                srVector3T<float> camera;
+                glm::vec3 camera;
                 glm::mat3 rotation;
-                srVector3T<float> offset;
-                srVector3T<float> transformed;
-                srVector3T<float> to_listener;
+                glm::vec3 offset;
+                glm::vec3 transformed;
+                glm::vec3 to_listener;
                 float distance;
                 unsigned int volume;
                 unsigned int heard_volume;
@@ -340,9 +340,9 @@ void W8AmbientSound::Service(bool entered)
                 camera = cameraLocation();
                 rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
                 offset = position - camera;
-                transformed = rotation * offset.glmValue();
+                transformed = rotation * offset;
                 to_listener = camera - position;
-                distance = to_listener.Length();
+                distance = glm::length(to_listener);
                 volume = static_cast<unsigned int>(((Random(volume_max - volume_min) + volume_min) *
                                                     g_settings.sound_effects_volume) /
                                                    0x7f);
@@ -355,7 +355,7 @@ void W8AmbientSound::Service(bool entered)
                                            (radius * g_ambient_sound_inner_radius_scale)) *
                         current_volume);
                 }
-                sound_handle = random->Fire(heard_volume, transformed.glmValue());
+                sound_handle = random->Fire(heard_volume, transformed);
             }
         }
         return;
@@ -365,19 +365,18 @@ void W8AmbientSound::Service(bool entered)
     }
     if (shared == 0) {
         float angle = -GetCameraYawRadians();
-        srVector3T<float> camera;
+        glm::vec3 camera;
         glm::mat3 rotation;
-        srVector3T<float> offset;
-        srVector3T<float> transformed;
+        glm::vec3 offset;
+        glm::vec3 transformed;
 
         camera = cameraLocation();
         current_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
         rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
         offset = position - camera;
-        transformed = rotation * offset.glmValue();
+        transformed = rotation * offset;
         sound_handle = wiz8::sound::play(
-            config.wave_name,
-            {.volume = current_volume, .loops = 0, .position = transformed.glmValue()});
+            config.wave_name, {.volume = current_volume, .loops = 0, .position = transformed});
         if (sound_handle == nullptr) {
             in_range = 0;
         }
@@ -576,7 +575,7 @@ void RepositionAmbientSounds(W8World* world)
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
-                srVector3T<float> position = cameraLocation();
+                glm::vec3 position = cameraLocation();
                 sound->UpdatePosition(&position);
             }
         }
@@ -619,14 +618,13 @@ void DestroyAmbientSound(W8AmbientSound* ambient)
    twenty parameters and their widths come directly from the stack reads. */
 // FUNCTION: WIZ8 0x0047a790
 unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
-                              const srVector3T<float>* position,
-                              const srVector3T<float>* region_min,
-                              const srVector3T<float>* region_max, int volume_min, int volume_max,
+                              const glm::vec3* position, const glm::vec3* region_min,
+                              const glm::vec3* region_max, int volume_min, int volume_max,
                               int time_min, int time_max, int speed_min, int speed_max,
                               float radius, bool looping, unsigned char bounded,
-                              const srVector3T<float>* region_center, float region_angle,
-                              const srVector3T<float>* region_axis,
-                              const srVector3T<float>* region_scale, unsigned char shared)
+                              const glm::vec3* region_center, float region_angle,
+                              const glm::vec3* region_axis, const glm::vec3* region_scale,
+                              unsigned char shared)
 {
     W8AmbientSound* sound = CreateAmbientSound();
 
@@ -680,7 +678,7 @@ static W8AmbientSound* FindAmbientSoundByName(const char* name)
 
 static void StartAmbientSoundAtCamera(W8AmbientSound* sound)
 {
-    srVector3T<float> position = cameraLocation();
+    glm::vec3 position = cameraLocation();
     sound->stopped = 0;
     sound->UpdatePosition(&position);
 }
@@ -821,7 +819,7 @@ void SetSoundEffectsVolume(unsigned char volume)
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
-                srVector3T<float> position = cameraLocation();
+                glm::vec3 position = cameraLocation();
                 sound->UpdatePosition(&position);
             }
         }

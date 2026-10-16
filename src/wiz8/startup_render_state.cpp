@@ -5,7 +5,6 @@
 
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/Environment.h"
 
 class W8Prop;
@@ -45,7 +44,7 @@ W8Prop* g_sun_prop;
 // GLOBAL: WIZ8 0x0065AD84
 W8Prop* g_moon_prop;
 // GLOBAL: WIZ8 0x0065AD88
-srVector3T<float> g_celestial_origin;
+glm::vec3 g_celestial_origin;
 // GLOBAL: WIZ8 0x0060A390
 float g_view_distance = 12.0f;
 // GLOBAL: WIZ8 0x0060A3A4

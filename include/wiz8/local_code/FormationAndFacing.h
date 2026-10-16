@@ -1,6 +1,6 @@
 #pragma once
 
-#include "surrender/srMath.h"
+#include "glm/ext/vector_float3.hpp"
 
 struct W8MonsterInfo;
 struct W8CombatSlot;
@@ -67,14 +67,14 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
    facing and swing the camera to match, while the camera is not being
    rotated by hand. */
 void FaceCameraToSelection(int party_slot);
-int GetQuadrantForPosition(srVector3T<float> position);
+int GetQuadrantForPosition(glm::vec3 position);
 
 /* Whether the monster faces the party's own position. */
 int IsMonsterFacingParty(W8MonsterInfo* monster_info);
 /* Whether the first monster faces the second. */
 int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the party faces a world point. */
-bool IsPartyLookingAt(W8MonsterInfo* monster_info, srVector3T<float> point);
+bool IsPartyLookingAt(W8MonsterInfo* monster_info, glm::vec3 point);
 /* Whether the second monster looks away from the first. */
 int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the monster sits on the screen side the character

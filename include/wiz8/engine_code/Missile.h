@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/emitter_resources.h"
 
 unsigned char LoadMissileDatabase(void);
@@ -21,7 +22,6 @@ struct W8World;
 class stLight;
 class W8Missile;
 struct W8AnimObj;
-template<class T> class srVector3T;
 
 /* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
    path record is kind 0). UpdateMissileAI ticks it: +0x04 is the
@@ -52,7 +52,7 @@ struct W8AIMissile : W8AIRecord {
 };
 
 unsigned char UpdateMissileAI(W8AIMissile* record);
-float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int steps);
+float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps);
 
 /* The missile constructor allocates this complete 0x108-byte representation,
    invokes W8EmitterHost on the same receiver, constructs the two light-list
@@ -155,12 +155,12 @@ public:
 
 /* Secondary vftable 0x005ecdf4 keeps the W8Navigator subobject at +0x18. */
 
-W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* source,
-                       srVector3T<float>* target, float flight_speed, unsigned int trace_mask,
-                       unsigned int block_released, float duration);
+W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm::vec3* target,
+                       float flight_speed, unsigned int trace_mask, unsigned int block_released,
+                       float duration);
 /* The world position `character_index`'s current hand fires a missile from:
    the camera's launch point swung to the wielding side. */
-void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position);
+void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position);
 void DestroyAllMissiles(W8World* world); /* 0x004A4210 */
 
 extern unsigned int g_missile_table_count;
@@ -199,7 +199,7 @@ W8Missile* AllocateMissile(int missile_table_index);
 unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                                W8Missile** ppMissile, int);
 
-W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* source, float heading,
+W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
                          float pitch, float flight_speed, unsigned int trace_mask,
                          unsigned char block_released, float duration);
 void UpdateWorldMissiles(W8World* world);

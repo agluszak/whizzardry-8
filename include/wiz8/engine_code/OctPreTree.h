@@ -1,6 +1,7 @@
 #include <cstdint>
 
 #include "glm/ext/vector_int3.hpp"
+#include "wiz8/retail_geometry_types.h"
 #ifndef WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 
@@ -10,7 +11,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srMath.h"
 #include "wiz8/geometry.h"
 
 struct W8OctBuildNode;
@@ -236,7 +236,7 @@ struct W8OctFileHeader {
     float m_extent;
     float m_cell_size;
     float m_node_extent;
-    srVector3T<float> m_bounds[6];
+    wiz8::retail::Vec3f m_bounds[6];
     /* The uiLeaf grid dimensions: three integer cell counts serialized in the
        vector slot. */
     struct {

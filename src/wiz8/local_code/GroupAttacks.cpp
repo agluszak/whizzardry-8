@@ -7,6 +7,7 @@
 #include <fmt/printf.h>
 
 #include "conditions.h"
+#include "glm/ext/vector_float3.hpp"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
@@ -30,8 +31,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-
-template<class T> class srVector3T;
 
 #define GROUP_ATTACKS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GroupAttacks.cpp"
 
@@ -459,7 +458,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
 {
     W8MonsterRecord* record;
     int count;
-    srVector3T<float>* position;
+    glm::vec3* position;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
     int disposition;

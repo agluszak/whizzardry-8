@@ -11,7 +11,6 @@
 #include "wiz8/engine_code/OctPreTree.h"
 
 struct W8GDSurface;
-template<class T> class srVector3T;
 
 struct W8OctBuildLink {
     void* surface; /* region polygons and GD surfaces share the build links */

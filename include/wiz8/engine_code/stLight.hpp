@@ -5,7 +5,6 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srLight.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "wiz8/sr_api.h"
 
@@ -87,9 +86,9 @@ public:
     unsigned int flags;
     /* Per-update flicker probability, compared against rand()/32768. */
     float flicker_chance;
-    srVector3T<float> color;
+    glm::vec3 color;
     /* The diffuse color the intensity sweep lerps toward under flag bit 3. */
-    srVector3T<float> color_to;
+    glm::vec3 color_to;
     float intensity;
     /* The intensity the sweep lerps toward. */
     float intensity_to;
@@ -116,7 +115,7 @@ public:
     std::vector<int> frame_sums;
     std::vector<int> key_frames;
     std::vector<float> key_intensities;
-    std::vector<srVector3T<float>> key_colors;
+    std::vector<glm::vec3> key_colors;
     int keyframe_index;
     float time;
     int start_frame;
@@ -163,7 +162,7 @@ public:
     /* One value, not three floats: 0x0049C690 copies it through the base-pointer
        form VC6 emits for a class type's memberwise assignment, not through three
        independent displacement loads. */
-    srVector3T<float> m_position;    /* 0x228 */
+    glm::vec3 m_position;    /* 0x228 */
     stLightDefinition* m_definition; /* 0x234: owned */
     unsigned char m_unknown_238;     /* 0x238 */
     /* Oscillation direction: zero sweeps intensity down, nonzero sweeps up. */
