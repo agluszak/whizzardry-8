@@ -20,6 +20,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -36,7 +37,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -354,12 +354,8 @@ public:
             const auto colors = pipe.getSpecular();
             for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.5f);
         }
-        auto& statistics = srCore.getStatisticsManager()->statistics;
-        const auto before_diffuse = statistics.diffuse_operations;
-        const auto before_specular = statistics.specular_operations;
+
         light.process(pipe);
-        REQUIRE(statistics.diffuse_operations - before_diffuse == (channels & 1 ? count : 0));
-        REQUIRE(statistics.specular_operations - before_specular == (channels & 2 ? count : 0));
         const float attenuation = directional || attenuation_kind == 0 ? 1.f
                                   : attenuation_kind == 4              ? .25f
                                                                        : .5f;

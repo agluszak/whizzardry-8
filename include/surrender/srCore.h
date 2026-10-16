@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include "srStatisticsManager.h"
-
 struct SDL_Surface;
 class srMaterial;
 struct SDL_Palette;
@@ -18,9 +16,6 @@ public:
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
     srMaterial* getMaterial() const { return material.get(); }
     std::shared_ptr<SDL_Palette> getPalette() const;
-    // FUNCTION: SURRENDER 0x100156B0
-    // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
-    srStatisticsManager* getStatisticsManager() const { return statistics_manager.get(); }
     SDL_Surface* getSurface() const;
     srTexture* getTexture() const;
     int isInitialized() const;
@@ -36,7 +31,6 @@ private:
     static int initialized;
 
     std::shared_ptr<SDL_Surface> surface;
-    std::unique_ptr<srStatisticsManager> statistics_manager;
     std::shared_ptr<SDL_Palette> palette;
     std::unique_ptr<srMaterial> material;
     std::unique_ptr<srTexture> texture;

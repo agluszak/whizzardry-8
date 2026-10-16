@@ -23,7 +23,6 @@ set(SURRENDER_SOURCES
     renderer.cpp
     texture.cpp
     texture_map.cpp
-    statistics.cpp
 )
 
 find_package(JPEG CONFIG REQUIRED)

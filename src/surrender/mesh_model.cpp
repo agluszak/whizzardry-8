@@ -20,7 +20,6 @@
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srModel.h"
 #include "surrender/srShader.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srVertexProcessor.h"
 
@@ -850,16 +849,6 @@ void srTriMeshPipeline::FlushSlots()
         culler_input.clip_mask = retain_clip_mask ? clip.mask : 0;
     }
 
-    if (!active_triangles) {
-        srCore.getStatisticsManager()->statistics.triangles_submitted +=
-            slot_count * triangle_count;
-    } else {
-        srCore.getStatisticsManager()->statistics.triangles_submitted +=
-            slot_count * active_triangles->size();
-    }
-    ++srCore.getStatisticsManager()->statistics.meshes_submitted;
-    srCore.getStatisticsManager()->statistics.vertices_submitted += slot_count * vertex_count;
-
     const auto total =
         active_triangles ? static_cast<w8_ulong>(active_triangles->size()) : triangle_count;
     w8_ulong batch_limit = total;
@@ -901,10 +890,6 @@ void srTriMeshPipeline::FlushSlots()
 
         auto culler_output = srTriangleCuller::cull(culler_input);
         if (!culler_output.indices.empty()) {
-            srCore.getStatisticsManager()->statistics.triangles_after_culling +=
-                slot_count * culler_output.triangleCount();
-            srCore.getStatisticsManager()->statistics.vertices_after_culling +=
-                slot_count * culler_output.vertexCount();
 
             srGERD::Renderer* renderer = this->renderer->lockRenderer();
 

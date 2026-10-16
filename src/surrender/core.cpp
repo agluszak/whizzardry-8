@@ -11,7 +11,6 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -22,8 +21,7 @@ int srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
-        srCore.statistics_manager = std::make_unique<srStatisticsManager>();
-        srCore.statistics_manager->reset();
+
         srCore.palette = std::shared_ptr<SDL_Palette>(SDL_CreatePalette(256), SDL_DestroyPalette);
         if (!srCore.palette) throw std::runtime_error(SDL_GetError());
         std::array<SDL_Color, 256> colors;
@@ -74,7 +72,7 @@ int srExit()
         srCore.palette.reset();
         srCore.material.reset();
         srCore.initialized = 0;
-        srCore.statistics_manager.reset();
+
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
         srCore.reset();

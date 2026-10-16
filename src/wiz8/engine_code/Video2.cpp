@@ -53,7 +53,6 @@
 #include "input.h"
 #include "sprite.h"
 #include "surrender/srCamera.h"
-#include "surrender/srCore.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
@@ -62,7 +61,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
 #include "wiz8/cursor.h"
@@ -738,7 +736,7 @@ void RenderFrame(void)
     if (g_gerd != 0) {
         g_gerd->resetStatistics();
     }
-    srCore.getStatisticsManager()->reset();
+
     g_gerd->beginFrame();
 #ifdef WIZ8_RUNTIME_TESTS
     RuntimeObserve(RUNTIME_FRAME_BEGIN, g_fps_frame_count, g_current_screen_state.id,
