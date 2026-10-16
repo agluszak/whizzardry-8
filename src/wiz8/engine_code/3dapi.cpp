@@ -13,7 +13,6 @@
 #include "camera_motion.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "environment_colour.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -214,7 +213,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 W8World* CreateWorld()
 {
     auto world = std::make_unique<W8World>();
-    world->environment_colour.SetZero();
+    world->environment_colour = glm::vec3(0);
 
     // The scene owns its children. Keep both allocations scoped until setup
     // succeeds, including failures while allocating nodes or assigning names.

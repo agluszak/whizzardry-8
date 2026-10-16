@@ -65,7 +65,6 @@
 #include "wiz8/engine_code/geometry_repack.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/environment_colour.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/index_algorithms.h"
@@ -967,8 +966,8 @@ void ReportBuildStatus(short channel, std::string_view message)
 // FUNCTION: WIZ8 0x004969D0
 void ReportStartupMessage(std::string_view message)
 {
-    static EnvironmentColour s_black;
-    static EnvironmentColour s_saved_colour;
+    static glm::vec3 s_black{1.0f};
+    static glm::vec3 s_saved_colour{1.0f};
     std::string* line;
     bool scroll;
     bool scrolled;
@@ -1742,8 +1741,8 @@ static void ToggleOption(bool& option, char* label)
 void W8Octree::OctBuildOptions(char* stem)
 {
     bool done = g_build_level_links;
-    EnvironmentColour colour_saved;
-    EnvironmentColour colour_backup;
+    glm::vec3 colour_saved{1.0f};
+    glm::vec3 colour_backup{1.0f};
     std::string lines[7];
     char log_state[8];
     char rename_state[8];
@@ -1755,8 +1754,8 @@ void W8Octree::OctBuildOptions(char* stem)
     int edit_mode;
     int line;
 
-    colour_saved.SetZero();
-    colour_backup.SetZero();
+    colour_saved = glm::vec3(0);
+    colour_backup = glm::vec3(0);
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);

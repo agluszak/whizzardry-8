@@ -28,7 +28,6 @@
 #include "Item.h"
 #include "OctPreTree.h"
 #include "compat/native.h"
-#include "environment_colour.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -212,9 +211,9 @@ int g_automap_layer = -1;
 // GLOBAL: WIZ8 0x0064b91c
 bool g_automap_bounds_dirty = true;
 // GLOBAL: WIZ8 0x0068f138
-EnvironmentColour g_automap_saved_light_direction;
+glm::vec3 g_automap_saved_light_direction{1.0f};
 // GLOBAL: WIZ8 0x0068f144
-EnvironmentColour g_automap_saved_ambient_light;
+glm::vec3 g_automap_saved_ambient_light{1.0f};
 // GLOBAL: WIZ8 0x0068f150
 bool g_automap_saved_sky;
 // GLOBAL: WIZ8 0x0068f154
@@ -608,10 +607,9 @@ unsigned char AutomapScreenEnter(void)
     g_automap_saved_render_flags[2] = g_monster_shadow_updates_enabled;
     g_automap_saved_render_flags[3] = g_world_render_enabled;
     g_automap_saved_texture_policy = g_resident_texture_policy;
-    EnvironmentColour direction;
-    direction = 0.0;
+    glm::vec3 direction(0);
     SetLightDirection(&direction);
-    SetWorldEnvironmentColour(g_world, EnvironmentColour(0.0, 0.0, 0.0));
+    SetWorldEnvironmentColour(g_world, glm::vec3(0));
     DisableSky();
     DisableRenderOption(W8_RENDER_OPTION_MESH_SKY);
     g_monster_shadow_updates_enabled = 1;
@@ -745,33 +743,6 @@ unsigned char AutomapScreenEnter(void)
         RestoreAutomapCameraPosition();
     }
     return 1;
-}
-
-EnvironmentColour::EnvironmentColour(double red_value, double green_value, double blue_value)
-{
-    Set(red_value, green_value, blue_value);
-}
-
-void EnvironmentColour::Set(double red_value, double green_value, double blue_value)
-{
-    x = static_cast<float>(red_value);
-    y = static_cast<float>(green_value);
-    z = static_cast<float>(blue_value);
-    if (x > 0.0f) {
-        if (x >= 1.0f) x = 1.0f;
-    } else {
-        x = 0.0f;
-    }
-    if (y > 0.0f) {
-        if (y >= 1.0f) y = 1.0f;
-    } else {
-        y = 0.0f;
-    }
-    if (z > 0.0f) {
-        if (z >= 1.0f) z = 1.0f;
-    } else {
-        z = 0.0f;
-    }
 }
 
 W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, std::string_view text)

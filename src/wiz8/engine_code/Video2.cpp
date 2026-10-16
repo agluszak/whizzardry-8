@@ -27,7 +27,6 @@
 #include "AnimRep.hpp"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "environment_colour.h"
 #include "glm/common.hpp" // IWYU pragma: keep
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -681,10 +680,10 @@ unsigned char ClearPrimarySurface(void)
 
 void UpdateRenderElapsedTime(void);
 
-/* Saturate the three components of a renderer colour in place and return it.
+/* Saturate the three components of a renderer colour in place.
    The reviewed body performs these three scalar saturations in order. */
 // FUNCTION: WIZ8 0x004299b0
-srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
+void SaturateColor(glm::vec3* color)
 {
     if (color->x <= 0.0f)
         color->x = 0.0f;
@@ -698,7 +697,6 @@ srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
         color->z = 0.0f;
     else if (color->z >= 1.0f)
         color->z = 1.0f;
-    return color;
 }
 
 /* Render one scene into either the full output or a logical 640x480 viewport.
@@ -789,7 +787,7 @@ void RenderFrame(void)
     if (!g_flush_pending) {
         return;
     }
-    EnvironmentColour clear_color;
+    glm::vec3 clear_color{1.0f};
     srVector3T<float> saved_world_position;
     srVector3T<float> shifted_world_position;
     unsigned int next_page;
@@ -801,7 +799,7 @@ void RenderFrame(void)
     srScene* retire_prerender;
     srScene* retire_overlay;
 
-    clear_color.SetZero();
+    clear_color = glm::vec3(0);
     SaturateColor(&clear_color);
     if (!g_video_active) {
         return;
@@ -816,7 +814,7 @@ void RenderFrame(void)
         if (!IsSkyEnabled()) {
             GetWorldLightValue(g_world, &clear_color);
         } else {
-            static_cast<srVector3&>(clear_color) =
+            clear_color =
                 // NOLINTNEXTLINE(misc-include-cleaner)
                 glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         }
@@ -964,7 +962,7 @@ unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rec
                                    bool render_secondary)
 {
     srGERD* gerd = g_secondary_gerd;
-    EnvironmentColour clear_color;
+    glm::vec3 clear_color{1.0f};
     if (gerd == 0) {
         gerd = g_gerd;
     }
@@ -1018,17 +1016,17 @@ void InvalidateRendererTextureCache(void)
 /* The renderer and both static scenes take the light direction as their fog
    colour. The renderer is flushed before the new colour lands. */
 // FUNCTION: WIZ8 0x00427380
-void PublishLightDirection(const EnvironmentColour* direction)
+void PublishLightDirection(const glm::vec3* direction)
 {
     if (g_gerd != 0) {
         g_gerd->flush();
-        g_gerd->setFogColor(*direction);
+        g_gerd->setFogColor(glm::vec4(*direction, 0));
     }
     if (g_world != 0) {
-        g_world->static_scene->setFogColor(direction->glmValue());
+        g_world->static_scene->setFogColor(*direction);
     }
     if (g_secondary_world != 0) {
-        g_secondary_world->static_scene->setFogColor(direction->glmValue());
+        g_secondary_world->static_scene->setFogColor(*direction);
     }
 }
 
@@ -1046,15 +1044,15 @@ void SetRendererAutoFlipEnabled(bool enabled)
 /* The static scene's fog colour clamped into 0..1 for the caller; an empty
    world reports black. */
 // FUNCTION: WIZ8 0x00427290
-void GetWorldColour(EnvironmentColour* colour)
+void GetWorldColour(glm::vec3* colour)
 {
     if (g_world != 0) {
-        static_cast<srVector3&>(*colour) =
+        *colour =
             // NOLINTNEXTLINE(misc-include-cleaner)
             glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         return;
     }
-    colour->SetZero();
+    *colour = glm::vec3(0);
 }
 
 // FUNCTION: WIZ8 0x00427260
@@ -2663,9 +2661,7 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
 // FUNCTION: WIZ8 0x004291d0
 void SetDisplayGamma(float value)
 {
-    srVector3T<float> gamma;
-    gamma = value;
-    g_gerd->setGamma(gamma);
+    g_gerd->setGamma(glm::vec3(value));
 }
 
 /* The option-4-suppressed variant of the render probe: with the positional

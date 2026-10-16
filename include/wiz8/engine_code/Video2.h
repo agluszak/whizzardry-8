@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/design_rect.h"
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
@@ -185,7 +186,6 @@ class srGERD;
 class srMaterial;
 class srScene;
 class stSurface2D;
-struct EnvironmentColour;
 
 extern int g_pixel_format;
 extern unsigned char g_fullscreen;
@@ -255,9 +255,9 @@ void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
-void PublishLightDirection(const EnvironmentColour* direction);
-void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
-srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
+void PublishLightDirection(const glm::vec3* direction);
+void GetWorldColour(glm::vec3* colour); /* 0x00427290 */
+void SaturateColor(glm::vec3* color);
 void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);

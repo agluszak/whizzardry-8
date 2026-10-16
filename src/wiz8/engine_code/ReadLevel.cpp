@@ -20,7 +20,6 @@
 #include "application.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "environment_colour.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -350,7 +349,7 @@ try {
     /* Retail read these uninitialised when a FileRead chain short-circuited;
        natively the scalars start at zero. */
     srVector3T<float> environment_range;
-    EnvironmentColour white;
+    glm::vec3 white{1.0f};
     srVector3T<float> position;
     srVector3T<float> axis;
     glm::mat3 rotation;

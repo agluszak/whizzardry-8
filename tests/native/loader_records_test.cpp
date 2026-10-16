@@ -26,6 +26,7 @@
 #include "surrender/srMath.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctBuildTree.h"
@@ -1103,4 +1104,41 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
     auto file = wiz8::open_file("items.bin");
     W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
+                 "[loader][records]")
+{
+    const struct RestoreTables {
+        std::array<glm::vec3, 256> environment = g_environment_colours0;
+        std::array<glm::vec3, 256> light = g_environment_colours1;
+        ~RestoreTables()
+        {
+            g_environment_colours0 = environment;
+            g_environment_colours1 = light;
+        }
+    } restore;
+    std::string bytes;
+    for (int index = 0; index < 256; ++index) {
+        bytes.push_back(static_cast<char>(index));
+        bytes.push_back(static_cast<char>(255 - index));
+        bytes.push_back(static_cast<char>(index / 2));
+    }
+    for (const auto& [read, table] :
+         {std::pair{ReadEnvironmentColourTable, &g_environment_colours0},
+          std::pair{ReadLightColourTable, &g_environment_colours1}}) {
+        store("colours.bin", bytes);
+        auto file = wiz8::open_file("colours.bin");
+        REQUIRE(read(file.get()));
+        REQUIRE(file->tell() == 768);
+        for (int index : {0, 1, 127, 255}) {
+            const glm::vec3 expected(index, 255 - index, index / 2);
+            REQUIRE((*table)[index] == expected * (1.0f / 255.0f));
+        }
+        const auto complete = *table;
+        store("colours.bin", bytes.substr(0, 767));
+        file = wiz8::open_file("colours.bin");
+        REQUIRE_FALSE(read(file.get()));
+        REQUIRE(*table == complete);
+    }
 }

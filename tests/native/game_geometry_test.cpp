@@ -50,6 +50,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srModeler.h"
 #include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTriangleCuller.h"
@@ -65,6 +66,7 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Emitter.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GameData.h"
@@ -3103,4 +3105,33 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initi
     g_game_time_accumulator->m_flags.raw_time = true;
     REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
             glm::vec3(0));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Environment ambient scales scenes and lights while retaining the source colour",
+                 "[geometry]")
+{
+    const struct RestoreLights {
+        std::vector<stLight*> lights = g_environment_lights;
+        ~RestoreLights() { g_environment_lights = lights; }
+    } restore;
+    srScene scene;
+    stLight light(nullptr);
+    g_environment_lights = {&light};
+    W8World world{};
+    world.static_scene = &scene;
+    const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
+    ApplyEnvironmentColour(&world, 0.75f, &colour);
+    REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
+    REQUIRE(light.ambient == scene.getAmbientLight());
+    REQUIRE(world.environment_colour == colour);
+    REQUIRE(world.environment_intensity == 0.75f);
+    SetWorldEnvironmentIntensity(&world, 0.5f);
+    REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.25f, 1));
+    REQUIRE(light.ambient == scene.getAmbientLight());
+    REQUIRE(world.environment_colour == colour);
+    world.static_scene = nullptr;
+    glm::vec3 ambient(1);
+    GetWorldLightValue(&world, &ambient);
+    REQUIRE(ambient == glm::vec3(0));
 }

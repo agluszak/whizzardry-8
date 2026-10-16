@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 
@@ -13,6 +14,7 @@ unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 #include <vector>
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srVertexProcessor.h"
 
 class stTextureAnim;
@@ -20,7 +22,6 @@ class W8Prop;
 namespace wiz8 {
 class File;
 }
-struct EnvironmentColour;
 struct W8World;
 template<class T> class srVector3T;
 
@@ -48,10 +49,10 @@ public:
 /* ABS 0x0065AD78: the three light-direction words as one colour triple.
    Produced from the day-phase colour table and consumed as fog-vector
    floats; the word copies below move it without reinterpreting it. */
-extern EnvironmentColour g_light_direction;
+extern glm::vec3 g_light_direction;
 
-extern EnvironmentColour g_environment_colours0[256];
-extern EnvironmentColour g_environment_colours1[256];
+extern std::array<glm::vec3, 256> g_environment_colours0;
+extern std::array<glm::vec3, 256> g_environment_colours1;
 
 class stLight;
 
@@ -63,7 +64,7 @@ void BuildEnvironmentColourRamp(void);
 void BuildLightColourRamp(void);
 void UpdateEnvironmentLight(void);
 void RefreshEnvironment(void);
-void SetWorldEnvironmentColour(W8World* world, EnvironmentColour colour);
+void SetWorldEnvironmentColour(W8World* world, glm::vec3 colour);
 
 void SetSkyEnabled(bool enabled);
 void EnableSky(void);
@@ -71,12 +72,10 @@ void SetFogEnabled(bool enabled);
 bool IsFogEnabled(void);
 void DisableSky(void);
 bool IsSkyEnabled(void);
-/* The ambient light the world contributes as an EnvironmentColour. The
-   Automap caller already stores the result in that type; Video2 converts
-   to srVector3T<float> at its own boundary. */
-void GetWorldLightValue(const W8World* world, EnvironmentColour* pLightValue);
-void SetLightDirection(const EnvironmentColour* direction);
-void GetLightDirection(EnvironmentColour* direction);
+/* The ambient light the world contributes, or black without a static scene. */
+void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue);
+void SetLightDirection(const glm::vec3* direction);
+void GetLightDirection(glm::vec3* direction);
 extern bool g_sky_enabled;
 void ResetEnvironment(void);
 void InitializeLevelEnvironment(void);
@@ -85,7 +84,7 @@ void InitializeLevelEnvironment(void);
 void ClearEnvironmentObjects(void);
 /* Apply one day-phase colour and intensity to the world, its environment
    lights, and the animated cloud material. */
-void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentColour* colour);
+void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* colour);
 void ReleaseEnvironmentObjects(void);
 
 /* Turn the environment clock on or off; enabling resets its tick baseline. */
