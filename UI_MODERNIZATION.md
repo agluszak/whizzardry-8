@@ -18,7 +18,7 @@ and have no fixed event-count limit. Attaching or detaching the input window res
 Ordinary button down/up events carry SDL's click count; double-click activation stays
 on button down. Focused editors request native text input: key events edit or navigate,
 and committed text events insert characters. Retail key-name mapping is confined to
-binding conversion. MIPE text rows and generator names follow the same text contract.
+binding conversion. The unreachable MIPE editor has been removed.
 
 The character-summary dialog owns its voice playback and portrait animation. Quote
 and sample lookup use the supplied character, and the animation state is shared with
