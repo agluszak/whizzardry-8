@@ -572,7 +572,7 @@ static void malformed_octrees()
     append(bytes, UINT32_MAX);
     for (std::size_t end = 0; end <= bytes.size(); ++end) {
         store("fixture.oct", bytes.substr(0, end));
-        W8GameData* data = nullptr;
+        std::unique_ptr<W8GameData> data;
         W8Octree tree("fixture.oct", &data);
         REQUIRE((tree.HasLoadError() && !data));
     }
