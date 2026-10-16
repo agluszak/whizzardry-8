@@ -389,7 +389,7 @@ bool MartensBluff2DoorControls(Trigger* pTrigger)
 {
     if (pTrigger->state_index == 0) {
         Trigger* pDoor = FindTriggerByName("SquisherDoor");
-        W8TriggerActionData* action = pDoor->m_pActionData;
+        W8TriggerActionData* action = pDoor->m_pActionData.get();
         if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
             action = 0;
         }
@@ -397,7 +397,7 @@ bool MartensBluff2DoorControls(Trigger* pTrigger)
             pDoor->Run(-1);
         }
         pDoor = FindTriggerByName("SquisherDoor1");
-        action = pDoor->m_pActionData;
+        action = pDoor->m_pActionData.get();
         if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
             action = 0;
         }
