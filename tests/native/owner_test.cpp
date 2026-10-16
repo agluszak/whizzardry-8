@@ -40,6 +40,7 @@
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srCamera.h"
+#include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
