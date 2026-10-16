@@ -143,16 +143,12 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, fl
         return 0;
     }
 
-    stSound3D* sound = new stSound3D(sound_name, 0);
-    if (sound != 0) {
-        glm::dvec3 sound_position;
-        sound_position = glm::dvec3(position);
-        sound->setLocation(sound_position);
-        sound->volume = static_cast<int>(volume * g_sound_node_full_volume);
-        sound->falloff = scale * g_world_scale;
-        sound->Play(play_flag, true);
-    }
-    return sound;
+    auto sound = std::make_unique<stSound3D>(sound_name, nullptr);
+    sound->setLocation(glm::dvec3(position));
+    sound->volume = static_cast<int>(volume * g_sound_node_full_volume);
+    sound->falloff = scale * g_world_scale;
+    sound->Play(play_flag);
+    return Retain3DSound(std::move(sound));
 }
 
 /* One row of the cursor-node dispatch table at 0x006109F4, indexed by the

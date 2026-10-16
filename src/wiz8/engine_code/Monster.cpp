@@ -2211,7 +2211,7 @@ void W8Monster::ProcessScript()
                                        static_cast<double>(position.y),
                                        static_cast<double>(position.z));
                     if (distance != 0.0f) sound->falloff = distance;
-                    if (sound->Play(false, false) == 0) {
+                    if (sound->Play(false) == 0) {
                         delete sound;
                         sound = 0;
                     } else {

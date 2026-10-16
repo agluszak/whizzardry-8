@@ -3026,6 +3026,12 @@ TEST_CASE("Positional sound copies register each live node once", "[scene][sound
         assigned = source;
         assigned = source;
         stSound3D copied(source);
+        auto owned = std::make_unique<stSound3D>("service.wav", nullptr);
+        auto* borrowed = Retain3DSound(std::move(owned));
+        REQUIRE(borrowed->getParent() == nullptr);
+        REQUIRE(g_sound3d_instances.size() == initial + 4);
+        Release3DSounds();
+        Release3DSounds();
         REQUIRE(g_sound3d_instances.size() == initial + 3);
         for (auto* node : {&source, &assigned, &copied})
             REQUIRE(std::ranges::count(g_sound3d_instances, node) == 1);
