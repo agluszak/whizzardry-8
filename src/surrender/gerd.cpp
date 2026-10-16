@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <cmath>
 #include <condition_variable>
 #include <cstdint>
@@ -27,7 +26,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "glm/ext/vector_uint4_sized.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
@@ -1256,63 +1254,6 @@ glm::mat4 srGERD::getInverseModelViewMatrix()
     return state.inverse_modelview;
 }
 
-// FUNCTION: SURRENDER 0x1001F790
-short srGERD::accumConvert(float value) const
-{
-    if (value <= -1.0f) {
-        return -32767;
-    }
-    if (value >= 1.0f) {
-        return 32767;
-    }
-    return static_cast<short>(srFloatToInt(value * 32767.0f));
-}
-
-// FUNCTION: SURRENDER 0x1001F7F0
-void srGERD::accumAlloc()
-{
-    if (getWidth() != 0 && getHeight() != 0) {
-        accum_buffer.resize(static_cast<std::size_t>(getWidth()) * getHeight(), AccumPixel(0));
-        accum_scratch.resize(getWidth());
-        accumClear();
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001F8D0
-void srGERD::accumClear()
-{
-    if (accum_buffer.empty()) {
-        accumAlloc();
-    }
-    if (accum_buffer.empty()) {
-        return;
-    }
-    short first = accumConvert(clear_state.clear_values.accum.x);
-    short second = accumConvert(clear_state.clear_values.accum.y);
-    short third = accumConvert(clear_state.clear_values.accum.z);
-    short fourth = accumConvert(clear_state.clear_values.accum.w);
-    w8_ulong left = state.scissor.left;
-    w8_ulong top = state.scissor.top;
-    w8_ulong width = state.scissor.right - left;
-    w8_ulong height = state.scissor.bottom - top;
-    AccumPixel* row = accum_buffer.data() + getWidth() * top + left;
-    if (width == 0 || height == 0) {
-        return;
-    }
-    AccumPixel value{fourth, first, second, third};
-    if (first == third && second == fourth) {
-        /* Preserve the retail dword fill, including its signed low-lane carry. */
-        std::uint32_t constant =
-            static_cast<std::uint32_t>(first) * 0x10000u + static_cast<std::uint32_t>(second);
-        const auto lanes = std::bit_cast<std::array<short, 2>>(constant);
-        value = {lanes[0], lanes[1], lanes[0], lanes[1]};
-    }
-    for (; height != 0; height--) {
-        std::fill_n(row, width, value);
-        row += getWidth();
-    }
-}
-
 // VTABLE: SURRENDER 0x100767F8
 // class srGERD::LockSurface
 
@@ -1466,24 +1407,9 @@ void srGERD::clear(std::uint32_t buffers)
     }
     if (buffers != 0) {
         checkViewStateChanges();
-        /* GERD buffer bits 0,1,3 map to DD bits 0,1,2; GERD bit 2 is the
-           software accumulation buffer serviced by accumClear. */
-        std::uint32_t device_buffers = (buffers & BUFFER_COLOR) != 0;
-        if ((buffers & BUFFER_DEPTH) != 0) {
-            device_buffers |= srDD::BUFFER_DEPTH;
-        }
-        if ((buffers & BUFFER_STENCIL) != 0) {
-            device_buffers |= srDD::BUFFER_STENCIL;
-        }
-        if (device_buffers != 0) {
-            const auto& values = clear_state.clear_values;
-            getDD()->setClearValues(
-                {values.color, static_cast<float>(values.depth), values.stencil});
-            getDD()->clearBuffers(device_buffers);
-        }
-        if ((buffers & BUFFER_ACCUM) != 0) {
-            accumClear();
-        }
+        const auto& values = clear_state.clear_values;
+        getDD()->setClearValues({values.color, static_cast<float>(values.depth), values.stencil});
+        getDD()->clearBuffers(buffers);
     }
 }
 
@@ -2382,8 +2308,6 @@ void srGERD::closeWindow(e_closeHint hint)
         closeTexCache();
         getDD()->closeWindow();
         resetStatistics();
-        decltype(accum_buffer){}.swap(accum_buffer);
-        decltype(accum_scratch){}.swap(accum_scratch);
         device.open_info = {};
         state_flags &= ~STATE_WINDOW_OPEN;
         device.back_buffer_type = static_cast<e_backBuffer>(0);
@@ -2489,7 +2413,7 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
                     count = 1;
                 }
                 for (; count != 0; count--) {
-                    clear(~static_cast<w8_ulong>(BUFFER_ACCUM));
+                    clear(srDD::BUFFER_COLOR | srDD::BUFFER_DEPTH | srDD::BUFFER_STENCIL);
                     flipFrame();
                 }
                 flush();
@@ -2809,30 +2733,6 @@ int srGERD::isBufferLocked()
     return lock_surface != 0;
 }
 
-// FUNCTION: SURRENDER 0x1001C830
-w8_long srGERD::getAccumAlphaBits() const
-{
-    return 0x10;
-}
-
-// FUNCTION: SURRENDER 0x1001C840
-w8_long srGERD::getAccumRedBits() const
-{
-    return 0x10;
-}
-
-// FUNCTION: SURRENDER 0x1001C850
-w8_long srGERD::getAccumGreenBits() const
-{
-    return 0x10;
-}
-
-// FUNCTION: SURRENDER 0x1001C860
-w8_long srGERD::getAccumBlueBits() const
-{
-    return 0x10;
-}
-
 // FUNCTION: SURRENDER 0x1001C870
 void srGERD::setPolygonMode(e_polygonMode mode)
 {
@@ -2847,23 +2747,6 @@ void srGERD::setPolygonMode(e_polygonMode mode)
 srGERD::e_polygonMode srGERD::getPolygonMode() const
 {
     return polygon_mode;
-}
-
-// FUNCTION: SURRENDER 0x1001C920
-void srGERD::setClearAccum(float red, float green, float blue, float alpha)
-{
-    glm::vec4 color;
-    color.x = red;
-    color.y = green;
-    color.z = blue;
-    color.w = alpha;
-    setClearAccum(color);
-}
-
-// FUNCTION: SURRENDER 0x1001C960
-void srGERD::setClearAccum(const glm::vec4& color)
-{
-    clear_state.clear_values.accum = glm::clamp(color, -1.0f, 1.0f);
 }
 
 // FUNCTION: SURRENDER 0x1001CBE0
@@ -3009,11 +2892,7 @@ void srGERD::setFogPointer(w8_long components, srRendererDefs::e_type type, w8_u
 // FUNCTION: SURRENDER 0x10020550
 void srGERD::initClearColors()
 {
-    glm::vec4 color;
-    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    setClearAccum(color);
-    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    setClearColor(color);
+    setClearColor(glm::vec4(0));
     setClearDepth(1.0);
     setClearStencil(0);
 }
@@ -3065,108 +2944,6 @@ void srGERD::initTextureParameterMatrix()
     texture_state.default_texture_params[3] = 3;
     texture_state.default_texture_params[4] = 0;
     texture_state.default_compression = static_cast<srTextureIFace::e_compression>(0);
-}
-
-// FUNCTION: SURRENDER 0x1001FBD0
-void srGERD::accumulate(e_accum operation, float scale)
-{
-    if (!isWindowOpen()) {
-        return;
-    }
-    w8_long width = state.scissor.right - state.scissor.left;
-    w8_long height = state.scissor.bottom - state.scissor.top;
-    if (width == 0 || height == 0) {
-        return;
-    }
-    if (accum_buffer.empty()) {
-        accumAlloc();
-        if (accum_buffer.empty()) {
-            return;
-        }
-    }
-    srColorSurfaceIFace* surface = 0;
-    if ((operation == ACCUM_LOAD || operation == ACCUM_ACCUMULATE || operation == ACCUM_RETURN) &&
-        (surface = lockBuffer()) == 0) {
-        setError(ERROR_BUFFER_LOCK_FAILED);
-        return;
-    }
-    AccumPixel* row = accum_buffer.data() + getWidth() * state.scissor.top + state.scissor.left;
-    srARGB* pixels = accum_scratch.data();
-    {
-        short addend = accumConvert(scale);
-        switch (operation) {
-        case ACCUM_LOAD:
-        case ACCUM_ACCUMULATE: {
-            short table[256];
-            for (w8_long i = 0; i < 256; ++i)
-                table[i] = (short)(w8_long)(i * (scale * (32767.0f / 255.0f)));
-
-            for (w8_long y = 0; y < height; ++y) {
-                surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: packed ARGB row
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                for (w8_long x = 0; x < width; ++x) {
-                    const AccumPixel value{table[pixels[x].blue], table[pixels[x].green],
-                                           table[pixels[x].red], table[pixels[x].alpha]};
-                    row[x] = operation == ACCUM_LOAD ? row[x] + value : value;
-                }
-                row += getWidth();
-            }
-            break;
-        }
-        case ACCUM_MULTIPLY: {
-            for (w8_long y = 0; y < height; y++) {
-                for (w8_long x = 0; x < width; x++) {
-                    row[x] += addend;
-                }
-                row += getWidth();
-            }
-            break;
-        }
-        case ACCUM_ADD: {
-            for (w8_long y = 0; y < height; y++) {
-                for (w8_long x = 0; x < width; x++) {
-                    for (unsigned channel = 0; channel < 4; ++channel)
-                        row[x][channel] = static_cast<short>(srFloatToInt(row[x][channel] * scale));
-                }
-                row += getWidth();
-            }
-            break;
-        }
-        case ACCUM_RETURN: {
-            unsigned char table[512];
-            for (w8_long i = 0; i < 512; i++) {
-                float level = i * (1.0f / 255.0f);
-                if (level <= 0.0f) {
-                    level = 0.0f;
-                } else if (level >= 1.0f) {
-                    level = 1.0f;
-                }
-                table[i] = (unsigned char)(w8_long)(level * scale * 255.0f + 0.5f);
-            }
-            for (w8_long y = 0; y < height; y++) {
-                for (w8_long x = 0; x < width; x++) {
-                    const auto indices = glm::u16vec4(row[x]) >> static_cast<unsigned short>(7);
-                    const glm::u8vec4 color{table[indices.x], table[indices.y], table[indices.z],
-                                            table[indices.w]};
-                    // The device row interface consumes four packed BGRA bytes.
-                    std::memcpy(&pixels[x], &color, sizeof(srARGB));
-                }
-                surface->setPixelRow(
-                    reinterpret_cast<const w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
-                    // through the dword pixel-row ABI
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                row += getWidth();
-            }
-            break;
-        }
-        default:
-            setError(ERROR_INVALID_ENUM);
-        }
-    }
-    if (surface != 0) {
-        unlockBuffer();
-    }
 }
 
 // FUNCTION: SURRENDER 0x10068700

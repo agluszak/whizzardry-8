@@ -1,20 +1,14 @@
 #include <algorithm>
-#include <cstddef>
 #include <cstring>
 #include <iterator>
-#include <limits>
-#include <optional>
 #include <span>
 
 #include <SDL3/SDL_pixels.h>
 
 #include "compat/compiler.h"
-#include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_uint4.hpp"
 #include "glm/geometric.hpp"
-#include "glm/vector_relational.hpp"
 #include "surrender/pixel_math.h"
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
@@ -310,58 +304,6 @@ void initFormats()
 }
 
 } // namespace
-static glm::vec4 channelBitCounts(const srPixelConvert::PixelFormat& format)
-{
-    return glm::vec4(format.red_bits, format.green_bits, format.blue_bits, format.alpha_bits);
-}
-
-// FUNCTION: SURRENDER 0x10008020
-std::optional<std::size_t>
-srPixelConvert::PixelFormat::match(std::span<const PixelFormat> formats) const
-{
-    if (formats.empty()) return std::nullopt;
-    if (formats.size() == 1) return 0;
-    if (fourcc != 0) {
-        const auto exact = std::ranges::find(formats, fourcc, &PixelFormat::fourcc);
-        if (exact != formats.end()) return exact - formats.begin();
-    }
-    const auto wanted = channelBitCounts(*this);
-    const auto required = glm::min(wanted, glm::vec4(1));
-    std::optional<std::size_t> best;
-    float best_distance = std::numeric_limits<float>::infinity();
-    int best_bytes = 5;
-    for (std::size_t index = 0; index < formats.size(); ++index) {
-        const auto& candidate = formats[index];
-        const auto bits = channelBitCounts(candidate);
-        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required)))
-            continue;
-        // Only shortfall costs distance; byte-sized channel counts score exactly in float.
-        const auto shortfall = glm::min(bits - wanted, glm::vec4(0));
-        const auto distance = glm::dot(shortfall, shortfall);
-        if (distance < best_distance ||
-            (distance == best_distance && candidate.pixel_size < best_bytes)) {
-            best = index;
-            best_distance = distance;
-            best_bytes = candidate.pixel_size;
-        }
-    }
-    if (best) return best;
-    // No compatible class: retain the first widest format.
-    return std::ranges::max_element(formats, {}, &PixelFormat::pixel_size) - formats.begin();
-}
-
-// FUNCTION: SURRENDER 0x10008240
-srPixelConvert::e_surfaceType srPixelConvert::mapPixelFormat(const PixelFormat& format)
-{
-    initFormats();
-    for (w8_ulong i = 0; i < 25; i++) {
-        if (format_table[i].format == format) {
-            return static_cast<e_surfaceType>(i);
-        }
-    }
-    return SURFACE_INVALID;
-}
-
 // FUNCTION: SURRENDER 0x10008290
 srPixelConvert::PixelFormat srPixelConvert::pixelFormat(e_surfaceType type)
 {
@@ -523,11 +465,11 @@ void readIndexed(const srPixelConvert::ConversionInfo& info)
     const auto& format = *info.format;
     const PackedChannel palette_index(format.red_bits, format.red_shift);
     const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
-    /* reinterpret-ok: palette entries are packed srARGB dwords. */
-    const auto* palette = reinterpret_cast<const w8_ulong*>(info.palette->getPaletteDataPtr());
+    const auto* palette = info.palette->getPaletteDataPtr();
     ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong index) {
-        return PixelAt{
-            (palette[palette_index.extract(pixel)] & 0xffffff) | alpha.expand(pixel) << 24, index};
+        const auto& color = palette[palette_index.extract(pixel)];
+        return PixelAt{srPixels::pack({color.red, color.green, color.blue, alpha.expand(pixel)}),
+                       index};
     });
 }
 

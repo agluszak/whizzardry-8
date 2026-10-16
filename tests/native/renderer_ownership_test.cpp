@@ -776,30 +776,37 @@ bool rendererTextureStages()
     srGERD gerd(srCreateSDLGPUDevice());
     for (unsigned stages : {1u, 2u}) {
         srGERD::Renderer renderer({&gerd, 0, 256, stages});
-        auto arrays = renderer.allocVertexArray(3);
+        auto arrays = renderer.allocVertexArray(8);
         for (unsigned stage = 0; stage < 2; ++stage)
-            for (unsigned i = 0; i < 3; ++i) {
+            for (unsigned i = 0; i < 8; ++i) {
                 renderer.vertices.st[stage][i] = glm::vec2(10 * stage + i, 20 + i);
                 renderer.vertices.q[stage][i] = 0.25f * (stage + i + 1);
             }
-        for (unsigned attributes = 0; attributes < 128; ++attributes) {
-            for (auto& stream : renderer.stq) stream.clear();
-            renderer.vertices.attributes[0] = attributes;
-            renderer.programVertexArrays(&arrays, 3);
-            const auto mask = gerd.getVertexArrayMask();
-            for (unsigned stage = 0; stage < 2; ++stage) {
-                const bool enabled =
-                    stage < stages && (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
-                REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage))) ==
-                        enabled);
-                const bool combined =
-                    enabled && (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
-                REQUIRE(renderer.stq[stage].size() == (combined ? 3u : 0u));
-                if (combined)
-                    for (unsigned i = 0; i < 3; ++i) {
-                        REQUIRE(renderer.stq[stage][i].st == renderer.vertices.st[stage][i]);
-                        REQUIRE(renderer.stq[stage][i].q == renderer.vertices.q[stage][i]);
+        for (unsigned count : {1u, 3u, 4u, 5u, 8u}) {
+            for (unsigned lane = 0; lane < count; ++lane) {
+                for (unsigned attributes = 0; attributes < 128; ++attributes) {
+                    for (auto& stream : renderer.stq) stream.clear();
+                    std::fill(renderer.vertices.attributes.begin(),
+                              renderer.vertices.attributes.end(), 0);
+                    renderer.vertices.attributes[lane] = attributes;
+                    renderer.programVertexArrays(&arrays, count);
+                    const auto mask = gerd.getVertexArrayMask();
+                    for (unsigned stage = 0; stage < 2; ++stage) {
+                        const bool enabled = stage < stages &&
+                                             (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
+                        REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 +
+                                                    stage))) == enabled);
+                        const bool combined =
+                            enabled && (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
+                        REQUIRE(renderer.stq[stage].size() == (combined ? count : 0u));
+                        if (combined)
+                            for (unsigned i = 0; i < count; ++i) {
+                                REQUIRE(renderer.stq[stage][i].st ==
+                                        renderer.vertices.st[stage][i]);
+                                REQUIRE(renderer.stq[stage][i].q == renderer.vertices.q[stage][i]);
+                            }
                     }
+                }
             }
         }
     }

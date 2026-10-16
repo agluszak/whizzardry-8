@@ -15,7 +15,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "glm/ext/vector_int4_sized.hpp"
 #include "srARGB.h"
 #include "srBoundingSphere.h"
 #include "srClass.h"
@@ -264,9 +263,6 @@ public:
         ERROR_NO_CONTEXT = 8
     };
     enum e_closeHint {};
-    /* clear() maps COLOR/DEPTH/STENCIL onto srDD::e_buffer and services
-       ACCUM itself through accumClear. */
-    enum e_buffer { BUFFER_COLOR = 1, BUFFER_DEPTH = 2, BUFFER_ACCUM = 4, BUFFER_STENCIL = 8 };
     /* One, two or three buffers for blit, double or triple buffering. */
     enum e_backBuffer { BACKBUFFER_NONE = 1, BACKBUFFER_ONE = 2, BACKBUFFER_TWO = 3 };
     /* applyRenderState translates each value to the same srDD mode. */
@@ -290,19 +286,6 @@ public:
     enum e_visibility { VISIBILITY_OUTSIDE = 0 };
     enum e_hint {};
     enum e_hintMode {};
-    /* 0 loads the frame buffer into the accum buffer, 1 accumulates, 4 returns the accum buffer to
-       the frame buffer; 2/3 multiply/add through the accum path. */
-    enum e_accum {
-        ACCUM_LOAD = 0,
-        ACCUM_ACCUMULATE = 1,
-        ACCUM_MULTIPLY = 2,
-        ACCUM_ADD = 3,
-        ACCUM_RETURN = 4
-    };
-    // Native accumulator channels retain the existing four signed 16-bit lanes.
-    using AccumPixel = glm::i16vec4;
-    static_assert(sizeof(AccumPixel) == 8);
-
     explicit srGERD(srDD* device);
     virtual ~srGERD() override;
 
@@ -526,16 +509,9 @@ public:
     void setDepthRange(double minimum, double maximum);
     void setPolygonMode(e_polygonMode mode);
     e_polygonMode getPolygonMode() const;
-    void setClearAccum(const glm::vec4& color);
-    void setClearAccum(float red, float green, float blue, float alpha);
     double getClearDepth() const;
     void setClearStencil(w8_ulong stencil);
     w8_ulong getClearStencil() const;
-    w8_long getAccumAlphaBits() const;
-    w8_long getAccumRedBits() const;
-    w8_long getAccumGreenBits() const;
-    w8_long getAccumBlueBits() const;
-    void accumulate(e_accum operation, float scale);
     int isTextureCached(srTextureIFace* texture) const;
     int isTextureResident(srTextureIFace* texture) const;
     srTextureIFace::e_compression getTextureDefaultCompression() const;
@@ -722,9 +698,6 @@ private:
     void _lockBuffer();
     void _unlockBuffer();
     std::optional<srPixelConvert::PixelFormat> getPixelFormat() const;
-    void accumAlloc();
-    short accumConvert(float value) const;
-    void accumClear();
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
     RendererEntry* createRenderer(int sorted);
@@ -828,7 +801,6 @@ private:
     struct ClearState {
         struct {
             glm::vec4 color;
-            glm::vec4 accum;
             double depth;
             w8_ulong stencil;
         } clear_values;
@@ -920,9 +892,6 @@ private:
     Statistics frame_statistics;
     /* getDD counts each device access, so the live counters are mutable. */
     mutable Statistics statistics;
-    /* Accumulation buffer: width*height pixels plus one ARGB scratch row. */
-    std::vector<AccumPixel> accum_buffer;
-    std::vector<srARGB> accum_scratch;
     std::unique_ptr<LockSurface> lock_surface;
     /* Buffer-lock nesting depth; _lockBuffer only locks the device on the
        first entry and _unlockBuffer unlocks when this returns to zero. */
