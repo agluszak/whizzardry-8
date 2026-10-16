@@ -32,8 +32,10 @@ class WhizzardryDependencies(ConanFile):
         self.options["sdl"].pulseaudio = False
         self.options["sdl"].sndio = False
         self.options["sdl"].dbus = False
-        # With a shared libalsa, SDL dlopens libasound instead of linking it
-        # (see generate()).
+        # SDL only enables dynamically loaded dependencies in shared builds.
+        # Together with shared libalsa, this lets it load the host's ALSA
+        # configuration and plugins instead of the Conan package's (see generate()).
+        self.options["sdl"].shared = True
         self.options["libalsa"].shared = True
         # Keep JPEG and PNG; avoid heavyweight optional image codecs.
         self.options["sdl_image"].with_avif = False
