@@ -104,8 +104,8 @@ TEST_CASE("game graphics")
         while (SDL_PollEvent(&event)) HandleInputEvent(event);
         auto error = g_gerd->beginFrame();
         if (error != srGERD::ERROR_NONE)
-            fprintf(stderr, "begin frame %d: %d %s window %llu open %d\n", frame, int(error),
-                    g_gerd->getErrorString(error), (unsigned long long)g_gerd->getWindowHandle(),
+            fprintf(stderr, "begin frame %d: %d %s window %p open %d\n", frame, int(error),
+                    g_gerd->getErrorString(error), static_cast<void*>(ghWindow),
                     g_gerd->isWindowOpen());
         REQUIRE(error == srGERD::ERROR_NONE);
         g_gerd->setClearColor(0, 0, 0, 1);
