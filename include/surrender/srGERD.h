@@ -332,24 +332,20 @@ public:
     e_error createContext(w8_ulong_ptr window);
     int isContextCreated() const;
     void deleteContext();
-    w8_long getDisplayMode(w8_ulong width, w8_ulong height, w8_ulong depth) const;
     /* openWindowInternal parameter block: the current client size and the
-       requested backbuffer size plus the display-mode index (-1 windowed). */
+       requested backbuffer size. */
     struct OpenInfo {
         w8_long window_width;
         w8_long window_height;
         w8_long width;
         w8_long height;
-        w8_long display_mode;
     };
     /* Number of back buffers in the swap chain (1, 2 or 3). */
     e_error openWindow();
     e_error openWindow(w8_long width, w8_long height);
-    e_error openWindow(w8_long mode);
     void closeWindow(e_closeHint hint);
     e_backBuffer getBackBufferType() const;
     int isWindowOpen() const;
-    int isFullScreen() const;
     w8_ulong_ptr getWindowHandle() const;
     void setGamma(const srVector3T<float>& gamma);
     e_error beginFrame();
@@ -762,7 +758,6 @@ private:
     void closeTexCache();
     void initDDInfo();
     void uploadTexture(Texture& texture);
-    void initDisplayModeList();
     void initGlobalPalette();
     void initClearColors();
     void initView();
@@ -815,12 +810,10 @@ private:
         /* getDriverInfo target; getDriverID/getDriverName
            (pre-context) and getApiVersion read its trailing fields. */
         srDD::DriverInfo driver_info;
-        std::vector<srDD::WindowInfo> display_modes;
         /* setHint/getHint index this by e_hint. */
         e_hintMode hints[1];
         w8_ulong_ptr window;
-        /* openWindowInternal fills this record: windowed dims, backbuffer dims, then the
-           display-mode index (-1 when windowed). */
+        /* Current window and backbuffer dimensions. */
         OpenInfo open_info;
         /* e_backBuffer result of srDD::openWindow; getBackBufferType reads
            it. */

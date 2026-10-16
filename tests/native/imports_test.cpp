@@ -10,7 +10,6 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include <SDL3/SDL_iostream.h>
@@ -41,9 +40,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
-#include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
-#include "surrender/srTextureFile.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTextureMap.h"
 #include "wiz8/sr_api.h"
@@ -67,10 +64,6 @@ struct ClientNode : srNode {
 };
 struct ClientMaterial : srMaterial {
     ~ClientMaterial() override {}
-};
-struct ClientTextureFile : srTextureFile {
-    ClientTextureFile() : srTextureFile({}, 0) {}
-    ~ClientTextureFile() override {}
 };
 // Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
 static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
@@ -228,12 +221,6 @@ TEST_CASE("imports_test")
         REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Z) == std::pair{-2.f, 0.f}));
         REQUIRE_FALSE(modeler.getAxialBounds(static_cast<srModeler::e_axis>(-1)));
     }
-    struct alignas(8) WordPair {
-        unsigned int padding;
-        srQuadWord value;
-    } words{0, {7, 1}};
-    static_assert(offsetof(WordPair, value) == 4, "exercise four-byte aligned word pair");
-    REQUIRE(double(words.value) == 4294967303.0);
     for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
         REQUIRE(fesetround(mode) == 0);
         const double inputs[] = {0.0,
@@ -342,15 +329,6 @@ TEST_CASE("imports_test")
         }
         REQUIRE((vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1));
         REQUIRE((vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7));
-        // File names own their text, including an aliased setter argument.
-        ClientTextureFile texture;
-        texture.setFileName("first.bmp");
-        texture.setFileName("second.bmp");
-        REQUIRE(texture.getFileName() == "second.bmp");
-        texture.setFileName(texture.getFileName());
-        REQUIRE(texture.getFileName() == "second.bmp");
-        texture.setFileName({});
-        REQUIRE(texture.getFileName().empty());
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;

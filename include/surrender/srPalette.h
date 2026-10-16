@@ -6,8 +6,6 @@
 #include "srARGB.h"
 #include "srTypeRegistry.h"
 
-class srColorSurfaceIFace;
-
 // VTABLE: SURRENDER 0x100753EC
 // class srClassSupport<srPalette, srClass, 10496>
 
@@ -66,114 +64,6 @@ public:
         w8_long entry_count;               /* 0x21510 */
         unsigned char* lut_row;         /* 0x21514 */
         w8_long rg_dist[0x100];            /* 0x21518 */
-    };
-
-    /* Color sampler. Sampled colors are quantized to sample_bits per channel and accumulated in a
-       0x8000-bucket open hash; entries hold the packed color and its total weight, linked through a
-       parallel index array. */
-    class Sampler {
-    public:
-        struct ColorEntry {
-            srARGB color;
-            w8_long count;
-        };
-
-        Sampler(w8_long sample_limit = 0);
-        // FUNCTION: SURRENDER 0x10004BA0
-        Sampler(const Sampler& other) = default;
-        // Retail destructor: SURRENDER 0x10006930 (implicit destruction).
-
-        w8_long getColorCount();
-        w8_long getOutputPaletteSize();
-        w8_long getSampleCount();
-        double getSampleFactor();
-        w8_long getSampleBits();
-        void setOutputPaletteSize(w8_long size);
-        void setSampleBits(w8_long bits);
-        void setSampleFactor(double factor);
-        void discard();
-        void removeMaskColor(w8_long index);
-        void setMaskColor(w8_long index, const srARGB& color);
-        void addColor(const srARGB& color, w8_long weight);
-        void addColors(const srARGB* colors, w8_long color_count, w8_long weight);
-        void addSurface(const char* name, w8_long weight);
-        void addSurface(srColorSurfaceIFace& surface, w8_long weight);
-        void addSurfaces(srColorSurfaceIFace** surfaces, w8_long surface_count, w8_long weight);
-        std::shared_ptr<srPalette> createOptimalPalette();
-        void dump(std::ostream& stream);
-
-    private:
-        void shiftDown(srARGB& color);
-        void shiftUp(srARGB& color);
-        void reallocColors(w8_long capacity);
-
-        w8_long sample_limit; /* 0x000 */
-        double sample_factor; /* 0x008 */
-        w8_long sample_bits; /* 0x010 */
-        w8_long color_count; /* 0x014 */
-        w8_long sample_count; /* 0x018 */
-        w8_long capacity; /* 0x01c */
-        w8_long output_palette_size; /* 0x020 */
-        unsigned char mask_flags[0x100]; /* 0x024 */
-        srARGB mask_colors[0x100]; /* 0x124 */
-        std::vector<ColorEntry> colors;
-        std::vector<w8_long> links;
-        w8_long buckets[0x8000]; /* 0x52c */
-    };
-
-    /* Optimal-palette builder; an octree over the sampled 5-5-5 color space. Level arrays hold
-       8^level nodes for levels 0-4; level-4 children index the sparse 15-bit leaf-bucket map. Leaf
-       bucket nodes own Leaf records {color, weight, error}. */
-    class Optimizer {
-    public:
-        struct PaletteInfo {
-            const Sampler::ColorEntry* colors; /* 0x00 */
-            w8_long color_count; /* 0x04 */
-            w8_long palette_size; /* 0x08 */
-            const srARGB* mask_colors; /* 0x0c */
-            const unsigned char* mask_flags; /* 0x10 */
-            w8_long mask_count; /* 0x14 */
-        };
-
-        static std::shared_ptr<srPalette> createOptimalPalette(const PaletteInfo& info);
-
-    private:
-        struct HashEntry {
-            HashEntry* next;
-            w8_ulong color;
-            w8_long count;
-        };
-
-        struct Leaf {
-            w8_ulong color;
-            w8_long weight;
-            double error;
-        };
-
-        struct Node {
-            double err_min; /* 0x00 */
-            double err_total; /* 0x08 */
-            w8_ulong color; /* 0x10 */
-            srARGB bound_lo; /* 0x14 */
-            srARGB bound_hi; /* 0x18 */
-            Leaf* leaves; /* 0x1c */
-            w8_long leaf_count; /* 0x20 */
-            Node* parent; /* 0x24 */
-            Node* children[8]; /* 0x28 */
-        };
-
-        struct LUT {
-            float dist_r[0x200]; /* 0x0000 (i-256)^2 * 0.299 */
-            float dist_g[0x200]; /* 0x0800 (i-256)^2 * 0.587 */
-            float dist_b[0x200]; /* 0x1000 (i-256)^2 * 0.114 */
-            float* r; /* 0x1800 dist_r biased by (0x100 - red) */
-            float* g; /* 0x1804 */
-            float* b; /* 0x1808 */
-            srARGB color; /* 0x180c */
-        };
-
-        static void findOptimalColor(Node* node, const LUT& lut);
-        static void setupLUT(LUT& lut, const srARGB& color);
     };
 
     static const char* sGetClassName();

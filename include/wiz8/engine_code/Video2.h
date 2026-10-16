@@ -56,8 +56,6 @@ void VideoFullScreen(bool enabled);
 bool VideoResizeWindow(void);
 void VideoInspectorEnable(void);
 bool VideoInspectorIsEnabled(void);
-char* VideoGetConfigFile(void);
-void VideoSetConfigFile(const char* path);
 int VideoDumpMemoryLeaks(void);
 bool CheckCdPresent(void);
 void VideoGetClientRect(SDL_Rect* rect);

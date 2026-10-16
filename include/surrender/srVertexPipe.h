@@ -152,7 +152,6 @@ private:
     void setupST(w8_ulong index);
     void setupSpecular();
 
-    friend class srEnvironmentMapper;
     friend class srLight;
 
     struct Scratch {

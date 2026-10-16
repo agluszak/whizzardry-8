@@ -202,14 +202,13 @@ jobs:
         run: rm -rf "$RUNNER_TEMP/wiz8-native-game"
       - name: Show compiler cache stats
         if: always()
-        run: ccache --show-stats || true
+        run: |
+          echo '### ccache (${{ matrix.preset }})' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ccache --show-stats 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-  static-analysis:
-    name: ${{ matrix.check }}
-    strategy:
-      fail-fast: false
-      matrix:
-        check: [include-hygiene, clang-tidy]
+  clang-tidy:
     runs-on: ubuntu-26.04
     defaults:
       run:
@@ -238,9 +237,7 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
           git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/static-analysis-changed"
-      # Include-cleaner must analyze direct includes, not headers supplied by
-      # the game's PCH. Keep unity off for both checks so the database covers
-      # every first-party translation unit.
+      # Include checks need direct includes, not PCH or unity sources.
       - name: Resolve Conan dependencies for analysis
         run: |
           CC=clang-22 CXX=clang++-22 conan install . \
@@ -258,11 +255,10 @@ jobs:
             -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
           cmake --build build/linux-tidy --target surrender_shader_headers
-      - name: Run ${{ matrix.check }}
+      - name: Run clang-tidy
         env:
           CLANG_TIDY: clang-tidy-22
           RUN_CLANG_TIDY: run-clang-tidy-22
-          CLANG_TIDY_CONFIG: ${{ matrix.check == 'include-hygiene' && '.clang-tidy-includes' || '.clang-tidy' }}
         run: |
           if [[ "${{ github.event_name }}" == pull_request ]]; then
             ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/static-analysis-changed"

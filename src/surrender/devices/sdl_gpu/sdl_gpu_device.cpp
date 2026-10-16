@@ -207,8 +207,6 @@ public:
         return info;
     }
 
-    std::span<const WindowInfo> getWindowList() override { return {}; }
-
     bool openWindow(w8_ulong target_width, w8_ulong target_height) override
     {
         closeWindow();

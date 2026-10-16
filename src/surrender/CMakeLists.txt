@@ -4,7 +4,6 @@ set(SURRENDER_SOURCES
     clipplane.cpp
     core.cpp
     debug.cpp
-    environment_mapper.cpp
     fog.cpp
     vertex_pipe.cpp
     filter.cpp
@@ -30,13 +29,11 @@ set(SURRENDER_SOURCES
     pixel_convert.cpp
     renderer.cpp
     texture.cpp
-    texture_file.cpp
     texture_map.cpp
     statistics.cpp
     triangulator.cpp
     type_registry.cpp
     window.cpp
-    window_out.cpp
 )
 
 find_package(JPEG CONFIG REQUIRED)

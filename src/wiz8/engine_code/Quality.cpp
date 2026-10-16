@@ -1,30 +1,20 @@
 #include "wiz8/engine_code/Quality.h"
 
-#include <cstdlib>
-#include <cstring>
+#include <array>
 #include <exception>
 
 #include "surrender/srGERD.h"
 #include "surrender/srTextureIFace.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/sr_api.h"
 
-/* Engine Code\Quality.cpp allocates one 0x34-byte process-wide record.  Its
-   leading fields are still unnamed, but the allocation, clear and reviewed
-   defaults are complete observations from the startup constructor. */
-// FUNCTION: WIZ8 0x0047b500
+namespace {
+std::array<unsigned char, W8_RENDER_OPTION_COUNT> option_states{};
+}
+
 void InitializeRenderQuality(void)
 {
-    g_render_options = static_cast<W8RenderQuality*>(malloc(sizeof(*g_render_options)));
-    if (!g_render_options) {
-        srAssertFail("gpQuality", "C:\\Projects\\Wizardry 8\\Engine Code\\Quality.cpp", 159, 0);
-    }
-    memset(g_render_options, 0, sizeof(*g_render_options));
-    g_render_options->unknown_20 = 0xffffffff;
-    g_render_options->unknown_24 = 0xffffffff;
-    g_render_options->unknown_14 = 1;
-    g_render_options->unknown_2c = 3;
+    option_states.fill(0);
 }
 
 // GLOBAL: WIZ8 0x0060A210
@@ -35,13 +25,6 @@ float g_render_fog_distance = 0.5f;
 bool g_render_missile_lights = true;
 // GLOBAL: WIZ8 0x00603C6C
 bool g_render_mesh_sky = true;
-
-// FUNCTION: WIZ8 0x0047b570
-void DestroyRenderQuality(void)
-{
-    free(g_render_options);
-    g_render_options = 0;
-}
 
 // FUNCTION: WIZ8 0x0047b590
 void EnableRenderOption(W8RenderOption option)
@@ -104,7 +87,7 @@ void SetRenderOption(W8RenderOption option, int enabled)
         break;
     }
     if (option < W8_RENDER_OPTION_COUNT) {
-        g_render_options->option_states[option] = enabled != 0;
+        option_states[option] = enabled != 0;
     }
 }
 
@@ -127,12 +110,6 @@ void DisableAllRenderOptions(void)
     } while (option < W8_RENDER_OPTION_COUNT);
 }
 
-/* The original carries a dead entry test: it compares the counter against the
-   bound before the first iteration and, when that fails, jumps to the increment
-   rather than past the loop. Starting at zero it can never fire, and VC6 folds
-   it away here whichever way the loop is written - for, while and do-while all
-   give the same 22 bytes. The five-byte difference is that fold, not a
-   difference in what the loop does. */
 // FUNCTION: WIZ8 0x0047b5f0
 void EnableAllRenderOptions(void)
 {
@@ -148,7 +125,7 @@ unsigned char GetRenderOptionState(W8RenderOption option)
     if (option >= W8_RENDER_OPTION_COUNT) {
         return 0;
     }
-    return g_render_options->option_states[option];
+    return option_states[option];
 }
 
 // FUNCTION: WIZ8 0x0047b890
@@ -176,6 +153,6 @@ bool SaveRenderOptions(wiz8::File& handle)
     int version = 1;
 
     handle.write(&version, sizeof(version));
-    handle.write(g_render_options->option_states, W8_RENDER_OPTION_COUNT);
+    handle.write(option_states.data(), option_states.size());
     return true;
 }

@@ -33,10 +33,8 @@ struct LaunchOptions {
     bool inspector = false;
     bool load_at_startup = false;
     bool windowed = false;
-    bool bounds_checker = false;
     bool capture = false;
     bool no_octree = false;
-    std::string video_config;
     std::string string_data;
 };
 
@@ -54,23 +52,17 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
             options.load_at_startup = true;
         else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
             options.windowed = true;
-        else if (SDL_strcasecmp(option.c_str(), "/BC") == 0)
-            options.bounds_checker = true;
         else if (SDL_strcasecmp(option.c_str(), "/CAPTURE") == 0)
             options.capture = true;
         else if (SDL_strcasecmp(option.c_str(), "/NOOCT") == 0)
             options.no_octree = true;
-        else if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0 ||
-                 SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
+        else if (SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
             const auto value = separator != std::string_view::npos
                                    ? arguments[index].substr(separator + 1)
                                : ++index < arguments.size() ? arguments[index]
                                                             : std::string_view{};
             if (value.empty()) throw std::invalid_argument(option + " requires a filename");
-            if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0)
-                options.video_config = value;
-            else
-                options.string_data = value;
+            options.string_data = value;
         }
     }
     return options;
@@ -91,13 +83,11 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         gzErrorMsg.clear();
         const auto options = ParseArguments(arguments);
         gfLoadAtStartup = options.load_at_startup;
-        gfUsingBoundsChecker = options.bounds_checker;
         gfCapturingVideo = options.capture;
         gzStringDataOverride = options.string_data;
         if (options.inspector) VideoInspectorEnable();
         if (options.windowed) VideoFullScreen(false);
         if (options.no_octree) NoOct();
-        if (!options.video_config.empty()) VideoSetConfigFile(options.video_config.c_str());
         wiz8::refresh_asset_archives();
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
         ConfigureFontRendering(CreateEnglishTransTable());

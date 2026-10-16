@@ -28,7 +28,6 @@
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 
 using Bytes = std::vector<Uint8>;
@@ -126,13 +125,6 @@ static void jpegTests()
         const bool monochrome = data == &gray;
         const bool four_channels = data == &cmyk;
         const unsigned pixel_bytes = four_channels ? 4 : 3;
-        auto input = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
-        SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
-        srColorSurfaceIFace::SurfaceDesc description;
-        REQUIRE(srImage::describe(description, "sample.JPEG", input.get()));
-        REQUIRE(
-            (SDL_TellIO(input.get()) == 7 && SDL_GetIOStatus(input.get()) != SDL_IO_STATUS_ERROR));
-        REQUIRE((description.width == 3 && description.height == 2));
         auto surface = loadJpeg(*data);
         REQUIRE((surface && surface->getWidth() == 3 && surface->getHeight() == 2));
         checkFormat(*surface, monochrome      ? srPixelConvert::SURFACE_L8
@@ -458,8 +450,6 @@ static void streamTests()
         auto input = backend.open();
         REQUIRE(!srImage::load("sample.jpg", input.get()));
         REQUIRE(SDL_TellIO(input.get()) <= Sint64(jpeg.size()));
-        srColorSurfaceIFace::SurfaceDesc description;
-        REQUIRE(!srImage::describe(description, "sample.jpg", input.get()));
     }
     auto surface = loadJpeg(jpeg);
     REQUIRE(surface);

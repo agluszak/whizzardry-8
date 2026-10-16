@@ -12,7 +12,12 @@ Checks: >-
   bugprone-undefined-memory-manipulation,
   bugprone-unused-raii,
   bugprone-use-after-move,
-  misc-uniqueptr-reset-release
+  misc-uniqueptr-reset-release,
+  misc-include-cleaner,
+  misc-header-include-cycle,
+  readability-duplicate-include,
+  bugprone-suspicious-include,
+  modernize-deprecated-headers
 WarningsAsErrors: >-
   readability-redundant-smartptr-get,
   performance-noexcept-move-constructor,
@@ -26,8 +31,15 @@ WarningsAsErrors: >-
   bugprone-undefined-memory-manipulation,
   bugprone-unused-raii,
   bugprone-use-after-move,
-  misc-uniqueptr-reset-release
+  misc-uniqueptr-reset-release,
+  misc-include-cleaner,
+  misc-header-include-cycle,
+  readability-duplicate-include,
+  bugprone-suspicious-include,
+  modernize-deprecated-headers
 HeaderFilterRegex: '(^|/)(include|src|tests)/'
 ExcludeHeaderFilterRegex: '(^|/)(build[^/]*|vendor)/'
 SystemHeaders: false
 InheritParentConfig: false
+CheckOptions:
+  misc-header-include-cycle.IgnoredFilesList: '(^|/)_deps/'
