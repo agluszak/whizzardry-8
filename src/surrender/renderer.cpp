@@ -3,6 +3,7 @@
 #include <bit>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <unordered_map>
@@ -15,7 +16,6 @@
 #include "glm/ext/vector_uint3.hpp"
 #include "surrender/mesh_math.h"
 #include "surrender/srClip.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srRendererDefs.h"
@@ -527,22 +527,22 @@ void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count
         /* Single-stage devices cannot take stage-1 st/q streams. */
         attributes &= ~(srVertexArray::ATTRIBUTE_ST1 | srVertexArray::ATTRIBUTE_Q1);
     }
-    srFlags<srRendererDefs::e_vertexArray> mask(1 << srRendererDefs::VERTEX_ARRAY_POSITIONS);
-    gerd->setClipState(srFlags<srRendererDefs::e_clip>(clip_state));
+    std::uint32_t mask = 1u << srRendererDefs::VERTEX_ARRAY_POSITIONS;
+    gerd->setClipState(clip_state);
     gerd->setVertexPointer(4, srRendererDefs::TYPE_FLOAT, 0x10, arrays->eye_locations,
                            static_cast<w8_long>(count));
     if ((attributes & srVertexArray::ATTRIBUTE_DIFFUSE) != 0) {
         gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_DIFFUSE, 4, srRendererDefs::TYPE_FLOAT, 0x10,
                          arrays->diffuse);
-        mask.set(srRendererDefs::VERTEX_ARRAY_DIFFUSE, 1);
+        mask |= 1u << srRendererDefs::VERTEX_ARRAY_DIFFUSE;
     }
     if ((attributes & srVertexArray::ATTRIBUTE_SPECULAR) != 0) {
-        mask.set(srRendererDefs::VERTEX_ARRAY_SPECULAR, 1);
+        mask |= 1u << srRendererDefs::VERTEX_ARRAY_SPECULAR;
         gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_SPECULAR,
                          ((attributes & srVertexArray::ATTRIBUTE_SPECULAR_ALPHA) != 0) + 3,
                          srRendererDefs::TYPE_FLOAT, 0x10, arrays->specular);
     } else if ((attributes & srVertexArray::ATTRIBUTE_SPECULAR_ALPHA) != 0) {
-        mask.set(srRendererDefs::VERTEX_ARRAY_SPECULAR_ALPHA, 1);
+        mask |= 1u << srRendererDefs::VERTEX_ARRAY_SPECULAR_ALPHA;
         gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_SPECULAR_ALPHA, 1, srRendererDefs::TYPE_FLOAT,
                          0x10, &arrays->specular->w);
     }
@@ -554,7 +554,7 @@ void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count
         if ((attributes & st_bit) == 0) continue;
         const auto array = static_cast<srRendererDefs::e_vertexArray>(
             srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage);
-        mask.set(array, 1);
+        mask |= 1u << array;
         if ((attributes & q_bit) == 0) {
             gerd->setDataPtr(array, 2, srRendererDefs::TYPE_FLOAT, sizeof(glm::vec2),
                              coordinates[stage]);

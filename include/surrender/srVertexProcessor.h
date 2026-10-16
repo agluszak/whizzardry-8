@@ -1,6 +1,5 @@
 #pragma once
 
-#include "srFlags.h"
 #include "srMath.h"
 #include "srShader.h"
 
@@ -51,7 +50,7 @@ public:
         w8_ulong disabled_channels; /* 0x50 */
     };
 
-    /* Bit indices for enableChannel/getChannelMask. */
+    /* Bit indices for enableChannel. */
     enum e_channel {
         CHANNEL_DIFFUSE = 1,
         CHANNEL_SPECULAR = 2,

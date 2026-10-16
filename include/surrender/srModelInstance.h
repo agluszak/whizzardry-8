@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <math.h>
 
 #include "glm/ext/vector_float3.hpp"
@@ -32,7 +34,7 @@ public:
     void setAlignment(int enabled);
     void setExclusionMask(w8_ulong mask);
 
-    srFlags<int> alignment_flags;
+    std::uint32_t alignment_flags = 0;
 
 protected:
     class RenderScope {

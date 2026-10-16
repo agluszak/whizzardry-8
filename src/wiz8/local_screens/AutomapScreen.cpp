@@ -48,7 +48,6 @@
 #include "surrender/srClipPlane.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srFilter.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -910,7 +909,7 @@ void RestoreAutomapWorldSettings(void)
     g_monster_shadow_updates_enabled = g_automap_saved_render_flags[2];
     g_world_render_enabled = g_automap_saved_render_flags[3];
     g_world->camera->setRotation(0.0, 0.0, 0.0);
-    g_world->camera->flags.value &= ~1ul;
+    g_world->camera->flags &= ~1ul;
     SetWorldMeshVertexLightTable(g_world, 0);
     g_light_update_flags |= 1u;
     SetResidentTexturePolicy(g_resident_texture_policy);

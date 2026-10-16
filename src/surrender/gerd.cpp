@@ -43,7 +43,6 @@
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
@@ -155,9 +154,9 @@ srGERD::srGERD(srDD* device)
     this->device.window = 0;
     this->device.back_buffer_type = static_cast<e_backBuffer>(0);
     vertex_arrays_dirty = 0xffffffff;
-    vertex_arrays.clip.value = srRendererDefs::FRUSTUM_CLIP_MASK;
+    vertex_arrays.clip = srRendererDefs::FRUSTUM_CLIP_MASK;
     vertex_arrays.count = 0;
-    vertex_arrays.mask.value = 0;
+    vertex_arrays.mask = 0;
     for (w8_ulong index = 0; index < 6; ++index) {
         vertex_arrays.components[index] = 0;
         vertex_arrays.types[index] = srRendererDefs::TYPE_FLOAT;
@@ -175,9 +174,7 @@ srGERD::srGERD(srDD* device)
     }
     pick.pick_key = 0;
     exclusion_mask = 0;
-    enable_flags.value = 0;
-    enable_flags.set(ENABLE_AUTO_FLIP, 1);
-    enable_flags.set(ENABLE_CLEAR_ON_OPEN, 1);
+    enable_flags = (1u << ENABLE_AUTO_FLIP) | (1u << ENABLE_CLEAR_ON_OPEN);
     state_flags = 0;
     dirty = 0xffffffff;
     setError(ERROR_NONE);
@@ -188,7 +185,7 @@ srGERD::srGERD(srDD* device)
     shader = srShader();
     texture_iface[0] = 0;
     texture_iface[1] = 0;
-    enable_flags.set(ENABLE_POSITIONAL_0, 1);
+    enable_flags |= 1u << ENABLE_POSITIONAL_0;
     this->device.hints[0] = static_cast<e_hintMode>(0);
     initTextureParameterMatrix();
     this->device.driver_info = getDD()->getDriverInfo();
@@ -330,7 +327,7 @@ void srGERD::resetStatistics()
 // FUNCTION: SURRENDER 0x1001ADD0
 void srGERD::toggle(e_enable option)
 {
-    enable_flags.value ^= 1UL << option;
+    enable_flags ^= 1UL << option;
     if (option == ENABLE_POSITIONAL_0) {
         dirty |= DIRTY_FRAME_ENABLE;
         return;
@@ -343,13 +340,13 @@ void srGERD::popEnable()
     w8_ulong flags = 0;
     if (environment_state.enable_depth != 0) {
         environment_state.enable_depth -= 1;
-        flags = environment_state.enable_stack[environment_state.enable_depth].value;
+        flags = environment_state.enable_stack[environment_state.enable_depth];
     }
-    if (flags != enable_flags.value) {
+    if (flags != enable_flags) {
         for (e_enable option = static_cast<e_enable>(0); static_cast<int>(option) < 7;
              option = static_cast<e_enable>(static_cast<int>(option) + 1)) {
             w8_ulong bit = 1UL << option;
-            if (((flags & bit) != 0) != ((enable_flags.value & bit) != 0)) {
+            if (((flags & bit) != 0) != ((enable_flags & bit) != 0)) {
                 toggle(option);
             }
         }
@@ -394,9 +391,9 @@ void srGERD::setAntiAlias(e_antiAlias mode)
 }
 
 // FUNCTION: SURRENDER 0x1001BE70
-void srGERD::setClipState(srFlags<srRendererDefs::e_clip> state)
+void srGERD::setClipState(std::uint32_t state)
 {
-    if (state.value != vertex_arrays.clip.value) {
+    if (state != vertex_arrays.clip) {
         vertex_arrays.clip = state;
         vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
     }
@@ -511,7 +508,7 @@ void srGERD::prepareDrawState()
 // FUNCTION: SURRENDER 0x1001CC10
 void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count)
 {
-    if ((enable_flags.value & 4) == 0) {
+    if ((enable_flags & 4) == 0) {
         prepareDrawState();
         getDD()->drawArrays(primitive, first, count);
         statistics.draw_calls++;
@@ -522,7 +519,7 @@ void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8
 void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                           srRendererDefs::e_indexType type, const void* indices)
 {
-    if ((enable_flags.value & 4) == 0) {
+    if ((enable_flags & 4) == 0) {
         prepareDrawState();
         getDD()->drawElements(primitive, {static_cast<const w8_ulong*>(indices), count});
         statistics.draw_calls++;
@@ -925,7 +922,7 @@ srGERD::RendererEntry* srGERD::createRenderer(int sorted)
 srGERD::Renderer* srGERD::lockRenderer()
 {
     int sorted = 0;
-    if ((enable_flags.value & (1UL << ENABLE_SORTED_RENDERING)) != 0) {
+    if ((enable_flags & (1UL << ENABLE_SORTED_RENDERING)) != 0) {
         sorted = 1;
     }
     std::unique_lock access(renderers_section);
@@ -996,7 +993,7 @@ srGERD::e_error srGERD::beginFrame()
         return ERROR_INVALID_WHANDLE;
     }
     if ((state_flags & STATE_FRAME_STARTED) == 0) {
-        if ((enable_flags.value & (1UL << ENABLE_AUTO_FLIP)) != 0 &&
+        if ((enable_flags & (1UL << ENABLE_AUTO_FLIP)) != 0 &&
             (state_flags & STATE_FRAME_FLIPPED) == 0) {
             flipFrame();
         }
@@ -1232,7 +1229,7 @@ glm::mat4 srGERD::getNormalMatrix()
 {
     checkViewStateChanges();
     glm::mat4 matrix = state.normal_matrix;
-    if ((enable_flags.value & (1UL << ENABLE_REVERSE_NORMALS)) != 0)
+    if ((enable_flags & (1UL << ENABLE_REVERSE_NORMALS)) != 0)
         matrix = glm::mat4(-glm::mat3(matrix));
     return matrix;
 }
@@ -1533,31 +1530,30 @@ void srGERD::_unlockBuffer()
 }
 
 // FUNCTION: SURRENDER 0x10020D30
-void srGERD::clear(const srFlags<e_buffer>& buffers)
+void srGERD::clear(std::uint32_t buffers)
 {
     if (isWindowOpen() == 0) {
         setError(ERROR_WINDOW_NOT_OPEN);
         return;
     }
-    if (buffers.value != 0) {
+    if (buffers != 0) {
         checkViewStateChanges();
         /* GERD buffer bits 0,1,3 map to DD bits 0,1,2; GERD bit 2 is the
            software accumulation buffer serviced by accumClear. */
-        srFlags<srDD::e_buffer> device_buffers;
-        device_buffers.value = (buffers.value & BUFFER_COLOR) != 0;
-        if ((buffers.value & BUFFER_DEPTH) != 0) {
-            device_buffers.value |= srDD::BUFFER_DEPTH;
+        std::uint32_t device_buffers = (buffers & BUFFER_COLOR) != 0;
+        if ((buffers & BUFFER_DEPTH) != 0) {
+            device_buffers |= srDD::BUFFER_DEPTH;
         }
-        if ((buffers.value & BUFFER_STENCIL) != 0) {
-            device_buffers.value |= srDD::BUFFER_STENCIL;
+        if ((buffers & BUFFER_STENCIL) != 0) {
+            device_buffers |= srDD::BUFFER_STENCIL;
         }
-        if (device_buffers.value != 0) {
+        if (device_buffers != 0) {
             const auto& values = clear_state.clear_values;
             getDD()->setClearValues(
                 {values.color, static_cast<float>(values.depth), values.stencil});
             getDD()->clearBuffers(device_buffers);
         }
-        if ((buffers.value & BUFFER_ACCUM) != 0) {
+        if ((buffers & BUFFER_ACCUM) != 0) {
             accumClear();
         }
     }
@@ -2586,7 +2582,7 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
             state.view_right = getWidth();
             state.view_bottom = getHeight();
             createRenderer(1);
-            if ((enable_flags.value & (1UL << ENABLE_CLEAR_ON_OPEN)) != 0) {
+            if ((enable_flags & (1UL << ENABLE_CLEAR_ON_OPEN)) != 0) {
                 w8_long count;
                 e_backBuffer back_buffer = getBackBufferType();
                 if (back_buffer == static_cast<e_backBuffer>(2)) {
@@ -2597,7 +2593,7 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
                     count = 1;
                 }
                 for (; count != 0; count--) {
-                    clear(srFlags<e_buffer>(~static_cast<w8_ulong>(BUFFER_ACCUM)));
+                    clear(~static_cast<w8_ulong>(BUFFER_ACCUM));
                     flipFrame();
                 }
                 flush();
@@ -3104,7 +3100,7 @@ srShader srGERD::getShader() const
 // FUNCTION: SURRENDER 0x1001BAA0
 void srGERD::disable(e_enable option)
 {
-    if ((enable_flags.value & (1UL << option)) != 0) {
+    if ((enable_flags & (1UL << option)) != 0) {
         toggle(option);
     }
 }
@@ -3112,7 +3108,7 @@ void srGERD::disable(e_enable option)
 // FUNCTION: SURRENDER 0x1001BAC0
 void srGERD::enable(e_enable option)
 {
-    if ((enable_flags.value & (1UL << option)) == 0) {
+    if ((enable_flags & (1UL << option)) == 0) {
         toggle(option);
     }
 }

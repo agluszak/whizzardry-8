@@ -27,7 +27,6 @@
 #include "sr_vertex.spv.h"
 #include "surrender/srDD.h"
 #include "surrender/srDD_SDLGPU.h"
-#include "surrender/srFlags.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 
@@ -246,11 +245,11 @@ public:
 
     void flipFrame() override { flush(true); }
 
-    void clearBuffers(const srFlags<e_buffer>& buffers) override
+    void clearBuffers(std::uint32_t buffers) override
     {
         DrawCommand command = {};
         command.kind = DrawCommand::CLEAR;
-        command.clear_buffers = buffers.value;
+        command.clear_buffers = buffers;
         command.clear_color = {clear_values.color.x, clear_values.color.y, clear_values.color.z,
                                clear_values.color.w};
         command.clear_depth = (float)clear_values.depth;
@@ -557,7 +556,7 @@ private:
     template<class Vector>
     Vector fetch(srRendererDefs::e_vertexArray slot, uint32_t index, Vector fallback) const
     {
-        if (((vertex_arrays.mask.value >> slot) & 1) == 0 &&
+        if (((vertex_arrays.mask >> slot) & 1) == 0 &&
             slot != srRendererDefs::VERTEX_ARRAY_POSITIONS)
             return fallback;
         if (vertex_arrays.arrays[slot] == nullptr) return fallback;

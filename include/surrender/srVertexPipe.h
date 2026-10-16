@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <vector>
@@ -7,7 +8,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "srBoundingSphere.h"
 #include "srCore.h"
-#include "srFlags.h"
 #include "srMath.h"
 #include "srVertexProcessor.h"
 
@@ -69,7 +69,6 @@ public:
     }
     std::span<const w8_ulong> getAVT() const;
     std::span<float> getAlpha();
-    srFlags<srVertexProcessor::e_channel> getChannelMask() const;
     std::span<const float> getDepthCue();
     std::span<glm::vec4> getDiffuse();
     w8_ulong getExclusionMask() const;
@@ -83,9 +82,9 @@ public:
     const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
     float* getQ(w8_ulong index, int create);
     glm::vec2* getST(w8_ulong index, int create);
-    static srFlags<srVertexProcessor::e_channel> getShaderDisableMask(const srShader& shader);
-    static srFlags<srVertexProcessor::e_channel>
-    getShaderDisableMask(const srShader* shader, const w8_ulong* channels, w8_ulong channel_count);
+    static std::uint32_t getShaderDisableMask(const srShader& shader);
+    static std::uint32_t getShaderDisableMask(const srShader* shader, const w8_ulong* channels,
+                                              w8_ulong channel_count);
     std::span<glm::vec4> getSpecular();
     void* getUserArray(w8_ulong index);
     w8_ulong getVertexCount() const;

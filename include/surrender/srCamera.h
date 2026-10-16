@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <utility>
@@ -77,7 +78,7 @@ protected:
 public:
     enum e_flag { FLAG_PROJECTION_TYPE = 0 };
 
-    srFlags<e_flag> flags; /* 0x138 */
+    std::uint32_t flags = 0; /* 0x138 */
 private:
     Rect view_plane; /* 0x140 */
     double view_plane_distance; /* 0x160 */

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -11,7 +12,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "model_view_scope.h"
 #include "srClass.h"
-#include "srFlags.h"
 #include "srMath.h"
 
 // VTABLE: SURRENDER 0x100771D0 srNode
@@ -222,9 +222,9 @@ public:
     void setWorldSpaceRotation(const glm::dmat3& rotation);
     void setFlag(e_flag flag);
     void clearFlag(e_flag flag);
-    void notifyChildren(const srFlags<e_notify>& notifications);
+    void notifyChildren(std::uint32_t notifications);
     void notifyDependent();
-    void notifyParents(const srFlags<e_notify>& notifications);
+    void notifyParents(std::uint32_t notifications);
     void signal(w8_ulong signal, void* value);
     int testFlag(e_flag flag) const;
     void yawAt(const glm::dvec3& target, double amount);
@@ -263,8 +263,8 @@ private:
        const updateTransformation/getter family. */
     mutable glm::dmat4x3 world_transform0; /* 0x090: cached affine world transform */
     mutable glm::mat4x3 world_transform1; /* 0x0f0 */
-    mutable srFlags<e_notify> notifications; /* 0x120 */
-    srFlags<e_flag> flags; /* 0x124 */
+    mutable std::uint32_t notifications = 0; /* 0x120 */
+    std::uint32_t flags = 0; /* 0x124 */
 
 public:
     srNode* next_sibling_; /* 0x128 */

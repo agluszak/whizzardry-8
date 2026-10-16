@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "srNode.h"
 
 class srCamera;
@@ -43,7 +45,7 @@ public:
     void setFogColor(const glm::vec3& color) { fog_color = color; }
 
 protected:
-    srFlags<e_enable> enabled;       /* 0x138 */
+    std::uint32_t enabled = 0;       /* 0x138 */
     Statistics statistics;           /* 0x140 */
     TraverseInfo traversal;          /* 0x158 (renderer at 0x170) */
     glm::vec3 ambient_light;         /* 0x174 */

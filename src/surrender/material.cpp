@@ -3,7 +3,6 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srCore.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srVertexPipe.h"
@@ -34,7 +33,7 @@ srMaterial& srMaterial::operator=(const srMaterial& other)
     if (&other != this) {
         srMaterialIFace::operator=(other);
         parms = other.parms;
-        operations.value = other.operations.value;
+        operations = other.operations;
         mapper = other.mapper;
         dirty = 1;
         return *this;
@@ -54,21 +53,21 @@ srVertexProcessor::MaterialInfo srMaterial::getMaterialInfo()
 // FUNCTION: SURRENDER 0x10033C00
 void srMaterial::preProcess(srVertexPipe& pipe)
 {
-    if ((operations.value & (1UL << OPER_DIFFUSE_SPECULAR)) != 0) {
+    if ((operations & (1UL << OPER_DIFFUSE_SPECULAR)) != 0) {
         pipe.enableChannel(srVertexProcessor::CHANNEL_DIFFUSE);
         pipe.enableChannel(srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
         pipe.enableChannel(srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
         pipe.enableChannel(srVertexProcessor::CHANNEL_SPECULAR);
         return;
     }
-    if ((operations.value & (1UL << OPER_DIFFUSE)) != 0) {
+    if ((operations & (1UL << OPER_DIFFUSE)) != 0) {
         pipe.enableChannel(srVertexProcessor::CHANNEL_DIFFUSE);
         pipe.enableChannel(srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
         pipe.enableChannel(srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
         pipe.disableChannel(srVertexProcessor::CHANNEL_SPECULAR);
         return;
     }
-    if ((operations.value & (1UL << OPER_SPECULAR)) != 0) {
+    if ((operations & (1UL << OPER_SPECULAR)) != 0) {
         pipe.disableChannel(srVertexProcessor::CHANNEL_DIFFUSE);
         pipe.disableChannel(srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
         pipe.disableChannel(srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
@@ -82,7 +81,7 @@ void srMaterial::postProcess(srVertexPipe& pipe)
     if (mapper != nullptr && mapper->isActive(pipe)) {
         mapper->process(pipe);
     }
-    const auto operations = this->operations.value;
+    const auto operations = this->operations;
     bool depth_cue = (operations & (1u << OPER_DEPTH_CUE)) != 0;
     const auto cueColor = [&](bool specular) {
         const auto depth = pipe.getDepthCue();
@@ -140,7 +139,7 @@ void srMaterial::reset()
     parms.fog_scale = 1.0f;
     parms.value_38 = 0.0f;
     dirty = 1;
-    operations.value = 0;
+    operations = 0;
     mapper = 0;
 }
 
@@ -234,21 +233,21 @@ void srMaterial::setVector(glm::vec4& destination, const glm::vec4& source)
 // FUNCTION: SURRENDER 0x10034AD0
 void srMaterial::disable(e_oper operation)
 {
-    operations.value &= ~(1 << (operation & 0x1f));
+    operations &= ~(1 << (operation & 0x1f));
     dirty = 1;
 }
 
 // FUNCTION: SURRENDER 0x10034B00
 void srMaterial::enable(e_oper operation)
 {
-    operations.value |= 1 << (operation & 0x1f);
+    operations |= 1 << (operation & 0x1f);
     dirty = 1;
 }
 
 // FUNCTION: SURRENDER 0x10034B20
 int srMaterial::isEnabled(e_oper operation) const
 {
-    return (operations.value & (1 << (operation & 0x1f))) != 0;
+    return (operations & (1 << (operation & 0x1f))) != 0;
 }
 
 // FUNCTION: SURRENDER 0x10034B50

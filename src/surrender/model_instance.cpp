@@ -9,7 +9,6 @@
 #include "glm/matrix.hpp"
 #include "surrender/model_view_scope.h"
 #include "surrender/srCore.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
@@ -21,7 +20,7 @@
 srModelInstance::srModelInstance(srNode* parent, Ownership ownership)
     : srNode(static_cast<srNode*>(nullptr), ownership)
 {
-    alignment_flags.value = 0;
+    alignment_flags = 0;
     align_angle = 0.0f;
     align_axis = glm::vec3(0, 0, 1);
     exclusion_mask = 0;
@@ -74,7 +73,7 @@ srNode::BoundInfo srModelInstance::getLocalBounds()
 
 srModelViewScope srModelInstance::scopedRenderTransform(srGERD& renderer) const
 {
-    if ((alignment_flags.value & 1) == 0) {
+    if ((alignment_flags & 1) == 0) {
         return scopedWorldSpaceMatrix(renderer);
     } else {
         srModelViewScope transform(renderer);
@@ -140,7 +139,7 @@ glm::vec3 srModelInstance::getAlignAxis() const
 // FUNCTION: SURRENDER 0x1004FE90
 int srModelInstance::isAligned() const
 {
-    return (int)(alignment_flags.value & 1);
+    return (int)(alignment_flags & 1);
 }
 
 // FUNCTION: SURRENDER 0x10050000
@@ -153,24 +152,24 @@ w8_ulong srModelInstance::getExclusionMask() const
 void srModelInstance::setAlignment(int enabled)
 {
     if (enabled != 0) {
-        alignment_flags.value |= 1;
+        alignment_flags |= 1;
         return;
     }
-    alignment_flags.value &= ~1u;
+    alignment_flags &= ~1u;
 }
 
 // FUNCTION: SURRENDER 0x1004FEA0
 void srModelInstance::setAlignAngle(double angle)
 {
     align_angle = (float)angle;
-    alignment_flags.value |= 1;
+    alignment_flags |= 1;
 }
 
 // FUNCTION: SURRENDER 0x1004FEC0
 void srModelInstance::setAlignAxis(const glm::vec3& axis)
 {
     align_axis = normalizedOrZero(axis);
-    alignment_flags.value |= 1;
+    alignment_flags |= 1;
 }
 
 // FUNCTION: SURRENDER 0x1004FFF0

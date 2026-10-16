@@ -573,12 +573,12 @@ static void renderer_bounds()
 
     srMeshModel mesh(0, 8);
     mesh.setBounds({2, 2, 2}, {3, 3, 3}, {0, 0, 0}, 0.1f);
-    mesh.render_control.value = 0;
+    mesh.render_control = 0;
     REQUIRE_FALSE(mesh.isVisible(renderer)); // Visible sphere, rejected box.
     mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
     REQUIRE(mesh.isVisible(renderer));
     mesh.setBounds({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}, {3, 0, 0}, 0.1f);
-    mesh.render_control.value = 0;
+    mesh.render_control = 0;
     REQUIRE_FALSE(mesh.isVisible(renderer)); // Rejected sphere, visible box.
     mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
     REQUIRE(mesh.isVisible(renderer));

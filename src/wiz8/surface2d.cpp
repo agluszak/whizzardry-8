@@ -5,7 +5,6 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "compat/compiler.h"
-#include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
@@ -144,8 +143,8 @@ void stSurface2D::DrawTiles(srGERD* renderer)
     renderer->pushMatrix();
     renderer->loadIdentity();
     renderer->ortho(0.0, 1.0, 1.0, 0.0, 0.0, 1.0);
-    renderer->setVertexArrayMask(srFlags<srRendererDefs::e_vertexArray>(vertex_array_mask));
-    renderer->setClipState(srFlags<srRendererDefs::e_clip>(0x3f)); /* CLIP_LEFT..CLIP_FAR */
+    renderer->setVertexArrayMask(vertex_array_mask);
+    renderer->setClipState(0x3f); /* CLIP_LEFT..CLIP_FAR */
     renderer->setCullMode(srGERD::CULL_NONE);
     srShader shader;
     shader.value = shader_bits;
