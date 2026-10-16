@@ -46,6 +46,7 @@
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
@@ -1286,7 +1287,6 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
         ~RestoreSearchables()
         {
             while (g_searchables.size() > count) {
-                delete g_searchables.back();
                 g_searchables.pop_back();
             }
         }
@@ -1426,4 +1426,32 @@ TEST_CASE_METHOD(LoaderFixture,
     }
     ReleaseSpellDatabase();
     REQUIRE(g_spell_records == nullptr);
+}
+
+TEST_CASE("Revealing searchables invalidates borrowed view entries without skipping the next item",
+          "[ownership][search]")
+{
+    ClearSearchables();
+    W8WorldItem first{}, second{};
+    const struct Cleanup {
+        ~Cleanup() { ClearSearchables(); }
+    } cleanup;
+    SetItemFlags(&first, W8_WORLD_ITEM_HIDDEN, true);
+    SetItemFlags(&second, W8_WORLD_ITEM_HIDDEN, true);
+    RegisterSearchableWorldItem(&first);
+    RegisterSearchableWorldItem(&second);
+    auto* found = g_searchables[0].get();
+    auto* next = g_searchables[1].get();
+    g_search_view.items = {found, next};
+    g_search_view.cursor = 0;
+    found->Reveal();
+    REQUIRE_FALSE(ItemHasFlags(&first, W8_WORLD_ITEM_HIDDEN));
+    REQUIRE(ItemHasFlags(&first, W8_WORLD_ITEM_RADAR_BLIP_LIT));
+    REQUIRE(g_searchables.size() == 1);
+    REQUIRE(g_searchables.front().get() == next);
+    REQUIRE(g_search_view.items == std::vector<W8Searchable*>{next});
+    REQUIRE(g_search_view.cursor == -1);
+    next->Reveal();
+    REQUIRE(g_search_view.items.empty());
+    REQUIRE(g_searchables.empty());
 }

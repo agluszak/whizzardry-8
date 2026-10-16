@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -41,7 +42,7 @@ struct W8SearchableView {
     std::vector<W8Searchable*> items;
 };
 
-extern std::vector<W8Searchable*> g_searchables;
+extern std::vector<std::unique_ptr<W8Searchable>> g_searchables;
 extern W8SearchableView g_search_view;
 /* 500ms pulse clock arming the search-mode sweep. */
 extern uint64_t g_search_pulse_clock;

@@ -1361,7 +1361,7 @@ try {
         link = &item.next;
     } while (has_next);
     g_searchables.reserve(g_searchables.size() + searchables.size());
-    for (auto& searchable : searchables) g_searchables.push_back(searchable.release());
+    for (auto& searchable : searchables) g_searchables.push_back(std::move(searchable));
     return head;
 } catch (const std::exception&) {
     return nullptr;
