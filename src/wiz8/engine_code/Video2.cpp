@@ -54,7 +54,6 @@
 #include "sprite.h"
 #include "surrender/srCamera.h"
 #include "surrender/srDD.h"
-#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srMaterial.h"

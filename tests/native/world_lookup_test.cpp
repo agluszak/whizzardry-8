@@ -10,7 +10,6 @@
 #include "filesystem.h"
 #include "layouts/world.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srDebug.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"

@@ -7,7 +7,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "surrender/srDebug.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/engine_code/Monster.h"

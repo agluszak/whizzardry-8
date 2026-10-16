@@ -13,7 +13,6 @@
 
 #include "compat/compiler.h"
 #include "surface_pixels.h"
-#include "surrender/srDebug.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/surface_storage.h"
