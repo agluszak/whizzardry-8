@@ -12,7 +12,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 
-#include "Types.h"
 #include "compat/compiler.h"
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
