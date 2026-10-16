@@ -22,7 +22,6 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <fmt/format.h>
-#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
 #include <wiz8/filesystem.h>
 
 #include "AnimRep.hpp"
