@@ -81,15 +81,6 @@ void finish(const Playback& playback)
     if (callback) callback();
 }
 
-void finish_stopped()
-{
-    const auto playing = service_state.active;
-    for (const auto& playback : playing)
-        if (playback->track && !MIX_TrackPlaying(playback->track.get()) &&
-            !MIX_TrackPaused(playback->track.get()))
-            finish(playback);
-}
-
 std::string resolve_path(std::string_view path)
 {
     if (path.empty()) return {};
@@ -262,7 +253,12 @@ void shutdown()
 // FUNCTION: WIZ8 0x004095b0
 void service()
 {
-    if (service_state.enabled) finish_stopped();
+    if (!service_state.enabled) return;
+    const auto playing = service_state.active;
+    for (const auto& playback : playing)
+        if (playback->track && !MIX_TrackPlaying(playback->track.get()) &&
+            !MIX_TrackPaused(playback->track.get()))
+            finish(playback);
 }
 
 // FUNCTION: WIZ8 0x00409970
