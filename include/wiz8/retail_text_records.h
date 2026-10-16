@@ -446,8 +446,8 @@ template<> struct Record<W8NpcDatabaseRecord> {
         Record<W8NpcCharacterTemplate>::fields(
             runtime.character, bytes.subspan(offsetof(Disk, character), sizeof(Disk::character)),
             value, text);
-        pointer_slot(runtime.item_stock_rules, bytes.subspan(offsetof(Disk, item_stock_rules),
-                                                             sizeof(Disk::item_stock_rules)));
+        presence_slot(runtime.item_stock_rules, bytes.subspan(offsetof(Disk, item_stock_rules),
+                                                              sizeof(Disk::item_stock_rules)));
         value(&runtime.buy_price_factor,
               bytes.subspan(offsetof(Disk, buy_price_factor), sizeof(Disk::buy_price_factor)));
         value(&runtime.sell_price_factor,

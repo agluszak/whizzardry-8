@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -161,7 +162,7 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
     if (parent != 0) {
         glm::dvec3 position;
 
-        g_game_camera = new srCamera(parent);
+        g_game_camera = parent->adoptChild(std::make_unique<srCamera>());
         g_game_camera->setName("Sirtech Camera");
         position = glm::dvec3(m_position);
         g_game_camera->setLocation(position);

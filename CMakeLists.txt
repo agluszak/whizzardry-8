@@ -110,15 +110,21 @@ wiz8_system_headers(fmt::fmt utf8cpp utf8proc)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
-    src/platform/path_resolver.cpp
+    src/platform/asset_paths.cpp
     src/platform/filesystem.cpp
-    src/platform/slf.cpp
     src/platform/file_time.cpp
     src/platform/unicode.cpp
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8cpp utf8proc)
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
+# SLF knowledge is confined to installation tooling, never linked into the game.
+add_library(wiz8_asset_preparation STATIC tools/assets/prepare.cpp)
+target_include_directories(wiz8_asset_preparation PUBLIC "${PROJECT_SOURCE_DIR}/tools/assets")
+target_link_libraries(wiz8_asset_preparation PUBLIC wiz8_filesystem)
+add_executable(wiz8_prepare_assets tools/assets/main.cpp)
+target_link_libraries(wiz8_prepare_assets PRIVATE wiz8_asset_preparation)
+
 include(CTest)
 if(WIZ8_UNITY_BUILD AND BUILD_TESTING)
     message(FATAL_ERROR

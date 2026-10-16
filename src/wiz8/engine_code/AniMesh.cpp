@@ -9,9 +9,10 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "ReadMesh.h"
-#include "glm/geometric.hpp"
+#include "asset_paths.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
@@ -146,7 +147,8 @@ try {
     if (handle == 0) {
         opened = [&]() {
             try {
-                return wiz8::open_file(mesh->filename.c_str(), wiz8::OpenMode::read);
+                return wiz8::open_file(wiz8::asset_path(mesh->filename.c_str()),
+                                       wiz8::OpenMode::read);
             } catch (const std::exception&) {
                 return std::unique_ptr<wiz8::File>{};
             }
@@ -305,7 +307,8 @@ try {
     if (handle == 0) {
         opened = [&]() {
             try {
-                return wiz8::open_file(mesh->filename.c_str(), wiz8::OpenMode::read);
+                return wiz8::open_file(wiz8::asset_path(mesh->filename.c_str()),
+                                       wiz8::OpenMode::read);
             } catch (const std::exception&) {
                 return std::unique_ptr<wiz8::File>{};
             }

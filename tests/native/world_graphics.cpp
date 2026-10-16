@@ -13,13 +13,14 @@
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 
+#include "surface_pixels.h"
+
 /* Installed character and level assets through the recovered game loop. */
 #include <SDL3/SDL_surface.h>
 
 #include "image.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -49,9 +50,8 @@
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/xstatus.h"
-
-extern srScene* g_cursor_scene;
 
 static std::vector<unsigned int> ReadFrame()
 {
@@ -60,14 +60,14 @@ static std::vector<unsigned int> ReadFrame()
     std::vector<unsigned int> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH; ++x)
-            pixels[y * SCREEN_WIDTH + x] = surface->getPixel(x, y);
+            pixels[y * SCREEN_WIDTH + x] = ReadARGB(*surface, x, y);
     g_gerd->unlockBuffer();
     return pixels;
 }
 
 static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
 {
-    auto output = wiz8::open_host_file(wiz8::path_from_utf8(path), wiz8::OpenMode::replace);
+    auto output = wiz8::open_file(wiz8::path_from_utf8(path), wiz8::OpenMode::replace);
     REQUIRE(output);
     char header[80];
     const int count =
@@ -88,15 +88,21 @@ TEST_CASE("world graphics")
     const char* mode = SDL_getenv("WIZ8_WORLD_MODE");
     std::unique_ptr<wiz8::Application> application;
     std::string temporary;
-    bool have_overlay = false;
+    bool have_user_directory = false;
 
-    REQUIRE(character_name); // Character basename under installed Saves/Characters.
+    REQUIRE(
+        character_name); // Host path to a character fixture to install in the temporary user root.
     temporary = make_temporary_directory("wiz8-world");
-    have_overlay = true;
+    have_user_directory = true;
     auto roots = w8_native::path_roots();
     roots.user = temporary;
     w8_native::configure_paths(roots);
-    auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
+    const auto character_file = std::filesystem::path(character_name);
+    wiz8::create_directory(wiz8::user_path("saves/characters"));
+    std::filesystem::copy_file(character_file,
+                               wiz8::user_path("saves/characters") / character_file.filename());
+    wiz8::create_directory(wiz8::user_path("config"));
+    auto config = wiz8::open_file(wiz8::user_path("config/3dvideo.cfg"), wiz8::OpenMode::replace);
     const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
     config->write(settings.data(), settings.size());
     config->close();
@@ -105,10 +111,10 @@ TEST_CASE("world graphics")
     application = std::make_unique<wiz8::Application>(arguments);
     ResetForNewGame();
     W8Character character{};
-    REQUIRE(LoadCharacter(character_name, &character, -1));
+    REQUIRE(LoadCharacter(character_file.filename().string(), &character, -1));
     REQUIRE(AddCharacterToParty(character, -1) == 2);
     RunNewGameOpeningSequence(false, {});
-        // Bypass only the opening movie; use the normal new-game loading screen.
+    // Bypass only the opening movie; use the normal new-game loading screen.
     g_pending_screen_state.mode = 0;
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
     fprintf(stderr, "world: enter real new-game loader\n");
@@ -143,7 +149,7 @@ TEST_CASE("world graphics")
         }
         REQUIRE(portrait.portrait.pose == 1);
         REQUIRE(portrait.portrait.rendered_pose == 1);
-            // A complete blink must paint both the closed and reopened eyes.
+        // A complete blink must paint both the closed and reopened eyes.
         portrait.portrait.blink_closing = true;
         for (int frame = 0; frame < 10 && portrait.portrait.pose != 2; ++frame) {
             portrait.portrait.pose_clock = 0;
@@ -171,7 +177,7 @@ TEST_CASE("world graphics")
             return result;
         };
         const auto first = caption();
-            // Deliberately stain the panel to model obsolete text from another action.
+        // Deliberately stain the panel to model obsolete text from another action.
         for (int y = 450; y < 480; ++y)
             memset(static_cast<unsigned char*>(framebuffer.pixels) + y * framebuffer.pitch +
                        343 * 2,
@@ -183,8 +189,8 @@ TEST_CASE("world graphics")
         VideoPositionToolTip(300, 200);
         RenderFrame();
         const auto tooltip = ReadFrame();
-        auto* tooltip_node =
-            static_cast<srModelInstance*>(g_cursor_scene->findChild("Video2DRectToPolygon"));
+        auto* node = g_overlay_scenes.cursor->findChild("Video2DRectToPolygon");
+        auto* tooltip_node = static_cast<srModelInstance*>(node);
         REQUIRE(tooltip_node);
         auto* mesh = static_cast<srMeshModel*>(tooltip_node->getModel());
         auto* texture = static_cast<srTextureMap*>(mesh->getTexture(0, 0));
@@ -192,8 +198,8 @@ TEST_CASE("world graphics")
         REQUIRE(surface);
         for (int y = 0; y < g_help_box_height; ++y)
             for (int x = 0; x < g_help_box_width; ++x)
-                REQUIRE((surface->getPixelRaw(x + 1, y + 1) & 0x8000) != 0);
-        REQUIRE((surface->getPixelRaw(g_help_box_width + 2, 2) & 0x8000) == 0);
+                REQUIRE((ReadARGB(*surface, x + 1, y + 1) & 0xff000000) != 0);
+        REQUIRE((ReadARGB(*surface, g_help_box_width + 2, 2) & 0xff000000) == 0);
         const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
         const std::string ui_output =
             std::string(output ? output : "/tmp/wiz8-native-world.ppm") + ".ui.ppm";
@@ -210,7 +216,7 @@ TEST_CASE("world graphics")
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) ++enabled;
     REQUIRE(enabled > 0);
 
-        // Same scene and UI, with only the actual world pass switched off.
+    // Same scene and UI, with only the actual world pass switched off.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
     const auto with_world = g_gerd->getStatistics();
@@ -288,5 +294,5 @@ TEST_CASE("world graphics")
     }
 
     application.reset();
-    if (have_overlay) std::filesystem::remove_all(temporary);
+    if (have_user_directory) std::filesystem::remove_all(temporary);
 }

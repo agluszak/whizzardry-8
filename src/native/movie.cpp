@@ -1,4 +1,4 @@
-/* Native Bink replacement: bounded SGP file/SLF I/O, FFmpeg decoding and
+/* Native Bink replacement: SDL file I/O, FFmpeg decoding and
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"
 
@@ -9,12 +9,11 @@
 #include <SDL3/SDL_surface.h>
 #include <wiz8/filesystem.h>
 
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "native/movie_audio.h"
-#include "surrender/srColorSurface.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
-#include "surrender/srPixelConvert.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/surface2d.h"
 
@@ -39,7 +38,6 @@ extern "C" {
 #include <cerrno>
 #include <cstdio>
 #include <deque>
-#include <limits>
 #include <new>
 #include <stdexcept>
 #include <string>
@@ -56,7 +54,6 @@ void check(int result, const char* operation)
 } // namespace
 struct W8NativeVideo::State {
     std::unique_ptr<wiz8::File> file;
-    uint64_t start = 0, length = 0, position = 0;
     AVIOContext* io = nullptr;
     AVFormatContext* format = nullptr;
     AVCodecContext *video = nullptr, *audio = nullptr;
@@ -73,11 +70,10 @@ struct W8NativeVideo::State {
     std::unique_ptr<w8_native::MovieAudio> voice;
     std::deque<Frame> queued;
     Frame current{};
-    std::shared_ptr<srColorSurface> presentation_surface;
-    stSurface2D* presentation_tiles = nullptr;
+    std::shared_ptr<SDL_Surface> presentation_surface;
+    std::unique_ptr<stSurface2D> presentation_tiles;
     ~State()
     {
-        if (presentation_tiles) delete presentation_tiles;
         voice.reset();
         swr_free(&resample);
         sws_freeContext(scale);
@@ -95,12 +91,8 @@ struct W8NativeVideo::State {
         auto& source = *static_cast<State*>(opaque);
         if (size < 0) return AVERROR(EINVAL);
         if (!size) return 0;
-        if (!source.file || source.position > source.length) return AVERROR(EIO);
-        if (source.position == source.length) return AVERROR_EOF;
         try {
-            const auto result =
-                source.file->read(bytes, std::min<uint64_t>(size, source.length - source.position));
-            source.position += result.bytes;
+            const auto result = source.file->read(bytes, size);
             return result.bytes ? int(result.bytes) : result.eof ? AVERROR_EOF : AVERROR(EIO);
         } catch (...) {
             return AVERROR(EIO);
@@ -109,26 +101,23 @@ struct W8NativeVideo::State {
     static int64_t seek(void* opaque, int64_t offset, int whence)
     {
         auto& source = *static_cast<State*>(opaque);
-        const auto limit = uint64_t(std::numeric_limits<int64_t>::max());
-        if (source.length > limit || source.position > source.length ||
-            source.start > limit - source.length)
-            return AVERROR(EINVAL);
-        if (whence & AVSEEK_SIZE) return int64_t(source.length);
-        whence &= ~AVSEEK_FORCE;
-        const int64_t base = whence == SEEK_SET   ? 0
-                             : whence == SEEK_CUR ? int64_t(source.position)
-                             : whence == SEEK_END ? int64_t(source.length)
-                                                  : -1;
-        if (base < 0 || offset < -base || offset > int64_t(source.length) - base)
-            return AVERROR(EINVAL);
-        const uint64_t target = base + offset;
         try {
-            if (!source.file ||
-                source.file->seek(int64_t(source.start + target), wiz8::SeekOrigin::begin) !=
-                    int64_t(source.start + target))
-                return AVERROR(EIO);
-            source.position = target;
-            return int64_t(target);
+            if (whence & AVSEEK_SIZE) return source.file->size();
+            wiz8::SeekOrigin origin;
+            switch (whence & ~AVSEEK_FORCE) {
+            case SEEK_SET:
+                origin = wiz8::SeekOrigin::begin;
+                break;
+            case SEEK_CUR:
+                origin = wiz8::SeekOrigin::current;
+                break;
+            case SEEK_END:
+                origin = wiz8::SeekOrigin::end;
+                break;
+            default:
+                return AVERROR(EINVAL);
+            }
+            return source.file->seek(offset, origin);
         } catch (...) {
             return AVERROR(EIO);
         }
@@ -153,13 +142,7 @@ struct W8NativeVideo::State {
     void open(const char* path)
     {
         if (!path) throw std::runtime_error("Movie path is null");
-        file = wiz8::open_file(path);
-        length = file->size();
-        if (!file) throw std::runtime_error("Cannot open movie stream");
-        start = file->tell();
-        const auto size = uint64_t(file->size());
-        if (start > size || length > size - start)
-            throw std::runtime_error("Movie stream exceeds its file");
+        file = wiz8::open_file(wiz8::asset_path(path));
         auto buffer = static_cast<unsigned char*>(av_malloc(32768));
         if (!buffer) throw std::bad_alloc();
         io = avio_alloc_context(buffer, 32768, 0, this, read, nullptr, seek);
@@ -331,22 +314,17 @@ void W8NativeVideo::present(SDL_Surface* target)
 {
     if (!g_gerd || !g_surface_node) return;
     const auto& description = *target;
-    if (!state->presentation_surface) {
-        state->presentation_surface = std::make_shared<srColorSurface>(
-            srPixelConvert::SURFACE_RGB555, description.w, description.h);
-        state->presentation_tiles = new stSurface2D(state->presentation_surface, description.w,
-                                                    description.h, nullptr, 128);
+    if (!state->presentation_surface || state->presentation_surface.get() != target) {
+        ++target->refcount;
+        state->presentation_surface = std::shared_ptr<SDL_Surface>(target, SDL_DestroySurface);
+        state->presentation_tiles = std::make_unique<stSurface2D>(
+            state->presentation_surface, description.w, description.h, nullptr, 128);
         state->presentation_tiles->setAlphaTestEnabled(false);
     }
     if (!description.pixels) throw std::runtime_error("Movie presentation surface has no pixels");
-    for (int y = 0; y < description.h; ++y)
-        state->presentation_surface->setPixelRowRaw(
-            static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
-            description.w);
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.
-    state->presentation_tiles->updateRectangle(g_gerd.get(), description.pixels, description.pitch,
-                                               0, 0, description.w, description.h);
+    state->presentation_tiles->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);

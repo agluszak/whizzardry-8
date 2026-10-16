@@ -14,6 +14,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
+#include "asset_paths.h"
 #include "audio_resources.h"
 #include "compat/native.h"
 #include "conditions.h"
@@ -369,7 +370,7 @@ void SetVoiceMuted(unsigned char muted)
 
 static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 {
-    W8CharacterEventQueue* queue = gXStatus.character_event_queue;
+    W8CharacterEventQueue* queue = gXStatus.character_event_queue.get();
 
     if (queue == 0) {
         return;
@@ -426,7 +427,7 @@ std::string GetCharacterQuoteText(const W8Character& character, unsigned int eve
         fmt::format("Data\\Quotes\\PCs\\{:c}_{}{:d}0.MSG", gender_code,
                     g_quote_personality_names[character.personality], (character.voice != 0) + 1);
     if (![&]() {
-            const auto status = wiz8::file_status(path);
+            const auto status = wiz8::file_status(wiz8::asset_path(path));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }()) {
         return {};

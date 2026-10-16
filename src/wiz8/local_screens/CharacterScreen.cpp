@@ -17,6 +17,7 @@
 #include <fmt/printf.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "dialog_code/DialogBase.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
@@ -514,7 +515,7 @@ bool W8CharacterScreen::CommitCharacter()
         if (m_original != 0) {
             std::string path;
             path = BuildCharacterPath(m_original->name, -1);
-            wiz8::remove_file(path);
+            wiz8::remove_file(wiz8::user_path(path));
         }
         m_character.fInParty = false;
         if (!SaveCharacter(&m_character, -1)) {
@@ -633,7 +634,7 @@ bool W8CharacterScreen::ValidateName()
         std::string path;
         path = BuildCharacterPath(m_character.name, -1);
         if ([&]() {
-                const auto status = wiz8::file_status(path);
+                const auto status = wiz8::file_status(wiz8::user_path(path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
             ShowMessage(g_localized_strings[0xd5], 0, 0);

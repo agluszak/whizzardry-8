@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "difficulty.h"
@@ -51,6 +52,7 @@
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {
+std::unique_ptr<W8NpcDatabaseRecord[]> npc_records;
 std::unique_ptr<W8FactDatabaseRecord[]> fact_records;
 std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
 }
@@ -61,7 +63,8 @@ std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
 // FUNCTION: WIZ8 0x0054aac0
 unsigned char InitializeNpcDatabase(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\NPC.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\NPC.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
     if (count >
@@ -69,12 +72,9 @@ try {
         return 0;
     }
     auto records = std::make_unique<W8NpcDatabaseRecord[]>(count);
-    std::vector<std::unique_ptr<W8NpcItemStockRule>> entries;
-    std::vector<std::unique_ptr<std::vector<W8NpcItemStockRule*>>> lists;
     for (unsigned int index = 0; index < count; ++index) {
         auto& record = records.get()[index];
         wiz8::retail::read_exact(*handle, record);
-        record.item_stock_rules = nullptr;
         if (record.no_item_stock == 0 && record.version > 1) {
             unsigned int entry_count;
             handle->read_exact(&entry_count, sizeof(entry_count));
@@ -87,38 +87,30 @@ try {
                 entry_count > std::numeric_limits<int>::max()) {
                 return 0;
             }
-            if (entry_count > 0) {
-                auto rules = std::make_unique<std::vector<W8NpcItemStockRule*>>();
-                rules->reserve(entry_count);
-                for (unsigned int entry = 0; entry < entry_count; ++entry) {
-                    auto element = std::make_unique<W8NpcItemStockRule>();
-                    handle->read_exact(element.get(), sizeof(*element));
-                    rules->push_back(element.get());
-                    entries.push_back(std::move(element));
-                }
-                record.item_stock_rules = rules.get();
-                lists.push_back(std::move(rules));
-            }
+            record.item_stock_rules.resize(entry_count);
+            for (auto& rule : record.item_stock_rules) handle->read_exact(&rule, sizeof(rule));
         }
     }
-    DestroyNpcDatabase();
-    g_npc_records = records.release();
+    npc_records = std::move(records);
+    g_npc_records = npc_records.get();
     gXStatus.uiNpcsInDatabase = count;
-    for (auto& entry : entries) {
-        (void)entry.release();
-    }
-    for (auto& list : lists) {
-        (void)list.release();
-    }
     return 1;
 } catch (const std::exception&) {
     return 0;
 }
 
+void DestroyNpcDatabase(void)
+{
+    npc_records.reset();
+    g_npc_records = nullptr;
+    gXStatus.uiNpcsInDatabase = 0;
+}
+
 // FUNCTION: WIZ8 0x0054ad00
 unsigned char InitializeFactDatabase(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\FACT.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     auto records =
         wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
@@ -141,7 +133,8 @@ void DestroyFactDatabase(void)
 // FUNCTION: WIZ8 0x0054ae20
 unsigned char InitializeLevelDatabase(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
+    auto handle =
+        wiz8::open_file(wiz8::asset_path("Data\\Databases\\LEVELS.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
     level_records = std::move(records);
@@ -171,13 +164,13 @@ void ResetGameStatus(bool /*release*/)
     g_status.buffers.XChar = rows.data();
 }
 
-/* Clear the complete status object, including its POD gameplay-state tail. */
+/* Reset transient gameplay state and create its runtime resources at startup. */
 // FUNCTION: WIZ8 0x0054afd0
 void InitializeGameplayRuntimeObjects(void)
 {
     gXStatus = {};
-    gXStatus.character_event_queue = new W8CharacterEventQueue();
-    gXStatus.gameplay_timer = new W8GameTimer(300.0f, 0);
+    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
+    gXStatus.gameplay_timer = std::make_unique<W8GameTimer>(300.0f, false);
 }
 
 /* Loads Data\\Databases\\SpellTables.dbs, replacing whatever is already there.
@@ -204,17 +197,9 @@ void ResetGameplayStatusBlock(void)
 // FUNCTION: WIZ8 0x0054b0b0
 void DestroyGameplayObjects(void)
 {
-    W8CharacterEventQueue* owned = gXStatus.character_event_queue;
-
-    if (owned) {
-        delete owned;
-        gXStatus.character_event_queue = 0;
-    }
+    gXStatus.character_event_queue.reset();
     for (auto& slot : gXStatus.monster_manager_entries) slot.mouth_gap = {};
-    if (gXStatus.gameplay_timer) {
-        delete gXStatus.gameplay_timer;
-        gXStatus.gameplay_timer = 0;
-    }
+    gXStatus.gameplay_timer.reset();
 }
 
 /* The new-game reset. ResetGameStatus replaces the status buffers, then this

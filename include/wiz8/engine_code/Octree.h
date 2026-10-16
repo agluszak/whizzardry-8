@@ -191,7 +191,6 @@ public:
     W8Octree(const char* path, W8GameData** game_data);
     /* Preprocessing calls retain this receiver even when a body uses only
        global build state. */
-    char BuildPreprocessedFiles(const char* level_path);
     void OctBuildOptions(char* stem);
     void Reset();
     void Initialize(const W8OctFileHeader* header);
@@ -526,7 +525,6 @@ extern bool g_octree_disabled;
 bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
 extern w8_ulong* g_octree_state;
-extern stModelInstance* g_octree_trace_node;
 extern const float g_octree_cell_scale;
 extern w8_ulong g_octree_bytes_read;
 extern int g_prop_sun_index;

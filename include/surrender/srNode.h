@@ -1,12 +1,10 @@
 #pragma once
 
-#include <atomic>
 #include <cstdint>
 #include <memory>
-#include <mutex>
-#include <new>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "glm/ext/vector_double3.hpp"
@@ -63,9 +61,8 @@ public:
 
     enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
 
-    enum class Ownership { parent, independent };
-    srNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
-    /* Copies the transform under the default parent; links are not copied. */
+    srNode(srNode* parent = nullptr);
+    // Copies values only; hierarchy links and owned children are not copied.
     srNode(const srNode& other) : srNode(nullptr) { *this = other; }
     virtual ~srNode() override;
 
@@ -129,9 +126,6 @@ public:
     srNode* getPrev() const;
     int isChildOf(const srNode& node) const;
     int isParentOf(const srNode& node) const;
-    static int isSceneGraphLocked();
-    static void lockSceneGraph();
-    static void unlockSceneGraph();
 
     [[nodiscard]] srModelViewScope scopedWorldSpaceMatrix(class srGERD& renderer) const;
     double getDistance(const srNode& node) const;
@@ -201,8 +195,8 @@ public:
     void rotateX(double angle);
     void rotateY(double angle);
     void rotateZ(double angle);
-    // Reparenting changes scene membership and preserves the ownership mode.
-    // Independently owned nodes remain borrowed until adoptChild transfers them.
+    // Parent and sibling links borrow. Reparenting never transfers ownership;
+    // nullptr detaches the node from traversal.
     int setParent(srNode* parent, int preserve_world_transform);
     void setLocation(const glm::dvec3& location);
     void setLocation(double x, double y, double z);
@@ -230,20 +224,19 @@ public:
     void yawAt(const glm::dvec3& target, double amount);
     void yawAt(const srNode* target, double amount);
 
-    // Remove scene ownership without the legacy nullptr-to-global-root fallback.
-    void detach();
-
-    // Transfer an independently owned node into this owning scene subtree.
+    // Explicit ownership for subtrees whose lifetime belongs to this node.
+    // Reparenting an adopted node changes only its borrowed scene membership.
     template<class T> T* adoptChild(std::unique_ptr<T> child, int preserve_world_transform = 0)
     {
-        std::lock_guard access(sceneGraphCSect);
         if (!child || !child->setParent(this, preserve_world_transform)) return nullptr;
-        static_cast<srNode*>(child.get())->parent_owns_ = true;
-        return child.release();
+        auto* borrowed = child.get();
+        owned_children_.push_back(std::move(child));
+        return borrowed;
     }
+    void eraseOwnedChild(const srNode* child);
 
 private:
-    bool parent_owns_ = true;
+    std::vector<std::unique_ptr<srNode>> owned_children_;
     void moveAlongAxis(unsigned axis, double distance);
     void setLocationComponent(unsigned component, double value);
     void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
@@ -252,9 +245,6 @@ private:
     void signalInternal(w8_ulong signal, void* value);
     void unlink();
     void updateTransformation() const;
-
-    static std::recursive_mutex sceneGraphCSect;
-    static std::atomic<w8_long> sceneGraphLockCount;
 
     glm::dmat3 rotation; /* 0x018 */
     glm::dvec3 location; /* 0x060 */
@@ -266,7 +256,8 @@ private:
     mutable std::uint32_t notifications = 0; /* 0x120 */
     std::uint32_t flags = 0; /* 0x124 */
 
-public:
+protected:
+    // Borrowed traversal links; lifetime belongs to C++ owners.
     srNode* next_sibling_; /* 0x128 */
     srNode* previous_sibling_; /* 0x12c */
     srNode* parent_; /* 0x130 */

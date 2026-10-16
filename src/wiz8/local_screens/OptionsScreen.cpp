@@ -20,6 +20,7 @@
 #include <wiz8/filesystem.h>
 
 #include "Font.h"
+#include "asset_paths.h"
 #include "dialog_code/MessageDialogBase.h"
 #include "difficulty.h"
 #include "file_time.h"
@@ -28,8 +29,6 @@
 #include "layouts/world.h"
 #include "mgs_commands.h"
 #include "soundman.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srPixelConvert.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
@@ -57,6 +56,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -488,8 +488,8 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     int selected_slot = m_current * 5 + 1 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     std::string path;
-    path = fmt::format("{}\\{}.{}", "Saves", slot.name, g_save_extension);
-    if (wiz8::remove_file(path) == 0) {
+    path = fmt::format("{}\\{}.{}", "saves", slot.name, g_save_extension);
+    if (wiz8::remove_file(wiz8::user_path(path)) == 0) {
         g_options_screen->ShowNotification(false, 0x82f,
                                            [this](bool accepted) { OnDialogClosed(accepted, 0); });
         return;
@@ -608,8 +608,8 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_save->screenshot.capture_result == 0) {
         CatalogArtwork::Load(0xf6, 0).draw(target, 0, x + 6, y + 6);
     } else {
-        auto portrait = std::make_unique<srColorSurface>(
-            srPixelConvert::SURFACE_ARGB1555, m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
+        auto portrait =
+            CreateCpuStorage(0x50, 0x3c, SDL_PIXELFORMAT_ARGB1555, m_save->screenshot.pixels, 0xa0);
         DrawColorSurface(portrait.get(), x + 6, y + 6);
     }
 

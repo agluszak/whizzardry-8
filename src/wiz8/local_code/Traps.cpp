@@ -12,6 +12,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
+#include "asset_paths.h"
 #include "glm/ext/vector_float3.hpp"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
@@ -56,7 +57,7 @@ static char s_record_mode_prompt[] = "Type in your text, then ENTER or ESC.";
 // GLOBAL: WIZ8 0x006503ac
 static char s_record_mode_default_location[] = "tst";
 // GLOBAL: WIZ8 0x006503d0
-static char s_data_notes_txt[] = "data\\notes.txt";
+static char s_data_notes_txt[] = "logs\\notes.txt";
 // GLOBAL: WIZ8 0x006503e0
 static char s_exiting_record_mode[] = "Exiting record mode.";
 // GLOBAL: WIZ8 0x006503f8
@@ -92,7 +93,7 @@ void WriteRecordModeEntry(void)
 
     file = [&]() {
         try {
-            return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace);
+            return wiz8::open_file(wiz8::user_path(s_data_notes_txt), wiz8::OpenMode::replace);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }
@@ -136,7 +137,7 @@ void ApplyRecordModeLine(void)
         WriteRecordModeEntry();
         return;
     }
-    if (wiz8::remove_file(s_data_notes_txt) == 0) {
+    if (wiz8::remove_file(wiz8::user_path(s_data_notes_txt)) == 0) {
         ResetEditorStatusLine(-1);
         strcpy(message, s_error_deleting_log_file);
     } else {

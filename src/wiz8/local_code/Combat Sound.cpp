@@ -11,6 +11,7 @@
 #include <SDL3/SDL_filesystem.h>
 #include <fmt/format.h>
 
+#include "asset_paths.h"
 #include "attack_modes.h"
 #include "audio_resources.h"
 #include "equipment_slots.h"
@@ -50,10 +51,11 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     const auto variant = variant_count > 1 ? fmt::format("{}", Random(variant_count) + 1) : "";
     zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}{}.wav", sound_name, variant);
     if (![&]() {
-            const auto status = wiz8::file_status(zSoundFileName);
+            const auto status = wiz8::file_status(wiz8::asset_path(zSoundFileName));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }()) {
-        srAssertFail("[&]() { const auto status = wiz8::file_status(zSoundFileName); return status "
+        srAssertFail("[&]() { const auto status = "
+                     "wiz8::file_status(wiz8::asset_path(zSoundFileName)); return status "
                      "&& status->info.type == SDL_PATHTYPE_FILE; }()",
                      COMBAT_SOUND_CPP, 104,
                      fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
@@ -74,7 +76,8 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
 // FUNCTION: WIZ8 0x00549b00
 unsigned char LoadHitSoundDatabase(void)
 try {
-    std::istringstream input(wiz8::open_file("Data/Databases/HitSounds.txt")->read_text());
+    std::istringstream input(
+        wiz8::open_file(wiz8::asset_path("Data/Databases/HitSounds.txt"))->read_text());
     decltype(g_weapon_attack_sounds) attacks;
     decltype(g_material_impact_sounds) impacts;
     std::string line;

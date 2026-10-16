@@ -38,7 +38,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srClock.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srIlluminator.h"
@@ -1190,19 +1189,10 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and way
     REQUIRE(start == glm::vec3(1, 2, 3));
 }
 
-namespace {
-struct SharedClock {
-    srClock clock;
-    srClock* saved = std::exchange(g_shared_timer_base, &clock);
-    ~SharedClock() { g_shared_timer_base = saved; }
-};
-}
-
 TEST_CASE_METHOD(SurRenderTestFixture,
                  "Prop position and delta queries preserve animation stepping",
                  "[geometry][animation]")
 {
-    SharedClock shared_clock;
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
     auto& animation = *prop.Rep()->animation;
@@ -1251,8 +1241,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
         mesh->frame_count = 1;
         mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
         mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
-        mesh->meshes.push_back(
-            std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
+        mesh->meshes.push_back(std::make_unique<stModelInstance>(nullptr));
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));
@@ -1285,7 +1274,6 @@ TEST_CASE_METHOD(SurRenderTestFixture,
                  "Prop bounds aggregate frames without changing the current frame",
                  "[geometry][animation]")
 {
-    SharedClock shared_clock;
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
     auto& animation = *prop.Rep()->animation;
@@ -1579,12 +1567,6 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
 TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering",
                  "[geometry]")
 {
-    struct RestoreClock {
-        srClock* previous = g_shared_timer_base;
-        ~RestoreClock() { g_shared_timer_base = previous; }
-    } restore;
-    srClock clock;
-    g_shared_timer_base = &clock;
     stParticle empty(nullptr, 0);
     REQUIRE(!empty.activateParticle(true));
     stParticle particles(nullptr, 2);
@@ -1875,9 +1857,9 @@ TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled
     SurRenderTestFixture runtime;
     const auto check = []<class Effect>() {
         srNode root;
-        auto* sibling = new TraversalMarker(root);
-        auto* effect = new Effect(&root);
-        auto* child = new TraversalMarker(*effect);
+        auto* sibling = root.adoptChild(std::make_unique<TraversalMarker>(root));
+        auto* effect = root.adoptChild(std::make_unique<Effect>(nullptr));
+        auto* child = effect->adoptChild(std::make_unique<TraversalMarker>(*effect));
         effect->clearFlag(srNode::FLAG_GLOBAL);
         srNode::TraverseInfo info;
         root.traverse(info);
@@ -1929,7 +1911,7 @@ TEST_CASE("Wizardry light inactivity and missing definitions have distinct trave
     stLight light(nullptr);
     light.setIntensity(1);
     light.clearFlag(srNode::FLAG_GLOBAL);
-    auto* child = new TraversalMarker(light);
+    auto* child = light.adoptChild(std::make_unique<TraversalMarker>(light));
     srNode::TraverseInfo info;
     light.traverse(info);
     REQUIRE(info.entries.empty()); // Active without a definition skips children too.
@@ -2396,7 +2378,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     stModelInstance instance(nullptr);
     instance.setModel(model);
     instance.highlight_colour = {1, 0, 0, 1};
-    srNode termination(&instance, srNode::Ownership::independent);
+    srNode termination(&instance);
     termination.setFlag(srNode::FLAG_TERMINATE);
     const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
     renderer.setAmbientLight(ambient);
@@ -2463,7 +2445,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
                  "[geometry][rendering]")
 {
     struct Child : srNode {
-        explicit Child(srNode& parent) : srNode(&parent, Ownership::independent) {}
+        explicit Child(srNode& parent) : srNode(&parent) {}
         bool visited = false;
         glm::mat4 view{0};
         void traverse(TraverseInfo& info) override
@@ -2956,11 +2938,11 @@ TEST_CASE_METHOD(SurRenderTestFixture,
         std::vector<stLight*> lights = g_environment_lights;
         ~RestoreLights() { g_environment_lights = lights; }
     } restore;
-    srScene scene;
     stLight light(nullptr);
     g_environment_lights = {&light};
     W8World world{};
-    world.static_scene = &scene;
+    world.static_scene = std::make_unique<srScene>();
+    auto& scene = *world.static_scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
     ApplyEnvironmentColour(&world, 0.75f, &colour);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
@@ -3027,6 +3009,12 @@ TEST_CASE("Positional sound copies register each live node once", "[scene][sound
         assigned = source;
         assigned = source;
         stSound3D copied(source);
+        auto owned = std::make_unique<stSound3D>("service.wav", nullptr);
+        auto* borrowed = Retain3DSound(std::move(owned));
+        REQUIRE(borrowed->getParent() == nullptr);
+        REQUIRE(g_sound3d_instances.size() == initial + 4);
+        Release3DSounds();
+        Release3DSounds();
         REQUIRE(g_sound3d_instances.size() == initial + 3);
         for (auto* node : {&source, &assigned, &copied})
             REQUIRE(std::ranges::count(g_sound3d_instances, node) == 1);

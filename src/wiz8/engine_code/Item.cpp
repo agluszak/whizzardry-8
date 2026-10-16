@@ -9,15 +9,16 @@
 #include <utility>
 
 #include <fmt/format.h>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtx/euler_angles.hpp>
 
 #include "AnimRep.hpp"
 #include "GrObject.h"
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
 #include "input.h"
 #include "layouts/world.h"
 #include "random.h"
@@ -108,13 +109,13 @@ void W8Item::AttachMesh(W8World* world)
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x219, 0);
     }
-    if (mesh->first_child_ == 0) {
+    if (mesh->getChild() == 0) {
         mesh->clearFlag(srNode::FLAG_DISABLE);
     }
     mesh->setParent(world->dynamic_scene, 0);
     location = m_pRep->GetLocation();
     rotation = m_pRep->GetRotation();
-    child = mesh->first_child_;
+    child = mesh->getChild();
     if (child == 0) {
         widened = glm::dvec3(location);
         mesh->setLocation(widened);
@@ -125,7 +126,7 @@ void W8Item::AttachMesh(W8World* world)
         widened = glm::dvec3(location);
         child->setLocation(widened);
         child->setRotation(rotation);
-        child = child->next_sibling_;
+        child = child->getNext();
     } while (child != 0);
 }
 
@@ -221,7 +222,7 @@ try {
     sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
     std::unique_ptr<wiz8::File> file = [&]() {
         try {
-            return wiz8::open_file(filename, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }
@@ -289,10 +290,10 @@ void W8Item::UpdateAnimation()
         rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));
         srNode* mesh = rep->m_psrMesh.get();
         m_pRep->SetRotation(&rotation);
-        if (mesh->first_child_ == 0) {
+        if (mesh->getChild() == 0) {
             mesh->setRotation(rotation);
         } else {
-            for (srNode* child = mesh->first_child_; child != 0; child = child->next_sibling_) {
+            for (srNode* child = mesh->getChild(); child != 0; child = child->getNext()) {
                 child->setRotation(rotation);
             }
         }
@@ -349,10 +350,10 @@ void W8Item::SetYaw(float angle)
     glm::mat3 rotation(glm::eulerAngleY(static_cast<float>(NormalizeAngle(angle))));
     srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     m_pRep->SetRotation(&rotation);
-    if (mesh->first_child_ == 0) {
+    if (mesh->getChild() == 0) {
         mesh->setRotation(rotation);
     } else {
-        for (srNode* child = mesh->first_child_; child != 0; child = child->next_sibling_) {
+        for (srNode* child = mesh->getChild(); child != 0; child = child->getNext()) {
             child->setRotation(rotation);
         }
     }

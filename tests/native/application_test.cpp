@@ -29,7 +29,7 @@ TEST_CASE("application_test")
     ScopedTemporaryDirectory directory{"wiz8-application"};
     auto roots = w8_native::path_roots();
     roots.assets = (directory.path / "missing-assets").string();
-    roots.user = directory.path.string();
+    roots.user = (directory.path / "user").string();
     ScopedAssetRoots scoped_roots{roots};
 
     for (const auto option : {"/STRINGDATA", "/STRINGDATA="}) {

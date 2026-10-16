@@ -1,8 +1,6 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
-#include "wiz8/retail_opaque_records.h"
-
 #include <cstddef>
 #include <source_location>
 #include <span>
@@ -12,6 +10,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
+#include "wiz8/retail_opaque_records.h"
 
 struct W8MonsterRecord;
 struct W8MonsterGroup;

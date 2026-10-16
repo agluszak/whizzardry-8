@@ -1,10 +1,10 @@
 #ifndef WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
 #define WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
 
-#include "wiz8/retail_opaque_records.h"
-
 #include <string>
 #include <vector>
+
+#include "wiz8/retail_opaque_records.h"
 struct W8NpcItemStockRule;
 
 #include <algorithm>
@@ -351,7 +351,7 @@ struct W8NpcDatabaseRecord {
        The wide RPC-character name at 0x0c4 bounds the string extent. */
     std::string display_name;
     W8NpcCharacterTemplate character;
-    std::vector<W8NpcItemStockRule*>* item_stock_rules;
+    std::vector<W8NpcItemStockRule> item_stock_rules;
     /* Retail offset 0x2ce/0x2d2: the trade price factors. CalculateTradeStackPrice adds the
        bargained adjustment to buy_price_factor when the NPC buys from the
        party and subtracts it from sell_price_factor when the party buys. */
@@ -568,9 +568,8 @@ struct W8RaceResistanceProfile {
     W8RaceResistanceAdjustment adjustments[6];
 };
 
-/* Runtime roots for the database records described above. GameplayDatabase.cpp
-   owns their storage; consumers reach it through this one declaration surface
-   instead of the gameplay-boundary quarantine. */
+/* Borrowed views of database records. Loaders retain the owning storage;
+   replacing or releasing a database invalidates its borrowed pointers. */
 extern W8FactDatabaseRecord* g_fact_records;
 extern W8LevelDatabaseRecord* g_level_records;
 extern W8NpcDatabaseRecord* g_npc_records;

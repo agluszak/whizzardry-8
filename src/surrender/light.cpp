@@ -13,7 +13,6 @@
 #include "glm/matrix.hpp"
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
@@ -27,8 +26,7 @@
    attenuation, bit5 = far-range attenuation active. */
 
 // FUNCTION: SURRENDER 0x1004DDA0
-srLight::srLight(srNode* parent, e_preset preset, Ownership ownership)
-    : srIlluminator(static_cast<srNode*>(nullptr), ownership)
+srLight::srLight(srNode* parent, e_preset preset) : srIlluminator(static_cast<srNode*>(nullptr))
 {
     enable_flags = 0;
     derived_flags = 0;
@@ -60,10 +58,7 @@ srLight::srLight(srNode* parent, e_preset preset, Ownership ownership)
     }
 }
 
-/* WIZ8 0x0049D67C..0x0049D6C5 inlines the SDK copy: construct the
-   illuminator with parent zero and a fresh identity, then copy its base state
-   and light members. Compiler-generated copying shares scene
-   links and registry ownership, leaving dangling siblings during unload. */
+// Copy values without copying hierarchy links or subtree ownership.
 srLight::srLight(const srLight& other)
     : srIlluminator(other), attenuation_model(other.attenuation_model),
       near_start(other.near_start), near_end(other.near_end), far_start(other.far_start),

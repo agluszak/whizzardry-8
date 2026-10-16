@@ -18,8 +18,8 @@ struct W8OctPreTreeGeometry;
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/retail_opaque_records.h"
 #include "wiz8/ground_probe.h"
+#include "wiz8/retail_opaque_records.h"
 
 namespace wiz8 {
 class File;

@@ -17,6 +17,7 @@
 #include "IntervalGate.h"
 #include "Monster.h"
 #include "Octree.h"
+#include "asset_paths.h"
 #include "dice.h"
 #include "difficulty.h"
 #include "glm/ext/vector_float3.hpp"
@@ -117,7 +118,7 @@ int g_encounter_tables_level = -1;
 // FUNCTION: WIZ8 0x0048a7a0
 unsigned int InitializeEncounterTables(void)
 try {
-    auto handle = wiz8::open_file("Data\\Databases\\EncounterTables.dbs");
+    auto handle = wiz8::open_file(wiz8::asset_path("Data\\Databases\\EncounterTables.dbs"));
     UnloadEncounterTables();
     std::vector<std::string> names;
     std::vector<W8EncounterTableRuntime> tables;

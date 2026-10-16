@@ -1,14 +1,13 @@
 #pragma once
 
-#include <memory>
 #include <span>
 
-#include "srClass.h"
-#include "srColorSurfaceIFace.h"
-#include "srPalette.h"
-#include "srPixelConvert.h"
+#include <SDL3/SDL_pixels.h>
 
-class srFilter;
+#include "srClass.h"
+
+struct SDL_Surface;
+
 class srTexture;
 class stSurface2D;
 
@@ -17,20 +16,17 @@ public:
     /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
        srTexture ctor seeds Dimensions::compression with DEFAULT. */
     enum e_compression { COMPRESSION_DEFAULT = 4 };
-    /* Copies retain shared palette ownership; the output object must be constructed. */
     struct Dimensions {
         w8_ulong width;
         w8_ulong height;
-        std::shared_ptr<srPalette> palette;
-        srPixelConvert::PixelFormat format;
+        SDL_PixelFormat format;
         w8_ulong hints;
         e_compression compression;
-        srFilter* filter;
     };
     struct MultiRequest {
         // destinations[0] is first_level; each subsequent slot is the next mip.
         w8_ulong first_level;
-        std::span<srColorSurfaceIFace* const> destinations;
+        std::span<SDL_Surface* const> destinations;
     };
     /* srGERD::setTextureSubImage packs the level-0 dimensions and the target
        mipmap level ahead of the clipped destination rect. */
@@ -42,7 +38,7 @@ public:
         w8_long destination_y;
         w8_long source_right;
         w8_long source_bottom;
-        srColorSurfaceIFace* destination;
+        SDL_Surface* destination;
     };
     /* Packed filter/wrap/mipmap state and the mipmap bias. */
     struct Parameters {

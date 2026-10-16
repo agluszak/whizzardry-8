@@ -44,19 +44,14 @@
 #include "mgs_commands.h"
 #include "sight_state.h"
 #include "surrender/srCamera.h"
-#include "surrender/srClass.h"
 #include "surrender/srClipPlane.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srFilter.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureIFace.h"
 #include "utf8/checked.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -88,7 +83,9 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/mipe.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/packed_bits.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
@@ -122,19 +119,19 @@ std::vector<unsigned int> g_automap_cell_keys;
 // GLOBAL: WIZ8 0x0068F284
 std::unordered_map<unsigned int, int> g_automap_cell_index;
 // GLOBAL: WIZ8 0x0068F29C
-stModelInstance2D* g_automap_party_marker;
+std::unique_ptr<stModelInstance2D> g_automap_party_marker;
 // GLOBAL: WIZ8 0x0068F2A0
-stModelInstance2D* g_automap_friendly_marker;
+std::unique_ptr<stModelInstance2D> g_automap_friendly_marker;
 // GLOBAL: WIZ8 0x0068F2A4
-stModelInstance2D* g_automap_neutral_marker;
+std::unique_ptr<stModelInstance2D> g_automap_neutral_marker;
 // GLOBAL: WIZ8 0x0068F2A8
-stModelInstance2D* g_automap_hostile_marker;
+std::unique_ptr<stModelInstance2D> g_automap_hostile_marker;
 // GLOBAL: WIZ8 0x0068F2AC
-stModelInstance2D* g_automap_text_marker;
+std::unique_ptr<stModelInstance2D> g_automap_text_marker;
 
 /* Leave releases the pointed-to objects and erases their vector entries. */
 // GLOBAL: WIZ8 0x0068F1F4
-std::vector<srClass*> g_automap_markers;
+std::vector<std::unique_ptr<stModelInstance2D>> g_automap_markers;
 
 // GLOBAL: WIZ8 0x0068f220
 std::vector<std::unique_ptr<srClipPlane>> g_automap_created_layers;
@@ -148,7 +145,7 @@ struct W8AutomapState {
 // GLOBAL: WIZ8 0x0068f268
 static std::unique_ptr<W8AutomapState> g_automap_state;
 // GLOBAL: WIZ8 0x0068f274
-std::unique_ptr<srColorSurface> g_automap_surface;
+SDLSurfaceOwner g_automap_surface{nullptr, SDL_DestroySurface};
 
 void AutomapZoomInButton(void);
 static void ZoomAutomapOut();
@@ -340,7 +337,11 @@ static int FindAutomapLayerAtHeight(double height)
 /* Redraw and screen teardown share ownership of transient markers. */
 static void ClearAutomapMarkers()
 {
-    wiz8::remove_all_and_delete_in_order(g_automap_markers);
+    while (!g_automap_markers.empty()) {
+        auto marker = std::move(g_automap_markers.front());
+        g_automap_markers.erase(g_automap_markers.begin());
+        marker.reset();
+    }
 }
 
 static void ClearAutomapNotes()
@@ -665,10 +666,7 @@ unsigned char AutomapScreenEnter(void)
         g_world_render_enabled = 0;
         g_monster_shadow_updates_enabled = 0;
         if (!g_automap_surface) {
-            g_automap_surface =
-                std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
-            auto* surface = g_automap_surface.get();
-            if (surface) surface->setFilter(&srBoxFilter);
+            g_automap_surface = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_ARGB1555);
         }
     }
     g_automap_redraw = true;
@@ -921,10 +919,11 @@ unsigned char AutomapScreenFinalize(void)
     g_automap_lit_cells.clear();
     g_automap_cell_keys.clear();
     g_automap_cell_index.clear();
-    ReleaseRendererObject(g_automap_party_marker);
-    ReleaseRendererObject(g_automap_friendly_marker);
-    ReleaseRendererObject(g_automap_neutral_marker);
-    ReleaseRendererObject(g_automap_hostile_marker);
+    g_automap_party_marker.reset();
+    g_automap_friendly_marker.reset();
+    g_automap_neutral_marker.reset();
+    g_automap_hostile_marker.reset();
+    g_automap_text_marker.reset();
     return 1;
 }
 
@@ -1238,10 +1237,8 @@ void RenderAutomapFrame(void)
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
             }
-            auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                            GetFrameBufferSurface());
-            surface->setFilter(&srBoxFilter);
-            surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
+            SDL_Rect region{0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
+            SDL_BlitSurface(g_automap_surface.get(), &region, &GetFrameBufferSurface(), &region);
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3);
             SetRendererAutoFlipEnabled(false);
@@ -1272,10 +1269,9 @@ void UpdateAutomapPageButtons(void)
 int RestoreAutomapRect(DesignRect* rect)
 {
     if (g_automap_surface != 0) {
-        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, GetFrameBufferSurface());
-        screen.setFilter(&srBoxFilter);
-        screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
-                    rect->bottom);
+        SDL_Surface& screen = GetFrameBufferSurface();
+        SDL_Rect region{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top};
+        SDL_BlitSurface(g_automap_surface.get(), &region, &screen, &region);
     }
     return 1;
 }
@@ -1494,17 +1490,19 @@ static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
     return texture;
 }
 
-static void CreateAutomapMarkerSprite(const char* path, stModelInstance2D*& marker)
+static std::unique_ptr<stModelInstance2D> CreateAutomapMarkerSprite(const char* path)
 {
     std::shared_ptr<stTextureFile> texture = LoadAutomapMarkerTexture(path);
-    srColorSurface* surface = texture->getSurface();
-    if (surface != 0) {
-        marker = CreateSpriteFromTexture(texture, surface->getWidth() * g_viewport_x_scale,
-                                         surface->getHeight() * g_viewport_y_scale, true, false);
-        static_cast<srMeshModel*>(marker->getModel())
-            ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-        surface->setFilter(&srBSplineFilter);
+    SDL_Surface* surface = texture->getSurface();
+    if (!surface) {
+        return {};
     }
+    auto marker = std::unique_ptr<stModelInstance2D>(CreateSpriteFromTexture(
+        texture, surface->w * g_viewport_x_scale, surface->h * g_viewport_y_scale, true, false));
+    if (!marker) return {};
+    marker->setParent(nullptr, 0);
+    static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
+    return marker;
 }
 
 /* Load the automap marker textures and build the party, monster and text
@@ -1514,15 +1512,15 @@ void CreateAutomapMarkerSprites(void)
     if (g_automap_party_marker == 0) {
         std::shared_ptr<stTextureFile> texture =
             LoadAutomapMarkerTexture("Data\\Automap\\map_partymarker_a.tga");
-        srColorSurface* surface = texture->getSurface();
+        SDL_Surface* surface = texture->getSurface();
         if (surface != 0) {
-            g_automap_party_marker =
-                CreateSpriteFromTexture(texture, surface->getWidth() * g_viewport_x_scale,
-                                        surface->getHeight() * g_viewport_x_scale, true, true);
-            g_automap_party_marker->setParent(g_scene_square, 1);
+            g_automap_party_marker.reset(
+                CreateSpriteFromTexture(texture, surface->w * g_viewport_x_scale,
+                                        surface->h * g_viewport_x_scale, true, true));
+            g_automap_party_marker->setParent(nullptr, 0);
+            g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
             static_cast<srMeshModel*>(g_automap_party_marker->getModel())
                 ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-            surface->setFilter(&srBSplineFilter);
             g_automap_party_marker->SetGlowEnabled(true);
             glm::vec4 first;
             glm::vec4 second;
@@ -1533,19 +1531,19 @@ void CreateAutomapMarkerSprites(void)
         }
     }
     if (g_automap_friendly_marker == 0) {
-        CreateAutomapMarkerSprite("Data\\Automap\\map_monsterfriendly_a.tga",
-                                  g_automap_friendly_marker);
+        g_automap_friendly_marker =
+            CreateAutomapMarkerSprite("Data\\Automap\\map_monsterfriendly_a.tga");
     }
     if (g_automap_neutral_marker == 0) {
-        CreateAutomapMarkerSprite("Data\\Automap\\map_monsterneutral_a.tga",
-                                  g_automap_neutral_marker);
+        g_automap_neutral_marker =
+            CreateAutomapMarkerSprite("Data\\Automap\\map_monsterneutral_a.tga");
     }
     if (g_automap_hostile_marker == 0) {
-        CreateAutomapMarkerSprite("Data\\Automap\\map_monsterhostile_a.tga",
-                                  g_automap_hostile_marker);
+        g_automap_hostile_marker =
+            CreateAutomapMarkerSprite("Data\\Automap\\map_monsterhostile_a.tga");
     }
     if (g_automap_text_marker == 0) {
-        CreateAutomapMarkerSprite("Data\\Automap\\map_textmarker_a.tga", g_automap_text_marker);
+        g_automap_text_marker = CreateAutomapMarkerSprite("Data\\Automap\\map_textmarker_a.tga");
     }
 }
 
@@ -1575,11 +1573,12 @@ void RenderAutomapMarkers(void)
         }
         unsigned short width = g_automap_party_marker->GetScaledWidth();
         unsigned short height = g_automap_party_marker->GetScaledHeight();
-        PositionToolTipNode(g_automap_party_marker, x - (width >> 1), y - (height >> 1), false);
+        PositionToolTipNode(g_automap_party_marker.get(), x - (width >> 1), y - (height >> 1),
+                            false);
         g_automap_party_marker->setRotation(0.0, 0.0, -static_cast<double>(GetCameraYawRadians()));
         g_automap_party_marker->clearFlag(srNode::FLAG_DISABLE);
         g_automap_party_marker->setParent(0, 1);
-        g_automap_party_marker->setParent(g_scene_square, 1);
+        g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
     }
     unsigned int count = gXStatus.monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
@@ -1614,7 +1613,7 @@ void RenderAutomapMarkers(void)
             x -= width >> 1;
             unsigned short height = marker->GetScaledHeight();
             y -= height >> 1;
-            marker->setParent(g_scene_fullscreen, 1);
+            marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
             Position2DNodeUnsnapped(marker, x, y);
         }
     }
@@ -1644,7 +1643,7 @@ void RenderAutomapMarkers(void)
                 unsigned short width = marker->GetScaledWidth();
                 unsigned short height = marker->GetScaledHeight();
                 PositionToolTipNode(marker, x - (width >> 1), y - (height >> 1), false);
-                marker->setParent(g_scene_fullscreen, 1);
+                marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
             }
         }
     }
@@ -1677,7 +1676,7 @@ void RenderAutomapMarkers(void)
                 unsigned short height = marker->GetScaledHeight();
                 y -= height >> 1;
                 Position2DNodeUnsnapped(marker, x, y);
-                marker->setParent(g_scene_fullscreen, 1);
+                marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
                 if (note->layer == g_automap_layer && !note->text.empty() &&
                     (g_automap_page == 0 || note == g_automap_hovered_note ||
                      note == g_automap_editing_note)) {
@@ -1727,21 +1726,25 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
         return 0;
     }
     const SpriteFrame& properties = video_object.frames.front();
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
-    surface->fill(0);
-    surface->setFilter(&srBSplineFilter);
+    auto surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(0x40, 0x40, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
+    SDL_FillSurfaceRect(surface.get(), nullptr, 0);
     int y = (0x40 - properties.height) / 2;
     int x = (0x40 - properties.width) / 2;
     BlitVideoObjectToColorSurface(video_object, 0, *surface, x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
-    stModelInstance2D* marker = static_cast<stModelInstance2D*>(
-        MakePolygonBrush(g_scene_fullscreen, surface, surface->getWidth() * g_viewport_x_scale,
-                         surface->getHeight() * g_viewport_y_scale, 0.0f, 0.0f, 1.0f, 1.0f, 1));
+    const auto width = surface->w * g_viewport_x_scale;
+    const auto height = surface->h * g_viewport_y_scale;
+    auto* parent = g_overlay_scenes.fullscreen.get();
+    auto* node = MakePolygonBrush(parent, surface, width, height, 0.0f, 0.0f, 1.0f, 1.0f, 1);
+    auto owned = std::unique_ptr<stModelInstance2D>(static_cast<stModelInstance2D*>(node));
+    auto* marker = owned.get();
     if (marker == 0) {
         return 0;
     }
+    marker->setParent(nullptr, 0);
     static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-    g_automap_markers.push_back(marker);
+    g_automap_markers.push_back(std::move(owned));
     marker->SetGlowEnabled(true);
     glm::vec4 first;
     glm::vec4 second;
@@ -1757,10 +1760,9 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
    register the clone for release after the pass. */
 stModelInstance2D* CreateAutomapMonsterMarker(int type)
 {
-    stModelInstance2D* marker = new stModelInstance2D(0);
-    if (marker == 0) {
-        return 0;
-    }
+    auto owned = std::make_unique<stModelInstance2D>(nullptr);
+    auto* marker = owned.get();
+    marker->setParent(nullptr, 0);
     switch (type) {
     case 0: {
         glm::vec4 first;
@@ -1790,7 +1792,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         break;
     }
     }
-    g_automap_markers.push_back(marker);
+    g_automap_markers.push_back(std::move(owned));
     marker->SetGlowEnabled(true);
     marker->setRenderDepth(2000);
     /* Retail scales by 0.85 as a step of its own; written as one product, VC6
@@ -1805,12 +1807,11 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
    pass. */
 stModelInstance2D* CreateAutomapTextMarker(void)
 {
-    stModelInstance2D* marker = new stModelInstance2D(0);
-    if (marker == 0) {
-        return 0;
-    }
+    auto owned = std::make_unique<stModelInstance2D>(nullptr);
+    auto* marker = owned.get();
     *marker = *g_automap_text_marker;
-    g_automap_markers.push_back(marker);
+    marker->setParent(nullptr, 0);
+    g_automap_markers.push_back(std::move(owned));
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f * g_float_half;
     ScaleAutomapMarker(marker, factor);
     marker->SetGlowEnabled(true);

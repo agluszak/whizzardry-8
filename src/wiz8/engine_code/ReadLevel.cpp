@@ -111,7 +111,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
     const glm::vec3 ambient_color(ambient);
     m_submitted_polygons = 0;
 
-    for (srNode* child = first_child_; child != 0; child = child->next_sibling_) {
+    for (srNode* child = first_child_; child != 0; child = child->getNext()) {
         stModelInstance* instance = static_cast<stModelInstance*>(child);
         stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
         if (instance->mesh_index >= 0 && instance->testFlag(FLAG_DISABLE) != 0) {
@@ -163,7 +163,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             }
             model = model->Next();
             if (linked_child != 0) {
-                linked_child = linked_child->first_child_;
+                linked_child = linked_child->getChild();
             }
         }
     }
@@ -317,7 +317,7 @@ try {
             if (record.version < 2) {
                 strcpy(name, "Static Point Light");
             }
-            light = CreateLight(world->dynamic_scene, name);
+            light = world->dynamic_scene->adoptChild(CreateLight(nullptr, name));
             if (light == 0) {
                 srAssertFail("pstLight", READ_LEVEL_CPP, 593, 0);
             }
@@ -495,7 +495,7 @@ try {
     pInfo->hFile->read(&version, sizeof(version));
     plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
     for (index = 0; index < count; ++index) {
-        clip_plane = new srClipPlane(pWorld->static_scene);
+        clip_plane = pWorld->static_scene->adoptChild(std::make_unique<srClipPlane>());
         if (clip_plane == 0) {
             srAssertFail("psrClipPlane", READ_LEVEL_CPP, 0x5ae,
                          "out of memory creating clip plane");
@@ -821,8 +821,7 @@ try {
 
 // FUNCTION: WIZ8 0x004BD0D0
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
-                                 std::vector<std::unique_ptr<stParticle>>* pParticles,
-                                 srNode::Ownership ownership)
+                                 std::vector<std::unique_ptr<stParticle>>* pParticles)
 try {
     W8LevelParticleRecord record;
     int count;
@@ -859,7 +858,7 @@ try {
             srAssertFail("0", READ_LEVEL_CPP, 0x5fe, "Unknown particle structure version");
         }
 
-        auto owned = std::make_unique<stParticle>(pScene, record.particle_count, ownership);
+        auto owned = std::make_unique<stParticle>(pScene, record.particle_count);
         particle = owned.get();
 
         SDL_strupr(record.name);
@@ -1062,11 +1061,11 @@ try {
     }
 
     level_mesh = nullptr;
-    delete std::exchange(world->update_mesh_source, nullptr);
+    world->level->eraseOwnedChild(std::exchange(world->update_mesh_source, nullptr));
     // Each non-null entry is a distinct scene-owned root instance. Replacing
     // the level must unlink all old roots, not just the first table entry.
     for (auto*& instance : world->psrMeshes) {
-        delete std::exchange(instance, nullptr);
+        world->level->eraseOwnedChild(std::exchange(instance, nullptr));
     }
     if (world->octree == nullptr) {
         world->psrMeshes.clear();
@@ -1155,7 +1154,7 @@ try {
     info.hFile->read(&camera_mode, sizeof(camera_mode));
     SetCameraSwayMode(world->camera, camera_mode == 0 ? -1 : 1);
     if (world->octree == 0 && world != g_secondary_world) {
-        FinalizeWorldScenes(world->static_scene, world->dynamic_scene);
+        FinalizeWorldScenes(world->static_scene.get(), world->dynamic_scene);
     }
 
     success = ReadWorldClipPlanes(&info, world);
@@ -1170,7 +1169,7 @@ try {
         world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
     }
     RefreshEnvironment();
-    FinalizeStaticScene(world->static_scene);
+    FinalizeStaticScene(world->static_scene.get());
 
     if (!success ||
         !(handle->read(&environment_offset.x, sizeof(environment_offset.x)).bytes ==
@@ -1181,8 +1180,7 @@ try {
           static_cast<std::size_t>(sizeof(environment_offset.z)))) {
         success = 0;
     } else {
-        success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles,
-                                     srNode::Ownership::independent);
+        success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles);
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
     success = success && ReadNamedPositions(info.hFile, world->named_positions);

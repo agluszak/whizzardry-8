@@ -3,8 +3,6 @@
 
 #include <string>
 
-#include "wiz8/retail_opaque_records.h"
-
 #include <stddef.h>
 
 #include "wiz8/difficulty.h"
@@ -14,6 +12,7 @@
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/retail_opaque_records.h"
 
 struct W8PartySlotRow;
 

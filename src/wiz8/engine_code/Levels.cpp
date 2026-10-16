@@ -3,7 +3,6 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <exception>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -13,9 +12,9 @@
 #include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <wiz8/asset_paths.h>
 
 #include "ReadMesh.h"
+#include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -70,53 +69,53 @@
 
 // GLOBAL: WIZ8 0x00604478
 W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
-    {"Arnika", "Arnika2", "ARN", 1, 3, 2},
-    {"Ascension", "Ascension", "ASC", 0, 3, 12},
-    {"Bayjin", "Bayjin1", "BA1", -1, 3, 8},
-    {"Bayjin", "Bayjin2", "BA2", -1, 3, 8},
-    {"Circle", "Circle", "CIR", 10, 3, 14},
-    {"Marten", "Marten1", "MR1", -1, 3, 5},
-    {"Marten", "Marten2", "MR2", 0, 3, 5},
-    {"MountainPass", "MountainPass", "MNT", 2, 3, 6},
-    {"Monastery", "Monastery1", "MO1", 0, 3, 1},
-    {"Monastery", "Monastery2", "MO2", 0, 3, 1},
-    {"MtGigas", "MtGigasWaterCaves", "MGW", -1, 3, 15},
-    {"MtGigas", "MtGigasBelowCaves", "MGB", -1, 3, 11},
-    {"MtGigas", "MtGigas1", "MG1", -1, 3, 11},
-    {"MtGigas", "MtGigas2", "MG2", -1, 3, 11},
-    {"MtGigas", "MtGigasOuter", "MGO", 0, 3, 11},
-    {"MtGigas", "MtGigasTop", "MGT", 0, 3, 11},
-    {"Camp", "Camp", "CMP", 7, 3, 13},
-    {"Rapax", "RapaxCellar", "RAC", 1, 3, 9},
-    {"Rapax", "RapaxMainFloor", "RAM", 1, 3, 9},
-    {"Rapax", "RapaxUpperFloor", "RAU", 1, 3, 9},
-    {"Rapax", "RapaxExterior", "RAE", 1, 3, 9},
-    {"Rift", "Rift1", "RIF", 3, 3, 10},
-    {"SeaCaves", "SeaCave1", "SC1", 0, 3, 7},
-    {"SeaCaves", "SeaCave2", "SC2", 0, 3, 7},
-    {"Swamp", "Swamp", "SWM", -1, 3, 4},
-    {"Trynnie", "Trynnie1", "TY1", -1, 3, 3},
-    {"Trynnie", "Trynnie2", "TY2", -1, 3, 3},
-    {"ConnectiveTissue", "Arnika_Trynton", "CT1", 0, 3, 16},
-    {"ConnectiveTissue", "Trynton_Swamp", "CT2", 0, 3, 0},
-    {"ConnectiveTissue2", "SouthEastWilderness", "CT3", 0, 3, 17},
-    {"ConnectiveTissue", "Rift_Peak", "CT4", 0, 3, 0},
-    {"ConnectiveTissue2", "NorthEastWilderness", "CT5", 0, 3, 0},
-    {"ConnectiveTissue", "NorthWilderness", "CT6", 0, 3, 0},
-    {"ConnectiveTissue", "Arnika_StarterDungeon", "CT7", 0, 3, 0},
-    {"ConnectiveTissue", "Peak_RapaxCastle", "CT8", 0, 3, 0},
-    {"Footsteps", "Footsteps", "FS1", 0, 3, 0},
-    {"SavantTower", "SavantTower", "SAV", -1, 3, 2},
-    {"Trynnie", "Ratkin", "RTK", -1, 3, 3},
-    {"Camp", "CampNoRapax", "CNR", 7, 3, 0},
-    {"Dungeon", "Dungeon", "DUN", -1, 3, 0},
-    {"Spare14", "Spare14", "SPE", 0, -1, 0},
-    {"Spare15", "Spare15", "SPF", 0, -1, 0},
-    {"Spare16", "Spare16", "SPG", 0, -1, 0},
-    {"Spare17", "Spare17", "SPH", 0, -1, 0},
-    {"Spare18", "Spare18", "SPI", 0, -1, 0},
-    {"Spare19", "Spare19", "SPJ", 0, -1, 0},
-    {"Spare20", "Spare20", "SPK", 0, -1, 0},
+    {"Arnika", "Arnika2", "ARN", 1, 2},
+    {"Ascension", "Ascension", "ASC", 0, 12},
+    {"Bayjin", "Bayjin1", "BA1", -1, 8},
+    {"Bayjin", "Bayjin2", "BA2", -1, 8},
+    {"Circle", "Circle", "CIR", 10, 14},
+    {"Marten", "Marten1", "MR1", -1, 5},
+    {"Marten", "Marten2", "MR2", 0, 5},
+    {"MountainPass", "MountainPass", "MNT", 2, 6},
+    {"Monastery", "Monastery1", "MO1", 0, 1},
+    {"Monastery", "Monastery2", "MO2", 0, 1},
+    {"MtGigas", "MtGigasWaterCaves", "MGW", -1, 15},
+    {"MtGigas", "MtGigasBelowCaves", "MGB", -1, 11},
+    {"MtGigas", "MtGigas1", "MG1", -1, 11},
+    {"MtGigas", "MtGigas2", "MG2", -1, 11},
+    {"MtGigas", "MtGigasOuter", "MGO", 0, 11},
+    {"MtGigas", "MtGigasTop", "MGT", 0, 11},
+    {"Camp", "Camp", "CMP", 7, 13},
+    {"Rapax", "RapaxCellar", "RAC", 1, 9},
+    {"Rapax", "RapaxMainFloor", "RAM", 1, 9},
+    {"Rapax", "RapaxUpperFloor", "RAU", 1, 9},
+    {"Rapax", "RapaxExterior", "RAE", 1, 9},
+    {"Rift", "Rift1", "RIF", 3, 10},
+    {"SeaCaves", "SeaCave1", "SC1", 0, 7},
+    {"SeaCaves", "SeaCave2", "SC2", 0, 7},
+    {"Swamp", "Swamp", "SWM", -1, 4},
+    {"Trynnie", "Trynnie1", "TY1", -1, 3},
+    {"Trynnie", "Trynnie2", "TY2", -1, 3},
+    {"ConnectiveTissue", "Arnika_Trynton", "CT1", 0, 16},
+    {"ConnectiveTissue", "Trynton_Swamp", "CT2", 0, 0},
+    {"ConnectiveTissue2", "SouthEastWilderness", "CT3", 0, 17},
+    {"ConnectiveTissue", "Rift_Peak", "CT4", 0, 0},
+    {"ConnectiveTissue2", "NorthEastWilderness", "CT5", 0, 0},
+    {"ConnectiveTissue", "NorthWilderness", "CT6", 0, 0},
+    {"ConnectiveTissue", "Arnika_StarterDungeon", "CT7", 0, 0},
+    {"ConnectiveTissue", "Peak_RapaxCastle", "CT8", 0, 0},
+    {"Footsteps", "Footsteps", "FS1", 0, 0},
+    {"SavantTower", "SavantTower", "SAV", -1, 2},
+    {"Trynnie", "Ratkin", "RTK", -1, 3},
+    {"Camp", "CampNoRapax", "CNR", 7, 0},
+    {"Dungeon", "Dungeon", "DUN", -1, 0},
+    {"Spare14", "Spare14", "SPE", 0, 0},
+    {"Spare15", "Spare15", "SPF", 0, 0},
+    {"Spare16", "Spare16", "SPG", 0, 0},
+    {"Spare17", "Spare17", "SPH", 0, 0},
+    {"Spare18", "Spare18", "SPI", 0, 0},
+    {"Spare19", "Spare19", "SPJ", 0, 0},
+    {"Spare20", "Spare20", "SPK", 0, 0},
 };
 
 /* The sky index of the world currently held in g_secondary_world, or -1 when no
@@ -125,41 +124,6 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
 static signed char g_loaded_sky_index = -1;
 // GLOBAL: WIZ8 0x00659738
 W8MaterialMapper g_material_mapper;
-
-// FUNCTION: WIZ8 0x0042b720
-int GetLevelCdNumber(int level)
-{
-    return g_level_folders[level].cd_number;
-}
-
-// FUNCTION: WIZ8 0x0042b6f0
-bool IsLevelCdMissing(int level)
-{
-    char directory[4];
-    return FindGameDataPath(directory, g_level_folders[level].cd_number) == 0;
-}
-
-/* Configured disc roots are immutable D: through F: asset namespaces. */
-// FUNCTION: WIZ8 0x0042B590
-unsigned char FindGameDataPath(char* path, int cd_number)
-{
-    if (path == nullptr || cd_number < 1 || cd_number > 3) return 0;
-    path[0] = '\0';
-    try {
-        if (w8_native::path_roots().discs[cd_number - 1].empty()) return 0;
-        char disc[] = "D:\\";
-        disc[0] += cd_number - 1;
-        const auto root = wiz8::file_status(disc);
-        const auto data = wiz8::file_status(std::string(disc) + "Data");
-        if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable || !data ||
-            data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable)
-            return 0;
-        strcpy(path, disc);
-        return 1;
-    } catch (const std::exception&) {
-        return 0;
-    }
-}
 
 // FUNCTION: WIZ8 0x0042b740
 char GetLevelBand(int saved_level)
@@ -180,11 +144,13 @@ void StartLevelMusic(int fade, int replace_current)
 {
     const auto level = g_status.current_level;
     const std::string playlist = level >= 0 && level < W8_LEVEL_COUNT
-        ? std::string(g_level_folders[level].level_name) + ".MPL" : "Adventure.MPL";
+                                     ? std::string(g_level_folders[level].level_name) + ".MPL"
+                                     : "Adventure.MPL";
     const auto path = std::filesystem::path("Data") / "Music" / wiz8::path_from_utf8(playlist);
-    const auto status = wiz8::file_status(wiz8::path_to_utf8(path));
-    StartMusicResource(status && status->info.type == SDL_PATHTYPE_FILE
-                          ? playlist.c_str() : "Adventure.MPL", fade, replace_current);
+    const auto status = wiz8::file_status(wiz8::asset_path(wiz8::path_to_utf8(path)));
+    StartMusicResource(status && status->info.type == SDL_PATHTYPE_FILE ? playlist.c_str()
+                                                                        : "Adventure.MPL",
+                       fade, replace_current);
     ServiceMusicPlaylist();
 }
 
@@ -333,7 +299,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     material->m_surface_flags = 0;
     material->setMapper(&g_material_mapper);
 
-    for (srNode* node = sky_world->level->first_child_; node != 0; node = node->next_sibling_) {
+    for (srNode* node = sky_world->level->getChild(); node != 0; node = node->getNext()) {
         if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             srMeshModel* mesh = static_cast<srMeshModel*>(instance->getModel());
 
@@ -429,7 +395,7 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
     }
 
     const auto is_file = [](const std::filesystem::path& path) {
-        const auto status = wiz8::file_status(wiz8::path_to_utf8(path));
+        const auto status = wiz8::file_status(wiz8::asset_path(wiz8::path_to_utf8(path)));
         return status && status->info.type == SDL_PATHTYPE_FILE;
     };
     auto level_path = folder / wiz8::path_from_utf8(level_name + ".LVL");
@@ -503,10 +469,10 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
     SetSkyNodeVisible(false);
     ResetAutomapView();
-    if (!LoadLevelStatus("Saves\\CurrentGame.SAV", level)) {
+    if (!LoadLevelStatus(wiz8::user_path("saves/CurrentGame.SAV"), level)) {
         const auto status_path = BuildLevelStatusPath(level);
         g_level_status_loading = true;
-        LoadLevelStatus(status_path.c_str(), level);
+        LoadLevelStatus(wiz8::asset_path(status_path), level);
         g_level_status_loading = false;
     }
 
@@ -627,7 +593,7 @@ unsigned char UnloadLevel(const char* save_directory)
 
     ReleaseMarkedNpcBindings();
     if (strcmp(save_directory, "") != 0) {
-        SaveLevelStatus("Saves\\CurrentGame.SAV");
+        SaveLevelStatus("saves\\CurrentGame.SAV");
     }
 
     if (g_world_cleanup_flag) {
@@ -698,7 +664,7 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
         restore = true;
     }
     if (g_status.current_level != -1) {
-        if (UnloadLevel("Saves") == 0) {
+        if (UnloadLevel("saves") == 0) {
             return 0;
         }
     }

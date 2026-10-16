@@ -12,7 +12,6 @@
 #include <fmt/format.h>
 
 #include "Font.h"
-#include "Types.h"
 #include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"
@@ -21,6 +20,7 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "timer.h"
+#include "wiz8/assertions.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
@@ -1183,7 +1183,7 @@ bool BuildSubMenuPanel(short notification)
     }
     // Berserk and Pray are mutually exclusive, leaving at most four action rows.
     constexpr std::array widths{0x2f, 0x42, 0x55, 0x67};
-    Assert(entries.size() <= widths.size());
+    W8_ASSERT(entries.size() <= widths.size());
     const int built = static_cast<int>(entries.size()) + 1;
     submenu = std::make_unique<MainGameSubMenu>();
     submenu->bounds = {left, 0x1c3, widths[entries.size() - 1] + 1, 0x1d};

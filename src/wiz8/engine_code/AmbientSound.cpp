@@ -15,6 +15,7 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include "asset_paths.h"
 #include "compat/native.h"
 #include "game_timer.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -36,7 +37,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
+#include "wiz8/text_line.h"
 #include "wiz8/xstatus.h"
 
 // GLOBAL: WIZ8 0x005ec5a8
@@ -461,7 +462,6 @@ void UpdateAmbientSounds(W8World* world)
         int index;
 
         ServiceRandomAmbients();
-        wiz8::sound::service();
         count = static_cast<int>(world->plsAmbientSounds.size());
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
@@ -739,7 +739,7 @@ unsigned char ReadAmbientSoundListFile(const char* filename)
 
     handle = [&]() {
         try {
-            return wiz8::open_file(filename, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

@@ -5,11 +5,10 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srCamera.h"
-#include "surrender/srClock.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
+#include "wiz8/compat/native.h"
 
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
@@ -93,14 +92,9 @@ void srScene::process(const ProcessInfo& info, e_processType type)
 // FUNCTION: SURRENDER 0x100564A0
 void srScene::render(srGERD& renderer, srCamera* camera)
 {
-    srGERD* renderer_pointer = &renderer;
-    if (renderer_pointer == 0) {
-        return;
-    }
     if (testFlag(FLAG_DISABLE) || testFlag(FLAG_TERMINATE) || first_child_ == 0) {
         return;
     }
-    srNode::lockSceneGraph();
     ProcessInfo process_info;
     process_info.renderer = &renderer;
     if (camera != 0) {
@@ -110,14 +104,13 @@ void srScene::render(srGERD& renderer, srCamera* camera)
     if (camera != 0) {
         camera->process(process_info, PROCESS_POP);
     }
-    srNode::unlockSceneGraph();
 }
 
 // FUNCTION: SURRENDER 0x10056520
 srScene::Statistics srScene::getStatistics() const
 {
     Statistics result = statistics;
-    result.elapsed = srCore.getTimer()->seconds() - result.elapsed;
+    result.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000 - result.elapsed;
     return result;
 }
 
@@ -125,7 +118,7 @@ srScene::Statistics srScene::getStatistics() const
 void srScene::resetStatistics()
 {
     statistics = {};
-    statistics.elapsed = srCore.getTimer()->seconds();
+    statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
 }
 
 // FUNCTION: SURRENDER 0x10056B50

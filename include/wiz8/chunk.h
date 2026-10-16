@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -53,11 +54,11 @@ public:
         if (!m_hFile) throw std::logic_error("closed RIFF");
         return *m_hFile;
     }
-    bool OpenRead(std::string_view path);
-    bool OpenExistingRiff(std::string_view path, wiz8::OpenMode mode);
-    bool OpenWrite(std::string_view path);
-    bool OpenReadWrite(std::string_view path);
-    bool OpenAppend(std::string_view path);
+    bool OpenRead(const std::filesystem::path& path);
+    bool OpenExistingRiff(const std::filesystem::path& path, wiz8::OpenMode mode);
+    bool OpenWrite(const std::filesystem::path& path);
+    bool OpenReadWrite(const std::filesystem::path& path);
+    bool OpenAppend(const std::filesystem::path& path);
     bool OpenWrite(std::shared_ptr<wiz8::File> file);
     void Close();
     bool CopyCurrentChunkFrom(W8Chunk* source);

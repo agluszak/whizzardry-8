@@ -28,7 +28,6 @@
 #include <fmt/printf.h>
 
 #include "Font.h"
-#include "Types.h"
 #include "application.h"
 #include "himage.h"
 #include "image.h"
@@ -40,12 +39,18 @@
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
+#include "surrender/srCamera.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srScene.h"
 #include "temporary_directory.h"
+#include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/compat/compiler.h"
+#include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -56,6 +61,7 @@
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
@@ -75,6 +81,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
@@ -116,8 +123,7 @@ void initialize_test_framebuffer()
 
 void screen_stack()
 {
-    W8CharacterEventQueue queue;
-    gXStatus.character_event_queue = &queue;
+    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
     const auto saved_intro = g_screen_handlers[W8_SCREEN_INTRO];
     const auto saved_options = g_screen_handlers[W8_SCREEN_OPTIONS];
     for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS})
@@ -176,9 +182,9 @@ void camp_effects()
     ScopedTemporaryDirectory directory{"wiz8-camp-effects"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
-    button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 16, 8);
+    button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 16, 8);
     g_image_assets.clear();
-    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     struct Restore {
         w8_native::Roots roots;
         ~Restore()
@@ -412,7 +418,7 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
 {
     REQUIRE((width > 0 && width < 128 && height > 0));
     std::replace(name.begin(), name.end(), '\\', '/');
-    const auto path = root / name;
+    const auto path = root / wiz8::normalize_asset_path(name);
     std::filesystem::create_directories(path.parent_path());
     std::ofstream file(path, std::ios::binary);
     const auto write = [&file](const void* data, size_t size) {
@@ -478,7 +484,7 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
 void bitmap_image_fixture(const std::filesystem::path& root, std::string name)
 {
     std::replace(name.begin(), name.end(), '\\', '/');
-    const auto path = root / name;
+    const auto path = root / wiz8::normalize_asset_path(name);
     std::filesystem::create_directories(path.parent_path());
     std::ofstream file(path, std::ios::binary);
     const auto write = [&file](const void* data, size_t size) {
@@ -514,11 +520,11 @@ public:
     CatalogArtworkAssets() : previous_roots_(w8_native::path_roots())
     {
         const auto assets = directory_.path / "assets";
-        button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 4, 2, {}, 2,
+        button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 4, 2, {}, 2,
                              3);
-        bitmap_image_fixture(assets, "Data/Portraits/Large/Lhummf.sti");
+        bitmap_image_fixture(assets, "data/portraits/large/lhummf.sti");
         g_image_assets.clear();
-        w8_native::configure_paths({assets.string(), (directory_.path / "user").string(), {}});
+        w8_native::configure_paths({assets.string(), (directory_.path / "user").string()});
     }
 
     ~CatalogArtworkAssets()
@@ -543,7 +549,7 @@ void generic_button_images()
     button_image_fixture(assets, "button.sti", 9, false, 1, 1, {1, 2, 3, 4, 5});
     button_image_fixture(assets, "short.sti", 8);
     g_image_assets.clear();
-    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
+    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string()}};
 
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
@@ -1166,7 +1172,7 @@ TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-laye
     initialize_test_framebuffer();
     auto& framebuffer = GetFrameBufferSurface();
     SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234);
-    auto before = CopyCpuStorage(framebuffer);
+    SDLSurfaceOwner before(SDL_DuplicateSurface(&framebuffer), SDL_DestroySurface);
     auto target = CreateCpuStorage(100, 50, SDL_PIXELFORMAT_RGB565);
     REQUIRE(before);
     REQUIRE(target);
@@ -1484,7 +1490,7 @@ TEST_CASE("Font measurements skip glyphs outside the sprite sheet", "[font][owne
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "font.sti", 1, false, 1, 1);
     g_image_assets.clear();
-    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     struct Restore {
         w8_native::Roots roots;
         ~Restore()
@@ -1726,17 +1732,17 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
-    for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
-        button_image_fixture(assets / "Data" / "Dialogs", image);
-    for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI",
-                              "DialogSlideBar.STI", "DialogBackground_dark.STI"})
-        button_image_fixture(assets / "Data" / "Dialogs", image);
+    for (const auto* image : {"dialogborder.sti", "dialogedge.sti", "dialogconfirmation.sti"})
+        button_image_fixture(assets / "data" / "dialogs", image);
+    for (const auto* image : {"dialoginlay.sti", "dialoguparrow.sti", "dialogdownarrow.sti",
+                              "dialogslidebar.sti", "dialogbackground_dark.sti"})
+        button_image_fixture(assets / "data" / "dialogs", image);
     button_image_fixture(assets, "font.sti", 128, false, 1, 10);
     button_image_fixture(assets, "background.sti");
     button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
     button_image_fixture(assets, "track.sti", 1, false, 5, 100);
     g_image_assets.clear();
-    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
+    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string()}};
 
     std::vector<int> positions;
     {
@@ -1856,9 +1862,9 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     // Empty item rows can still receive a click after a transfer, before the
     // next screen recomposition hides their targets.
     for (const auto* image :
-         {"DialogBackground.STI", "popup_chest_selectionbuttons.sti",
-          "chest_confirmationbuttons.sti", "popup_chest2.sti", "maininterface_scroll.STI"}) {
-        button_image_fixture(assets / "Data" / "Dialogs", image, 16);
+         {"dialogbackground.sti", "popup_chest_selectionbuttons.sti",
+          "chest_confirmationbuttons.sti", "popup_chest2.sti", "maininterface_scroll.sti"}) {
+        button_image_fixture(assets / "data" / "dialogs", image, 16);
     }
     {
         W8TriggerItemPickerDialog picker;
@@ -1925,27 +1931,28 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             REQUIRE_FALSE(button->m_dirty);
         }
     }
-    button_image_fixture(assets, "Data/Dialogs/popup_quote.sti");
+    button_image_fixture(assets, "data/dialogs/popup_quote.sti");
     auto old_secondary = std::move(g_wiz_text_font_secondary);
     REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
+        W8Character character{};
         struct RestoreParty {
             W8StatusBuffers buffers = g_status.buffers;
-            W8CharacterEventQueue* queue = gXStatus.character_event_queue;
+            std::unique_ptr<W8CharacterEventQueue> queue =
+                std::move(gXStatus.character_event_queue);
             ~RestoreParty()
             {
                 g_status.buffers = buffers;
-                gXStatus.character_event_queue = queue;
+                gXStatus.character_event_queue = std::move(queue);
             }
         } restore_party;
-        W8Character character{};
         character.fInParty = true; // Quote access must still use the previewed character directly.
-        W8CharacterEventQueue queue;
+        gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
+        auto& queue = *gXStatus.character_event_queue;
         queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
         g_status.buffers.Char = nullptr;
         g_status.buffers.XChar = nullptr;
-        gXStatus.character_event_queue = &queue;
         {
             W8CharacterSummaryDialog summary(&character);
             REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.
@@ -1966,7 +1973,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
 
 TEST_CASE("assert-plain", "[.death]")
 {
-    Assert(false);
+    W8_ASSERT(false);
     FAIL("Assert did not abort");
 }
 
@@ -2008,10 +2015,10 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     ScopedTemporaryDirectory directory{"wiz8-image-assets"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
-    button_image_fixture(assets, "Data/Items/X.sti", 1);
-    button_image_fixture(assets, "Data/Items/late.sti", 1);
+    button_image_fixture(assets, "data/items/x.sti", 1);
+    button_image_fixture(assets, "data/items/late.sti", 1);
 
-    const auto bitmap_path = assets / "Data" / "Items" / "screen.pcx";
+    const auto bitmap_path = assets / "data" / "items" / "screen.pcx";
     std::filesystem::create_directories(bitmap_path.parent_path());
     std::vector<std::uint8_t> pcx(128);
     pcx[0] = 10;
@@ -2031,7 +2038,7 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     }
 
     g_image_assets.clear();
-    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     struct Restore {
         w8_native::Roots roots;
         ~Restore()
@@ -2041,24 +2048,24 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
         }
     } restore{previous_roots};
 
-    const auto original = g_image_assets.sprites("Data\\Items\\X.sti");
+    const auto original = g_image_assets.sprites("data\\items\\x.sti");
     REQUIRE(original);
-    REQUIRE(g_image_assets.sprites("data/items/x.STI") == original);
-    REQUIRE_FALSE(g_image_assets.bitmap("Data/Items/X.sti"));
-    REQUIRE(g_image_assets.sprites("Data/Items/X.sti") == original);
-    REQUIRE_FALSE(g_image_assets.sprites("Data/Items/missing.sti"));
-    button_image_fixture(assets, "Data/Items/missing.sti", 1);
-    const auto retried = g_image_assets.sprites("Data/Items/missing.sti");
+    REQUIRE(g_image_assets.sprites("data/items/x.sti") == original);
+    REQUIRE_FALSE(g_image_assets.bitmap("data/items/x.sti"));
+    REQUIRE(g_image_assets.sprites("data/items/x.sti") == original);
+    REQUIRE_FALSE(g_image_assets.sprites("data/items/missing.sti"));
+    button_image_fixture(assets, "data/items/missing.sti", 1);
+    const auto retried = g_image_assets.sprites("data/items/missing.sti");
     REQUIRE(retried);
 
-    const auto bitmap = g_image_assets.bitmap("Data\\Items\\screen.pcx");
+    const auto bitmap = g_image_assets.bitmap("data\\items\\screen.pcx");
     REQUIRE(bitmap);
-    REQUIRE(g_image_assets.bitmap("data/items/screen.PCX") == bitmap);
-    REQUIRE_FALSE(g_image_assets.sprites("Data/Items/screen.pcx"));
+    REQUIRE(g_image_assets.bitmap("data/items/screen.pcx") == bitmap);
+    REQUIRE_FALSE(g_image_assets.sprites("data/items/screen.pcx"));
 
     g_image_assets.clear();
-    const auto reloaded = g_image_assets.sprites("Data/Items/X.sti");
-    const auto bitmap_reloaded = g_image_assets.bitmap("Data/Items/screen.pcx");
+    const auto reloaded = g_image_assets.sprites("data/items/x.sti");
+    const auto bitmap_reloaded = g_image_assets.bitmap("data/items/screen.pcx");
     REQUIRE(reloaded);
     REQUIRE(bitmap_reloaded);
     REQUIRE(reloaded != original);
@@ -2135,7 +2142,7 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     ScopedTemporaryDirectory directory{"wiz8-item-cache"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
-    button_image_fixture(assets, "Data/Items/icon.sti", 1);
+    button_image_fixture(assets, "data/items/icon.sti", 1);
     std::vector<W8ItemDatabaseRecord> records(1005);
     for (auto& record : records) record.video_object_name = "icon.sti";
     struct Restore {
@@ -2152,7 +2159,7 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     } restore{g_item_records, gXStatus.uiItemsInDatabase, previous_roots};
 
     g_image_assets.clear();
-    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     g_item_records = records.data();
     gXStatus.uiItemsInDatabase = static_cast<unsigned int>(records.size());
     REQUIRE_THROWS_AS(ItemSprites(-1), std::out_of_range);
@@ -2298,4 +2305,46 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
     REQUIRE(accepted);
     REQUIRE(g_modal_owner.get() == replacement);
     OpenModal(nullptr);
+}
+
+TEST_CASE("Video scene shutdown releases owned roots and preserves independent children")
+{
+    REQUIRE(srInit());
+    int destroyed = 0;
+    struct OverlayChild : srNode {
+        int& destroyed;
+        OverlayChild(srNode* parent, int& destroyed) : srNode(parent), destroyed(destroyed) {}
+        ~OverlayChild() override { ++destroyed; }
+    };
+    for (auto* scene :
+         {&g_overlay_scenes.user, &g_overlay_scenes.fullscreen, &g_overlay_scenes.frame[0],
+          &g_overlay_scenes.frame[1], &g_overlay_scenes.square, &g_overlay_scenes.prerender[0],
+          &g_overlay_scenes.prerender[1], &g_overlay_scenes.cursor}) {
+        *scene = std::make_unique<srScene>(nullptr);
+        (*scene)->adoptChild(std::make_unique<OverlayChild>(nullptr, destroyed));
+    }
+    g_overlay_scenes.camera = std::make_unique<srCamera>(nullptr);
+    g_overlay_scenes.square_camera =
+        g_overlay_scenes.square->adoptChild(std::make_unique<srCamera>());
+    g_cursor_node = std::make_unique<srModelInstance>(g_overlay_scenes.cursor.get());
+    auto independent = std::make_unique<OverlayChild>(g_overlay_scenes.user.get(), destroyed);
+    auto borrowed_sprite = std::make_unique<stModelInstance2D>(g_overlay_scenes.frame[1].get());
+    borrowed_sprite->render_state.display_state = 4;
+    auto* retired =
+        g_overlay_scenes.frame[1]->adoptChild(std::make_unique<stModelInstance2D>(nullptr));
+    retired->render_state.display_state = 4;
+    PurgeInactiveSceneInstances(g_overlay_scenes.frame[1].get());
+    REQUIRE(borrowed_sprite->getParent() == nullptr);
+    REQUIRE(g_overlay_scenes.frame[1]->getChildCount() == 1); // The other adopted test child.
+    ShutdownVideoScenes();
+    REQUIRE(destroyed == 8);
+    REQUIRE(independent->getParent() == nullptr);
+    REQUIRE(g_cursor_node == nullptr);
+    REQUIRE(g_overlay_scenes.square_camera == nullptr);
+    REQUIRE_FALSE(g_overlay_scenes.camera);
+    REQUIRE_FALSE(g_overlay_scenes.cursor);
+    ShutdownVideoScenes();
+    REQUIRE(destroyed == 8);
+    independent.reset();
+    REQUIRE(srExit());
 }

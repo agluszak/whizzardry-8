@@ -17,8 +17,7 @@
 #include "surrender/srStatisticsManager.h"
 
 // FUNCTION: SURRENDER 0x1004F920
-srModelInstance::srModelInstance(srNode* parent, Ownership ownership)
-    : srNode(static_cast<srNode*>(nullptr), ownership)
+srModelInstance::srModelInstance(srNode* parent) : srNode(static_cast<srNode*>(nullptr))
 {
     alignment_flags = 0;
     align_angle = 0.0f;

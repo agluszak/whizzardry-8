@@ -139,7 +139,8 @@ static void record_contracts()
     spell_copy.duration = 42;
     auto spell_edited = wiz8::retail::encode(spell_copy);
     auto duration_offset = offsetof(wiz8::retail::SpellRuntimeRecord, duration);
-    std::copy_n(spell_edited.begin() + duration_offset, sizeof(int), spell_bytes.begin() + duration_offset);
+    std::copy_n(spell_edited.begin() + duration_offset, sizeof(int),
+                spell_bytes.begin() + duration_offset);
     REQUIRE(spell_edited == spell_bytes);
     W8NpcDatabaseRecord npc{};
     npc.source_name = "商人";

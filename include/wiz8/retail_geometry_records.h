@@ -107,7 +107,8 @@ template<> struct Record<W8EnvironRecord> {
         value(&runtime.ground_latch,
               bytes.subspan(offsetof(Disk, ground_latch), sizeof(Disk::ground_latch)));
         value(&runtime.airborne, bytes.subspan(offsetof(Disk, airborne), sizeof(Disk::airborne)));
-        value(&runtime.serialized.pad_06, bytes.subspan(offsetof(Disk, pad_06), sizeof(Disk::pad_06)));
+        value(&runtime.serialized.pad_06,
+              bytes.subspan(offsetof(Disk, pad_06), sizeof(Disk::pad_06)));
         value(&runtime.value_08, bytes.subspan(offsetof(Disk, value_08), sizeof(Disk::value_08)));
         value(&runtime.scale, bytes.subspan(offsetof(Disk, scale), sizeof(Disk::scale)));
         value(&runtime.gravity_x,

@@ -2,10 +2,16 @@ link_libraries(Catch2::Catch2WithMain)
 
 add_executable(portable_filesystem_test filesystem_test.cpp)
 target_link_libraries(portable_filesystem_test PRIVATE wiz8_filesystem)
-add_test(NAME portable_filesystem COMMAND portable_filesystem_test filesystem)
-add_test(NAME portable_default_roots COMMAND portable_filesystem_test default-roots)
+add_test(NAME portable_filesystem COMMAND portable_filesystem_test)
 
 add_executable(portable_file_time_test file_time_test.cpp)
 target_link_libraries(portable_file_time_test PRIVATE wiz8_filesystem)
 catch_discover_tests(portable_file_time_test
     TEST_PREFIX "portable_file_time/")
+
+add_executable(portable_asset_preparation_test asset_preparation_test.cpp)
+target_link_libraries(portable_asset_preparation_test PRIVATE wiz8_asset_preparation)
+catch_discover_tests(portable_asset_preparation_test TEST_PREFIX "portable_preparation/")
+
+target_include_directories(portable_filesystem_test PRIVATE "${PROJECT_SOURCE_DIR}/tests/native")
+target_include_directories(portable_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/tests/native")

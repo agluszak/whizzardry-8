@@ -406,8 +406,8 @@ public:
                                        unsigned int direction);
     void EditTeleportalLink(const glm::vec3* destination, const glm::vec3* source); /* 0x0045F2D0 */
     /* Configure the node count, grid pitch, bounds and level name. */
-    void ConfigureForLevel(int size, float grid_scale,
-                           const srBoundingBox& bounds, const char* name); /* 0x00458A50 */
+    void ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
+                           const char* name); /* 0x00458A50 */
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
     bool WritePathNodes(wiz8::File* handle);
     unsigned char SaveWaypointSnapshot(bool force);

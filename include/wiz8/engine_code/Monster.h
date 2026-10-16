@@ -2,6 +2,7 @@
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
 #include <cstdint>
+#include <deque>
 #include <optional>
 #include <string_view>
 
@@ -22,6 +23,7 @@ struct W8World;
 
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/emitter_resources.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
@@ -99,7 +101,7 @@ struct W8MonsterRep : public W8EmitterHost {
 
     std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];              /* 0x0ac */
     std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];             /* 0x25c */
-    std::vector<std::vector<stLight*>*> light_lists[W8_MONSTER_CYCLE_COUNT]; /* 0x40c */
+    std::deque<EmitterLights> light_lists[W8_MONSTER_CYCLE_COUNT]; /* 0x40c */
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
     unsigned char highlight_mask;

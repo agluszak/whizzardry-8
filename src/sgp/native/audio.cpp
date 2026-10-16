@@ -12,6 +12,7 @@
 #include <wiz8/filesystem.h>
 #include <wiz8/native_audio.h>
 
+#include "asset_paths.h"
 #include "native/audio_test.h"
 #include "native/movie_audio.h"
 
@@ -63,12 +64,12 @@ AudioInput open_audio_input(const char* path)
         return {};
     }
     try {
-        auto file = wiz8::open_file(path);
+        auto file = wiz8::open_file(wiz8::asset_path(path));
         if (file->size() <= 0) {
             SDL_SetError("Empty audio stream: %s", path);
             return {};
         }
-        // Loose files and SLF entries already own independent, seekable streams.
+        // Each file owns an independent, seekable stream.
         return AudioInput(file->release_io());
     } catch (const std::exception& error) {
         SDL_SetError("Audio input: %s", error.what());

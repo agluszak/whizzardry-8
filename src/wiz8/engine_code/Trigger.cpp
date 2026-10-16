@@ -97,7 +97,6 @@ static void assignFlag(unsigned int& flags, unsigned int flag, bool on)
 #include <SDL3/SDL_stdinc.h>
 
 #include "layouts/world.h"
-#include "surrender/srClock.h"
 #include "surrender/srNode.h"
 
 class W8DialogBase;
@@ -1027,18 +1026,12 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
         position = glm::vec3(this->position.x, this->position.y, this->position.z);
     }
 
-    stSound3D* sound = new stSound3D(sound_name, 0);
-    if (sound != 0) {
-        glm::dvec3 sound_position;
-        sound_position = glm::dvec3(position);
-        sound->volume = volume;
-        sound->setLocation(sound_position);
-        if (sound->Play(false, true) != 0) {
-            return true;
-        }
-        delete sound;
-    }
-    return false;
+    auto sound = std::make_unique<stSound3D>(sound_name, nullptr);
+    sound->volume = volume;
+    sound->setLocation(glm::dvec3(position));
+    if (!sound->Play(false)) return false;
+    Retain3DSound(std::move(sound));
+    return true;
 }
 
 /* Timed actions pause their private timer with the game clock, then dispatch
@@ -2916,7 +2909,7 @@ void Trigger::Run(int source)
         group->members_active = true;
         monster_info->p3D->m_pRep->active = 1;
         monster_info->p3D->m_pRep->animation_playing = 1;
-        monster_info->p3D->m_pRep->timer = g_shared_timer_base->milliseconds();
+        monster_info->p3D->m_pRep->timer = GameClockMilliseconds();
         monster_info->p3D->ResetRepresentation();
         monster_info->p3D->ResetPathAI();
         monster_info->p3D->reactivated = true;

@@ -29,6 +29,7 @@
 #include <zconf.h>
 #include <zlib.h>
 
+#include "asset_paths.h"
 #include "imgfmt.h"
 #include "wiz8/filesystem.h"
 
@@ -144,7 +145,7 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
     file.read_exact(bytes.data(), bytes.size());
     if (!valid_image_header(bytes, format)) throw std::runtime_error("Invalid image header");
 
-    // Give SDL an independent cursor, including for bounded SLF entries.
+    // Give SDL an independent cursor for image decoding.
     std::unique_ptr<SDL_IOStream, decltype(&SDL_CloseIO)> stream(
         SDL_IOFromConstMem(bytes.data(), bytes.size()), SDL_CloseIO);
     if (!stream) throw std::runtime_error(SDL_GetError());
@@ -321,7 +322,7 @@ std::optional<DecodedImage> LoadImage(std::string_view filename)
         if (dot == std::string::npos || (slash != std::string::npos && dot < slash)) path += ".PCX";
 
         const auto format = image_format(path);
-        const auto file = wiz8::open_file(path);
+        const auto file = wiz8::open_file(wiz8::asset_path(path));
         if (format == ImageFormat::sti) return load_sti(*file);
         return load_ordinary_image(*file, format);
     } catch (const std::exception& error) {

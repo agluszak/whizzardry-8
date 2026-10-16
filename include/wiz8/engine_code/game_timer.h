@@ -1,7 +1,7 @@
 #pragma once
 
-#include "compat/compiler.h"
-#include "surrender/srClock.h"
+#include <cstdint>
+
 #include "wiz8/layouts/game_status.h"
 
 namespace wiz8 {
@@ -13,10 +13,13 @@ extern int g_shared_timer_pause_time;
 extern bool g_shared_timer_paused;
 extern bool g_shared_timer_flag0;
 extern bool g_level_motion_resume_pending;
-extern srClock* g_shared_timer_base;
 
 /* The shared game timer counts in 1/10000-second units. */
-inline constexpr w8_ulong W8_SHARED_TIMER_TICKS_PER_SECOND = 10000;
+inline constexpr std::uint32_t W8_SHARED_TIMER_TICKS_PER_SECOND = 10000;
+
+// Both units share w8_clock_us's monotonic epoch, including its virtual test clock.
+std::uint32_t GameClockTicks();
+std::uint32_t GameClockMilliseconds();
 
 void PauseSharedGameTimers(void);
 void ResumeSharedGameTimers(void);
@@ -39,7 +42,6 @@ public:
 
     W8GameTimer();
     W8GameTimer(float duration, bool raw_time);
-    virtual ~W8GameTimer();
     int ReadClock() const
     {
         switch (m_clock_mode) {
@@ -52,9 +54,9 @@ public:
             if (g_shared_timer_paused) {
                 return g_shared_timer_pause_time;
             }
-            return m_shared->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) - g_shared_timer_pause_base;
+            return GameClockTicks() - g_shared_timer_pause_base;
         }
-        return m_shared->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND);
+        return GameClockTicks();
     }
     int GetTime();
     void SetMode(W8TimerClock mode);
@@ -67,12 +69,11 @@ public:
     bool Load(wiz8::File& handle);
     float GetElapsedSeconds();
 
-    W8TimerClock m_clock_mode; /* 0x04: 1 reads the game clock */
-    Flags m_flags;             /* 0x08: runtime clock state; save/load uses progress and scale */
-    srClock* m_shared;         /* 0x0c */
-    int m_start;               /* 0x10 */
-    int m_end;                 /* 0x14: start + duration */
-    int m_duration;            /* 0x18: 10000 */
-    float m_duration_seconds;  /* 0x1c */
-    float m_duration_scale;    /* 0x20 */
+    W8TimerClock m_clock_mode; /* 1 reads the game clock */
+    Flags m_flags;             /* runtime clock state; save/load uses progress and scale */
+    int m_start;
+    int m_end;                 /* start + duration */
+    int m_duration;            /* 10000 */
+    float m_duration_seconds;
+    float m_duration_scale;
 };

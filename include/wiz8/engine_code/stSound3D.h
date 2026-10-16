@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -11,7 +12,10 @@
 #include "wiz8/geometry.h"
 
 class stSound3D;
+// Borrowed update index; callers or the audio service own every entry.
 extern std::vector<stSound3D*> g_sound3d_instances;
+stSound3D* Retain3DSound(std::unique_ptr<stSound3D> sound);
+void Release3DSounds();
 
 /* General positional-audio node, recovered in src/wiz8/engine_code/Spells.cpp.
    That placement is provisional: the original-TU evidence has a gap over its
@@ -29,9 +33,8 @@ public:
     virtual ~stSound3D() override;
     bool IsPlaying(); /* 0x004AEC70 */
     void Stop();      /* 0x004AEC90 */
-    /* loop repeats the playback until stopped; auto_release
-       makes the update pass release the node once playback ends. */
-    unsigned char Play(bool loop, bool auto_release); /* 0x004AEBF0 */
+    // Loop until stopped; the caller keeps ownership unless it calls Retain3DSound.
+    unsigned char Play(bool loop); /* 0x004AEBF0 */
     wiz8::sound::PlayOptions BuildSoundOptions(const glm::vec3& listener); /* 0x004AECC0 */
 
     int unknown_138; /* 0x138: ctor zeroes it; no retail reader found */
@@ -39,7 +42,6 @@ public:
     int volume; /* 0x140: base volume before distance/effects scale */
     float falloff; /* 0x144: audible range in world units */
     std::string wave_name;
-    bool auto_release; /* 0x14c: release the node when playback ends */
 
     /* Copy the wave filename, but leave a live playback handle unshared. */
     stSound3D& operator=(const stSound3D& other)
@@ -50,7 +52,6 @@ public:
         wave_name = other.wave_name;
         falloff = other.falloff;
         volume = other.volume;
-        auto_release = other.auto_release;
         return *this;
     }
 };

@@ -5,6 +5,8 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
+
+#include "surface_pixels.h"
 /* Real SLF/STI -> immutable sprites and SDL surfaces -> stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 
@@ -23,8 +25,8 @@
 #include "../../src/native/movie.h"
 #include "image_assets.h"
 #include "input.h"
+#include "scoped_asset_roots.h"
 #include "sprite.h"
-#include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
@@ -33,6 +35,7 @@
 #include "wiz8/bink_video.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/overlay_scenes.h"
 #include "wiz8/surface2d.h"
 
 class srScene;
@@ -40,7 +43,6 @@ class srScene;
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
-extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
 struct FixtureRoot {
@@ -59,16 +61,16 @@ TEST_CASE("game graphics")
     roots.user = temporary;
     w8_native::configure_paths(roots);
     std::filesystem::copy_file(WIZ8_MOVIE_FIXTURE, fixture.path / "movie-fixture.mkv");
-    const char* movie_path = "C:\\movie-fixture.mkv";
-    auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
+    const char* movie_path = "movie-fixture.mkv";
+    wiz8::create_directory(wiz8::user_path("config"));
+    auto config = wiz8::open_file(wiz8::user_path("config/3dvideo.cfg"), wiz8::OpenMode::replace);
     const std::string settings = "SDLGPU\n640\n480\n16\nnone\n";
     config->write(settings.data(), settings.size());
     config->close();
-        /* This standalone test owns SDL and DBus until process exit. */
+    /* This standalone test owns SDL and DBus until process exit. */
     SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
     REQUIRE(SDL_Init(SDL_INIT_VIDEO));
 
-    wiz8::mount_slf("Data\\Data.slf");
     GetInputState() = {};
     g_fullscreen = 0;
     Initialize16BitPixelFormatMasks();
@@ -77,15 +79,15 @@ TEST_CASE("game graphics")
     REQUIRE(InitializeVideoDevice());
     REQUIRE(srGERD::getActive() == g_gerd.get());
     REQUIRE(InitializeRendererSceneObjects());
-    auto targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
-    REQUIRE((targa && targa->getWidth() > 0 && targa->getHeight() > 0));
+    auto targa = srImage::load("data\\automap\\map_monsterfriendly_a.tga");
+    REQUIRE((targa && targa->w > 0 && targa->h > 0));
     REQUIRE(!srTriMeshPipeline::Get(nullptr));
     auto pipeline = srTriMeshPipeline::Get(g_gerd.get());
     REQUIRE(pipeline);
     pipeline->Flush();
     const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
     auto image_object =
-        g_image_assets.sprites(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
+        g_image_assets.sprites(image_path ? image_path : "data\\main interface\\bottom.sti");
     REQUIRE(image_object);
     DrawSprite(GetFrameBufferSurface(), *image_object, 0, 0, 0);
     const auto& framebuffer = GetFrameBufferSurface();
@@ -94,7 +96,7 @@ TEST_CASE("game graphics")
     std::vector<std::uint16_t> expected(640 * 480);
     for (int y = 0; y < 480; ++y) memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
     REQUIRE(InitializeMouseCursorScene());
-    auto cursor_object = g_image_assets.sprites("Data\\CURSORS\\2D-CURSORS.STI");
+    auto cursor_object = g_image_assets.sprites("data\\cursors\\2d-cursors.sti");
     REQUIRE(cursor_object);
     REQUIRE(SetMouseCursorFromVideoObject(*cursor_object, 0, 0, 0));
     PositionMouseCursor(480, 240, true);
@@ -113,14 +115,14 @@ TEST_CASE("game graphics")
         g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
         g_surface_node->DrawTiles(g_gerd.get());
-        RenderScene(g_cursor_scene, g_overlay_camera, nullptr, false);
+        RenderScene(g_overlay_scenes.cursor.get(), g_overlay_scenes.camera.get(), nullptr, false);
         g_gerd->endFrame();
     }
     auto buffer = g_gerd->lockBuffer();
     REQUIRE(buffer);
     for (int y = 0; y < 480; ++y)
         for (int x = 0; x < 640; ++x) {
-            unsigned value = buffer->getPixel(x, y), original = expected[y * 640 + x];
+            unsigned value = ReadARGB(*buffer, x, y), original = expected[y * 640 + x];
             if (x >= 470 && x < 540 && y >= 230 && y < 300 && (value & 0xffffff)) ++cursor_pixels;
             if (original & 0x7fff) {
                 ++colored;
@@ -132,13 +134,12 @@ TEST_CASE("game graphics")
             }
         }
     if (const char* output_path = SDL_getenv("WIZ8_GRAPHICS_OUTPUT")) {
-        auto output =
-            wiz8::open_host_file(wiz8::path_from_utf8(output_path), wiz8::OpenMode::replace);
+        auto output = wiz8::open_file(wiz8::path_from_utf8(output_path), wiz8::OpenMode::replace);
         REQUIRE(output);
         output->write("P6\n640 480\n255\n", 15);
         for (int y = 0; y < 480; ++y)
             for (int x = 0; x < 640; ++x) {
-                unsigned v = buffer->getPixel(x, y);
+                unsigned v = ReadARGB(*buffer, x, y);
                 unsigned char rgb[] = {std::uint8_t(v >> 16), std::uint8_t(v >> 8),
                                        std::uint8_t(v)};
                 output->write(rgb, 3);
@@ -154,6 +155,13 @@ TEST_CASE("game graphics")
 
     SDL_Window* persistent_window = ghWindow;
     {
+        auto movie_roots = roots;
+        movie_roots.assets = (fixture.path / "movie-assets").string();
+        movie_roots.user = (fixture.path / "movie-user").string();
+        std::filesystem::create_directories(movie_roots.assets);
+        std::filesystem::copy_file(fixture.path / "movie-fixture.mkv",
+                                   std::filesystem::path(movie_roots.assets) / "movie-fixture.mkv");
+        ScopedAssetRoots movie_assets{movie_roots};
         std::vector<uint16_t> movie_pixels;
         {
             W8NativeVideo decoded;
@@ -174,7 +182,7 @@ TEST_CASE("game graphics")
         for (int y = 0; y < 480; ++y)
             for (int x = 0; x < 640; ++x) {
                 std::uint16_t original = x < 32 && y < 24 ? movie_pixels[y * 32 + x] : 0;
-                unsigned actual = buffer->getPixel(x, y);
+                unsigned actual = ReadARGB(*buffer, x, y);
                 int r = ((original >> 10) & 31) * 255 / 31, g = ((original >> 5) & 31) * 255 / 31,
                     b = (original & 31) * 255 / 31;
                 if (abs(int((actual >> 16) & 255) - r) > 8 ||
@@ -207,15 +215,14 @@ TEST_CASE("game graphics")
 
     g_screenshot_index = 0;
     SaveJpegScreenshot();
-    auto screenshot = srImage::load("Wiz800000.JPG");
-    REQUIRE((screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480));
+    auto screenshot_file = wiz8::open_file(wiz8::user_path("Wiz800000.JPG"));
+    auto screenshot = srImage::load("screenshot.jpg", *screenshot_file);
+    REQUIRE((screenshot && screenshot->w == 640 && screenshot->h == 480));
     puts("retail Targa import and game JPEG screenshot round-trip");
 
     ShutdownVideoManager();
     REQUIRE(g_gerd == nullptr);
     REQUIRE(srGERD::getActive() == nullptr);
-
-    wiz8::clear_asset_archives();
 
     SDL_Quit();
 }

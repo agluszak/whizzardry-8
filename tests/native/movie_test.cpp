@@ -18,12 +18,12 @@
 
 #include "../../src/native/movie.h"
 #include "native/audio_test.h"
+#include "prepared_assets.h"
 #include "scoped_asset_roots.h"
+#include "slf.h"
 #include "soundman.h"
 #include "temporary_directory.h"
 #include "wiz8/bink_video.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/slf.h"
 #include "wiz8/surface_storage.h"
 
 std::vector<unsigned char> read(const char* path)
@@ -62,22 +62,22 @@ static void exercise_movie(const char* retail_movie)
 {
     ScopedTemporaryDirectory fixture{"wiz8-movie"};
     auto assets = fixture.path / "assets", user = fixture.path / "user";
-    std::filesystem::create_directories(assets / "Data");
+    std::filesystem::create_directories(assets / "data");
     std::filesystem::create_directories(user);
-    ScopedAssetRoots roots{{assets.string(), user.string(), {}}};
+    ScopedAssetRoots roots{{assets.string(), user.string()}};
     auto encoded = read(WIZ8_MOVIE_FIXTURE), golden = read(WIZ8_MOVIE_GOLDEN);
     REQUIRE(golden.size() == 5 * 1536);
-    write(assets / "Movie.mkv", encoded);
+    write(assets / "movie.mkv", encoded);
     wiz8::SlfHeader header{};
-    strcpy(header.sLibName, "DATA.SLF");
+    strcpy(header.sLibName, "data.slf");
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = 2;
     header.iVersion = 0x200;
     wiz8::SlfEntry entries[2]{};
-    strcpy(entries[0].sFileName, "Packed.mkv");
+    strcpy(entries[0].sFileName, "packed.mkv");
     entries[0].uiOffset = sizeof(header);
     entries[0].uiLength = encoded.size();
-    strcpy(entries[1].sFileName, "Truncated.mkv");
+    strcpy(entries[1].sFileName, "truncated.mkv");
     entries[1].uiOffset = sizeof(header);
     entries[1].uiLength = 16; // The rest of the valid movie must be inaccessible.
     std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
@@ -85,18 +85,18 @@ static void exercise_movie(const char* retail_movie)
     archive.insert(archive.end(), encoded.begin(), encoded.end());
     archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
                    reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
-    write(assets / "Data" / "DATA.SLF", archive);
+    write(assets / "data" / "data.slf", archive);
 
-    wiz8::mount_slf("Data\\Data.slf");
+    extract_test_archive("data\\data.slf");
     w8_native::audio_offline_for_test(true);
     REQUIRE(wiz8::sound::initialize(true));
     double energy = 0;
     std::vector<uint16_t> first_frame;
     {
         W8NativeVideo movies[3];
-        movies[0].open("C:\\MOVIE.MKV");
-        movies[1].open("data\\PACKED.mkv");
-        movies[2].open("Data\\Packed.mkv");
+        movies[0].open("movie.mkv");
+        movies[1].open("data\\packed.mkv");
+        movies[2].open("data\\packed.mkv");
         unsigned shown[3]{};
         bool done[3]{};
         for (int tick = 0; tick < 700; ++tick) {
@@ -129,8 +129,8 @@ static void exercise_movie(const char* retail_movie)
     REQUIRE(energy > 10);
     {
         W8NativeVideo reusable;
-        for (const char* name : {"Data\\Truncated.mkv", "missing.mkv"}) {
-            reusable.open("Movie.mkv");
+        for (const char* name : {"data\\truncated.mkv", "missing.mkv"}) {
+            reusable.open("movie.mkv");
             bool failed = false;
             try {
                 reusable.open(name);
@@ -140,7 +140,7 @@ static void exercise_movie(const char* retail_movie)
             REQUIRE(
                 (failed && reusable.decoded_frames() == 0 && reusable.decoded_audio_frames() == 0));
         }
-        reusable.open("Data\\Packed.mkv");
+        reusable.open("data\\packed.mkv");
         REQUIRE(reusable.update(0) == W8NativeVideo::FrameReady);
         REQUIRE(matchesFrame(reusable.frame().pixels, golden.data()));
     }
@@ -151,16 +151,16 @@ static void exercise_movie(const char* retail_movie)
     {
         W8BinkVideo movie;
         movie.SetTarget(target.get());
-        REQUIRE(movie.Open("Movie.mkv", 0));
+        REQUIRE(movie.Open("movie.mkv", 0));
         REQUIRE(!movie.UpdateFrame());
         for (int y = 0; y < 24; ++y)
             REQUIRE(
                 std::memcmp(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
                             first_frame.data() + y * 32, 64) == 0);
-        REQUIRE(movie.Open("Data\\Packed.mkv",
+        REQUIRE(movie.Open("data\\packed.mkv",
                            0)); // Reopen stops the preceding PCM voice.
         REQUIRE(!movie.UpdateFrame());
-        REQUIRE(!movie.Open("Movie.mkv", 1));
+        REQUIRE(!movie.Open("movie.mkv", 1));
         REQUIRE(!movie.Open("missing.bik", 0));
     }
     target.reset();
@@ -196,7 +196,6 @@ static void exercise_movie(const char* retail_movie)
                (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
     }
     wiz8::sound::shutdown();
-    wiz8::clear_asset_archives();
 
     printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "
            "reopen and bounded failure passed\n");

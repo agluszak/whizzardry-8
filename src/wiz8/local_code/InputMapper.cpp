@@ -9,6 +9,7 @@
 #include <SDL3/SDL_keycode.h>
 #include <fmt/format.h>
 
+#include "asset_paths.h"
 #include "input.h"
 #include "mgs_commands.h"
 #include "wiz8/filesystem.h"
@@ -26,7 +27,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
     bool loaded_binding = false;
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file((char*)path, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path((char*)path), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

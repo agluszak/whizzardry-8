@@ -7,9 +7,7 @@ namespace wiz8 {
 class File;
 }
 
-/* The 0x28-byte timer-derived helper constructed by GDCamera. Its original
-   name is not exposed; the vtable address remains the stable identity. */
-// VTABLE: WIZ8 0x005ebcfc
+// Counts elapsed intervals, or latches completion until explicitly rearmed.
 class W8IntervalGate : public W8GameTimer {
 public:
     W8IntervalGate(); /* 0x0043A4E0 */
@@ -31,5 +29,5 @@ public:
     bool Save(wiz8::File& handle);
 
 private:
-    bool m_finished; /* 0x024 */
+    bool m_finished;
 };

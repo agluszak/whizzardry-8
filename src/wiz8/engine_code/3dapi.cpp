@@ -9,17 +9,19 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
+#include "asset_paths.h"
 #include "camera_motion.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
 #include "input.h"
 #include "layouts/world.h"
 #include "named_position.h"
@@ -150,8 +152,8 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
         }
     }
 
-    SetSceneAmbientLightWhite(world->static_scene);
-    world->camera = CreateOrSetGameCamera(world->static_scene, 0);
+    SetSceneAmbientLightWhite(world->static_scene.get());
+    world->camera = CreateOrSetGameCamera(world->static_scene.get(), 0);
     world->camera_light = CreateRangedWorldLight(world, "CameraLight");
     world->camera_light->ambient = glm::vec3(0);
     world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
@@ -172,7 +174,7 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
 
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file(level_path, wiz8::OpenMode::read);
+            return wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }
@@ -207,14 +209,14 @@ W8World* CreateWorld()
     // The scene owns its children. Keep both allocations scoped until setup
     // succeeds, including failures while allocating nodes or assigning names.
     auto scene = std::make_unique<srScene>(nullptr);
-    world->static_scene = scene.get();
+
     scene->setName("Sir-Tech Scene Static Scene");
 
-    world->level = new stLevel(scene.get());
+    world->level = scene->adoptChild(std::make_unique<stLevel>(nullptr));
     world->level->setName("Sir-Tech Level");
     world->level->m_render_exclusion_mask = 1;
 
-    world->dynamic_scene = new srNode(scene.get());
+    world->dynamic_scene = scene->adoptChild(std::make_unique<srNode>());
     world->dynamic_scene->setName("Sir-Tech Dynamic Scene");
     SetSceneAmbientLightWhite(scene.get());
     world->environment_range_end = 1.0f;
@@ -222,7 +224,7 @@ W8World* CreateWorld()
     world->environment_range_start = 0.75f;
 
     // The existing DestroyWorld boundary takes over after successful setup.
-    scene.release();
+    world->static_scene = std::move(scene);
     return world.release();
 }
 
@@ -408,7 +410,7 @@ static void DestroyWorldResources(W8World* world)
     world->octree = nullptr;
     world->quads.reset();
 
-    ReleaseRendererObject(world->static_scene);
+    world->static_scene.reset();
 }
 
 // FUNCTION: WIZ8 0x0044FAF0

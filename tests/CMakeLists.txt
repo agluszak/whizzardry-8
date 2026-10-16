@@ -1,4 +1,11 @@
-link_libraries(Catch2::Catch2WithMain)
+link_libraries(Catch2::Catch2WithMain wiz8_asset_preparation)
+
+# Reuse the runtime clock hook for deterministic timer checks without game assets.
+add_executable(native_game_timer_test native/game_timer_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/compat/native_helpers.cpp")
+target_compile_definitions(native_game_timer_test PRIVATE WIZ8_RUNTIME_TESTS=1)
+target_link_libraries(native_game_timer_test PRIVATE WIZ8_GAME_CORE)
+catch_discover_tests(native_game_timer_test TEST_PREFIX "native_game_timer/")
 
 add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE WIZ8_GAME_CORE)
@@ -112,17 +119,6 @@ target_compile_definitions(native_jpeg_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_F
 target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings SDL3_image::SDL3_image)
 catch_discover_tests(native_jpeg_transfer_test TEST_PREFIX "native_image_transfer/")
 
-add_executable(native_virtual_image_transfer_test native/image_import/virtual_transfer_test.cpp)
-target_include_directories(native_virtual_image_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/surrender")
-target_compile_definitions(native_virtual_image_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
-target_link_libraries(native_virtual_image_transfer_test PRIVATE WIZ8_GAME_CORE SDL3_image::SDL3_image)
-if(APPLE)
-    target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,-dead_strip)
-elseif(UNIX)
-    target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
-endif()
-add_test(NAME native_virtual_image_transfer COMMAND native_virtual_image_transfer_test)
-
 add_executable(native_surface_test native/surface_test.cpp)
 target_link_libraries(native_surface_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_surfaces COMMAND native_surface_test)
@@ -144,9 +140,6 @@ foreach(mode plain message button-self-destroy)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/assertion_failure.cmake")
 endforeach()
 
-add_executable(native_pixel_convert_test native/pixel_convert_test.cpp)
-target_link_libraries(native_pixel_convert_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
-add_test(NAME native_pixel_convert COMMAND native_pixel_convert_test)
 
 add_executable(native_vector_math_test native/vector_math_test.cpp)
 target_link_libraries(native_vector_math_test PRIVATE SURRENDER wiz8_native_settings)
