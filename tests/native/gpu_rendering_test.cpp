@@ -54,24 +54,56 @@ struct Fixture {
         device->setVertexArrayInfo(&arrays);
         device->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
     }
-    unsigned pixel()
+    unsigned pixel(int x = 32, int y = 32)
     {
         unsigned pixel = 0;
         auto* surface = device->lockBuffer();
         std::memcpy(&pixel,
-                    static_cast<unsigned char*>(surface->pixels) + 32 * surface->pitch + 32 * 4, 4);
+                    static_cast<unsigned char*>(surface->pixels) + y * surface->pitch + x * 4, 4);
         device->unlockBuffer();
         return pixel & 0xffffff;
     }
 };
 }
 
+TEST_CASE("World viewport clears preserve surrounding UI and unselected buffers")
+{
+    Fixture fixture;
+    srShader shader;
+    shader.value = srShader::PASS_LESS | srShader::MASK_DEPTH_WRITE | srShader::MASK_COLOR_WRITE |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    fixture.device->setShader(shader);
+    fixture.triangle(0, {1, 0, 0, 1});
+    fixture.device->setScissor({16, 16, 48, 48});
+    fixture.device->setViewPort({0, 0, 1, 1, 0.2f, 0.3f});
+    fixture.device->setClearValues({{0, 1, 0, 1}, 1, 0});
+    fixture.device->clearBuffers(SDLGPUDevice::BUFFER_COLOR);
+    // State can change again before the queued clear is submitted.
+    fixture.device->setScissor({0, 0, 64, 64});
+    fixture.device->setViewPort({0, 0, 64, 64, 0, 1});
+    REQUIRE(fixture.pixel() == 0x00ff00);
+    REQUIRE(fixture.pixel(8, 32) == 0xff0000);
+    REQUIRE(fixture.pixel(48, 32) == 0xff0000);
+    fixture.triangle(0.5f, {0, 0, 1, 1});
+    REQUIRE(fixture.pixel() == 0x00ff00); // Color-only clear retained depth.
+    fixture.device->setScissor({16, 16, 48, 48});
+    fixture.device->clearBuffers(SDLGPUDevice::BUFFER_DEPTH);
+    fixture.device->setScissor({0, 0, 64, 64});
+    REQUIRE(fixture.pixel() == 0x00ff00); // Depth-only clear retained color.
+    fixture.triangle(0.5f, {0, 0, 1, 1});
+    REQUIRE(fixture.pixel() == 0x0000ff);
+    REQUIRE(fixture.pixel(8, 32) == 0xff0000);
+    fixture.device->setScissor({32, 32, 32, 48});
+    fixture.device->clearBuffers(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
+    fixture.triangle(-0.5f, {1, 1, 1, 1});
+    REQUIRE(fixture.pixel() == 0x0000ff); // An empty scissor affects no pixels.
+}
+
 TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
 {
     Fixture fixture;
     srShader shader;
-    shader.value = unsigned(srShader::PASS_LESS) | srShader::MASK_DEPTH_WRITE |
-                   srShader::MASK_COLOR_WRITE |
+    shader.value = srShader::PASS_LESS | srShader::MASK_DEPTH_WRITE | srShader::MASK_COLOR_WRITE |
                    (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.triangle(0, {1, 0, 0, 1});
@@ -92,8 +124,8 @@ TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
         {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 8);
     fixture.device->bindTexture(0, texture);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
-                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     // U clamps to the green column, V repeats into the top row.
     fixture.device->setTextureParameters(0, {.wrap_s = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE});
@@ -127,8 +159,8 @@ TEST_CASE("Texture uploads copy pitched regions before CPU storage changes and d
     fixture.device->bindTexture(0, texture);
     fixture.device->setTextureParameters(0, {});
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
-                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.triangle(0, {1, 1, 1, 1}, 0.125f, 0.125f);
     REQUIRE(fixture.pixel() == 0xff0000);
@@ -163,7 +195,7 @@ TEST_CASE("Indexed draws reuse corners and snapshot mutable source streams")
     arrays.arrays[1] = colors.data();
     fixture.device->setVertexArrayInfo(&arrays);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE |
                    (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.device->setScissor({0, 0, 32, 64});
@@ -193,8 +225,8 @@ TEST_CASE("Texture updates preserve pixels sampled by earlier queued draws")
     update(0xffff0000);
     fixture.device->bindTexture(0, texture);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
-                   srShader::MASK_TEXTURING | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.device->setScissor({0, 0, 32, 64});
     fixture.triangle(0, {1, 1, 1, 1});

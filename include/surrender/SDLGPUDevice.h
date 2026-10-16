@@ -107,6 +107,7 @@ private:
 
 /* Fixed-function state that SDL GPU bakes into a pipeline. */
     struct PipelineKey {
+        static constexpr uint32_t STENCIL_REPLACE = 1u << 30;
         uint32_t value = 0;
         w8_long offset = 0;
 

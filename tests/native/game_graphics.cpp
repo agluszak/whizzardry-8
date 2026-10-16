@@ -244,7 +244,7 @@ TEST_CASE("game graphics")
         g_gerd->setVertexArrayMask(1 << srRendererDefs::VERTEX_ARRAY_POSITIONS);
         g_gerd->setCullMode(srGERD::CULL_NONE);
         srShader shader;
-        shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE |
+        shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE |
                        srShader::MASK_TEXTURING |
                        (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
         g_gerd->setShader(shader);
