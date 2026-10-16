@@ -27,8 +27,6 @@ bool InitializeItemManagerState();
 
 unsigned char ReleaseItemLists(void);
 
-extern int g_world_item_cursor;
-
 void DropHeldItem(int);
 void UpdateNearbyWorldItems(void);
 unsigned char AdvanceFallingWorldItem(W8WorldItem* item);

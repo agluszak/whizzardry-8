@@ -345,8 +345,7 @@ bool GDProp::HasSupportedItems()
     return !m_supported_items.empty();
 }
 
-/* The array-element ctor for `new GDPreProp[n]`; the base default runs
-   inlined, then the extra frame field is zeroed. */
+/* Stop meshes begin with empty base geometry and frame zero. */
 // FUNCTION: WIZ8 0x004b7bc0
 GDPreProp::GDPreProp()
 {
