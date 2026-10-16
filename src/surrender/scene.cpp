@@ -8,7 +8,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "wiz8/compat/native.h"
 
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
@@ -19,7 +18,6 @@ srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
     if (parent != 0) {
         setParent(parent, 0);
     }
-    resetStatistics();
 }
 
 // FUNCTION: SURRENDER 0x100566F0
@@ -82,9 +80,6 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     renderer->setFogColor(fog_color);
     renderer->setAmbientLight(ambient_light);
     renderer->setPickKey(pick_key);
-    statistics.node_calls += node_count;
-    ++statistics.render_calls;
-    statistics.process_calls += entry_count;
 }
 
 // FUNCTION: SURRENDER 0x100564A0
@@ -102,21 +97,6 @@ void srScene::render(srGERD& renderer, srCamera* camera)
     if (camera != 0) {
         camera->process(process_info, PROCESS_POP);
     }
-}
-
-// FUNCTION: SURRENDER 0x10056520
-srScene::Statistics srScene::getStatistics() const
-{
-    Statistics result = statistics;
-    result.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000 - result.elapsed;
-    return result;
-}
-
-// FUNCTION: SURRENDER 0x10056550
-void srScene::resetStatistics()
-{
-    statistics = {};
-    statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
 }
 
 // FUNCTION: SURRENDER 0x10056B50

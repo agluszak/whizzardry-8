@@ -7,7 +7,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "srBoundingSphere.h"
-#include "srCore.h"
 #include "srMath.h"
 #include "srVertexProcessor.h"
 
@@ -197,8 +196,7 @@ private:
         if ((scratch.flags & ready) == 0) (this->*setup)();
         return std::span<const T>(values).subspan(sub_batch_offset, vertex_count);
     }
-    void prepareOutputChannel(srVertexProcessor::e_channel channel, w8_ulong& operations,
-                              SetupChannel setup);
+    void prepareOutputChannel(srVertexProcessor::e_channel channel, SetupChannel setup);
     void copyColorChannel(std::span<const glm::vec4> source, glm::vec4* destination,
                           srVertexProcessor::e_channel channel);
 };
@@ -226,7 +224,7 @@ inline std::span<const glm::vec3> srVertexPipe::getEyeSpaceNormal()
 
 inline glm::vec2* srVertexPipe::getST(w8_ulong index, int create)
 {
-    srCore.getStatisticsManager()->statistics.texture_coordinate_operations += vertex_count;
+
     if ((create == 0) &&
         ((lazy_setup_mask & (1 << (index + srVertexProcessor::CHANNEL_ST0))) == 0)) {
         setupST(index);
