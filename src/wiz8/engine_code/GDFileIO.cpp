@@ -112,11 +112,12 @@ W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary)
 
 /* The WGD face record's fixed head: three vertex indexes, the source plane,
    and a version tag checked before the rest of the record is read. */
-struct W8GDFaceHeader { /* 0x1c */
-    int vertex_indices[3];
-    glm::vec3 plane;
-    int version;
+struct W8GDFaceHeader {
+    std::int32_t vertex_indices[3];
+    float plane[3];
+    std::int32_t version;
 };
+static_assert(sizeof(W8GDFaceHeader) == 0x1c);
 
 /* The WGD face record's tail: classification flag, slope/value pair, footstep
    selectors, trace chance, and the trigger index the writer overrode. */
@@ -321,8 +322,8 @@ void W8GameData::AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_
     surface->vertex_indices[1] = vertex_1;
     surface->vertex_indices[2] = vertex_2;
     ClassifySurfacePlane(m_pTrigVertices.data(), surface);
-    for (int index = 0; index < 3; ++index) {
-        surface->vertex_indices[index] += VerticesCount();
+    for (int& vertex_index : surface->vertex_indices) {
+        vertex_index += VerticesCount();
     }
     surface->edge_link[0] = -1;
     surface->edge_link[1] = -1;

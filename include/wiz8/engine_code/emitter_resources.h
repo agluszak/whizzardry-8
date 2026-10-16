@@ -28,6 +28,8 @@ struct EmitterCycleResources {
 
     EmitterCycleResources() = default;
     EmitterCycleResources(EmitterCycleResources&&) noexcept = default;
+    EmitterCycleResources(const EmitterCycleResources&) = delete;
+    ~EmitterCycleResources() = default;
     EmitterCycleResources& operator=(const EmitterCycleResources&) = delete;
     std::vector<std::unique_ptr<stLight>>* lightView()
     {

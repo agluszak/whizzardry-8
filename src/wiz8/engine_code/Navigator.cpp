@@ -204,9 +204,7 @@ void SetNavigatorLinkMode(unsigned char mode)
     }
     g_navigator_link_mode = mode;
     if (mode == 0) {
-        for (int index = 0; index < static_cast<int>(g_registered_navigators.size()); ++index) {
-            W8Navigator* navigator = g_registered_navigators[index];
-
+        for (auto navigator : g_registered_navigators) {
             navigator->halted = false;
             if (navigator->path_ai != 0) {
                 PathAIResetTick(navigator->path_ai);
@@ -225,11 +223,7 @@ void SetNavigatorLinkMode(unsigned char mode)
                         navigator->linked_update_time = 0;
                         g_navigator_group.clear();
                         navigator->CollectGroupNavigators(g_navigator_group);
-                        for (int group_index = 0;
-                             group_index < static_cast<int>(g_navigator_group.size());
-                             ++group_index) {
-                            W8Navigator* group_navigator = g_navigator_group[group_index];
-
+                        for (auto group_navigator : g_navigator_group) {
                             group_navigator->movement.attachment->CopyPathFrom(
                                 navigator->movement.attachment.get());
                             group_navigator->patrol_home = navigator->patrol_home;
@@ -243,9 +237,7 @@ void SetNavigatorLinkMode(unsigned char mode)
             }
         }
     } else {
-        for (int index = 0; index < static_cast<int>(g_registered_navigators.size()); ++index) {
-            W8Navigator* navigator = g_registered_navigators[index];
-
+        for (auto navigator : g_registered_navigators) {
             NavigatorDefaultCallback(navigator);
             navigator->group_linked = false;
         }
@@ -585,8 +577,8 @@ void W8Navigator::ClearMovementStopped()
     if (g_combat_inactive != 0 && linked_navigator == 0) {
         g_navigator_group.clear();
         CollectGroupNavigators(g_navigator_group);
-        for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
-            g_navigator_group[index]->movement_stopped = false;
+        for (auto& index : g_navigator_group) {
+            index->movement_stopped = false;
         }
     }
 }

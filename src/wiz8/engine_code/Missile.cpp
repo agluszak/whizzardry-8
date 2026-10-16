@@ -728,11 +728,7 @@ W8MissileRep::W8MissileRep() = default;
    objects registered with the world but detached until the missile selects
    their emitter. */
 // FUNCTION: WIZ8 0x004a2db0
-W8MissileRep::W8MissileRep(const W8MissileRep& other)
-    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
-      resources(other.resources)
-{
-}
+W8MissileRep::W8MissileRep(const W8MissileRep& other) = default;
 
 // FUNCTION: WIZ8 0x004a5d40
 W8AnimRepBase* W8MissileRep::Clone()

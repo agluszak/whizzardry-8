@@ -133,9 +133,9 @@ void stSurface2D::setScale(float new_scale)
     float factor = g_float_one / tile_size;
     float delta = (new_scale - scale) * factor;
 
-    for (int corner = 0; corner < 4; ++corner) {
-        for (int axis = 0; axis < 2; ++axis) {
-            texture_coordinates[corner][axis] += delta;
+    for (auto& texture_coordinate : texture_coordinates) {
+        for (float& component : texture_coordinate) {
+            component += delta;
         }
     }
     scale = new_scale;

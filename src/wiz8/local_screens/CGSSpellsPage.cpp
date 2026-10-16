@@ -35,6 +35,7 @@ public:
     W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, int y,
                          W8CharacterSpellEntry* entries);
     ~W8CharacterSpellList() { m_owner.input.remove(*m_target); }
+    W8CharacterSpellList(const W8CharacterSpellList&) = delete;
     void Redraw(SDL_Surface& target, bool force);
     void SetEntryCount(int count);
     W8CharacterSpellsPage& m_owner;
@@ -187,8 +188,8 @@ void W8CharacterSpellsPage::Deactivate()
 // FUNCTION: WIZ8 0x005C8730
 void W8CharacterSpellsPage::Accept()
 {
-    for (int index = 0; index < 0x72; ++index) {
-        m_SpellData[index].selected = false;
+    for (auto& index : m_SpellData) {
+        index.selected = false;
     }
     ResetSpellSelections(m_character, m_creation_state);
     InvalidateAll();

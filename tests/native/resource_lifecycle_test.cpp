@@ -157,6 +157,7 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
 {
     std::array<W8Character, 8> party{};
     party[0].fInParty = party[1].fInParty = true;
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local restoration guard
     struct RestoreParty {
         W8Character* saved;
         ~RestoreParty() { g_status.buffers.Char = saved; }
@@ -457,6 +458,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         {
             active_particle_count = 1;
         }
+        ObservedParticle(const ObservedParticle&) = delete;
         ~ObservedParticle() override
         {
             destroyed = true;

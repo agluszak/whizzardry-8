@@ -109,6 +109,7 @@ class W8GrCycle : public W8GrObject, public W8Navigator {
 public:
     W8GrCycle();
     W8GrCycle(const W8GrCycle& other); /* 0x004A5F20 */
+    W8GrCycle& operator=(const W8GrCycle&) = delete;
     virtual ~W8GrCycle() override;
     // FUNCTION: WIZ8 0x004a7140
     virtual unsigned char CanEnterCycle(signed char) { return 1; }

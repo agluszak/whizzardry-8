@@ -33,7 +33,7 @@ public:
     srVertexProcessor() = default;
     srVertexProcessor(const srVertexProcessor&) = default;
     srVertexProcessor& operator=(const srVertexProcessor&) = default;
-    virtual ~srVertexProcessor() {}
+    virtual ~srVertexProcessor() = default;
     struct MaterialInfo {
         // FUNCTION: WIZ8 0x00424A80
         inline MaterialInfo() : disabled_channels(0) {}

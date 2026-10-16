@@ -1,5 +1,11 @@
 Checks: >-
   -*,
+  performance-unnecessary-copy-initialization,
+  modernize-use-equals-default,
+  modernize-use-emplace,
+  modernize-use-scoped-lock,
+  modernize-use-starts-ends-with,
+  readability-use-anyofallof,
   readability-redundant-smartptr-get,
   performance-noexcept-move-constructor,
   performance-move-const-arg,
@@ -19,6 +25,12 @@ Checks: >-
   bugprone-suspicious-include,
   modernize-deprecated-headers
 WarningsAsErrors: >-
+  performance-unnecessary-copy-initialization,
+  modernize-use-equals-default,
+  modernize-use-emplace,
+  modernize-use-scoped-lock,
+  modernize-use-starts-ends-with,
+  readability-use-anyofallof,
   readability-redundant-smartptr-get,
   performance-noexcept-move-constructor,
   performance-move-const-arg,

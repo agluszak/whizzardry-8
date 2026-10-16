@@ -344,7 +344,8 @@ TEST_CASE("Overlay border copies preserve offset source coordinates", "[blit]")
 
 TEST_CASE("Sprite transparency preserves opaque RGB regardless of alpha bits", "[blit]")
 {
-    struct RestoreFormat {
+    struct
+        RestoreFormat { // NOLINT(cppcoreguidelines-special-member-functions) test-only scope guard, never copied
         SDL_PixelFormat original = g_sgp_pixel_format;
         ~RestoreFormat()
         {
@@ -462,6 +463,8 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
             g_sgp_pixel_format = format;
         }
         ~PixelFormatRestore() { g_sgp_pixel_format = previous_; }
+        PixelFormatRestore(const PixelFormatRestore&) = delete;
+        PixelFormatRestore& operator=(const PixelFormatRestore&) = delete;
 
     private:
         SDL_PixelFormat previous_;

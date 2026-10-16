@@ -1437,6 +1437,7 @@ void LoadNpcStates(wiz8::File& file)
         std::vector<W8NpcState*> previous;
         bool committed = false;
         StateRollback() { previous.swap(g_npc_states); }
+        StateRollback(const StateRollback&) = delete;
         ~StateRollback()
         {
             if (!committed) previous.swap(g_npc_states);

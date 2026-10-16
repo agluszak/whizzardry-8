@@ -195,6 +195,8 @@ public:
     void Reset();
     void Initialize(const W8OctFileHeader* header);
     ~W8Octree();
+    W8Octree(const W8Octree&) = delete;
+    W8Octree& operator=(const W8Octree&) = delete;
     void AddLoadedProp(W8Prop* prop);
     void AddLoadedParticle(stParticle* particle);
     /* Store the prop-sunlight bit array once it has been given a size. */
@@ -453,6 +455,8 @@ class OctPreTree : public W8Octree {
 public:
     OctPreTree();
     ~OctPreTree();
+    OctPreTree(const OctPreTree&) = delete;
+    OctPreTree& operator=(const OctPreTree&) = delete;
 
     /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
        verify passes walk to bound-check each automesh's vertices. */

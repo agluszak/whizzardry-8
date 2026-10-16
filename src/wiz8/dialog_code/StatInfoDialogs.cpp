@@ -86,7 +86,7 @@ void W8StatInfoDialogBase::Draw(SDL_Surface& target)
 void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
 {
     g_wiz_text_font_secondary.resetPalette();
-    std::string title = g_localized_strings[m_title_id];
+    const std::string& title = g_localized_strings[m_title_id];
     std::int16_t width = g_wiz_text_font_secondary.textWidth(title);
     DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
              title);

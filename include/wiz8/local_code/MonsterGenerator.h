@@ -50,6 +50,8 @@ struct MonGen {
     /* Select one loaded encounter table and apply its HARASSMENT flag. */
     void SetEncounterTable(int index);
     ~MonGen();
+    MonGen(const MonGen&) = delete;
+    MonGen& operator=(const MonGen&) = delete;
 };
 
 MonGen* FindMonGenByName(const char* name);

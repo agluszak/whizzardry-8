@@ -25,7 +25,7 @@ public:
     srLight(srNode* parent = 0, e_preset preset = PRESET_POINT);
     ~srLight() override = default;
 
-    srLight(const srLight& other);
+    srLight(const srLight& other) = default;
 
     srLight& operator=(const srLight& other);
 

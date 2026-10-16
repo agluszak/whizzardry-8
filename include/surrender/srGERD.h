@@ -586,6 +586,7 @@ private:
         std::span<const glm::vec4> positions;
     };
 
+    srGERD(const srGERD&) = delete;
     srGERD& operator=(const srGERD& other);
 
     void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,

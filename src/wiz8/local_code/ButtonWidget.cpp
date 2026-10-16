@@ -229,6 +229,7 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
     // Reconfiguration may replace a callback while it runs, so dispatch copies
     // it. Destruction is deferred by the owner until this dispatch returns.
     ++m_handling_pointer;
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
     const struct Handling {
         int& depth;
         ~Handling() { --depth; }

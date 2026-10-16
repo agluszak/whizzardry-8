@@ -11,6 +11,8 @@ class W8BinkVideo {
 public:
     W8BinkVideo();
     ~W8BinkVideo();
+    W8BinkVideo(const W8BinkVideo&) = delete;
+    W8BinkVideo& operator=(const W8BinkVideo&) = delete;
 
     unsigned char Open(const char* path, int flags);
     unsigned char UpdateFrame();

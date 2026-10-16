@@ -54,6 +54,7 @@ void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct FixtureRoot {
     std::filesystem::path path;
     ~FixtureRoot()

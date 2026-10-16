@@ -65,6 +65,7 @@
 struct W8PartySelectionCharacterCollection {
     W8PartySelectionCharacterCollection() : first_visible(0) {}
     ~W8PartySelectionCharacterCollection();
+    W8PartySelectionCharacterCollection(const W8PartySelectionCharacterCollection&) = delete;
     W8Character* GetCharacter(int index);
     int FindPartySlot(int index);
     void DetachFromParty(int index);
@@ -509,7 +510,7 @@ void W8PartySelectionController::DrawSummary(SDL_Surface& target)
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x7f, 0xfd},
              fmt::format("{} {}", gender, race));
 
-    std::string personality =
+    const std::string& personality =
         g_localized_strings[g_personality_message_ids[character->personality]];
     width = g_wiz_text_font_secondary.textWidth(personality);
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x82, 0x10b}, personality);
@@ -947,7 +948,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
     }
 
     summary_dirty = true;
-    std::string text =
+    const std::string& text =
         g_localized_strings[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
     m_add_remove_button->SetText(text);
     bool have_character = m_character != 0;

@@ -301,6 +301,7 @@ TEST_CASE("collections_test")
 
 TEST_CASE("Engagement propagates to the original leader's direct allies", "[groups]")
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
     struct RestoreGroups {
         std::vector<W8MonsterGroup*> saved = std::exchange(gXStatus.monster_groups, {});
         ~RestoreGroups() { gXStatus.monster_groups = std::move(saved); }

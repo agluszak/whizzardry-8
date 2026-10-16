@@ -262,13 +262,14 @@ bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** output, bool anonymous_mes
     if (info == 0) {
         srAssertFail("pInfo", ITEM_CPP, 0x15d, 0);
     }
-    W8Item* item = new W8Item;
+    auto item = std::make_unique<W8Item>();
     if (item == 0) {
         srAssertFail("pItem", ITEM_CPP, 0x161, 0);
     }
-    bool success = static_cast<W8ItemRep*>(item->m_pRep)->ReadFromFile(info, item, anonymous_mesh);
+    bool success =
+        static_cast<W8ItemRep*>(item->m_pRep)->ReadFromFile(info, item.get(), anonymous_mesh);
     if (success) {
-        *output = item;
+        *output = item.release();
     }
     return success;
 }

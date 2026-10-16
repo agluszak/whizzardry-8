@@ -62,7 +62,7 @@ class W8AnimRepBase {
 public:
     W8AnimRepBase();
     W8AnimRepBase(const W8AnimRepBase& other);
-    virtual ~W8AnimRepBase() {}
+    virtual ~W8AnimRepBase() = default;
     virtual W8AnimRepBase* Clone();
 
     void SetLocation(const glm::vec3* location);

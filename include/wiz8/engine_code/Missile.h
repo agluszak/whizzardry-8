@@ -81,6 +81,7 @@ class W8Missile : public W8GrCycle {
 public:
     W8Missile();
     W8Missile(const W8Missile& other); /* 0x004A3E50 */
+    W8Missile& operator=(const W8Missile&) = delete;
     virtual ~W8Missile() override;
 
     virtual void UpdateRepresentation(W8World* world) override;

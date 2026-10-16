@@ -376,7 +376,8 @@ void stModelInstance::process(const ProcessInfo& info, e_processType)
 }
 
 namespace {
-struct MaterialOverrideScope {
+struct
+    MaterialOverrideScope { // NOLINT(cppcoreguidelines-special-member-functions) aggregate scope guard, never copied
     const bool diffuse_enabled = g_material_diffuse_scale_enabled;
     const bool emissive_enabled = g_material_emissive_override_enabled;
     const float diffuse = g_material_diffuse_scale;

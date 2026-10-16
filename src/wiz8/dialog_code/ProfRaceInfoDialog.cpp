@@ -275,8 +275,7 @@ bool W8RaceInfoDialog::PopulateText()
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x14d], "", 10, 0xf, 0);
     bool listed = false;
-    for (unsigned int index = 0; index < 5; ++index) {
-        W8Trait ability = g_race_abilities[m_uiIndex].ability_ids[index];
+    for (auto ability : g_race_abilities[m_uiIndex].ability_ids) {
         if (ability == W8_TRAIT_NONE) {
             if (!listed) {
                 m_text_area.AddEntry({}, g_localized_strings[0x154], 10, 0xf, 0);

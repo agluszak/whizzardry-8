@@ -396,11 +396,10 @@ static bool NpcPanelDirty(int index)
 {
     const auto& ui = *g_npc_interaction_state->ui;
     if (ui.panels[index].dirty || (index == 2 && ui.transcript->m_dirty)) return true;
-    for (const auto& action : ui.actions)
-        if (action.panel == index && action.visible &&
-            (action.dirty || action.text.m_geometryDirty))
-            return true;
-    return false;
+    return std::ranges::any_of(ui.actions, [index](const auto& action) {
+        return action.panel == index && action.visible &&
+               (action.dirty || action.text.m_geometryDirty);
+    });
 }
 
 static void PaintNpcPanel(int index, SDL_Surface& target, bool force)

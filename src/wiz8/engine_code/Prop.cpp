@@ -1699,8 +1699,8 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
         return;
     }
     if (!AnimationIsRunning(animation)) {
-        for (int group = 0; group < 3; ++group) {
-            W8AniMesh* mesh = animation->entries[group].get();
+        for (const auto& entry : animation->entries) {
+            W8AniMesh* mesh = entry.get();
             if (mesh == 0) {
                 continue;
             }
@@ -1714,8 +1714,8 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
             }
         }
     } else if (AnimationIsRunning(animation) == 1) {
-        for (int group = 0; group < 3; ++group) {
-            for (const auto& owned_mesh : animation->meshes[group]) {
+        for (auto& frame_meshes : animation->meshes) {
+            for (const auto& owned_mesh : frame_meshes) {
                 auto* mesh = owned_mesh.get();
                 if (mesh == 0) {
                     continue;

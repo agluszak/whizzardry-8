@@ -663,7 +663,7 @@ unsigned char HandleMipeMonsterCreateKey(SDL_Keycode key)
         for (index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
             entry = &g_mipe_monster_entries[index];
             if (entry->kind == g_mipe_category && entry->selectable) {
-                list->push_back(entry);
+                list->emplace_back(entry);
             }
         }
     }
@@ -823,7 +823,7 @@ static void RebuildMipeItemCategory(std::vector<W8MipeCategoryEntry>* list)
         for (int index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
             W8ItemDatabaseRecord* entry = &g_item_records[index];
             if (entry->equip_class == g_mipe_category && entry->editor_excluded == 0) {
-                list->push_back(entry);
+                list->emplace_back(entry);
             }
         }
     }
@@ -836,7 +836,7 @@ static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
         for (int index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
             W8MipeMonsterEntry* entry = &g_mipe_monster_entries[index];
             if (entry->kind == g_mipe_category && entry->selectable) {
-                list->push_back(entry);
+                list->emplace_back(entry);
             }
         }
     }
@@ -917,7 +917,7 @@ unsigned char HandleMipeItemCreateKey(SDL_Keycode key)
         for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
             if (g_item_records[index].equip_class == g_mipe_category &&
                 g_item_records[index].editor_excluded == 0) {
-                list->push_back(&g_item_records[index]);
+                list->emplace_back(&g_item_records[index]);
             }
         }
     }
@@ -1362,7 +1362,7 @@ void HandleMipePropEditKey(SDL_Keycode key)
                              ++index) {
                             table = &g_item_tables[index];
                             if (table->category_id == 0) {
-                                list->push_back(table);
+                                list->emplace_back(table);
                             }
                         }
                     }
@@ -1375,7 +1375,7 @@ void HandleMipePropEditKey(SDL_Keycode key)
                              ++index) {
                             table = &g_item_tables[index];
                             if (table->category_id == static_cast<unsigned int>(category)) {
-                                list->push_back(table);
+                                list->emplace_back(table);
                             }
                         }
                     }
@@ -1731,7 +1731,7 @@ static void RebuildMipeEncounterCategory(std::vector<W8MipeCategoryEntry>* list)
     for (int index = 0; index < count; ++index) {
         W8EncounterTableRuntime* entry = GetEncounterTable(index);
         if (entry->category == static_cast<unsigned int>(g_mipe_category)) {
-            list->push_back(entry);
+            list->emplace_back(entry);
         }
     }
 }
@@ -1948,7 +1948,7 @@ void HandleMipeGeneratorTableKey(SDL_Keycode key)
                 for (index = 0; index < count; ++index) {
                     entry = GetEncounterTable(index);
                     if (entry->category == static_cast<unsigned int>(category)) {
-                        list->push_back(entry);
+                        list->emplace_back(entry);
                     }
                 }
             }
@@ -2174,7 +2174,7 @@ void HandleMipeItemTableKey(SDL_Keycode key)
                      ++index) {
                     table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(category - 1)) {
-                        list->push_back(table);
+                        list->emplace_back(table);
                     }
                 }
             }
@@ -2199,7 +2199,7 @@ void HandleMipeItemTableKey(SDL_Keycode key)
                      ++index) {
                     table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
-                        list->push_back(table);
+                        list->emplace_back(table);
                     }
                 }
             }

@@ -1845,8 +1845,8 @@ void HighlightSpellTargetsAtCachedPosition(void)
     target.point = gXStatus.target_position;
     PopulateSpellTargetMarkers(spell_id, 1, &source, &target, markers, scratch, 0);
 
-    for (int index = 0; index < static_cast<int>(markers.size()); ++index) {
-        W8Monster* monster = GetMonsterByLocationID(markers[index]);
+    for (int marker : markers) {
+        W8Monster* monster = GetMonsterByLocationID(marker);
 
         glm::vec4 block;
         block = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);

@@ -50,6 +50,7 @@ public:
     }
     W8PropRepresentation(const W8PropRepresentation& other);
     virtual ~W8PropRepresentation() override;
+    W8PropRepresentation& operator=(const W8PropRepresentation&) = delete;
     virtual W8AnimRepBase* Clone() override;
 
     srModelInstance* ToggleAnimation(int argument); /* 0x0044BA00 */
@@ -96,6 +97,8 @@ public:
     W8PropRepresentation* Rep() const { return static_cast<W8PropRepresentation*>(m_pRep); }
 
     void DetachAnimationInstances(W8World* world);
+    W8Prop(const W8Prop&) = default;
+    W8Prop& operator=(const W8Prop&) = delete;
     void UpdatePropAnimation();
     /* Re-apply every animation path and roll the position snapshots forward.
        `world` is only used by the pWorld assertion. */

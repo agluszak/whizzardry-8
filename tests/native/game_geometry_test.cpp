@@ -832,7 +832,6 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     const srBoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
     const auto dense = tree.queryObjects(bounds, W8_OCTREE_KIND_LOCATION, -1);
     REQUIRE(dense.size() == 10000);
-    const auto original = dense;
 
     // The 10,000-result query above verifies the fixed cap. nearbyLocations
     // delegates to queryObjects, so exercise its bounds on the smaller data
@@ -848,7 +847,6 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     REQUIRE(std::ranges::find(locations, 7u) == locations.end());
     REQUIRE(tree.locationsInBox(bounds, 0) == nearby);
     REQUIRE(tree.queryObjects(bounds, W8_OCTREE_KIND_PROP, -1).empty());
-    REQUIRE(dense == original);
     REQUIRE(tree.locationsInBox({{2000, 2000, 2000}, {3000, 3000, 3000}}, 0).empty());
     REQUIRE(tree.locationsInBox({{999, 999, 999}, {0, 0, 0}}, 0).size() == 512);
 }

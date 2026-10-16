@@ -1035,8 +1035,8 @@ void SetMonsterGeneratorDurationScale(float scale)
     g_encounter_culling_scale_fast = scale;
     std::vector<MonGen*>* generators = &g_world->monster_generators;
 
-    for (int index = 0; index < static_cast<int>(generators->size()); ++index) {
-        ((*generators)[index])->m_pTimer->SetDurationScale(scale);
+    for (auto& generator : *generators) {
+        generator->m_pTimer->SetDurationScale(scale);
     }
 }
 

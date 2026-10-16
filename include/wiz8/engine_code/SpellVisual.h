@@ -39,6 +39,7 @@ public:
        own emitter host and identity counter. Inlined at the 0x004AB580 clone
        site; no out-of-line copy constructor exists in the image. */
     W8SpellVisual(const W8SpellVisual& other);
+    W8SpellVisual& operator=(const W8SpellVisual&) = delete;
     virtual ~W8SpellVisual() override;
 
     virtual void UpdateRepresentation(W8World* world) override;

@@ -47,7 +47,7 @@ struct ClientNode : srNode {
     ~ClientNode() override { ++destroyed_nodes; }
 };
 struct ClientMaterial : srMaterial {
-    ~ClientMaterial() override {}
+    ~ClientMaterial() override = default;
 };
 // Instances, including copies, share ownership of their model.
 static int shared_model_lifetimes()

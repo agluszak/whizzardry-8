@@ -84,13 +84,13 @@ fs::path rooted(std::string_view root, std::string_view name, bool lowercase)
 namespace w8_native {
 void configure_paths(const Roots& configuration)
 {
-    std::lock_guard guard(roots_mutex);
+    std::scoped_lock guard(roots_mutex);
     roots = canonical_roots(configuration);
     initialized = true;
 }
 Roots path_roots()
 {
-    std::lock_guard guard(roots_mutex);
+    std::scoped_lock guard(roots_mutex);
     if (!initialized) {
         roots = canonical_roots(defaults());
         initialized = true;

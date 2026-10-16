@@ -1460,9 +1460,8 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
             g_automap_layers[layer]->getLocationY();
         }
         const auto location = AutomapWorldPosition(point);
-        for (unsigned int index = 0; index < static_cast<unsigned int>(g_automap_notes.size());
-             ++index) {
-            W8AutomapNote* note = g_automap_notes[index].get();
+        for (const auto& automap_note : g_automap_notes) {
+            W8AutomapNote* note = automap_note.get();
             if (note->layer == g_automap_layer) {
                 // NOLINTNEXTLINE(misc-include-cleaner)
                 const float distance = glm::distance(location, note->position);

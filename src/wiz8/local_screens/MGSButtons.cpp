@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 
 #include "Font.h"
@@ -954,15 +953,10 @@ void UpdateSubMenuPanelButtons(void)
 static void UpdateSubMenuScrollButtons()
 {
 
-    if (g_level_block->combat_end_notification == -1 && !gXStatus.fNpcDialogueMode &&
-        !gXStatus.fCampMode) {
-        for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
-            button.SetEnabled(true);
-        }
-    } else {
-        for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
-            button.SetEnabled(false);
-        }
+    const bool enabled = g_level_block->combat_end_notification == -1 &&
+                         !gXStatus.fNpcDialogueMode && !gXStatus.fCampMode;
+    for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
+        button.SetEnabled(enabled);
     }
     for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
         button.Refresh();

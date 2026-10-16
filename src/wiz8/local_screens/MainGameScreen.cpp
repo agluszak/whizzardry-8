@@ -7011,8 +7011,8 @@ void PopulateNpcTradeList(void)
             }
         }
     } else {
-        for (unsigned int index = 0; index < 8; ++index) {
-            W8ItemInstance* item = &trading->backpack[index];
+        for (auto& index : trading->backpack) {
+            W8ItemInstance* item = &index;
             bool acceptable = true;
             unsigned int font_palette;
             if (item->iItemNo == -1) {

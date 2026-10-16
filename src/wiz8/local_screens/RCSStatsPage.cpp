@@ -191,7 +191,7 @@ void DrawCampStatsPage(void)
                  text);
         int row_y = 0xbf;
         for (index = 0; index < 7; ++index) {
-            std::string label = g_localized_strings[g_attribute_label_ids[index]];
+            const std::string& label = g_localized_strings[g_attribute_label_ids[index]];
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                      {g_camp_stats_origin_x + 10 +
                           ((0x7b - g_wiz_text_font_secondary.textWidth(label)) >> 1),
@@ -1272,8 +1272,8 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     int category_count[5] = {0, 0, 0, 0, 0};
-    for (int skill = 0; skill < 0x29; ++skill) {
-        int category = g_skill_attributes[skill].category;
+    for (auto& skill_attribute : g_skill_attributes) {
+        int category = skill_attribute.category;
         W8CharacterPageEntry* entry = new W8CharacterPageEntry(
             input, g_character_page2_category_geometry[category].x,
             g_character_page2_category_geometry[category].y + category_count[category] * 0xe, true);
@@ -1306,8 +1306,8 @@ void W8CharacterSkillsPage::Accept()
     InvalidateAll();
     m_contentDirty = true;
     m_screen->UpdateNavigation(this);
-    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
-        m_entries[index]->UpdateButtons();
+    for (const auto& entry : m_entries) {
+        entry->UpdateButtons();
     }
 }
 
@@ -1317,8 +1317,8 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
     *next_enabled = m_creation_state->skills_complete;
     *exit_enabled = m_creation_state->skill_points_remaining < m_creation_state->skill_points_total;
     if (*next_enabled != nav_next_state) {
-        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
-            m_entries[index]->SetIncrementAllowed(!*next_enabled);
+        for (const auto& entry : m_entries) {
+            entry->SetIncrementAllowed(!*next_enabled);
         }
         nav_next_state = *next_enabled;
     }

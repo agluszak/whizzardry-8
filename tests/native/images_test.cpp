@@ -745,6 +745,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
 TEST_CASE("SDL sprite drawing preserves opaque pixels across native formats")
 {
     const auto previous_format = g_sgp_pixel_format;
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
     struct RestoreFormat {
         SDL_PixelFormat format;
         ~RestoreFormat() { g_sgp_pixel_format = format; }

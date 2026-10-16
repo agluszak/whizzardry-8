@@ -198,9 +198,7 @@ void ReleaseRadarMap(void)
         ReleaseObject(g_radar_compass);
         g_radar_compass = 0;
     }
-    for (int sector = 0; sector < 18; ++sector) {
-        auto& pool = g_radar_icon_pools[sector];
-
+    for (auto& pool : g_radar_icon_pools) {
         wiz8::remove_all_and_delete_in_order(pool);
     }
     ReleaseRendererObject(g_radar_backdrop);
