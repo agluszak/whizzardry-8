@@ -2957,8 +2957,9 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     REQUIRE(ambient == glm::vec3(0));
 }
 
-TEST_CASE("Submesh splitting owns all buffers beyond the old six-region capacity",
-          "[geometry][octree]")
+TEST_CASE_METHOD(SurRenderTestFixture,
+                 "Submesh splitting owns all buffers beyond the old six-region capacity",
+                 "[geometry][octree]")
 {
     W8OctPreTreeGeometry geometry{};
     geometry.m_vertices.resize(4);
