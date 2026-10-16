@@ -10,6 +10,7 @@ class W8Monster;
 class W8Prop;
 class srNode;
 class stLight;
+class stMaterial;
 
 #include <algorithm>
 
@@ -55,6 +56,7 @@ struct W8WorldCameraState {
    lights_to_update and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
+    std::shared_ptr<stMaterial> cloud_material;
     std::vector<W8Monster*> plsMonsters;
     std::vector<W8Item*> plsItems;
     std::vector<W8Prop*> plsProps;

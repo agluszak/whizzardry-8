@@ -2509,3 +2509,25 @@ TEST_CASE("Positional sound copies register each live node once", "[scene][sound
     }
     REQUIRE(g_sound3d_instances.size() == initial);
 }
+
+TEST_CASE("Material sharing preserves exact colors and releases unused resources",
+          "[geometry][materials]")
+{
+    W8MaterialRecord record{};
+    record.opacity = 1;
+    record.diffuse = {0.5001f, 0.25f, 0.75f};
+    auto first = LoadMaterial("", record);
+    auto same = LoadMaterial("", record);
+    REQUIRE(first.material == same.material);
+    // Both colors became 0.50 in the old cache key.
+    record.diffuse.x = 0.5002f;
+    auto different = LoadMaterial("", record);
+    REQUIRE(first.material != different.material);
+    REQUIRE(first.material->parms.diffuse.x == 0.5001f);
+    REQUIRE(different.material->parms.diffuse.x == 0.5002f);
+    const std::weak_ptr<srMaterial> weak = different.material;
+    different = {};
+    REQUIRE(weak.expired());
+    std::fill(std::begin(record.texture_names[0]), std::end(record.texture_names[0]), 'x');
+    REQUIRE_THROWS(LoadMaterial("", record));
+}

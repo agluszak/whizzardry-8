@@ -21,7 +21,6 @@
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/levels.h"
 #include "layouts/world.h"
-#include "resource_cache.h"
 #include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
 #include "surrender/srDebug.h"
 #include "surrender/srMath.h"
@@ -284,7 +283,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
 
     auto material = std::make_shared<stMaterial>();
     material->setName("AnimatedCloudMaterial");
-    g_materials.insert("AnimatedCloudMaterial", material);
+    sky_world->cloud_material = material;
     glm::vec4 colour;
     colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     material->setAmbient(colour);
