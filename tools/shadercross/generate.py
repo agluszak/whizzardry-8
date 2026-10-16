@@ -25,6 +25,8 @@ with tempfile.TemporaryDirectory(prefix='wiz8-shaders-') as directory:
             artifact = temporary / f'sr_{stage}.{format_}'
             subprocess.run([args.shadercross, spirv, '-s', 'SPIRV', '-d', format_.upper(),
                             '-t', stage, '-o', artifact], check=True)
+            if format_ == "msl":
+                artifact.write_bytes(artifact.read_bytes().rstrip() + b"\n")
             destination = output / artifact.name
             if args.check:
                 if not destination.exists() or artifact.read_bytes() != destination.read_bytes():

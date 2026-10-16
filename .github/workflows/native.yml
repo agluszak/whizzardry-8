@@ -263,7 +263,8 @@ jobs:
           source build/linux-tidy/conan/conanbuild.sh
           cmake -S tools/shadercross -B build/shadercross -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE=Debug
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
           cmake --build build/shadercross --target shadercross --parallel 2
           python3 tools/shadercross/generate.py --check \
             --shadercross build/shadercross/_deps/shadercross-build/shadercross

@@ -101,4 +101,3 @@ fragment main0_out main0(main0_in in [[stage_in]], constant FragmentState& _17 [
     out.out_color = fast::clamp(color, float4(0.0), float4(1.0));
     return out;
 }
-

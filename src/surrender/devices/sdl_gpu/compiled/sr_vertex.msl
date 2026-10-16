@@ -41,4 +41,3 @@ vertex main0_out main0(main0_in in [[stage_in]], constant VertexState& _13 [[buf
     out.out_fog = in.in_fog;
     return out;
 }
-
