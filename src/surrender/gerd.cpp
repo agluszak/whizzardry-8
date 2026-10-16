@@ -318,20 +318,6 @@ w8_ulong srGERD::getTextureCacheUsed() const
     return texture_cache_used;
 }
 
-// FUNCTION: SURRENDER 0x1001AA60
-w8_long srGERD::getDisplayMode(w8_ulong width, w8_ulong height, w8_ulong depth) const
-{
-    if ((state_flags & STATE_CONTEXT_CREATED) != 0) {
-        for (w8_long i = 0; i < static_cast<w8_long>(device.display_modes.size()); i++) {
-            const srDD::WindowInfo& mode = device.display_modes[i];
-            if (mode.width == width && mode.height == height && mode.depth == depth) {
-                return i;
-            }
-        }
-    }
-    return -1;
-}
-
 // FUNCTION: SURRENDER 0x1001AAF0
 srGERD::Statistics srGERD::getStatistics()
 {
@@ -1126,12 +1112,6 @@ w8_ulong_ptr srGERD::getWindowHandle() const
 int srGERD::isWindowOpen() const
 {
     return (state_flags >> 1) & 1;
-}
-
-// FUNCTION: SURRENDER 0x1001D0E0
-int srGERD::isFullScreen() const
-{
-    return device.open_info.display_mode >= 0;
 }
 
 // FUNCTION: SURRENDER 0x1001D030
@@ -2467,18 +2447,6 @@ w8_ulong nextTextureDimension(w8_ulong value)
 
 } // namespace
 
-// FUNCTION: SURRENDER 0x10018FE0
-void srGERD::initDisplayModeList()
-{
-    const auto modes = getDD()->getWindowList();
-    device.display_modes.resize(modes.size());
-    for (std::size_t i = 0; i < modes.size(); ++i) {
-        device.display_modes[i].width = modes[i].width;
-        device.display_modes[i].height = modes[i].height;
-        device.display_modes[i].depth = modes[i].depth;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10019080
 void srGERD::initDDInfo()
 {
@@ -2546,7 +2514,6 @@ void srGERD::dump(std::ostream& stream, const srFlags<e_info>& info)
                << std::endl;
         stream << "Width              : " << getWidth() << std::endl;
         stream << "Height             : " << getHeight() << std::endl;
-        stream << "Fullscreen         : " << srBoolToString(isFullScreen()) << std::endl;
         stream << "Back buffers       : ";
         e_backBuffer back_buffer = getBackBufferType();
         if (back_buffer == static_cast<e_backBuffer>(1)) {
@@ -2739,7 +2706,6 @@ srGERD::e_error srGERD::createContext(w8_ulong_ptr window)
     }
     device.window = window;
     initDDInfo();
-    initDisplayModeList();
     initGlobalPalette();
     resetStatistics();
     state_flags |= STATE_CONTEXT_CREATED;
@@ -2752,7 +2718,6 @@ void srGERD::deleteContext()
     if ((state_flags & STATE_CONTEXT_CREATED) != 0) {
         closeWindow(static_cast<e_closeHint>(0));
         closeTexCache();
-        device.display_modes.clear();
         getDD()->deleteContext();
         state_flags &= ~STATE_CONTEXT_CREATED;
         device.window = 0;
@@ -2872,30 +2837,6 @@ srGERD::e_error srGERD::openWindow(w8_long width, w8_long height)
     info.window_height = srWindow::getHeight(device.window);
     info.width = width;
     info.height = height;
-    info.display_mode = -1;
-    return openWindowInternal(info);
-}
-
-// FUNCTION: SURRENDER 0x1001A1F0
-srGERD::e_error srGERD::openWindow(w8_long mode)
-{
-    if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
-        return ERROR_NO_CONTEXT;
-    }
-    if (mode < 0) {
-        return openWindow();
-    }
-    if (srWindow::isWindow(device.window) == 0) {
-        return ERROR_INVALID_WHANDLE;
-    }
-    if (static_cast<w8_long>(device.display_modes.size()) <= mode) {
-        return ERROR_WINDOW_OPEN_FAILED;
-    }
-    const srDD::WindowInfo& entry = device.display_modes[mode];
-    OpenInfo info;
-    info.window_width = info.width = (w8_long)entry.width;
-    info.window_height = info.height = (w8_long)entry.height;
-    info.display_mode = mode;
     return openWindowInternal(info);
 }
 
@@ -2915,9 +2856,7 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
         if (srWindow::isWindow(device.window) == 0) {
             return ERROR_INVALID_WHANDLE;
         }
-        if (info.display_mode < -1 ||
-            static_cast<w8_long>(device.display_modes.size()) <= info.display_mode ||
-            device.info.max_back_buffer_width < (w8_ulong)info.width ||
+        if (device.info.max_back_buffer_width < (w8_ulong)info.width ||
             device.info.max_back_buffer_height < (w8_ulong)info.height) {
             return ERROR_INVALID_VALUE;
         }
