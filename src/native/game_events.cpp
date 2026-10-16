@@ -12,8 +12,6 @@
 
 // GLOBAL: WIZ8 0x006505a0
 bool gfLoadAtStartup = false;
-// GLOBAL: WIZ8 0x006505a1
-bool gfUsingBoundsChecker = false;
 // GLOBAL: WIZ8 0x006505a4
 std::string gzStringDataOverride;
 // GLOBAL: WIZ8 0x006505a8
