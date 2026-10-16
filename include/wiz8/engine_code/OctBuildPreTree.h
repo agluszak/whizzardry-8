@@ -49,10 +49,6 @@ struct W8OctRegionPolygon {
     /* Corner vertices of the shared build-vertex array; the material sort
        and SplitVertices repoint these at split copies. */
     W8OctPreTreeVertex* vertices[3];
-    unsigned short face_count;
-    unsigned char padding_42[2];
-    /* Growable per-polygon run the cleanup releases. */
-    int* face_indices;
     /* Whole source mesh face copied by the polygon builder. */
     W8ReadMeshFace face;
     unsigned char padding_71[3];
@@ -146,7 +142,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     std::vector<glm::vec3> region_centers;
     /* Region remap table indexed by old region id; RemapNodeRegions frees it
        after rewriting every leaf's region list through it. */
-    unsigned short* region_remap;
+    std::vector<unsigned short> region_remap;
     OctreeMeshLinks mesh_particle_links;
     OctreeMeshLinks mesh_prop_links;
     w8_ulong particle_count;

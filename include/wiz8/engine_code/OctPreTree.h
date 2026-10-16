@@ -5,6 +5,7 @@
 #define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 
 #include <span>
+#include <vector>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
@@ -143,7 +144,7 @@ struct W8OctPreTreeVertex {
        vertex's face run is walked once per pass. */
     bool m_visited;
     unsigned char padding_0b;
-    glm::vec3 position;
+    glm::vec3 position{0};
     /* Number of polygons referencing this vertex; SortGeometry counts and
        the region pass tracks the run bound. */
     short m_normal_count;
@@ -152,21 +153,15 @@ struct W8OctPreTreeVertex {
     /* The polygon automesh kind SplitVertices copies onto material-split
        duplicates. */
     w8_ulong m_kind;
-    glm::vec3 m_normal;
-    glm::vec3 m_light;
+    glm::vec3 m_normal{0};
+    glm::vec3 m_light{0};
     float* m_sun_lights;
-    unsigned short face_count;
-    unsigned char padding_42[2];
-    /* Growable run of polygon ordinals sharing this vertex, built by the
-       region pass; consecutive vertices may share one allocation. */
-    int* face_indices;
-    /* Second owned run freed by the geometry cleanup. */
-    int* owned;
+    std::vector<int> face_indices;
     /* Corner texture coordinate written when a polygon vertex is split. */
-    glm::vec2 m_uv;
+    glm::vec2 m_uv{0};
     /* Unscaled level-file position kept beside the engine-scaled
        position. */
-    glm::vec3 m_original_position;
+    glm::vec3 m_original_position{0};
 };
 
 /* The shared geometry context the 0x00493120 driver builds and hands to
@@ -177,26 +172,10 @@ struct W8OctPreTreeVertex {
 struct W8OctPreTreeGeometry {
     bool splitVerticesByMaterial();
     bool compact();
-    w8_ulong vertex_count;
-    W8OctPreTreeVertex* m_vertices;
-    w8_ulong m_polygon_count;
-    W8OctRegionPolygon* m_polygons;
-    w8_ulong positional2;
-    void* owned;
+    std::vector<W8OctPreTreeVertex> m_vertices;
+    std::vector<W8OctRegionPolygon> m_polygons;
     w8_ulong m_material_count;
     w8_ulong m_texture_count;
-    /* Largest per-vertex polygon reference count, refreshed by the region
-       assignment pass. */
-    unsigned short m_max_face_count;
-    unsigned char positional6[2];
-
-    /* Grow an owned face-index run at capacity boundaries. Retail narrows
-       count + capacity to 16 bits before allocation and returns a byte. */
-    unsigned char CheckArrayLength(int** run, unsigned short count, unsigned short capacity);
-
-    /* Frees the per-vertex polygon runs, both arrays and the owned +0x14
-       buffer; the preprocessing driver runs it during cleanup. */
-    void Release();
 };
 
 /* The 0x34-byte per-submesh build record SplitMeshes partitions polygons and
@@ -212,16 +191,16 @@ struct W8OctSubmeshBuild {
     w8_ulong vertex_count;
     w8_ulong m_map_count;
     w8_ulong m_polygon_count;
-    int* m_vertex_ids;
-    int* m_polygon_ids;
+    std::vector<int> m_vertex_ids;
+    std::vector<int> m_polygon_ids;
     /* Per-corner vertex indices (three per polygon); becomes the model's
        m_psrPolyVertex. */
-    glm::ivec3* m_poly_vertices;
+    std::vector<glm::ivec3> m_poly_vertices;
     /* Per-corner deduplicated uv indices; becomes the model's
        m_psrPolyUVIndex. */
-    glm::ivec3* m_poly_uv_index;
+    std::vector<glm::ivec3> m_poly_uv_index;
     /* The deduplicated uv pairs SplitUVMaps emits; becomes m_psrMap. */
-    glm::vec2* m_uv_map;
+    std::vector<glm::vec2> m_uv_map;
 };
 
 /* The 0xf5-byte NewLevel.oct file header shared by WriteOctFile and

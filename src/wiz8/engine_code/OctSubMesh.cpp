@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <exception>
 #include <memory>
 #include <span>
@@ -18,7 +18,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/srClass.h"
 #include "surrender/srMaterialIFace.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "wiz8/binary_reader.h"
@@ -29,7 +28,6 @@
 #include "wiz8/sr_api.h"
 
 class srTextureIFace;
-template<class T> class srVector3T;
 
 /* Engine Code\OctSubMesh.cpp. Read at 0x0049E9A0 asserts this unit
    (lines 0x1ad and 0x1d2); the constructor and destructor immediately before
@@ -60,6 +58,13 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
             std::ranges::transform(records, values.begin(), [](const auto& record) {
                 return glm::ivec3(record[0], record[1], record[2]);
             });
+        } else if constexpr (std::is_same_v<T, glm::vec2> || std::is_same_v<T, glm::vec3> ||
+                             std::is_same_v<T, glm::vec4>) {
+            std::vector<std::array<float, T::length()>> records(values.size());
+            file.read_exact(records.data(), records.size() * sizeof(records.front()));
+            for (std::size_t i = 0; i < values.size(); ++i)
+                for (int component = 0; component < T::length(); ++component)
+                    values[i][component] = records[i][component];
         } else {
             file.read_exact(values.data(), values.size_bytes());
         }
@@ -68,46 +73,29 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
     }
 }
 
-// Native mesh streams convert from the explicit three-float asset record.
-static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values, const char* get_message,
-                            const char* read_message)
-{
-    if (!values.data()) ShutdownWithErrorBox(get_message);
-    std::vector<srVector3> records(values.size());
-    ReadMeshArray(file, std::span(records), get_message, read_message);
-    std::ranges::transform(records, values.begin(),
-                           [](const srVector3& value) { return value.glmValue(); });
-}
-
-template<class T>
-static void ReleaseMeshArray(T*& values)
-{
-    std::free(values);
-    values = nullptr;
-}
-
-static void ReleaseMeshSunLights(float**& banks, short count)
-{
-    if (!banks) return;
-    for (short index = 0; index < count; ++index) ReleaseMeshArray(banks[index]);
-    ReleaseMeshArray(banks);
-}
-
 // Keep raw integer write exceptions and vector diagnostics distinct. Both
 // release their source only after successful I/O, in the field's disk order.
 template<class T>
-static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, int line,
+static void WriteAndConsumeMeshArray(wiz8::File& file, std::vector<T>& values, int count, int line,
                                      const char* message)
 {
     static_assert(std::is_trivially_copyable_v<T>);
     const auto write = [&] {
-        if (count < 0) throw std::runtime_error("Negative mesh record count");
-        const auto records = std::span<const T>(values, static_cast<std::size_t>(count));
+        if (count < 0 || std::cmp_greater(count, values.size()))
+            throw std::runtime_error("Invalid mesh record count");
+        const auto records = std::span<const T>(values).first(count);
         if constexpr (std::is_same_v<T, glm::ivec3>) {
             std::vector<std::array<std::int32_t, 3>> packed(records.size());
             std::ranges::transform(records, packed.begin(), [](const auto& triangle) {
                 return std::array<std::int32_t, 3>{triangle.x, triangle.y, triangle.z};
             });
+            file.write(packed.data(), packed.size() * sizeof(packed.front()));
+        } else if constexpr (std::is_same_v<T, glm::vec2> || std::is_same_v<T, glm::vec3> ||
+                             std::is_same_v<T, glm::vec4>) {
+            std::vector<std::array<float, T::length()>> packed(records.size());
+            for (std::size_t i = 0; i < records.size(); ++i)
+                for (int component = 0; component < T::length(); ++component)
+                    packed[i][component] = records[i][component];
             file.write(packed.data(), packed.size() * sizeof(packed.front()));
         } else {
             file.write(records.data(), records.size_bytes());
@@ -123,60 +111,7 @@ static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, in
                          message);
         }
     }
-    ReleaseMeshArray(values);
-}
-
-// FUNCTION: WIZ8 0x0049E4C0
-OctMeshModel::OctMeshModel()
-    : version(0), m_link_index(0), next_link(0), m_material_index(0), m_map_count(0),
-      m_vertex_locations(0), m_vertex_map(0), m_vertex_materials(0), m_poly_vertices(0),
-      m_poly_uv_index(0), m_poly_textures(0), m_vertex_normals(0), m_vertex_lights(0),
-      m_poly_equations(0), m_sun_lights(0), m_packed_header(0), m_vertex_count(0),
-      m_polygon_count(0)
-{
-}
-
-OctMeshModel::OctMeshModel(OctMeshModel&& other) noexcept : OctMeshModel()
-{
-    *this = std::move(other);
-}
-
-OctMeshModel& OctMeshModel::operator=(OctMeshModel&& other) noexcept
-{
-    std::swap(version, other.version);
-    std::swap(m_link_index, other.m_link_index);
-    std::swap(next_link, other.next_link);
-    std::swap(m_material_index, other.m_material_index);
-    std::swap(m_map_count, other.m_map_count);
-    std::swap(m_vertex_locations, other.m_vertex_locations);
-    std::swap(m_vertex_map, other.m_vertex_map);
-    std::swap(m_vertex_materials, other.m_vertex_materials);
-    std::swap(m_poly_vertices, other.m_poly_vertices);
-    std::swap(m_poly_uv_index, other.m_poly_uv_index);
-    std::swap(m_poly_textures, other.m_poly_textures);
-    std::swap(m_vertex_normals, other.m_vertex_normals);
-    std::swap(m_vertex_lights, other.m_vertex_lights);
-    std::swap(m_poly_equations, other.m_poly_equations);
-    std::swap(m_sun_lights, other.m_sun_lights);
-    std::swap(m_packed_header, other.m_packed_header);
-    std::swap(m_vertex_count, other.m_vertex_count);
-    std::swap(m_polygon_count, other.m_polygon_count);
-    return *this;
-}
-
-// FUNCTION: WIZ8 0x0049E500
-OctMeshModel::~OctMeshModel()
-{
-    ReleaseMeshArray(m_vertex_locations);
-    ReleaseMeshArray(m_vertex_map);
-    ReleaseMeshArray(m_vertex_materials);
-    ReleaseMeshArray(m_poly_vertices);
-    ReleaseMeshArray(m_poly_uv_index);
-    ReleaseMeshArray(m_poly_textures);
-    ReleaseMeshArray(m_vertex_normals);
-    ReleaseMeshArray(m_vertex_lights);
-    ReleaseMeshArray(m_poly_equations);
-    ReleaseMeshSunLights(m_sun_lights, version);
+    std::vector<T>{}.swap(values);
 }
 
 // FUNCTION: WIZ8 0x0049E5D0
@@ -199,7 +134,7 @@ bool OctMeshModel::Write(wiz8::File& hFile)
         WriteAndConsumeMeshArray(hFile, m_vertex_materials, m_vertex_count, 0x116,
                                  "OctMeshModel::Write -- Could not write m_plVertMats.\n");
     } else {
-        ReleaseMeshArray(m_vertex_materials);
+        m_vertex_materials.clear();
     }
     WriteAndConsumeMeshArray(hFile, m_poly_uv_index, m_polygon_count, 0x11f,
                              "OctMeshModel::Write -- Could not write m_psrPolyUVIndex.\n");
@@ -215,9 +150,9 @@ bool OctMeshModel::Write(wiz8::File& hFile)
                              "OctMeshModel::Write -- Could not write m_psrPolyEqtns.\n");
 
     if (version != 0) {
-        hFile.write(m_sun_lights[0], m_vertex_count * sizeof(float));
+        hFile.write(m_sun_lights[0].data(), m_vertex_count * sizeof(float));
     }
-    ReleaseMeshSunLights(m_sun_lights, version);
+    std::vector<std::vector<float>>{}.swap(m_sun_lights);
 
     int terminator = -1;
     hFile.write(&terminator, 4);
@@ -273,9 +208,9 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     vertex_locations = model->getVertexLoc();
-    ReadMeshVectors(*file, std::span(vertex_locations, m_vertex_count),
-                    "OctMeshModel::Read -- Could not get vertex location array.\n",
-                    "OctMeshModel::Read -- Could not read Integer fields.\n");
+    ReadMeshArray(*file, std::span(vertex_locations, m_vertex_count),
+                  "OctMeshModel::Read -- Could not get vertex location array.\n",
+                  "OctMeshModel::Read -- Could not read Integer fields.\n");
 
     model->setUVCount(m_map_count);
     vertex_map = model->getVertexTexCoords(0, 0, 1);
@@ -334,13 +269,13 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     vertex_normals = model->getVertexNormal();
-    ReadMeshVectors(*file, std::span(vertex_normals, m_vertex_count),
-                    "OctMeshModel::Read -- Could not get vertex normal array.\n",
-                    "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
+    ReadMeshArray(*file, std::span(vertex_normals, m_vertex_count),
+                  "OctMeshModel::Read -- Could not get vertex normal array.\n",
+                  "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
 
-    ReadMeshVectors(*file, model->GetVertexLights(true, -1),
-                    "OctMeshModel::Read -- Could not get static lighting array.\n",
-                    "OctMeshModel::Read -- Could not read m_pVertLights.\n");
+    ReadMeshArray(*file, model->GetVertexLights(true, -1),
+                  "OctMeshModel::Read -- Could not get static lighting array.\n",
+                  "OctMeshModel::Read -- Could not read m_pVertLights.\n");
 
     poly_equations = model->getPolyEq();
     ReadMeshArray(*file, std::span(poly_equations, static_cast<std::size_t>(m_polygon_count)),

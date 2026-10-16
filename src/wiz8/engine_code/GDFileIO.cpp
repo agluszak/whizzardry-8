@@ -16,8 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include <fmt/format.h>
-
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
@@ -819,25 +817,25 @@ static void LinkSurfaceEdge(int polygon, int edge,
    collision-flag faces first, fills the shared build vertex/polygon arrays
    and stitches polygon edge links. */
 static void InitializeCompiledSurface(W8GDSurface* compiled, const W8GDSurface* surface,
-                                      int polygon_count)
+                                      int polygon_count, W8OctPreTreeGeometry& geometry)
 {
     *compiled = *surface;
     compiled->edge_link[2] = -1;
     compiled->edge_link[1] = -1;
     compiled->edge_link[0] = -1;
     compiled->hit_plane = 0;
-    W8OctRegionPolygon* polygon = g_gd_polygons + polygon_count;
+    W8OctRegionPolygon* polygon = geometry.m_polygons.data() + polygon_count;
     polygon->ordinal = polygon_count;
     polygon->plane = compiled->plane;
     polygon->degenerate = 0;
     polygon->visited = false;
-    polygon->vertices[0] = g_gd_vertices + compiled->vertex_indices[0];
-    polygon->vertices[1] = g_gd_vertices + compiled->vertex_indices[1];
-    polygon->vertices[2] = g_gd_vertices + compiled->vertex_indices[2];
+    polygon->vertices[0] = geometry.m_vertices.data() + compiled->vertex_indices[0];
+    polygon->vertices[1] = geometry.m_vertices.data() + compiled->vertex_indices[1];
+    polygon->vertices[2] = geometry.m_vertices.data() + compiled->vertex_indices[2];
 }
 
 // FUNCTION: WIZ8 0x00449D10
-void W8GameData::CompileGameData()
+W8OctPreTreeGeometry W8GameData::CompileGameData()
 {
     std::unordered_map<unsigned int, int> weld_table;
     std::unordered_multimap<unsigned int, int> edge_table;
@@ -854,19 +852,13 @@ void W8GameData::CompileGameData()
     ReportStartupMessage("Processing GameData geometry...\n");
     IntegrateTriggerGeometry();
     if (VerticesCount() == 0 || SurfacesCount() == 0) {
-        return;
+        return {};
     }
 
     std::vector<W8OctPreTreeVertex> weld_storage(VerticesCount());
     auto* weld_records = weld_storage.data();
-    g_gd_vertices =
-        static_cast<W8OctPreTreeVertex*>(malloc(VerticesCount() * sizeof(W8OctPreTreeVertex)));
-    if (g_gd_vertices == 0) {
-        ReportBuildStatus(
-            7, fmt::format("CompileGameData: Couldn't allocate {:d} NewGDVerts ({:d}K)\n",
-                           VerticesCount(), VerticesCount() * sizeof(W8OctPreTreeVertex) / 1024));
-    }
-    memset(g_gd_vertices, 0, VerticesCount() * sizeof(W8OctPreTreeVertex));
+    W8OctPreTreeGeometry geometry{};
+    geometry.m_vertices.resize(VerticesCount());
     std::vector<int> cond_polys(CondPolysCount());
     std::vector<glm::vec3> compiled_vertices(VerticesCount());
     auto* new_vertices = compiled_vertices.data();
@@ -875,7 +867,7 @@ void W8GameData::CompileGameData()
         W8OctPreTreeVertex* vertex = weld_records;
         const glm::vec3* source = m_pVertices.data();
         glm::vec3* new_vertex = new_vertices;
-        W8OctPreTreeVertex* gd_vertex = g_gd_vertices;
+        W8OctPreTreeVertex* gd_vertex = geometry.m_vertices.data();
         for (i = 0; i < VerticesCount(); ++i) {
             vertex->position = *source;
             unsigned int percent =
@@ -947,12 +939,7 @@ void W8GameData::CompileGameData()
     unsigned int multiplier =
         weld_count < 0xffff ? 0xffff : 0xffffffffu / static_cast<unsigned int>(weld_count);
 
-    g_gd_polygons =
-        static_cast<W8OctRegionPolygon*>(malloc(SurfacesCount() * sizeof(W8OctRegionPolygon)));
-    if (g_gd_polygons == 0) {
-        ReportBuildStatus(7, "CompileGameData: Couldn't allocate gpGDPolys.");
-    }
-    memset(g_gd_polygons, 0, SurfacesCount() * sizeof(W8OctRegionPolygon));
+    geometry.m_polygons.resize(SurfacesCount());
     std::vector<W8GDSurface> compiled_surfaces(SurfacesCount());
     auto* new_surfaces = compiled_surfaces.data();
 
@@ -962,7 +949,7 @@ void W8GameData::CompileGameData()
         auto& surface = m_pSurfaces[old_index];
         surface.index = polygon_count;
         if (!(surface.flags & W8_GD_SURFACE_WALKABLE)) surface.slope = 0;
-        InitializeCompiledSurface(new_surfaces + polygon_count, &surface, polygon_count);
+        InitializeCompiledSurface(new_surfaces + polygon_count, &surface, polygon_count, geometry);
         for (int edge = 0; edge < 3; ++edge)
             LinkSurfaceEdge(polygon_count, edge, &edge_table, new_surfaces, multiplier,
                             new_vertices);
@@ -981,6 +968,7 @@ void W8GameData::CompileGameData()
     m_piCondPolys.swap(cond_polys);
     sprintf(message, "GameData:  %d Polygons,  \t%d Vertices.\n\n", polygon_count, weld_count);
     ReportBuildStatus(6, message);
+    return geometry;
 }
 
 /* Tests two polygons for a shared vertex pair; when they share an edge the
