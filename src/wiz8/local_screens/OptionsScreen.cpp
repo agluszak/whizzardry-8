@@ -1751,6 +1751,7 @@ void W8OptionsScreen::OnDialogClosed(bool accepted, int)
    display and region systems to their common screen boundary. */
 unsigned char OptionsScreenLeave(int)
 {
+    if (!g_options_screen) return 1; // Already released when it was suspended.
     g_options_values.applying = 1;
     g_options_values.TransferSettings();
     g_options_screen.reset();
@@ -1804,21 +1805,13 @@ unsigned char OptionsScreenEnter()
    region dispatch; only an unhandled Escape requests the screen transition. */
 void OptionsScreenFrame()
 {
-    SDL_Point point;
-
     if (g_dev_mode) {
         RequestExitScreen();
     }
     RepositionAmbientSounds(g_world);
     UpdateAmbientSounds(g_world);
     ServiceMusicPlaylist();
-    SGPMouseGetPos(&point);
-
     W8OptionsScreen* screen = g_options_screen.get();
-    if (screen->m_text_editor != 0) {
-        UpdateUiPointer(point.x, point.y);
-        screen = g_options_screen.get();
-    }
 
     auto& active_modal = screen->m_active_modal;
     if (active_modal) {

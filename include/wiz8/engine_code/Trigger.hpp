@@ -3,7 +3,6 @@
 #include <source_location>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srClass.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -180,7 +179,7 @@ enum W8TriggerRepresentationKind {
 
 class Trigger : public srClass {
 public:
-    typedef bool(__cdecl* ActivationCallback)(Trigger* trigger);
+    typedef bool (*ActivationCallback)(Trigger* trigger);
 
     Trigger();
     virtual ~Trigger() override;

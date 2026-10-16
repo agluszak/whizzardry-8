@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_uint2.hpp"
@@ -622,7 +621,7 @@ public:
 
 /* Move an integer path cell one compass step; directions outside the
    eight-value range wrap once. */
-void __stdcall StepPathCell(int* x, int* z, int direction);
+void StepPathCell(int* x, int* z, int direction);
 
 extern W8PathingService* g_pathing;
 extern unsigned short g_path_reserve;

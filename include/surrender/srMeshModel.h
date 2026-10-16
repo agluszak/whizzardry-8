@@ -72,13 +72,13 @@ public:
         PolygonSelection active_polygons;
     };
 
-    SR_DLL_IMPORT srMeshModel(w8_long polygons = 0, w8_long vertices = 0);
+    srMeshModel(w8_long polygons = 0, w8_long vertices = 0);
     srMeshModel(const srMeshModel&) = delete;
 
-    SR_DLL_IMPORT void reset(w8_long polygons, w8_long vertices);
-    SR_DLL_IMPORT void scale(const glm::vec3& scale);
+    void reset(w8_long polygons, w8_long vertices);
+    void scale(const glm::vec3& scale);
     void applyMatrix(const glm::mat3& matrix);
-    SR_DLL_IMPORT void relocateVertices(const glm::vec3& offset);
+    void relocateVertices(const glm::vec3& offset);
     void centerVertices();
     double getAverageRadius();
     double getMaxRadius();
@@ -90,30 +90,26 @@ public:
 
     Bounds getBounds() override;
     bool isVisible(srGERD& renderer);
-    SR_DLL_IMPORT virtual void render(class srGERD& renderer) override;
-    SR_DLL_IMPORT virtual void reindexPolygons(std::span<const w8_ulong> indices);
-    SR_DLL_IMPORT virtual void reindexVertices(std::span<const w8_ulong> indices);
-    SR_DLL_IMPORT virtual TriMesh getTriMesh();
-    SR_DLL_IMPORT virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
-    SR_DLL_IMPORT std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer,
-                                                                  int table);
-    SR_DLL_IMPORT glm::ivec3* getPolyVertex();
-    SR_DLL_IMPORT glm::ivec3* getPolyUVIndex(w8_long layer, int table);
-    SR_DLL_IMPORT glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
-    SR_DLL_IMPORT std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side,
-                                                                      int table);
-    SR_DLL_IMPORT w8_ulong* getVertexShadeIndex(int table);
-    SR_DLL_IMPORT glm::vec3* getVertexNormal();
-    SR_DLL_IMPORT glm::vec4* getPolyEq();
-    SR_DLL_IMPORT glm::vec3* getVertexDIG(w8_long vertex, int table);
+    virtual void render(class srGERD& renderer) override;
+    virtual void reindexPolygons(std::span<const w8_ulong> indices);
+    virtual void reindexVertices(std::span<const w8_ulong> indices);
+    virtual TriMesh getTriMesh();
+    virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
+    std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
+    glm::ivec3* getPolyVertex();
+    glm::ivec3* getPolyUVIndex(w8_long layer, int table);
+    glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
+    std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
+    w8_ulong* getVertexShadeIndex(int table);
+    glm::vec3* getVertexNormal();
+    glm::vec4* getPolyEq();
+    glm::vec3* getVertexDIG(w8_long vertex, int table);
     glm::vec4* getVertexSCG(w8_long vertex, int table);
     glm::vec4* getVertexDCG(w8_long vertex, int table);
-    SR_DLL_IMPORT srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
-    SR_DLL_IMPORT srTextureIFace* getTexture(w8_long polygon, w8_long layer) const;
-    SR_DLL_IMPORT void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long polygon,
-                                   e_side side);
-    SR_DLL_IMPORT void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long polygon,
-                                  w8_long layer);
+    srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
+    srTextureIFace* getTexture(w8_long polygon, w8_long layer) const;
+    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long polygon, e_side side);
+    void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long polygon, w8_long layer);
     // FUNCTION: SURRENDER 0x10041710 SYMBOL
     // RECOMP: ?setDirty@srMeshModel@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
@@ -129,13 +125,13 @@ public:
     // FUNCTION: SURRENDER 0x10041770 SYMBOL
     // RECOMP: ?testDirty@srMeshModel@@QBEHW4e_flags@1@@Z
     int testDirty(e_flags flag) const { return (dirty_flags & (1 << flag)) != 0; }
-    SR_DLL_IMPORT srShader* getPolyShader(w8_long polygon, int layer);
-    SR_DLL_IMPORT srShader getShader(w8_long polygon) const;
-    SR_DLL_IMPORT void setShader(srShader shader, w8_long pass);
-    SR_DLL_IMPORT void setUVCount(w8_long count);
+    srShader* getPolyShader(w8_long polygon, int layer);
+    srShader getShader(w8_long polygon) const;
+    void setShader(srShader shader, w8_long pass);
+    void setUVCount(w8_long count);
     w8_long getUVCount() const;
-    SR_DLL_IMPORT void setActivePolygonCount(w8_long count);
-    SR_DLL_IMPORT w8_long getActivePolygonCount();
+    void setActivePolygonCount(w8_long count);
+    w8_long getActivePolygonCount();
     w8_long getPassCount() const;
     w8_long getPolygonCount() const;
     w8_long getVertexCount() const;
@@ -165,18 +161,18 @@ public:
     }
     void setDirtyBounds();
     void setDirtyNormals();
-    SR_DLL_IMPORT w8_ulong* getActivePolygonTable(int table);
-    SR_DLL_IMPORT glm::vec3* getVertexLoc();
+    w8_ulong* getActivePolygonTable(int table);
+    glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
-    SR_DLL_IMPORT void setBounds(const glm::vec3& minimum, const glm::vec3& maximum,
-                                 const glm::vec3& center, float radius);
+    void setBounds(const glm::vec3& minimum, const glm::vec3& maximum, const glm::vec3& center,
+                   float radius);
 
 protected:
-    SR_DLL_IMPORT virtual void updateTriMesh();
-    SR_DLL_IMPORT virtual void calculateBounds();
-    SR_DLL_IMPORT virtual void calculatePolygonNormals();
-    SR_DLL_IMPORT virtual void calculateVertexNormals();
+    virtual void updateTriMesh();
+    virtual void calculateBounds();
+    virtual void calculatePolygonNormals();
+    virtual void calculateVertexNormals();
 
 public:
     /* setMaterial indexes [pass][side]. */

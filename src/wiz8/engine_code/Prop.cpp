@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
@@ -165,7 +166,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
-            if (prop->m_name != 0 && _stricmp(prop->m_name, name) == 0) {
+            if (prop->m_name != 0 && SDL_strcasecmp(prop->m_name, name) == 0) {
                 return prop;
             }
         }

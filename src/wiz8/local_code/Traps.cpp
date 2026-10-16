@@ -9,9 +9,9 @@
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
-#include "compat/native.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
@@ -132,7 +132,7 @@ void ApplyRecordModeLine(void)
 {
     char message[1024];
 
-    if (_stricmp(g_record_mode_line, s_delete_log) != 0) {
+    if (SDL_strcasecmp(g_record_mode_line, s_delete_log) != 0) {
         WriteRecordModeEntry();
         return;
     }

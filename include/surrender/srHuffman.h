@@ -9,12 +9,12 @@ class srHuffman {
 public:
     class BitIStream {
     public:
-        SR_DLL_IMPORT BitIStream(SDL_IOStream* stream);
-        SR_DLL_IMPORT w8_ulong get(w8_ulong bits);
+        BitIStream(SDL_IOStream* stream);
+        w8_ulong get(w8_ulong bits);
         // Padded lookahead does not consume bits; get validates consumption.
         w8_ulong peekByte();
-        SR_DLL_IMPORT w8_ulong getBit();
-        SR_DLL_IMPORT void rewind(w8_long bits);
+        w8_ulong getBit();
+        void rewind(w8_long bits);
 
     private:
         BitIStream(const BitIStream& stream);
@@ -35,11 +35,11 @@ public:
 
     class BitOStream {
     public:
-        SR_DLL_IMPORT BitOStream(SDL_IOStream* stream);
-        SR_DLL_IMPORT ~BitOStream();
+        BitOStream(SDL_IOStream* stream);
+        ~BitOStream();
         // Explicitly flush before inspecting output or returning success.
         void flush();
-        SR_DLL_IMPORT void put(w8_ulong value, w8_ulong bits);
+        void put(w8_ulong value, w8_ulong bits);
 
     private:
         BitOStream(const BitOStream& stream);
@@ -65,12 +65,12 @@ public:
         };
 
         // FUNCTION: SURRENDER 0x10001840
-        SR_DLL_IMPORT Sampler() = default;
+        Sampler() = default;
 
-        SR_DLL_IMPORT void insert(w8_ulong symbol);
-        SR_DLL_IMPORT w8_ulong getNumSymbols() const;
-        SR_DLL_IMPORT w8_ulong getSymbolValue(w8_ulong index) const;
-        SR_DLL_IMPORT w8_ulong getSymbolFrequency(w8_ulong index) const;
+        void insert(w8_ulong symbol);
+        w8_ulong getNumSymbols() const;
+        w8_ulong getSymbolValue(w8_ulong index) const;
+        w8_ulong getSymbolFrequency(w8_ulong index) const;
 
     private:
         std::unordered_map<w8_ulong, size_t> table;
@@ -88,11 +88,11 @@ public:
             Node* children[2];
         };
 
-        SR_DLL_IMPORT Compressor(const Sampler& sampler);
+        Compressor(const Sampler& sampler);
 
-        SR_DLL_IMPORT void storeSymbolTable(BitOStream& stream);
-        SR_DLL_IMPORT void buildSymbolTree();
-        SR_DLL_IMPORT void collectSymbols(const Sampler& sampler);
+        void storeSymbolTable(BitOStream& stream);
+        void buildSymbolTree();
+        void collectSymbols(const Sampler& sampler);
 
         // FUNCTION: SURRENDER 0x10001430
         void compressSymbol(BitOStream& stream, w8_ulong symbol)
@@ -122,9 +122,9 @@ public:
 
     class Decompressor {
     public:
-        SR_DLL_IMPORT Decompressor(BitIStream& stream);
-        SR_DLL_IMPORT w8_ulong decompressSymbol();
-        SR_DLL_IMPORT w8_ulong getDataCount() const;
+        Decompressor(BitIStream& stream);
+        w8_ulong decompressSymbol();
+        w8_ulong getDataCount() const;
 
     private:
         struct Symbol {

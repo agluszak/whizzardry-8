@@ -27,7 +27,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -108,9 +107,9 @@ struct UseItemView {
 std::unique_ptr<UseItemView> use_item;
 }
 
-void EnableUseItemSelectInput()
+void SetUseItemSelectInputEnabled(bool enabled)
 {
-    if (use_item) use_item->input.setEnabled(true);
+    if (use_item) use_item->input.setEnabled(enabled);
 }
 
 void UpdateUseItemScrollButtons(void);
@@ -788,7 +787,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     short count;
     bool charges = false;
 
-    use_item->item_image = g_item_video_objects.SharedSprites(item->iItemNo);
+    use_item->item_image = ItemSprites(item->iItemNo);
     count = 0;
     switch (g_item_records[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_STACK:

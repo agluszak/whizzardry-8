@@ -31,7 +31,6 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -108,7 +107,7 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character, SDL_P
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
-    UseInfoPopupInput(m_scroll_bar);
+    UseInfoPopup({m_text_area, m_scroll_bar});
 
     m_character = character;
     m_item = item;
@@ -506,7 +505,7 @@ void W8AssayDialog::PopulateText()
 void W8AssayDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
-    DrawSprite(target, g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45, m_y + 0xe);
+    DrawSprite(target, *ItemSprites(m_item->iItemNo), 0, m_x + 0x45, m_y + 0xe);
     if (!m_item->identified) CatalogArtwork::Load(0x11b, 0).draw(target, 0, m_x + 0x45, m_y + 0xe);
     for (auto& button : m_buttons) button.Draw(target);
     for (auto& text : m_text_buffers)
@@ -914,7 +913,5 @@ bool W8AssayDialog::TakeDirty()
     for (auto& button : m_buttons) dirty |= button.TakeDirty();
     for (auto& text : m_text_buffers)
         if (text) dirty |= std::exchange(text->m_geometryDirty, false);
-    dirty |= m_text_area.TakeDirty();
-    dirty |= m_scroll_bar.TakeDirty();
     return dirty;
 }

@@ -14,7 +14,7 @@
 #include "srTextureIFace.h"
 
 // VTABLE: SURRENDER 0x10076C88 srModeler
-class SR_DLL_IMPORT srModeler {
+class srModeler {
 public:
     /* Axis selector indexing the position components. */
     enum e_axis { AXIS_X = 0, AXIS_Y = 1, AXIS_Z = 2 };

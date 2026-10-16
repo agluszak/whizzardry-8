@@ -31,7 +31,6 @@
 #include "OctBuildTree.h"
 #include "OctMeshModel.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "geometry.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -1948,12 +1947,6 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
     srShader* render_flags = &result.render_flags;
     char texture_path[80] = "";
     char material_name[80] = "";
-    char drive[_MAX_PATH];
-    char directory[_MAX_PATH];
-    char file_name[_MAX_PATH];
-    char extension[_MAX_PATH];
-    char texture_folder[_MAX_PATH];
-    char texture_file[_MAX_PATH];
     int texture_index = -1;
     bool has_alpha = false;
     int index;
@@ -1980,16 +1973,20 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
     if (texture_path[0] == '\0') {
         render_flags->value &= ~srShader::MASK_TEXTURING;
     } else {
-        _splitpath(texture_path, drive, directory, file_name, extension);
-        strcpy(texture_folder, drive);
-        strcat(texture_folder, directory);
-        strcpy(texture_file, file_name);
-        strcat(texture_file, extension);
+        const std::string_view path = texture_path;
+        const auto separator = path.find_last_of("\\/");
+        const std::size_t file_start = separator == std::string_view::npos ? 0 : separator + 1;
+        const std::string texture_folder(path.substr(0, file_start));
+        const std::string texture_file(path.substr(file_start));
+        const auto dot = texture_file.rfind('.');
+        const char* extension =
+            texture_file.c_str() + (dot == std::string::npos ? texture_file.size() : dot);
 
-        if (strlen(texture_path) > 3 && _strnicmp(extension, ".IFL", 4) == 0) {
-            texture = LoadAnimatedTexture(texture_folder, texture_file, source, true);
+        if (path.size() > 3 && SDL_strncasecmp(extension, ".IFL", 4) == 0) {
+            texture =
+                LoadAnimatedTexture(texture_folder.c_str(), texture_file.c_str(), source, true);
         } else {
-            texture = LoadTextureFromFolder(texture_folder, texture_file, true);
+            texture = LoadTextureFromFolder(texture_folder.c_str(), texture_file.c_str(), true);
         }
         if (texture == 0) {
             return result;
@@ -2118,7 +2115,7 @@ std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
     const auto split = full_path.find_last_of("/\\:");
     const std::string folder(full_path.substr(0, split == full_path.npos ? 0 : split + 1));
     const std::string name(full_path.substr(split == full_path.npos ? 0 : split + 1));
-    if (name.size() >= 4 && _stricmp(name.c_str() + name.size() - 4, ".IFL") == 0)
+    if (name.size() >= 4 && SDL_strcasecmp(name.c_str() + name.size() - 4, ".IFL") == 0)
         return LoadAnimatedTexture(folder.c_str(), name.c_str(), source, required);
     return LoadTextureFromFolder(folder.c_str(), name.c_str(), required);
 }

@@ -11,9 +11,9 @@
 #include <string>
 #include <utility>
 
+#include <SDL3/SDL_stdinc.h>
 #include <glm/gtc/matrix_access.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -750,7 +750,7 @@ unsigned char stParticle::ReplaceTexture(const char* old_name,
 {
     if ((dynamic_cast<stTextureFile*>(texture.get()) ||
          dynamic_cast<stTextureAnim*>(texture.get())) &&
-        _stricmp(texture->getName().c_str(), old_name) == 0) {
+        SDL_strcasecmp(texture->getName().c_str(), old_name) == 0) {
         SetTexture(std::move(replacement));
         return 1;
     }

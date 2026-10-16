@@ -733,7 +733,7 @@ const double g_half_day_ms = 43200000.0;
    unit range in place. A product helper like SaturateColor: no matching
    srVector3T method survives in the SurRender headers. */
 // FUNCTION: WIZ8 0x00483d70
-srVector3T<float>* __fastcall ScaleColourAndSaturate(srVector3T<float>* colour, double scale)
+srVector3T<float>* ScaleColourAndSaturate(srVector3T<float>* colour, double scale)
 {
     float x = colour->x * static_cast<float>(scale);
     colour->x = x;

@@ -1,8 +1,11 @@
+#include <memory>
 #include <string>
 #pragma once
 
-void InitializeItemVideoObjects(void);
 void ReleaseGenericItemNames(void);
+struct SpriteSheet;
+/* The item's inventory artwork, shared through the image asset cache. */
+std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -221,7 +224,7 @@ void EmptyBackpackSlot(W8Character* character, int slot);
 void EmptyPartyPoolEntry(int index);
 void UpgradeProfessionClassItem(W8Character* character);
 
-int __cdecl CompareItemsForPool(const void* first, const void* second);
+int CompareItemsForPool(const void* first, const void* second);
 void UpdateGadgeteerOmnigun(W8Character* character);
 void BindEveryPartyItem(void);
 /* Whether the item's equip class is directly usable (0x17/0x19). */

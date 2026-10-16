@@ -8,7 +8,6 @@
 #include <fmt/printf.h>
 
 #include "attack_modes.h"
-#include "compat/native.h"
 #include "dice.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
@@ -698,7 +697,7 @@ struct W8SpellPointDeficit {
 };
 
 // FUNCTION: WIZ8 0x0052B8E0
-int __cdecl CompareSpellPointDeficits(const void* first, const void* second)
+int CompareSpellPointDeficits(const void* first, const void* second)
 {
     const W8SpellPointDeficit* a = static_cast<const W8SpellPointDeficit*>(first);
     const W8SpellPointDeficit* b = static_cast<const W8SpellPointDeficit*>(second);

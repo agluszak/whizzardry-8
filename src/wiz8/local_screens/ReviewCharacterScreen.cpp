@@ -56,7 +56,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -598,8 +597,7 @@ void DrawCampBackpackItems(void)
             CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
         }
         if (item_id != -1) {
-            DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 0, left + 1,
-                       top + 1);
+            DrawSprite(GetFrameBufferSurface(), *ItemSprites(item_id), 0, left + 1, top + 1);
             DrawCampItemQuantity(&character->backpack[slot], left + 1, top + 0x28, 0x2c);
             if (!character->backpack[slot].identified) {
                 CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
@@ -659,8 +657,8 @@ void DrawCampEquipmentItems(void)
                 }
             }
         } else {
-            DrawSpriteAndInvalidate(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id),
-                                    1, region->x, region->y);
+            DrawSpriteAndInvalidate(GetFrameBufferSurface(), *ItemSprites(item_id), 1, region->x,
+                                    region->y);
             DrawCampItemQuantity(&character->EquippedItem[slot], region->x + 2,
                                  region->y + region->height - 0xd, region->width - 4);
             if (!character->EquippedItem[slot].identified) {
@@ -786,8 +784,7 @@ void DrawCampItemPool(void)
                 GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
                 top);
         }
-        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
-                   left + 1, top + 1);
+        DrawSprite(GetFrameBufferSurface(), *ItemSprites(item->iItemNo), 0, left + 1, top + 1);
         DrawCampItemQuantity(item, left + 1, top + 0x28, 0x2c);
         if (!item->identified) {
             CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
@@ -1264,51 +1261,43 @@ void CampScreenFrame(void)
         !gXStatus.fCombatMode && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
-    SDL_Point point;
-    SGPMouseGetPos(&point);
-    UpdateUiPointer(point.x, point.y);
     if (!g_camp_screen->dialog)
-        PumpUiInput({.unhandled =
-                         [&](const InputEvent& input) {
-                             if (input.type == InputEventType::KeyDown) {
-                                 if (input.key == SDLK_ESCAPE) {
-                                     if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
-                                         g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
-                                         if (!g_camp_character_pending) {
-                                             BeginCombatRound();
-                                             RequestScreenTransition();
-                                         } else {
-                                             SelectCampCharacter(
-                                                 CharacterPointerToPartySlot(g_camp_character));
-                                             if (!IsPartySlotEligible(giReviewCharSlot)) {
-                                                 std::string text =
-                                                     fmt::sprintf(g_localized_strings[0x931],
-                                                                  g_camp_character->name);
-                                                 ShowCampNoticeLine(text, 0, true, false);
-                                             } else {
-                                                 QueueCharacterEvent(g_camp_character, g_effect36,
-                                                                     0, g_effect_argument0,
-                                                                     g_character_event_full_volume);
-                                             }
-                                         }
-                                     } else {
-                                         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-                                     }
-                                 } else if (input.key == SDLK_P) {
-                                     if (g_status.game_started) {
-                                         SortPartyItemPool();
-                                     }
-                                 } else if (input.key == SDLK_X &&
-                                            ((GetInputState().modifiers & ALT_DOWN) != 0) &&
-                                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
-                                            ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
-                                     ShowCampNoticeLine(g_localized_strings[0x832],
-                                                        OnQuitGameDialogClosed, true, true);
-                                 }
-                             }
-                             return InputRoute::Handled;
-                         },
-                     .track_hover = false});
+        PumpUiInput({.unhandled = [&](const InputEvent& input) {
+            if (input.type == InputEventType::KeyDown) {
+                if (input.key == SDLK_ESCAPE) {
+                    if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
+                        g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
+                        if (!g_camp_character_pending) {
+                            BeginCombatRound();
+                            RequestScreenTransition();
+                        } else {
+                            SelectCampCharacter(CharacterPointerToPartySlot(g_camp_character));
+                            if (!IsPartySlotEligible(giReviewCharSlot)) {
+                                std::string text = fmt::sprintf(g_localized_strings[0x931],
+                                                                g_camp_character->name);
+                                ShowCampNoticeLine(text, 0, true, false);
+                            } else {
+                                QueueCharacterEvent(g_camp_character, g_effect36, 0,
+                                                    g_effect_argument0,
+                                                    g_character_event_full_volume);
+                            }
+                        }
+                    } else {
+                        SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
+                    }
+                } else if (input.key == SDLK_P) {
+                    if (g_status.game_started) {
+                        SortPartyItemPool();
+                    }
+                } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
+                           ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
+                           ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
+                    ShowCampNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true,
+                                       true);
+                }
+            }
+            return InputRoute::Handled;
+        }});
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
         !TimeUntilDeadline(g_camp_screen->animation_timer)) {
         for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -1335,6 +1324,7 @@ void CampScreenFrame(void)
 
 unsigned char CampScreenLeave(int)
 {
+    if (!g_camp_screen) return 1; // Already released when it was suspended.
     DeactivateCampPage();
     g_smfnt_font.resetPalette();
     g_calligraphy_font.resetPalette();
@@ -2357,7 +2347,7 @@ void BeginEndgameSequence(void)
         fade_code = 1;
         endgame_variant = true;
     }
-    ResetUiInput();
+    SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.
     VideoRemoveToolTip();
     g_level_block->review_transition_active = true;
     BeginScreenFade(fade_to_black, 0, fade_code, ShowEndingScreen, true, endgame_variant);
@@ -2467,7 +2457,7 @@ void BeginPartyDeath(void)
     UpdateHeldItemCursor();
     wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
-    ResetUiInput();
+    SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.
     VideoRemoveToolTip();
     BeginScreenFade(1, 0, 0x7d0, DrawPartyDeathScreen, true, 0);
     g_level_block->review_transition_active = true;

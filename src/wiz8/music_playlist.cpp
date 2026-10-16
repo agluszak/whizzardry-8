@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
 #include "audio_resources.h"
@@ -76,7 +77,7 @@ void SetMusicMuted(unsigned char muted)
 // FUNCTION: WIZ8 0x00490180
 bool IsCurrentMusicPlaylist(const char* playlist)
 {
-    return _stricmp(playlist, g_music_playlist->getName().c_str()) == 0;
+    return SDL_strcasecmp(playlist, g_music_playlist->getName().c_str()) == 0;
 }
 
 // FUNCTION: WIZ8 0x0048f940
@@ -106,11 +107,11 @@ int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
         const char* line = entry.text.c_str();
 
         if (line[0] == '#') {
-            if (_strnicmp(line + 1, "PAUSEMIN=", 9) == 0) {
+            if (SDL_strncasecmp(line + 1, "PAUSEMIN=", 9) == 0) {
                 g_music_pause_min_seconds = atoi(line + 10);
-            } else if (_strnicmp(line + 1, "PAUSEMAX=", 9) == 0) {
+            } else if (SDL_strncasecmp(line + 1, "PAUSEMAX=", 9) == 0) {
                 g_music_pause_max_seconds = atoi(line + 10);
-            } else if (_strnicmp(line + 1, "PAUSECHANCE=", 12) == 0) {
+            } else if (SDL_strncasecmp(line + 1, "PAUSECHANCE=", 12) == 0) {
                 g_music_pause_chance_percent = atoi(line + 13);
             }
             continue;
@@ -205,7 +206,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     }
 
     path = fmt::format("Data\\Music\\{}", resource);
-    _strupr(path.data());
+    SDL_strupr(path.data());
     g_music_fade = static_cast<unsigned char>(fade);
 
     if (strstr(path.c_str(), ".MPL") == 0) {
@@ -227,7 +228,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         return 1;
     }
 
-    if (_stricmp(resource, g_music_playlist->getName().c_str()) == 0) {
+    if (SDL_strcasecmp(resource, g_music_playlist->getName().c_str()) == 0) {
         return 1;
     }
 

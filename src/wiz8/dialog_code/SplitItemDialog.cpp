@@ -21,7 +21,6 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
@@ -237,7 +236,7 @@ void W8SplitItemDialog::CreateNumericInput()
 void W8SplitItemDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
-    DrawSprite(target, g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18, m_y + 0xe);
+    DrawSprite(target, *ItemSprites(m_item->iItemNo), 0, m_x + 0x18, m_y + 0xe);
     for (auto& button : m_buttons) button.Draw(target);
     for (auto& text : m_texts)
         if (text) text->Paint(target);

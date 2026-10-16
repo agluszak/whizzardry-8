@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -432,55 +433,55 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
             argument[0] = '\0';
             sscanf(line, "%s %s", command, argument);
 
-            if (_stricmp(command, "movementrate") == 0) {
+            if (SDL_strcasecmp(command, "movementrate") == 0) {
                 sscanf(line, "%s %f", command, &movement_rate);
-            } else if (_stricmp(command, "RotationRate") == 0) {
+            } else if (SDL_strcasecmp(command, "RotationRate") == 0) {
                 sscanf(line, "%s %f", command, &rotation_rate);
-            } else if (_stricmp(command, "scalefactor") == 0) {
+            } else if (SDL_strcasecmp(command, "scalefactor") == 0) {
                 sscanf(line, "%s %f", command, &scale_factor);
-            } else if (_stricmp(command, "walkradius") == 0) {
+            } else if (SDL_strcasecmp(command, "walkradius") == 0) {
                 sscanf(line, "%s %f", command, &walk_radius);
-            } else if (_stricmp(command, "fightradius") == 0) {
+            } else if (SDL_strcasecmp(command, "fightradius") == 0) {
                 sscanf(line, "%s %f", command, &fight_radius);
-            } else if (_stricmp(command, "targetheight") == 0) {
+            } else if (SDL_strcasecmp(command, "targetheight") == 0) {
                 sscanf(line, "%s %f", command, &target_height);
-            } else if (_stricmp(command, "cameraheight") == 0) {
+            } else if (SDL_strcasecmp(command, "cameraheight") == 0) {
                 sscanf(line, "%s %f", command, &camera_height);
-            } else if (_stricmp(command, "deathscale") == 0) {
+            } else if (SDL_strcasecmp(command, "deathscale") == 0) {
                 sscanf(line, "%s %f", command, &death_scale);
-            } else if (_stricmp(command, "scalerangestart") == 0) {
+            } else if (SDL_strcasecmp(command, "scalerangestart") == 0) {
                 sscanf(line, "%s %f", command, &scale_range_start);
-            } else if (_stricmp(command, "scalerangeend") == 0) {
+            } else if (SDL_strcasecmp(command, "scalerangeend") == 0) {
                 sscanf(line, "%s %f", command, &scale_range_end);
-            } else if (_stricmp(command, "hoverrangestart") == 0) {
+            } else if (SDL_strcasecmp(command, "hoverrangestart") == 0) {
                 sscanf(line, "%s %f", command, &hover_range_start);
-            } else if (_stricmp(command, "hoverrangeend") == 0) {
+            } else if (SDL_strcasecmp(command, "hoverrangeend") == 0) {
                 sscanf(line, "%s %f", command, &hover_range_end);
-            } else if (_stricmp(command, "bobrangestart") == 0) {
+            } else if (SDL_strcasecmp(command, "bobrangestart") == 0) {
                 sscanf(line, "%s %f", command, &bob_range_start);
-            } else if (_stricmp(command, "bobrangeend") == 0) {
+            } else if (SDL_strcasecmp(command, "bobrangeend") == 0) {
                 sscanf(line, "%s %f", command, &bob_range_end);
-            } else if (_stricmp(command, "missilestart") == 0) {
+            } else if (SDL_strcasecmp(command, "missilestart") == 0) {
                 sscanf(line, "%s %d", command, &missile_start);
-            } else if (_stricmp(command, "spellstart") == 0) {
+            } else if (SDL_strcasecmp(command, "spellstart") == 0) {
                 sscanf(line, "%s %d", command, &spell_start);
-            } else if (_stricmp(command, "flies") == 0) {
+            } else if (SDL_strcasecmp(command, "flies") == 0) {
                 flies = true;
-            } else if (_stricmp(command, "swims") == 0) {
+            } else if (SDL_strcasecmp(command, "swims") == 0) {
                 swims = true;
-            } else if (_stricmp(command, "crawls") == 0) {
+            } else if (SDL_strcasecmp(command, "crawls") == 0) {
                 crawls = true;
-            } else if (_stricmp(command, "quadruped") == 0) {
+            } else if (SDL_strcasecmp(command, "quadruped") == 0) {
                 quadruped = true;
-            } else if (_stricmp(command, "spicemonster") == 0) {
+            } else if (SDL_strcasecmp(command, "spicemonster") == 0) {
                 spice_monster = true;
-            } else if (_stricmp(command, "randomidlefps") == 0) {
+            } else if (SDL_strcasecmp(command, "randomidlefps") == 0) {
                 sscanf(line, "%s %f %f", command, &idle_fps_start, &idle_fps_end);
                 random_idle_range = true;
-            } else if (_stricmp(command, "loddistance") == 0) {
+            } else if (SDL_strcasecmp(command, "loddistance") == 0) {
                 sscanf(line, "%s %f %f", command, &lod_range_start, &lod_range_end);
                 has_lod_range = true;
-            } else if (_stricmp(command, "pitch") == 0) {
+            } else if (SDL_strcasecmp(command, "pitch") == 0) {
                 int pitch;
                 if (last_sound == 0) {
                     srAssertFail("pSndEvent", MONSTER_CPP, 0x58e,
@@ -488,17 +489,17 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 }
                 sscanf(line, "%s %d", command, &pitch);
                 last_sound->pitch = pitch;
-            } else if (_stricmp(command, "volume") == 0) {
+            } else if (SDL_strcasecmp(command, "volume") == 0) {
                 if (last_sound == 0) {
                     srAssertFail("pSndEvent", MONSTER_CPP, 0x595,
                                  "mls volume: Must specify a sound before specifying parameters");
                 }
                 sscanf(line, "%s %d %d", command, &last_sound->volume_min, &last_sound->volume_max);
-            } else if (_stricmp(command, "sound_falloff") == 0) {
+            } else if (SDL_strcasecmp(command, "sound_falloff") == 0) {
                 sscanf(line, "%s %f", command, &sound_falloff);
-            } else if (_stricmp(command, "footstep_vol") == 0) {
+            } else if (SDL_strcasecmp(command, "footstep_vol") == 0) {
                 sscanf(line, "%s %d %d", command, &footstep_volume, &footstep_combat_volume);
-            } else if (_stricmp(command, "probability") == 0) {
+            } else if (SDL_strcasecmp(command, "probability") == 0) {
                 int probability;
                 if (last_sound == 0) {
                     srAssertFail(
@@ -507,36 +508,36 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 }
                 sscanf(line, "%s %d", command, &probability);
                 last_sound->probability = static_cast<unsigned char>(probability);
-            } else if (_stricmp(command, "animscript") == 0) {
-            } else if (_stricmp(command, "script") == 0) {
+            } else if (SDL_strcasecmp(command, "animscript") == 0) {
+            } else if (SDL_strcasecmp(command, "script") == 0) {
                 sscanf(line, "%s %s", command, argument);
                 (*monster)->SetScript(argument, true);
-            } else if (_stricmp(command, "opacity") == 0) {
+            } else if (SDL_strcasecmp(command, "opacity") == 0) {
                 sscanf(line, "%s %f", command, &opacity);
-            } else if (_stricmp(command, "glow") == 0) {
+            } else if (SDL_strcasecmp(command, "glow") == 0) {
                 sscanf(line, "%s %f", command, &glow);
-            } else if (_stricmp(command, "shadow") == 0) {
+            } else if (SDL_strcasecmp(command, "shadow") == 0) {
                 sscanf(line, "%s %f %f", command, &shadow_width, &shadow_depth);
-            } else if (_stricmp(command, "lefthanded") == 0) {
+            } else if (SDL_strcasecmp(command, "lefthanded") == 0) {
                 sscanf(line, "%s %d", command, &left_handed);
-            } else if (_stricmp(command, "fulltransition") == 0) {
+            } else if (SDL_strcasecmp(command, "fulltransition") == 0) {
                 full_transition = true;
-            } else if (_stricmp(command, "addlight") == 0) {
+            } else if (SDL_strcasecmp(command, "addlight") == 0) {
                 char light_mode[256];
                 sscanf(line, "%*s %s ( %f %f %f ) ( %f %f %f )", light_mode, &light_first.x,
                        &light_first.y, &light_first.z, &light_second.x, &light_second.y,
                        &light_second.z);
                 light_first *= static_cast<float>(g_monster_light_color_scale);
                 light_second *= static_cast<float>(g_monster_light_color_scale);
-                light_pulsing = _stricmp(light_mode, "pulsing") == 0;
+                light_pulsing = SDL_strcasecmp(light_mode, "pulsing") == 0;
                 has_light = true;
-            } else if (_stricmp(command, "skin") == 0) {
+            } else if (SDL_strcasecmp(command, "skin") == 0) {
                 EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
-                if (_stricmp(argument, "default") != 0) {
+                if (SDL_strcasecmp(argument, "default") != 0) {
                     ++skin_stage;
                     damage_stage = (*monster)->AddDamageStage(monster_name, skin_stage);
                 }
-            } else if (_stricmp(command, "skinswap") == 0) {
+            } else if (SDL_strcasecmp(command, "skinswap") == 0) {
                 char old_name[64];
                 char new_name[64];
                 /* 0x004C0FA8..0x004C1070: a SKINSWAP with no SKIN before it
@@ -556,7 +557,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 signed char subcycle;
                 W8MonsterCycle cycle = ParseMonsterCycleName(command, &subcycle);
                 if (cycle != W8_MONSTER_CYCLE_NONE) {
-                    if (_strnicmp(argument, "gib", 3) != 0 || g_monster_gib_option) {
+                    if (SDL_strncasecmp(argument, "gib", 3) != 0 || g_monster_gib_option) {
                         if (GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) == 0) {
                             cycle = NormalizeMonsterCycle(cycle);
                         }
@@ -600,11 +601,11 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                     }
                 } else {
                     W8SoundEventKind sound_type = W8_SOUND_EVENT_UNRECOGNIZED;
-                    if (_stricmp(command, "SOUND_FRAME") == 0)
+                    if (SDL_strcasecmp(command, "SOUND_FRAME") == 0)
                         sound_type = W8_SOUND_EVENT_FRAME;
-                    else if (_stricmp(command, "SOUND_CYCLE") == 0)
+                    else if (SDL_strcasecmp(command, "SOUND_CYCLE") == 0)
                         sound_type = W8_SOUND_EVENT_CYCLE;
-                    else if (_stricmp(command, "SOUND_FOOTSTEP") == 0)
+                    else if (SDL_strcasecmp(command, "SOUND_FOOTSTEP") == 0)
                         sound_type = W8_SOUND_EVENT_FOOTSTEP;
 
                     if (sound_type != W8_SOUND_EVENT_UNRECOGNIZED) {
@@ -628,7 +629,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         }
                         auto sound = std::make_unique<W8SoundEvent>(
                             sound_type, sound_cycle, frame, subcycle - 1, wave_path,
-                            _stricmp(loop_name, "LOOP") == 0);
+                            SDL_strcasecmp(loop_name, "LOOP") == 0);
                         last_sound = sound.get();
                         if (last_sound != nullptr) {
                             (*monster)->AddSoundEvent(std::move(sound));
@@ -644,7 +645,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                 last_sound->footstep_combat_volume = footstep_combat_volume;
                             }
                         }
-                    } else if (_stricmp(command, "SHAKE_FRAME") == 0) {
+                    } else if (SDL_strcasecmp(command, "SHAKE_FRAME") == 0) {
                         char cycle_name[256];
                         int frame;
                         float duration = 1.0f;
@@ -1786,9 +1787,9 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
 
 bool W8Monster::ResolveScriptPosition(const char* name, srVector3T<float>* position)
 {
-    if (_stricmp(name, "home") == 0) {
+    if (SDL_strcasecmp(name, "home") == 0) {
         *position = formation;
-    } else if (_stricmp(name, "off_camera") == 0) {
+    } else if (SDL_strcasecmp(name, "off_camera") == 0) {
         position->x = position->y = position->z = -10000000.0f;
     } else if (!FindEntityByName(name, position, 0, 0)) {
         return false;
@@ -1851,7 +1852,7 @@ void W8Monster::ProcessScript()
 
         command = MONSCR_NONE;
         for (int index = 0; index < MONSCR_COUNT; ++index) {
-            if (_stricmp(token.c_str(), g_monster_script_commands[index]) == 0) {
+            if (SDL_strcasecmp(token.c_str(), g_monster_script_commands[index]) == 0) {
                 command = static_cast<W8MonsterScriptCommand>(index);
                 break;
             }
@@ -1896,13 +1897,13 @@ void W8Monster::ProcessScript()
                 if (!resolveNamedPosition(position)) {
                     break;
                 }
-                if (_stricmp(token.c_str(), "PARTY") == 0) {
+                if (SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
                     SetMovementTargetToNavigator(g_startup_world, 5.0);
                 } else {
                     ConfigureMovementToPosition(&position);
                 }
                 tokens >> token;
-                if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
+                if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_WALKTO;
                 } else {
                     stop = true;
@@ -1920,7 +1921,7 @@ void W8Monster::ProcessScript()
                 }
                 AimAtPosition(&position);
                 tokens >> token;
-                if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
+                if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_FACE;
                 } else {
                     stop = true;
@@ -1935,7 +1936,7 @@ void W8Monster::ProcessScript()
                 if (tokens) {
                     line_number = atoi(token.c_str());
                     tokens >> token;
-                    if (tokens && _strnicmp(token.c_str(), "SUPPRESS", 8) == 0) {
+                    if (tokens && SDL_strncasecmp(token.c_str(), "SUPPRESS", 8) == 0) {
                         suppress = true;
                     }
                 }
@@ -1943,7 +1944,7 @@ void W8Monster::ProcessScript()
                                        line_number, command == MONSCR_SAY ? 1 : suppress);
                 if (command == MONSCR_NPCINTERACTION) {
                     script_wait = MONSCR_NPCINTERACTION;
-                } else if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
+                } else if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_SAY;
                 } else {
                     stop = true;
@@ -1966,7 +1967,7 @@ void W8Monster::ProcessScript()
                         }
                         runtime_flags |= W8_MONSTER_KEEP_SUBCYCLE;
                         tokens >> token;
-                        if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
+                        if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
                             m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                             runtime_flags |= W8_MONSTER_SCRIPT_WAIT;
                             script_wait = MONSCR_CYCLE;
@@ -2041,7 +2042,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (_strnicmp(token.c_str(), "NOT", 3) == 0) {
+                if (SDL_strncasecmp(token.c_str(), "NOT", 3) == 0) {
                     invert = true;
                     tokens >> token;
                 }
@@ -2072,11 +2073,11 @@ void W8Monster::ProcessScript()
                 unsigned char disposition = 0xff;
                 tokens >> token;
                 if (tokens) {
-                    if (_stricmp(token.c_str(), "DISP_NEUTRAL") == 0)
+                    if (SDL_strcasecmp(token.c_str(), "DISP_NEUTRAL") == 0)
                         disposition = 0;
-                    else if (_stricmp(token.c_str(), "DISP_HOSTILE") == 0)
+                    else if (SDL_strcasecmp(token.c_str(), "DISP_HOSTILE") == 0)
                         disposition = 1;
-                    else if (_stricmp(token.c_str(), "DISP_FRIENDLY") == 0)
+                    else if (SDL_strcasecmp(token.c_str(), "DISP_FRIENDLY") == 0)
                         disposition = 2;
                     monster_info = FindMonster(location_id);
                     if (monster_info != 0) {
@@ -2095,7 +2096,7 @@ void W8Monster::ProcessScript()
             case MONSCR_LOOKHERE:
                 PointCameraAtMonster(FindMonster(location_id), true, true);
                 tokens >> token;
-                if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
+                if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_LOOKHERE;
                 } else {
                     stop = true;
@@ -2151,7 +2152,7 @@ void W8Monster::ProcessScript()
             case MONSCR_DOACTION:
                 tokens >> token;
                 if (tokens) {
-                    if (_stricmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
+                    if (SDL_strcasecmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
                         ClearMainGameTargetState();
                         W8MonsterGroup* group = FindFirstMonsterByID(0x68);
                         if (group != 0) SetMonsterGroupHostility(group, 1, false);
@@ -2160,17 +2161,17 @@ void W8Monster::ProcessScript()
                             SetMonsterGroupHostility(group, 1, false);
                             MonsterGroupEnterCombat(group);
                         }
-                    } else if (_stricmp(token.c_str(), "ENDSAVANTWALK") == 0) {
+                    } else if (SDL_strcasecmp(token.c_str(), "ENDSAVANTWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         Trigger* trigger = FindTriggerByName("Path3Trigger");
                         if (trigger != 0) trigger->Run(-1);
-                    } else if (_stricmp(token.c_str(), "UNLOCKUI") == 0 ||
-                               _stricmp(token.c_str(), "ENDGARIWALK") == 0) {
+                    } else if (SDL_strcasecmp(token.c_str(), "UNLOCKUI") == 0 ||
+                               SDL_strcasecmp(token.c_str(), "ENDGARIWALK") == 0) {
                         ClearMainGameTargetState();
-                    } else if (_stricmp(token.c_str(), "ENDHOGARWALK") == 0) {
+                    } else if (SDL_strcasecmp(token.c_str(), "ENDHOGARWALK") == 0) {
                         ClearMainGameTargetState();
                         SetScript("ClosePatrol.msf", true);
-                    } else if (_stricmp(token.c_str(), "ENDHOGARWALKANDPUTTOSLEEP") == 0) {
+                    } else if (SDL_strcasecmp(token.c_str(), "ENDHOGARWALKANDPUTTOSLEEP") == 0) {
                         W8TargetSource source;
                         ClearMainGameTargetState();
                         SetScript("ClosePatrol.msf", true);
@@ -2178,10 +2179,10 @@ void W8Monster::ProcessScript()
                         ResetTargetSource(&source);
                         SetMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP, 6, 0,
                                             &source, true);
-                    } else if (_stricmp(token.c_str(), "ENDBELAWALK") == 0) {
+                    } else if (SDL_strcasecmp(token.c_str(), "ENDBELAWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         ClearMainGameTargetState();
-                    } else if (_stricmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
+                    } else if (SDL_strcasecmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
                         W8NpcState* npc = GetNpcStateByKind(0x8d);
                         if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
                         monster_info = FindMonster(location_id);
@@ -2234,12 +2235,12 @@ void W8Monster::ProcessScript()
             switch (command) {
             case MONSCR_FACE:
                 tokens >> token;
-                if (tokens && _stricmp(token.c_str(), "PARTY") == 0) {
+                if (tokens && SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
                     face_party = true;
                 } else if (tokens) {
                     int direction = -1;
                     for (int index = MONSCR_EAST; index <= MONSCR_SOUTHEAST; ++index) {
-                        if (_stricmp(token.c_str(), g_monster_script_commands[index]) == 0) {
+                        if (SDL_strcasecmp(token.c_str(), g_monster_script_commands[index]) == 0) {
                             direction = index;
                             break;
                         }

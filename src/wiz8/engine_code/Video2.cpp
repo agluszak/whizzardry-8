@@ -45,6 +45,8 @@
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
+#include <SDL3/SDL_stdinc.h>
+
 #include "Font.h"
 #include "compat/video.h"
 #include "himage.h"
@@ -283,15 +285,15 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
                  "support. We apologize for this inconvenience.\n\n");
     char* details = text + strlen(text);
     if (message != 0 && *message != '\0') {
-        _snprintf(details, 0x6d3,
-                  "Debug assertion in module %s line %d failed:\n\n"
-                  "Expression [ %s ] evaluates to false.\n\n%s\n",
-                  file, line, expression, message);
+        std::snprintf(details, 0x6d3,
+                      "Debug assertion in module %s line %d failed:\n\n"
+                      "Expression [ %s ] evaluates to false.\n\n%s\n",
+                      file, line, expression, message);
     } else {
-        _snprintf(details, 0x6d3,
-                  "Debug assertion in module %s line %d failed:\n\n"
-                  "Expression [ %s ] evaluates to false.\n",
-                  file, line, expression);
+        std::snprintf(details, 0x6d3,
+                      "Debug assertion in module %s line %d failed:\n\n"
+                      "Expression [ %s ] evaluates to false.\n",
+                      file, line, expression);
     }
     g_pending_screen_state.id = W8_SCREEN_NONE;
     ShutdownWithErrorBox(text);
@@ -537,7 +539,7 @@ try {
         !OpenRendererWindow())
         return 0;
     srAssertSetFunc(AssertFailureHandler);
-    s_setup_disables_audio = _strnicmp(audio_setting, "none", 4) == 0;
+    s_setup_disables_audio = SDL_strncasecmp(audio_setting, "none", 4) == 0;
     return 1;
 } catch (const std::exception&) {
     return false;
@@ -683,7 +685,7 @@ void UpdateRenderElapsedTime(void);
 /* Saturate the three components of a renderer colour in place and return it.
    The reviewed body performs these three scalar saturations in order. */
 // FUNCTION: WIZ8 0x004299b0
-srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
+srVector3T<float>* SaturateColor(srVector3T<float>* color)
 {
     if (color->x <= 0.0f)
         color->x = 0.0f;
@@ -1851,7 +1853,7 @@ unsigned char InitializeRendererSceneObjects(void)
 
     strncpy(renderer_name, g_gerd->getName().c_str(), 127);
     renderer_name[127] = 0;
-    _strupr(renderer_name);
+    SDL_strupr(renderer_name);
     if (strstr(renderer_name, "GLIDE")) {
         g_surface_node->enableTextureUpdateFlags(stSurface2D::UPDATE_FULL_TILE);
     }
@@ -2098,8 +2100,7 @@ const double g_double_three_quarters = 0.75;
 /* Pack normalized alpha/red/green/blue into the surface's high-to-low
    bytes, using the current x87 rounding mode. */
 // FUNCTION: WIZ8 0x00429700
-void __fastcall PackColourBytes(unsigned char* colour, double alpha, double red, double green,
-                                double blue)
+void PackColourBytes(unsigned char* colour, double alpha, double red, double green, double blue)
 {
     colour[3] = static_cast<unsigned char>(srFloatToInt(alpha * g_color_byte_scale));
     colour[2] = static_cast<unsigned char>(srFloatToInt(red * g_color_byte_scale));

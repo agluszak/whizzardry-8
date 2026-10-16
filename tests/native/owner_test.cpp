@@ -57,7 +57,6 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -65,6 +64,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterGenerator.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -263,13 +263,21 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
     DispatchUiInput(&input);
 }
 
+// Each test takes input as a fresh owner, so layers left by earlier tests stay inactive.
 struct UiStateSnapshot {
     int help_delay = g_ui_help_delay;
     bool force = g_ui_help_forced;
+    int owner = UiInputOwner();
+    UiStateSnapshot()
+    {
+        static int next_owner = 1000;
+        SelectUiInputOwner(next_owner++);
+    }
     ~UiStateSnapshot()
     {
         ClearUiHover();
         ReleaseUiCapture();
+        SelectUiInputOwner(owner);
         g_ui_help_delay = help_delay;
         g_ui_help_forced = force;
     }
@@ -528,7 +536,6 @@ void generic_button_images()
 {
     initialize_test_framebuffer();
     UiStateSnapshot saved_regions;
-    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-button-images"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -1074,7 +1081,6 @@ TEST_CASE("Camp effect ownership", "[owner]")
 TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     std::vector<int> hits;
     const auto record = [&](int id) {
         return [&, id](const UiPointerEvent& event) {
@@ -1115,7 +1121,6 @@ TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
           "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     std::vector<UiPointerEvent> events;
     int drops = 0;
     HitTarget* drag_source = nullptr;
@@ -1182,7 +1187,6 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
           "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     Font font{};
     UiLayer outer_input;
     TextFieldGroup outer(outer_input, font);
@@ -1226,19 +1230,17 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
     REQUIRE(g_ui.captured == 0);
 }
 
-TEST_CASE("Modal layers block underlying input and restore valid capture", "[owner][ui-layer]")
+TEST_CASE("Modal layers block underlying input and cancel a held press", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     int releases = 0;
     UiLayer screen;
     auto& target = screen.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
-        if (event.action == UiPointerAction::Up) ++releases;
+        if (event.action == UiPointerAction::Up && event.captured_buttons) ++releases;
         return UiResult::Handled;
     });
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    const auto captured = g_ui.captured;
-    REQUIRE(captured != 0);
+    REQUIRE(g_ui.captured == &target);
     {
         UiLayer modal(UiLayerMode::Modal);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
@@ -1250,28 +1252,14 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
             REQUIRE(g_ui.captured == 0);
         }
     }
-    REQUIRE(g_ui.captured == captured);
-    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
-    REQUIRE(releases == 1);
-
-    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    {
-        UiLayer modal(UiLayerMode::Modal);
-        SECTION("A disabled target cannot regain suspended capture")
-        {
-            target.setEnabled(false);
-        }
-        SECTION("A disabled layer cannot regain suspended capture")
-        {
-            screen.setEnabled(false);
-        }
-        SECTION("A removed target cannot regain suspended capture")
-        {
-            screen.remove(target);
-        }
-    }
+    // The press the modal interrupted stays cancelled after it closes.
     REQUIRE(g_ui.captured == 0);
     REQUIRE(g_ui.hover == 0);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(releases == 0);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(releases == 1);
 }
 
 TEST_CASE("Split fields share editing and restore focus after rejecting excessive amounts",
@@ -1315,7 +1303,6 @@ TEST_CASE("Split fields share editing and restore focus after rejecting excessiv
 TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     const auto region_count = LiveUiTargetCount();
     const auto set_count = LiveUiLayerCount();
     auto layer = std::make_unique<UiLayer>();
@@ -1353,7 +1340,6 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
 TEST_CASE("The input pump finishes its policy before committing a layer close", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     while (PollInputEvent()) {
     }
     auto layer = std::make_unique<UiLayer>();
@@ -1383,7 +1369,6 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
 TEST_CASE("A handler may remove its own target or layer synchronously", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     auto layer = std::make_unique<UiLayer>();
     HitTarget* target = nullptr;
     int seen = 0;
@@ -1418,7 +1403,6 @@ TEST_CASE("A handler may remove its own target or layer synchronously", "[owner]
 TEST_CASE("Only non-passive targets capture the pointer on press", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     UiLayer layer;
     auto& gameplay =
         layer.add(SDL_Rect{0, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Pass; });
@@ -1598,7 +1582,6 @@ TEST_CASE("Generic button image ownership", "[owner]")
 TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     struct TooltipStateSnapshot {
         bool tooltips_enabled = g_settings.tooltips_enabled;
         std::vector<std::string> localized_strings = std::move(g_localized_strings);
@@ -1740,7 +1723,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
 {
     initialize_test_framebuffer();
     UiStateSnapshot saved_state;
-    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -2148,7 +2130,7 @@ TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics",
     REQUIRE(surface_pixel(framebuffer, 80, 80) == 0);
 }
 
-TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
+TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
 {
     ScopedTemporaryDirectory directory{"wiz8-item-cache"};
     const auto assets = directory.path / "assets";
@@ -2158,67 +2140,49 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
     for (auto& record : records) record.video_object_name = "icon.sti";
     struct Restore {
         W8ItemDatabaseRecord* records;
+        unsigned int count;
         w8_native::Roots roots;
         ~Restore()
         {
-            g_item_video_objects.Clear();
             g_image_assets.clear();
             g_item_records = records;
+            gXStatus.uiItemsInDatabase = count;
             w8_native::configure_paths(roots);
         }
-    } restore{g_item_records, previous_roots};
+    } restore{g_item_records, gXStatus.uiItemsInDatabase, previous_roots};
 
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
     g_item_records = records.data();
-    g_item_video_objects.Initialize(records.size());
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(-1), std::out_of_range);
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(records.size()), std::out_of_range);
+    gXStatus.uiItemsInDatabase = static_cast<unsigned int>(records.size());
+    REQUIRE_THROWS_AS(ItemSprites(-1), std::out_of_range);
+    REQUIRE_THROWS_AS(ItemSprites(static_cast<int>(records.size())), std::out_of_range);
     records[0].video_object_name = "missing.sti";
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::runtime_error);
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE_THROWS_AS(ItemSprites(0), std::runtime_error);
     records[0].video_object_name.clear();
     records[0].unidentified_name_index = 145;
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
+    REQUIRE_THROWS_AS(ItemSprites(0), std::out_of_range);
     records[0].video_object_name = "icon.sti";
     records[0].unidentified_name_index = 0;
 
-    for (std::size_t index = 0; index < records.size(); ++index) {
-        auto& sprites = g_item_video_objects.Sprites(index);
-        REQUIRE(sprites.frames.size() == 1);
-        REQUIRE(&g_item_video_objects.Sprites(index) == &sprites);
-    }
-    REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
-    REQUIRE(&g_item_video_objects.Sprites(0) == &g_item_video_objects.Sprites(1));
-    auto held = g_image_assets.sprites("Data\\Items\\icon.sti");
-    REQUIRE(held);
+    // Items naming one file share one decoded sheet.
+    const auto held = ItemSprites(0);
+    REQUIRE(held->frames.size() == 1);
+    REQUIRE(ItemSprites(1004) == held);
+    // A held sheet outlives the cache; the next lookup decodes a fresh one.
     g_image_assets.clear();
     REQUIRE(held->frames.size() == 1);
-    REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
+    REQUIRE(ItemSprites(1004) != held);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(-1, 0), std::out_of_range);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(0, -1), std::out_of_range);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<int>::max()),
                       std::out_of_range);
-
-    g_item_video_objects.Initialize(records.size());
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
-    g_image_assets.clear();
-    g_item_video_objects.Clear();
-    g_item_video_objects.Initialize(records.size());
-    auto& reloaded = g_item_video_objects.Sprites(1004);
-    REQUIRE(&reloaded != held.get());
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 1);
-    g_item_video_objects.Clear();
-    g_item_video_objects.Clear();
-    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
-    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
 }
 
 TEST_CASE("Main-game screen state owns HUD input through suspension and teardown",
           "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
-    ResetUiInput();
     const auto layers = LiveUiLayerCount();
     const auto targets = LiveUiTargetCount();
 
@@ -2239,9 +2203,11 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
         dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
         REQUIRE(clicks == 1);
-        ResetUiInput(); // Screen suspension keeps its state but disables input.
+        // Another screen taking input leaves this screen's layers untouched.
+        const int screen_owner = UiInputOwner();
+        SelectUiInputOwner(screen_owner + 1);
         REQUIRE(UiTargetAt({105, 105}) == nullptr);
-        hud.input.setEnabled(true);
+        SelectUiInputOwner(screen_owner);
         dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
         REQUIRE(clicks == 2);

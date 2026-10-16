@@ -5,7 +5,7 @@
 
 class srVertexPipe;
 
-class SR_DLL_IMPORT srMaterialIFace : public srClass {
+class srMaterialIFace : public srClass {
 public:
     virtual srVertexProcessor::MaterialInfo getMaterialInfo() = 0;
     virtual void preProcess(srVertexPipe& pipe) = 0;

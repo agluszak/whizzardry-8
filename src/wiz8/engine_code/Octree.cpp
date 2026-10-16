@@ -27,7 +27,6 @@
 
 #include "OctPreTree.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "file_time.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -1412,8 +1411,7 @@ const double g_color_byte_scale = 255.0;
 /* Pack normalized alpha/red/green/blue components using the current x87
    rounding mode, then retain each result's low byte. */
 // FUNCTION: WIZ8 0x00433fb0
-w8_ulong* __fastcall PackColourToLong(w8_ulong* color, double alpha, double red, double green,
-                                      double blue)
+w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue)
 {
     unsigned char* bytes =
         reinterpret_cast<unsigned char*>(color); // reinterpret-ok: packed colour storage
@@ -1601,7 +1599,7 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
 }
 
 // FUNCTION: WIZ8 0x004347d0
-bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement)
+bool IsNavigatorAtTarget(W8NavigatorMovementState* movement)
 {
     srVector3T<float> target;
     if (movement->attachment != 0) {

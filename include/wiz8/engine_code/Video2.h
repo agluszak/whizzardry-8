@@ -11,7 +11,6 @@
 #include <SDL3/SDL_video.h>
 
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "himage.h"
@@ -257,7 +256,7 @@ SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
-srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
+srVector3T<float>* SaturateColor(srVector3T<float>* color);
 void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);
