@@ -22,6 +22,7 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <fmt/format.h>
+#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
 #include <wiz8/filesystem.h>
 
 #include "AnimRep.hpp"
@@ -65,7 +66,6 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
-#include "wiz8/application.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
@@ -87,7 +87,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/sr_api.h"
@@ -241,30 +240,6 @@ double g_cursor_image_v_extent = 1.0;
 int g_cursor_hotspot_x;
 // GLOBAL: WIZ8 0x6596c0
 int g_cursor_hotspot_y;
-
-// FUNCTION: WIZ8 0x00428ab0
-void AssertFailureHandler(const char* expression, const char* file, w8_long line,
-                          const char* message)
-{
-    char text[2048];
-    strcpy(text, "ERROR: You are viewing a message intended for the developers of "
-                 "Wizardry 8. Please report the following information to technical "
-                 "support. We apologize for this inconvenience.\n\n");
-    char* details = text + strlen(text);
-    if (message != 0 && *message != '\0') {
-        std::snprintf(details, 0x6d3,
-                      "Debug assertion in module %s line %d failed:\n\n"
-                      "Expression [ %s ] evaluates to false.\n\n%s\n",
-                      file, line, expression, message);
-    } else {
-        std::snprintf(details, 0x6d3,
-                      "Debug assertion in module %s line %d failed:\n\n"
-                      "Expression [ %s ] evaluates to false.\n",
-                      file, line, expression);
-    }
-    g_pending_screen_state.id = W8_SCREEN_NONE;
-    ShutdownWithErrorBox(text);
-}
 
 /* Reset both framebuffer pages and discard transient scene instances.
    Callers select whether to invalidate all dirty blocks or the normal region. */
@@ -495,7 +470,6 @@ try {
         g_gerd.reset();
         return 0;
     }
-    srAssertSetFunc(AssertFailureHandler);
     s_setup_disables_audio = SDL_strncasecmp(audio_setting, "none", 4) == 0;
     return 1;
 } catch (const std::exception&) {

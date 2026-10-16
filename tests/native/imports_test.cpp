@@ -16,8 +16,10 @@
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include "glm/ext/vector_float3.hpp"
+#include "surrender/srDebug.h"
 #include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
@@ -40,16 +42,6 @@
 
 class srModel;
 
-static int assertions = 0;
-static void assertion(const char* expression, const char* path, w8_long line, const char* message)
-{
-    if (strcmp(expression, "native probe") || strcmp(path, "imports_test.cpp") || line != 42 ||
-        strcmp(message, "value 7")) {
-        fputs("assertion arguments\n", stderr);
-        exit(1);
-    }
-    ++assertions;
-}
 static int destroyed_nodes = 0;
 struct ClientNode : srNode {
     bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
@@ -145,7 +137,6 @@ TEST_CASE("imports_test")
     }
     REQUIRE(fesetround(FE_TONEAREST) == 0);
     REQUIRE(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
-    srAssertSetFunc(assertion);
     REQUIRE(srInit());
     REQUIRE(shared_surface_lifetimes() == 0);
     REQUIRE(shared_model_lifetimes() == 0);
@@ -303,9 +294,9 @@ TEST_CASE("imports_test")
         REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
         for (auto value : values) REQUIRE(decoder.decompressSymbol() == value);
     }
-    srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7);
-    REQUIRE(assertions == 1);
+    REQUIRE_THROWS_WITH(srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7),
+                        "Debug assertion in module imports_test.cpp line 42 failed:\n\n"
+                        "Expression [ native probe ] evaluates to false.\n\nvalue 7\n");
     srExit();
-    srAssertSetFunc(nullptr);
     puts("ok: native renderer consumer imports, generated special members and variadic assertion");
 }
