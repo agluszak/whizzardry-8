@@ -2911,7 +2911,7 @@ update_screen:
         if (gXStatus.fTrapInteractMode) UpdateMainGameScreen();
         int active;
         if (!AnyPropTriggerInView(g_world) && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
-            !AnyMonsterGeneratorMarkerWithinReach() && !SelectWorldCursorNode()) {
+            !SelectWorldCursorNode()) {
             active = 0;
         } else {
             active = 1;
