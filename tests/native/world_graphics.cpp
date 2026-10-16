@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -21,6 +22,7 @@
 #include "image.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
+#include "surrender/srCamera.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -283,13 +285,21 @@ TEST_CASE("world graphics")
         fprintf(stderr, "regression: reload succeeded\n");
     }
     if (mode && strcmp(mode, "angles") == 0) {
+        auto previous = restored;
         for (int angle = 0; angle < 4; ++angle) {
-            g_gd_camera->SetOrientationImmediate(angle < 2 ? -0.7f : 0.5f,
-                                                 state.yaw[0] + angle * 1.5707963f);
-            GameLoop();
+            // This diagnostic controls the actual render cameras. Scripted
+            // tracking can reject SetOrientationImmediate, yielding identical
+            // captures that never exercise the requested angles.
+            g_gd_camera->SetOrientation(state.yaw[0] + angle * 1.5707963f,
+                                        angle < 2 ? -0.7f : 0.5f);
+            const auto rotation = g_gd_camera->rotationMatrix();
+            world->camera->setRotation(rotation);
+            if (g_secondary_world) g_secondary_world->camera->setRotation(rotation);
             RenderFrame();
             auto pixels = ReadFrame();
+            REQUIRE(pixels != previous);
             SaveFrame((std::string(output) + "." + std::to_string(angle) + ".ppm").c_str(), pixels);
+            previous = std::move(pixels);
         }
     }
 
