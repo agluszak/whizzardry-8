@@ -99,6 +99,7 @@ bool SDLGPUDevice::openWindow(w8_ulong target_width, w8_ulong target_height)
     closeWindow();
     width = target_width;
     height = target_height;
+    scissor = {0, 0, static_cast<int>(width), static_cast<int>(height)};
     SDL_GPUTextureCreateInfo color = {};
     color.type = SDL_GPU_TEXTURETYPE_2D;
     color.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
@@ -150,6 +151,7 @@ void SDLGPUDevice::flipFrame()
 
 void SDLGPUDevice::clearBuffers(std::uint32_t buffers)
 {
+    if (buffers == 0 || scissor.w <= 0 || scissor.h <= 0) return;
     DrawCommand command = {};
     command.kind = DrawCommand::CLEAR;
     command.clear_buffers = buffers;
@@ -159,6 +161,33 @@ void SDLGPUDevice::clearBuffers(std::uint32_t buffers)
     command.clear_stencil = (uint8_t)clear_values.stencil;
     command.scissor = scissor;
     command.viewport = viewport;
+    if (scissor.x != 0 || scissor.y != 0 || scissor.w != static_cast<int>(width) ||
+        scissor.h != static_cast<int>(height)) {
+        // Attachment load operations always clear the whole target. A triangle
+        // performs a partial clear without depending on the current draw state.
+        command.kind = DrawCommand::DRAW;
+        srShader clear_shader;
+        clear_shader.value =
+            srShader::PASS_ALWAYS | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+        if (buffers & BUFFER_COLOR) clear_shader.value |= srShader::MASK_COLOR_WRITE;
+        if (buffers & BUFFER_DEPTH) clear_shader.value |= srShader::MASK_DEPTH_WRITE;
+        command.pipeline_key = PipelineKey(clear_shader, CULL_NONE, PRIMITIVE_CLASS_TRIANGLES, 0);
+        if (buffers & BUFFER_STENCIL) command.pipeline_key.value |= PipelineKey::STENCIL_REPLACE;
+        command.first_index = static_cast<uint32_t>(indices.size());
+        command.index_count = 3;
+        const float z = clear_values.depth * 2 - 1;
+        for (const auto position :
+             {glm::vec4(-1, -1, z, 1), glm::vec4(3, -1, z, 1), glm::vec4(-1, 3, z, 1)}) {
+            indices.push_back(static_cast<uint32_t>(vertices.size()));
+            vertices.push_back({.position = position, .diffuse = clear_values.color});
+        }
+        command.vertex_uniforms.projection = glm::mat4(1);
+        command.viewport = {0, 0, static_cast<float>(width), static_cast<float>(height), 0, 1};
+        for (int stage = 0; stage < 2; ++stage) {
+            command.textures[stage] = white_texture;
+            command.samplers[stage] = sampler({});
+        }
+    }
     commands.push_back(command);
 }
 
@@ -502,6 +531,7 @@ void SDLGPUDevice::draw(srRendererDefs::e_primitive primitive, uint32_t count,
     if (count == 0) {
         return;
     }
+    if (scissor.w <= 0 || scissor.h <= 0) return;
     vertex_remap.clear();
     const auto start = static_cast<uint32_t>(indices.size());
     const auto first_vertex = vertices.size();
@@ -685,6 +715,14 @@ SDL_GPUGraphicsPipeline* SDLGPUDevice::pipeline(const PipelineKey& key)
     info.depth_stencil_state.compare_op = compareOp(pass);
     info.depth_stencil_state.enable_depth_test = pass != srShader::PASS_ALWAYS || depth_write;
     info.depth_stencil_state.enable_depth_write = depth_write;
+    if (key_value & PipelineKey::STENCIL_REPLACE) {
+        const SDL_GPUStencilOpState stencil{SDL_GPU_STENCILOP_REPLACE, SDL_GPU_STENCILOP_REPLACE,
+                                            SDL_GPU_STENCILOP_REPLACE, SDL_GPU_COMPAREOP_ALWAYS};
+        info.depth_stencil_state.front_stencil_state = stencil;
+        info.depth_stencil_state.back_stencil_state = stencil;
+        info.depth_stencil_state.enable_stencil_test = true;
+        info.depth_stencil_state.write_mask = 0xff;
+    }
     info.target_info.color_target_descriptions = &target;
     info.target_info.num_color_targets = 1;
     info.target_info.depth_stencil_format = depth_format;
@@ -799,6 +837,8 @@ void SDLGPUDevice::replay(SDL_GPUCommandBuffer* command)
             continue;
         }
         SDL_BindGPUGraphicsPipeline(pass, state);
+        if (entry.pipeline_key.value & PipelineKey::STENCIL_REPLACE)
+            SDL_SetGPUStencilReference(pass, entry.clear_stencil);
         SDL_GPUViewport view = entry.viewport;
         if (view.w <= 0.0f || view.h <= 0.0f) {
             view.x = 0.0f;
@@ -810,12 +850,6 @@ void SDLGPUDevice::replay(SDL_GPUCommandBuffer* command)
         }
         SDL_SetGPUViewport(pass, &view);
         SDL_Rect clip = entry.scissor;
-        if (clip.w <= 0 || clip.h <= 0) {
-            clip.x = 0;
-            clip.y = 0;
-            clip.w = (int)width;
-            clip.h = (int)height;
-        }
         SDL_SetGPUScissor(pass, &clip);
         SDL_GPUBufferBinding binding = {vertex_buffer, 0};
         SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
@@ -855,7 +889,6 @@ SDL_GPURenderPass* SDLGPUDevice::beginPass(SDL_GPUCommandBuffer* command, const 
     depth.stencil_load_op = SDL_GPU_LOADOP_LOAD;
     depth.stencil_store_op = SDL_GPU_STOREOP_STORE;
     if (clear != 0) {
-        /* Scissored clears are not handled yet; srGERD clears full frames at startup. */
         if ((clear->clear_buffers & BUFFER_COLOR) != 0) {
             color.load_op = SDL_GPU_LOADOP_CLEAR;
             color.clear_color = clear->clear_color;
