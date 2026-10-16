@@ -13,8 +13,6 @@ class stSurface2D;
 
 class srTextureIFace : public srClass {
 public:
-    /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
-       srTexture ctor seeds Dimensions::compression with DEFAULT. */
     enum e_compression { COMPRESSION_DEFAULT = 4 };
     struct Dimensions {
         w8_ulong width;
