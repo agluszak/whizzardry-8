@@ -9,6 +9,7 @@
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/runtime_test_hooks.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
